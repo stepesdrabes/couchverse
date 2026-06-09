@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"couchverse/internal/auth"
 	"couchverse/internal/config"
 	"couchverse/internal/server"
 	"couchverse/internal/store"
@@ -44,9 +45,14 @@ func run() error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 
+	st := store.New(pool)
+	if err := auth.Bootstrap(ctx, st, cfg); err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, pool).Handler(),
+		Handler:           server.New(cfg, st).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
