@@ -1,0 +1,149 @@
+package api
+
+import (
+	"errors"
+	"net/http"
+
+	"couchverse/internal/auth"
+	"couchverse/internal/httpx"
+	"couchverse/internal/store"
+)
+
+type Catalog struct {
+	store *store.Store
+}
+
+func NewCatalog(st *store.Store) *Catalog {
+	return &Catalog{store: st}
+}
+
+func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFrom(r.Context())
+
+	featured, err := h.store.FeaturedTitle(r.Context())
+	if err != nil && !errors.Is(err, httpx.ErrNotFound) {
+		httpx.Internal(w, err)
+		return
+	}
+
+	configs, err := h.store.HomeRowConfigs(r.Context())
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+
+	rows := []store.HomeRow{}
+	for _, cfg := range configs {
+		var items any
+		switch cfg.Kind {
+		case "continue_watching":
+			items, err = h.store.ContinueWatching(r.Context(), user.ID, 20)
+		case "recently_added":
+			items, err = h.store.RecentlyAdded(r.Context(), 20)
+		case "genre":
+			if cfg.GenreID == nil {
+				continue
+			}
+			items, err = h.store.TitlesByGenre(r.Context(), *cfg.GenreID, 20)
+		default:
+			// music rows arrive with the music milestone
+			continue
+		}
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		rows = append(rows, store.HomeRow{Kind: cfg.Kind, Label: cfg.Label, Items: items})
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"featured": featured,
+		"rows":     rows,
+	})
+}
+
+func (h *Catalog) Browse(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	items, total, err := h.store.BrowseTitles(r.Context(), store.BrowseFilter{
+		Kind:  q.Get("kind"),
+		Genre: q.Get("genre"),
+		Query: q.Get("q"),
+		Sort:  q.Get("sort"),
+		Page:  httpx.QueryInt(r, "page", 1),
+	})
+	if err != nil {
+		httpx.BadRequest(w, err.Error())
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
+}
+
+func (h *Catalog) Title(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFrom(r.Context())
+	t, err := h.store.TitleByID(r.Context(), httpx.ID(r, "id"))
+	if err != nil {
+		respondStoreErr(w, err)
+		return
+	}
+	if t.Status != "published" {
+		httpx.NotFound(w)
+		return
+	}
+
+	out := map[string]any{"title": t}
+
+	watchlisted, err := h.store.WatchlistHas(r.Context(), user.ID, t.ID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	out["inWatchlist"] = watchlisted
+
+	files, err := h.store.MediaFilesForTitle(r.Context(), t.ID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	out["mediaFiles"] = files
+
+	artwork, err := h.store.ArtworkFor(r.Context(), "title", t.ID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	out["artwork"] = artwork
+
+	if t.Kind == "series" {
+		seasons, err := h.store.SeasonsWithEpisodes(r.Context(), t.ID)
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		out["seasons"] = seasons
+
+		progress, err := h.store.EpisodeProgressForTitle(r.Context(), user.ID, t.ID)
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		out["episodeProgress"] = progress
+	} else {
+		position, duration, err := h.store.ProgressFor(r.Context(), user.ID, &t.ID, nil)
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		out["progress"] = store.EpisodeProgress{Position: position, Duration: duration}
+	}
+
+	httpx.JSON(w, http.StatusOK, out)
+}
+
+func (h *Catalog) Search(w http.ResponseWriter, r *http.Request) {
+	res, err := h.store.Search(r.Context(), r.URL.Query().Get("q"), 12)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, res)
+}

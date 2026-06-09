@@ -1,0 +1,289 @@
+package store
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// Public catalog queries — published content only, shaped for the user app.
+
+type CardItem struct {
+	TitleID   int64   `json:"titleId"`
+	Kind      string  `json:"kind"`
+	Name      string  `json:"name"`
+	Year      *int    `json:"year"`
+	PosterID  *int64  `json:"posterId"`
+	BackdropID *int64 `json:"backdropId"`
+}
+
+type ContinueItem struct {
+	CardItem
+	EpisodeID     *int64  `json:"episodeId"`
+	EpisodeLabel  string  `json:"episodeLabel"` // "S1 E3 · Pilot"
+	PlaybackKind  string  `json:"playbackKind"` // movie | episode
+	PlaybackID    int64   `json:"playbackId"`
+	Position      int     `json:"positionSeconds"`
+	Duration      int     `json:"durationSeconds"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+type HomeRow struct {
+	Kind  string `json:"kind"`
+	Label string `json:"label"`
+	Items any    `json:"items"`
+}
+
+const cardSelect = `
+	SELECT t.id, t.kind, t.name, t.year,
+		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'poster') AS poster_id,
+		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'backdrop') AS backdrop_id
+	FROM titles t`
+
+func (s *Store) scanCards(ctx context.Context, query string, args ...any) ([]CardItem, error) {
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := []CardItem{}
+	for rows.Next() {
+		var c CardItem
+		if err := rows.Scan(&c.TitleID, &c.Kind, &c.Name, &c.Year, &c.PosterID, &c.BackdropID); err != nil {
+			return nil, err
+		}
+		items = append(items, c)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) RecentlyAdded(ctx context.Context, limit int) ([]CardItem, error) {
+	return s.scanCards(ctx, cardSelect+`
+		WHERE t.status = 'published'
+		ORDER BY t.added_at DESC LIMIT $1`, limit)
+}
+
+func (s *Store) TitlesByGenre(ctx context.Context, genreID int64, limit int) ([]CardItem, error) {
+	return s.scanCards(ctx, cardSelect+`
+		JOIN title_genres tg ON tg.title_id = t.id
+		WHERE t.status = 'published' AND tg.genre_id = $1
+		ORDER BY t.added_at DESC LIMIT $2`, genreID, limit)
+}
+
+// FeaturedTitle picks the hero: the most recently published title.
+func (s *Store) FeaturedTitle(ctx context.Context) (*Title, error) {
+	t, err := scanTitle(s.pool.QueryRow(ctx,
+		`SELECT `+titleCols+` FROM titles WHERE status = 'published' ORDER BY added_at DESC LIMIT 1`))
+	if err != nil {
+		return nil, err
+	}
+	if err := s.loadTitleGenres(ctx, t); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (s *Store) HomeRowConfigs(ctx context.Context) ([]struct {
+	Kind    string
+	Label   string
+	GenreID *int64
+}, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT kind, label, genre_id FROM home_rows WHERE enabled ORDER BY position`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []struct {
+		Kind    string
+		Label   string
+		GenreID *int64
+	}
+	for rows.Next() {
+		var r struct {
+			Kind    string
+			Label   string
+			GenreID *int64
+		}
+		if err := rows.Scan(&r.Kind, &r.Label, &r.GenreID); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+type BrowseFilter struct {
+	Kind     string
+	Genre    string
+	Query    string
+	Sort     string // added | name | year
+	Page     int
+	PageSize int
+}
+
+var browseSorts = map[string]string{
+	"":      "t.added_at DESC",
+	"added": "t.added_at DESC",
+	"name":  "t.sort_name ASC, t.name ASC",
+	"year":  "t.year DESC NULLS LAST",
+}
+
+func (s *Store) BrowseTitles(ctx context.Context, f BrowseFilter) ([]CardItem, int, error) {
+	orderBy, ok := browseSorts[f.Sort]
+	if !ok {
+		return nil, 0, fmt.Errorf("invalid sort %q", f.Sort)
+	}
+	if f.PageSize <= 0 || f.PageSize > 100 {
+		f.PageSize = 48
+	}
+	if f.Page < 1 {
+		f.Page = 1
+	}
+
+	where := `WHERE t.status = 'published'
+		AND ($1 = '' OR t.kind = $1)
+		AND ($2 = '' OR t.name ILIKE '%' || $2 || '%')
+		AND ($3 = '' OR EXISTS (
+			SELECT 1 FROM title_genres tg JOIN genres g ON g.id = tg.genre_id
+			WHERE tg.title_id = t.id AND lower(g.name) = lower($3)))`
+
+	var total int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM titles t `+where,
+		f.Kind, f.Query, f.Genre).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	items, err := s.scanCards(ctx, cardSelect+` `+where+`
+		ORDER BY `+orderBy+` LIMIT $4 OFFSET $5`,
+		f.Kind, f.Query, f.Genre, f.PageSize, (f.Page-1)*f.PageSize)
+	return items, total, err
+}
+
+type SearchResults struct {
+	Titles  []CardItem    `json:"titles"`
+	Artists []SearchHit   `json:"artists"`
+	Albums  []SearchHit   `json:"albums"`
+	Tracks  []SearchHit   `json:"tracks"`
+}
+
+type SearchHit struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Subtitle string `json:"subtitle"`
+}
+
+func (s *Store) Search(ctx context.Context, q string, limit int) (*SearchResults, error) {
+	res := &SearchResults{Titles: []CardItem{}, Artists: []SearchHit{}, Albums: []SearchHit{}, Tracks: []SearchHit{}}
+	if q == "" {
+		return res, nil
+	}
+
+	var err error
+	res.Titles, err = s.scanCards(ctx, cardSelect+`
+		WHERE t.status = 'published' AND t.name ILIKE '%' || $1 || '%'
+		ORDER BY similarity(t.name, $1) DESC LIMIT $2`, q, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	collect := func(query string) ([]SearchHit, error) {
+		rows, err := s.pool.Query(ctx, query, q, limit)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		hits := []SearchHit{}
+		for rows.Next() {
+			var h SearchHit
+			if err := rows.Scan(&h.ID, &h.Name, &h.Subtitle); err != nil {
+				return nil, err
+			}
+			hits = append(hits, h)
+		}
+		return hits, rows.Err()
+	}
+
+	if res.Artists, err = collect(
+		`SELECT id, name, '' FROM artists WHERE name ILIKE '%' || $1 || '%'
+		 ORDER BY similarity(name, $1) DESC LIMIT $2`); err != nil {
+		return nil, err
+	}
+	if res.Albums, err = collect(
+		`SELECT al.id, al.name, ar.name FROM albums al JOIN artists ar ON ar.id = al.artist_id
+		 WHERE al.status = 'published' AND al.name ILIKE '%' || $1 || '%'
+		 ORDER BY similarity(al.name, $1) DESC LIMIT $2`); err != nil {
+		return nil, err
+	}
+	if res.Tracks, err = collect(
+		`SELECT t.id, t.name, ar.name || ' · ' || al.name
+		 FROM tracks t JOIN albums al ON al.id = t.album_id JOIN artists ar ON ar.id = al.artist_id
+		 WHERE al.status = 'published' AND t.name ILIKE '%' || $1 || '%'
+		 ORDER BY similarity(t.name, $1) DESC LIMIT $2`); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// PrimaryMediaFileForTitle returns the playable file for a movie title.
+func (s *Store) PrimaryMediaFileForTitle(ctx context.Context, titleID int64) (*MediaFile, error) {
+	return scanMediaFile(s.pool.QueryRow(ctx,
+		`SELECT `+mediaFileCols+` FROM media_files
+		 WHERE title_id = $1 ORDER BY height DESC, id LIMIT 1`, titleID))
+}
+
+func (s *Store) PrimaryMediaFileForEpisode(ctx context.Context, episodeID int64) (*MediaFile, error) {
+	return scanMediaFile(s.pool.QueryRow(ctx,
+		`SELECT `+mediaFileCols+` FROM media_files
+		 WHERE episode_id = $1 ORDER BY height DESC, id LIMIT 1`, episodeID))
+}
+
+type EpisodeRef struct {
+	EpisodeID     int64  `json:"episodeId"`
+	SeasonNumber  int    `json:"seasonNumber"`
+	EpisodeNumber int    `json:"episodeNumber"`
+	Name          string `json:"name"`
+	TitleID       int64  `json:"titleId"`
+	TitleName     string `json:"titleName"`
+}
+
+func (s *Store) EpisodeRef(ctx context.Context, episodeID int64) (*EpisodeRef, error) {
+	var ref EpisodeRef
+	err := s.pool.QueryRow(ctx,
+		`SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name
+		 FROM episodes e
+		 JOIN seasons se ON se.id = e.season_id
+		 JOIN titles t ON t.id = se.title_id
+		 WHERE e.id = $1`, episodeID).
+		Scan(&ref.EpisodeID, &ref.SeasonNumber, &ref.EpisodeNumber, &ref.Name, &ref.TitleID, &ref.TitleName)
+	if err != nil {
+		return nil, err
+	}
+	return &ref, nil
+}
+
+// NextEpisode finds the episode that follows (same season, then next season).
+func (s *Store) NextEpisode(ctx context.Context, episodeID int64) (*EpisodeRef, error) {
+	var ref EpisodeRef
+	err := s.pool.QueryRow(ctx,
+		`WITH cur AS (
+			SELECT e.id, e.episode_number, se.season_number, se.title_id
+			FROM episodes e JOIN seasons se ON se.id = e.season_id
+			WHERE e.id = $1
+		)
+		SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name
+		FROM episodes e
+		JOIN seasons se ON se.id = e.season_id
+		JOIN titles t ON t.id = se.title_id, cur
+		WHERE se.title_id = cur.title_id
+			AND (se.season_number, e.episode_number) > (cur.season_number, cur.episode_number)
+		ORDER BY se.season_number, e.episode_number
+		LIMIT 1`, episodeID).
+		Scan(&ref.EpisodeID, &ref.SeasonNumber, &ref.EpisodeNumber, &ref.Name, &ref.TitleID, &ref.TitleName)
+	if err != nil {
+		return nil, nil // no next episode is not an error
+	}
+	return &ref, nil
+}

@@ -36,6 +36,10 @@ func (s *Server) Handler() http.Handler {
 	adminSettings := api.NewAdminSettings(s.store)
 	adminLibraries := api.NewAdminLibraries(s.store)
 	adminJobs := api.NewAdminJobs(s.store)
+	catalog := api.NewCatalog(s.store)
+	stream := api.NewStream(s.store)
+	progress := api.NewProgress(s.store)
+	artwork := api.NewArtwork(s.store, s.cfg.DataDir)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -67,6 +71,22 @@ func (s *Server) Handler() http.Handler {
 				}
 				httpx.JSON(w, http.StatusOK, genres)
 			})
+
+			p.Get("/home", catalog.Home)
+			p.Get("/titles", catalog.Browse)
+			p.Get("/titles/{id}", catalog.Title)
+			p.Get("/search", catalog.Search)
+
+			p.Get("/stream/{id}", stream.Serve)
+			p.Get("/playback/{kind}/{id}", stream.Playback)
+			p.Get("/artwork/{id}", artwork.Serve)
+
+			p.Put("/progress", progress.Put)
+			p.Post("/progress", progress.Put) // sendBeacon can only POST
+			p.Get("/me/continue-watching", progress.ContinueWatching)
+			p.Get("/me/watchlist", progress.WatchlistGet)
+			p.Put("/me/watchlist/{titleId}", progress.WatchlistPut)
+			p.Delete("/me/watchlist/{titleId}", progress.WatchlistDelete)
 		})
 
 		// admin routes
