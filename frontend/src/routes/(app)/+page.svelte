@@ -1,25 +1,43 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import { session } from '$lib/features/auth/session.svelte';
+	import type { ContinueItem } from '$lib/features/catalog/types';
+	import ContinueWatchingCard from '$lib/components/media/ContinueWatchingCard.svelte';
+	import HeroMarquee from '$lib/components/media/HeroMarquee.svelte';
+	import MediaRow from '$lib/components/media/MediaRow.svelte';
+	import TitleCard from '$lib/components/media/TitleCard.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+
+	let { data } = $props();
+
+	const visibleRows = $derived(data.rows.filter((r) => r.items.length > 0));
 </script>
 
-<div class="relative flex min-h-dvh items-center justify-center overflow-hidden">
-	<GlowBackdrop />
-	<div class="relative animate-slide-up text-center">
-		<p class="eyebrow mb-4">Self-hosted streaming</p>
-		<h1 class="text-4xl font-extrabold tracking-tight">
-			couch<span class="text-accent">verse</span>
-		</h1>
-		<p class="mt-3 text-sm text-muted">
-			Signed in as {session.user?.displayName} · the library arrives in the next milestone
-		</p>
-		<div class="mt-6 flex items-center justify-center gap-2">
-			{#if session.isAdmin}
-				<Button variant="primary" size="sm" onclick={() => goto('/admin')}>Server admin</Button>
-			{/if}
-			<Button variant="secondary" size="sm" onclick={() => session.logout()}>Sign out</Button>
-		</div>
+<svelte:head>
+	<title>Home — Couchverse</title>
+</svelte:head>
+
+{#if data.featured}
+	<HeroMarquee featured={data.featured} />
+
+	<div class="relative z-10 -mt-10 space-y-10 pb-16">
+		{#each visibleRows as row (row.label)}
+			<MediaRow label={row.label}>
+				{#if row.kind === 'continue_watching'}
+					{#each row.items as ContinueItem[] as item (item.playbackKind + item.playbackId)}
+						<ContinueWatchingCard {item} />
+					{/each}
+				{:else}
+					{#each row.items as item (item.titleId)}
+						<TitleCard {item} />
+					{/each}
+				{/if}
+			</MediaRow>
+		{/each}
 	</div>
-</div>
+{:else}
+	<div class="flex min-h-dvh items-center justify-center">
+		<EmptyState
+			title="The library is empty"
+			message="Once the admin publishes movies or series, they show up here."
+		/>
+	</div>
+{/if}

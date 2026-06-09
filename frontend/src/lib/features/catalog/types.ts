@@ -44,6 +44,77 @@ export interface Genre {
 	name: string;
 }
 
+export interface CardItem {
+	titleId: number;
+	kind: TitleKind;
+	name: string;
+	year: number | null;
+	posterId: number | null;
+	backdropId: number | null;
+}
+
+export interface ContinueItem extends CardItem {
+	episodeId: number | null;
+	episodeLabel: string;
+	playbackKind: 'movie' | 'episode';
+	playbackId: number;
+	positionSeconds: number;
+	durationSeconds: number;
+	updatedAt: string;
+}
+
+export interface HomeRow {
+	kind: 'continue_watching' | 'recently_added' | 'genre' | 'recently_played_music';
+	label: string;
+	items: CardItem[] | ContinueItem[];
+}
+
+export interface HomeData {
+	featured: Title | null;
+	rows: HomeRow[];
+}
+
+export interface ArtworkRef {
+	id: number;
+	ownerKind: string;
+	ownerId: number;
+	kind: 'poster' | 'backdrop' | 'thumb' | 'album_cover' | 'artist_photo';
+	path: string;
+	width: number;
+	height: number;
+	source: string;
+	createdAt: string;
+}
+
+export interface EpisodeProgress {
+	positionSeconds: number;
+	durationSeconds: number;
+	completed: boolean;
+}
+
+export interface TitleDetail {
+	title: Title;
+	inWatchlist: boolean;
+	mediaFiles: MediaFile[];
+	artwork: ArtworkRef[];
+	seasons?: Season[];
+	episodeProgress?: Record<number, EpisodeProgress>;
+	progress?: EpisodeProgress;
+}
+
+export interface SearchHit {
+	id: number;
+	name: string;
+	subtitle: string;
+}
+
+export interface SearchResults {
+	titles: CardItem[];
+	artists: SearchHit[];
+	albums: SearchHit[];
+	tracks: SearchHit[];
+}
+
 export interface MediaFile {
 	id: number;
 	libraryId: number;

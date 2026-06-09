@@ -1,0 +1,372 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import {
+		ArrowLeft,
+		Maximize,
+		Minimize,
+		Pause,
+		Play,
+		RotateCcw,
+		RotateCw,
+		Volume2,
+		VolumeX
+	} from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
+	import type { PlaybackInfo } from '$lib/features/playback/api';
+	import { beaconProgress, reportProgress } from '$lib/features/playback/api';
+	import { formatClock } from '$lib/utils/format';
+
+	let {
+		info,
+		titleId = null,
+		episodeId = null
+	}: { info: PlaybackInfo; titleId?: number | null; episodeId?: number | null } = $props();
+
+	let video = $state<HTMLVideoElement>();
+	let wrapper = $state<HTMLDivElement>();
+
+	let playing = $state(false);
+	let currentTime = $state(0);
+	let duration = $state(info.durationSeconds || 0);
+	let buffered = $state<{ start: number; end: number }[]>([]);
+	let volume = $state(Number(localStorage.getItem('cv.volume') ?? 1));
+	let muted = $state(false);
+	let fullscreen = $state(false);
+	let controlsVisible = $state(true);
+	let nextCountdown = $state<number | null>(null);
+
+	let hideTimer: ReturnType<typeof setTimeout>;
+	let lastReported = 0;
+
+	const remaining = $derived(duration - currentTime);
+	const progressBody = () => ({
+		...(titleId ? { titleId } : { episodeId: episodeId! }),
+		positionSeconds: Math.floor(currentTime),
+		durationSeconds: Math.floor(duration)
+	});
+
+	function report() {
+		if (currentTime < 5) return;
+		lastReported = currentTime;
+		reportProgress(progressBody()).catch(() => {});
+	}
+
+	function poke() {
+		controlsVisible = true;
+		clearTimeout(hideTimer);
+		hideTimer = setTimeout(() => {
+			if (playing) controlsVisible = false;
+		}, 3000);
+	}
+
+	function togglePlay() {
+		if (!video) return;
+		if (video.paused) video.play();
+		else video.pause();
+	}
+
+	function skip(seconds: number) {
+		if (video) video.currentTime = Math.min(Math.max(0, video.currentTime + seconds), duration);
+	}
+
+	function setVolume(v: number) {
+		volume = Math.min(1, Math.max(0, v));
+		muted = volume === 0;
+		localStorage.setItem('cv.volume', String(volume));
+	}
+
+	function toggleFullscreen() {
+		if (document.fullscreenElement) document.exitFullscreen();
+		else wrapper?.requestFullscreen();
+	}
+
+	function onTimeUpdate() {
+		if (!video) return;
+		currentTime = video.currentTime;
+		if (currentTime - lastReported >= 10) report();
+
+		// auto-next countdown in the last 20 seconds
+		if (info.nextEpisode && remaining <= 20 && remaining > 0 && nextCountdown === null) {
+			nextCountdown = Math.ceil(remaining);
+		}
+		if (nextCountdown !== null) {
+			nextCountdown = Math.max(0, Math.ceil(remaining));
+		}
+	}
+
+	function onProgress() {
+		if (!video) return;
+		const ranges = [];
+		for (let i = 0; i < video.buffered.length; i++) {
+			ranges.push({ start: video.buffered.start(i), end: video.buffered.end(i) });
+		}
+		buffered = ranges;
+	}
+
+	function goNextEpisode() {
+		if (!info.nextEpisode) return;
+		report();
+		goto(`/watch/episode/${info.nextEpisode.episodeId}`, { invalidateAll: true });
+	}
+
+	function onEnded() {
+		report();
+		if (info.nextEpisode) goNextEpisode();
+		else goto(`/title/${info.display.titleId}`);
+	}
+
+	function seekTo(event: PointerEvent, track: HTMLElement) {
+		const rect = track.getBoundingClientRect();
+		const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+		if (video) video.currentTime = ratio * duration;
+	}
+
+	let scrubbing = $state(false);
+
+	function onKeydown(e: KeyboardEvent) {
+		if (e.target instanceof HTMLInputElement) return;
+		switch (e.key) {
+			case ' ':
+			case 'k':
+				e.preventDefault();
+				togglePlay();
+				break;
+			case 'ArrowLeft':
+				skip(-10);
+				break;
+			case 'ArrowRight':
+				skip(10);
+				break;
+			case 'ArrowUp':
+				e.preventDefault();
+				setVolume(volume + 0.1);
+				break;
+			case 'ArrowDown':
+				e.preventDefault();
+				setVolume(volume - 0.1);
+				break;
+			case 'f':
+				toggleFullscreen();
+				break;
+			case 'm':
+				muted = !muted;
+				break;
+		}
+		poke();
+	}
+
+	onMount(() => {
+		poke();
+		const onVisibility = () => {
+			if (document.visibilityState === 'hidden' && currentTime > 5) {
+				beaconProgress(progressBody());
+			}
+		};
+		document.addEventListener('visibilitychange', onVisibility);
+		return () => {
+			document.removeEventListener('visibilitychange', onVisibility);
+			clearTimeout(hideTimer);
+			if (currentTime > 5) beaconProgress(progressBody());
+		};
+	});
+</script>
+
+<svelte:window onkeydown={onKeydown} />
+<svelte:document onfullscreenchange={() => (fullscreen = !!document.fullscreenElement)} />
+
+<div
+	bind:this={wrapper}
+	class="relative h-dvh w-full overflow-hidden bg-black {controlsVisible ? '' : 'cursor-none'}"
+	onpointermove={poke}
+	role="presentation"
+>
+	<!-- svelte-ignore a11y_media_has_caption -->
+	<video
+		bind:this={video}
+		src={info.streamUrl}
+		autoplay
+		class="size-full object-contain"
+		bind:volume
+		bind:muted
+		onplay={() => (playing = true)}
+		onpause={() => {
+			playing = false;
+			report();
+			poke();
+		}}
+		ontimeupdate={onTimeUpdate}
+		onprogress={onProgress}
+		ondurationchange={() => (duration = video?.duration || info.durationSeconds)}
+		onloadedmetadata={() => {
+			if (video && info.resumePosition > 5) video.currentTime = info.resumePosition;
+		}}
+		onended={onEnded}
+		onclick={togglePlay}
+		ondblclick={toggleFullscreen}
+	></video>
+
+	{#if controlsVisible}
+		<!-- top bar -->
+		<div
+			transition:fade={{ duration: 200 }}
+			class="absolute inset-x-0 top-0 flex items-center gap-4 bg-gradient-to-b from-black/80
+				to-transparent p-5 pb-12"
+		>
+			<button
+				class="rounded-full p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+				onclick={() => goto(`/title/${info.display.titleId}`)}
+				aria-label="Back"
+			>
+				<ArrowLeft class="size-5" />
+			</button>
+			<div class="min-w-0">
+				<p class="truncate font-semibold text-white">{info.display.title}</p>
+				{#if info.display.subtitle}
+					<p class="truncate text-xs text-white/60">{info.display.subtitle}</p>
+				{/if}
+			</div>
+		</div>
+
+		<!-- bottom controls -->
+		<div
+			transition:fade={{ duration: 200 }}
+			class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-5 pt-16 pb-5"
+		>
+			<!-- seek bar -->
+			<div
+				class="group/seek relative mb-4 h-1 w-full cursor-pointer rounded-full bg-white/20"
+				onpointerdown={(e) => {
+					scrubbing = true;
+					seekTo(e, e.currentTarget);
+					e.currentTarget.setPointerCapture(e.pointerId);
+				}}
+				onpointermove={(e) => scrubbing && seekTo(e, e.currentTarget)}
+				onpointerup={() => (scrubbing = false)}
+				role="slider"
+				aria-label="Seek"
+				aria-valuemin={0}
+				aria-valuemax={duration}
+				aria-valuenow={currentTime}
+				tabindex="0"
+			>
+				{#each buffered as range (range.start)}
+					<div
+						class="absolute h-full rounded-full bg-white/25"
+						style="left: {(range.start / duration) * 100}%; width: {((range.end - range.start) /
+							duration) *
+							100}%"
+					></div>
+				{/each}
+				<div
+					class="relative h-full rounded-full bg-accent"
+					style="width: {duration ? (currentTime / duration) * 100 : 0}%"
+				>
+					<span
+						class="absolute top-1/2 -right-1.5 size-3 -translate-y-1/2 scale-0 rounded-full
+							bg-accent shadow transition-transform group-hover/seek:scale-100"
+					></span>
+				</div>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<button class="player-btn" onclick={togglePlay} aria-label="Play/Pause">
+					{#if playing}
+						<Pause class="size-5 fill-current" />
+					{:else}
+						<Play class="size-5 fill-current" />
+					{/if}
+				</button>
+				<button class="player-btn" onclick={() => skip(-10)} aria-label="Back 10 seconds">
+					<RotateCcw class="size-4.5" />
+				</button>
+				<button class="player-btn" onclick={() => skip(10)} aria-label="Forward 10 seconds">
+					<RotateCw class="size-4.5" />
+				</button>
+
+				<div class="group/vol flex items-center gap-2">
+					<button class="player-btn" onclick={() => (muted = !muted)} aria-label="Mute">
+						{#if muted || volume === 0}
+							<VolumeX class="size-4.5" />
+						{:else}
+							<Volume2 class="size-4.5" />
+						{/if}
+					</button>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.05"
+						value={muted ? 0 : volume}
+						oninput={(e) => setVolume(Number(e.currentTarget.value))}
+						class="volume-slider w-0 opacity-0 transition-all duration-200
+							group-hover/vol:w-20 group-hover/vol:opacity-100"
+						aria-label="Volume"
+					/>
+				</div>
+
+				<span class="ml-2 text-xs text-white/70 tnum">
+					{formatClock(currentTime)} / {formatClock(duration)}
+				</span>
+
+				<div class="flex-1"></div>
+
+				<button class="player-btn" onclick={toggleFullscreen} aria-label="Fullscreen">
+					{#if fullscreen}
+						<Minimize class="size-4.5" />
+					{:else}
+						<Maximize class="size-4.5" />
+					{/if}
+				</button>
+			</div>
+		</div>
+	{/if}
+
+	{#if info.nextEpisode && nextCountdown !== null && nextCountdown > 0}
+		<div
+			transition:fly={{ y: 24, duration: 250 }}
+			class="absolute right-6 bottom-24 w-72 rounded-card border border-edge bg-surface-2/95
+				p-4 shadow-2xl shadow-black/60 backdrop-blur"
+		>
+			<p class="eyebrow mb-1">Up next · {nextCountdown}s</p>
+			<p class="truncate text-sm font-semibold">
+				S{info.nextEpisode.seasonNumber} E{info.nextEpisode.episodeNumber}
+				{info.nextEpisode.name ? `· ${info.nextEpisode.name}` : ''}
+			</p>
+			<div class="mt-3 flex gap-2">
+				<button
+					class="h-8 flex-1 rounded-full bg-accent text-xs font-semibold text-white transition-colors hover:bg-accent-strong"
+					onclick={goNextEpisode}
+				>
+					Play now
+				</button>
+				<button
+					class="h-8 rounded-full px-3 text-xs font-semibold text-muted transition-colors hover:bg-surface hover:text-text"
+					onclick={() => (nextCountdown = null)}
+				>
+					Cancel
+				</button>
+			</div>
+		</div>
+	{/if}
+</div>
+
+<style lang="scss">
+	:global(.player-btn) {
+		border-radius: 9999px;
+		padding: 0.5rem;
+		color: rgb(255 255 255 / 0.85);
+		transition:
+			background-color 0.15s,
+			color 0.15s;
+
+		&:hover {
+			background-color: rgb(255 255 255 / 0.1);
+			color: white;
+		}
+	}
+
+	.volume-slider {
+		accent-color: var(--color-accent);
+	}
+</style>
