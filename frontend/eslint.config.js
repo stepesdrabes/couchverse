@@ -28,6 +28,12 @@ export default ts.config(
 		}
 	},
 	{
+		rules: {
+			// the app is always served from the domain root (no base path)
+			'svelte/no-navigation-without-resolve': 'off'
+		}
+	},
+	{
 		ignores: ['build/', '.svelte-kit/', 'node_modules/']
 	}
 );
