@@ -12,20 +12,26 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"couchverse/internal/api"
+	"couchverse/internal/artwork"
 	"couchverse/internal/auth"
 	"couchverse/internal/config"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
+	"couchverse/internal/subtitles"
+	"couchverse/internal/upload"
 	"couchverse/web"
 )
 
 type Server struct {
-	cfg   config.Config
-	store *store.Store
+	cfg       config.Config
+	store     *store.Store
+	uploads   *upload.Manager
+	artwork   *artwork.Service
+	subtitles *subtitles.Service
 }
 
-func New(cfg config.Config, st *store.Store) *Server {
-	return &Server{cfg: cfg, store: st}
+func New(cfg config.Config, st *store.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service) *Server {
+	return &Server{cfg: cfg, store: st, uploads: uploads, artwork: art, subtitles: subs}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -39,7 +45,10 @@ func (s *Server) Handler() http.Handler {
 	catalog := api.NewCatalog(s.store)
 	stream := api.NewStream(s.store)
 	progress := api.NewProgress(s.store)
-	artwork := api.NewArtwork(s.store, s.cfg.DataDir)
+	artworkAPI := api.NewArtwork(s.store, s.artwork)
+	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
+	uploadsAPI := api.NewAdminUploads(s.store, s.uploads)
+	metadataAPI := api.NewAdminMetadata(s.store)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -79,7 +88,8 @@ func (s *Server) Handler() http.Handler {
 
 			p.Get("/stream/{id}", stream.Serve)
 			p.Get("/playback/{kind}/{id}", stream.Playback)
-			p.Get("/artwork/{id}", artwork.Serve)
+			p.Get("/artwork/{id}", artworkAPI.Serve)
+			p.Get("/subtitles/{id}.vtt", subtitlesAPI.Serve)
 
 			p.Put("/progress", progress.Put)
 			p.Post("/progress", progress.Put) // sendBeacon can only POST
@@ -122,6 +132,23 @@ func (s *Server) Handler() http.Handler {
 			adm.Get("/jobs", adminJobs.List)
 			adm.Post("/jobs/{id}/retry", adminJobs.Retry)
 			adm.Post("/jobs/{id}/cancel", adminJobs.Cancel)
+
+			adm.Get("/uploads", uploadsAPI.List)
+			adm.Post("/uploads", uploadsAPI.Create)
+			adm.Get("/uploads/{id}", uploadsAPI.Get)
+			adm.Put("/uploads/{id}", uploadsAPI.Append)
+			adm.Post("/uploads/{id}/complete", uploadsAPI.Complete)
+			adm.Delete("/uploads/{id}", uploadsAPI.Abort)
+
+			adm.Get("/metadata/search", metadataAPI.Search)
+			adm.Post("/titles/{id}/metadata/apply", metadataAPI.Apply)
+
+			adm.Post("/artwork", artworkAPI.Upload)
+			adm.Delete("/artwork/{id}", artworkAPI.Delete)
+
+			adm.Get("/media-files/{id}/subtitles", subtitlesAPI.ListForMediaFile)
+			adm.Post("/media-files/{id}/subtitles", subtitlesAPI.Upload)
+			adm.Delete("/subtitles/{id}", subtitlesAPI.Delete)
 		})
 	})
 

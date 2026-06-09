@@ -144,6 +144,12 @@ func (s *Store) UpdateTitle(ctx context.Context, id int64, up TitleUpdate) (*Tit
 	return t, nil
 }
 
+func (s *Store) SetTitleReleaseDate(ctx context.Context, id int64, date string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE titles SET release_date = $2::date, updated_at = now() WHERE id = $1`, id, date)
+	return err
+}
+
 func (s *Store) DeleteTitle(ctx context.Context, id int64) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM titles WHERE id = $1`, id)
 	if err != nil {

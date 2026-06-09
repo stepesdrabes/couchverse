@@ -75,6 +75,15 @@ type playbackInfo struct {
 	ResumePosition int               `json:"resumePosition"`
 	Display        playbackDisplay   `json:"display"`
 	NextEpisode    *store.EpisodeRef `json:"nextEpisode"`
+	Subtitles      []subtitleTrack   `json:"subtitles"`
+}
+
+type subtitleTrack struct {
+	ID     int64  `json:"id"`
+	Lang   string `json:"lang"`
+	Label  string `json:"label"`
+	Forced bool   `json:"forced"`
+	URL    string `json:"url"`
 }
 
 type playbackDisplay struct {
@@ -148,6 +157,23 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 
 	info.MediaFileID = mf.ID
 	info.Duration = mf.DurationSeconds
+
+	subs, err := h.store.SubtitlesForMediaFile(r.Context(), mf.ID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	info.Subtitles = []subtitleTrack{}
+	for _, sub := range subs {
+		info.Subtitles = append(info.Subtitles, subtitleTrack{
+			ID:     sub.ID,
+			Lang:   sub.Lang,
+			Label:  sub.Label,
+			Forced: sub.Forced,
+			URL:    "/api/v1/subtitles/" + strconv.FormatInt(sub.ID, 10) + ".vtt",
+		})
+	}
+
 	if mf.DirectPlay {
 		info.Mode = "direct"
 		info.StreamURL = "/api/v1/stream/" + strconv.FormatInt(mf.ID, 10)

@@ -77,6 +77,13 @@ func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out["mediaFiles"] = files
+
+	art, err := h.store.ArtworkFor(r.Context(), "title", t.ID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	out["artwork"] = art
 	httpx.JSON(w, http.StatusOK, out)
 }
 

@@ -76,7 +76,17 @@ func (p *Prober) Handle(ctx context.Context, job *store.Job, report func(int)) e
 		}
 	}
 
-	return p.Store.ApplyProbe(ctx, mf.ID, up)
+	if err := p.Store.ApplyProbe(ctx, mf.ID, up); err != nil {
+		return err
+	}
+
+	if res.HasVideo && HasTextSubtitles(res) {
+		if _, err := p.Store.EnqueueJobOnce(ctx, "extract_subtitles",
+			map[string]int64{"mediaFileId": mf.ID}, store.EnqueueOpts{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *Prober) assignVideo(ctx context.Context, lib *store.Library, relPath string, up *store.ProbeUpdate) error {

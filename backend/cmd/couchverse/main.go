@@ -12,12 +12,16 @@ import (
 	"syscall"
 	"time"
 
+	"couchverse/internal/artwork"
 	"couchverse/internal/auth"
 	"couchverse/internal/config"
 	"couchverse/internal/jobs"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
 	"couchverse/internal/store"
+	"couchverse/internal/subtitles"
+	"couchverse/internal/tmdb"
+	"couchverse/internal/upload"
 )
 
 // ensureManagedLibraries creates the default upload-target libraries under
@@ -79,14 +83,20 @@ func run() error {
 		return err
 	}
 
+	uploadManager := &upload.Manager{Store: st, DataDir: cfg.DataDir}
+	artworkService := &artwork.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	subtitleService := &subtitles.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+
 	runner := jobs.NewRunner(st, cfg.JobWorkers)
 	runner.Register("scan_library", 1, (&media.Scanner{Store: st}).Handle)
 	runner.Register("probe", 2, (&media.Prober{Store: st, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
+	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
+	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Store: st, Artwork: artworkService}).Handle)
 	go runner.Run(ctx)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, st).Handler(),
+		Handler:           server.New(cfg, st, uploadManager, artworkService, subtitleService).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

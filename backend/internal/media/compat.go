@@ -19,6 +19,22 @@ func DirectPlay(p *ProbeResult) bool {
 	return audioContainers[p.Container] && audioCodecs[p.AudioCodec]
 }
 
+// embedded subtitle codecs convertible to WebVTT (bitmap subs need OCR — skipped)
+var textSubtitleCodecs = map[string]bool{
+	"subrip": true, "srt": true, "ass": true, "ssa": true, "mov_text": true, "webvtt": true,
+}
+
+func IsTextSubtitleCodec(codec string) bool { return textSubtitleCodecs[codec] }
+
+func HasTextSubtitles(p *ProbeResult) bool {
+	for _, s := range p.SubtitleStreams {
+		if IsTextSubtitleCodec(s.Codec) {
+			return true
+		}
+	}
+	return false
+}
+
 var videoExts = map[string]bool{
 	".mp4": true, ".m4v": true, ".mkv": true, ".webm": true, ".avi": true, ".mov": true, ".ts": true,
 }
