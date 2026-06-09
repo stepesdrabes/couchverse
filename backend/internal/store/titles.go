@@ -1,0 +1,307 @@
+package store
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+
+	"couchverse/internal/httpx"
+)
+
+type Title struct {
+	ID             int64      `json:"id"`
+	Kind           string     `json:"kind"`
+	Name           string     `json:"name"`
+	SortName       string     `json:"sortName"`
+	Overview       string     `json:"overview"`
+	Year           *int       `json:"year"`
+	ReleaseDate    *time.Time `json:"releaseDate"`
+	ContentRating  string     `json:"contentRating"`
+	RuntimeMinutes *int       `json:"runtimeMinutes"`
+	Status         string     `json:"status"`
+	TmdbID         *int       `json:"tmdbId"`
+	AddedAt        time.Time  `json:"addedAt"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
+	Genres         []string   `json:"genres"`
+}
+
+const titleCols = `id, kind, name, sort_name, overview, year, release_date, content_rating,
+	runtime_minutes, status, tmdb_id, added_at, updated_at`
+
+func scanTitle(row pgx.Row) (*Title, error) {
+	var t Title
+	err := row.Scan(&t.ID, &t.Kind, &t.Name, &t.SortName, &t.Overview, &t.Year, &t.ReleaseDate,
+		&t.ContentRating, &t.RuntimeMinutes, &t.Status, &t.TmdbID, &t.AddedAt, &t.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, httpx.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	t.Genres = []string{}
+	return &t, nil
+}
+
+func (s *Store) TitleByID(ctx context.Context, id int64) (*Title, error) {
+	t, err := scanTitle(s.pool.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE id = $1`, id))
+	if err != nil {
+		return nil, err
+	}
+	if err := s.loadTitleGenres(ctx, t); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (s *Store) loadTitleGenres(ctx context.Context, t *Title) error {
+	rows, err := s.pool.Query(ctx,
+		`SELECT g.name FROM genres g JOIN title_genres tg ON tg.genre_id = g.id
+		 WHERE tg.title_id = $1 ORDER BY g.name`, t.ID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		t.Genres = append(t.Genres, name)
+	}
+	return rows.Err()
+}
+
+type TitleInput struct {
+	Kind           string   `json:"kind"`
+	Name           string   `json:"name"`
+	Overview       string   `json:"overview"`
+	Year           *int     `json:"year"`
+	ContentRating  string   `json:"contentRating"`
+	RuntimeMinutes *int     `json:"runtimeMinutes"`
+	Genres         []string `json:"genres"`
+}
+
+func (s *Store) CreateTitle(ctx context.Context, in TitleInput) (*Title, error) {
+	t, err := scanTitle(s.pool.QueryRow(ctx,
+		`INSERT INTO titles (kind, name, sort_name, overview, year, content_rating, runtime_minutes)
+		 VALUES ($1, $2, $2, $3, $4, $5, $6)
+		 RETURNING `+titleCols,
+		in.Kind, in.Name, in.Overview, in.Year, in.ContentRating, in.RuntimeMinutes))
+	if err != nil {
+		return nil, err
+	}
+	if len(in.Genres) > 0 {
+		if err := s.SetTitleGenres(ctx, t.ID, in.Genres); err != nil {
+			return nil, err
+		}
+		t.Genres = in.Genres
+	}
+	return t, nil
+}
+
+type TitleUpdate struct {
+	Name           *string   `json:"name"`
+	SortName       *string   `json:"sortName"`
+	Overview       *string   `json:"overview"`
+	Year           *int      `json:"year"`
+	ContentRating  *string   `json:"contentRating"`
+	RuntimeMinutes *int      `json:"runtimeMinutes"`
+	Status         *string   `json:"status"`
+	TmdbID         *int      `json:"tmdbId"`
+	Genres         *[]string `json:"genres"`
+}
+
+func (s *Store) UpdateTitle(ctx context.Context, id int64, up TitleUpdate) (*Title, error) {
+	t, err := scanTitle(s.pool.QueryRow(ctx,
+		`UPDATE titles SET
+			name = COALESCE($2, name),
+			sort_name = COALESCE($3, sort_name),
+			overview = COALESCE($4, overview),
+			year = COALESCE($5, year),
+			content_rating = COALESCE($6, content_rating),
+			runtime_minutes = COALESCE($7, runtime_minutes),
+			status = COALESCE($8, status),
+			tmdb_id = COALESCE($9, tmdb_id),
+			updated_at = now()
+		 WHERE id = $1
+		 RETURNING `+titleCols,
+		id, up.Name, up.SortName, up.Overview, up.Year, up.ContentRating,
+		up.RuntimeMinutes, up.Status, up.TmdbID))
+	if err != nil {
+		return nil, err
+	}
+	if up.Genres != nil {
+		if err := s.SetTitleGenres(ctx, id, *up.Genres); err != nil {
+			return nil, err
+		}
+	}
+	if err := s.loadTitleGenres(ctx, t); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (s *Store) DeleteTitle(ctx context.Context, id int64) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM titles WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return httpx.ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) SetTitlesStatus(ctx context.Context, ids []int64, status string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE titles SET status = $2, updated_at = now() WHERE id = ANY($1)`, ids, status)
+	return err
+}
+
+func (s *Store) DeleteTitles(ctx context.Context, ids []int64) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM titles WHERE id = ANY($1)`, ids)
+	return err
+}
+
+// SetTitleGenres replaces a title's genres, creating unknown genre names.
+func (s *Store) SetTitleGenres(ctx context.Context, titleID int64, names []string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM title_genres WHERE title_id = $1`, titleID); err != nil {
+		return err
+	}
+	for _, name := range names {
+		var genreID int64
+		err := tx.QueryRow(ctx,
+			`INSERT INTO genres (name) VALUES ($1)
+			 ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+			 RETURNING id`, name).Scan(&genreID)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO title_genres (title_id, genre_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			titleID, genreID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+type Genre struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (s *Store) ListGenres(ctx context.Context) ([]Genre, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id, name FROM genres ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	genres := []Genre{}
+	for rows.Next() {
+		var g Genre
+		if err := rows.Scan(&g.ID, &g.Name); err != nil {
+			return nil, err
+		}
+		genres = append(genres, g)
+	}
+	return genres, rows.Err()
+}
+
+type LibraryFilter struct {
+	Kind     string // movie | series | "" (all)
+	Status   string
+	Query    string
+	Sort     string // added | name | year | size
+	Page     int
+	PageSize int
+}
+
+type LibraryRow struct {
+	ID           int64     `json:"id"`
+	Kind         string    `json:"kind"`
+	Name         string    `json:"name"`
+	Year         *int      `json:"year"`
+	Status       string    `json:"status"`
+	SeasonCount  int       `json:"seasonCount"`
+	EpisodeCount int       `json:"episodeCount"`
+	SizeBytes    int64     `json:"sizeBytes"`
+	MaxHeight    int       `json:"maxHeight"`
+	HDR          bool      `json:"hdr"`
+	AddedAt      time.Time `json:"addedAt"`
+}
+
+var librarySorts = map[string]string{
+	"":      "t.added_at DESC",
+	"added": "t.added_at DESC",
+	"name":  "t.sort_name ASC, t.name ASC",
+	"year":  "t.year DESC NULLS LAST",
+	"size":  "size_bytes DESC",
+}
+
+// ListLibrary powers the admin library table: titles with rolled-up file
+// stats (total size, max resolution, HDR) and season/episode counts.
+func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow, int, error) {
+	orderBy, ok := librarySorts[f.Sort]
+	if !ok {
+		return nil, 0, fmt.Errorf("invalid sort %q", f.Sort)
+	}
+	if f.PageSize <= 0 || f.PageSize > 200 {
+		f.PageSize = 50
+	}
+	if f.Page < 1 {
+		f.Page = 1
+	}
+
+	where := `WHERE ($1 = '' OR t.kind = $1)
+		AND ($2 = '' OR t.status = $2)
+		AND ($3 = '' OR t.name ILIKE '%' || $3 || '%')`
+
+	var total int
+	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM titles t `+where,
+		f.Kind, f.Status, f.Query).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT t.id, t.kind, t.name, t.year, t.status, t.added_at,
+			count(DISTINCT se.id) AS season_count,
+			count(DISTINCT e.id) AS episode_count,
+			COALESCE(sum(mf.size_bytes), 0) AS size_bytes,
+			COALESCE(max(mf.height), 0) AS max_height,
+			COALESCE(bool_or(mf.video_range <> 'sdr'), false) AS hdr
+		FROM titles t
+		LEFT JOIN seasons se ON se.title_id = t.id
+		LEFT JOIN episodes e ON e.season_id = se.id
+		LEFT JOIN media_files mf ON mf.title_id = t.id OR mf.episode_id = e.id
+		`+where+`
+		GROUP BY t.id
+		ORDER BY `+orderBy+`
+		LIMIT $4 OFFSET $5`,
+		f.Kind, f.Status, f.Query, f.PageSize, (f.Page-1)*f.PageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := []LibraryRow{}
+	for rows.Next() {
+		var r LibraryRow
+		if err := rows.Scan(&r.ID, &r.Kind, &r.Name, &r.Year, &r.Status, &r.AddedAt,
+			&r.SeasonCount, &r.EpisodeCount, &r.SizeBytes, &r.MaxHeight, &r.HDR); err != nil {
+			return nil, 0, err
+		}
+		items = append(items, r)
+	}
+	return items, total, rows.Err()
+}
