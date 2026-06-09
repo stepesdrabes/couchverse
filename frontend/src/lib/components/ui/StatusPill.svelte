@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ContentStatus } from '$lib/api/types';
+	import type { ContentStatus } from '$lib/features/catalog/types';
 
 	let { status }: { status: ContentStatus } = $props();
 

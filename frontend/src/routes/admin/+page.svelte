@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { Clapperboard, Tv, Users } from 'lucide-svelte';
-	import * as admin from '$lib/api/admin';
+	import * as libraryApi from '$lib/features/library/api';
+	import * as usersApi from '$lib/features/users/api';
 
 	let movieCount = $state<number | null>(null);
 	let seriesCount = $state<number | null>(null);
 	let userCount = $state<number | null>(null);
 
 	$effect(() => {
-		admin.library({ type: 'movie' }).then((r) => (movieCount = r.total));
-		admin.library({ type: 'series' }).then((r) => (seriesCount = r.total));
-		admin.listUsers().then((u) => (userCount = u.length));
+		libraryApi.listLibrary({ type: 'movie' }).then((r) => (movieCount = r.total));
+		libraryApi.listLibrary({ type: 'series' }).then((r) => (seriesCount = r.total));
+		usersApi.listUsers().then((u) => (userCount = u.length));
 	});
 
 	const cards = $derived([

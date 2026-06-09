@@ -1,4 +1,4 @@
-import { session } from '$lib/state/session.svelte';
+import { session } from '$lib/features/auth/session.svelte';
 
 // Static SPA: everything renders client-side; the Go server provides the
 // index.html fallback for deep links.

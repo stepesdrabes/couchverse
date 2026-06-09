@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { session } from '$lib/state/session.svelte';
+import { session } from '$lib/features/auth/session.svelte';
 
 export function load({ url }) {
 	if (!session.user) {

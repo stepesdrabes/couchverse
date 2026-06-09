@@ -9,7 +9,7 @@
 		Upload,
 		Users
 	} from 'lucide-svelte';
-	import { session } from '$lib/state/session.svelte';
+	import { session } from '$lib/features/auth/session.svelte';
 
 	const items = [
 		{ href: '/admin', label: 'Overview', icon: LayoutDashboard },

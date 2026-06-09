@@ -1,6 +1,7 @@
 ---EXTEND THIS FILE---
 
 commit rule: do commits in format "feat(frontend): test test", "fix(backend): lmao".
+commit rule: NO Co-Authored-By / co-author trailers in commit messages.
 
 code styles rule: do not put over-engineered messages into the code -> only actually helpful
 
@@ -17,8 +18,11 @@ Full plan: see README + `/Users/prace/.claude/plans/make-the-design-crispy-rabbi
 - `frontend/` — SvelteKit (Svelte 5 runes), static SPA (`adapter-static`, `ssr=false`, fallback index.html).
   - **bits-ui** headless primitives wrapped in `src/lib/components/ui/*`, styled with **Tailwind v4** (theme tokens in `src/app.css` `@theme` — keep that file plain CSS, Tailwind is its own preprocessor).
   - **SCSS** for component styles: `<style lang="scss">` (vitePreprocess + sass-embedded).
-  - svelte-sonner for toasts. Global state only in `src/lib/state/*.svelte.ts` rune modules (session, music player).
-  - All API calls go through typed functions in `src/lib/api/` — never hand-write URLs in components.
+  - svelte-sonner for toasts.
+  - **Feature modules** in `src/lib/features/<feature>/` — each feature keeps its types, API calls
+    (`api.ts`) and rune state (`*.svelte.ts`) together (auth, catalog, library, jobs, users, settings;
+    later: playback, music, uploads). Shared catalog entities live in `features/catalog/types.ts`.
+    The bare fetch wrapper stays in `src/lib/api/client.ts`. Never hand-write URLs in components.
 - Postgres 17; job queue is a Postgres table (no Redis). ffmpeg/ffprobe shelled out (not installed on the dev Mac — use docker for media work).
 
 ## Dev workflow

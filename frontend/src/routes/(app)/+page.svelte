@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import { session } from '$lib/state/session.svelte';
+	import { session } from '$lib/features/auth/session.svelte';
 </script>
 
 <div class="relative flex min-h-dvh items-center justify-center overflow-hidden">

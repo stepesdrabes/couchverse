@@ -2,14 +2,16 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { ArrowLeft, Plus, Trash2 } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
-	import * as admin from '$lib/api/admin';
-	import type { Season } from '$lib/api/types';
+	import * as libraryApi from '$lib/features/library/api';
+	import type { Season } from '$lib/features/catalog/types';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Confirm from '$lib/components/ui/Confirm.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import StatusPill from '$lib/components/ui/StatusPill.svelte';
 	import Textarea from '$lib/components/ui/Textarea.svelte';
+	import { formatBytes, qualityLabel } from '$lib/utils/format';
 
 	let { data } = $props();
 
@@ -30,7 +32,7 @@
 		e.preventDefault();
 		saving = true;
 		try {
-			await admin.updateTitle(data.title.id, {
+			await libraryApi.updateTitle(data.title.id, {
 				name,
 				year: year ? Number(year) : null,
 				contentRating,
@@ -54,7 +56,7 @@
 	async function addSeason() {
 		const nextNumber = (data.seasons?.length ?? 0) + 1;
 		try {
-			await admin.createSeason(data.title.id, nextNumber, `Season ${nextNumber}`);
+			await libraryApi.createSeason(data.title.id, nextNumber, `Season ${nextNumber}`);
 			invalidateAll();
 		} catch {
 			toast.error('Failed to add season');
@@ -63,7 +65,7 @@
 
 	async function removeSeason(season: Season) {
 		try {
-			await admin.deleteSeason(season.id);
+			await libraryApi.deleteSeason(season.id);
 			invalidateAll();
 		} catch {
 			toast.error('Failed to delete season');
@@ -74,7 +76,7 @@
 		const episodeName = newEpisodeName[season.id]?.trim();
 		if (!episodeName) return;
 		try {
-			await admin.createEpisode(season.id, {
+			await libraryApi.createEpisode(season.id, {
 				episodeNumber: season.episodes.length + 1,
 				name: episodeName
 			});
@@ -87,7 +89,7 @@
 
 	async function removeEpisode(id: number) {
 		try {
-			await admin.deleteEpisode(id);
+			await libraryApi.deleteEpisode(id);
 			invalidateAll();
 		} catch {
 			toast.error('Failed to delete episode');
@@ -96,7 +98,7 @@
 
 	async function deleteTitle() {
 		try {
-			await admin.deleteTitle(data.title.id);
+			await libraryApi.deleteTitle(data.title.id);
 			toast.success('Title deleted');
 			goto('/admin/library');
 		} catch {
@@ -215,11 +217,34 @@
 
 	<aside class="space-y-6">
 		<div class="rounded-card border border-edge bg-surface/40 p-6">
-			<h2 class="mb-3 text-sm font-semibold text-muted">Files & artwork</h2>
-			<p class="text-xs leading-relaxed text-faint">
-				Media files appear here once a library scan or upload assigns them to this title. Artwork
-				and subtitles arrive with the uploads milestone.
-			</p>
+			<h2 class="mb-3 text-sm font-semibold text-muted">Files</h2>
+			{#if data.mediaFiles.length === 0}
+				<p class="text-xs leading-relaxed text-faint">
+					No media files yet — scan a library folder or upload to attach video to this title.
+				</p>
+			{:else}
+				<ul class="space-y-3">
+					{#each data.mediaFiles as file (file.id)}
+						<li class="text-xs">
+							<p class="truncate font-mono text-muted" title={file.path}>{file.path}</p>
+							<p class="mt-1 flex flex-wrap gap-1">
+								{#if qualityLabel(file.height)}
+									<Badge>{qualityLabel(file.height)}</Badge>
+								{/if}
+								{#if file.videoRange !== 'sdr'}
+									<Badge>HDR</Badge>
+								{/if}
+								<Badge>{file.videoCodec || file.audioCodec}</Badge>
+								<Badge>{file.container}</Badge>
+								<Badge>{formatBytes(file.sizeBytes)}</Badge>
+								{#if file.directPlay}
+									<Badge>direct play</Badge>
+								{/if}
+							</p>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</div>
 
 		<div class="rounded-card border border-danger/30 bg-danger/5 p-6">

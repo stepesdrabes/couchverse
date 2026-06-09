@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
-	import * as admin from '$lib/api/admin';
+	import * as settingsApi from '$lib/features/settings/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 
@@ -8,7 +8,7 @@
 	let saving = $state(false);
 
 	$effect(() => {
-		admin.getSettings().then((s) => {
+		settingsApi.getSettings().then((s) => {
 			tmdbKey = typeof s['tmdb.api_key'] === 'string' ? (s['tmdb.api_key'] as string) : '';
 		});
 	});
@@ -17,7 +17,7 @@
 		e.preventDefault();
 		saving = true;
 		try {
-			await admin.putSettings({ 'tmdb.api_key': tmdbKey });
+			await settingsApi.putSettings({ 'tmdb.api_key': tmdbKey });
 			toast.success('Settings saved');
 		} catch {
 			toast.error('Failed to save settings');

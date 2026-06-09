@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { Plus, ShieldCheck } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
-	import * as admin from '$lib/api/admin';
-	import type { User } from '$lib/api/types';
+	import * as usersApi from '$lib/features/users/api';
+	import type { User } from '$lib/features/auth/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Confirm from '$lib/components/ui/Confirm.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
-	import { session } from '$lib/state/session.svelte';
+	import { session } from '$lib/features/auth/session.svelte';
 	import { formatYearDate } from '$lib/utils/format';
 
 	let users = $state<User[]>([]);
@@ -31,7 +31,7 @@
 	let confirmDelete = $state(false);
 
 	async function refresh() {
-		users = await admin.listUsers();
+		users = await usersApi.listUsers();
 	}
 	refresh();
 
@@ -39,7 +39,7 @@
 		e.preventDefault();
 		busy = true;
 		try {
-			await admin.createUser({ username: newUsername, password: newPassword, role: newRole });
+			await usersApi.createUser({ username: newUsername, password: newPassword, role: newRole });
 			toast.success(`Created account “${newUsername}”`);
 			createOpen = false;
 			newUsername = newPassword = '';
@@ -66,7 +66,7 @@
 		if (!editing) return;
 		busy = true;
 		try {
-			await admin.updateUser(editing.id, {
+			await usersApi.updateUser(editing.id, {
 				displayName: editDisplayName,
 				role: editRole,
 				disabled: editDisabled,
@@ -85,7 +85,7 @@
 	async function remove() {
 		if (!deleting) return;
 		try {
-			await admin.deleteUser(deleting.id);
+			await usersApi.deleteUser(deleting.id);
 			toast.success(`Deleted “${deleting.username}”`);
 			refresh();
 		} catch (err) {

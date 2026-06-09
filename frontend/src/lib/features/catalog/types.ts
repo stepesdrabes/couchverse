@@ -1,11 +1,4 @@
-export interface User {
-	id: number;
-	username: string;
-	displayName: string;
-	role: 'admin' | 'member';
-	disabled: boolean;
-	createdAt: string;
-}
+// Catalog entities shared by the user-facing app and the admin panel.
 
 export type TitleKind = 'movie' | 'series';
 export type ContentStatus = 'draft' | 'processing' | 'published' | 'hidden';
@@ -51,16 +44,26 @@ export interface Genre {
 	name: string;
 }
 
-export interface LibraryRow {
+export interface MediaFile {
 	id: number;
-	kind: TitleKind;
-	name: string;
-	year: number | null;
-	status: ContentStatus;
-	seasonCount: number;
-	episodeCount: number;
+	libraryId: number;
+	titleId: number | null;
+	episodeId: number | null;
+	trackId: number | null;
+	path: string;
 	sizeBytes: number;
-	maxHeight: number;
-	hdr: boolean;
-	addedAt: string;
+	container: string;
+	videoCodec: string;
+	audioCodec: string;
+	width: number;
+	height: number;
+	durationSeconds: number;
+	bitrate: number;
+	channels: number;
+	sampleRate: number;
+	videoRange: 'sdr' | 'hdr10' | 'hlg' | 'dv';
+	directPlay: boolean;
+	fileMtime: string | null;
+	scannedAt: string | null;
+	createdAt: string;
 }

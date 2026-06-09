@@ -4,8 +4,8 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
-	import * as admin from '$lib/api/admin';
-	import type { LibraryRow } from '$lib/api/types';
+	import * as libraryApi from '$lib/features/library/api';
+	import type { LibraryRow } from '$lib/features/library/api';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
@@ -41,7 +41,7 @@
 	async function refresh() {
 		loading = true;
 		try {
-			const res = await admin.library({ type: kind, status, sort, q: query });
+			const res = await libraryApi.listLibrary({ type: kind, status, sort, q: query });
 			items = res.items;
 			total = res.total;
 			for (const id of [...selected]) {
@@ -81,7 +81,7 @@
 		e.preventDefault();
 		creating = true;
 		try {
-			const title = await admin.createTitle({
+			const title = await libraryApi.createTitle({
 				kind: createKind,
 				name: createName,
 				year: createYear ? Number(createYear) : null
@@ -97,7 +97,7 @@
 
 	async function bulk(action: 'publish' | 'hide' | 'delete') {
 		try {
-			await admin.bulkTitles([...selected], action);
+			await libraryApi.bulkTitles([...selected], action);
 			toast.success(
 				`${selected.size} title${selected.size > 1 ? 's' : ''} ${action === 'delete' ? 'deleted' : action === 'publish' ? 'published' : 'hidden'}`
 			);
@@ -111,7 +111,7 @@
 	async function quickToggleVisibility(row: LibraryRow) {
 		const next = row.status === 'published' ? 'hidden' : 'published';
 		try {
-			await admin.updateTitle(row.id, { status: next });
+			await libraryApi.updateTitle(row.id, { status: next });
 			refresh();
 		} catch {
 			toast.error('Failed to update status');
@@ -120,7 +120,7 @@
 
 	async function deleteOne(row: LibraryRow) {
 		try {
-			await admin.deleteTitle(row.id);
+			await libraryApi.deleteTitle(row.id);
 			toast.success(`Deleted “${row.name}”`);
 			refresh();
 		} catch {

@@ -6,7 +6,7 @@
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
-	import { session } from '$lib/state/session.svelte';
+	import { session } from '$lib/features/auth/session.svelte';
 
 	let username = $state('');
 	let password = $state('');

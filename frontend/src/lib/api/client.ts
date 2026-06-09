@@ -22,6 +22,16 @@ export function onUnauthorized(handler: () => void) {
 	unauthorizedHandler = handler;
 }
 
+/** build a query string, skipping empty/undefined params */
+export function qs(params: Record<string, string | number | undefined>) {
+	const search = new URLSearchParams();
+	for (const [key, value] of Object.entries(params)) {
+		if (value !== undefined && value !== '') search.set(key, String(value));
+	}
+	const s = search.toString();
+	return s ? `?${s}` : '';
+}
+
 export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 	const res = await fetch(`/api/v1${path}`, {
 		method: opts.method ?? 'GET',

@@ -1,7 +1,7 @@
 import { goto } from '$app/navigation';
-import * as authApi from '$lib/api/auth';
 import { onUnauthorized } from '$lib/api/client';
-import type { User } from '$lib/api/types';
+import * as authApi from './api';
+import type { User } from './api';
 
 class Session {
 	user = $state<User | null>(null);
