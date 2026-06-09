@@ -167,3 +167,42 @@ export function uploadSubtitle(mediaFileId: number, lang: string, file: File) {
 
 export const deleteSubtitle = (id: number) =>
 	api<void>(`/admin/subtitles/${id}`, { method: 'DELETE' });
+
+// transcoding
+export interface TranscodeVariant {
+	id: number;
+	mediaFileId: number;
+	name: string;
+	width: number;
+	height: number;
+	mode: 'copy' | 'transcode';
+	status: 'queued' | 'processing' | 'ready' | 'failed';
+	createdAt: string;
+	completedAt: string | null;
+}
+
+export interface TranscodeInfo {
+	detectedEncoders: string[];
+	renditions: string[];
+	settings: {
+		hwAccel: string;
+		ladder: string[];
+		preset: string;
+		maxConcurrent: number;
+		jitEnabled: boolean | null;
+	};
+}
+
+export const transcodeInfo = () => api<TranscodeInfo>('/admin/transcode/info');
+
+export const enqueueTranscode = (mediaFileId: number, variants?: string[]) =>
+	api<{ queued: string[] }>(`/admin/media-files/${mediaFileId}/transcode`, {
+		method: 'POST',
+		body: { variants: variants ?? [] }
+	});
+
+export const listVariants = (mediaFileId: number) =>
+	api<TranscodeVariant[]>(`/admin/media-files/${mediaFileId}/variants`);
+
+export const deleteVariant = (id: number) =>
+	api<void>(`/admin/transcode-variants/${id}`, { method: 'DELETE' });

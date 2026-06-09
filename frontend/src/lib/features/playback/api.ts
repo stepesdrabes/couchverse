@@ -29,10 +29,21 @@ export interface PlaybackInfo {
 	display: { title: string; subtitle: string; titleId: number };
 	nextEpisode: EpisodeRef | null;
 	subtitles: SubtitleTrack[];
+	jobProgress?: number;
 }
 
 export const getPlayback = (kind: PlaybackKind, id: number) =>
-	api<PlaybackInfo>(`/playback/${kind}/${id}`);
+	api<PlaybackInfo>(`/playback/${kind}/${id}?caps=${clientCaps().join(',')}`);
+
+/** codecs this browser can direct-play beyond the h264 baseline */
+export function clientCaps(): string[] {
+	const caps: string[] = [];
+	if (typeof MediaSource !== 'undefined') {
+		if (MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L93.B0"')) caps.push('hevc');
+		if (MediaSource.isTypeSupported('video/mp4; codecs="av01.0.04M.08"')) caps.push('av1');
+	}
+	return caps;
+}
 
 export interface ProgressReport {
 	titleId?: number;

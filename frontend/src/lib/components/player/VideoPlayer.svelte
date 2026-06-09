@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Popover } from 'bits-ui';
+	import type Hls from 'hls.js';
 	import {
 		ArrowLeft,
 		Captions,
@@ -11,6 +12,7 @@
 		Play,
 		RotateCcw,
 		RotateCw,
+		SlidersHorizontal,
 		Volume2,
 		VolumeX
 	} from 'lucide-svelte';
@@ -198,8 +200,38 @@
 		poke();
 	}
 
+	// HLS: hls.js where needed, native playback on Safari
+	let hls: Hls | null = null;
+	let qualityLevels = $state<{ index: number; height: number }[]>([]);
+	let currentLevel = $state(-1); // -1 = auto
+
+	async function setupHls() {
+		if (!video || !info.streamUrl) return;
+		if (video.canPlayType('application/vnd.apple.mpegurl')) {
+			video.src = info.streamUrl;
+			return;
+		}
+		const { default: HlsCtor } = await import('hls.js');
+		if (!HlsCtor.isSupported()) return;
+		hls = new HlsCtor();
+		hls.loadSource(info.streamUrl);
+		hls.attachMedia(video);
+		hls.on(HlsCtor.Events.MANIFEST_PARSED, () => {
+			qualityLevels = (hls?.levels ?? []).map((level, index) => ({
+				index,
+				height: level.height
+			}));
+		});
+	}
+
+	function selectLevel(index: number) {
+		currentLevel = index;
+		if (hls) hls.currentLevel = index;
+	}
+
 	onMount(() => {
 		poke();
+		if (info.mode === 'hls') setupHls();
 		const onVisibility = () => {
 			if (document.visibilityState === 'hidden' && currentTime > 5) {
 				beaconProgress(progressBody());
@@ -209,6 +241,7 @@
 		return () => {
 			document.removeEventListener('visibilitychange', onVisibility);
 			clearTimeout(hideTimer);
+			hls?.destroy();
 			if (currentTime > 5) beaconProgress(progressBody());
 		};
 	});
@@ -226,7 +259,7 @@
 	<!-- svelte-ignore a11y_media_has_caption -->
 	<video
 		bind:this={video}
-		src={info.streamUrl}
+		src={info.mode === 'direct' ? info.streamUrl : undefined}
 		autoplay
 		class="size-full object-contain"
 		bind:volume
@@ -357,6 +390,45 @@
 				</span>
 
 				<div class="flex-1"></div>
+
+				{#if qualityLevels.length > 1}
+					<Popover.Root>
+						<Popover.Trigger class="player-btn" aria-label="Quality">
+							<SlidersHorizontal class="size-4.5" />
+						</Popover.Trigger>
+						<Popover.Portal>
+							<Popover.Content
+								side="top"
+								sideOffset={10}
+								class="z-50 w-40 animate-pop-in rounded-card border border-edge bg-surface-2/95 p-1 shadow-xl backdrop-blur"
+							>
+								<p
+									class="px-3 py-1.5 text-[10px] font-semibold tracking-widest text-faint uppercase"
+								>
+									Quality
+								</p>
+								<button
+									class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
+										{currentLevel === -1 ? 'text-text' : 'text-muted'} hover:bg-surface"
+									onclick={() => selectLevel(-1)}
+								>
+									Auto
+									{#if currentLevel === -1}<Check class="size-3.5 text-accent" />{/if}
+								</button>
+								{#each qualityLevels as level (level.index)}
+									<button
+										class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
+											{currentLevel === level.index ? 'text-text' : 'text-muted'} hover:bg-surface"
+										onclick={() => selectLevel(level.index)}
+									>
+										{level.height}p
+										{#if currentLevel === level.index}<Check class="size-3.5 text-accent" />{/if}
+									</button>
+								{/each}
+							</Popover.Content>
+						</Popover.Portal>
+					</Popover.Root>
+				{/if}
 
 				{#if info.subtitles.length > 0}
 					<Popover.Root>

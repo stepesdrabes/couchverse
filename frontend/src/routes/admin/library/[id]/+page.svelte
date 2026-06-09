@@ -5,6 +5,7 @@
 	import * as libraryApi from '$lib/features/library/api';
 	import type { Season } from '$lib/features/catalog/types';
 	import ArtworkCard from '$lib/components/admin/ArtworkCard.svelte';
+	import FileVariants from '$lib/components/admin/FileVariants.svelte';
 	import SubtitlesCard from '$lib/components/admin/SubtitlesCard.svelte';
 	import TmdbSearchModal from '$lib/components/admin/TmdbSearchModal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -254,6 +255,7 @@
 									<Badge>direct play</Badge>
 								{/if}
 							</p>
+							<FileVariants {file} />
 						</li>
 					{/each}
 				</ul>
