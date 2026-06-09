@@ -12,6 +12,14 @@ export interface EpisodeRef {
 	titleName: string;
 }
 
+export interface SubtitleTrack {
+	id: number;
+	lang: string;
+	label: string;
+	forced: boolean;
+	url: string;
+}
+
 export interface PlaybackInfo {
 	mode: 'direct' | 'hls' | 'jit' | 'preparing' | 'unsupported';
 	mediaFileId: number;
@@ -20,6 +28,7 @@ export interface PlaybackInfo {
 	resumePosition: number;
 	display: { title: string; subtitle: string; titleId: number };
 	nextEpisode: EpisodeRef | null;
+	subtitles: SubtitleTrack[];
 }
 
 export const getPlayback = (kind: PlaybackKind, id: number) =>

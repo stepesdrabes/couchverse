@@ -1,6 +1,7 @@
 // Admin library curation: the library table, titles, seasons and episodes.
 import { api, qs } from '$lib/api/client';
 import type {
+	ArtworkRef,
 	ContentStatus,
 	Episode,
 	MediaFile,
@@ -60,7 +61,9 @@ export const createTitle = (input: TitleInput) =>
 	api<Title>('/admin/titles', { method: 'POST', body: input });
 
 export const getTitle = (id: number) =>
-	api<{ title: Title; seasons?: Season[]; mediaFiles: MediaFile[] }>(`/admin/titles/${id}`);
+	api<{ title: Title; seasons?: Season[]; mediaFiles: MediaFile[]; artwork: ArtworkRef[] }>(
+		`/admin/titles/${id}`
+	);
 
 export const updateTitle = (id: number, patch: TitlePatch) =>
 	api<Title>(`/admin/titles/${id}`, { method: 'PATCH', body: patch });
@@ -93,3 +96,74 @@ export const updateEpisode = (id: number, patch: Partial<EpisodeInput>) =>
 
 export const deleteEpisode = (id: number) =>
 	api<void>(`/admin/episodes/${id}`, { method: 'DELETE' });
+
+// TMDB metadata
+export interface TmdbResult {
+	tmdbId: number;
+	name: string;
+	year: number;
+	overview: string;
+	posterUrl: string;
+}
+
+export const searchTmdb = (q: string, kind: TitleKind) =>
+	api<TmdbResult[]>(`/admin/metadata/search${qs({ q, kind })}`);
+
+export const applyTmdb = (titleId: number, tmdbId: number) =>
+	api<{ jobId: number }>(`/admin/titles/${titleId}/metadata/apply`, {
+		method: 'POST',
+		body: { tmdbId }
+	});
+
+// artwork
+async function multipart<T>(path: string, form: FormData): Promise<T> {
+	const res = await fetch(`/api/v1${path}`, {
+		method: 'POST',
+		body: form,
+		credentials: 'same-origin'
+	});
+	const data = await res.json().catch(() => null);
+	if (!res.ok) throw new Error(data?.error?.message ?? 'upload failed');
+	return data as T;
+}
+
+export function uploadArtwork(
+	ownerKind: string,
+	ownerId: number,
+	kind: 'poster' | 'backdrop',
+	file: File
+) {
+	const form = new FormData();
+	form.set('ownerKind', ownerKind);
+	form.set('ownerId', String(ownerId));
+	form.set('kind', kind);
+	form.set('file', file);
+	return multipart<ArtworkRef>('/admin/artwork', form);
+}
+
+export const deleteArtwork = (id: number) =>
+	api<void>(`/admin/artwork/${id}`, { method: 'DELETE' });
+
+// subtitles
+export interface SubtitleInfo {
+	id: number;
+	mediaFileId: number;
+	lang: string;
+	label: string;
+	source: 'embedded' | 'uploaded';
+	forced: boolean;
+	createdAt: string;
+}
+
+export const listSubtitles = (mediaFileId: number) =>
+	api<SubtitleInfo[]>(`/admin/media-files/${mediaFileId}/subtitles`);
+
+export function uploadSubtitle(mediaFileId: number, lang: string, file: File) {
+	const form = new FormData();
+	form.set('lang', lang);
+	form.set('file', file);
+	return multipart<SubtitleInfo>(`/admin/media-files/${mediaFileId}/subtitles`, form);
+}
+
+export const deleteSubtitle = (id: number) =>
+	api<void>(`/admin/subtitles/${id}`, { method: 'DELETE' });

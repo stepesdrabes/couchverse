@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { Popover } from 'bits-ui';
 	import {
 		ArrowLeft,
+		Captions,
+		Check,
 		Maximize,
 		Minimize,
 		Pause,
@@ -38,6 +41,42 @@
 
 	let hideTimer: ReturnType<typeof setTimeout>;
 	let lastReported = 0;
+
+	// subtitle selection: track id or null (off); restore the preferred language
+	let activeSub = $state<number | null>(null);
+
+	function applySubtitles() {
+		if (!video) return;
+		const selected = info.subtitles.findIndex((s) => s.id === activeSub);
+		for (let i = 0; i < video.textTracks.length; i++) {
+			video.textTracks[i].mode = i === selected ? 'showing' : 'hidden';
+		}
+	}
+
+	function selectSubtitle(id: number | null) {
+		activeSub = id;
+		const lang = info.subtitles.find((s) => s.id === id)?.lang;
+		if (lang) localStorage.setItem('cv.subLang', lang);
+		else localStorage.removeItem('cv.subLang');
+		applySubtitles();
+	}
+
+	function cycleSubtitle() {
+		if (info.subtitles.length === 0) return;
+		const idx = info.subtitles.findIndex((s) => s.id === activeSub);
+		const next = idx + 1 >= info.subtitles.length ? null : info.subtitles[idx + 1].id;
+		selectSubtitle(next ?? null);
+	}
+
+	function restorePreferredSubtitle() {
+		const preferred = localStorage.getItem('cv.subLang');
+		if (!preferred) return;
+		const match = info.subtitles.find((s) => s.lang === preferred);
+		if (match) {
+			activeSub = match.id;
+			applySubtitles();
+		}
+	}
 
 	const remaining = $derived(duration - currentTime);
 	const progressBody = () => ({
@@ -152,6 +191,9 @@
 			case 'm':
 				muted = !muted;
 				break;
+			case 'c':
+				cycleSubtitle();
+				break;
 		}
 		poke();
 	}
@@ -200,11 +242,16 @@
 		ondurationchange={() => (duration = video?.duration || info.durationSeconds)}
 		onloadedmetadata={() => {
 			if (video && info.resumePosition > 5) video.currentTime = info.resumePosition;
+			restorePreferredSubtitle();
 		}}
 		onended={onEnded}
 		onclick={togglePlay}
 		ondblclick={toggleFullscreen}
-	></video>
+	>
+		{#each info.subtitles as sub (sub.id)}
+			<track kind="subtitles" src={sub.url} srclang={sub.lang} label={sub.label} />
+		{/each}
+	</video>
 
 	{#if controlsVisible}
 		<!-- top bar -->
@@ -310,6 +357,48 @@
 				</span>
 
 				<div class="flex-1"></div>
+
+				{#if info.subtitles.length > 0}
+					<Popover.Root>
+						<Popover.Trigger
+							class="player-btn {activeSub !== null ? 'text-accent!' : ''}"
+							aria-label="Subtitles"
+						>
+							<Captions class="size-5" />
+						</Popover.Trigger>
+						<Popover.Portal>
+							<Popover.Content
+								side="top"
+								sideOffset={10}
+								class="z-50 w-48 animate-pop-in rounded-card border border-edge bg-surface-2/95 p-1 shadow-xl backdrop-blur"
+							>
+								<p
+									class="px-3 py-1.5 text-[10px] font-semibold tracking-widest text-faint uppercase"
+								>
+									Subtitles
+								</p>
+								<button
+									class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
+										{activeSub === null ? 'text-text' : 'text-muted'} hover:bg-surface"
+									onclick={() => selectSubtitle(null)}
+								>
+									Off
+									{#if activeSub === null}<Check class="size-3.5 text-accent" />{/if}
+								</button>
+								{#each info.subtitles as sub (sub.id)}
+									<button
+										class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
+											{activeSub === sub.id ? 'text-text' : 'text-muted'} hover:bg-surface"
+										onclick={() => selectSubtitle(sub.id)}
+									>
+										{sub.label}
+										{#if activeSub === sub.id}<Check class="size-3.5 text-accent" />{/if}
+									</button>
+								{/each}
+							</Popover.Content>
+						</Popover.Portal>
+					</Popover.Root>
+				{/if}
 
 				<button class="player-btn" onclick={toggleFullscreen} aria-label="Fullscreen">
 					{#if fullscreen}

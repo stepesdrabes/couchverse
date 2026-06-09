@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { ArrowLeft, Plus, Trash2 } from 'lucide-svelte';
+	import { ArrowLeft, Plus, Sparkles, Trash2 } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { Season } from '$lib/features/catalog/types';
+	import ArtworkCard from '$lib/components/admin/ArtworkCard.svelte';
+	import SubtitlesCard from '$lib/components/admin/SubtitlesCard.svelte';
+	import TmdbSearchModal from '$lib/components/admin/TmdbSearchModal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Confirm from '$lib/components/ui/Confirm.svelte';
@@ -24,6 +27,7 @@
 	let runtime = $state(data.title.runtimeMinutes?.toString() ?? '');
 	let saving = $state(false);
 	let confirmDeleteTitle = $state(false);
+	let tmdbOpen = $state(false);
 
 	// season/episode editing state
 	let newEpisodeName = $state<Record<number, string>>({});
@@ -128,7 +132,13 @@
 <div class="grid gap-8 lg:grid-cols-[1fr_320px]">
 	<div class="space-y-8">
 		<form onsubmit={save} class="space-y-4 rounded-card border border-edge bg-surface/40 p-6">
-			<h2 class="text-sm font-semibold text-muted">Metadata</h2>
+			<div class="flex items-center justify-between">
+				<h2 class="text-sm font-semibold text-muted">Metadata</h2>
+				<Button variant="secondary" size="sm" onclick={() => (tmdbOpen = true)}>
+					<Sparkles class="size-3.5" />
+					Fetch from TMDB
+				</Button>
+			</div>
 			<div class="grid gap-4 sm:grid-cols-2">
 				<Input label="Name" bind:value={name} required />
 				<Input label="Year" type="number" bind:value={year} />
@@ -216,6 +226,9 @@
 	</div>
 
 	<aside class="space-y-6">
+		<ArtworkCard titleId={data.title.id} artwork={data.artwork} />
+		<SubtitlesCard mediaFiles={data.mediaFiles} />
+
 		<div class="rounded-card border border-edge bg-surface/40 p-6">
 			<h2 class="mb-3 text-sm font-semibold text-muted">Files</h2>
 			{#if data.mediaFiles.length === 0}
@@ -266,3 +279,5 @@
 	message="This removes the title and all its seasons, episodes and metadata."
 	onconfirm={deleteTitle}
 />
+
+<TmdbSearchModal bind:open={tmdbOpen} title={data.title} />
