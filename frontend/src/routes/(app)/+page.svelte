@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { session } from '$lib/state/session.svelte';
@@ -14,8 +15,11 @@
 		<p class="mt-3 text-sm text-muted">
 			Signed in as {session.user?.displayName} · the library arrives in the next milestone
 		</p>
-		<Button variant="secondary" size="sm" class="mt-6" onclick={() => session.logout()}>
-			Sign out
-		</Button>
+		<div class="mt-6 flex items-center justify-center gap-2">
+			{#if session.isAdmin}
+				<Button variant="primary" size="sm" onclick={() => goto('/admin')}>Server admin</Button>
+			{/if}
+			<Button variant="secondary" size="sm" onclick={() => session.logout()}>Sign out</Button>
+		</div>
 	</div>
 </div>

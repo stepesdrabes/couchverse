@@ -1,0 +1,20 @@
+<script lang="ts">
+	import type { ContentStatus } from '$lib/api/types';
+
+	let { status }: { status: ContentStatus } = $props();
+
+	const styles: Record<ContentStatus, { dot: string; text: string; label: string }> = {
+		published: { dot: 'bg-success', text: 'text-success', label: 'Published' },
+		processing: { dot: 'bg-accent animate-pulse', text: 'text-accent', label: 'Processing' },
+		draft: { dot: 'bg-faint', text: 'text-muted', label: 'Draft' },
+		hidden: { dot: 'bg-faint', text: 'text-faint', label: 'Hidden' }
+	};
+	const style = $derived(styles[status]);
+</script>
+
+<span
+	class="inline-flex items-center gap-1.5 rounded-full border border-edge bg-surface-2 py-0.5 pr-2.5 pl-2 text-xs font-medium {style.text}"
+>
+	<span class="size-1.5 rounded-full {style.dot}"></span>
+	{style.label}
+</span>
