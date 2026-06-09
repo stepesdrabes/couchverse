@@ -8,14 +8,40 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"couchverse/internal/auth"
 	"couchverse/internal/config"
+	"couchverse/internal/jobs"
+	"couchverse/internal/media"
 	"couchverse/internal/server"
 	"couchverse/internal/store"
 )
+
+// ensureManagedLibraries creates the default upload-target libraries under
+// DATA_DIR/media on first start.
+func ensureManagedLibraries(ctx context.Context, st *store.Store, dataDir string) error {
+	for _, lib := range []struct{ name, kind string }{
+		{"Movies", "movies"},
+		{"Series", "series"},
+		{"Music", "music"},
+	} {
+		path := filepath.Join(dataDir, "media", lib.kind)
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			return err
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+		if err := st.EnsureLibrary(ctx, lib.name, lib.kind, abs, true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
@@ -49,6 +75,14 @@ func run() error {
 	if err := auth.Bootstrap(ctx, st, cfg); err != nil {
 		return err
 	}
+	if err := ensureManagedLibraries(ctx, st, cfg.DataDir); err != nil {
+		return err
+	}
+
+	runner := jobs.NewRunner(st, cfg.JobWorkers)
+	runner.Register("scan_library", 1, (&media.Scanner{Store: st}).Handle)
+	runner.Register("probe", 2, (&media.Prober{Store: st, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
+	go runner.Run(ctx)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),

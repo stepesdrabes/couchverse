@@ -217,6 +217,50 @@ func (s *Store) ListGenres(ctx context.Context) ([]Genre, error) {
 	return genres, rows.Err()
 }
 
+// FindOrCreateTitle matches scanner-discovered files to existing titles by
+// case-insensitive name (and year when known), creating a draft otherwise.
+func (s *Store) FindOrCreateTitle(ctx context.Context, kind, name string, year *int) (*Title, error) {
+	t, err := scanTitle(s.pool.QueryRow(ctx,
+		`SELECT `+titleCols+` FROM titles
+		 WHERE kind = $1 AND lower(name) = lower($2)
+			AND ($3::int IS NULL OR year IS NULL OR year = $3)
+		 ORDER BY (year = $3) DESC NULLS LAST
+		 LIMIT 1`, kind, name, year))
+	if err == nil {
+		if loadErr := s.loadTitleGenres(ctx, t); loadErr != nil {
+			return nil, loadErr
+		}
+		return t, nil
+	}
+	if !errors.Is(err, httpx.ErrNotFound) {
+		return nil, err
+	}
+	return scanTitle(s.pool.QueryRow(ctx,
+		`INSERT INTO titles (kind, name, sort_name, year) VALUES ($1, $2, $2, $3)
+		 RETURNING `+titleCols, kind, name, year))
+}
+
+func (s *Store) FindOrCreateSeason(ctx context.Context, titleID int64, seasonNumber int) (int64, error) {
+	var id int64
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO seasons (title_id, season_number, name)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (title_id, season_number) DO UPDATE SET title_id = EXCLUDED.title_id
+		 RETURNING id`, titleID, seasonNumber, fmt.Sprintf("Season %d", seasonNumber)).Scan(&id)
+	return id, err
+}
+
+func (s *Store) FindOrCreateEpisode(ctx context.Context, seasonID int64, episodeNumber int, name string) (int64, error) {
+	var id int64
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO episodes (season_id, episode_number, name)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (season_id, episode_number) DO UPDATE
+			SET name = CASE WHEN episodes.name = '' THEN EXCLUDED.name ELSE episodes.name END
+		 RETURNING id`, seasonID, episodeNumber, name).Scan(&id)
+	return id, err
+}
+
 type LibraryFilter struct {
 	Kind     string // movie | series | "" (all)
 	Status   string

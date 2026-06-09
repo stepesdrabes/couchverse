@@ -14,6 +14,8 @@ type Config struct {
 	AdminPassword string
 	CookieSecure  bool
 	JobWorkers    int
+	FFmpegPath    string
+	FFprobePath   string
 }
 
 func Load() (Config, error) {
@@ -25,6 +27,8 @@ func Load() (Config, error) {
 		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
 		CookieSecure:  envBool("COOKIE_SECURE", false),
 		JobWorkers:    envInt("JOB_WORKERS", 2),
+		FFmpegPath:    envStr("FFMPEG_PATH", "ffmpeg"),
+		FFprobePath:   envStr("FFPROBE_PATH", "ffprobe"),
 	}
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("DATABASE_URL is required")

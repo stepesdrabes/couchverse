@@ -33,7 +33,8 @@ CREATE TABLE media_files (
     scanned_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (library_id, path),
-    CHECK (num_nonnulls(title_id, episode_id, track_id) = 1)
+    -- at most one owner; files start unassigned until the probe job matches them
+    CHECK (num_nonnulls(title_id, episode_id, track_id) <= 1)
 );
 CREATE INDEX media_files_title_idx ON media_files (title_id);
 CREATE INDEX media_files_episode_idx ON media_files (episode_id);

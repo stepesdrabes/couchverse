@@ -71,6 +71,12 @@ func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
 		}
 		out["seasons"] = seasons
 	}
+	files, err := h.store.MediaFilesForTitle(r.Context(), t.ID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	out["mediaFiles"] = files
 	httpx.JSON(w, http.StatusOK, out)
 }
 

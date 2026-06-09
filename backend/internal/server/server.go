@@ -34,6 +34,8 @@ func (s *Server) Handler() http.Handler {
 	adminTitles := api.NewAdminTitles(s.store)
 	adminUsers := api.NewAdminUsers(s.store)
 	adminSettings := api.NewAdminSettings(s.store)
+	adminLibraries := api.NewAdminLibraries(s.store)
+	adminJobs := api.NewAdminJobs(s.store)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -90,6 +92,16 @@ func (s *Server) Handler() http.Handler {
 
 			adm.Get("/settings", adminSettings.Get)
 			adm.Put("/settings", adminSettings.Put)
+
+			adm.Get("/libraries", adminLibraries.List)
+			adm.Post("/libraries", adminLibraries.Create)
+			adm.Delete("/libraries/{id}", adminLibraries.Delete)
+			adm.Post("/libraries/{id}/scan", adminLibraries.Scan)
+			adm.Post("/libraries/scan-all", adminLibraries.ScanAll)
+
+			adm.Get("/jobs", adminJobs.List)
+			adm.Post("/jobs/{id}/retry", adminJobs.Retry)
+			adm.Post("/jobs/{id}/cancel", adminJobs.Cancel)
 		})
 	})
 
