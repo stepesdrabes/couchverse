@@ -1,0 +1,40 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://couchverse:${DB_PASSWORD}@db:5432/couchverse
+      DATA_DIR: /data
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      COOKIE_SECURE: "false" # set to true behind a TLS reverse proxy
+      JOB_WORKERS: "2"
+    volumes:
+      # external disk with media + app data
+      - ${MEDIA_ROOT:-./data}:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: couchverse
+      POSTGRES_USER: couchverse
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      # loopback only — for local development (`make run-backend`)
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # on a Raspberry Pi keep this off the SD card (bind-mount to SSD/USB)
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U couchverse"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:

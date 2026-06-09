@@ -1,0 +1,10 @@
+node_modules/
+frontend/build/
+frontend/.svelte-kit/
+backend/web/dist/*
+!backend/web/dist/.gitkeep
+backend/bin/
+data/
+.env
+.DS_Store
+*.log

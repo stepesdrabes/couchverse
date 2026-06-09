@@ -1,0 +1,11 @@
+.git/
+node_modules/
+frontend/node_modules/
+frontend/build/
+frontend/.svelte-kit/
+backend/web/dist/*
+backend/bin/
+data/
+example_designs/
+.env
+*.md
