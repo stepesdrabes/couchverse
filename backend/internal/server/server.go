@@ -18,6 +18,7 @@ import (
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 	"couchverse/internal/subtitles"
+	"couchverse/internal/transcode"
 	"couchverse/internal/upload"
 	"couchverse/web"
 )
@@ -28,10 +29,11 @@ type Server struct {
 	uploads   *upload.Manager
 	artwork   *artwork.Service
 	subtitles *subtitles.Service
+	transcode *transcode.JobHandler
 }
 
-func New(cfg config.Config, st *store.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service) *Server {
-	return &Server{cfg: cfg, store: st, uploads: uploads, artwork: art, subtitles: subs}
+func New(cfg config.Config, st *store.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler) *Server {
+	return &Server{cfg: cfg, store: st, uploads: uploads, artwork: art, subtitles: subs, transcode: tc}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -43,8 +45,9 @@ func (s *Server) Handler() http.Handler {
 	adminLibraries := api.NewAdminLibraries(s.store)
 	adminJobs := api.NewAdminJobs(s.store)
 	catalog := api.NewCatalog(s.store)
-	stream := api.NewStream(s.store)
+	stream := api.NewStream(s.store, s.cfg.DataDir)
 	progress := api.NewProgress(s.store)
+	transcodeAPI := api.NewAdminTranscode(s.store, s.transcode, s.cfg.FFmpegPath)
 	artworkAPI := api.NewArtwork(s.store, s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
 	uploadsAPI := api.NewAdminUploads(s.store, s.uploads)
@@ -87,6 +90,8 @@ func (s *Server) Handler() http.Handler {
 			p.Get("/search", catalog.Search)
 
 			p.Get("/stream/{id}", stream.Serve)
+			p.Get("/stream/{id}/hls/master.m3u8", stream.HLSMaster)
+			p.Get("/stream/{id}/hls/{variant}/{file}", stream.HLSFile)
 			p.Get("/playback/{kind}/{id}", stream.Playback)
 			p.Get("/artwork/{id}", artworkAPI.Serve)
 			p.Get("/subtitles/{id}.vtt", subtitlesAPI.Serve)
@@ -149,6 +154,11 @@ func (s *Server) Handler() http.Handler {
 			adm.Get("/media-files/{id}/subtitles", subtitlesAPI.ListForMediaFile)
 			adm.Post("/media-files/{id}/subtitles", subtitlesAPI.Upload)
 			adm.Delete("/subtitles/{id}", subtitlesAPI.Delete)
+
+			adm.Get("/transcode/info", transcodeAPI.Info)
+			adm.Post("/media-files/{id}/transcode", transcodeAPI.Enqueue)
+			adm.Get("/media-files/{id}/variants", transcodeAPI.ListVariants)
+			adm.Delete("/transcode-variants/{id}", transcodeAPI.DeleteVariant)
 		})
 	})
 

@@ -324,7 +324,18 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT t.id, t.kind, t.name, t.year, t.status, t.added_at,
+		SELECT t.id, t.kind, t.name, t.year,
+			CASE WHEN EXISTS (
+				SELECT 1 FROM transcode_variants tv
+				WHERE tv.status IN ('queued', 'processing')
+					AND tv.media_file_id IN (
+						SELECT mf3.id FROM media_files mf3
+						WHERE mf3.title_id = t.id OR mf3.episode_id IN (
+							SELECT e3.id FROM episodes e3
+							JOIN seasons s3 ON s3.id = e3.season_id
+							WHERE s3.title_id = t.id))
+			) THEN 'processing' ELSE t.status END AS status,
+			t.added_at,
 			count(DISTINCT se.id) AS season_count,
 			count(DISTINCT e.id) AS episode_count,
 			COALESCE(sum(mf.size_bytes), 0) AS size_bytes,

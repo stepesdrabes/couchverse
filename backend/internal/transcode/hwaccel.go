@@ -1,0 +1,77 @@
+// Package transcode turns non-browser-playable media into HLS, with hardware
+// acceleration when the host has a usable encoder.
+package transcode
+
+import (
+	"context"
+	"log/slog"
+	"os/exec"
+	"sync"
+	"time"
+)
+
+// candidate h264 encoders, in preference order per platform
+var hwEncoderCandidates = []string{
+	"h264_videotoolbox", // macOS
+	"h264_nvenc",        // NVIDIA
+	"h264_qsv",          // Intel QuickSync
+	"h264_vaapi",        // generic VA-API (Intel/AMD)
+	"h264_v4l2m2m",      // Raspberry Pi 4
+}
+
+var (
+	detectOnce sync.Once
+	detected   []string
+)
+
+// DetectEncoders probes which hardware h264 encoders actually work by running
+// a tiny test encode. Results are cached for the process lifetime.
+func DetectEncoders(ffmpegPath string) []string {
+	detectOnce.Do(func() {
+		for _, encoder := range hwEncoderCandidates {
+			if testEncode(ffmpegPath, encoder) {
+				detected = append(detected, encoder)
+			}
+		}
+		slog.Info("hardware encoders detected", "encoders", detected)
+	})
+	return detected
+}
+
+func testEncode(ffmpegPath, encoder string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	args := []string{
+		"-hide_banner", "-loglevel", "error",
+		"-f", "lavfi", "-i", "testsrc2=size=320x180:rate=25:duration=0.2",
+	}
+	if encoder == "h264_vaapi" {
+		args = append(args, "-vaapi_device", "/dev/dri/renderD128", "-vf", "format=nv12,hwupload")
+	}
+	args = append(args, "-c:v", encoder, "-f", "null", "-")
+
+	return exec.CommandContext(ctx, ffmpegPath, args...).Run() == nil
+}
+
+// PickEncoder resolves the transcode.hw_accel setting to a concrete encoder.
+// "auto" → best detected hw encoder, falling back to software libx264.
+func PickEncoder(ffmpegPath, setting string) string {
+	encoders := DetectEncoders(ffmpegPath)
+	switch setting {
+	case "", "auto":
+		if len(encoders) > 0 {
+			return encoders[0]
+		}
+		return "libx264"
+	case "none":
+		return "libx264"
+	default:
+		for _, e := range encoders {
+			if e == setting {
+				return e
+			}
+		}
+		return "libx264"
+	}
+}

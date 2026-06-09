@@ -208,6 +208,17 @@ func (s *Store) PendingJobCount(ctx context.Context) (int, error) {
 	return n, err
 }
 
+// TranscodeProgress reports the max progress of pending transcode jobs for a
+// media file (drives the "Preparing…" player state).
+func (s *Store) TranscodeProgress(ctx context.Context, mediaFileID int64) (int, error) {
+	var progress int
+	err := s.pool.QueryRow(ctx,
+		`SELECT COALESCE(max(progress), 0) FROM jobs
+		 WHERE type = 'transcode_hls' AND status IN ('pending', 'running')
+			AND (payload->>'mediaFileId')::bigint = $1`, mediaFileID).Scan(&progress)
+	return progress, err
+}
+
 // DeleteOldJobs prunes finished jobs to keep the table small.
 func (s *Store) DeleteOldJobs(ctx context.Context, olderThan time.Duration) (int64, error) {
 	tag, err := s.pool.Exec(ctx,

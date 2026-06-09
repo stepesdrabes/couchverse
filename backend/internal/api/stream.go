@@ -2,24 +2,29 @@ package api
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"couchverse/internal/auth"
 	"couchverse/internal/httpx"
+	"couchverse/internal/media"
 	"couchverse/internal/store"
 )
 
 type Stream struct {
-	store *store.Store
+	store   *store.Store
+	dataDir string
 }
 
-func NewStream(st *store.Store) *Stream {
-	return &Stream{store: st}
+func NewStream(st *store.Store, dataDir string) *Stream {
+	return &Stream{store: st, dataDir: dataDir}
 }
 
 var contentTypes = map[string]string{
@@ -76,6 +81,7 @@ type playbackInfo struct {
 	Display        playbackDisplay   `json:"display"`
 	NextEpisode    *store.EpisodeRef `json:"nextEpisode"`
 	Subtitles      []subtitleTrack   `json:"subtitles"`
+	JobProgress    int               `json:"jobProgress,omitempty"`
 }
 
 type subtitleTrack struct {
@@ -174,15 +180,108 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if mf.DirectPlay {
+	caps := strings.Split(r.URL.Query().Get("caps"), ",")
+	switch {
+	case mf.DirectPlay,
+		media.DirectPlayWithCaps(mf.Container, mf.VideoCodec, mf.AudioCodec, caps):
 		info.Mode = "direct"
 		info.StreamURL = "/api/v1/stream/" + strconv.FormatInt(mf.ID, 10)
-	} else {
-		// transcoding pipeline lands in a later milestone
-		info.Mode = "unsupported"
+
+	default:
+		variants, verr := h.store.VariantsForMediaFile(r.Context(), mf.ID)
+		if verr != nil {
+			httpx.Internal(w, verr)
+			return
+		}
+		ready, pending := false, false
+		for _, v := range variants {
+			switch v.Status {
+			case "ready":
+				ready = true
+			case "queued", "processing":
+				pending = true
+			}
+		}
+		switch {
+		case ready:
+			info.Mode = "hls"
+			info.StreamURL = "/api/v1/stream/" + strconv.FormatInt(mf.ID, 10) + "/hls/master.m3u8"
+		case pending:
+			info.Mode = "preparing"
+			if progress, perr := h.store.TranscodeProgress(r.Context(), mf.ID); perr == nil {
+				info.JobProgress = progress
+			}
+		default:
+			info.Mode = "unsupported"
+		}
 	}
 
 	httpx.JSON(w, http.StatusOK, info)
+}
+
+// HLSMaster generates the master playlist from ready variants.
+func (h *Stream) HLSMaster(w http.ResponseWriter, r *http.Request) {
+	mediaFileID := httpx.ID(r, "id")
+	mf, err := h.store.MediaFileByID(r.Context(), mediaFileID)
+	if err != nil {
+		respondStoreErr(w, err)
+		return
+	}
+	variants, err := h.store.VariantsForMediaFile(r.Context(), mediaFileID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+
+	var b strings.Builder
+	b.WriteString("#EXTM3U\n#EXT-X-VERSION:3\n")
+	count := 0
+	for _, v := range variants {
+		if v.Status != "ready" {
+			continue
+		}
+		bandwidth := v.VideoBitrate + v.AudioBitrate
+		if bandwidth <= 0 {
+			bandwidth = mf.Bitrate
+		}
+		width := v.Width
+		height := v.Height
+		if v.Mode == "copy" {
+			width, height = mf.Width, mf.Height
+		}
+		if width == 0 && height > 0 && mf.Height > 0 {
+			width = mf.Width * height / mf.Height
+		}
+		fmt.Fprintf(&b, "#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d,NAME=\"%s\"\n%s/index.m3u8\n",
+			bandwidth, width, height, v.Name, v.Name)
+		count++
+	}
+	if count == 0 {
+		httpx.NotFound(w)
+		return
+	}
+	w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+	w.Header().Set("Cache-Control", "no-cache")
+	io.WriteString(w, b.String())
+}
+
+var hlsFileRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+
+// HLSFile serves variant playlists and segments from the HLS cache.
+func (h *Stream) HLSFile(w http.ResponseWriter, r *http.Request) {
+	mediaFileID := httpx.ID(r, "id")
+	variant := chi.URLParam(r, "variant")
+	file := chi.URLParam(r, "file")
+	if !hlsFileRe.MatchString(variant) || !hlsFileRe.MatchString(file) {
+		httpx.BadRequest(w, "invalid path")
+		return
+	}
+	path := filepath.Join(h.dataDir, "cache", "hls", strconv.FormatInt(mediaFileID, 10), variant, file)
+	if strings.HasSuffix(file, ".m3u8") {
+		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+	}
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	http.ServeFile(w, r, path)
 }
 
 func formatEpisodeSubtitle(ref *store.EpisodeRef) string {

@@ -19,6 +19,23 @@ func DirectPlay(p *ProbeResult) bool {
 	return audioContainers[p.Container] && audioCodecs[p.AudioCodec]
 }
 
+// DirectPlayWithCaps re-evaluates direct play with client-reported codec
+// support (e.g. Safari handles hevc natively).
+func DirectPlayWithCaps(container, videoCodec, audioCodec string, caps []string) bool {
+	if !videoContainers[container] || !audioInVideo[audioCodec] {
+		return false
+	}
+	if videoCodecs[videoCodec] {
+		return true
+	}
+	for _, c := range caps {
+		if c == videoCodec {
+			return true
+		}
+	}
+	return false
+}
+
 // embedded subtitle codecs convertible to WebVTT (bitmap subs need OCR — skipped)
 var textSubtitleCodecs = map[string]bool{
 	"subrip": true, "srt": true, "ass": true, "ssa": true, "mov_text": true, "webvtt": true,

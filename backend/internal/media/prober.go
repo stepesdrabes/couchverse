@@ -86,6 +86,15 @@ func (p *Prober) Handle(ctx context.Context, job *store.Job, report func(int)) e
 			return err
 		}
 	}
+
+	// h264 in the wrong container / with incompatible audio: a cheap copy-remux
+	// to HLS makes it playable everywhere, so queue it right away
+	if res.HasVideo && !up.DirectPlay && res.VideoCodec == "h264" {
+		if _, err := p.Store.EnqueueJobOnce(ctx, "transcode_hls",
+			map[string]any{"mediaFileId": mf.ID, "variant": "source"}, store.EnqueueOpts{}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

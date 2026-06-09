@@ -21,6 +21,7 @@ import (
 	"couchverse/internal/store"
 	"couchverse/internal/subtitles"
 	"couchverse/internal/tmdb"
+	"couchverse/internal/transcode"
 	"couchverse/internal/upload"
 )
 
@@ -86,17 +87,21 @@ func run() error {
 	uploadManager := &upload.Manager{Store: st, DataDir: cfg.DataDir}
 	artworkService := &artwork.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	subtitleService := &subtitles.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	transcodeHandler := &transcode.JobHandler{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+
+	go transcode.DetectEncoders(cfg.FFmpegPath)
 
 	runner := jobs.NewRunner(st, cfg.JobWorkers)
 	runner.Register("scan_library", 1, (&media.Scanner{Store: st}).Handle)
 	runner.Register("probe", 2, (&media.Prober{Store: st, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Store: st, Artwork: artworkService}).Handle)
+	runner.Register("transcode_hls", transcode.LoadSettings(ctx, st).MaxConcurrent, transcodeHandler.Handle)
 	go runner.Run(ctx)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, st, uploadManager, artworkService, subtitleService).Handler(),
+		Handler:           server.New(cfg, st, uploadManager, artworkService, subtitleService, transcodeHandler).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
