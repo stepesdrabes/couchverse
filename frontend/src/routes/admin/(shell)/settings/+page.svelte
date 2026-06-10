@@ -4,6 +4,7 @@
 	import * as libraryApi from '$lib/features/library/api';
 	import * as settingsApi from '$lib/features/settings/api';
 	import { features } from '$lib/features/settings/features.svelte';
+	import { applyAccent } from '$lib/theme';
 	import { FormState } from '$lib/utils/form-state.svelte';
 	import HomeRowsEditor from '$lib/components/admin/HomeRowsEditor.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -43,6 +44,11 @@
 	let savingFeatures = $state(false);
 	const featuresForm = new FormState(() => ({ musicEnabled }));
 
+	let accent = $state('#e50914');
+	let savingAccent = $state(false);
+	const accentForm = new FormState(() => ({ accent }));
+	const accentPresets = ['#e50914', '#8b7cf0', '#3b82f6', '#10b981', '#f59e0b', '#ec4899'];
+
 	const allRenditions = ['1080p', '720p', '480p'];
 
 	function applyTranscodeInfo(info: libraryApi.TranscodeInfo) {
@@ -72,6 +78,11 @@
 					const flags = s.features as { musicEnabled?: boolean } | undefined;
 					musicEnabled = flags?.musicEnabled ?? true;
 					featuresForm.reset();
+				}
+				if (!accentForm.dirty) {
+					const appearance = s.appearance as { accent?: string } | undefined;
+					accent = appearance?.accent ?? '#e50914';
+					accentForm.reset();
 				}
 			})
 			.catch(() => toast.error('Failed to load settings'));
@@ -151,6 +162,23 @@
 			savingFeatures = false;
 		}
 	}
+
+	// preview the accent live as the admin edits it
+	$effect(() => applyAccent(accent));
+
+	async function saveAccent(e: SubmitEvent) {
+		e.preventDefault();
+		savingAccent = true;
+		try {
+			await settingsApi.putSettings({ appearance: { accent } });
+			accentForm.reset();
+			toast.success('Accent colour saved');
+		} catch {
+			toast.error('Failed to save settings');
+		} finally {
+			savingAccent = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -164,6 +192,7 @@
 		bind:value={tab}
 		items={[
 			{ value: 'general', label: 'General' },
+			{ value: 'appearance', label: 'Appearance' },
 			{ value: 'transcoding', label: 'Transcoding' },
 			{ value: 'features', label: 'Features' }
 		]}
@@ -194,6 +223,45 @@
 
 		<HomeRowsEditor />
 	</div>
+{:else if tab === 'appearance'}
+	<form
+		onsubmit={saveAccent}
+		class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
+	>
+		<h2 class="text-sm font-semibold text-muted">Accent colour</h2>
+		<p class="text-xs leading-relaxed text-faint">
+			Sets the highlight colour across the whole app — buttons, links, the player and admin. Changes
+			preview live; save to apply for everyone.
+		</p>
+
+		<div class="flex items-center gap-3">
+			<input
+				type="color"
+				bind:value={accent}
+				class="size-11 cursor-pointer rounded-input border border-edge bg-transparent"
+				aria-label="Accent colour"
+			/>
+			<Input bind:value={accent} class="w-32 font-mono" aria-label="Accent hex" />
+		</div>
+
+		<div class="flex flex-wrap gap-2">
+			{#each accentPresets as preset (preset)}
+				<button
+					type="button"
+					onclick={() => (accent = preset)}
+					class="size-7 rounded-full border-2 transition-transform hover:scale-110
+						{accent.toLowerCase() === preset ? 'border-text' : 'border-transparent'}"
+					style="background: {preset}"
+					aria-label={preset}
+				></button>
+			{/each}
+		</div>
+
+		<div class="flex items-center gap-3 pt-1">
+			<Button type="submit" loading={savingAccent} disabled={!accentForm.dirty}>Save</Button>
+			<span class="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white">Preview</span>
+		</div>
+	</form>
 {:else if tab === 'transcoding'}
 	<form
 		onsubmit={saveTranscode}

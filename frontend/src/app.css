@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/inter';
+@import '@fontsource-variable/plus-jakarta-sans';
 
 @theme {
 	--color-bg: #07080d;
@@ -9,16 +9,17 @@
 	--color-text: #f2f4f8;
 	--color-muted: #8e93a6;
 	--color-faint: #5b6072;
-	--color-accent: #8b7cf0;
-	--color-accent-strong: #6f5cf0;
-	--color-accent-soft: #2a2752;
+	/* Netflix-like red default; admins can override (see appearance.accent / theme.ts) */
+	--color-accent: #e50914;
+	--color-accent-strong: #b80710;
+	--color-accent-soft: #3a1216;
 	--color-success: #34d399;
 	--color-danger: #f0635c;
 
 	--radius-card: 14px;
 	--radius-input: 10px;
 
-	--font-sans: 'Inter Variable', system-ui, sans-serif;
+	--font-sans: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
 
 	--animate-shimmer: shimmer 1.8s ease-in-out infinite;
 	--animate-pop-in: pop-in 0.15s ease-out;

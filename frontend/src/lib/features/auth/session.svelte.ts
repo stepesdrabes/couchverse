@@ -1,6 +1,7 @@
 import { goto } from '$app/navigation';
 import { onUnauthorized } from '$lib/api/client';
 import { features } from '$lib/features/settings/features.svelte';
+import { preferences } from '$lib/features/preferences/preferences.svelte';
 import * as authApi from './api';
 import type { User } from './api';
 
@@ -22,7 +23,7 @@ class Session {
 
 	async login(username: string, password: string) {
 		this.user = await authApi.login(username, password);
-		await features.init();
+		await Promise.all([features.init(), preferences.init()]);
 	}
 
 	async logout() {

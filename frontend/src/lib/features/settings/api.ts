@@ -12,3 +12,9 @@ export interface FeatureFlags {
 }
 
 export const getFeatures = () => api<FeatureFlags>('/features');
+
+export interface ThemeInfo {
+	accent: string;
+}
+
+export const getTheme = () => api<ThemeInfo>('/theme');
