@@ -95,12 +95,21 @@ func run() error {
 
 	go transcode.DetectEncoders(cfg.FFmpegPath)
 
-	runner := jobs.NewRunner(st, cfg.JobWorkers)
+	// transcodes can occupy their full concurrency budget and still leave
+	// workers free for quick jobs (probes, scans, metadata) — otherwise a
+	// queue of hour-long transcodes starves everything else
+	transcodeSlots := transcode.LoadSettings(ctx, st).MaxConcurrent
+	workers := cfg.JobWorkers
+	if workers < transcodeSlots+2 {
+		workers = transcodeSlots + 2
+	}
+
+	runner := jobs.NewRunner(st, workers)
 	runner.Register("scan_library", 1, (&media.Scanner{Store: st}).Handle)
 	runner.Register("probe", 2, (&media.Prober{Store: st, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Store: st, Artwork: artworkService}).Handle)
-	runner.Register("transcode_hls", transcode.LoadSettings(ctx, st).MaxConcurrent, transcodeHandler.Handle)
+	runner.Register("transcode_hls", transcodeSlots, transcodeHandler.Handle)
 	runner.Register("cleanup", 1, cleanupHandler(st, uploadManager, cfg.DataDir))
 	if _, err := st.EnqueueJobOnce(ctx, "cleanup", struct{}{}, store.EnqueueOpts{}); err != nil {
 		return err
