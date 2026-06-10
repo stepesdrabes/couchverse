@@ -37,6 +37,18 @@ export function formatClock(totalSeconds: number): string {
 	return h > 0 ? `${h}:${`${m}`.padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
 
+/** 3725 → "1h 2m", 45 → "45s", 90061 → "1d 1h" */
+export function formatUptime(totalSeconds: number): string {
+	const s = Math.max(0, Math.floor(totalSeconds));
+	const d = Math.floor(s / 86400);
+	const h = Math.floor((s % 86400) / 3600);
+	const m = Math.floor((s % 3600) / 60);
+	if (d > 0) return `${d}d ${h}h`;
+	if (h > 0) return `${h}h ${m}m`;
+	if (m > 0) return `${m}m`;
+	return `${s}s`;
+}
+
 /** media file height → quality badge label */
 export function qualityLabel(height: number): string | null {
 	if (height >= 2000) return '4K';

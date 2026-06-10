@@ -91,6 +91,18 @@ export interface OverviewInfo {
 
 export const getOverview = () => api<OverviewInfo>('/admin/overview');
 
+export interface SystemStats {
+	cpuPercent: number; // -1 when unavailable (non-Linux host)
+	memUsed: number;
+	memTotal: number;
+	load1: number; // -1 when unavailable
+	goHeapBytes: number;
+	goroutines: number;
+	uptimeSeconds: number;
+}
+
+export const getSystem = () => api<SystemStats>('/admin/system');
+
 // home rows
 export interface HomeRowConfig {
 	id: number;
