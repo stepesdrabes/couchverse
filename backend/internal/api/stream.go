@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"couchverse/internal/auth"
+	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"

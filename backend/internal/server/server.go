@@ -12,9 +12,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"couchverse/internal/api"
-	"couchverse/internal/auth"
 	"couchverse/internal/config"
 	"couchverse/internal/feature/artwork"
+	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/flags"
@@ -31,6 +31,7 @@ type Server struct {
 	cfg       config.Config
 	store     *store.Store
 	settings  *settings.Store
+	auth      *auth.Store
 	jobs      *jobs.Store
 	music     *music.Store
 	uploads   *upload.Manager
@@ -40,15 +41,14 @@ type Server struct {
 	sessions  *transcode.SessionManager
 }
 
-func New(cfg config.Config, st *store.Store, set *settings.Store, jb *jobs.Store, mus *music.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
-	return &Server{cfg: cfg, store: st, settings: set, jobs: jb, music: mus, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
+func New(cfg config.Config, st *store.Store, set *settings.Store, au *auth.Store, jb *jobs.Store, mus *music.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
+	return &Server{cfg: cfg, store: st, settings: set, auth: au, jobs: jb, music: mus, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
 }
 
 func (s *Server) Handler() http.Handler {
-	sessions := auth.NewMiddleware(s.store)
-	authAPI := api.NewAuth(s.store, s.cfg)
+	sessions := auth.NewMiddleware(s.auth)
+	authModule := auth.NewModule(s.auth, s.cfg, s.artwork)
 	adminTitles := api.NewAdminTitles(s.store, s.jobs, s.artwork)
-	adminUsers := api.NewAdminUsers(s.store)
 	adminSettings := api.NewAdminSettings(s.settings)
 	adminLibraries := api.NewAdminLibraries(s.store, s.jobs)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
@@ -59,7 +59,6 @@ func (s *Server) Handler() http.Handler {
 	musicModule := music.NewModule(s.music, s.settings, s.artwork)
 	adminStorage := api.NewAdminStorage(s.store, s.jobs, s.cfg.DataDir)
 	sysStats := api.NewSysStats()
-	profile := api.NewProfile(s.store, s.artwork)
 	theme := api.NewTheme(s.settings)
 	artworkAPI := artwork.NewHandlers(s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
@@ -81,14 +80,13 @@ func (s *Server) Handler() http.Handler {
 			httpx.NotFound(w)
 		})
 
-		v1.Post("/auth/login", authAPI.Login)
-		v1.Post("/auth/logout", authAPI.Logout)
+		authModule.MountPublic(v1)
 		v1.Get("/theme", theme.Get) // public: accent applies on the login screen too
 
 		// authenticated routes
 		v1.Group(func(p chi.Router) {
 			p.Use(auth.RequireAuth)
-			p.Get("/auth/me", authAPI.Me)
+			authModule.MountUser(p)
 			p.Get("/genres", func(w http.ResponseWriter, r *http.Request) {
 				genres, err := s.store.ListGenres(r.Context())
 				if err != nil {
@@ -120,12 +118,6 @@ func (s *Server) Handler() http.Handler {
 			// music routes (incl. track playlists) gate themselves on the feature toggle
 			musicModule.MountUser(p)
 
-			p.Patch("/me/profile", profile.Update)
-			p.Get("/me/preferences", profile.Preferences)
-			p.Put("/me/preferences", profile.UpdatePreferences)
-			p.Post("/me/avatar", profile.SetAvatar)
-			p.Delete("/me/avatar", profile.DeleteAvatar)
-
 			p.Put("/progress", progress.Put)
 			p.Post("/progress", progress.Put) // sendBeacon can only POST
 			p.Get("/me/continue-watching", progress.ContinueWatching)
@@ -152,10 +144,7 @@ func (s *Server) Handler() http.Handler {
 
 			musicModule.MountAdmin(adm)
 
-			adm.Get("/users", adminUsers.List)
-			adm.Post("/users", adminUsers.Create)
-			adm.Patch("/users/{id}", adminUsers.Update)
-			adm.Delete("/users/{id}", adminUsers.Delete)
+			authModule.MountAdmin(adm)
 
 			adm.Get("/settings", adminSettings.Get)
 			adm.Put("/settings", adminSettings.Put)

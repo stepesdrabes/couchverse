@@ -6,11 +6,10 @@ import (
 	"log/slog"
 
 	"couchverse/internal/config"
-	"couchverse/internal/store"
 )
 
 // Bootstrap creates the master admin account on a fresh database.
-func Bootstrap(ctx context.Context, st *store.Store, cfg config.Config) error {
+func Bootstrap(ctx context.Context, st *Store, cfg config.Config) error {
 	n, err := st.CountUsers(ctx)
 	if err != nil {
 		return fmt.Errorf("count users: %w", err)

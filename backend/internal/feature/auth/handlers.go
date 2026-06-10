@@ -1,4 +1,4 @@
-package api
+package auth
 
 import (
 	"errors"
@@ -6,20 +6,18 @@ import (
 	"net/http"
 	"time"
 
-	"couchverse/internal/auth"
 	"couchverse/internal/config"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
-type Auth struct {
-	store   *store.Store
+type Handlers struct {
+	store   *Store
 	cfg     config.Config
 	limiter *rateLimiter
 }
 
-func NewAuth(st *store.Store, cfg config.Config) *Auth {
-	return &Auth{
+func NewHandlers(st *Store, cfg config.Config) *Handlers {
+	return &Handlers{
 		store:   st,
 		cfg:     cfg,
 		limiter: newRateLimiter(5, time.Minute),
@@ -27,9 +25,9 @@ func NewAuth(st *store.Store, cfg config.Config) *Auth {
 }
 
 // dummyHash keeps login timing constant when the username does not exist.
-var dummyHash, _ = auth.HashPassword("dummy-password-for-constant-timing")
+var dummyHash, _ = HashPassword("dummy-password-for-constant-timing")
 
-func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
+func (a *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -61,7 +59,7 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	if user != nil {
 		hash = user.PasswordHash
 	}
-	ok, err := auth.VerifyPassword(req.Password, hash)
+	ok, err := VerifyPassword(req.Password, hash)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -71,32 +69,32 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, tokenHash, err := auth.NewToken()
+	token, tokenHash, err := NewToken()
 	if err != nil {
 		httpx.Internal(w, err)
 		return
 	}
-	expires := time.Now().Add(auth.SessionTTL)
+	expires := time.Now().Add(SessionTTL)
 	if err := a.store.CreateSession(r.Context(), tokenHash, user.ID, expires, r.UserAgent()); err != nil {
 		httpx.Internal(w, err)
 		return
 	}
 
-	auth.SetSessionCookie(w, token, a.cfg.CookieSecure)
+	SetSessionCookie(w, token, a.cfg.CookieSecure)
 	httpx.JSON(w, http.StatusOK, user)
 }
 
-func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie(auth.SessionCookie); err == nil && cookie.Value != "" {
-		if err := a.store.DeleteSession(r.Context(), auth.HashToken(cookie.Value)); err != nil && !errors.Is(err, httpx.ErrNotFound) {
+func (a *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
+	if cookie, err := r.Cookie(SessionCookie); err == nil && cookie.Value != "" {
+		if err := a.store.DeleteSession(r.Context(), HashToken(cookie.Value)); err != nil && !errors.Is(err, httpx.ErrNotFound) {
 			httpx.Internal(w, err)
 			return
 		}
 	}
-	auth.ClearSessionCookie(w, a.cfg.CookieSecure)
+	ClearSessionCookie(w, a.cfg.CookieSecure)
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
-func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
-	httpx.JSON(w, http.StatusOK, auth.UserFrom(r.Context()))
+func (a *Handlers) Me(w http.ResponseWriter, r *http.Request) {
+	httpx.JSON(w, http.StatusOK, UserFrom(r.Context()))
 }

@@ -1,18 +1,16 @@
-package api
+package auth
 
 import (
 	"net/http"
 
-	"couchverse/internal/auth"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
 type AdminUsers struct {
-	store *store.Store
+	store *Store
 }
 
-func NewAdminUsers(st *store.Store) *AdminUsers {
+func NewAdminUsers(st *Store) *AdminUsers {
 	return &AdminUsers{store: st}
 }
 
@@ -46,7 +44,7 @@ func (h *AdminUsers) Create(w http.ResponseWriter, r *http.Request) {
 	if req.DisplayName == "" {
 		req.DisplayName = req.Username
 	}
-	hash, err := auth.HashPassword(req.Password)
+	hash, err := HashPassword(req.Password)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -61,7 +59,7 @@ func (h *AdminUsers) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminUsers) Update(w http.ResponseWriter, r *http.Request) {
 	id := httpx.ID(r, "id")
-	self := auth.UserFrom(r.Context())
+	self := UserFrom(r.Context())
 
 	var req struct {
 		DisplayName *string `json:"displayName"`
@@ -83,13 +81,13 @@ func (h *AdminUsers) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	up := store.UserUpdate{DisplayName: req.DisplayName, Role: req.Role, Disabled: req.Disabled}
+	up := UserUpdate{DisplayName: req.DisplayName, Role: req.Role, Disabled: req.Disabled}
 	if req.Password != nil {
 		if len(*req.Password) < 4 {
 			httpx.BadRequest(w, "password must be at least 4 characters")
 			return
 		}
-		hash, err := auth.HashPassword(*req.Password)
+		hash, err := HashPassword(*req.Password)
 		if err != nil {
 			httpx.Internal(w, err)
 			return
@@ -113,7 +111,7 @@ func (h *AdminUsers) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminUsers) Delete(w http.ResponseWriter, r *http.Request) {
 	id := httpx.ID(r, "id")
-	if id == auth.UserFrom(r.Context()).ID {
+	if id == UserFrom(r.Context()).ID {
 		httpx.BadRequest(w, "you cannot delete your own account")
 		return
 	}

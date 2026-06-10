@@ -7,23 +7,22 @@ import (
 	"net/url"
 
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
 type ctxKey int
 
 const userKey ctxKey = iota
 
-func UserFrom(ctx context.Context) *store.User {
-	u, _ := ctx.Value(userKey).(*store.User)
+func UserFrom(ctx context.Context) *User {
+	u, _ := ctx.Value(userKey).(*User)
 	return u
 }
 
 type Middleware struct {
-	store *store.Store
+	store *Store
 }
 
-func NewMiddleware(st *store.Store) *Middleware {
+func NewMiddleware(st *Store) *Middleware {
 	return &Middleware{store: st}
 }
 

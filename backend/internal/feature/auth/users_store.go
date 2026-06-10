@@ -1,4 +1,4 @@
-package store
+package auth
 
 import (
 	"context"
@@ -8,9 +8,19 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"couchverse/internal/db"
 )
+
+// Store owns users and sessions SQL over the shared pool.
+type Store struct {
+	db *pgxpool.Pool
+}
+
+func NewStore(db *pgxpool.Pool) *Store {
+	return &Store{db: db}
+}
 
 type User struct {
 	ID           int64     `json:"id"`
@@ -41,22 +51,22 @@ func scanUser(row pgx.Row) (*User, error) {
 }
 
 func (s *Store) UserByUsername(ctx context.Context, username string) (*User, error) {
-	return scanUser(s.pool.QueryRow(ctx, userSelect+` WHERE u.username = $1`, username))
+	return scanUser(s.db.QueryRow(ctx, userSelect+` WHERE u.username = $1`, username))
 }
 
 func (s *Store) UserByID(ctx context.Context, id int64) (*User, error) {
-	return scanUser(s.pool.QueryRow(ctx, userSelect+` WHERE u.id = $1`, id))
+	return scanUser(s.db.QueryRow(ctx, userSelect+` WHERE u.id = $1`, id))
 }
 
 func (s *Store) CountUsers(ctx context.Context) (int, error) {
 	var n int
-	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM users`).Scan(&n)
+	err := s.db.QueryRow(ctx, `SELECT count(*) FROM users`).Scan(&n)
 	return n, err
 }
 
 func (s *Store) CreateUser(ctx context.Context, username, displayName, passwordHash, role string) (*User, error) {
 	var id int64
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`INSERT INTO users (username, display_name, password_hash, role)
 		 VALUES ($1, $2, $3, $4)
 		 RETURNING id`,
@@ -68,7 +78,7 @@ func (s *Store) CreateUser(ctx context.Context, username, displayName, passwordH
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.pool.Query(ctx, userSelect+` ORDER BY u.created_at`)
+	rows, err := s.db.Query(ctx, userSelect+` ORDER BY u.created_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +103,7 @@ type UserUpdate struct {
 }
 
 func (s *Store) UpdateUser(ctx context.Context, id int64, up UserUpdate) (*User, error) {
-	tag, err := s.pool.Exec(ctx,
+	tag, err := s.db.Exec(ctx,
 		`UPDATE users SET
 			display_name = COALESCE($2, display_name),
 			role = COALESCE($3, role),
@@ -111,7 +121,7 @@ func (s *Store) UpdateUser(ctx context.Context, id int64, up UserUpdate) (*User,
 }
 
 func (s *Store) DeleteUser(ctx context.Context, id int64) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	tag, err := s.db.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
@@ -123,7 +133,7 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 
 func (s *Store) UserPreferences(ctx context.Context, id int64) (json.RawMessage, error) {
 	var v json.RawMessage
-	err := s.pool.QueryRow(ctx, `SELECT preferences FROM users WHERE id = $1`, id).Scan(&v)
+	err := s.db.QueryRow(ctx, `SELECT preferences FROM users WHERE id = $1`, id).Scan(&v)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -138,7 +148,7 @@ func (s *Store) MergeUserPreferences(ctx context.Context, id int64, patch map[st
 		return nil, err
 	}
 	var v json.RawMessage
-	err = s.pool.QueryRow(ctx,
+	err = s.db.QueryRow(ctx,
 		`UPDATE users SET preferences = preferences || $2::jsonb WHERE id = $1
 		 RETURNING preferences`, id, body).Scan(&v)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -149,7 +159,7 @@ func (s *Store) MergeUserPreferences(ctx context.Context, id int64, patch map[st
 
 // DeleteUserSessions removes all sessions of a disabled user.
 func (s *Store) DeleteUserSessions(ctx context.Context, userID int64) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
+	_, err := s.db.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
 	if err != nil {
 		return fmt.Errorf("delete user sessions: %w", err)
 	}

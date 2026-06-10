@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/store"
 	"couchverse/internal/upload"
@@ -15,7 +16,7 @@ import (
 // cleanupHandler is the hourly housekeeping job: expired upload sessions,
 // stale finished jobs, expired auth sessions and orphaned HLS caches.
 // It reschedules itself at the end of every run.
-func cleanupHandler(st *store.Store, jb *jobs.Store, uploads *upload.Manager, dataDir string) func(context.Context, *jobs.Job, func(int)) error {
+func cleanupHandler(st *store.Store, au *auth.Store, jb *jobs.Store, uploads *upload.Manager, dataDir string) func(context.Context, *jobs.Job, func(int)) error {
 	return func(ctx context.Context, _ *jobs.Job, _ func(int)) error {
 		if n, err := uploads.Reap(ctx); err != nil {
 			return err
@@ -29,7 +30,7 @@ func cleanupHandler(st *store.Store, jb *jobs.Store, uploads *upload.Manager, da
 			slog.Info("cleanup: pruned old jobs", "count", n)
 		}
 
-		if n, err := st.DeleteExpiredSessions(ctx); err != nil {
+		if n, err := au.DeleteExpiredSessions(ctx); err != nil {
 			return err
 		} else if n > 0 {
 			slog.Info("cleanup: deleted expired sessions", "count", n)

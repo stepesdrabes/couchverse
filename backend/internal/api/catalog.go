@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"couchverse/internal/auth"
 	"couchverse/internal/feature/artwork"
+	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"

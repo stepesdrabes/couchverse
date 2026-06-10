@@ -1,22 +1,20 @@
-package api
+package auth
 
 import (
 	"encoding/json"
 	"net/http"
 	"strconv"
 
-	"couchverse/internal/auth"
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
 type Profile struct {
-	store   *store.Store
+	store   *Store
 	artwork *artwork.Service
 }
 
-func NewProfile(st *store.Store, art *artwork.Service) *Profile {
+func NewProfile(st *Store, art *artwork.Service) *Profile {
 	return &Profile{store: st, artwork: art}
 }
 
@@ -29,8 +27,8 @@ func (h *Profile) Update(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "displayName is required")
 		return
 	}
-	user, err := h.store.UpdateUser(r.Context(), auth.UserFrom(r.Context()).ID,
-		store.UserUpdate{DisplayName: &req.DisplayName})
+	user, err := h.store.UpdateUser(r.Context(), UserFrom(r.Context()).ID,
+		UserUpdate{DisplayName: &req.DisplayName})
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
@@ -40,7 +38,7 @@ func (h *Profile) Update(w http.ResponseWriter, r *http.Request) {
 
 // Preferences returns the caller's settings blob (subtitle styling, etc.).
 func (h *Profile) Preferences(w http.ResponseWriter, r *http.Request) {
-	prefs, err := h.store.UserPreferences(r.Context(), auth.UserFrom(r.Context()).ID)
+	prefs, err := h.store.UserPreferences(r.Context(), UserFrom(r.Context()).ID)
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
@@ -59,7 +57,7 @@ func (h *Profile) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "invalid request body")
 		return
 	}
-	prefs, err := h.store.MergeUserPreferences(r.Context(), auth.UserFrom(r.Context()).ID, patch)
+	prefs, err := h.store.MergeUserPreferences(r.Context(), UserFrom(r.Context()).ID, patch)
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
@@ -70,7 +68,7 @@ func (h *Profile) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 
 // SetAvatar accepts a multipart image and stores it as the user's avatar.
 func (h *Profile) SetAvatar(w http.ResponseWriter, r *http.Request) {
-	self := auth.UserFrom(r.Context())
+	self := UserFrom(r.Context())
 	if err := r.ParseMultipartForm(16 << 20); err != nil {
 		httpx.BadRequest(w, "invalid multipart form")
 		return
@@ -96,7 +94,7 @@ func (h *Profile) SetAvatar(w http.ResponseWriter, r *http.Request) {
 
 // DeleteAvatar removes the user's profile picture.
 func (h *Profile) DeleteAvatar(w http.ResponseWriter, r *http.Request) {
-	self := auth.UserFrom(r.Context())
+	self := UserFrom(r.Context())
 	if self.AvatarID != nil {
 		if err := h.artwork.Delete(r.Context(), *self.AvatarID); err != nil {
 			httpx.StoreErr(w, err)

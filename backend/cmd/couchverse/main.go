@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"couchverse/internal/auth"
 	"couchverse/internal/config"
 	"couchverse/internal/db"
 	"couchverse/internal/feature/artwork"
+	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/media"
@@ -82,8 +82,9 @@ func run() error {
 	st := store.New(pool)
 	set := settings.NewStore(pool)
 	jobsStore := jobs.NewStore(pool)
+	authStore := auth.NewStore(pool)
 	musicStore := music.NewStore(pool)
-	if err := auth.Bootstrap(ctx, st, cfg); err != nil {
+	if err := auth.Bootstrap(ctx, authStore, cfg); err != nil {
 		return err
 	}
 	if err := ensureManagedLibraries(ctx, st, cfg.DataDir); err != nil {
@@ -117,7 +118,7 @@ func run() error {
 	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Store: st, Settings: set, Artwork: artworkService}).Handle)
 	runner.Register("import_episodes", 1, (&tmdb.ImportEpisodesJob{Store: st, Settings: set}).Handle)
 	runner.Register("transcode_hls", transcodeSlots, transcodeHandler.Handle)
-	runner.Register("cleanup", 1, cleanupHandler(st, jobsStore, uploadManager, cfg.DataDir))
+	runner.Register("cleanup", 1, cleanupHandler(st, authStore, jobsStore, uploadManager, cfg.DataDir))
 	if _, err := jobsStore.EnqueueJobOnce(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{}); err != nil {
 		return err
 	}
@@ -125,7 +126,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, st, set, jobsStore, musicStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
+		Handler:           server.New(cfg, st, set, authStore, jobsStore, musicStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
