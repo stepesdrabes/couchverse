@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { ArrowLeft, Check, ImagePlus, Pencil, Trash2, X } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
@@ -11,6 +12,7 @@
 	import Select from '$lib/components/ui/Select.svelte';
 	import StatusPill from '$lib/components/ui/StatusPill.svelte';
 	import { formatClock } from '$lib/utils/format';
+	import { FormState } from '$lib/utils/form-state.svelte';
 
 	let { data } = $props();
 
@@ -20,6 +22,20 @@
 	let status = $state<string>(data.album.status);
 	let saving = $state(false);
 	let confirmDelete = $state(false);
+	const form = new FormState(() => ({ name, artistName, year, status }));
+
+	// re-sync after invalidateAll — $state initializers only run once
+	$effect(() => {
+		const album = data.album;
+		untrack(() => {
+			if (form.dirty) return;
+			name = album.name;
+			artistName = album.artistName;
+			year = album.year?.toString() ?? '';
+			status = album.status;
+			form.reset();
+		});
+	});
 
 	let editingTrack = $state<string | null>(null);
 	let trackName = $state('');
@@ -35,6 +51,7 @@
 				year: year ? Number(year) : null,
 				status
 			});
+			form.reset();
 			toast.success('Saved');
 			invalidateAll();
 		} catch {
@@ -125,7 +142,7 @@
 						{ value: 'hidden', label: 'Hidden' }
 					]}
 				/>
-				<Button type="submit" loading={saving}>Save changes</Button>
+				<Button type="submit" loading={saving} disabled={!form.dirty}>Save changes</Button>
 			</div>
 		</form>
 

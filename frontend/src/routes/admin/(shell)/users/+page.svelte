@@ -12,6 +12,7 @@
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import { session } from '$lib/features/auth/session.svelte';
 	import { formatYearDate } from '$lib/utils/format';
+	import { FormState } from '$lib/utils/form-state.svelte';
 
 	let users = $state<User[]>([]);
 
@@ -27,6 +28,7 @@
 	let editRole = $state('member');
 	let editDisabled = $state(false);
 	let editPassword = $state('');
+	const editForm = new FormState(() => ({ editDisplayName, editRole, editDisabled, editPassword }));
 
 	let deleting = $state<User | null>(null);
 	let confirmDelete = $state(false);
@@ -59,6 +61,7 @@
 		editRole = user.role;
 		editDisabled = user.disabled;
 		editPassword = '';
+		editForm.reset();
 		editOpen = true;
 	}
 
@@ -206,7 +209,9 @@
 			]}
 		/>
 		<div class="flex justify-end pt-2">
-			<Button type="submit" loading={busy}>Create user</Button>
+			<Button type="submit" loading={busy} disabled={!newUsername.trim() || !newPassword}>
+				Create user
+			</Button>
 		</div>
 	</form>
 </Modal>
@@ -233,7 +238,7 @@
 			<Switch bind:checked={editDisabled} />
 		</label>
 		<div class="flex justify-end pt-2">
-			<Button type="submit" loading={busy}>Save</Button>
+			<Button type="submit" loading={busy} disabled={!editForm.dirty}>Save</Button>
 		</div>
 	</form>
 </Modal>
