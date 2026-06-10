@@ -78,7 +78,7 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 	if err := os.MkdirAll(spec.OutDir, 0o755); err != nil {
 		return err
 	}
-	if err := h.Files.SetVariantStatus(ctx, variant.ID, "processing", ""); err != nil {
+	if err := h.Files.SetVariantStatus(ctx, variant.ID, "processing", "", 0); err != nil {
 		return err
 	}
 
@@ -89,12 +89,12 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 		if errors.Is(err, context.Canceled) {
 			status = "queued" // shutdown/cancel: leave it retryable
 		}
-		_ = h.Files.SetVariantStatus(finishCtx, variant.ID, status, "")
+		_ = h.Files.SetVariantStatus(finishCtx, variant.ID, status, "", 0)
 		return err
 	}
 
 	rel := filepath.Join("cache", "hls", mf.ID, p.Variant, "index.m3u8")
-	if err := h.Files.SetVariantStatus(ctx, variant.ID, "ready", rel); err != nil {
+	if err := h.Files.SetVariantStatus(ctx, variant.ID, "ready", rel, media.DirSize(spec.OutDir)); err != nil {
 		return err
 	}
 	h.maybeDeleteSource(ctx, mf, lib.Path, job.ID, settings)

@@ -1,12 +1,12 @@
 package system
 
 import (
-	"io/fs"
 	"net/http"
 	"path/filepath"
 
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
+	"couchverse/internal/media"
 )
 
 type AdminStorage struct {
@@ -17,20 +17,6 @@ type AdminStorage struct {
 
 func NewAdminStorage(st *Store, jb *jobs.Store, dataDir string) *AdminStorage {
 	return &AdminStorage{store: st, jobs: jb, dataDir: dataDir}
-}
-
-func dirSize(path string) int64 {
-	var total int64
-	_ = filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		if info, err := d.Info(); err == nil {
-			total += info.Size()
-		}
-		return nil
-	})
-	return total
 }
 
 type storageCategory struct {
@@ -54,9 +40,9 @@ func (h *AdminStorage) Get(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	cache := dirSize(filepath.Join(h.dataDir, "cache", "hls")) +
-		dirSize(filepath.Join(h.dataDir, "cache", "images")) +
-		dirSize(filepath.Join(h.dataDir, "cache", "uploads"))
+	cache := media.DirSize(filepath.Join(h.dataDir, "cache", "hls")) +
+		media.DirSize(filepath.Join(h.dataDir, "cache", "images")) +
+		media.DirSize(filepath.Join(h.dataDir, "cache", "uploads"))
 
 	categories := []storageCategory{
 		{Kind: "movies", Bytes: byKind["movies"]},

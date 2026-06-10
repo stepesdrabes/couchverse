@@ -20,18 +20,19 @@ type TranscodeVariant struct {
 	AudioBitrate int64      `json:"audioBitrate"`
 	Mode         string     `json:"mode"`
 	Status       string     `json:"status"`
+	SizeBytes    int64      `json:"sizeBytes"`
 	PlaylistPath string     `json:"-"`
 	CreatedAt    time.Time  `json:"createdAt"`
 	CompletedAt  *time.Time `json:"completedAt"`
 }
 
 const variantCols = `id, media_file_id, name, width, height, video_bitrate, audio_bitrate,
-	mode, status, playlist_path, created_at, completed_at`
+	mode, status, size_bytes, playlist_path, created_at, completed_at`
 
 func scanVariant(row pgx.Row) (*TranscodeVariant, error) {
 	var v TranscodeVariant
 	err := row.Scan(&v.ID, &v.MediaFileID, &v.Name, &v.Width, &v.Height, &v.VideoBitrate,
-		&v.AudioBitrate, &v.Mode, &v.Status, &v.PlaylistPath, &v.CreatedAt, &v.CompletedAt)
+		&v.AudioBitrate, &v.Mode, &v.Status, &v.SizeBytes, &v.PlaylistPath, &v.CreatedAt, &v.CompletedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -49,17 +50,46 @@ func (s *Store) UpsertVariant(ctx context.Context, mediaFileID string, name stri
 		 ON CONFLICT (media_file_id, name) DO UPDATE
 			SET status = 'queued', mode = EXCLUDED.mode, height = EXCLUDED.height,
 				video_bitrate = EXCLUDED.video_bitrate, audio_bitrate = EXCLUDED.audio_bitrate,
-				playlist_path = '', completed_at = NULL
+				size_bytes = 0, playlist_path = '', completed_at = NULL
 		 RETURNING `+variantCols,
 		mediaFileID, name, height, videoBitrate, audioBitrate, mode))
 }
 
-func (s *Store) SetVariantStatus(ctx context.Context, id string, status, playlistPath string) error {
+func (s *Store) SetVariantStatus(ctx context.Context, id string, status, playlistPath string, sizeBytes int64) error {
 	_, err := s.db.Exec(ctx,
 		`UPDATE transcode_variants SET status = $2, playlist_path = $3,
+			size_bytes = CASE WHEN $2 = 'ready' THEN $4 ELSE 0 END,
 			completed_at = CASE WHEN $2 = 'ready' THEN now() ELSE NULL END
-		 WHERE id = $1`, id, status, playlistPath)
+		 WHERE id = $1`, id, status, playlistPath, sizeBytes)
 	return err
+}
+
+// SetVariantSize backfills the measured segment-directory size of a ready variant.
+func (s *Store) SetVariantSize(ctx context.Context, id string, sizeBytes int64) error {
+	_, err := s.db.Exec(ctx,
+		`UPDATE transcode_variants SET size_bytes = $2 WHERE id = $1`, id, sizeBytes)
+	return err
+}
+
+// VariantsMissingSize lists ready variants that predate size tracking.
+func (s *Store) VariantsMissingSize(ctx context.Context, limit int) ([]TranscodeVariant, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT `+variantCols+` FROM transcode_variants
+		 WHERE status = 'ready' AND size_bytes = 0 LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	variants := []TranscodeVariant{}
+	for rows.Next() {
+		v, err := scanVariant(rows)
+		if err != nil {
+			return nil, err
+		}
+		variants = append(variants, *v)
+	}
+	return variants, rows.Err()
 }
 
 func (s *Store) VariantsForMediaFile(ctx context.Context, mediaFileID string) ([]TranscodeVariant, error) {

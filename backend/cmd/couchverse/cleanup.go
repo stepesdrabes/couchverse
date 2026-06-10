@@ -10,6 +10,7 @@ import (
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
+	"couchverse/internal/media"
 )
 
 // cleanupHandler is the hourly housekeeping job: expired upload sessions,
@@ -39,11 +40,41 @@ func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, uploads 
 			return err
 		}
 
+		if err := backfillVariantSizes(ctx, lib, dataDir); err != nil {
+			return err
+		}
+
 		_, err := jb.EnqueueJob(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{
 			RunAt: time.Now().Add(time.Hour),
 		})
 		return err
 	}
+}
+
+// backfillVariantSizes measures segment directories of ready variants that
+// predate size tracking. Variants whose directory is gone stay at 0.
+func backfillVariantSizes(ctx context.Context, lib *library.Store, dataDir string) error {
+	variants, err := lib.VariantsMissingSize(ctx, 500)
+	if err != nil {
+		return err
+	}
+	for _, v := range variants {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		size := media.DirSize(filepath.Join(dataDir, "cache", "hls", v.MediaFileID, v.Name))
+		if size == 0 {
+			slog.Warn("cleanup: ready variant has no segments on disk", "variantId", v.ID, "mediaFileId", v.MediaFileID, "name", v.Name)
+			continue
+		}
+		if err := lib.SetVariantSize(ctx, v.ID, size); err != nil {
+			return err
+		}
+	}
+	if len(variants) > 0 {
+		slog.Info("cleanup: backfilled variant sizes", "count", len(variants))
+	}
+	return nil
 }
 
 // removeOrphanedHLS deletes cache/hls/<id> directories whose media file is gone.
