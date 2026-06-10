@@ -10,7 +10,6 @@ import (
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
-	"couchverse/internal/transcode"
 )
 
 type Prober struct {
@@ -105,8 +104,8 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 				map[string]any{"mediaFileId": mf.ID, "variant": "source"}, jobs.EnqueueOpts{}); err != nil {
 				return err
 			}
-		} else if settings := transcode.LoadSettings(ctx, p.Settings); settings.AutoPrepareEnabled() {
-			for _, r := range transcode.PrepareRenditions(settings.Ladder, res.Height) {
+		} else if settings := LoadTranscodeSettings(ctx, p.Settings); settings.AutoPrepareEnabled() {
+			for _, r := range PrepareRenditions(settings.Ladder, res.Height) {
 				if _, err := p.Store.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, "transcode"); err != nil {
 					return err
 				}

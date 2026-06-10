@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/media"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
@@ -46,7 +47,7 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 		return err
 	}
 
-	settings := LoadSettings(ctx, h.Settings)
+	settings := media.LoadTranscodeSettings(ctx, h.Settings)
 	spec := BuildSpec{
 		Input:          filepath.Join(lib.Path, mf.Path),
 		OutDir:         h.outDir(mf.ID, p.Variant),
@@ -58,10 +59,10 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 	var variant *store.TranscodeVariant
 	if p.Variant == "source" {
 		spec.Mode = "copy"
-		spec.Rendition = Rendition{Name: "source", Height: mf.Height, AudioBitrate: 192_000}
+		spec.Rendition = media.Rendition{Name: "source", Height: mf.Height, AudioBitrate: 192_000}
 		variant, err = h.Store.UpsertVariant(ctx, mf.ID, "source", mf.Height, mf.Bitrate, 192_000, "copy")
 	} else {
-		r, ok := Renditions[p.Variant]
+		r, ok := media.Renditions[p.Variant]
 		if !ok {
 			return fmt.Errorf("unknown rendition %q", p.Variant)
 		}
@@ -103,7 +104,7 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 // maybeDeleteSource removes the original file once every requested variant is
 // ready and nothing else still reads it. Failures only log — the variant this
 // job produced is already ready.
-func (h *JobHandler) maybeDeleteSource(ctx context.Context, mf *store.MediaFile, libPath string, jobID int64, settings Settings) {
+func (h *JobHandler) maybeDeleteSource(ctx context.Context, mf *store.MediaFile, libPath string, jobID int64, settings media.TranscodeSettings) {
 	if !settings.DeleteSourceEnabled() || mf.SourceDeletedAt != nil || mf.VideoCodec == "" {
 		return
 	}

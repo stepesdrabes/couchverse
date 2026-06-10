@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"couchverse/internal/media"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
@@ -38,7 +39,7 @@ type Session struct {
 	duration float64
 	encoder  string
 	preset   string
-	rend     Rendition
+	rend     media.Rendition
 
 	mu         sync.Mutex
 	cancel     context.CancelFunc
@@ -105,10 +106,10 @@ func (m *SessionManager) Create(ctx context.Context, appCtx context.Context, med
 	}
 	id := hex.EncodeToString(raw)
 
-	settings := LoadSettings(ctx, m.Settings)
-	rendition := Renditions["720p"]
+	settings := media.LoadTranscodeSettings(ctx, m.Settings)
+	rendition := media.Renditions["720p"]
 	if mf.Height > 0 && mf.Height < 600 {
-		rendition = Renditions["480p"]
+		rendition = media.Renditions["480p"]
 	}
 
 	session := &Session{

@@ -5,6 +5,7 @@ import (
 
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
+	"couchverse/internal/media"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
 	"couchverse/internal/transcode"
@@ -33,7 +34,7 @@ func (h *AdminTranscode) Info(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"detectedEncoders": encoders,
 		"detecting":        !done,
-		"settings":         transcode.LoadSettings(r.Context(), h.settings),
+		"settings":         media.LoadTranscodeSettings(r.Context(), h.settings),
 		"renditions":       []string{"1080p", "720p", "480p"},
 	})
 }
@@ -75,12 +76,12 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := httpx.Decode(r, &req); err != nil || len(req.Variants) == 0 {
 		// default: the configured ladder
-		req.Variants = transcode.LoadSettings(r.Context(), h.settings).Ladder
+		req.Variants = media.LoadTranscodeSettings(r.Context(), h.settings).Ladder
 	}
 
 	queued := []string{}
 	for _, name := range req.Variants {
-		rendition, ok := transcode.Renditions[name]
+		rendition, ok := media.Renditions[name]
 		if !ok && name != "source" {
 			httpx.BadRequest(w, "unknown rendition "+name)
 			return

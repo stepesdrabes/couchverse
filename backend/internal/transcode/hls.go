@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"couchverse/internal/media"
 )
 
 // BuildArgs assembles the ffmpeg command for one HLS variant.
@@ -16,7 +18,7 @@ type BuildSpec struct {
 	Input          string
 	OutDir         string // segments + index.m3u8 land here
 	Mode           string // copy | transcode
-	Rendition      Rendition
+	Rendition      media.Rendition
 	Encoder        string // libx264 | h264_videotoolbox | ...
 	Preset         string
 	HasAudio       bool

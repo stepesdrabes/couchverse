@@ -102,7 +102,7 @@ func run() error {
 	// transcodes can occupy their full concurrency budget and still leave
 	// workers free for quick jobs (probes, scans, metadata) — otherwise a
 	// queue of hour-long transcodes starves everything else
-	transcodeSlots := transcode.LoadSettings(ctx, set).MaxConcurrent
+	transcodeSlots := media.LoadTranscodeSettings(ctx, set).MaxConcurrent
 	workers := cfg.JobWorkers
 	if workers < transcodeSlots+2 {
 		workers = transcodeSlots + 2

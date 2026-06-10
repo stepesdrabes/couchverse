@@ -1,4 +1,4 @@
-package transcode
+package media
 
 import (
 	"context"
@@ -22,7 +22,7 @@ var Renditions = map[string]Rendition{
 	"480p":  {Name: "480p", Height: 480, VideoBitrate: 1_200_000, AudioBitrate: 96_000},
 }
 
-type Settings struct {
+type TranscodeSettings struct {
 	HWAccel       string   `json:"hwAccel"`       // auto | none | encoder name
 	Ladder        []string `json:"ladder"`        // rendition names for full transcodes
 	Preset        string   `json:"preset"`        // libx264 preset
@@ -33,12 +33,22 @@ type Settings struct {
 	DeleteSourceAfterTranscode *bool `json:"deleteSourceAfterTranscode"`
 }
 
-func (s Settings) DeleteSourceEnabled() bool {
+func (s TranscodeSettings) DeleteSourceEnabled() bool {
 	return s.DeleteSourceAfterTranscode != nil && *s.DeleteSourceAfterTranscode
 }
 
-func (s Settings) AutoPrepareEnabled() bool {
+func (s TranscodeSettings) AutoPrepareEnabled() bool {
 	return s.AutoPrepare == nil || *s.AutoPrepare
+}
+
+// HWEncoderCandidates lists candidate h264 encoders in preference order per
+// platform; detection (in the playback feature) probes them with a test encode.
+var HWEncoderCandidates = []string{
+	"h264_videotoolbox", // macOS
+	"h264_nvenc",        // NVIDIA
+	"h264_qsv",          // Intel QuickSync
+	"h264_vaapi",        // generic VA-API (Intel/AMD)
+	"h264_v4l2m2m",      // Raspberry Pi 4
 }
 
 var validPresets = map[string]bool{
@@ -47,7 +57,7 @@ var validPresets = map[string]bool{
 }
 
 // Validate rejects settings the transcoder would silently ignore.
-func (s Settings) Validate() error {
+func (s TranscodeSettings) Validate() error {
 	for _, name := range s.Ladder {
 		if _, ok := Renditions[name]; !ok {
 			return fmt.Errorf("unknown rendition %q", name)
@@ -59,7 +69,7 @@ func (s Settings) Validate() error {
 	switch s.HWAccel {
 	case "", "auto", "none":
 	default:
-		if !slices.Contains(hwEncoderCandidates, s.HWAccel) {
+		if !slices.Contains(HWEncoderCandidates, s.HWAccel) {
 			return fmt.Errorf("unknown encoder %q", s.HWAccel)
 		}
 	}
@@ -93,9 +103,9 @@ func PrepareRenditions(ladder []string, sourceHeight int) []Rendition {
 	return picked
 }
 
-// LoadSettings reads transcode preferences with Pi-friendly defaults.
-func LoadSettings(ctx context.Context, st *settings.Store) Settings {
-	s := Settings{
+// LoadTranscodeSettings reads transcode preferences with Pi-friendly defaults.
+func LoadTranscodeSettings(ctx context.Context, st *settings.Store) TranscodeSettings {
+	s := TranscodeSettings{
 		HWAccel:       "auto",
 		Ladder:        []string{"720p"},
 		Preset:        "veryfast",

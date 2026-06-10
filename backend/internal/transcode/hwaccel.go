@@ -8,16 +8,9 @@ import (
 	"os/exec"
 	"sync"
 	"time"
-)
 
-// candidate h264 encoders, in preference order per platform
-var hwEncoderCandidates = []string{
-	"h264_videotoolbox", // macOS
-	"h264_nvenc",        // NVIDIA
-	"h264_qsv",          // Intel QuickSync
-	"h264_vaapi",        // generic VA-API (Intel/AMD)
-	"h264_v4l2m2m",      // Raspberry Pi 4
-}
+	"couchverse/internal/media"
+)
 
 var (
 	detectOnce sync.Once
@@ -31,7 +24,7 @@ var (
 func DetectEncoders(ffmpegPath string) []string {
 	detectOnce.Do(func() {
 		var found []string
-		for _, encoder := range hwEncoderCandidates {
+		for _, encoder := range media.HWEncoderCandidates {
 			if testEncode(ffmpegPath, encoder) {
 				found = append(found, encoder)
 			}

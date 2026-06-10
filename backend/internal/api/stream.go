@@ -322,7 +322,7 @@ func (h *Stream) HLSMaster(w http.ResponseWriter, r *http.Request) {
 // jitAllowed: explicit setting wins; auto enables JIT when a hardware
 // encoder was detected (software JIT is usually too slow for live seeking).
 func (h *Stream) jitAllowed(ctx context.Context) bool {
-	settings := transcode.LoadSettings(ctx, h.settings)
+	settings := media.LoadTranscodeSettings(ctx, h.settings)
 	if settings.JITEnabled != nil {
 		return *settings.JITEnabled
 	}
