@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"couchverse/internal/auth"
+	"couchverse/internal/features"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 )
@@ -54,6 +55,7 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	flags := features.Load(r.Context(), h.store)
 	rows := []store.HomeRow{}
 	for _, cfg := range configs {
 		var items any
@@ -68,6 +70,9 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 			}
 			items, err = h.store.TitlesByGenre(r.Context(), *cfg.GenreID, 20)
 		case "recently_played_music":
+			if !flags.MusicEnabled {
+				continue
+			}
 			items, err = h.store.RecentlyPlayedAlbums(r.Context(), user.ID, 20)
 		default:
 			continue
@@ -170,7 +175,8 @@ func (h *Catalog) Title(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Catalog) Search(w http.ResponseWriter, r *http.Request) {
-	res, err := h.store.Search(r.Context(), r.URL.Query().Get("q"), 12)
+	includeMusic := features.Load(r.Context(), h.store).MusicEnabled
+	res, err := h.store.Search(r.Context(), r.URL.Query().Get("q"), 12, includeMusic)
 	if err != nil {
 		httpx.Internal(w, err)
 		return

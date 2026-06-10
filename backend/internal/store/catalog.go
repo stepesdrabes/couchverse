@@ -176,7 +176,7 @@ type SearchHit struct {
 	Subtitle string `json:"subtitle"`
 }
 
-func (s *Store) Search(ctx context.Context, q string, limit int) (*SearchResults, error) {
+func (s *Store) Search(ctx context.Context, q string, limit int, includeMusic bool) (*SearchResults, error) {
 	res := &SearchResults{Titles: []CardItem{}, Artists: []SearchHit{}, Albums: []SearchHit{}, Tracks: []SearchHit{}}
 	if q == "" {
 		return res, nil
@@ -188,6 +188,9 @@ func (s *Store) Search(ctx context.Context, q string, limit int) (*SearchResults
 		ORDER BY similarity(t.name, $1) DESC LIMIT $2`, q, limit)
 	if err != nil {
 		return nil, err
+	}
+	if !includeMusic {
+		return res, nil
 	}
 
 	collect := func(query string) ([]SearchHit, error) {

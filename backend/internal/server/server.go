@@ -15,6 +15,7 @@ import (
 	"couchverse/internal/artwork"
 	"couchverse/internal/auth"
 	"couchverse/internal/config"
+	"couchverse/internal/features"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 	"couchverse/internal/subtitles"
@@ -105,23 +106,31 @@ func (s *Server) Handler() http.Handler {
 			p.Get("/artwork/{id}", artworkAPI.Serve)
 			p.Get("/subtitles/{id}.vtt", subtitlesAPI.Serve)
 
-			p.Get("/music", music.Home)
-			p.Get("/music/albums/{id}", music.Album)
-			p.Get("/music/artists/{id}", music.Artist)
-			p.Post("/plays", music.Scrobble)
+			p.Get("/features", func(w http.ResponseWriter, r *http.Request) {
+				httpx.JSON(w, http.StatusOK, features.Load(r.Context(), s.store))
+			})
+
+			// music (incl. track playlists) sits behind the feature toggle
+			p.Group(func(m chi.Router) {
+				m.Use(features.RequireMusic(s.store))
+				m.Get("/music", music.Home)
+				m.Get("/music/albums/{id}", music.Album)
+				m.Get("/music/artists/{id}", music.Artist)
+				m.Post("/plays", music.Scrobble)
+
+				m.Get("/me/playlists", playlists.List)
+				m.Post("/me/playlists", playlists.Create)
+				m.Get("/me/playlists/{id}", playlists.Get)
+				m.Patch("/me/playlists/{id}", playlists.Rename)
+				m.Delete("/me/playlists/{id}", playlists.Delete)
+				m.Post("/me/playlists/{id}/tracks", playlists.AddTrack)
+				m.Delete("/me/playlists/{id}/tracks/{entryId}", playlists.RemoveEntry)
+				m.Put("/me/playlists/{id}/order", playlists.Reorder)
+			})
 
 			p.Patch("/me/profile", profile.Update)
 			p.Post("/me/avatar", profile.SetAvatar)
 			p.Delete("/me/avatar", profile.DeleteAvatar)
-
-			p.Get("/me/playlists", playlists.List)
-			p.Post("/me/playlists", playlists.Create)
-			p.Get("/me/playlists/{id}", playlists.Get)
-			p.Patch("/me/playlists/{id}", playlists.Rename)
-			p.Delete("/me/playlists/{id}", playlists.Delete)
-			p.Post("/me/playlists/{id}/tracks", playlists.AddTrack)
-			p.Delete("/me/playlists/{id}/tracks/{entryId}", playlists.RemoveEntry)
-			p.Put("/me/playlists/{id}/order", playlists.Reorder)
 
 			p.Put("/progress", progress.Put)
 			p.Post("/progress", progress.Put) // sendBeacon can only POST
@@ -147,12 +156,15 @@ func (s *Server) Handler() http.Handler {
 			adm.Patch("/episodes/{id}", adminTitles.UpdateEpisode)
 			adm.Delete("/episodes/{id}", adminTitles.DeleteEpisode)
 
-			adm.Get("/music", adminMusic.List)
-			adm.Get("/albums/{id}", adminMusic.Get)
-			adm.Patch("/albums/{id}", adminMusic.Update)
-			adm.Delete("/albums/{id}", adminMusic.Delete)
-			adm.Patch("/tracks/{id}", adminMusic.UpdateTrack)
-			adm.Delete("/tracks/{id}", adminMusic.DeleteTrack)
+			adm.Group(func(m chi.Router) {
+				m.Use(features.RequireMusic(s.store))
+				m.Get("/music", adminMusic.List)
+				m.Get("/albums/{id}", adminMusic.Get)
+				m.Patch("/albums/{id}", adminMusic.Update)
+				m.Delete("/albums/{id}", adminMusic.Delete)
+				m.Patch("/tracks/{id}", adminMusic.UpdateTrack)
+				m.Delete("/tracks/{id}", adminMusic.DeleteTrack)
+			})
 
 			adm.Get("/users", adminUsers.List)
 			adm.Post("/users", adminUsers.Create)
