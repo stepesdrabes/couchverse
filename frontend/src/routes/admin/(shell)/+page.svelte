@@ -14,9 +14,9 @@
 	} from 'lucide-svelte';
 	import * as jobsApi from '$lib/features/jobs/api';
 	import type { OverviewInfo, StorageInfo, SystemStats } from '$lib/features/jobs/api';
-	import Sparkline from '$lib/components/admin/Sparkline.svelte';
-	import StorageBar from '$lib/components/admin/StorageBar.svelte';
-	import { categoryStyle } from '$lib/components/admin/storageColors';
+	import Sparkline from '$lib/features/admin/components/Sparkline.svelte';
+	import StorageBar from '$lib/features/admin/components/StorageBar.svelte';
+	import { categoryStyle } from '$lib/features/admin/components/storageColors';
 	import { formatBytes, formatUptime } from '$lib/utils/format';
 
 	let overview = $state<OverviewInfo | null>(null);

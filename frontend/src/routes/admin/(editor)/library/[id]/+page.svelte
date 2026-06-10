@@ -3,12 +3,12 @@
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import * as libraryApi from '$lib/features/library/api';
-	import ArtworkCard from '$lib/components/admin/ArtworkCard.svelte';
-	import TmdbSearchModal from '$lib/components/admin/TmdbSearchModal.svelte';
-	import EditorHero from '$lib/components/admin/editor/EditorHero.svelte';
-	import EpisodesTable from '$lib/components/admin/editor/EpisodesTable.svelte';
-	import ImportEpisodesModal from '$lib/components/admin/editor/ImportEpisodesModal.svelte';
-	import MovieFilesPanel from '$lib/components/admin/editor/MovieFilesPanel.svelte';
+	import ArtworkCard from '$lib/features/library/components/ArtworkCard.svelte';
+	import TmdbSearchModal from '$lib/features/library/components/TmdbSearchModal.svelte';
+	import EditorHero from '$lib/features/library/components/editor/EditorHero.svelte';
+	import EpisodesTable from '$lib/features/library/components/editor/EpisodesTable.svelte';
+	import ImportEpisodesModal from '$lib/features/library/components/editor/ImportEpisodesModal.svelte';
+	import MovieFilesPanel from '$lib/features/library/components/editor/MovieFilesPanel.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Confirm from '$lib/components/ui/Confirm.svelte';
 	import Input from '$lib/components/ui/Input.svelte';

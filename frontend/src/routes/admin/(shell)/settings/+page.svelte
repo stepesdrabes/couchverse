@@ -6,7 +6,7 @@
 	import { features } from '$lib/features/settings/features.svelte';
 	import { applyAccent } from '$lib/theme';
 	import { FormState } from '$lib/utils/form-state.svelte';
-	import HomeRowsEditor from '$lib/components/admin/HomeRowsEditor.svelte';
+	import HomeRowsEditor from '$lib/features/settings/components/HomeRowsEditor.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Input from '$lib/components/ui/Input.svelte';

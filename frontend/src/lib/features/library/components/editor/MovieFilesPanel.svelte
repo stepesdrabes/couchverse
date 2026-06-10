@@ -5,7 +5,7 @@
 	import type { SubtitleInfo } from '$lib/features/library/api';
 	import type { Upload } from '$lib/features/uploads/uploader.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
-	import FileVariants from '$lib/components/admin/FileVariants.svelte';
+	import FileVariants from '$lib/features/library/components/FileVariants.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { formatBytes, qualityLabel } from '$lib/utils/format';

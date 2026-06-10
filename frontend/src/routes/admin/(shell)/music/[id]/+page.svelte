@@ -5,7 +5,7 @@
 	import { toast } from 'svelte-sonner';
 	import { artworkUrl } from '$lib/features/catalog/api';
 	import * as libraryApi from '$lib/features/library/api';
-	import EditorUploadCard from '$lib/components/admin/EditorUploadCard.svelte';
+	import EditorUploadCard from '$lib/features/uploads/components/EditorUploadCard.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Confirm from '$lib/components/ui/Confirm.svelte';
 	import Input from '$lib/components/ui/Input.svelte';

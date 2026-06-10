@@ -7,8 +7,8 @@
 	import * as libraryApi from '$lib/features/library/api';
 	import type { LibraryRow } from '$lib/features/library/api';
 	import { features } from '$lib/features/settings/features.svelte';
-	import AdminMusicTable from '$lib/components/admin/AdminMusicTable.svelte';
-	import NewTitleModal from '$lib/components/admin/NewTitleModal.svelte';
+	import AdminMusicTable from '$lib/features/library/components/AdminMusicTable.svelte';
+	import NewTitleModal from '$lib/features/library/components/NewTitleModal.svelte';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
