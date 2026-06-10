@@ -3,6 +3,8 @@ package transcode
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"slices"
 
 	"couchverse/internal/store"
 )
@@ -31,6 +33,34 @@ type Settings struct {
 
 func (s Settings) AutoPrepareEnabled() bool {
 	return s.AutoPrepare == nil || *s.AutoPrepare
+}
+
+var validPresets = map[string]bool{
+	"": true, "ultrafast": true, "superfast": true, "veryfast": true,
+	"faster": true, "fast": true, "medium": true, "slow": true,
+}
+
+// Validate rejects settings the transcoder would silently ignore.
+func (s Settings) Validate() error {
+	for _, name := range s.Ladder {
+		if _, ok := Renditions[name]; !ok {
+			return fmt.Errorf("unknown rendition %q", name)
+		}
+	}
+	if !validPresets[s.Preset] {
+		return fmt.Errorf("unknown preset %q", s.Preset)
+	}
+	switch s.HWAccel {
+	case "", "auto", "none":
+	default:
+		if !slices.Contains(hwEncoderCandidates, s.HWAccel) {
+			return fmt.Errorf("unknown encoder %q", s.HWAccel)
+		}
+	}
+	if s.MaxConcurrent < 0 || s.MaxConcurrent > 8 {
+		return fmt.Errorf("maxConcurrent must be between 1 and 8")
+	}
+	return nil
 }
 
 // PrepareRenditions picks the ladder entries that make sense for a source

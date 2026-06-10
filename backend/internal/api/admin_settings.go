@@ -6,6 +6,7 @@ import (
 
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
+	"couchverse/internal/transcode"
 )
 
 type AdminSettings struct {
@@ -33,6 +34,18 @@ func (h *AdminSettings) Put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for key, value := range req {
+		// the transcoder silently ignores values it doesn't know — reject them here
+		if key == "transcode" {
+			var ts transcode.Settings
+			if err := json.Unmarshal(value, &ts); err != nil {
+				httpx.BadRequest(w, "invalid transcode settings")
+				return
+			}
+			if err := ts.Validate(); err != nil {
+				httpx.BadRequest(w, err.Error())
+				return
+			}
+		}
 		if err := h.store.SetSetting(r.Context(), key, value); err != nil {
 			httpx.Internal(w, err)
 			return

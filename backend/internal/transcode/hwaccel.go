@@ -21,6 +21,8 @@ var hwEncoderCandidates = []string{
 
 var (
 	detectOnce sync.Once
+	detectDone bool
+	detectMu   sync.Mutex
 	detected   []string
 )
 
@@ -28,14 +30,27 @@ var (
 // a tiny test encode. Results are cached for the process lifetime.
 func DetectEncoders(ffmpegPath string) []string {
 	detectOnce.Do(func() {
+		var found []string
 		for _, encoder := range hwEncoderCandidates {
 			if testEncode(ffmpegPath, encoder) {
-				detected = append(detected, encoder)
+				found = append(found, encoder)
 			}
 		}
-		slog.Info("hardware encoders detected", "encoders", detected)
+		detectMu.Lock()
+		detected = found
+		detectDone = true
+		detectMu.Unlock()
+		slog.Info("hardware encoders detected", "encoders", found)
 	})
 	return detected
+}
+
+// DetectedEncoders returns the probe results so far without blocking on the
+// probe itself; done is false while detection is still running.
+func DetectedEncoders() (encoders []string, done bool) {
+	detectMu.Lock()
+	defer detectMu.Unlock()
+	return detected, detectDone
 }
 
 func testEncode(ffmpegPath, encoder string) bool {

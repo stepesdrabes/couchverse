@@ -18,10 +18,17 @@ func NewAdminTranscode(st *store.Store, jobHandler *transcode.JobHandler, ffmpeg
 	return &AdminTranscode{store: st, jobHandler: jobHandler, ffmpegPath: ffmpegPath}
 }
 
-// Info exposes detected encoders and current transcode settings.
+// Info exposes detected encoders and current transcode settings. Encoder
+// detection runs in the background at startup; report progress rather than
+// blocking on it.
 func (h *AdminTranscode) Info(w http.ResponseWriter, r *http.Request) {
+	encoders, done := transcode.DetectedEncoders()
+	if encoders == nil {
+		encoders = []string{}
+	}
 	httpx.JSON(w, http.StatusOK, map[string]any{
-		"detectedEncoders": transcode.DetectEncoders(h.ffmpegPath),
+		"detectedEncoders": encoders,
+		"detecting":        !done,
 		"settings":         transcode.LoadSettings(r.Context(), h.store),
 		"renditions":       []string{"1080p", "720p", "480p"},
 	})
