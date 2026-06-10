@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"couchverse/internal/auth"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
@@ -26,7 +28,7 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var featuredBackdropID *int64
+	var featuredBackdropID *string
 	featuredInList := false
 	if featured != nil {
 		art, aerr := h.store.ArtworkFor(r.Context(), "title", featured.ID)
@@ -103,7 +105,12 @@ func (h *Catalog) Browse(w http.ResponseWriter, r *http.Request) {
 
 func (h *Catalog) Title(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
-	t, err := h.store.TitleByID(r.Context(), httpx.ID(r, "id"))
+	slug := chi.URLParam(r, "slug")
+	if slug == "" {
+		httpx.NotFound(w)
+		return
+	}
+	t, err := h.store.TitleBySlug(r.Context(), slug)
 	if err != nil {
 		respondStoreErr(w, err)
 		return

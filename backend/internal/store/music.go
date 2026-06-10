@@ -12,39 +12,39 @@ import (
 )
 
 type AlbumCard struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	Year       *int   `json:"year"`
-	ArtistID   int64  `json:"artistId"`
-	ArtistName string `json:"artistName"`
-	CoverID    *int64 `json:"coverId"`
-	TrackCount int    `json:"trackCount"`
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	Year       *int    `json:"year"`
+	ArtistID   string  `json:"artistId"`
+	ArtistName string  `json:"artistName"`
+	CoverID    *string `json:"coverId"`
+	TrackCount int     `json:"trackCount"`
 }
 
 type TrackItem struct {
-	ID              int64   `json:"id"`
-	AlbumID         int64   `json:"albumId"`
+	ID              string  `json:"id"`
+	AlbumID         string  `json:"albumId"`
 	DiscNumber      int     `json:"discNumber"`
 	TrackNumber     int     `json:"trackNumber"`
 	Name            string  `json:"name"`
 	DurationSeconds int     `json:"durationSeconds"`
 	TrackArtist     *string `json:"trackArtist"`
-	MediaFileID     *int64  `json:"mediaFileId"`
+	MediaFileID     *string `json:"mediaFileId"`
 	AlbumName       string  `json:"albumName"`
-	ArtistID        int64   `json:"artistId"`
+	ArtistID        string  `json:"artistId"`
 	ArtistName      string  `json:"artistName"`
-	CoverID         *int64  `json:"coverId"`
+	CoverID         *string `json:"coverId"`
 }
 
 type ArtistCard struct {
-	ID         int64  `json:"id"`
+	ID         string `json:"id"`
 	Name       string `json:"name"`
 	AlbumCount int    `json:"albumCount"`
 }
 
 const albumCardSelect = `
 	SELECT al.id, al.name, al.year, ar.id, ar.name,
-		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id AND a.kind = 'album_cover'),
+		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id::text AND a.kind = 'album_cover'),
 		(SELECT count(*) FROM tracks t WHERE t.album_id = al.id)
 	FROM albums al
 	JOIN artists ar ON ar.id = al.artist_id`
@@ -73,13 +73,13 @@ func (s *Store) RecentAlbums(ctx context.Context, limit int) ([]AlbumCard, error
 		ORDER BY al.added_at DESC LIMIT $1`, limit)
 }
 
-func (s *Store) AlbumsByArtist(ctx context.Context, artistID int64) ([]AlbumCard, error) {
+func (s *Store) AlbumsByArtist(ctx context.Context, artistID string) ([]AlbumCard, error) {
 	return s.scanAlbumCards(ctx, albumCardSelect+`
 		WHERE al.status = 'published' AND al.artist_id = $1
 		ORDER BY al.year DESC NULLS LAST, al.name`, artistID)
 }
 
-func (s *Store) AlbumCardByID(ctx context.Context, id int64) (*AlbumCard, error) {
+func (s *Store) AlbumCardByID(ctx context.Context, id string) (*AlbumCard, error) {
 	cards, err := s.scanAlbumCards(ctx, albumCardSelect+` WHERE al.id = $1`, id)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (s *Store) ListArtists(ctx context.Context) ([]ArtistCard, error) {
 	return artists, rows.Err()
 }
 
-func (s *Store) ArtistByID(ctx context.Context, id int64) (*ArtistCard, error) {
+func (s *Store) ArtistByID(ctx context.Context, id string) (*ArtistCard, error) {
 	var a ArtistCard
 	err := s.pool.QueryRow(ctx,
 		`SELECT ar.id, ar.name,
@@ -131,7 +131,7 @@ func (s *Store) ArtistByID(ctx context.Context, id int64) (*ArtistCard, error) {
 const trackItemSelect = `
 	SELECT t.id, t.album_id, t.disc_number, t.track_number, t.name, t.duration_seconds,
 		t.track_artist, mf.id, al.name, ar.id, ar.name,
-		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id AND a.kind = 'album_cover')
+		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id::text AND a.kind = 'album_cover')
 	FROM tracks t
 	JOIN albums al ON al.id = t.album_id
 	JOIN artists ar ON ar.id = al.artist_id
@@ -157,7 +157,7 @@ func (s *Store) scanTrackItems(ctx context.Context, query string, args ...any) (
 	return tracks, rows.Err()
 }
 
-func (s *Store) TracksForAlbum(ctx context.Context, albumID int64) ([]TrackItem, error) {
+func (s *Store) TracksForAlbum(ctx context.Context, albumID string) ([]TrackItem, error) {
 	return s.scanTrackItems(ctx, trackItemSelect+`
 		WHERE t.album_id = $1
 		ORDER BY t.disc_number, t.track_number, t.name`, albumID)
@@ -179,7 +179,7 @@ func (s *Store) RecentlyPlayedAlbums(ctx context.Context, userID int64, limit in
 		LIMIT $2`, userID, limit)
 }
 
-func (s *Store) RecordPlay(ctx context.Context, userID, trackID int64) error {
+func (s *Store) RecordPlay(ctx context.Context, userID int64, trackID string) error {
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO play_history (user_id, track_id) VALUES ($1, $2)`, userID, trackID)
 	return err
@@ -223,7 +223,7 @@ func (s *Store) AdminListAlbums(ctx context.Context, query, sort string, page, p
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT al.id, al.name, al.year, ar.id, ar.name,
-			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id AND a.kind = 'album_cover'),
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id::text AND a.kind = 'album_cover'),
 			(SELECT count(*) FROM tracks t WHERE t.album_id = al.id),
 			al.status, al.added_at,
 			COALESCE((SELECT sum(mf.size_bytes) FROM media_files mf
@@ -251,11 +251,11 @@ func (s *Store) AdminListAlbums(ctx context.Context, query, sort string, page, p
 	return items, total, rows.Err()
 }
 
-func (s *Store) AdminAlbumByID(ctx context.Context, id int64) (*AdminAlbumRow, error) {
+func (s *Store) AdminAlbumByID(ctx context.Context, id string) (*AdminAlbumRow, error) {
 	var r AdminAlbumRow
 	err := s.pool.QueryRow(ctx, `
 		SELECT al.id, al.name, al.year, ar.id, ar.name,
-			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id AND a.kind = 'album_cover'),
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id::text AND a.kind = 'album_cover'),
 			(SELECT count(*) FROM tracks t WHERE t.album_id = al.id),
 			al.status, al.added_at,
 			COALESCE((SELECT sum(mf.size_bytes) FROM media_files mf
@@ -281,7 +281,7 @@ type AlbumUpdate struct {
 	ArtistName *string `json:"artistName"`
 }
 
-func (s *Store) UpdateAlbum(ctx context.Context, id int64, up AlbumUpdate) error {
+func (s *Store) UpdateAlbum(ctx context.Context, id string, up AlbumUpdate) error {
 	if up.ArtistName != nil && *up.ArtistName != "" {
 		artistID, err := s.UpsertArtist(ctx, *up.ArtistName)
 		if err != nil {
@@ -308,7 +308,7 @@ func (s *Store) UpdateAlbum(ctx context.Context, id int64, up AlbumUpdate) error
 	return nil
 }
 
-func (s *Store) DeleteAlbum(ctx context.Context, id int64) error {
+func (s *Store) DeleteAlbum(ctx context.Context, id string) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM albums WHERE id = $1`, id)
 	if err != nil {
 		return err
@@ -319,7 +319,7 @@ func (s *Store) DeleteAlbum(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *Store) UpdateTrackName(ctx context.Context, id int64, name string) error {
+func (s *Store) UpdateTrackName(ctx context.Context, id string, name string) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE tracks SET name = $2 WHERE id = $1`, id, name)
 	if err != nil {
 		return err
@@ -330,7 +330,7 @@ func (s *Store) UpdateTrackName(ctx context.Context, id int64, name string) erro
 	return nil
 }
 
-func (s *Store) DeleteTrack(ctx context.Context, id int64) error {
+func (s *Store) DeleteTrack(ctx context.Context, id string) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM tracks WHERE id = $1`, id)
 	if err != nil {
 		return err
@@ -342,8 +342,8 @@ func (s *Store) DeleteTrack(ctx context.Context, id int64) error {
 }
 
 // UpsertArtist returns the artist id for a name, creating it when new.
-func (s *Store) UpsertArtist(ctx context.Context, name string) (int64, error) {
-	var id int64
+func (s *Store) UpsertArtist(ctx context.Context, name string) (string, error) {
+	var id string
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO artists (name, sort_name) VALUES ($1, $1)
 		 ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
@@ -351,12 +351,12 @@ func (s *Store) UpsertArtist(ctx context.Context, name string) (int64, error) {
 	return id, err
 }
 
-func (s *Store) UpsertAlbum(ctx context.Context, artistID int64, name string, year int) (int64, error) {
+func (s *Store) UpsertAlbum(ctx context.Context, artistID string, name string, year int) (string, error) {
 	var yearVal *int
 	if year > 0 {
 		yearVal = &year
 	}
-	var id int64
+	var id string
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO albums (artist_id, name, year, status) VALUES ($1, $2, $3, 'published')
 		 ON CONFLICT (artist_id, name) DO UPDATE
@@ -365,12 +365,12 @@ func (s *Store) UpsertAlbum(ctx context.Context, artistID int64, name string, ye
 	return id, err
 }
 
-func (s *Store) UpsertTrack(ctx context.Context, albumID int64, disc, num int, name string, durationSeconds int, trackArtist string) (int64, error) {
+func (s *Store) UpsertTrack(ctx context.Context, albumID string, disc, num int, name string, durationSeconds int, trackArtist string) (string, error) {
 	var artistVal *string
 	if trackArtist != "" {
 		artistVal = &trackArtist
 	}
-	var id int64
+	var id string
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO tracks (album_id, disc_number, track_number, name, duration_seconds, track_artist)
 		 VALUES ($1, $2, $3, $4, $5, $6)
@@ -382,7 +382,7 @@ func (s *Store) UpsertTrack(ctx context.Context, albumID int64, disc, num int, n
 	return id, err
 }
 
-func (s *Store) SetAlbumGenre(ctx context.Context, albumID int64, genre string) error {
+func (s *Store) SetAlbumGenre(ctx context.Context, albumID string, genre string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err

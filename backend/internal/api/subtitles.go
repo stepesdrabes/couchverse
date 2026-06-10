@@ -19,7 +19,12 @@ func NewSubtitles(st *store.Store, service *subtitles.Service) *Subtitles {
 
 // Serve returns the WebVTT file for a subtitle track.
 func (h *Subtitles) Serve(w http.ResponseWriter, r *http.Request) {
-	sub, err := h.store.SubtitleByID(r.Context(), httpx.ID(r, "id"))
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	sub, err := h.store.SubtitleByID(r.Context(), id)
 	if err != nil {
 		respondStoreErr(w, err)
 		return
@@ -31,7 +36,11 @@ func (h *Subtitles) Serve(w http.ResponseWriter, r *http.Request) {
 
 // Upload accepts multipart form data: lang, label?, file (.srt/.vtt).
 func (h *Subtitles) Upload(w http.ResponseWriter, r *http.Request) {
-	mediaFileID := httpx.ID(r, "id")
+	mediaFileID := httpx.UUID(r, "id")
+	if mediaFileID == "" {
+		httpx.NotFound(w)
+		return
+	}
 	if _, err := h.store.MediaFileByID(r.Context(), mediaFileID); err != nil {
 		respondStoreErr(w, err)
 		return
@@ -57,7 +66,12 @@ func (h *Subtitles) Upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Subtitles) Delete(w http.ResponseWriter, r *http.Request) {
-	if err := h.service.Delete(r.Context(), httpx.ID(r, "id")); err != nil {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.service.Delete(r.Context(), id); err != nil {
 		respondStoreErr(w, err)
 		return
 	}
@@ -65,7 +79,12 @@ func (h *Subtitles) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Subtitles) ListForMediaFile(w http.ResponseWriter, r *http.Request) {
-	subs, err := h.store.SubtitlesForMediaFile(r.Context(), httpx.ID(r, "id"))
+	mediaFileID := httpx.UUID(r, "id")
+	if mediaFileID == "" {
+		httpx.NotFound(w)
+		return
+	}
+	subs, err := h.store.SubtitlesForMediaFile(r.Context(), mediaFileID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return

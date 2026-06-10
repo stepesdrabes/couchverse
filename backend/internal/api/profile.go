@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	"couchverse/internal/artwork"
 	"couchverse/internal/auth"
@@ -50,7 +51,7 @@ func (h *Profile) SetAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	if _, err := h.artwork.Save(r.Context(), "user", self.ID, "avatar", header.Filename, file); err != nil {
+	if _, err := h.artwork.Save(r.Context(), "user", strconv.FormatInt(self.ID, 10), "avatar", header.Filename, file); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "avatar_failed", err.Error())
 		return
 	}

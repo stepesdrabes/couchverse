@@ -17,8 +17,8 @@ type FetchJob struct {
 }
 
 type FetchPayload struct {
-	TitleID int64 `json:"titleId"`
-	TmdbID  int   `json:"tmdbId"`
+	TitleID string `json:"titleId"`
+	TmdbID  int    `json:"tmdbId"`
 }
 
 func APIKey(ctx context.Context, st *store.Store) (string, error) {
@@ -79,6 +79,15 @@ func (j *FetchJob) Handle(ctx context.Context, job *store.Job, report func(int))
 	if _, err := j.Store.UpdateTitle(ctx, title.ID, up); err != nil {
 		return err
 	}
+	// drafts get their scanner-placeholder slug rebuilt from the TMDB name;
+	// published titles keep theirs so existing links stay valid
+	if title.Status == "draft" && details.Name != "" && details.Name != title.Name {
+		year := title.Year
+		if details.Year > 0 {
+			year = &details.Year
+		}
+		_, _ = j.Store.RegenerateTitleSlug(ctx, title.ID, details.Name, year)
+	}
 	report(50)
 
 	if details.PosterPath != "" {
@@ -111,6 +120,6 @@ func (j *FetchJob) Handle(ctx context.Context, job *store.Job, report func(int))
 	return nil
 }
 
-func setReleaseDate(ctx context.Context, st *store.Store, titleID int64, date string) error {
+func setReleaseDate(ctx context.Context, st *store.Store, titleID string, date string) error {
 	return st.SetTitleReleaseDate(ctx, titleID, date)
 }

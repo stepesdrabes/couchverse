@@ -107,40 +107,40 @@ func (m *Manager) Append(ctx context.Context, id string, offset int64, body io.R
 }
 
 type Assign struct {
-	LibraryKind string `json:"libraryKind"` // movies | series | music
-	TitleID     *int64 `json:"titleId"`
-	EpisodeID   *int64 `json:"episodeId"`
+	LibraryKind string  `json:"libraryKind"` // movies | series | music
+	TitleID     *string `json:"titleId"`
+	EpisodeID   *string `json:"episodeId"`
 }
 
 // Complete moves the finished upload into its managed library (same
 // filesystem → rename) and queues a probe.
-func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (int64, error) {
+func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (string, error) {
 	session, err := m.Store.UploadSession(ctx, id)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	if session.Status != "active" {
-		return 0, fmt.Errorf("upload session is %s", session.Status)
+		return "", fmt.Errorf("upload session is %s", session.Status)
 	}
 	if session.ReceivedBytes != session.DeclaredSize {
-		return 0, fmt.Errorf("upload incomplete: %d of %d bytes", session.ReceivedBytes, session.DeclaredSize)
+		return "", fmt.Errorf("upload incomplete: %d of %d bytes", session.ReceivedBytes, session.DeclaredSize)
 	}
 
 	lib, err := m.Store.ManagedLibraryByKind(ctx, assign.LibraryKind)
 	if err != nil {
-		return 0, fmt.Errorf("no managed %q library", assign.LibraryKind)
+		return "", fmt.Errorf("no managed %q library", assign.LibraryKind)
 	}
 
 	relPath, err := m.destinationPath(ctx, lib, session.Filename, assign)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	absPath := filepath.Join(lib.Path, relPath)
 	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
-		return 0, err
+		return "", err
 	}
 	if err := os.Rename(session.TempPath, absPath); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	// uploading to a specific series: resolve SxxExx from the filename into a
@@ -150,11 +150,11 @@ func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (int64
 		if parsed := media.ParseVideoPath(session.Filename); parsed.IsEpisode {
 			seasonID, serr := m.Store.FindOrCreateSeason(ctx, *titleID, parsed.Season)
 			if serr != nil {
-				return 0, serr
+				return "", serr
 			}
 			epID, eerr := m.Store.FindOrCreateEpisode(ctx, seasonID, parsed.Episode, parsed.Name)
 			if eerr != nil {
-				return 0, eerr
+				return "", eerr
 			}
 			episodeID = &epID
 		}
@@ -164,14 +164,14 @@ func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (int64
 	mediaFileID, err := m.Store.CreateAssignedMediaFile(ctx, lib.ID, relPath,
 		session.ReceivedBytes, titleID, episodeID)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	if _, err := m.Store.EnqueueJobOnce(ctx, "probe",
 		media.ProbePayload{MediaFileID: mediaFileID}, store.EnqueueOpts{Priority: 5}); err != nil {
-		return 0, err
+		return "", err
 	}
 	if err := m.Store.SetUploadStatus(ctx, id, "complete"); err != nil {
-		return 0, err
+		return "", err
 	}
 	return mediaFileID, nil
 }

@@ -4,15 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"couchverse/internal/httpx"
+	"couchverse/internal/slug"
 )
 
 type Title struct {
-	ID             int64      `json:"id"`
+	ID             string     `json:"id"`
+	Slug           string     `json:"slug"`
 	Kind           string     `json:"kind"`
 	Name           string     `json:"name"`
 	SortName       string     `json:"sortName"`
@@ -28,12 +32,12 @@ type Title struct {
 	Genres         []string   `json:"genres"`
 }
 
-const titleCols = `id, kind, name, sort_name, overview, year, release_date, content_rating,
+const titleCols = `id, slug, kind, name, sort_name, overview, year, release_date, content_rating,
 	runtime_minutes, status, tmdb_id, added_at, updated_at`
 
 func scanTitle(row pgx.Row) (*Title, error) {
 	var t Title
-	err := row.Scan(&t.ID, &t.Kind, &t.Name, &t.SortName, &t.Overview, &t.Year, &t.ReleaseDate,
+	err := row.Scan(&t.ID, &t.Slug, &t.Kind, &t.Name, &t.SortName, &t.Overview, &t.Year, &t.ReleaseDate,
 		&t.ContentRating, &t.RuntimeMinutes, &t.Status, &t.TmdbID, &t.AddedAt, &t.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, httpx.ErrNotFound
@@ -45,8 +49,19 @@ func scanTitle(row pgx.Row) (*Title, error) {
 	return &t, nil
 }
 
-func (s *Store) TitleByID(ctx context.Context, id int64) (*Title, error) {
+func (s *Store) TitleByID(ctx context.Context, id string) (*Title, error) {
 	t, err := scanTitle(s.pool.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE id = $1`, id))
+	if err != nil {
+		return nil, err
+	}
+	if err := s.loadTitleGenres(ctx, t); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (s *Store) TitleBySlug(ctx context.Context, slug string) (*Title, error) {
+	t, err := scanTitle(s.pool.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE slug = $1`, slug))
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +89,41 @@ func (s *Store) loadTitleGenres(ctx context.Context, t *Title) error {
 	return rows.Err()
 }
 
+// uniqueSlug returns base or the first free base-N suffix.
+func (s *Store) uniqueSlug(ctx context.Context, base string) (string, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT slug FROM titles WHERE slug = $1 OR slug LIKE $1 || '-%'`, base)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	taken := map[string]bool{}
+	for rows.Next() {
+		var sl string
+		if err := rows.Scan(&sl); err != nil {
+			return "", err
+		}
+		taken[sl] = true
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	if !taken[base] {
+		return base, nil
+	}
+	for n := 2; ; n++ {
+		candidate := base + "-" + strconv.Itoa(n)
+		if !taken[candidate] {
+			return candidate, nil
+		}
+	}
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
 type TitleInput struct {
 	Kind           string   `json:"kind"`
 	Name           string   `json:"name"`
@@ -85,12 +135,23 @@ type TitleInput struct {
 }
 
 func (s *Store) CreateTitle(ctx context.Context, in TitleInput) (*Title, error) {
-	t, err := scanTitle(s.pool.QueryRow(ctx,
-		`INSERT INTO titles (kind, name, sort_name, overview, year, content_rating, runtime_minutes)
-		 VALUES ($1, $2, $2, $3, $4, $5, $6)
-		 RETURNING `+titleCols,
-		in.Kind, in.Name, in.Overview, in.Year, in.ContentRating, in.RuntimeMinutes))
-	if err != nil {
+	var t *Title
+	for attempt := 0; ; attempt++ {
+		sl, err := s.uniqueSlug(ctx, slug.Make(in.Name, in.Year))
+		if err != nil {
+			return nil, err
+		}
+		t, err = scanTitle(s.pool.QueryRow(ctx,
+			`INSERT INTO titles (kind, name, slug, sort_name, overview, year, content_rating, runtime_minutes)
+			 VALUES ($1, $2, $3, $2, $4, $5, $6, $7)
+			 RETURNING `+titleCols,
+			in.Kind, in.Name, sl, in.Overview, in.Year, in.ContentRating, in.RuntimeMinutes))
+		if err == nil {
+			break
+		}
+		if attempt == 0 && isUniqueViolation(err) {
+			continue // slug raced another insert; recompute once
+		}
 		return nil, err
 	}
 	if len(in.Genres) > 0 {
@@ -114,7 +175,7 @@ type TitleUpdate struct {
 	Genres         *[]string `json:"genres"`
 }
 
-func (s *Store) UpdateTitle(ctx context.Context, id int64, up TitleUpdate) (*Title, error) {
+func (s *Store) UpdateTitle(ctx context.Context, id string, up TitleUpdate) (*Title, error) {
 	t, err := scanTitle(s.pool.QueryRow(ctx,
 		`UPDATE titles SET
 			name = COALESCE($2, name),
@@ -144,13 +205,24 @@ func (s *Store) UpdateTitle(ctx context.Context, id int64, up TitleUpdate) (*Tit
 	return t, nil
 }
 
-func (s *Store) SetTitleReleaseDate(ctx context.Context, id int64, date string) error {
+// RegenerateTitleSlug rebuilds the slug from name+year, keeping it unique.
+func (s *Store) RegenerateTitleSlug(ctx context.Context, id string, name string, year *int) (string, error) {
+	sl, err := s.uniqueSlug(ctx, slug.Make(name, year))
+	if err != nil {
+		return "", err
+	}
+	_, err = s.pool.Exec(ctx,
+		`UPDATE titles SET slug = $2, updated_at = now() WHERE id = $1`, id, sl)
+	return sl, err
+}
+
+func (s *Store) SetTitleReleaseDate(ctx context.Context, id string, date string) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE titles SET release_date = $2::date, updated_at = now() WHERE id = $1`, id, date)
 	return err
 }
 
-func (s *Store) DeleteTitle(ctx context.Context, id int64) error {
+func (s *Store) DeleteTitle(ctx context.Context, id string) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM titles WHERE id = $1`, id)
 	if err != nil {
 		return err
@@ -161,19 +233,19 @@ func (s *Store) DeleteTitle(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *Store) SetTitlesStatus(ctx context.Context, ids []int64, status string) error {
+func (s *Store) SetTitlesStatus(ctx context.Context, ids []string, status string) error {
 	_, err := s.pool.Exec(ctx,
-		`UPDATE titles SET status = $2, updated_at = now() WHERE id = ANY($1)`, ids, status)
+		`UPDATE titles SET status = $2, updated_at = now() WHERE id = ANY($1::uuid[])`, ids, status)
 	return err
 }
 
-func (s *Store) DeleteTitles(ctx context.Context, ids []int64) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM titles WHERE id = ANY($1)`, ids)
+func (s *Store) DeleteTitles(ctx context.Context, ids []string) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM titles WHERE id = ANY($1::uuid[])`, ids)
 	return err
 }
 
 // SetTitleGenres replaces a title's genres, creating unknown genre names.
-func (s *Store) SetTitleGenres(ctx context.Context, titleID int64, names []string) error {
+func (s *Store) SetTitleGenres(ctx context.Context, titleID string, names []string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -241,13 +313,26 @@ func (s *Store) FindOrCreateTitle(ctx context.Context, kind, name string, year *
 	if !errors.Is(err, httpx.ErrNotFound) {
 		return nil, err
 	}
-	return scanTitle(s.pool.QueryRow(ctx,
-		`INSERT INTO titles (kind, name, sort_name, year) VALUES ($1, $2, $2, $3)
-		 RETURNING `+titleCols, kind, name, year))
+	for attempt := 0; ; attempt++ {
+		sl, slugErr := s.uniqueSlug(ctx, slug.Make(name, year))
+		if slugErr != nil {
+			return nil, slugErr
+		}
+		t, err = scanTitle(s.pool.QueryRow(ctx,
+			`INSERT INTO titles (kind, name, slug, sort_name, year) VALUES ($1, $2, $3, $2, $4)
+			 RETURNING `+titleCols, kind, name, sl, year))
+		if err == nil {
+			return t, nil
+		}
+		if attempt == 0 && isUniqueViolation(err) {
+			continue
+		}
+		return nil, err
+	}
 }
 
-func (s *Store) FindOrCreateSeason(ctx context.Context, titleID int64, seasonNumber int) (int64, error) {
-	var id int64
+func (s *Store) FindOrCreateSeason(ctx context.Context, titleID string, seasonNumber int) (string, error) {
+	var id string
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO seasons (title_id, season_number, name)
 		 VALUES ($1, $2, $3)
@@ -256,8 +341,8 @@ func (s *Store) FindOrCreateSeason(ctx context.Context, titleID int64, seasonNum
 	return id, err
 }
 
-func (s *Store) FindOrCreateEpisode(ctx context.Context, seasonID int64, episodeNumber int, name string) (int64, error) {
-	var id int64
+func (s *Store) FindOrCreateEpisode(ctx context.Context, seasonID string, episodeNumber int, name string) (string, error) {
+	var id string
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO episodes (season_id, episode_number, name)
 		 VALUES ($1, $2, $3)
@@ -277,7 +362,8 @@ type LibraryFilter struct {
 }
 
 type LibraryRow struct {
-	ID           int64     `json:"id"`
+	ID           string    `json:"id"`
+	Slug         string    `json:"slug"`
 	Kind         string    `json:"kind"`
 	Name         string    `json:"name"`
 	Year         *int      `json:"year"`
@@ -287,8 +373,8 @@ type LibraryRow struct {
 	SizeBytes    int64     `json:"sizeBytes"`
 	MaxHeight    int       `json:"maxHeight"`
 	HDR          bool      `json:"hdr"`
-	PosterID     *int64    `json:"posterId"`
-	BackdropID   *int64    `json:"backdropId"`
+	PosterID     *string   `json:"posterId"`
+	BackdropID   *string   `json:"backdropId"`
 	NeedsPrepare bool      `json:"needsPrepare"`
 	AddedAt      time.Time `json:"addedAt"`
 }
@@ -327,7 +413,7 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT t.id, t.kind, t.name, t.year,
+		SELECT t.id, t.slug, t.kind, t.name, t.year,
 			CASE WHEN EXISTS (
 				SELECT 1 FROM transcode_variants tv
 				WHERE tv.status IN ('queued', 'processing')
@@ -344,8 +430,8 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 			COALESCE(sum(mf.size_bytes), 0) AS size_bytes,
 			COALESCE(max(mf.height), 0) AS max_height,
 			COALESCE(bool_or(mf.video_range <> 'sdr'), false) AS hdr,
-			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'poster') AS poster_id,
-			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'backdrop') AS backdrop_id,
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster') AS poster_id,
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop') AS backdrop_id,
 			COALESCE(bool_or(NOT mf.direct_play AND mf.scanned_at IS NOT NULL AND NOT EXISTS (
 				SELECT 1 FROM transcode_variants tv2
 				WHERE tv2.media_file_id = mf.id AND tv2.status IN ('queued', 'processing', 'ready')
@@ -367,7 +453,7 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 	items := []LibraryRow{}
 	for rows.Next() {
 		var r LibraryRow
-		if err := rows.Scan(&r.ID, &r.Kind, &r.Name, &r.Year, &r.Status, &r.AddedAt,
+		if err := rows.Scan(&r.ID, &r.Slug, &r.Kind, &r.Name, &r.Year, &r.Status, &r.AddedAt,
 			&r.SeasonCount, &r.EpisodeCount, &r.SizeBytes, &r.MaxHeight, &r.HDR,
 			&r.PosterID, &r.BackdropID, &r.NeedsPrepare); err != nil {
 			return nil, 0, err

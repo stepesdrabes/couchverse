@@ -19,10 +19,10 @@ func NewProgress(st *store.Store) *Progress {
 func (h *Progress) Put(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
 	var req struct {
-		TitleID         *int64 `json:"titleId"`
-		EpisodeID       *int64 `json:"episodeId"`
-		PositionSeconds int    `json:"positionSeconds"`
-		DurationSeconds int    `json:"durationSeconds"`
+		TitleID         *string `json:"titleId"`
+		EpisodeID       *string `json:"episodeId"`
+		PositionSeconds int     `json:"positionSeconds"`
+		DurationSeconds int     `json:"durationSeconds"`
 	}
 	if err := httpx.Decode(r, &req); err != nil {
 		httpx.BadRequest(w, "invalid request body")
@@ -62,7 +62,12 @@ func (h *Progress) WatchlistGet(w http.ResponseWriter, r *http.Request) {
 
 func (h *Progress) WatchlistPut(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
-	if err := h.store.WatchlistAdd(r.Context(), user.ID, httpx.ID(r, "titleId")); err != nil {
+	titleID := httpx.UUID(r, "titleId")
+	if titleID == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.store.WatchlistAdd(r.Context(), user.ID, titleID); err != nil {
 		httpx.Internal(w, err)
 		return
 	}
@@ -71,7 +76,12 @@ func (h *Progress) WatchlistPut(w http.ResponseWriter, r *http.Request) {
 
 func (h *Progress) WatchlistDelete(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
-	if err := h.store.WatchlistRemove(r.Context(), user.ID, httpx.ID(r, "titleId")); err != nil {
+	titleID := httpx.UUID(r, "titleId")
+	if titleID == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.store.WatchlistRemove(r.Context(), user.ID, titleID); err != nil {
 		httpx.Internal(w, err)
 		return
 	}

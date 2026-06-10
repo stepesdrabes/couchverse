@@ -18,14 +18,14 @@ type User struct {
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`
 	Disabled     bool      `json:"disabled"`
-	AvatarID     *int64    `json:"avatarId"`
+	AvatarID     *string   `json:"avatarId"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
 const userSelect = `
 	SELECT u.id, u.username, u.display_name, u.password_hash, u.role, u.disabled, av.id, u.created_at
 	FROM users u
-	LEFT JOIN artwork av ON av.owner_kind = 'user' AND av.owner_id = u.id AND av.kind = 'avatar'`
+	LEFT JOIN artwork av ON av.owner_kind = 'user' AND av.owner_id = u.id::text AND av.kind = 'avatar'`
 
 func scanUser(row pgx.Row) (*User, error) {
 	var u User

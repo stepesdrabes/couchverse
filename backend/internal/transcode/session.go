@@ -29,7 +29,7 @@ const (
 
 type Session struct {
 	ID          string
-	MediaFileID int64
+	MediaFileID string
 
 	dir      string
 	input    string
@@ -64,7 +64,7 @@ func (m *SessionManager) ensureInit(ctx context.Context) {
 }
 
 // Create starts a JIT session for a media file at startAt seconds.
-func (m *SessionManager) Create(ctx context.Context, appCtx context.Context, mediaFileID int64, startAt float64) (*Session, error) {
+func (m *SessionManager) Create(ctx context.Context, appCtx context.Context, mediaFileID string, startAt float64) (*Session, error) {
 	m.ensureInit(appCtx)
 
 	mf, err := m.Store.MediaFileByID(ctx, mediaFileID)

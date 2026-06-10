@@ -28,13 +28,13 @@ var sizes = map[string]int{
 var allowedExts = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
 
 // Save stores an uploaded original and upserts the artwork slot.
-func (s *Service) Save(ctx context.Context, ownerKind string, ownerID int64, kind, filename string, body io.Reader) (*store.Artwork, error) {
+func (s *Service) Save(ctx context.Context, ownerKind string, ownerID string, kind, filename string, body io.Reader) (*store.Artwork, error) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	if !allowedExts[ext] {
 		return nil, fmt.Errorf("unsupported image type %q (jpg/png/webp)", ext)
 	}
 
-	rel := filepath.Join("artwork", ownerKind, fmt.Sprint(ownerID), kind+ext)
+	rel := filepath.Join("artwork", ownerKind, ownerID, kind+ext)
 	abs := filepath.Join(s.DataDir, rel)
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 		return nil, err
@@ -58,8 +58,8 @@ func (s *Service) Save(ctx context.Context, ownerKind string, ownerID int64, kin
 }
 
 // SaveBytes is used by metadata jobs (TMDB downloads, embedded covers).
-func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID int64, kind, ext string, data []byte, source string) (*store.Artwork, error) {
-	rel := filepath.Join("artwork", ownerKind, fmt.Sprint(ownerID), kind+ext)
+func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID string, kind, ext string, data []byte, source string) (*store.Artwork, error) {
+	rel := filepath.Join("artwork", ownerKind, ownerID, kind+ext)
 	abs := filepath.Join(s.DataDir, rel)
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func (s *Service) Resolve(ctx context.Context, art *store.Artwork, size string) 
 		return "", err
 	}
 	cached := filepath.Join(s.DataDir, "cache", "images",
-		fmt.Sprintf("%d_%d_%s.jpg", art.ID, info.ModTime().UnixNano(), size))
+		fmt.Sprintf("%s_%d_%s.jpg", art.ID, info.ModTime().UnixNano(), size))
 	if _, err := os.Stat(cached); err == nil {
 		return cached, nil
 	}
@@ -100,7 +100,7 @@ func (s *Service) Resolve(ctx context.Context, art *store.Artwork, size string) 
 	}
 	// drop resizes of older versions of this artwork
 	if stale, err := filepath.Glob(filepath.Join(s.DataDir, "cache", "images",
-		fmt.Sprintf("%d_*_%s.jpg", art.ID, size))); err == nil {
+		fmt.Sprintf("%s_*_%s.jpg", art.ID, size))); err == nil {
 		for _, f := range stale {
 			os.Remove(f)
 		}
@@ -120,7 +120,7 @@ func (s *Service) Resolve(ctx context.Context, art *store.Artwork, size string) 
 }
 
 // Delete removes the artwork row, original file and cached sizes.
-func (s *Service) Delete(ctx context.Context, id int64) error {
+func (s *Service) Delete(ctx context.Context, id string) error {
 	art, err := s.Store.DeleteArtwork(ctx, id)
 	if err != nil {
 		return err
@@ -130,8 +130,8 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *Service) dropCache(id int64) {
-	stale, err := filepath.Glob(filepath.Join(s.DataDir, "cache", "images", fmt.Sprintf("%d_*", id)))
+func (s *Service) dropCache(id string) {
+	stale, err := filepath.Glob(filepath.Join(s.DataDir, "cache", "images", id+"_*"))
 	if err != nil {
 		return
 	}
@@ -142,7 +142,7 @@ func (s *Service) dropCache(id int64) {
 
 // DeleteForOwner removes all artwork rows, files and cached resizes of an
 // owner — called when a title or album is deleted.
-func (s *Service) DeleteForOwner(ctx context.Context, ownerKind string, ownerID int64) error {
+func (s *Service) DeleteForOwner(ctx context.Context, ownerKind string, ownerID string) error {
 	rows, err := s.Store.DeleteArtworkForOwner(ctx, ownerKind, ownerID)
 	if err != nil {
 		return err
@@ -151,6 +151,6 @@ func (s *Service) DeleteForOwner(ctx context.Context, ownerKind string, ownerID 
 		os.Remove(filepath.Join(s.DataDir, art.Path))
 		s.dropCache(art.ID)
 	}
-	os.Remove(filepath.Join(s.DataDir, "artwork", ownerKind, fmt.Sprint(ownerID)))
+	os.Remove(filepath.Join(s.DataDir, "artwork", ownerKind, ownerID))
 	return nil
 }

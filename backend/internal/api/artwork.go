@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"strconv"
 
 	"couchverse/internal/artwork"
 	"couchverse/internal/httpx"
@@ -20,7 +19,12 @@ func NewArtwork(st *store.Store, service *artwork.Service) *Artwork {
 
 // Serve returns the artwork image, resized on first request when ?size= is given.
 func (h *Artwork) Serve(w http.ResponseWriter, r *http.Request) {
-	art, err := h.store.ArtworkByID(r.Context(), httpx.ID(r, "id"))
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	art, err := h.store.ArtworkByID(r.Context(), id)
 	if err != nil {
 		respondStoreErr(w, err)
 		return
@@ -51,12 +55,12 @@ func (h *Artwork) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	ownerKind := r.FormValue("ownerKind")
 	kind := r.FormValue("kind")
-	ownerID, _ := strconv.ParseInt(r.FormValue("ownerId"), 10, 64)
+	ownerID := r.FormValue("ownerId")
 	if !artworkOwnerKinds[ownerKind] || !artworkKinds[kind] {
 		httpx.BadRequest(w, "invalid ownerKind or kind")
 		return
 	}
-	if ownerID <= 0 {
+	if ownerID == "" {
 		httpx.BadRequest(w, "ownerId is required")
 		return
 	}
@@ -77,7 +81,12 @@ func (h *Artwork) Upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Artwork) Delete(w http.ResponseWriter, r *http.Request) {
-	if err := h.service.Delete(r.Context(), httpx.ID(r, "id")); err != nil {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.service.Delete(r.Context(), id); err != nil {
 		respondStoreErr(w, err)
 		return
 	}

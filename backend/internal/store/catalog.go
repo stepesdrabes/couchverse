@@ -9,20 +9,21 @@ import (
 // Public catalog queries — published content only, shaped for the user app.
 
 type CardItem struct {
-	TitleID    int64  `json:"titleId"`
-	Kind       string `json:"kind"`
-	Name       string `json:"name"`
-	Year       *int   `json:"year"`
-	PosterID   *int64 `json:"posterId"`
-	BackdropID *int64 `json:"backdropId"`
+	TitleID    string  `json:"titleId"`
+	Slug       string  `json:"slug"`
+	Kind       string  `json:"kind"`
+	Name       string  `json:"name"`
+	Year       *int    `json:"year"`
+	PosterID   *string `json:"posterId"`
+	BackdropID *string `json:"backdropId"`
 }
 
 type ContinueItem struct {
 	CardItem
-	EpisodeID    *int64    `json:"episodeId"`
+	EpisodeID    *string   `json:"episodeId"`
 	EpisodeLabel string    `json:"episodeLabel"` // "S1 E3 · Pilot"
 	PlaybackKind string    `json:"playbackKind"` // movie | episode
-	PlaybackID   int64     `json:"playbackId"`
+	PlaybackID   string    `json:"playbackId"`
 	Position     int       `json:"positionSeconds"`
 	Duration     int       `json:"durationSeconds"`
 	UpdatedAt    time.Time `json:"updatedAt"`
@@ -35,9 +36,9 @@ type HomeRow struct {
 }
 
 const cardSelect = `
-	SELECT t.id, t.kind, t.name, t.year,
-		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'poster') AS poster_id,
-		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'backdrop') AS backdrop_id
+	SELECT t.id, t.slug, t.kind, t.name, t.year,
+		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster') AS poster_id,
+		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop') AS backdrop_id
 	FROM titles t`
 
 func (s *Store) scanCards(ctx context.Context, query string, args ...any) ([]CardItem, error) {
@@ -50,7 +51,7 @@ func (s *Store) scanCards(ctx context.Context, query string, args ...any) ([]Car
 	items := []CardItem{}
 	for rows.Next() {
 		var c CardItem
-		if err := rows.Scan(&c.TitleID, &c.Kind, &c.Name, &c.Year, &c.PosterID, &c.BackdropID); err != nil {
+		if err := rows.Scan(&c.TitleID, &c.Slug, &c.Kind, &c.Name, &c.Year, &c.PosterID, &c.BackdropID); err != nil {
 			return nil, err
 		}
 		items = append(items, c)
@@ -170,7 +171,7 @@ type SearchResults struct {
 }
 
 type SearchHit struct {
-	ID       int64  `json:"id"`
+	ID       string `json:"id"`
 	Name     string `json:"name"`
 	Subtitle string `json:"subtitle"`
 }
@@ -228,36 +229,37 @@ func (s *Store) Search(ctx context.Context, q string, limit int) (*SearchResults
 }
 
 // PrimaryMediaFileForTitle returns the playable file for a movie title.
-func (s *Store) PrimaryMediaFileForTitle(ctx context.Context, titleID int64) (*MediaFile, error) {
+func (s *Store) PrimaryMediaFileForTitle(ctx context.Context, titleID string) (*MediaFile, error) {
 	return scanMediaFile(s.pool.QueryRow(ctx,
 		`SELECT `+mediaFileCols+` FROM media_files
 		 WHERE title_id = $1 ORDER BY height DESC, id LIMIT 1`, titleID))
 }
 
-func (s *Store) PrimaryMediaFileForEpisode(ctx context.Context, episodeID int64) (*MediaFile, error) {
+func (s *Store) PrimaryMediaFileForEpisode(ctx context.Context, episodeID string) (*MediaFile, error) {
 	return scanMediaFile(s.pool.QueryRow(ctx,
 		`SELECT `+mediaFileCols+` FROM media_files
 		 WHERE episode_id = $1 ORDER BY height DESC, id LIMIT 1`, episodeID))
 }
 
 type EpisodeRef struct {
-	EpisodeID     int64  `json:"episodeId"`
+	EpisodeID     string `json:"episodeId"`
 	SeasonNumber  int    `json:"seasonNumber"`
 	EpisodeNumber int    `json:"episodeNumber"`
 	Name          string `json:"name"`
-	TitleID       int64  `json:"titleId"`
+	TitleID       string `json:"titleId"`
 	TitleName     string `json:"titleName"`
+	TitleSlug     string `json:"titleSlug"`
 }
 
-func (s *Store) EpisodeRef(ctx context.Context, episodeID int64) (*EpisodeRef, error) {
+func (s *Store) EpisodeRef(ctx context.Context, episodeID string) (*EpisodeRef, error) {
 	var ref EpisodeRef
 	err := s.pool.QueryRow(ctx,
-		`SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name
+		`SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name, t.slug
 		 FROM episodes e
 		 JOIN seasons se ON se.id = e.season_id
 		 JOIN titles t ON t.id = se.title_id
 		 WHERE e.id = $1`, episodeID).
-		Scan(&ref.EpisodeID, &ref.SeasonNumber, &ref.EpisodeNumber, &ref.Name, &ref.TitleID, &ref.TitleName)
+		Scan(&ref.EpisodeID, &ref.SeasonNumber, &ref.EpisodeNumber, &ref.Name, &ref.TitleID, &ref.TitleName, &ref.TitleSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +267,7 @@ func (s *Store) EpisodeRef(ctx context.Context, episodeID int64) (*EpisodeRef, e
 }
 
 // NextEpisode finds the episode that follows (same season, then next season).
-func (s *Store) NextEpisode(ctx context.Context, episodeID int64) (*EpisodeRef, error) {
+func (s *Store) NextEpisode(ctx context.Context, episodeID string) (*EpisodeRef, error) {
 	var ref EpisodeRef
 	err := s.pool.QueryRow(ctx,
 		`WITH cur AS (
@@ -273,7 +275,7 @@ func (s *Store) NextEpisode(ctx context.Context, episodeID int64) (*EpisodeRef, 
 			FROM episodes e JOIN seasons se ON se.id = e.season_id
 			WHERE e.id = $1
 		)
-		SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name
+		SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name, t.slug
 		FROM episodes e
 		JOIN seasons se ON se.id = e.season_id
 		JOIN titles t ON t.id = se.title_id, cur
@@ -281,7 +283,7 @@ func (s *Store) NextEpisode(ctx context.Context, episodeID int64) (*EpisodeRef, 
 			AND (se.season_number, e.episode_number) > (cur.season_number, cur.episode_number)
 		ORDER BY se.season_number, e.episode_number
 		LIMIT 1`, episodeID).
-		Scan(&ref.EpisodeID, &ref.SeasonNumber, &ref.EpisodeNumber, &ref.Name, &ref.TitleID, &ref.TitleName)
+		Scan(&ref.EpisodeID, &ref.SeasonNumber, &ref.EpisodeNumber, &ref.Name, &ref.TitleID, &ref.TitleName, &ref.TitleSlug)
 	if err != nil {
 		return nil, nil // no next episode is not an error
 	}

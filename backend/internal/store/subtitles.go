@@ -11,8 +11,8 @@ import (
 )
 
 type Subtitle struct {
-	ID          int64     `json:"id"`
-	MediaFileID int64     `json:"mediaFileId"`
+	ID          string    `json:"id"`
+	MediaFileID string    `json:"mediaFileId"`
 	Lang        string    `json:"lang"`
 	Label       string    `json:"label"`
 	Source      string    `json:"source"`
@@ -35,7 +35,7 @@ func scanSubtitle(row pgx.Row) (*Subtitle, error) {
 	return &s, nil
 }
 
-func (s *Store) CreateSubtitle(ctx context.Context, mediaFileID int64, lang, label, source string, forced bool, path string) (*Subtitle, error) {
+func (s *Store) CreateSubtitle(ctx context.Context, mediaFileID string, lang, label, source string, forced bool, path string) (*Subtitle, error) {
 	return scanSubtitle(s.pool.QueryRow(ctx,
 		`INSERT INTO subtitles (media_file_id, lang, label, source, forced, path)
 		 VALUES ($1, $2, $3, $4, $5, $6)
@@ -43,12 +43,12 @@ func (s *Store) CreateSubtitle(ctx context.Context, mediaFileID int64, lang, lab
 		mediaFileID, lang, label, source, forced, path))
 }
 
-func (s *Store) SubtitleByID(ctx context.Context, id int64) (*Subtitle, error) {
+func (s *Store) SubtitleByID(ctx context.Context, id string) (*Subtitle, error) {
 	return scanSubtitle(s.pool.QueryRow(ctx,
 		`SELECT `+subtitleCols+` FROM subtitles WHERE id = $1`, id))
 }
 
-func (s *Store) SubtitlesForMediaFile(ctx context.Context, mediaFileID int64) ([]Subtitle, error) {
+func (s *Store) SubtitlesForMediaFile(ctx context.Context, mediaFileID string) ([]Subtitle, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT `+subtitleCols+` FROM subtitles WHERE media_file_id = $1 ORDER BY lang, id`, mediaFileID)
 	if err != nil {
@@ -67,18 +67,18 @@ func (s *Store) SubtitlesForMediaFile(ctx context.Context, mediaFileID int64) ([
 	return subs, rows.Err()
 }
 
-func (s *Store) UpdateSubtitlePath(ctx context.Context, id int64, path string) (*Subtitle, error) {
+func (s *Store) UpdateSubtitlePath(ctx context.Context, id string, path string) (*Subtitle, error) {
 	return scanSubtitle(s.pool.QueryRow(ctx,
 		`UPDATE subtitles SET path = $2 WHERE id = $1 RETURNING `+subtitleCols, id, path))
 }
 
-func (s *Store) DeleteSubtitle(ctx context.Context, id int64) (*Subtitle, error) {
+func (s *Store) DeleteSubtitle(ctx context.Context, id string) (*Subtitle, error) {
 	return scanSubtitle(s.pool.QueryRow(ctx,
 		`DELETE FROM subtitles WHERE id = $1 RETURNING `+subtitleCols, id))
 }
 
 // DeleteEmbeddedSubtitles clears previously extracted rows before re-extraction.
-func (s *Store) DeleteEmbeddedSubtitles(ctx context.Context, mediaFileID int64) error {
+func (s *Store) DeleteEmbeddedSubtitles(ctx context.Context, mediaFileID string) error {
 	_, err := s.pool.Exec(ctx,
 		`DELETE FROM subtitles WHERE media_file_id = $1 AND source = 'embedded'`, mediaFileID)
 	return err

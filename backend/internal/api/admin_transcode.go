@@ -29,7 +29,11 @@ func (h *AdminTranscode) Info(w http.ResponseWriter, r *http.Request) {
 
 // Enqueue queues HLS variants for a media file.
 func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
-	mediaFileID := httpx.ID(r, "id")
+	mediaFileID := httpx.UUID(r, "id")
+	if mediaFileID == "" {
+		httpx.NotFound(w)
+		return
+	}
 	mf, err := h.store.MediaFileByID(r.Context(), mediaFileID)
 	if err != nil {
 		respondStoreErr(w, err)
@@ -81,7 +85,12 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminTranscode) ListVariants(w http.ResponseWriter, r *http.Request) {
-	variants, err := h.store.VariantsForMediaFile(r.Context(), httpx.ID(r, "id"))
+	mediaFileID := httpx.UUID(r, "id")
+	if mediaFileID == "" {
+		httpx.NotFound(w)
+		return
+	}
+	variants, err := h.store.VariantsForMediaFile(r.Context(), mediaFileID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -90,7 +99,12 @@ func (h *AdminTranscode) ListVariants(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminTranscode) DeleteVariant(w http.ResponseWriter, r *http.Request) {
-	if err := h.jobHandler.RemoveVariant(r.Context(), httpx.ID(r, "id")); err != nil {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.jobHandler.RemoveVariant(r.Context(), id); err != nil {
 		respondStoreErr(w, err)
 		return
 	}

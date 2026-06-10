@@ -11,8 +11,8 @@ import (
 )
 
 type Season struct {
-	ID           int64     `json:"id"`
-	TitleID      int64     `json:"titleId"`
+	ID           string    `json:"id"`
+	TitleID      string    `json:"titleId"`
 	SeasonNumber int       `json:"seasonNumber"`
 	Name         string    `json:"name"`
 	Overview     string    `json:"overview"`
@@ -20,8 +20,8 @@ type Season struct {
 }
 
 type Episode struct {
-	ID             int64      `json:"id"`
-	SeasonID       int64      `json:"seasonId"`
+	ID             string     `json:"id"`
+	SeasonID       string     `json:"seasonId"`
 	EpisodeNumber  int        `json:"episodeNumber"`
 	Name           string     `json:"name"`
 	Overview       string     `json:"overview"`
@@ -55,7 +55,7 @@ func scanEpisode(row pgx.Row) (*Episode, error) {
 }
 
 // SeasonsWithEpisodes returns a title's seasons with episodes, ordered.
-func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID int64) ([]Season, error) {
+func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Season, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, title_id, season_number, name, overview
 		 FROM seasons WHERE title_id = $1 ORDER BY season_number`, titleID)
@@ -65,7 +65,7 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID int64) ([]Seaso
 	defer rows.Close()
 
 	seasons := []Season{}
-	byID := map[int64]int{}
+	byID := map[string]int{}
 	for rows.Next() {
 		se, err := scanSeason(rows)
 		if err != nil {
@@ -101,14 +101,14 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID int64) ([]Seaso
 	return seasons, erows.Err()
 }
 
-func (s *Store) CreateSeason(ctx context.Context, titleID int64, seasonNumber int, name string) (*Season, error) {
+func (s *Store) CreateSeason(ctx context.Context, titleID string, seasonNumber int, name string) (*Season, error) {
 	return scanSeason(s.pool.QueryRow(ctx,
 		`INSERT INTO seasons (title_id, season_number, name) VALUES ($1, $2, $3)
 		 RETURNING id, title_id, season_number, name, overview`,
 		titleID, seasonNumber, name))
 }
 
-func (s *Store) DeleteSeason(ctx context.Context, id int64) error {
+func (s *Store) DeleteSeason(ctx context.Context, id string) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM seasons WHERE id = $1`, id)
 	if err != nil {
 		return err
@@ -126,7 +126,7 @@ type EpisodeInput struct {
 	RuntimeMinutes *int   `json:"runtimeMinutes"`
 }
 
-func (s *Store) CreateEpisode(ctx context.Context, seasonID int64, in EpisodeInput) (*Episode, error) {
+func (s *Store) CreateEpisode(ctx context.Context, seasonID string, in EpisodeInput) (*Episode, error) {
 	return scanEpisode(s.pool.QueryRow(ctx,
 		`INSERT INTO episodes (season_id, episode_number, name, overview, runtime_minutes)
 		 VALUES ($1, $2, $3, $4, $5)
@@ -141,7 +141,7 @@ type EpisodeUpdate struct {
 	RuntimeMinutes *int    `json:"runtimeMinutes"`
 }
 
-func (s *Store) UpdateEpisode(ctx context.Context, id int64, up EpisodeUpdate) (*Episode, error) {
+func (s *Store) UpdateEpisode(ctx context.Context, id string, up EpisodeUpdate) (*Episode, error) {
 	return scanEpisode(s.pool.QueryRow(ctx,
 		`UPDATE episodes SET
 			episode_number = COALESCE($2, episode_number),
@@ -153,7 +153,7 @@ func (s *Store) UpdateEpisode(ctx context.Context, id int64, up EpisodeUpdate) (
 		id, up.EpisodeNumber, up.Name, up.Overview, up.RuntimeMinutes))
 }
 
-func (s *Store) DeleteEpisode(ctx context.Context, id int64) error {
+func (s *Store) DeleteEpisode(ctx context.Context, id string) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM episodes WHERE id = $1`, id)
 	if err != nil {
 		return err

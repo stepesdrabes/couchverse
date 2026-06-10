@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"couchverse/internal/store"
@@ -57,8 +56,8 @@ func removeOrphanedHLS(ctx context.Context, st *store.Store, dataDir string) err
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		id, err := strconv.ParseInt(entry.Name(), 10, 64)
-		if err != nil {
+		id := entry.Name()
+		if len(id) != 36 {
 			continue
 		}
 		if _, err := st.MediaFileByID(ctx, id); err != nil {

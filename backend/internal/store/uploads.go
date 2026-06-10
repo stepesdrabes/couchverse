@@ -111,8 +111,8 @@ func (s *Store) DeleteUploadSession(ctx context.Context, id string) error {
 
 // CreateAssignedMediaFile registers an uploaded file that may carry an explicit
 // title/episode assignment (kept by the probe job).
-func (s *Store) CreateAssignedMediaFile(ctx context.Context, libraryID int64, path string, size int64, titleID, episodeID *int64) (int64, error) {
-	var id int64
+func (s *Store) CreateAssignedMediaFile(ctx context.Context, libraryID int64, path string, size int64, titleID, episodeID *string) (string, error) {
+	var id string
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO media_files (library_id, path, size_bytes, file_mtime, title_id, episode_id)
 		 VALUES ($1, $2, $3, now(), $4, $5)

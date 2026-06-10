@@ -99,7 +99,7 @@ func (h *AdminUploads) Complete(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "complete_failed", err.Error())
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]int64{"mediaFileId": mediaFileID})
+	httpx.JSON(w, http.StatusOK, map[string]string{"mediaFileId": mediaFileID})
 }
 
 func (h *AdminUploads) Abort(w http.ResponseWriter, r *http.Request) {

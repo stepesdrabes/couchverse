@@ -11,8 +11,8 @@ import (
 )
 
 type TranscodeVariant struct {
-	ID           int64      `json:"id"`
-	MediaFileID  int64      `json:"mediaFileId"`
+	ID           string     `json:"id"`
+	MediaFileID  string     `json:"mediaFileId"`
 	Name         string     `json:"name"`
 	Width        int        `json:"width"`
 	Height       int        `json:"height"`
@@ -42,7 +42,7 @@ func scanVariant(row pgx.Row) (*TranscodeVariant, error) {
 }
 
 // UpsertVariant registers/resets a variant slot before its job runs.
-func (s *Store) UpsertVariant(ctx context.Context, mediaFileID int64, name string, height int, videoBitrate, audioBitrate int64, mode string) (*TranscodeVariant, error) {
+func (s *Store) UpsertVariant(ctx context.Context, mediaFileID string, name string, height int, videoBitrate, audioBitrate int64, mode string) (*TranscodeVariant, error) {
 	return scanVariant(s.pool.QueryRow(ctx,
 		`INSERT INTO transcode_variants (media_file_id, name, height, video_bitrate, audio_bitrate, mode)
 		 VALUES ($1, $2, $3, $4, $5, $6)
@@ -54,7 +54,7 @@ func (s *Store) UpsertVariant(ctx context.Context, mediaFileID int64, name strin
 		mediaFileID, name, height, videoBitrate, audioBitrate, mode))
 }
 
-func (s *Store) SetVariantStatus(ctx context.Context, id int64, status, playlistPath string) error {
+func (s *Store) SetVariantStatus(ctx context.Context, id string, status, playlistPath string) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE transcode_variants SET status = $2, playlist_path = $3,
 			completed_at = CASE WHEN $2 = 'ready' THEN now() ELSE NULL END
@@ -62,7 +62,7 @@ func (s *Store) SetVariantStatus(ctx context.Context, id int64, status, playlist
 	return err
 }
 
-func (s *Store) VariantsForMediaFile(ctx context.Context, mediaFileID int64) ([]TranscodeVariant, error) {
+func (s *Store) VariantsForMediaFile(ctx context.Context, mediaFileID string) ([]TranscodeVariant, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT `+variantCols+` FROM transcode_variants
 		 WHERE media_file_id = $1 ORDER BY height DESC`, mediaFileID)
@@ -82,12 +82,12 @@ func (s *Store) VariantsForMediaFile(ctx context.Context, mediaFileID int64) ([]
 	return variants, rows.Err()
 }
 
-func (s *Store) VariantByID(ctx context.Context, id int64) (*TranscodeVariant, error) {
+func (s *Store) VariantByID(ctx context.Context, id string) (*TranscodeVariant, error) {
 	return scanVariant(s.pool.QueryRow(ctx,
 		`SELECT `+variantCols+` FROM transcode_variants WHERE id = $1`, id))
 }
 
-func (s *Store) DeleteVariant(ctx context.Context, id int64) (*TranscodeVariant, error) {
+func (s *Store) DeleteVariant(ctx context.Context, id string) (*TranscodeVariant, error) {
 	return scanVariant(s.pool.QueryRow(ctx,
 		`DELETE FROM transcode_variants WHERE id = $1 RETURNING `+variantCols, id))
 }

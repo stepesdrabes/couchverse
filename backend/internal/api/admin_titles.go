@@ -59,7 +59,12 @@ func (h *AdminTitles) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
-	t, err := h.store.TitleByID(r.Context(), httpx.ID(r, "id"))
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	t, err := h.store.TitleByID(r.Context(), id)
 	if err != nil {
 		respondStoreErr(w, err)
 		return
@@ -90,6 +95,11 @@ func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminTitles) Update(w http.ResponseWriter, r *http.Request) {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
 	var up store.TitleUpdate
 	if err := httpx.Decode(r, &up); err != nil {
 		httpx.BadRequest(w, "invalid request body")
@@ -99,7 +109,7 @@ func (h *AdminTitles) Update(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "invalid status")
 		return
 	}
-	t, err := h.store.UpdateTitle(r.Context(), httpx.ID(r, "id"), up)
+	t, err := h.store.UpdateTitle(r.Context(), id, up)
 	if err != nil {
 		respondStoreErr(w, err)
 		return
@@ -108,7 +118,11 @@ func (h *AdminTitles) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminTitles) Delete(w http.ResponseWriter, r *http.Request) {
-	id := httpx.ID(r, "id")
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
 	if err := h.store.DeleteTitle(r.Context(), id); err != nil {
 		respondStoreErr(w, err)
 		return
@@ -122,8 +136,8 @@ func (h *AdminTitles) Delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminTitles) Bulk(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		IDs    []int64 `json:"ids"`
-		Action string  `json:"action"`
+		IDs    []string `json:"ids"`
+		Action string   `json:"action"`
 	}
 	if err := httpx.Decode(r, &req); err != nil || len(req.IDs) == 0 {
 		httpx.BadRequest(w, "ids and action are required")
@@ -148,12 +162,12 @@ func (h *AdminTitles) Bulk(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	case "rescan":
-		var fileIDs []int64
+		var fileIDs []string
 		fileIDs, err = h.store.MediaFileIDsForTitles(r.Context(), req.IDs)
 		if err == nil {
 			for _, id := range fileIDs {
 				if _, err = h.store.EnqueueJobOnce(r.Context(), "probe",
-					map[string]int64{"mediaFileId": id}, store.EnqueueOpts{}); err != nil {
+					map[string]string{"mediaFileId": id}, store.EnqueueOpts{}); err != nil {
 					break
 				}
 			}
@@ -178,7 +192,12 @@ func (h *AdminTitles) CreateSeason(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "invalid request body")
 		return
 	}
-	se, err := h.store.CreateSeason(r.Context(), httpx.ID(r, "id"), req.SeasonNumber, req.Name)
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	se, err := h.store.CreateSeason(r.Context(), id, req.SeasonNumber, req.Name)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -187,7 +206,12 @@ func (h *AdminTitles) CreateSeason(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminTitles) DeleteSeason(w http.ResponseWriter, r *http.Request) {
-	if err := h.store.DeleteSeason(r.Context(), httpx.ID(r, "id")); err != nil {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.store.DeleteSeason(r.Context(), id); err != nil {
 		respondStoreErr(w, err)
 		return
 	}
@@ -200,7 +224,12 @@ func (h *AdminTitles) CreateEpisode(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "invalid request body")
 		return
 	}
-	e, err := h.store.CreateEpisode(r.Context(), httpx.ID(r, "id"), in)
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	e, err := h.store.CreateEpisode(r.Context(), id, in)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -214,7 +243,12 @@ func (h *AdminTitles) UpdateEpisode(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "invalid request body")
 		return
 	}
-	e, err := h.store.UpdateEpisode(r.Context(), httpx.ID(r, "id"), up)
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	e, err := h.store.UpdateEpisode(r.Context(), id, up)
 	if err != nil {
 		respondStoreErr(w, err)
 		return
@@ -223,7 +257,12 @@ func (h *AdminTitles) UpdateEpisode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminTitles) DeleteEpisode(w http.ResponseWriter, r *http.Request) {
-	if err := h.store.DeleteEpisode(r.Context(), httpx.ID(r, "id")); err != nil {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.store.DeleteEpisode(r.Context(), id); err != nil {
 		respondStoreErr(w, err)
 		return
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 // UpsertProgress records playback position; >95% counts as completed.
-func (s *Store) UpsertProgress(ctx context.Context, userID int64, titleID, episodeID *int64, position, duration int) error {
+func (s *Store) UpsertProgress(ctx context.Context, userID int64, titleID, episodeID *string, position, duration int) error {
 	completed := duration > 0 && float64(position) >= float64(duration)*0.95
 
 	if titleID != nil {
@@ -34,11 +34,11 @@ func (s *Store) UpsertProgress(ctx context.Context, userID int64, titleID, episo
 	return err
 }
 
-func (s *Store) ProgressFor(ctx context.Context, userID int64, titleID, episodeID *int64) (position, duration int, err error) {
+func (s *Store) ProgressFor(ctx context.Context, userID int64, titleID, episodeID *string) (position, duration int, err error) {
 	err = s.pool.QueryRow(ctx,
 		`SELECT position_seconds, duration_seconds FROM watch_progress
 		 WHERE user_id = $1 AND NOT completed
-			AND (($2::bigint IS NOT NULL AND title_id = $2) OR ($3::bigint IS NOT NULL AND episode_id = $3))`,
+			AND (($2::uuid IS NOT NULL AND title_id = $2) OR ($3::uuid IS NOT NULL AND episode_id = $3))`,
 		userID, titleID, episodeID).Scan(&position, &duration)
 	if err != nil {
 		return 0, 0, nil // no row = start from zero
@@ -51,9 +51,9 @@ func (s *Store) ProgressFor(ctx context.Context, userID int64, titleID, episodeI
 func (s *Store) ContinueWatching(ctx context.Context, userID int64, limit int) ([]ContinueItem, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT DISTINCT ON (t.id)
-			t.id, t.kind, t.name, t.year,
-			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'poster'),
-			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'backdrop'),
+			t.id, t.slug, t.kind, t.name, t.year,
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster'),
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop'),
 			e.id, se.season_number, e.episode_number, e.name,
 			wp.position_seconds, wp.duration_seconds, wp.updated_at
 		FROM watch_progress wp
@@ -71,10 +71,10 @@ func (s *Store) ContinueWatching(ctx context.Context, userID int64, limit int) (
 	items := []ContinueItem{}
 	for rows.Next() {
 		var it ContinueItem
-		var epID *int64
+		var epID *string
 		var seasonNum, epNum *int
 		var epName *string
-		if err := rows.Scan(&it.TitleID, &it.Kind, &it.Name, &it.Year, &it.PosterID, &it.BackdropID,
+		if err := rows.Scan(&it.TitleID, &it.Slug, &it.Kind, &it.Name, &it.Year, &it.PosterID, &it.BackdropID,
 			&epID, &seasonNum, &epNum, &epName, &it.Position, &it.Duration, &it.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -128,20 +128,20 @@ func deref(s *string) string {
 
 // Watchlist ("My List")
 
-func (s *Store) WatchlistAdd(ctx context.Context, userID, titleID int64) error {
+func (s *Store) WatchlistAdd(ctx context.Context, userID int64, titleID string) error {
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO watchlist (user_id, title_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 		userID, titleID)
 	return err
 }
 
-func (s *Store) WatchlistRemove(ctx context.Context, userID, titleID int64) error {
+func (s *Store) WatchlistRemove(ctx context.Context, userID int64, titleID string) error {
 	_, err := s.pool.Exec(ctx,
 		`DELETE FROM watchlist WHERE user_id = $1 AND title_id = $2`, userID, titleID)
 	return err
 }
 
-func (s *Store) WatchlistHas(ctx context.Context, userID, titleID int64) (bool, error) {
+func (s *Store) WatchlistHas(ctx context.Context, userID int64, titleID string) (bool, error) {
 	var ok bool
 	err := s.pool.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM watchlist WHERE user_id = $1 AND title_id = $2)`,
@@ -164,7 +164,7 @@ type EpisodeProgress struct {
 	Completed bool `json:"completed"`
 }
 
-func (s *Store) EpisodeProgressForTitle(ctx context.Context, userID, titleID int64) (map[int64]EpisodeProgress, error) {
+func (s *Store) EpisodeProgressForTitle(ctx context.Context, userID int64, titleID string) (map[string]EpisodeProgress, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT wp.episode_id, wp.position_seconds, wp.duration_seconds, wp.completed
 		 FROM watch_progress wp
@@ -176,9 +176,9 @@ func (s *Store) EpisodeProgressForTitle(ctx context.Context, userID, titleID int
 	}
 	defer rows.Close()
 
-	out := map[int64]EpisodeProgress{}
+	out := map[string]EpisodeProgress{}
 	for rows.Next() {
-		var id int64
+		var id string
 		var p EpisodeProgress
 		if err := rows.Scan(&id, &p.Position, &p.Duration, &p.Completed); err != nil {
 			return nil, err

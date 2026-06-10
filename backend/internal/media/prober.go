@@ -18,7 +18,7 @@ type Prober struct {
 }
 
 type ProbePayload struct {
-	MediaFileID int64 `json:"mediaFileId"`
+	MediaFileID string `json:"mediaFileId"`
 }
 
 // Handle analyzes one media file with ffprobe and attaches it to the catalog:
@@ -31,7 +31,7 @@ func (p *Prober) Handle(ctx context.Context, job *store.Job, report func(int)) e
 	}
 	mf, err := p.Store.MediaFileByID(ctx, payload.MediaFileID)
 	if err != nil {
-		return fmt.Errorf("media file %d: %w", payload.MediaFileID, err)
+		return fmt.Errorf("media file %s: %w", payload.MediaFileID, err)
 	}
 	lib, err := p.Store.LibraryByID(ctx, mf.LibraryID)
 	if err != nil {
@@ -83,7 +83,7 @@ func (p *Prober) Handle(ctx context.Context, job *store.Job, report func(int)) e
 
 	if res.HasVideo && HasTextSubtitles(res) {
 		if _, err := p.Store.EnqueueJobOnce(ctx, "extract_subtitles",
-			map[string]int64{"mediaFileId": mf.ID}, store.EnqueueOpts{}); err != nil {
+			map[string]string{"mediaFileId": mf.ID}, store.EnqueueOpts{}); err != nil {
 			return err
 		}
 	}
@@ -177,7 +177,7 @@ func (p *Prober) assignAudio(ctx context.Context, abs string, res *ProbeResult, 
 }
 
 // saveAlbumCover stores embedded cover art once per album.
-func (p *Prober) saveAlbumCover(ctx context.Context, albumID int64, data []byte, ext string) error {
+func (p *Prober) saveAlbumCover(ctx context.Context, albumID string, data []byte, ext string) error {
 	existing, err := p.Store.ArtworkFor(ctx, "album", albumID)
 	if err != nil {
 		return err
@@ -188,7 +188,7 @@ func (p *Prober) saveAlbumCover(ctx context.Context, albumID int64, data []byte,
 		}
 	}
 
-	rel := filepath.Join("artwork", "album", fmt.Sprint(albumID), "album_cover"+ext)
+	rel := filepath.Join("artwork", "album", albumID, "album_cover"+ext)
 	abs := filepath.Join(p.DataDir, rel)
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 		return err

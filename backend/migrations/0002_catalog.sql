@@ -1,8 +1,9 @@
 -- +goose Up
 CREATE TABLE titles (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     kind text NOT NULL CHECK (kind IN ('movie', 'series')),
     name text NOT NULL,
+    slug text NOT NULL UNIQUE,
     sort_name text NOT NULL DEFAULT '',
     overview text NOT NULL DEFAULT '',
     year int,
@@ -20,8 +21,8 @@ CREATE INDEX titles_kind_status_idx ON titles (kind, status);
 CREATE INDEX titles_added_idx ON titles (added_at DESC);
 
 CREATE TABLE seasons (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    title_id bigint NOT NULL REFERENCES titles (id) ON DELETE CASCADE,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    title_id uuid NOT NULL REFERENCES titles (id) ON DELETE CASCADE,
     season_number int NOT NULL,
     name text NOT NULL DEFAULT '',
     overview text NOT NULL DEFAULT '',
@@ -29,8 +30,8 @@ CREATE TABLE seasons (
 );
 
 CREATE TABLE episodes (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    season_id bigint NOT NULL REFERENCES seasons (id) ON DELETE CASCADE,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    season_id uuid NOT NULL REFERENCES seasons (id) ON DELETE CASCADE,
     episode_number int NOT NULL,
     name text NOT NULL DEFAULT '',
     overview text NOT NULL DEFAULT '',
@@ -45,7 +46,7 @@ CREATE TABLE genres (
 );
 
 CREATE TABLE title_genres (
-    title_id bigint NOT NULL REFERENCES titles (id) ON DELETE CASCADE,
+    title_id uuid NOT NULL REFERENCES titles (id) ON DELETE CASCADE,
     genre_id bigint NOT NULL REFERENCES genres (id) ON DELETE CASCADE,
     PRIMARY KEY (title_id, genre_id)
 );

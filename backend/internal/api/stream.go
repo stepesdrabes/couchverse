@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -46,7 +45,12 @@ var contentTypes = map[string]string{
 
 // Serve streams a media file with HTTP range support (direct play).
 func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
-	mf, err := h.store.MediaFileByID(r.Context(), httpx.ID(r, "id"))
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	mf, err := h.store.MediaFileByID(r.Context(), id)
 	if err != nil {
 		respondStoreErr(w, err)
 		return
@@ -78,7 +82,7 @@ func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
 
 type playbackInfo struct {
 	Mode           string            `json:"mode"` // direct | unsupported (hls/jit arrive with transcoding)
-	MediaFileID    int64             `json:"mediaFileId"`
+	MediaFileID    string            `json:"mediaFileId"`
 	StreamURL      string            `json:"streamUrl,omitempty"`
 	Duration       float64           `json:"durationSeconds"`
 	ResumePosition int               `json:"resumePosition"`
@@ -89,7 +93,7 @@ type playbackInfo struct {
 }
 
 type subtitleTrack struct {
-	ID     int64  `json:"id"`
+	ID     string `json:"id"`
 	Lang   string `json:"lang"`
 	Label  string `json:"label"`
 	Forced bool   `json:"forced"`
@@ -99,14 +103,18 @@ type subtitleTrack struct {
 type playbackDisplay struct {
 	Title    string `json:"title"`
 	Subtitle string `json:"subtitle"`
-	TitleID  int64  `json:"titleId"`
+	TitleID  string `json:"titleId"`
 }
 
 // Playback resolves what to play for a movie title or an episode.
 func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
 	kind := chi.URLParam(r, "kind")
-	id := httpx.ID(r, "id")
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
 
 	var (
 		mf   *store.MediaFile
@@ -180,7 +188,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 			Lang:   sub.Lang,
 			Label:  sub.Label,
 			Forced: sub.Forced,
-			URL:    "/api/v1/subtitles/" + strconv.FormatInt(sub.ID, 10) + ".vtt",
+			URL:    "/api/v1/subtitles/" + sub.ID + ".vtt",
 		})
 	}
 
@@ -189,7 +197,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 	case mf.DirectPlay,
 		media.DirectPlayWithCaps(mf.Container, mf.VideoCodec, mf.AudioCodec, caps):
 		info.Mode = "direct"
-		info.StreamURL = "/api/v1/stream/" + strconv.FormatInt(mf.ID, 10)
+		info.StreamURL = "/api/v1/stream/" + mf.ID
 
 	default:
 		variants, verr := h.store.VariantsForMediaFile(r.Context(), mf.ID)
@@ -209,7 +217,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case ready:
 			info.Mode = "hls"
-			info.StreamURL = "/api/v1/stream/" + strconv.FormatInt(mf.ID, 10) + "/hls/master.m3u8"
+			info.StreamURL = "/api/v1/stream/" + mf.ID + "/hls/master.m3u8"
 		case pending:
 			info.Mode = "preparing"
 			if progress, perr := h.store.TranscodeProgress(r.Context(), mf.ID); perr == nil {
@@ -228,7 +236,11 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 
 // HLSMaster generates the master playlist from ready variants.
 func (h *Stream) HLSMaster(w http.ResponseWriter, r *http.Request) {
-	mediaFileID := httpx.ID(r, "id")
+	mediaFileID := httpx.UUID(r, "id")
+	if mediaFileID == "" {
+		httpx.NotFound(w)
+		return
+	}
 	mf, err := h.store.MediaFileByID(r.Context(), mediaFileID)
 	if err != nil {
 		respondStoreErr(w, err)
@@ -295,7 +307,12 @@ func (h *Stream) CreateSession(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "invalid request body")
 		return
 	}
-	session, err := h.sessions.Create(r.Context(), context.Background(), httpx.ID(r, "id"), max(0, req.StartAt))
+	mediaFileID := httpx.UUID(r, "id")
+	if mediaFileID == "" {
+		httpx.NotFound(w)
+		return
+	}
+	session, err := h.sessions.Create(r.Context(), context.Background(), mediaFileID, max(0, req.StartAt))
 	if err != nil {
 		httpx.Error(w, http.StatusServiceUnavailable, "session_failed", err.Error())
 		return
@@ -349,14 +366,18 @@ var hlsFileRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 
 // HLSFile serves variant playlists and segments from the HLS cache.
 func (h *Stream) HLSFile(w http.ResponseWriter, r *http.Request) {
-	mediaFileID := httpx.ID(r, "id")
+	mediaFileID := httpx.UUID(r, "id")
+	if mediaFileID == "" {
+		httpx.NotFound(w)
+		return
+	}
 	variant := chi.URLParam(r, "variant")
 	file := chi.URLParam(r, "file")
 	if !hlsFileRe.MatchString(variant) || !hlsFileRe.MatchString(file) {
 		httpx.BadRequest(w, "invalid path")
 		return
 	}
-	path := filepath.Join(h.dataDir, "cache", "hls", strconv.FormatInt(mediaFileID, 10), variant, file)
+	path := filepath.Join(h.dataDir, "cache", "hls", mediaFileID, variant, file)
 	if strings.HasSuffix(file, ".m3u8") {
 		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 	}

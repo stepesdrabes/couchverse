@@ -18,12 +18,12 @@ type JobHandler struct {
 }
 
 type Payload struct {
-	MediaFileID int64  `json:"mediaFileId"`
+	MediaFileID string `json:"mediaFileId"`
 	Variant     string `json:"variant"` // "source" (copy-remux) or a rendition name
 }
 
-func (h *JobHandler) outDir(mediaFileID int64, variant string) string {
-	return filepath.Join(h.DataDir, "cache", "hls", fmt.Sprint(mediaFileID), variant)
+func (h *JobHandler) outDir(mediaFileID, variant string) string {
+	return filepath.Join(h.DataDir, "cache", "hls", mediaFileID, variant)
 }
 
 func (h *JobHandler) Handle(ctx context.Context, job *store.Job, report func(int)) error {
@@ -86,12 +86,12 @@ func (h *JobHandler) Handle(ctx context.Context, job *store.Job, report func(int
 		return err
 	}
 
-	rel := filepath.Join("cache", "hls", fmt.Sprint(mf.ID), p.Variant, "index.m3u8")
+	rel := filepath.Join("cache", "hls", mf.ID, p.Variant, "index.m3u8")
 	return h.Store.SetVariantStatus(ctx, variant.ID, "ready", rel)
 }
 
 // RemoveVariant deletes the variant row and its segment directory.
-func (h *JobHandler) RemoveVariant(ctx context.Context, id int64) error {
+func (h *JobHandler) RemoveVariant(ctx context.Context, id string) error {
 	variant, err := h.Store.DeleteVariant(ctx, id)
 	if err != nil {
 		return err

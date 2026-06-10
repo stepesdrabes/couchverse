@@ -23,8 +23,8 @@ type Service struct {
 	FFmpegPath string
 }
 
-func (s *Service) dir(mediaFileID int64) string {
-	return filepath.Join(s.DataDir, "subtitles", fmt.Sprint(mediaFileID))
+func (s *Service) dir(mediaFileID string) string {
+	return filepath.Join(s.DataDir, "subtitles", mediaFileID)
 }
 
 func (s *Service) Path(sub *store.Subtitle) string {
@@ -32,7 +32,7 @@ func (s *Service) Path(sub *store.Subtitle) string {
 }
 
 // SaveUpload converts an uploaded .srt/.vtt to WebVTT and registers it.
-func (s *Service) SaveUpload(ctx context.Context, mediaFileID int64, lang, label, filename string, body io.Reader) (*store.Subtitle, error) {
+func (s *Service) SaveUpload(ctx context.Context, mediaFileID string, lang, label, filename string, body io.Reader) (*store.Subtitle, error) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	if ext != ".srt" && ext != ".vtt" {
 		return nil, fmt.Errorf("only .srt and .vtt files are supported")
@@ -60,7 +60,7 @@ func (s *Service) SaveUpload(ctx context.Context, mediaFileID int64, lang, label
 		return nil, err
 	}
 
-	rel := filepath.Join("subtitles", fmt.Sprint(mediaFileID), fmt.Sprintf("%d.vtt", sub.ID))
+	rel := filepath.Join("subtitles", mediaFileID, sub.ID+".vtt")
 	abs := filepath.Join(s.DataDir, rel)
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func (s *Service) convert(ctx context.Context, in, out string) error {
 	return nil
 }
 
-func (s *Service) Delete(ctx context.Context, id int64) error {
+func (s *Service) Delete(ctx context.Context, id string) error {
 	sub, err := s.Store.DeleteSubtitle(ctx, id)
 	if err != nil {
 		return err
@@ -104,7 +104,7 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 // ExtractPayload / Handle implement the extract_subtitles job: pull every
 // embedded text stream out of a media file into side-car .vtt files.
 type ExtractPayload struct {
-	MediaFileID int64 `json:"mediaFileId"`
+	MediaFileID string `json:"mediaFileId"`
 }
 
 func (s *Service) HandleExtract(ctx context.Context, job *store.Job, report func(int)) error {
@@ -163,7 +163,7 @@ func (s *Service) HandleExtract(ctx context.Context, job *store.Job, report func
 		if err != nil {
 			return err
 		}
-		rel := filepath.Join("subtitles", fmt.Sprint(mf.ID), fmt.Sprintf("%d.vtt", sub.ID))
+		rel := filepath.Join("subtitles", mf.ID, sub.ID+".vtt")
 		out := filepath.Join(s.DataDir, rel)
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return err

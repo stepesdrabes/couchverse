@@ -29,7 +29,12 @@ func (h *AdminMusic) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminMusic) Get(w http.ResponseWriter, r *http.Request) {
-	album, err := h.store.AdminAlbumByID(r.Context(), httpx.ID(r, "id"))
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	album, err := h.store.AdminAlbumByID(r.Context(), id)
 	if err != nil {
 		respondStoreErr(w, err)
 		return
@@ -43,6 +48,11 @@ func (h *AdminMusic) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminMusic) Update(w http.ResponseWriter, r *http.Request) {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
 	var up store.AlbumUpdate
 	if err := httpx.Decode(r, &up); err != nil {
 		httpx.BadRequest(w, "invalid request body")
@@ -52,7 +62,7 @@ func (h *AdminMusic) Update(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "invalid status")
 		return
 	}
-	if err := h.store.UpdateAlbum(r.Context(), httpx.ID(r, "id"), up); err != nil {
+	if err := h.store.UpdateAlbum(r.Context(), id, up); err != nil {
 		respondStoreErr(w, err)
 		return
 	}
@@ -60,7 +70,11 @@ func (h *AdminMusic) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminMusic) Delete(w http.ResponseWriter, r *http.Request) {
-	id := httpx.ID(r, "id")
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
 	if err := h.store.DeleteAlbum(r.Context(), id); err != nil {
 		respondStoreErr(w, err)
 		return
@@ -80,7 +94,12 @@ func (h *AdminMusic) UpdateTrack(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "name is required")
 		return
 	}
-	if err := h.store.UpdateTrackName(r.Context(), httpx.ID(r, "id"), req.Name); err != nil {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.store.UpdateTrackName(r.Context(), id, req.Name); err != nil {
 		respondStoreErr(w, err)
 		return
 	}
@@ -88,7 +107,12 @@ func (h *AdminMusic) UpdateTrack(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminMusic) DeleteTrack(w http.ResponseWriter, r *http.Request) {
-	if err := h.store.DeleteTrack(r.Context(), httpx.ID(r, "id")); err != nil {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.store.DeleteTrack(r.Context(), id); err != nil {
 		respondStoreErr(w, err)
 		return
 	}

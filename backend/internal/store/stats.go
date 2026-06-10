@@ -53,22 +53,22 @@ func (s *Store) Overview(ctx context.Context) (*OverviewCounts, error) {
 }
 
 // MediaFileIDsForTitles powers the bulk re-scan action.
-func (s *Store) MediaFileIDsForTitles(ctx context.Context, titleIDs []int64) ([]int64, error) {
+func (s *Store) MediaFileIDsForTitles(ctx context.Context, titleIDs []string) ([]string, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id FROM media_files
-		 WHERE title_id = ANY($1)
+		 WHERE title_id = ANY($1::uuid[])
 			OR episode_id IN (
 				SELECT e.id FROM episodes e
 				JOIN seasons se ON se.id = e.season_id
-				WHERE se.title_id = ANY($1))`, titleIDs)
+				WHERE se.title_id = ANY($1::uuid[]))`, titleIDs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	ids := []int64{}
+	ids := []string{}
 	for rows.Next() {
-		var id int64
+		var id string
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}

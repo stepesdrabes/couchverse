@@ -49,7 +49,12 @@ func (h *Music) Home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Music) Album(w http.ResponseWriter, r *http.Request) {
-	album, err := h.store.AlbumCardByID(r.Context(), httpx.ID(r, "id"))
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	album, err := h.store.AlbumCardByID(r.Context(), id)
 	if err != nil {
 		respondStoreErr(w, err)
 		return
@@ -63,7 +68,12 @@ func (h *Music) Album(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Music) Artist(w http.ResponseWriter, r *http.Request) {
-	artist, err := h.store.ArtistByID(r.Context(), httpx.ID(r, "id"))
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	artist, err := h.store.ArtistByID(r.Context(), id)
 	if err != nil {
 		respondStoreErr(w, err)
 		return
@@ -79,9 +89,9 @@ func (h *Music) Artist(w http.ResponseWriter, r *http.Request) {
 // Scrobble records a track play for "recently played".
 func (h *Music) Scrobble(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		TrackID int64 `json:"trackId"`
+		TrackID string `json:"trackId"`
 	}
-	if err := httpx.Decode(r, &req); err != nil || req.TrackID <= 0 {
+	if err := httpx.Decode(r, &req); err != nil || req.TrackID == "" {
 		httpx.BadRequest(w, "trackId is required")
 		return
 	}

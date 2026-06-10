@@ -9,11 +9,11 @@ CREATE TABLE libraries (
 );
 
 CREATE TABLE media_files (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     library_id bigint NOT NULL REFERENCES libraries (id) ON DELETE CASCADE,
-    title_id bigint REFERENCES titles (id) ON DELETE CASCADE,
-    episode_id bigint REFERENCES episodes (id) ON DELETE CASCADE,
-    track_id bigint REFERENCES tracks (id) ON DELETE CASCADE,
+    title_id uuid REFERENCES titles (id) ON DELETE CASCADE,
+    episode_id uuid REFERENCES episodes (id) ON DELETE CASCADE,
+    track_id uuid REFERENCES tracks (id) ON DELETE CASCADE,
     path text NOT NULL,
     size_bytes bigint NOT NULL DEFAULT 0,
     container text NOT NULL DEFAULT '',
@@ -31,6 +31,7 @@ CREATE TABLE media_files (
     probe jsonb,
     file_mtime timestamptz,
     scanned_at timestamptz,
+    source_deleted_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (library_id, path),
     -- at most one owner; files start unassigned until the probe job matches them
@@ -41,8 +42,8 @@ CREATE INDEX media_files_episode_idx ON media_files (episode_id);
 CREATE INDEX media_files_track_idx ON media_files (track_id);
 
 CREATE TABLE subtitles (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    media_file_id bigint NOT NULL REFERENCES media_files (id) ON DELETE CASCADE,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    media_file_id uuid NOT NULL REFERENCES media_files (id) ON DELETE CASCADE,
     lang text NOT NULL DEFAULT 'und',
     label text NOT NULL DEFAULT '',
     source text NOT NULL CHECK (source IN ('embedded', 'uploaded')),
@@ -53,9 +54,10 @@ CREATE TABLE subtitles (
 CREATE INDEX subtitles_media_file_idx ON subtitles (media_file_id);
 
 CREATE TABLE artwork (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_kind text NOT NULL CHECK (owner_kind IN ('title', 'season', 'episode', 'artist', 'album')),
-    owner_id bigint NOT NULL,
+    -- polymorphic: content owners use their uuid, user avatars the numeric user id
+    owner_id text NOT NULL,
     kind text NOT NULL CHECK (kind IN ('poster', 'backdrop', 'thumb', 'album_cover', 'artist_photo')),
     path text NOT NULL,
     width int NOT NULL DEFAULT 0,
@@ -66,8 +68,8 @@ CREATE TABLE artwork (
 );
 
 CREATE TABLE transcode_variants (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    media_file_id bigint NOT NULL REFERENCES media_files (id) ON DELETE CASCADE,
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    media_file_id uuid NOT NULL REFERENCES media_files (id) ON DELETE CASCADE,
     name text NOT NULL,
     width int NOT NULL DEFAULT 0,
     height int NOT NULL DEFAULT 0,

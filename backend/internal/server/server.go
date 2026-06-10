@@ -92,7 +92,7 @@ func (s *Server) Handler() http.Handler {
 
 			p.Get("/home", catalog.Home)
 			p.Get("/titles", catalog.Browse)
-			p.Get("/titles/{id}", catalog.Title)
+			p.Get("/titles/{slug}", catalog.Title)
 			p.Get("/search", catalog.Search)
 
 			p.Get("/stream/{id}", stream.Serve)

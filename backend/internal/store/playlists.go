@@ -11,17 +11,17 @@ import (
 )
 
 type Playlist struct {
-	ID         int64     `json:"id"`
+	ID         string    `json:"id"`
 	UserID     int64     `json:"userId"`
 	Name       string    `json:"name"`
 	TrackCount int       `json:"trackCount"`
-	CoverID    *int64    `json:"coverId"`
+	CoverID    *string   `json:"coverId"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 type PlaylistEntry struct {
-	EntryID  int64     `json:"entryId"`
+	EntryID  string    `json:"entryId"`
 	Position int       `json:"position"`
 	Track    TrackItem `json:"track"`
 }
@@ -30,7 +30,7 @@ const playlistSelect = `
 	SELECT p.id, p.user_id, p.name,
 		(SELECT count(*) FROM playlist_tracks pt WHERE pt.playlist_id = p.id),
 		(SELECT a.id FROM artwork a
-		 JOIN tracks t ON t.album_id = a.owner_id
+		 JOIN tracks t ON t.album_id::text = a.owner_id
 		 JOIN playlist_tracks pt ON pt.track_id = t.id
 		 WHERE pt.playlist_id = p.id AND a.owner_kind = 'album' AND a.kind = 'album_cover'
 		 ORDER BY pt.position LIMIT 1),
@@ -69,7 +69,7 @@ func (s *Store) ListPlaylists(ctx context.Context, userID int64) ([]Playlist, er
 }
 
 // PlaylistForUser fetches a playlist owned by the user (404 otherwise).
-func (s *Store) PlaylistForUser(ctx context.Context, userID, playlistID int64) (*Playlist, error) {
+func (s *Store) PlaylistForUser(ctx context.Context, userID int64, playlistID string) (*Playlist, error) {
 	return scanPlaylist(s.pool.QueryRow(ctx, playlistSelect+`
 		WHERE p.id = $1 AND p.user_id = $2`, playlistID, userID))
 }
@@ -77,10 +77,10 @@ func (s *Store) PlaylistForUser(ctx context.Context, userID, playlistID int64) (
 func (s *Store) CreatePlaylist(ctx context.Context, userID int64, name string) (*Playlist, error) {
 	return scanPlaylist(s.pool.QueryRow(ctx,
 		`WITH ins AS (INSERT INTO playlists (user_id, name) VALUES ($1, $2) RETURNING *)
-		 SELECT id, user_id, name, 0, NULL::bigint, created_at, updated_at FROM ins`, userID, name))
+		 SELECT id, user_id, name, 0, NULL::uuid, created_at, updated_at FROM ins`, userID, name))
 }
 
-func (s *Store) RenamePlaylist(ctx context.Context, userID, playlistID int64, name string) error {
+func (s *Store) RenamePlaylist(ctx context.Context, userID int64, playlistID string, name string) error {
 	tag, err := s.pool.Exec(ctx,
 		`UPDATE playlists SET name = $3, updated_at = now() WHERE id = $1 AND user_id = $2`,
 		playlistID, userID, name)
@@ -93,7 +93,7 @@ func (s *Store) RenamePlaylist(ctx context.Context, userID, playlistID int64, na
 	return nil
 }
 
-func (s *Store) DeletePlaylist(ctx context.Context, userID, playlistID int64) error {
+func (s *Store) DeletePlaylist(ctx context.Context, userID int64, playlistID string) error {
 	tag, err := s.pool.Exec(ctx,
 		`DELETE FROM playlists WHERE id = $1 AND user_id = $2`, playlistID, userID)
 	if err != nil {
@@ -105,12 +105,12 @@ func (s *Store) DeletePlaylist(ctx context.Context, userID, playlistID int64) er
 	return nil
 }
 
-func (s *Store) PlaylistEntries(ctx context.Context, playlistID int64) ([]PlaylistEntry, error) {
+func (s *Store) PlaylistEntries(ctx context.Context, playlistID string) ([]PlaylistEntry, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT pt.id, pt.position,
 			t.id, t.album_id, t.disc_number, t.track_number, t.name, t.duration_seconds,
 			t.track_artist, mf.id, al.name, ar.id, ar.name,
-			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id AND a.kind = 'album_cover')
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id::text AND a.kind = 'album_cover')
 		FROM playlist_tracks pt
 		JOIN tracks t ON t.id = pt.track_id
 		JOIN albums al ON al.id = t.album_id
@@ -137,7 +137,7 @@ func (s *Store) PlaylistEntries(ctx context.Context, playlistID int64) ([]Playli
 	return entries, rows.Err()
 }
 
-func (s *Store) AddPlaylistTrack(ctx context.Context, playlistID, trackID int64) error {
+func (s *Store) AddPlaylistTrack(ctx context.Context, playlistID, trackID string) error {
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO playlist_tracks (playlist_id, track_id, position)
 		 VALUES ($1, $2, COALESCE((SELECT max(position) FROM playlist_tracks WHERE playlist_id = $1), 0) + 1)`,
@@ -149,7 +149,7 @@ func (s *Store) AddPlaylistTrack(ctx context.Context, playlistID, trackID int64)
 	return err
 }
 
-func (s *Store) RemovePlaylistEntry(ctx context.Context, playlistID, entryID int64) error {
+func (s *Store) RemovePlaylistEntry(ctx context.Context, playlistID, entryID string) error {
 	tag, err := s.pool.Exec(ctx,
 		`DELETE FROM playlist_tracks WHERE id = $1 AND playlist_id = $2`, entryID, playlistID)
 	if err != nil {
@@ -162,7 +162,7 @@ func (s *Store) RemovePlaylistEntry(ctx context.Context, playlistID, entryID int
 }
 
 // ReorderPlaylist rewrites entry positions to match the given entry id order.
-func (s *Store) ReorderPlaylist(ctx context.Context, playlistID int64, entryIDs []int64) error {
+func (s *Store) ReorderPlaylist(ctx context.Context, playlistID string, entryIDs []string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err

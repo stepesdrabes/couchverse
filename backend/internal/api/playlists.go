@@ -43,7 +43,12 @@ func (h *Playlists) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *Playlists) Get(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
-	playlist, err := h.store.PlaylistForUser(r.Context(), user.ID, httpx.ID(r, "id"))
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	playlist, err := h.store.PlaylistForUser(r.Context(), user.ID, id)
 	if err != nil {
 		respondStoreErr(w, err)
 		return
@@ -64,7 +69,12 @@ func (h *Playlists) Rename(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "name is required")
 		return
 	}
-	if err := h.store.RenamePlaylist(r.Context(), auth.UserFrom(r.Context()).ID, httpx.ID(r, "id"), req.Name); err != nil {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.store.RenamePlaylist(r.Context(), auth.UserFrom(r.Context()).ID, id, req.Name); err != nil {
 		respondStoreErr(w, err)
 		return
 	}
@@ -72,7 +82,12 @@ func (h *Playlists) Rename(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Playlists) Delete(w http.ResponseWriter, r *http.Request) {
-	if err := h.store.DeletePlaylist(r.Context(), auth.UserFrom(r.Context()).ID, httpx.ID(r, "id")); err != nil {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.store.DeletePlaylist(r.Context(), auth.UserFrom(r.Context()).ID, id); err != nil {
 		respondStoreErr(w, err)
 		return
 	}
@@ -81,7 +96,12 @@ func (h *Playlists) Delete(w http.ResponseWriter, r *http.Request) {
 
 // requirePlaylist loads the playlist ensuring ownership.
 func (h *Playlists) requirePlaylist(w http.ResponseWriter, r *http.Request) *store.Playlist {
-	playlist, err := h.store.PlaylistForUser(r.Context(), auth.UserFrom(r.Context()).ID, httpx.ID(r, "id"))
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return nil
+	}
+	playlist, err := h.store.PlaylistForUser(r.Context(), auth.UserFrom(r.Context()).ID, id)
 	if err != nil {
 		respondStoreErr(w, err)
 		return nil
@@ -95,9 +115,9 @@ func (h *Playlists) AddTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		TrackID int64 `json:"trackId"`
+		TrackID string `json:"trackId"`
 	}
-	if err := httpx.Decode(r, &req); err != nil || req.TrackID <= 0 {
+	if err := httpx.Decode(r, &req); err != nil || req.TrackID == "" {
 		httpx.BadRequest(w, "trackId is required")
 		return
 	}
@@ -113,7 +133,12 @@ func (h *Playlists) RemoveEntry(w http.ResponseWriter, r *http.Request) {
 	if playlist == nil {
 		return
 	}
-	if err := h.store.RemovePlaylistEntry(r.Context(), playlist.ID, httpx.ID(r, "entryId")); err != nil {
+	entryID := httpx.UUID(r, "entryId")
+	if entryID == "" {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.store.RemovePlaylistEntry(r.Context(), playlist.ID, entryID); err != nil {
 		respondStoreErr(w, err)
 		return
 	}
@@ -126,7 +151,7 @@ func (h *Playlists) Reorder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		EntryIDs []int64 `json:"entryIds"`
+		EntryIDs []string `json:"entryIds"`
 	}
 	if err := httpx.Decode(r, &req); err != nil || len(req.EntryIDs) == 0 {
 		httpx.BadRequest(w, "entryIds are required")

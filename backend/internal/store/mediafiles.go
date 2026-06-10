@@ -12,11 +12,11 @@ import (
 )
 
 type MediaFile struct {
-	ID              int64           `json:"id"`
+	ID              string          `json:"id"`
 	LibraryID       int64           `json:"libraryId"`
-	TitleID         *int64          `json:"titleId"`
-	EpisodeID       *int64          `json:"episodeId"`
-	TrackID         *int64          `json:"trackId"`
+	TitleID         *string         `json:"titleId"`
+	EpisodeID       *string         `json:"episodeId"`
+	TrackID         *string         `json:"trackId"`
 	Path            string          `json:"path"`
 	SizeBytes       int64           `json:"sizeBytes"`
 	Container       string          `json:"container"`
@@ -55,14 +55,14 @@ func scanMediaFile(row pgx.Row) (*MediaFile, error) {
 	return &m, nil
 }
 
-func (s *Store) MediaFileByID(ctx context.Context, id int64) (*MediaFile, error) {
+func (s *Store) MediaFileByID(ctx context.Context, id string) (*MediaFile, error) {
 	return scanMediaFile(s.pool.QueryRow(ctx,
 		`SELECT `+mediaFileCols+` FROM media_files WHERE id = $1`, id))
 }
 
 // FileStub is the scanner's view of an on-disk file row.
 type FileStub struct {
-	ID        int64
+	ID        string
 	SizeBytes int64
 	FileMtime *time.Time
 }
@@ -89,8 +89,8 @@ func (s *Store) MediaFileStubsByLibrary(ctx context.Context, libraryID int64) (m
 
 // UpsertMediaFileStub registers a discovered file, resetting probe data when
 // the file changed on disk. Returns the row id.
-func (s *Store) UpsertMediaFileStub(ctx context.Context, libraryID int64, path string, size int64, mtime time.Time) (int64, error) {
-	var id int64
+func (s *Store) UpsertMediaFileStub(ctx context.Context, libraryID int64, path string, size int64, mtime time.Time) (string, error) {
+	var id string
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO media_files (library_id, path, size_bytes, file_mtime)
 		 VALUES ($1, $2, $3, $4)
@@ -101,7 +101,7 @@ func (s *Store) UpsertMediaFileStub(ctx context.Context, libraryID int64, path s
 	return id, err
 }
 
-func (s *Store) DeleteMediaFile(ctx context.Context, id int64) error {
+func (s *Store) DeleteMediaFile(ctx context.Context, id string) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM media_files WHERE id = $1`, id)
 	return err
 }
@@ -118,12 +118,12 @@ type ProbeUpdate struct {
 	VideoRange      string
 	DirectPlay      bool
 	Probe           json.RawMessage
-	TitleID         *int64
-	EpisodeID       *int64
-	TrackID         *int64
+	TitleID         *string
+	EpisodeID       *string
+	TrackID         *string
 }
 
-func (s *Store) ApplyProbe(ctx context.Context, id int64, up ProbeUpdate) error {
+func (s *Store) ApplyProbe(ctx context.Context, id string, up ProbeUpdate) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE media_files SET
 			container = $2, video_codec = $3, audio_codec = $4, width = $5, height = $6,
@@ -138,7 +138,7 @@ func (s *Store) ApplyProbe(ctx context.Context, id int64, up ProbeUpdate) error 
 	return err
 }
 
-func (s *Store) MediaFilesForTitle(ctx context.Context, titleID int64) ([]MediaFile, error) {
+func (s *Store) MediaFilesForTitle(ctx context.Context, titleID string) ([]MediaFile, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT `+mediaFileCols+` FROM media_files
 		 WHERE title_id = $1

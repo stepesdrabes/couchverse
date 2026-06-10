@@ -41,7 +41,11 @@ func (h *AdminMetadata) Search(w http.ResponseWriter, r *http.Request) {
 
 // Apply queues the metadata fetch job for a title.
 func (h *AdminMetadata) Apply(w http.ResponseWriter, r *http.Request) {
-	titleID := httpx.ID(r, "id")
+	titleID := httpx.UUID(r, "id")
+	if titleID == "" {
+		httpx.NotFound(w)
+		return
+	}
 	var req struct {
 		TmdbID int `json:"tmdbId"`
 	}

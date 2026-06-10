@@ -11,9 +11,9 @@ import (
 )
 
 type Artwork struct {
-	ID        int64     `json:"id"`
+	ID        string    `json:"id"`
 	OwnerKind string    `json:"ownerKind"`
-	OwnerID   int64     `json:"ownerId"`
+	OwnerID   string    `json:"ownerId"`
 	Kind      string    `json:"kind"`
 	Path      string    `json:"path"`
 	Width     int       `json:"width"`
@@ -37,7 +37,7 @@ func scanArtwork(row pgx.Row) (*Artwork, error) {
 }
 
 // SetArtwork upserts one artwork slot (e.g. a title's poster).
-func (s *Store) SetArtwork(ctx context.Context, ownerKind string, ownerID int64, kind, path string, w, h int, source string) (*Artwork, error) {
+func (s *Store) SetArtwork(ctx context.Context, ownerKind string, ownerID string, kind, path string, w, h int, source string) (*Artwork, error) {
 	return scanArtwork(s.pool.QueryRow(ctx,
 		`INSERT INTO artwork (owner_kind, owner_id, kind, path, width, height, source)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -48,12 +48,12 @@ func (s *Store) SetArtwork(ctx context.Context, ownerKind string, ownerID int64,
 		ownerKind, ownerID, kind, path, w, h, source))
 }
 
-func (s *Store) ArtworkByID(ctx context.Context, id int64) (*Artwork, error) {
+func (s *Store) ArtworkByID(ctx context.Context, id string) (*Artwork, error) {
 	return scanArtwork(s.pool.QueryRow(ctx,
 		`SELECT `+artworkCols+` FROM artwork WHERE id = $1`, id))
 }
 
-func (s *Store) ArtworkFor(ctx context.Context, ownerKind string, ownerID int64) ([]Artwork, error) {
+func (s *Store) ArtworkFor(ctx context.Context, ownerKind string, ownerID string) ([]Artwork, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT `+artworkCols+` FROM artwork WHERE owner_kind = $1 AND owner_id = $2`, ownerKind, ownerID)
 	if err != nil {
@@ -72,14 +72,14 @@ func (s *Store) ArtworkFor(ctx context.Context, ownerKind string, ownerID int64)
 	return items, rows.Err()
 }
 
-func (s *Store) DeleteArtwork(ctx context.Context, id int64) (*Artwork, error) {
+func (s *Store) DeleteArtwork(ctx context.Context, id string) (*Artwork, error) {
 	return scanArtwork(s.pool.QueryRow(ctx,
 		`DELETE FROM artwork WHERE id = $1 RETURNING `+artworkCols, id))
 }
 
 // DeleteArtworkForOwner removes all artwork rows of an owner, returning them
 // so callers can clean up files.
-func (s *Store) DeleteArtworkForOwner(ctx context.Context, ownerKind string, ownerID int64) ([]Artwork, error) {
+func (s *Store) DeleteArtworkForOwner(ctx context.Context, ownerKind string, ownerID string) ([]Artwork, error) {
 	rows, err := s.pool.Query(ctx,
 		`DELETE FROM artwork WHERE owner_kind = $1 AND owner_id = $2 RETURNING `+artworkCols,
 		ownerKind, ownerID)
