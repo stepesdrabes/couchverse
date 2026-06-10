@@ -24,7 +24,13 @@
 	const maxHeight = $derived(Math.max(0, ...data.mediaFiles.map((f) => f.height)));
 	const hdr = $derived(data.mediaFiles.some((f) => f.videoRange !== 'sdr'));
 
-	const seasons = $derived(data.seasons ?? []);
+	// watch mode only surfaces episodes that actually have a playable file, and
+	// drops seasons left empty by that filter
+	const seasons = $derived(
+		(data.seasons ?? [])
+			.map((s) => ({ ...s, episodes: s.episodes.filter((ep) => fileByEpisode.has(ep.id)) }))
+			.filter((s) => s.episodes.length > 0)
+	);
 	const currentSeason = $derived(
 		seasons.find((s) => String(s.seasonNumber) === seasonValue) ?? seasons[0]
 	);
