@@ -34,7 +34,10 @@
 					Cancel
 				</AlertDialog.Cancel>
 				<AlertDialog.Action
-					onclick={onconfirm}
+					onclick={() => {
+						open = false;
+						onconfirm();
+					}}
 					class="h-9 rounded-full bg-danger/15 px-4 text-sm font-semibold text-danger transition-colors hover:bg-danger/25"
 				>
 					{confirmLabel}
