@@ -1,6 +1,8 @@
 import * as api from './api';
 import type { Preferences, SubtitleSettings } from './api';
 
+export type { SubtitleSettings } from './api';
+
 export const SUBTITLE_FONTS: Record<SubtitleSettings['fontFamily'], string> = {
 	sans: 'var(--font-sans)',
 	serif: 'Georgia, "Times New Roman", serif',

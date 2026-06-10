@@ -29,7 +29,16 @@ export interface PlaybackInfo {
 	display: { title: string; subtitle: string; titleId: string; titleSlug: string };
 	nextEpisode: EpisodeRef | null;
 	subtitles: SubtitleTrack[];
+	episodes?: SeriesEpisode[];
+	currentEpisodeId?: string;
 	jobProgress?: number;
+}
+
+export interface SeriesEpisode {
+	episodeId: string;
+	seasonNumber: number;
+	episodeNumber: number;
+	name: string;
 }
 
 export const getPlayback = (kind: PlaybackKind, id: string) =>
