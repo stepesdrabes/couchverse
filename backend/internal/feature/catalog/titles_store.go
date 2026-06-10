@@ -362,21 +362,22 @@ type LibraryFilter struct {
 }
 
 type LibraryRow struct {
-	ID           string    `json:"id"`
-	Slug         string    `json:"slug"`
-	Kind         string    `json:"kind"`
-	Name         string    `json:"name"`
-	Year         *int      `json:"year"`
-	Status       string    `json:"status"`
-	SeasonCount  int       `json:"seasonCount"`
-	EpisodeCount int       `json:"episodeCount"`
-	SizeBytes    int64     `json:"sizeBytes"`
-	MaxHeight    int       `json:"maxHeight"`
-	HDR          bool      `json:"hdr"`
-	PosterID     *string   `json:"posterId"`
-	BackdropID   *string   `json:"backdropId"`
-	NeedsPrepare bool      `json:"needsPrepare"`
-	AddedAt      time.Time `json:"addedAt"`
+	ID              string    `json:"id"`
+	Slug            string    `json:"slug"`
+	Kind            string    `json:"kind"`
+	Name            string    `json:"name"`
+	Year            *int      `json:"year"`
+	Status          string    `json:"status"`
+	SeasonCount     int       `json:"seasonCount"`
+	EpisodeCount    int       `json:"episodeCount"`
+	SizeBytes       int64     `json:"sizeBytes"`
+	TranscodedBytes int64     `json:"transcodedBytes"`
+	MaxHeight       int       `json:"maxHeight"`
+	HDR             bool      `json:"hdr"`
+	PosterID        *string   `json:"posterId"`
+	BackdropID      *string   `json:"backdropId"`
+	NeedsPrepare    bool      `json:"needsPrepare"`
+	AddedAt         time.Time `json:"addedAt"`
 }
 
 var librarySorts = map[string]string{
@@ -428,6 +429,14 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 			count(DISTINCT se.id) AS season_count,
 			count(DISTINCT e.id) AS episode_count,
 			COALESCE(sum(mf.size_bytes), 0) AS size_bytes,
+			(SELECT COALESCE(sum(tv3.size_bytes), 0)
+			 FROM transcode_variants tv3
+			 JOIN media_files mf4 ON mf4.id = tv3.media_file_id
+			 WHERE tv3.status = 'ready' AND (mf4.title_id = t.id OR mf4.episode_id IN (
+				SELECT e4.id FROM episodes e4
+				JOIN seasons s4 ON s4.id = e4.season_id
+				WHERE s4.title_id = t.id))
+			) AS transcoded_bytes,
 			COALESCE(max(mf.height), 0) AS max_height,
 			COALESCE(bool_or(mf.video_range <> 'sdr'), false) AS hdr,
 			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster') AS poster_id,
@@ -454,7 +463,7 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 	for rows.Next() {
 		var r LibraryRow
 		if err := rows.Scan(&r.ID, &r.Slug, &r.Kind, &r.Name, &r.Year, &r.Status, &r.AddedAt,
-			&r.SeasonCount, &r.EpisodeCount, &r.SizeBytes, &r.MaxHeight, &r.HDR,
+			&r.SeasonCount, &r.EpisodeCount, &r.SizeBytes, &r.TranscodedBytes, &r.MaxHeight, &r.HDR,
 			&r.PosterID, &r.BackdropID, &r.NeedsPrepare); err != nil {
 			return nil, 0, err
 		}

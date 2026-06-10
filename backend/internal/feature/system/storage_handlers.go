@@ -28,7 +28,7 @@ type storageCategory struct {
 // not the whole disk. The denominator ("budget") is Couchverse's own usage
 // plus the disk's free space - i.e. everything Couchverse could occupy,
 // excluding whatever else already lives on the disk. Usage is broken down by
-// category (movies/series/music/cache) for the segmented bar.
+// category (movies/series/music/transcodes/cache) for the segmented bar.
 func (h *AdminStorage) Get(w http.ResponseWriter, r *http.Request) {
 	diskTotal, free, ok := diskUsage(h.dataDir)
 	if !ok {
@@ -40,14 +40,20 @@ func (h *AdminStorage) Get(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	cache := media.DirSize(filepath.Join(h.dataDir, "cache", "hls")) +
-		media.DirSize(filepath.Join(h.dataDir, "cache", "images")) +
-		media.DirSize(filepath.Join(h.dataDir, "cache", "uploads"))
+	transcodes, err := h.store.TranscodeUsage(r.Context())
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	cache := media.DirSize(filepath.Join(h.dataDir, "cache", "images")) +
+		media.DirSize(filepath.Join(h.dataDir, "cache", "uploads")) +
+		media.DirSize(filepath.Join(h.dataDir, "cache", "sessions"))
 
 	categories := []storageCategory{
 		{Kind: "movies", Bytes: byKind["movies"]},
 		{Kind: "series", Bytes: byKind["series"]},
 		{Kind: "music", Bytes: byKind["music"]},
+		{Kind: "transcodes", Bytes: transcodes},
 		{Kind: "cache", Bytes: cache},
 	}
 	var used int64

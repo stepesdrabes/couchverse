@@ -41,6 +41,15 @@ func (s *Store) MediaUsageByKind(ctx context.Context) (map[string]int64, error) 
 	return out, rows.Err()
 }
 
+// TranscodeUsage sums the on-disk size of ready HLS variants.
+func (s *Store) TranscodeUsage(ctx context.Context) (int64, error) {
+	var total int64
+	err := s.db.QueryRow(ctx,
+		`SELECT COALESCE(sum(size_bytes), 0) FROM transcode_variants WHERE status = 'ready'`).
+		Scan(&total)
+	return total, err
+}
+
 type OverviewCounts struct {
 	Movies   int `json:"movies"`
 	Series   int `json:"series"`
