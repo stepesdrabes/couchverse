@@ -105,7 +105,7 @@
 	onDelete={() => (confirmDeleteTitle = true)}
 />
 
-<div class="grid gap-8 lg:grid-cols-[1fr_340px]">
+<div class="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_340px]">
 	<div class="space-y-8">
 		<form onsubmit={save} class="space-y-4 rounded-card border border-edge bg-surface/40 p-6">
 			<h2 class="text-sm font-semibold text-muted">Metadata</h2>
@@ -143,7 +143,7 @@
 		{/if}
 	</div>
 
-	<aside class="space-y-6">
+	<aside class="order-first space-y-6 lg:order-none">
 		<ArtworkCard titleId={data.title.id} artwork={data.artwork} />
 		{#if data.title.kind === 'movie'}
 			<MovieFilesPanel
