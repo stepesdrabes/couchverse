@@ -3,16 +3,19 @@
 	import { DropdownMenu } from 'bits-ui';
 	import { LogOut, Search, Shield, UserRound } from 'lucide-svelte';
 	import { session } from '$lib/features/auth/session.svelte';
+	import { features } from '$lib/features/settings/features.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 
-	const items = [
-		{ href: '/', label: 'Home' },
-		{ href: '/series', label: 'Series' },
-		{ href: '/movies', label: 'Movies' },
-		{ href: '/music', label: 'Music' },
-		{ href: '/my-list', label: 'My List' },
-		{ href: '/genres', label: 'Genres' }
-	];
+	const items = $derived(
+		[
+			{ href: '/', label: 'Home' },
+			{ href: '/series', label: 'Series' },
+			{ href: '/movies', label: 'Movies' },
+			{ href: '/music', label: 'Music' },
+			{ href: '/my-list', label: 'My List' },
+			{ href: '/genres', label: 'Genres' }
+		].filter((item) => item.href !== '/music' || features.musicEnabled)
+	);
 
 	let scrollY = $state(0);
 	const scrolled = $derived(scrollY > 24);

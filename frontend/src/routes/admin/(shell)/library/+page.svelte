@@ -3,8 +3,10 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
+	import { listActiveTranscodes, type ActiveTranscode } from '$lib/features/jobs/api';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { LibraryRow } from '$lib/features/library/api';
+	import { features } from '$lib/features/settings/features.svelte';
 	import AdminMusicTable from '$lib/components/admin/AdminMusicTable.svelte';
 	import NewTitleModal from '$lib/components/admin/NewTitleModal.svelte';
 	import Artwork from '$lib/components/media/Artwork.svelte';
@@ -37,6 +39,19 @@
 
 	const musicTab = $derived(kind === 'music');
 
+	const kindTabs = $derived(
+		[
+			{ value: '', label: 'All' },
+			{ value: 'series', label: 'Series' },
+			{ value: 'movie', label: 'Movies' },
+			{ value: 'music', label: 'Music' }
+		].filter((t) => t.value !== 'music' || features.musicEnabled)
+	);
+
+	$effect(() => {
+		if (kind === 'music' && !features.musicEnabled) kind = '';
+	});
+
 	async function refresh() {
 		if (musicTab) return; // the music table fetches its own data
 		loading = true;
@@ -60,6 +75,42 @@
 		void status;
 		void sort;
 		refresh();
+	});
+
+	let activeTranscodes = $state<ActiveTranscode[]>([]);
+	const transcodesByTitle = $derived.by(() => {
+		const map = new Map<string, ActiveTranscode[]>();
+		for (const t of activeTranscodes) {
+			if (t.titleId) map.set(t.titleId, [...(map.get(t.titleId) ?? []), t]);
+		}
+		return map;
+	});
+
+	$effect(() => {
+		let emptyStreak = 0;
+		let tick = 0;
+
+		async function poll() {
+			tick++;
+			if (document.visibilityState === 'hidden') return;
+			// after 5 empty responses in a row, slow down to every 5th tick
+			if (emptyStreak >= 5 && tick % 5 !== 0) return;
+			try {
+				const next = await listActiveTranscodes();
+				const finished = activeTranscodes.some(
+					(t) => t.titleId && !next.some((n) => n.titleId === t.titleId)
+				);
+				activeTranscodes = next;
+				emptyStreak = next.length === 0 ? emptyStreak + 1 : 0;
+				if (finished) refresh();
+			} catch {
+				// transient poll failure, retry next tick
+			}
+		}
+
+		poll();
+		const interval = setInterval(poll, 3000);
+		return () => clearInterval(interval);
 	});
 
 	function onSearchInput() {
@@ -158,15 +209,7 @@
 </div>
 
 <div class="mb-4 flex flex-wrap items-center gap-3">
-	<Tabs
-		bind:value={kind}
-		items={[
-			{ value: '', label: 'All' },
-			{ value: 'series', label: 'Series' },
-			{ value: 'movie', label: 'Movies' },
-			{ value: 'music', label: 'Music' }
-		]}
-	/>
+	<Tabs bind:value={kind} items={kindTabs} />
 	{#if !musicTab}
 		<Select
 			bind:value={status}
@@ -259,6 +302,21 @@
 								{/if}
 								{#if !qualityLabel(row.maxHeight)}
 									<span class="text-xs text-faint">no files</span>
+								{/if}
+								{#if transcodesByTitle.has(row.id)}
+									{@const active = transcodesByTitle.get(row.id)!}
+									{@const progress = Math.min(...active.map((t) => t.progress))}
+									<span class="flex items-center gap-1.5" title="Transcoding">
+										<span class="block h-1.5 w-20 overflow-hidden rounded-full bg-surface-2">
+											<span
+												class="block h-full rounded-full bg-accent transition-all duration-500"
+												style="width: {progress}%"
+											></span>
+										</span>
+										<span class="text-[11px] text-muted tnum">
+											{Math.round(progress)}%{active.length > 1 ? ` · ${active.length} jobs` : ''}
+										</span>
+									</span>
 								{/if}
 							</span>
 						</td>

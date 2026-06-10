@@ -46,6 +46,18 @@ export const listJobs = (status = '', limit = 50) =>
 export const retryJob = (id: number) => api<void>(`/admin/jobs/${id}/retry`, { method: 'POST' });
 export const cancelJob = (id: number) => api<void>(`/admin/jobs/${id}/cancel`, { method: 'POST' });
 
+export interface ActiveTranscode {
+	jobId: number;
+	mediaFileId: string;
+	titleId: string | null;
+	episodeId: string | null;
+	variant: string;
+	status: 'pending' | 'running';
+	progress: number;
+}
+
+export const listActiveTranscodes = () => api<ActiveTranscode[]>('/admin/transcode/active');
+
 // storage & overview
 export type StorageCategoryKind = 'movies' | 'series' | 'music' | 'cache';
 

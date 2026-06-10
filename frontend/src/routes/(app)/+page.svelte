@@ -7,10 +7,15 @@
 	import TitleCard from '$lib/components/media/TitleCard.svelte';
 	import AlbumCard from '$lib/components/music/AlbumCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { features } from '$lib/features/settings/features.svelte';
 
 	let { data } = $props();
 
-	const visibleRows = $derived(data.rows.filter((r) => r.items.length > 0));
+	const visibleRows = $derived(
+		data.rows.filter(
+			(r) => r.items.length > 0 && (r.kind !== 'recently_played_music' || features.musicEnabled)
+		)
+	);
 </script>
 
 <svelte:head>

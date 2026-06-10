@@ -4,6 +4,7 @@
 	import type { SearchResults } from '$lib/features/catalog/types';
 	import PosterCard from '$lib/components/media/PosterCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { features } from '$lib/features/settings/features.svelte';
 
 	let query = $state('');
 	let results = $state<SearchResults | null>(null);
@@ -30,7 +31,7 @@
 	}
 
 	const musicHits = $derived(
-		results
+		results && features.musicEnabled
 			? [
 					...results.artists.map((h) => ({ ...h, href: `/music/artists/${h.id}` })),
 					...results.albums.map((h) => ({ ...h, href: `/music/albums/${h.id}` })),
