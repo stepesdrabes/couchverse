@@ -1,5 +1,5 @@
-// Package tmdb is a minimal TMDB v3 client for metadata search and fetch.
-package tmdb
+// Package metadata fetches title metadata and artwork from TMDB.
+package metadata
 
 import (
 	"context"

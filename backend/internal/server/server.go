@@ -18,6 +18,7 @@ import (
 	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
+	"couchverse/internal/feature/metadata"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/flags"
@@ -63,7 +64,7 @@ func (s *Server) Handler() http.Handler {
 	theme := api.NewTheme(s.settings)
 	artworkAPI := artwork.NewHandlers(s.artwork)
 	subtitlesAPI := subtitles.NewSubtitles(s.subtitles.Subs, s.library, s.subtitles)
-	metadataAPI := api.NewAdminMetadata(s.catalog, s.settings, s.jobs)
+	metadataAPI := metadata.NewAdminMetadata(s.catalog, s.settings, s.jobs)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -125,10 +126,7 @@ func (s *Server) Handler() http.Handler {
 
 			adminJobs.MountAdmin(adm)
 
-			adm.Get("/metadata/search", metadataAPI.Search)
-			adm.Post("/titles/{id}/metadata/apply", metadataAPI.Apply)
-			adm.Get("/titles/{id}/metadata/seasons", metadataAPI.Seasons)
-			adm.Post("/titles/{id}/metadata/import-episodes", metadataAPI.ImportEpisodes)
+			metadataAPI.MountAdmin(adm)
 
 			artworkAPI.MountAdmin(adm)
 

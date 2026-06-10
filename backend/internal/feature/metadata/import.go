@@ -1,4 +1,4 @@
-package tmdb
+package metadata
 
 import (
 	"context"

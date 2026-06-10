@@ -19,13 +19,13 @@ import (
 	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
+	"couchverse/internal/feature/metadata"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
-	"couchverse/internal/tmdb"
 	"couchverse/internal/transcode"
 )
 
@@ -118,8 +118,8 @@ func run() error {
 	runner.Register("scan_library", 1, (&library.Scanner{Files: libraryStore, Jobs: jobsStore}).Handle)
 	runner.Register("probe", 2, (&library.Prober{Files: libraryStore, Catalog: catalogStore, Settings: set, Jobs: jobsStore, Artwork: artworkService.Store, Music: musicStore, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
-	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Catalog: catalogStore, Settings: set, Artwork: artworkService}).Handle)
-	runner.Register("import_episodes", 1, (&tmdb.ImportEpisodesJob{Catalog: catalogStore, Settings: set}).Handle)
+	runner.Register("fetch_metadata", 2, (&metadata.FetchJob{Catalog: catalogStore, Settings: set, Artwork: artworkService}).Handle)
+	runner.Register("import_episodes", 1, (&metadata.ImportEpisodesJob{Catalog: catalogStore, Settings: set}).Handle)
 	runner.Register("transcode_hls", transcodeSlots, transcodeHandler.Handle)
 	runner.Register("cleanup", 1, cleanupHandler(libraryStore, authStore, jobsStore, uploadManager, cfg.DataDir))
 	if _, err := jobsStore.EnqueueJobOnce(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{}); err != nil {

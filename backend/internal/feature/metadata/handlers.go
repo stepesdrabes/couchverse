@@ -1,4 +1,4 @@
-package api
+package metadata
 
 import (
 	"net/http"
@@ -7,7 +7,6 @@ import (
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
-	"couchverse/internal/tmdb"
 )
 
 type AdminMetadata struct {
@@ -29,13 +28,13 @@ func (h *AdminMetadata) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, err := tmdb.APIKey(r.Context(), h.settings)
+	key, err := APIKey(r.Context(), h.settings)
 	if err != nil {
 		httpx.Error(w, http.StatusPreconditionFailed, "no_tmdb_key", err.Error())
 		return
 	}
 
-	results, err := tmdb.New(key).Search(r.Context(), kind, q)
+	results, err := New(key).Search(r.Context(), kind, q)
 	if err != nil {
 		httpx.Error(w, http.StatusBadGateway, "tmdb_error", err.Error())
 		return
@@ -49,12 +48,12 @@ func (h *AdminMetadata) Seasons(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	key, err := tmdb.APIKey(r.Context(), h.settings)
+	key, err := APIKey(r.Context(), h.settings)
 	if err != nil {
 		httpx.Error(w, http.StatusPreconditionFailed, "no_tmdb_key", err.Error())
 		return
 	}
-	seasons, err := tmdb.New(key).SeriesSeasons(r.Context(), *title.TmdbID)
+	seasons, err := New(key).SeriesSeasons(r.Context(), *title.TmdbID)
 	if err != nil {
 		httpx.Error(w, http.StatusBadGateway, "tmdb_error", err.Error())
 		return
@@ -73,7 +72,7 @@ func (h *AdminMetadata) ImportEpisodes(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = httpx.Decode(r, &req) // empty body = all seasons
 	jobID, err := h.jobs.EnqueueJobOnce(r.Context(), "import_episodes",
-		tmdb.ImportEpisodesPayload{TitleID: title.ID, Seasons: req.Seasons},
+		ImportEpisodesPayload{TitleID: title.ID, Seasons: req.Seasons},
 		jobs.EnqueueOpts{Priority: 5})
 	if err != nil {
 		httpx.Internal(w, err)
@@ -124,7 +123,7 @@ func (h *AdminMetadata) Apply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jobID, err := h.jobs.EnqueueJob(r.Context(), "fetch_metadata",
-		tmdb.FetchPayload{TitleID: titleID, TmdbID: req.TmdbID}, jobs.EnqueueOpts{Priority: 5})
+		FetchPayload{TitleID: titleID, TmdbID: req.TmdbID}, jobs.EnqueueOpts{Priority: 5})
 	if err != nil {
 		httpx.Internal(w, err)
 		return
