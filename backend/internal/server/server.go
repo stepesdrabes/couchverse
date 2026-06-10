@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 
-	"couchverse/internal/api"
 	"couchverse/internal/config"
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
@@ -22,16 +22,16 @@ import (
 	"couchverse/internal/feature/music"
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/feature/subtitles"
-	"couchverse/internal/flags"
+	"couchverse/internal/feature/system"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 	"couchverse/web"
 )
 
 type Server struct {
 	cfg       config.Config
-	store     *store.Store
+	pool      *pgxpool.Pool
+	system    *system.Store
 	settings  *settings.Store
 	auth      *auth.Store
 	catalog   *catalog.Store
@@ -45,14 +45,14 @@ type Server struct {
 	sessions  *playback.SessionManager
 }
 
-func New(cfg config.Config, st *store.Store, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager) *Server {
-	return &Server{cfg: cfg, store: st, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
+func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, sys *system.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager) *Server {
+	return &Server{cfg: cfg, pool: pool, system: sys, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
 }
 
 func (s *Server) Handler() http.Handler {
 	sessions := auth.NewMiddleware(s.auth)
 	authModule := auth.NewModule(s.auth, s.cfg, s.artwork)
-	adminSettings := api.NewAdminSettings(s.settings)
+	systemModule := system.NewModule(s.system, s.settings, s.jobs, s.cfg.DataDir)
 	libraryModule := library.NewModule(s.library, s.jobs, s.uploads)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
 	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.music, s.jobs)
@@ -61,9 +61,6 @@ func (s *Server) Handler() http.Handler {
 		playback.NewAdminTranscode(s.library, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath),
 	)
 	musicModule := music.NewModule(s.music, s.settings, s.artwork)
-	adminStorage := api.NewAdminStorage(s.store, s.jobs, s.cfg.DataDir)
-	sysStats := api.NewSysStats()
-	theme := api.NewTheme(s.settings)
 	artworkAPI := artwork.NewHandlers(s.artwork)
 	subtitlesAPI := subtitles.NewSubtitles(s.subtitles.Subs, s.library, s.subtitles)
 	metadataAPI := metadata.NewAdminMetadata(s.catalog, s.settings, s.jobs)
@@ -84,7 +81,7 @@ func (s *Server) Handler() http.Handler {
 		})
 
 		authModule.MountPublic(v1)
-		v1.Get("/theme", theme.Get) // public: accent applies on the login screen too
+		systemModule.MountPublic(v1)
 
 		// authenticated routes
 		v1.Group(func(p chi.Router) {
@@ -96,9 +93,7 @@ func (s *Server) Handler() http.Handler {
 			artworkAPI.MountUser(p)
 			subtitlesAPI.MountUser(p)
 
-			p.Get("/features", func(w http.ResponseWriter, r *http.Request) {
-				httpx.JSON(w, http.StatusOK, flags.Load(r.Context(), s.settings))
-			})
+			systemModule.MountUser(p)
 
 			// music routes (incl. track playlists) gate themselves on the feature toggle
 			musicModule.MountUser(p)
@@ -115,8 +110,7 @@ func (s *Server) Handler() http.Handler {
 
 			authModule.MountAdmin(adm)
 
-			adm.Get("/settings", adminSettings.Get)
-			adm.Put("/settings", adminSettings.Put)
+			systemModule.MountAdmin(adm)
 
 			libraryModule.MountAdmin(adm)
 
@@ -127,12 +121,6 @@ func (s *Server) Handler() http.Handler {
 			artworkAPI.MountAdmin(adm)
 
 			subtitlesAPI.MountAdmin(adm)
-
-			adm.Get("/storage", adminStorage.Get)
-			adm.Get("/overview", adminStorage.Overview)
-			adm.Get("/system", sysStats.Get)
-			adm.Get("/home-rows", adminStorage.HomeRowsGet)
-			adm.Put("/home-rows", adminStorage.HomeRowsPut)
 
 			playbackModule.MountAdmin(adm)
 		})
@@ -145,7 +133,7 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
-	if err := s.store.Ping(ctx); err != nil {
+	if err := s.pool.Ping(ctx); err != nil {
 		httpx.Error(w, http.StatusServiceUnavailable, "db_unreachable", "database unreachable")
 		return
 	}

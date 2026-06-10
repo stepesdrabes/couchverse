@@ -23,10 +23,10 @@ import (
 	"couchverse/internal/feature/music"
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/feature/subtitles"
+	"couchverse/internal/feature/system"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 )
 
 // ensureManagedLibraries creates the default upload-target libraries under
@@ -80,11 +80,11 @@ func run() error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 
-	st := store.New(pool)
 	set := settings.NewStore(pool)
 	jobsStore := jobs.NewStore(pool)
 	authStore := auth.NewStore(pool)
 	catalogStore := catalog.NewStore(pool)
+	systemStore := system.NewStore(pool)
 	musicStore := music.NewStore(pool)
 	libraryStore := library.NewStore(pool)
 	if err := auth.Bootstrap(ctx, authStore, cfg); err != nil {
@@ -129,7 +129,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, st, set, authStore, catalogStore, jobsStore, musicStore, libraryStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
+		Handler:           server.New(cfg, pool, set, authStore, catalogStore, jobsStore, musicStore, libraryStore, systemStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

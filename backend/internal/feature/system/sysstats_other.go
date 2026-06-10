@@ -1,6 +1,6 @@
 //go:build !linux
 
-package api
+package system
 
 // Host CPU/memory sampling is only wired up for Linux (the deploy target). On
 // other platforms the system card shows the Go-runtime metrics only.

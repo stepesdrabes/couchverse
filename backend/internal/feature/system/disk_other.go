@@ -1,6 +1,6 @@
 //go:build !linux && !darwin
 
-package api
+package system
 
 // diskUsage is unsupported on this platform; the storage meter hides itself
 // when disk stats are unavailable.

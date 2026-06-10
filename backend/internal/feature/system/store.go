@@ -1,13 +1,25 @@
-package store
+// Package system owns server-level concerns: theme, admin settings, storage
+// stats, host metrics and the home-rows editor.
+package system
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+type Store struct {
+	db *pgxpool.Pool
+}
+
+func NewStore(db *pgxpool.Pool) *Store {
+	return &Store{db: db}
+}
 
 // MediaUsageByKind sums media file sizes per library kind (movies/series/music),
 // collapsing multiple libraries of the same kind into one total.
 func (s *Store) MediaUsageByKind(ctx context.Context) (map[string]int64, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT l.kind, COALESCE(sum(mf.size_bytes), 0)
 		 FROM libraries l
 		 LEFT JOIN media_files mf ON mf.library_id = l.id
@@ -40,7 +52,7 @@ type OverviewCounts struct {
 
 func (s *Store) Overview(ctx context.Context) (*OverviewCounts, error) {
 	var c OverviewCounts
-	err := s.pool.QueryRow(ctx, `
+	err := s.db.QueryRow(ctx, `
 		SELECT
 			(SELECT count(*) FROM titles WHERE kind = 'movie'),
 			(SELECT count(*) FROM titles WHERE kind = 'series'),
@@ -62,7 +74,7 @@ type HomeRowConfig struct {
 }
 
 func (s *Store) ListHomeRows(ctx context.Context) ([]HomeRowConfig, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT id, position, kind, genre_id, label, enabled FROM home_rows ORDER BY position`)
 	if err != nil {
 		return nil, err
@@ -82,7 +94,7 @@ func (s *Store) ListHomeRows(ctx context.Context) ([]HomeRowConfig, error) {
 
 // ReplaceHomeRows rewrites the home page row config atomically.
 func (s *Store) ReplaceHomeRows(ctx context.Context, configs []HomeRowConfig) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
 	}

@@ -1,4 +1,4 @@
-package api
+package system
 
 import (
 	"io/fs"
@@ -7,16 +7,15 @@ import (
 
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
 type AdminStorage struct {
-	store   *store.Store
+	store   *Store
 	jobs    *jobs.Store
 	dataDir string
 }
 
-func NewAdminStorage(st *store.Store, jb *jobs.Store, dataDir string) *AdminStorage {
+func NewAdminStorage(st *Store, jb *jobs.Store, dataDir string) *AdminStorage {
 	return &AdminStorage{store: st, jobs: jb, dataDir: dataDir}
 }
 
@@ -114,7 +113,7 @@ func (h *AdminStorage) HomeRowsGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminStorage) HomeRowsPut(w http.ResponseWriter, r *http.Request) {
-	var rows []store.HomeRowConfig
+	var rows []HomeRowConfig
 	if err := httpx.Decode(r, &rows); err != nil {
 		httpx.BadRequest(w, "invalid request body")
 		return
