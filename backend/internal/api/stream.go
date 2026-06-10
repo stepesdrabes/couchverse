@@ -101,9 +101,10 @@ type subtitleTrack struct {
 }
 
 type playbackDisplay struct {
-	Title    string `json:"title"`
-	Subtitle string `json:"subtitle"`
-	TitleID  string `json:"titleId"`
+	Title     string `json:"title"`
+	Subtitle  string `json:"subtitle"`
+	TitleID   string `json:"titleId"`
+	TitleSlug string `json:"titleSlug"`
 }
 
 // Playback resolves what to play for a movie title or an episode.
@@ -134,7 +135,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusNotFound, "no_media", "this title has no media file yet")
 			return
 		}
-		info.Display = playbackDisplay{Title: title.Name, TitleID: title.ID}
+		info.Display = playbackDisplay{Title: title.Name, TitleID: title.ID, TitleSlug: title.Slug}
 		pos, _, perr := h.store.ProgressFor(r.Context(), user.ID, &id, nil)
 		if perr != nil {
 			httpx.Internal(w, perr)
@@ -154,9 +155,10 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		info.Display = playbackDisplay{
-			Title:    ref.TitleName,
-			Subtitle: formatEpisodeSubtitle(ref),
-			TitleID:  ref.TitleID,
+			Title:     ref.TitleName,
+			Subtitle:  formatEpisodeSubtitle(ref),
+			TitleID:   ref.TitleID,
+			TitleSlug: ref.TitleSlug,
 		}
 		pos, _, perr := h.store.ProgressFor(r.Context(), user.ID, nil, &id)
 		if perr != nil {
