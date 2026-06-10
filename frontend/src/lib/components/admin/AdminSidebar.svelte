@@ -12,6 +12,7 @@
 	import { session } from '$lib/features/auth/session.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import StorageMeter from './StorageMeter.svelte';
+	import SystemMeter from './SystemMeter.svelte';
 
 	const items = [
 		{ href: '/admin', label: 'Overview', icon: LayoutDashboard },
@@ -60,6 +61,7 @@
 			Back to app
 		</a>
 		<StorageMeter />
+		<SystemMeter />
 		<a
 			href="/profile"
 			class="flex items-center gap-3 rounded-card border border-edge bg-surface p-3 transition-colors hover:border-faint"

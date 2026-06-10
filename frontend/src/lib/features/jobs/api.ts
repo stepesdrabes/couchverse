@@ -93,6 +93,7 @@ export const getOverview = () => api<OverviewInfo>('/admin/overview');
 
 export interface SystemStats {
 	cpuPercent: number; // -1 when unavailable (non-Linux host)
+	cpuCores: number;
 	memUsed: number;
 	memTotal: number;
 	load1: number; // -1 when unavailable

@@ -23,6 +23,7 @@
 	let storage = $state<StorageInfo | null>(null);
 	let system = $state<SystemStats | null>(null);
 	let cpuHistory = $state<number[]>([]);
+	let memHistory = $state<number[]>([]);
 
 	$effect(() => {
 		jobsApi.getOverview().then((o) => (overview = o));
@@ -36,6 +37,9 @@
 				if (s.cpuPercent >= 0) {
 					cpuHistory = [...cpuHistory, s.cpuPercent].slice(-40);
 				}
+				if (s.memTotal > 0) {
+					memHistory = [...memHistory, (s.memUsed / s.memTotal) * 100].slice(-40);
+				}
 			} catch {
 				// transient; the next tick retries
 			}
@@ -47,6 +51,22 @@
 
 	const memPercent = $derived(
 		system && system.memTotal > 0 ? (system.memUsed / system.memTotal) * 100 : 0
+	);
+	// load relative to core count: <0.7/core healthy, <1.0 busy, ≥1.0 saturated
+	const loadPerCore = $derived(
+		system && system.load1 >= 0 && system.cpuCores > 0 ? system.load1 / system.cpuCores : -1
+	);
+	const loadColor = $derived(
+		loadPerCore < 0
+			? 'text-faint'
+			: loadPerCore < 0.7
+				? 'text-success'
+				: loadPerCore < 1
+					? 'text-amber-400'
+					: 'text-danger'
+	);
+	const loadLabel = $derived(
+		loadPerCore < 0 ? '' : loadPerCore < 0.7 ? 'Healthy' : loadPerCore < 1 ? 'Busy' : 'Saturated'
 	);
 
 	const cards = $derived(
@@ -106,70 +126,91 @@
 </div>
 
 {#if system}
-	<div class="mt-6 rounded-card border border-edge bg-surface/40 p-6">
-		<h2 class="mb-4 text-sm font-semibold text-muted">System</h2>
-		<div class="grid gap-6 lg:grid-cols-2">
-			<div class="grid gap-4 sm:grid-cols-2">
-				<div>
-					<div class="mb-1.5 flex items-center justify-between text-xs">
-						<span class="flex items-center gap-1.5 text-muted"><Cpu class="size-3.5" /> CPU</span>
-						<span class="font-semibold tnum">
-							{system.cpuPercent >= 0 ? `${system.cpuPercent.toFixed(0)}%` : 'n/a'}
-						</span>
-					</div>
+	<div class="mt-6">
+		<h2 class="mb-3 text-sm font-semibold text-muted">System</h2>
+		<div class="grid gap-4 lg:grid-cols-2">
+			<div class="rounded-card border border-edge bg-surface/40 p-5">
+				<div class="mb-3 flex items-start justify-between">
+					<span class="flex items-center gap-2 text-sm font-medium text-muted">
+						<Cpu class="size-4 text-accent" /> CPU
+					</span>
 					{#if system.cpuPercent >= 0}
-						<Sparkline values={cpuHistory} max={100} class="h-10 w-full" />
-					{:else}
-						<p class="text-[11px] text-faint">Host CPU stats are unavailable on this platform.</p>
+						<span class="text-2xl leading-none font-bold tnum">{system.cpuPercent.toFixed(0)}%</span
+						>
 					{/if}
 				</div>
-				<div>
-					<div class="mb-1.5 flex items-center justify-between text-xs">
-						<span class="flex items-center gap-1.5 text-muted">
-							<MemoryStick class="size-3.5" /> Memory
-						</span>
-						<span class="text-faint tnum">
-							{system.memTotal > 0
-								? `${formatBytes(system.memUsed)} / ${formatBytes(system.memTotal)}`
-								: 'n/a'}
-						</span>
-					</div>
-					{#if system.memTotal > 0}
-						<div class="h-2 overflow-hidden rounded-full bg-surface-2">
-							<div class="h-full rounded-full bg-accent" style="width: {memPercent}%"></div>
-						</div>
-						<p class="mt-1 text-[11px] text-faint tnum">{memPercent.toFixed(0)}% used</p>
-					{:else}
-						<p class="text-[11px] text-faint">
-							Host memory stats are unavailable on this platform.
-						</p>
-					{/if}
-				</div>
+				{#if system.cpuPercent >= 0}
+					<Sparkline values={cpuHistory} max={100} class="h-20 w-full" />
+					<p class="mt-2 text-[11px] text-faint">{system.cpuCores} cores</p>
+				{:else}
+					<p class="py-6 text-xs text-faint">Host CPU stats are unavailable on this platform.</p>
+				{/if}
 			</div>
 
-			<dl class="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-				{#if system.load1 >= 0}
-					<div class="rounded-input border border-edge/70 px-3 py-2">
-						<dt class="flex items-center gap-1.5 text-faint"><Gauge class="size-3" /> Load</dt>
-						<dd class="mt-0.5 font-semibold tnum">{system.load1.toFixed(2)}</dd>
-					</div>
+			<div class="rounded-card border border-edge bg-surface/40 p-5">
+				<div class="mb-3 flex items-start justify-between">
+					<span class="flex items-center gap-2 text-sm font-medium text-muted">
+						<MemoryStick class="size-4 text-accent" /> Memory
+					</span>
+					{#if system.memTotal > 0}
+						<span class="text-2xl leading-none font-bold tnum">{memPercent.toFixed(0)}%</span>
+					{/if}
+				</div>
+				{#if system.memTotal > 0}
+					<Sparkline
+						values={memHistory}
+						max={100}
+						class="h-20 w-full"
+						color="var(--color-success)"
+					/>
+					<p class="mt-2 text-[11px] text-faint tnum">
+						{formatBytes(system.memUsed)} of {formatBytes(system.memTotal)} used
+					</p>
+				{:else}
+					<p class="py-6 text-xs text-faint">Host memory stats are unavailable on this platform.</p>
 				{/if}
-				<div class="rounded-input border border-edge/70 px-3 py-2">
-					<dt class="flex items-center gap-1.5 text-faint"><Boxes class="size-3" /> Goroutines</dt>
-					<dd class="mt-0.5 font-semibold tnum">{system.goroutines}</dd>
-				</div>
-				<div class="rounded-input border border-edge/70 px-3 py-2">
-					<dt class="flex items-center gap-1.5 text-faint">
-						<MemoryStick class="size-3" /> Go heap
-					</dt>
-					<dd class="mt-0.5 font-semibold tnum">{formatBytes(system.goHeapBytes)}</dd>
-				</div>
-				<div class="rounded-input border border-edge/70 px-3 py-2">
-					<dt class="flex items-center gap-1.5 text-faint"><Timer class="size-3" /> Uptime</dt>
-					<dd class="mt-0.5 font-semibold tnum">{formatUptime(system.uptimeSeconds)}</dd>
-				</div>
-			</dl>
+			</div>
 		</div>
+
+		<dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+			<div class="rounded-card border border-edge bg-surface/40 px-4 py-3">
+				<dt class="flex items-center gap-1.5 text-[11px] text-faint">
+					<Gauge class="size-3" /> Load (1m)
+				</dt>
+				{#if system.load1 >= 0}
+					<dd class="mt-1 flex items-baseline gap-2">
+						<span class="text-lg font-bold tnum {loadColor}">{system.load1.toFixed(2)}</span>
+						<span class="text-[11px] {loadColor}">{loadLabel}</span>
+					</dd>
+					<div class="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-2">
+						<div
+							class="h-full rounded-full bg-current {loadColor}"
+							style="width: {Math.min(100, loadPerCore * 100)}%"
+						></div>
+					</div>
+				{:else}
+					<dd class="mt-1 text-lg font-bold text-faint">n/a</dd>
+				{/if}
+			</div>
+			<div class="rounded-card border border-edge bg-surface/40 px-4 py-3">
+				<dt class="flex items-center gap-1.5 text-[11px] text-faint">
+					<Boxes class="size-3" /> Goroutines
+				</dt>
+				<dd class="mt-1 text-lg font-bold tnum">{system.goroutines}</dd>
+			</div>
+			<div class="rounded-card border border-edge bg-surface/40 px-4 py-3">
+				<dt class="flex items-center gap-1.5 text-[11px] text-faint">
+					<MemoryStick class="size-3" /> Go heap
+				</dt>
+				<dd class="mt-1 text-lg font-bold tnum">{formatBytes(system.goHeapBytes)}</dd>
+			</div>
+			<div class="rounded-card border border-edge bg-surface/40 px-4 py-3">
+				<dt class="flex items-center gap-1.5 text-[11px] text-faint">
+					<Timer class="size-3" /> Uptime
+				</dt>
+				<dd class="mt-1 text-lg font-bold tnum">{formatUptime(system.uptimeSeconds)}</dd>
+			</div>
+		</dl>
 	</div>
 {/if}
 
