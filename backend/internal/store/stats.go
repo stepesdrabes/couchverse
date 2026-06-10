@@ -4,34 +4,29 @@ import (
 	"context"
 )
 
-type LibraryUsage struct {
-	LibraryID int64  `json:"libraryId"`
-	Name      string `json:"name"`
-	Kind      string `json:"kind"`
-	Bytes     int64  `json:"bytes"`
-}
-
-func (s *Store) LibraryUsage(ctx context.Context) ([]LibraryUsage, error) {
+// MediaUsageByKind sums media file sizes per library kind (movies/series/music),
+// collapsing multiple libraries of the same kind into one total.
+func (s *Store) MediaUsageByKind(ctx context.Context) (map[string]int64, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT l.id, l.name, l.kind, COALESCE(sum(mf.size_bytes), 0)
+		`SELECT l.kind, COALESCE(sum(mf.size_bytes), 0)
 		 FROM libraries l
 		 LEFT JOIN media_files mf ON mf.library_id = l.id
-		 GROUP BY l.id
-		 ORDER BY l.id`)
+		 GROUP BY l.kind`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	usage := []LibraryUsage{}
+	out := map[string]int64{}
 	for rows.Next() {
-		var u LibraryUsage
-		if err := rows.Scan(&u.LibraryID, &u.Name, &u.Kind, &u.Bytes); err != nil {
+		var kind string
+		var bytes int64
+		if err := rows.Scan(&kind, &bytes); err != nil {
 			return nil, err
 		}
-		usage = append(usage, u)
+		out[kind] = bytes
 	}
-	return usage, rows.Err()
+	return out, rows.Err()
 }
 
 type OverviewCounts struct {

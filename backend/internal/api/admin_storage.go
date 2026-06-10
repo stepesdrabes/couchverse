@@ -32,28 +32,48 @@ func dirSize(path string) int64 {
 	return total
 }
 
+type storageCategory struct {
+	Kind  string `json:"kind"`
+	Bytes int64  `json:"bytes"`
+}
+
+// Get reports Couchverse's footprint relative to the space available to it,
+// not the whole disk. The denominator ("budget") is Couchverse's own usage
+// plus the disk's free space — i.e. everything Couchverse could occupy,
+// excluding whatever else already lives on the disk. Usage is broken down by
+// category (movies/series/music/cache) for the segmented bar.
 func (h *AdminStorage) Get(w http.ResponseWriter, r *http.Request) {
-	disk := map[string]int64{}
-	if total, free, ok := diskUsage(h.dataDir); ok {
-		disk["total"] = total
-		disk["free"] = free
-		disk["used"] = total - free
+	diskTotal, free, ok := diskUsage(h.dataDir)
+	if !ok {
+		diskTotal, free = 0, 0
 	}
 
-	libraries, err := h.store.LibraryUsage(r.Context())
+	byKind, err := h.store.MediaUsageByKind(r.Context())
 	if err != nil {
 		httpx.Internal(w, err)
 		return
 	}
+	cache := dirSize(filepath.Join(h.dataDir, "cache", "hls")) +
+		dirSize(filepath.Join(h.dataDir, "cache", "images")) +
+		dirSize(filepath.Join(h.dataDir, "cache", "uploads"))
+
+	categories := []storageCategory{
+		{Kind: "movies", Bytes: byKind["movies"]},
+		{Kind: "series", Bytes: byKind["series"]},
+		{Kind: "music", Bytes: byKind["music"]},
+		{Kind: "cache", Bytes: cache},
+	}
+	var used int64
+	for _, c := range categories {
+		used += c.Bytes
+	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
-		"disk":      disk,
-		"libraries": libraries,
-		"cache": map[string]int64{
-			"hls":     dirSize(filepath.Join(h.dataDir, "cache", "hls")),
-			"images":  dirSize(filepath.Join(h.dataDir, "cache", "images")),
-			"uploads": dirSize(filepath.Join(h.dataDir, "cache", "uploads")),
-		},
+		"diskTotal":  diskTotal,
+		"free":       free,
+		"used":       used,
+		"budget":     used + free, // space available to Couchverse
+		"categories": categories,
 	})
 }
 
