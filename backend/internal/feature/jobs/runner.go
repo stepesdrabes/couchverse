@@ -10,12 +10,10 @@ import (
 	"runtime/debug"
 	"sync"
 	"time"
-
-	"couchverse/internal/store"
 )
 
 // Handler executes one job. report publishes coarse progress (0-100).
-type Handler func(ctx context.Context, job *store.Job, report func(pct int)) error
+type Handler func(ctx context.Context, job *Job, report func(pct int)) error
 
 type registration struct {
 	handler Handler
@@ -23,13 +21,13 @@ type registration struct {
 }
 
 type Runner struct {
-	store    *store.Store
+	store    *Store
 	workers  int
 	mu       sync.RWMutex
 	handlers map[string]registration
 }
 
-func NewRunner(st *store.Store, workers int) *Runner {
+func NewRunner(st *Store, workers int) *Runner {
 	if workers < 1 {
 		workers = 1
 	}
@@ -118,7 +116,7 @@ func (r *Runner) runOne(ctx context.Context) bool {
 	return true
 }
 
-func (r *Runner) execute(ctx context.Context, job *store.Job) {
+func (r *Runner) execute(ctx context.Context, job *Job) {
 	slog.Info("job start", "id", job.ID, "type", job.Type, "attempt", job.Attempts)
 
 	jobCtx, cancel := context.WithCancel(ctx)

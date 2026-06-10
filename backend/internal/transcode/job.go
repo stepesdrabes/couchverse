@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
@@ -17,6 +18,7 @@ import (
 type JobHandler struct {
 	Store      *store.Store
 	Settings   *settings.Store
+	Jobs       *jobs.Store
 	DataDir    string
 	FFmpegPath string
 }
@@ -30,7 +32,7 @@ func (h *JobHandler) outDir(mediaFileID, variant string) string {
 	return filepath.Join(h.DataDir, "cache", "hls", mediaFileID, variant)
 }
 
-func (h *JobHandler) Handle(ctx context.Context, job *store.Job, report func(int)) error {
+func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)) error {
 	var p Payload
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err
@@ -108,7 +110,7 @@ func (h *JobHandler) maybeDeleteSource(ctx context.Context, mf *store.MediaFile,
 	if allReady, err := h.Store.AllVariantsReady(ctx, mf.ID); err != nil || !allReady {
 		return
 	}
-	if busy, err := h.Store.HasOtherPendingJobsForMediaFile(ctx, mf.ID, jobID); err != nil || busy {
+	if busy, err := h.Jobs.HasOtherPendingJobsForMediaFile(ctx, mf.ID, jobID); err != nil || busy {
 		return
 	}
 	src := filepath.Join(libPath, mf.Path)

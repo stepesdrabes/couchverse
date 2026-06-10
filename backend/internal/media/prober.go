@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
 	"couchverse/internal/transcode"
@@ -15,6 +16,7 @@ import (
 type Prober struct {
 	Store       *store.Store
 	Settings    *settings.Store
+	Jobs        *jobs.Store
 	FFprobePath string
 	DataDir     string
 }
@@ -26,7 +28,7 @@ type ProbePayload struct {
 // Handle analyzes one media file with ffprobe and attaches it to the catalog:
 // video files are matched by filename conventions (creating draft titles),
 // audio files by their tags (creating artists/albums/tracks).
-func (p *Prober) Handle(ctx context.Context, job *store.Job, report func(int)) error {
+func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) error {
 	var payload ProbePayload
 	if err := json.Unmarshal(job.Payload, &payload); err != nil {
 		return err
@@ -84,8 +86,8 @@ func (p *Prober) Handle(ctx context.Context, job *store.Job, report func(int)) e
 	}
 
 	if res.HasVideo && HasTextSubtitles(res) {
-		if _, err := p.Store.EnqueueJobOnce(ctx, "extract_subtitles",
-			map[string]string{"mediaFileId": mf.ID}, store.EnqueueOpts{}); err != nil {
+		if _, err := p.Jobs.EnqueueJobOnce(ctx, "extract_subtitles",
+			map[string]string{"mediaFileId": mf.ID}, jobs.EnqueueOpts{}); err != nil {
 			return err
 		}
 	}
@@ -99,8 +101,8 @@ func (p *Prober) Handle(ctx context.Context, job *store.Job, report func(int)) e
 			if _, err := p.Store.UpsertVariant(ctx, mf.ID, "source", res.Height, res.Bitrate, 192_000, "copy"); err != nil {
 				return err
 			}
-			if _, err := p.Store.EnqueueJobOnce(ctx, "transcode_hls",
-				map[string]any{"mediaFileId": mf.ID, "variant": "source"}, store.EnqueueOpts{}); err != nil {
+			if _, err := p.Jobs.EnqueueJobOnce(ctx, "transcode_hls",
+				map[string]any{"mediaFileId": mf.ID, "variant": "source"}, jobs.EnqueueOpts{}); err != nil {
 				return err
 			}
 		} else if settings := transcode.LoadSettings(ctx, p.Settings); settings.AutoPrepareEnabled() {
@@ -108,9 +110,9 @@ func (p *Prober) Handle(ctx context.Context, job *store.Job, report func(int)) e
 				if _, err := p.Store.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, "transcode"); err != nil {
 					return err
 				}
-				if _, err := p.Store.EnqueueJobOnce(ctx, "transcode_hls",
+				if _, err := p.Jobs.EnqueueJobOnce(ctx, "transcode_hls",
 					map[string]any{"mediaFileId": mf.ID, "variant": r.Name},
-					store.EnqueueOpts{MaxAttempts: 2}); err != nil {
+					jobs.EnqueueOpts{MaxAttempts: 2}); err != nil {
 					return err
 				}
 			}

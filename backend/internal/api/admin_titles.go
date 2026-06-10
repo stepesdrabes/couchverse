@@ -4,17 +4,19 @@ import (
 	"net/http"
 
 	"couchverse/internal/artwork"
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 )
 
 type AdminTitles struct {
 	store   *store.Store
+	jobs    *jobs.Store
 	artwork *artwork.Service
 }
 
-func NewAdminTitles(st *store.Store, art *artwork.Service) *AdminTitles {
-	return &AdminTitles{store: st, artwork: art}
+func NewAdminTitles(st *store.Store, jb *jobs.Store, art *artwork.Service) *AdminTitles {
+	return &AdminTitles{store: st, jobs: jb, artwork: art}
 }
 
 func (h *AdminTitles) Library(w http.ResponseWriter, r *http.Request) {
@@ -176,8 +178,8 @@ func (h *AdminTitles) Bulk(w http.ResponseWriter, r *http.Request) {
 		fileIDs, err = h.store.MediaFileIDsForTitles(r.Context(), req.IDs)
 		if err == nil {
 			for _, id := range fileIDs {
-				if _, err = h.store.EnqueueJobOnce(r.Context(), "probe",
-					map[string]string{"mediaFileId": id}, store.EnqueueOpts{}); err != nil {
+				if _, err = h.jobs.EnqueueJobOnce(r.Context(), "probe",
+					map[string]string{"mediaFileId": id}, jobs.EnqueueOpts{}); err != nil {
 					break
 				}
 			}

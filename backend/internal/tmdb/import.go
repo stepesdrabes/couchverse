@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
@@ -24,7 +25,7 @@ type ImportEpisodesPayload struct {
 	Seasons []int  `json:"seasons"` // empty = all (specials excluded unless listed)
 }
 
-func (j *ImportEpisodesJob) Handle(ctx context.Context, job *store.Job, report func(int)) error {
+func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) error {
 	var p ImportEpisodesPayload
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err

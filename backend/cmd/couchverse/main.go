@@ -16,7 +16,7 @@ import (
 	"couchverse/internal/auth"
 	"couchverse/internal/config"
 	"couchverse/internal/db"
-	"couchverse/internal/jobs"
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
 	"couchverse/internal/settings"
@@ -80,6 +80,7 @@ func run() error {
 
 	st := store.New(pool)
 	set := settings.NewStore(pool)
+	jobsStore := jobs.NewStore(pool)
 	if err := auth.Bootstrap(ctx, st, cfg); err != nil {
 		return err
 	}
@@ -87,10 +88,10 @@ func run() error {
 		return err
 	}
 
-	uploadManager := &upload.Manager{Store: st, DataDir: cfg.DataDir}
+	uploadManager := &upload.Manager{Store: st, Jobs: jobsStore, DataDir: cfg.DataDir}
 	artworkService := &artwork.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	subtitleService := &subtitles.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
-	transcodeHandler := &transcode.JobHandler{Store: st, Settings: set, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	transcodeHandler := &transcode.JobHandler{Store: st, Settings: set, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	sessionManager := &transcode.SessionManager{
 		Store: st, Settings: set, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath, MaxSessions: 3,
 	}
@@ -107,22 +108,22 @@ func run() error {
 		workers = transcodeSlots + 2
 	}
 
-	runner := jobs.NewRunner(st, workers)
-	runner.Register("scan_library", 1, (&media.Scanner{Store: st}).Handle)
-	runner.Register("probe", 2, (&media.Prober{Store: st, Settings: set, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
+	runner := jobs.NewRunner(jobsStore, workers)
+	runner.Register("scan_library", 1, (&media.Scanner{Store: st, Jobs: jobsStore}).Handle)
+	runner.Register("probe", 2, (&media.Prober{Store: st, Settings: set, Jobs: jobsStore, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Store: st, Settings: set, Artwork: artworkService}).Handle)
 	runner.Register("import_episodes", 1, (&tmdb.ImportEpisodesJob{Store: st, Settings: set}).Handle)
 	runner.Register("transcode_hls", transcodeSlots, transcodeHandler.Handle)
-	runner.Register("cleanup", 1, cleanupHandler(st, uploadManager, cfg.DataDir))
-	if _, err := st.EnqueueJobOnce(ctx, "cleanup", struct{}{}, store.EnqueueOpts{}); err != nil {
+	runner.Register("cleanup", 1, cleanupHandler(st, jobsStore, uploadManager, cfg.DataDir))
+	if _, err := jobsStore.EnqueueJobOnce(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{}); err != nil {
 		return err
 	}
 	go runner.Run(ctx)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, st, set, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
+		Handler:           server.New(cfg, st, set, jobsStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 	"couchverse/internal/store"
@@ -11,10 +12,11 @@ import (
 
 type AdminLibraries struct {
 	store *store.Store
+	jobs  *jobs.Store
 }
 
-func NewAdminLibraries(st *store.Store) *AdminLibraries {
-	return &AdminLibraries{store: st}
+func NewAdminLibraries(st *store.Store, jb *jobs.Store) *AdminLibraries {
+	return &AdminLibraries{store: st, jobs: jb}
 }
 
 func (h *AdminLibraries) List(w http.ResponseWriter, r *http.Request) {
@@ -75,8 +77,8 @@ func (h *AdminLibraries) Scan(w http.ResponseWriter, r *http.Request) {
 		httpx.StoreErr(w, err)
 		return
 	}
-	jobID, err := h.store.EnqueueJobOnce(r.Context(), "scan_library",
-		media.ScanPayload{LibraryID: lib.ID}, store.EnqueueOpts{Priority: 10})
+	jobID, err := h.jobs.EnqueueJobOnce(r.Context(), "scan_library",
+		media.ScanPayload{LibraryID: lib.ID}, jobs.EnqueueOpts{Priority: 10})
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -92,8 +94,8 @@ func (h *AdminLibraries) ScanAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, lib := range libs {
-		if _, err := h.store.EnqueueJobOnce(r.Context(), "scan_library",
-			media.ScanPayload{LibraryID: lib.ID}, store.EnqueueOpts{Priority: 10}); err != nil {
+		if _, err := h.jobs.EnqueueJobOnce(r.Context(), "scan_library",
+			media.ScanPayload{LibraryID: lib.ID}, jobs.EnqueueOpts{Priority: 10}); err != nil {
 			httpx.Internal(w, err)
 			return
 		}

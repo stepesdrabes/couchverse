@@ -5,17 +5,19 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 )
 
 type AdminStorage struct {
 	store   *store.Store
+	jobs    *jobs.Store
 	dataDir string
 }
 
-func NewAdminStorage(st *store.Store, dataDir string) *AdminStorage {
-	return &AdminStorage{store: st, dataDir: dataDir}
+func NewAdminStorage(st *store.Store, jb *jobs.Store, dataDir string) *AdminStorage {
+	return &AdminStorage{store: st, jobs: jb, dataDir: dataDir}
 }
 
 func dirSize(path string) int64 {
@@ -83,12 +85,12 @@ func (h *AdminStorage) Overview(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	pending, err := h.store.PendingJobCount(r.Context())
+	pending, err := h.jobs.PendingJobCount(r.Context())
 	if err != nil {
 		httpx.Internal(w, err)
 		return
 	}
-	recent, err := h.store.ListJobs(r.Context(), "", 6)
+	recent, err := h.jobs.ListJobs(r.Context(), "", 6)
 	if err != nil {
 		httpx.Internal(w, err)
 		return

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/store"
 	"couchverse/internal/upload"
 )
@@ -14,15 +15,15 @@ import (
 // cleanupHandler is the hourly housekeeping job: expired upload sessions,
 // stale finished jobs, expired auth sessions and orphaned HLS caches.
 // It reschedules itself at the end of every run.
-func cleanupHandler(st *store.Store, uploads *upload.Manager, dataDir string) func(context.Context, *store.Job, func(int)) error {
-	return func(ctx context.Context, _ *store.Job, _ func(int)) error {
+func cleanupHandler(st *store.Store, jb *jobs.Store, uploads *upload.Manager, dataDir string) func(context.Context, *jobs.Job, func(int)) error {
+	return func(ctx context.Context, _ *jobs.Job, _ func(int)) error {
 		if n, err := uploads.Reap(ctx); err != nil {
 			return err
 		} else if n > 0 {
 			slog.Info("cleanup: reaped upload sessions", "count", n)
 		}
 
-		if n, err := st.DeleteOldJobs(ctx, 7*24*time.Hour); err != nil {
+		if n, err := jb.DeleteOldJobs(ctx, 7*24*time.Hour); err != nil {
 			return err
 		} else if n > 0 {
 			slog.Info("cleanup: pruned old jobs", "count", n)
@@ -38,7 +39,7 @@ func cleanupHandler(st *store.Store, uploads *upload.Manager, dataDir string) fu
 			return err
 		}
 
-		_, err := st.EnqueueJob(ctx, "cleanup", struct{}{}, store.EnqueueOpts{
+		_, err := jb.EnqueueJob(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{
 			RunAt: time.Now().Add(time.Hour),
 		})
 		return err

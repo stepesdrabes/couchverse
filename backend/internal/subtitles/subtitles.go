@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/media"
 	"couchverse/internal/store"
 )
@@ -107,7 +108,7 @@ type ExtractPayload struct {
 	MediaFileID string `json:"mediaFileId"`
 }
 
-func (s *Service) HandleExtract(ctx context.Context, job *store.Job, report func(int)) error {
+func (s *Service) HandleExtract(ctx context.Context, job *jobs.Job, report func(int)) error {
 	var p ExtractPayload
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err

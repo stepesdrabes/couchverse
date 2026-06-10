@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
@@ -12,10 +13,11 @@ import (
 type AdminMetadata struct {
 	store    *store.Store
 	settings *settings.Store
+	jobs     *jobs.Store
 }
 
-func NewAdminMetadata(st *store.Store, set *settings.Store) *AdminMetadata {
-	return &AdminMetadata{store: st, settings: set}
+func NewAdminMetadata(st *store.Store, set *settings.Store, jb *jobs.Store) *AdminMetadata {
+	return &AdminMetadata{store: st, settings: set, jobs: jb}
 }
 
 // Search proxies a TMDB search so the API key never reaches the browser.
@@ -70,9 +72,9 @@ func (h *AdminMetadata) ImportEpisodes(w http.ResponseWriter, r *http.Request) {
 		Seasons []int `json:"seasons"`
 	}
 	_ = httpx.Decode(r, &req) // empty body = all seasons
-	jobID, err := h.store.EnqueueJobOnce(r.Context(), "import_episodes",
+	jobID, err := h.jobs.EnqueueJobOnce(r.Context(), "import_episodes",
 		tmdb.ImportEpisodesPayload{TitleID: title.ID, Seasons: req.Seasons},
-		store.EnqueueOpts{Priority: 5})
+		jobs.EnqueueOpts{Priority: 5})
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -121,8 +123,8 @@ func (h *AdminMetadata) Apply(w http.ResponseWriter, r *http.Request) {
 		httpx.StoreErr(w, err)
 		return
 	}
-	jobID, err := h.store.EnqueueJob(r.Context(), "fetch_metadata",
-		tmdb.FetchPayload{TitleID: titleID, TmdbID: req.TmdbID}, store.EnqueueOpts{Priority: 5})
+	jobID, err := h.jobs.EnqueueJob(r.Context(), "fetch_metadata",
+		tmdb.FetchPayload{TitleID: titleID, TmdbID: req.TmdbID}, jobs.EnqueueOpts{Priority: 5})
 	if err != nil {
 		httpx.Internal(w, err)
 		return

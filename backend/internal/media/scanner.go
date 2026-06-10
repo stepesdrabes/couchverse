@@ -10,11 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/store"
 )
 
 type Scanner struct {
 	Store *store.Store
+	Jobs  *jobs.Store
 }
 
 type ScanPayload struct {
@@ -23,7 +25,7 @@ type ScanPayload struct {
 
 // Handle walks a library folder, registers new/changed files and enqueues a
 // probe job for each; rows whose file vanished are removed.
-func (sc *Scanner) Handle(ctx context.Context, job *store.Job, report func(int)) error {
+func (sc *Scanner) Handle(ctx context.Context, job *jobs.Job, report func(int)) error {
 	var p ScanPayload
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err
@@ -89,7 +91,7 @@ func (sc *Scanner) Handle(ctx context.Context, job *store.Job, report func(int))
 		if err != nil {
 			return err
 		}
-		if _, err := sc.Store.EnqueueJobOnce(ctx, "probe", ProbePayload{MediaFileID: id}, store.EnqueueOpts{}); err != nil {
+		if _, err := sc.Jobs.EnqueueJobOnce(ctx, "probe", ProbePayload{MediaFileID: id}, jobs.EnqueueOpts{}); err != nil {
 			return err
 		}
 		queued++

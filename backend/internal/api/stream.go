@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"couchverse/internal/auth"
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
@@ -23,13 +24,14 @@ import (
 type Stream struct {
 	store    *store.Store
 	settings *settings.Store
+	jobs     *jobs.Store
 	dataDir  string
 	sessions *transcode.SessionManager
 	ffmpeg   string
 }
 
-func NewStream(st *store.Store, set *settings.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
-	return &Stream{store: st, settings: set, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
+func NewStream(st *store.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
+	return &Stream{store: st, settings: set, jobs: jb, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
 }
 
 var contentTypes = map[string]string{
@@ -254,7 +256,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		info.StreamURL = hlsURL
 	case pending:
 		info.Mode = "preparing"
-		if progress, perr := h.store.TranscodeProgress(r.Context(), mf.ID); perr == nil {
+		if progress, perr := h.jobs.TranscodeProgress(r.Context(), mf.ID); perr == nil {
 			info.JobProgress = progress
 		}
 	case mf.SourceDeletedAt == nil && h.jitAllowed(r.Context()):

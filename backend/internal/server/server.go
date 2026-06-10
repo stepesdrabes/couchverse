@@ -15,6 +15,7 @@ import (
 	"couchverse/internal/artwork"
 	"couchverse/internal/auth"
 	"couchverse/internal/config"
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
@@ -29,6 +30,7 @@ type Server struct {
 	cfg       config.Config
 	store     *store.Store
 	settings  *settings.Store
+	jobs      *jobs.Store
 	uploads   *upload.Manager
 	artwork   *artwork.Service
 	subtitles *subtitles.Service
@@ -36,25 +38,25 @@ type Server struct {
 	sessions  *transcode.SessionManager
 }
 
-func New(cfg config.Config, st *store.Store, set *settings.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
-	return &Server{cfg: cfg, store: st, settings: set, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
+func New(cfg config.Config, st *store.Store, set *settings.Store, jb *jobs.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
+	return &Server{cfg: cfg, store: st, settings: set, jobs: jb, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
 }
 
 func (s *Server) Handler() http.Handler {
 	sessions := auth.NewMiddleware(s.store)
 	authAPI := api.NewAuth(s.store, s.cfg)
-	adminTitles := api.NewAdminTitles(s.store, s.artwork)
+	adminTitles := api.NewAdminTitles(s.store, s.jobs, s.artwork)
 	adminUsers := api.NewAdminUsers(s.store)
 	adminSettings := api.NewAdminSettings(s.settings)
-	adminLibraries := api.NewAdminLibraries(s.store)
-	adminJobs := api.NewAdminJobs(s.store)
+	adminLibraries := api.NewAdminLibraries(s.store, s.jobs)
+	adminJobs := jobs.NewAdminJobs(s.jobs)
 	catalog := api.NewCatalog(s.store, s.settings)
-	stream := api.NewStream(s.store, s.settings, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
+	stream := api.NewStream(s.store, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
 	progress := api.NewProgress(s.store)
-	transcodeAPI := api.NewAdminTranscode(s.store, s.settings, s.transcode, s.cfg.FFmpegPath)
+	transcodeAPI := api.NewAdminTranscode(s.store, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath)
 	music := api.NewMusic(s.store)
 	playlists := api.NewPlaylists(s.store)
-	adminStorage := api.NewAdminStorage(s.store, s.cfg.DataDir)
+	adminStorage := api.NewAdminStorage(s.store, s.jobs, s.cfg.DataDir)
 	sysStats := api.NewSysStats()
 	adminMusic := api.NewAdminMusic(s.store, s.artwork)
 	profile := api.NewProfile(s.store, s.artwork)
@@ -62,7 +64,7 @@ func (s *Server) Handler() http.Handler {
 	artworkAPI := api.NewArtwork(s.store, s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
 	uploadsAPI := api.NewAdminUploads(s.store, s.uploads)
-	metadataAPI := api.NewAdminMetadata(s.store, s.settings)
+	metadataAPI := api.NewAdminMetadata(s.store, s.settings, s.jobs)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -187,9 +189,7 @@ func (s *Server) Handler() http.Handler {
 			adm.Post("/libraries/{id}/scan", adminLibraries.Scan)
 			adm.Post("/libraries/scan-all", adminLibraries.ScanAll)
 
-			adm.Get("/jobs", adminJobs.List)
-			adm.Post("/jobs/{id}/retry", adminJobs.Retry)
-			adm.Post("/jobs/{id}/cancel", adminJobs.Cancel)
+			adminJobs.MountAdmin(adm)
 
 			adm.Get("/uploads", uploadsAPI.List)
 			adm.Post("/uploads", uploadsAPI.Create)

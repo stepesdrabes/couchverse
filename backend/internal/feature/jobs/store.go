@@ -1,4 +1,4 @@
-package store
+package jobs
 
 import (
 	"context"
@@ -8,9 +8,19 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"couchverse/internal/db"
 )
+
+// Store owns the Postgres-backed job queue.
+type Store struct {
+	db *pgxpool.Pool
+}
+
+func NewStore(db *pgxpool.Pool) *Store {
+	return &Store{db: db}
+}
 
 type Job struct {
 	ID          int64           `json:"id"`
@@ -62,7 +72,7 @@ func (s *Store) EnqueueJob(ctx context.Context, jobType string, payload any, opt
 		opts.RunAt = time.Now()
 	}
 	var id int64
-	err = s.pool.QueryRow(ctx,
+	err = s.db.QueryRow(ctx,
 		`INSERT INTO jobs (type, payload, priority, max_attempts, run_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
 		jobType, body, opts.Priority, opts.MaxAttempts, opts.RunAt).Scan(&id)
 	return id, err
@@ -75,7 +85,7 @@ func (s *Store) EnqueueJobOnce(ctx context.Context, jobType string, payload any,
 		return 0, err
 	}
 	var exists bool
-	err = s.pool.QueryRow(ctx,
+	err = s.db.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM jobs WHERE type = $1 AND payload = $2 AND status IN ('pending', 'running'))`,
 		jobType, body).Scan(&exists)
 	if err != nil {
@@ -92,7 +102,7 @@ func (s *Store) ClaimJob(ctx context.Context, types []string) (*Job, error) {
 	if len(types) == 0 {
 		return nil, db.ErrNotFound
 	}
-	return scanJob(s.pool.QueryRow(ctx, `
+	return scanJob(s.db.QueryRow(ctx, `
 		UPDATE jobs SET status = 'running', claimed_at = now(), attempts = attempts + 1
 		WHERE id = (
 			SELECT id FROM jobs
@@ -105,7 +115,7 @@ func (s *Store) ClaimJob(ctx context.Context, types []string) (*Job, error) {
 }
 
 func (s *Store) CompleteJob(ctx context.Context, id int64) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`UPDATE jobs SET status = 'done', progress = 100, finished_at = now() WHERE id = $1 AND status = 'running'`, id)
 	return err
 }
@@ -114,13 +124,13 @@ func (s *Store) CompleteJob(ctx context.Context, id int64) error {
 func (s *Store) FailJob(ctx context.Context, job *Job, jobErr error) error {
 	msg := jobErr.Error()
 	if job.Attempts >= job.MaxAttempts {
-		_, err := s.pool.Exec(ctx,
+		_, err := s.db.Exec(ctx,
 			`UPDATE jobs SET status = 'failed', last_error = $2, finished_at = now() WHERE id = $1`,
 			job.ID, msg)
 		return err
 	}
 	backoff := time.Duration(30) * time.Second << (job.Attempts - 1)
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`UPDATE jobs SET status = 'pending', last_error = $2, run_at = now() + $3 WHERE id = $1`,
 		job.ID, msg, backoff)
 	return err
@@ -133,13 +143,13 @@ func (s *Store) SetJobProgress(ctx context.Context, id int64, pct int) error {
 	if pct > 100 {
 		pct = 100
 	}
-	_, err := s.pool.Exec(ctx, `UPDATE jobs SET progress = $2 WHERE id = $1`, id, pct)
+	_, err := s.db.Exec(ctx, `UPDATE jobs SET progress = $2 WHERE id = $1`, id, pct)
 	return err
 }
 
 func (s *Store) JobStatus(ctx context.Context, id int64) (string, error) {
 	var status string
-	err := s.pool.QueryRow(ctx, `SELECT status FROM jobs WHERE id = $1`, id).Scan(&status)
+	err := s.db.QueryRow(ctx, `SELECT status FROM jobs WHERE id = $1`, id).Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", db.ErrNotFound
 	}
@@ -147,7 +157,7 @@ func (s *Store) JobStatus(ctx context.Context, id int64) (string, error) {
 }
 
 func (s *Store) CancelJob(ctx context.Context, id int64) error {
-	tag, err := s.pool.Exec(ctx,
+	tag, err := s.db.Exec(ctx,
 		`UPDATE jobs SET status = 'cancelled', finished_at = now()
 		 WHERE id = $1 AND status IN ('pending', 'running')`, id)
 	if err != nil {
@@ -160,7 +170,7 @@ func (s *Store) CancelJob(ctx context.Context, id int64) error {
 }
 
 func (s *Store) RetryJob(ctx context.Context, id int64) error {
-	tag, err := s.pool.Exec(ctx,
+	tag, err := s.db.Exec(ctx,
 		`UPDATE jobs SET status = 'pending', attempts = 0, progress = 0, last_error = NULL,
 			run_at = now(), finished_at = NULL
 		 WHERE id = $1 AND status IN ('failed', 'cancelled')`, id)
@@ -176,7 +186,7 @@ func (s *Store) RetryJob(ctx context.Context, id int64) error {
 // ResetRunningJobs requeues jobs orphaned by a previous process crash.
 // Single-instance deployment makes this safe at startup.
 func (s *Store) ResetRunningJobs(ctx context.Context) (int64, error) {
-	tag, err := s.pool.Exec(ctx,
+	tag, err := s.db.Exec(ctx,
 		`UPDATE jobs SET status = 'pending', run_at = now() WHERE status = 'running'`)
 	return tag.RowsAffected(), err
 }
@@ -185,7 +195,7 @@ func (s *Store) ListJobs(ctx context.Context, status string, limit int) ([]Job, 
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT `+jobCols+` FROM jobs
 		 WHERE ($1 = '' OR status = $1)
 		 ORDER BY id DESC LIMIT $2`, status, limit)
@@ -207,7 +217,7 @@ func (s *Store) ListJobs(ctx context.Context, status string, limit int) ([]Job, 
 
 func (s *Store) PendingJobCount(ctx context.Context) (int, error) {
 	var n int
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`SELECT count(*) FROM jobs WHERE status IN ('pending', 'running')`).Scan(&n)
 	return n, err
 }
@@ -216,7 +226,7 @@ func (s *Store) PendingJobCount(ctx context.Context) (int, error) {
 // media file (drives the "Preparing…" player state).
 func (s *Store) TranscodeProgress(ctx context.Context, mediaFileID string) (int, error) {
 	var progress int
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`SELECT COALESCE(max(progress), 0) FROM jobs
 		 WHERE type = 'transcode_hls' AND status IN ('pending', 'running')
 			AND (payload->>'mediaFileId')::uuid = $1`, mediaFileID).Scan(&progress)
@@ -236,7 +246,7 @@ type ActiveTranscode struct {
 }
 
 func (s *Store) ActiveTranscodes(ctx context.Context) ([]ActiveTranscode, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT j.id, mf.id, COALESCE(mf.title_id, se.title_id), mf.episode_id,
 			COALESCE(j.payload->>'variant', ''), j.status, j.progress
 		 FROM jobs j
@@ -266,7 +276,7 @@ func (s *Store) ActiveTranscodes(ctx context.Context) ([]ActiveTranscode, error)
 // subtitle extraction that still needs to read the source.
 func (s *Store) HasOtherPendingJobsForMediaFile(ctx context.Context, mediaFileID string, excludeJobID int64) (bool, error) {
 	var exists bool
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM jobs
 		 WHERE status IN ('pending', 'running') AND id <> $2
 			AND (payload->>'mediaFileId')::uuid = $1)`, mediaFileID, excludeJobID).Scan(&exists)
@@ -275,7 +285,7 @@ func (s *Store) HasOtherPendingJobsForMediaFile(ctx context.Context, mediaFileID
 
 // DeleteOldJobs prunes finished jobs to keep the table small.
 func (s *Store) DeleteOldJobs(ctx context.Context, olderThan time.Duration) (int64, error) {
-	tag, err := s.pool.Exec(ctx,
+	tag, err := s.db.Exec(ctx,
 		`DELETE FROM jobs WHERE status IN ('done', 'failed', 'cancelled') AND finished_at < $1`,
 		time.Now().Add(-olderThan))
 	if err != nil {

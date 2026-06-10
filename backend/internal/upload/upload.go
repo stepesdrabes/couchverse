@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/media"
 	"couchverse/internal/store"
 )
@@ -22,6 +23,7 @@ const MaxChunkSize = 64 << 20
 
 type Manager struct {
 	Store   *store.Store
+	Jobs    *jobs.Store
 	DataDir string
 }
 
@@ -169,8 +171,8 @@ func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (strin
 	if err != nil {
 		return "", err
 	}
-	if _, err := m.Store.EnqueueJobOnce(ctx, "probe",
-		media.ProbePayload{MediaFileID: mediaFileID}, store.EnqueueOpts{Priority: 5}); err != nil {
+	if _, err := m.Jobs.EnqueueJobOnce(ctx, "probe",
+		media.ProbePayload{MediaFileID: mediaFileID}, jobs.EnqueueOpts{Priority: 5}); err != nil {
 		return "", err
 	}
 	if err := m.Store.SetUploadStatus(ctx, id, "complete"); err != nil {

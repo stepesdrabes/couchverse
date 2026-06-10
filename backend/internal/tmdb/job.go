@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"couchverse/internal/artwork"
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
@@ -38,7 +39,7 @@ func APIKey(ctx context.Context, st *settings.Store) (string, error) {
 	return key, nil
 }
 
-func (j *FetchJob) Handle(ctx context.Context, job *store.Job, report func(int)) error {
+func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) error {
 	var p FetchPayload
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err

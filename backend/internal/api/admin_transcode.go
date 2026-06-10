@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
@@ -12,12 +13,13 @@ import (
 type AdminTranscode struct {
 	store      *store.Store
 	settings   *settings.Store
+	jobs       *jobs.Store
 	jobHandler *transcode.JobHandler
 	ffmpegPath string
 }
 
-func NewAdminTranscode(st *store.Store, set *settings.Store, jobHandler *transcode.JobHandler, ffmpegPath string) *AdminTranscode {
-	return &AdminTranscode{store: st, settings: set, jobHandler: jobHandler, ffmpegPath: ffmpegPath}
+func NewAdminTranscode(st *store.Store, set *settings.Store, jb *jobs.Store, jobHandler *transcode.JobHandler, ffmpegPath string) *AdminTranscode {
+	return &AdminTranscode{store: st, settings: set, jobs: jb, jobHandler: jobHandler, ffmpegPath: ffmpegPath}
 }
 
 // Info exposes detected encoders and current transcode settings. Encoder
@@ -38,7 +40,7 @@ func (h *AdminTranscode) Info(w http.ResponseWriter, r *http.Request) {
 
 // Active lists pending/running transcode jobs with their content references.
 func (h *AdminTranscode) Active(w http.ResponseWriter, r *http.Request) {
-	active, err := h.store.ActiveTranscodes(r.Context())
+	active, err := h.jobs.ActiveTranscodes(r.Context())
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -97,9 +99,9 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 			httpx.Internal(w, err)
 			return
 		}
-		if _, err := h.store.EnqueueJobOnce(r.Context(), "transcode_hls",
+		if _, err := h.jobs.EnqueueJobOnce(r.Context(), "transcode_hls",
 			transcode.Payload{MediaFileID: mf.ID, Variant: name},
-			store.EnqueueOpts{MaxAttempts: 2}); err != nil {
+			jobs.EnqueueOpts{MaxAttempts: 2}); err != nil {
 			httpx.Internal(w, err)
 			return
 		}
