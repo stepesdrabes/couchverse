@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type Job struct {
@@ -36,7 +36,7 @@ func scanJob(row pgx.Row) (*Job, error) {
 	err := row.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Priority, &j.RunAt, &j.Attempts,
 		&j.MaxAttempts, &j.Progress, &j.LastError, &j.ClaimedAt, &j.CreatedAt, &j.FinishedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func (s *Store) EnqueueJobOnce(ctx context.Context, jobType string, payload any,
 // ClaimJob atomically claims the next runnable job of one of the given types.
 func (s *Store) ClaimJob(ctx context.Context, types []string) (*Job, error) {
 	if len(types) == 0 {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	return scanJob(s.pool.QueryRow(ctx, `
 		UPDATE jobs SET status = 'running', claimed_at = now(), attempts = attempts + 1
@@ -141,7 +141,7 @@ func (s *Store) JobStatus(ctx context.Context, id int64) (string, error) {
 	var status string
 	err := s.pool.QueryRow(ctx, `SELECT status FROM jobs WHERE id = $1`, id).Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", httpx.ErrNotFound
+		return "", db.ErrNotFound
 	}
 	return status, err
 }
@@ -154,7 +154,7 @@ func (s *Store) CancelJob(ctx context.Context, id int64) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }
@@ -168,7 +168,7 @@ func (s *Store) RetryJob(ctx context.Context, id int64) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }

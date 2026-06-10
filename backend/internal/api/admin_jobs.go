@@ -26,7 +26,7 @@ func (h *AdminJobs) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminJobs) Retry(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.RetryJob(r.Context(), httpx.ID(r, "id")); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
@@ -34,7 +34,7 @@ func (h *AdminJobs) Retry(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminJobs) Cancel(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.CancelJob(r.Context(), httpx.ID(r, "id")); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

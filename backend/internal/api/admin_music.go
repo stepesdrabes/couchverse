@@ -36,7 +36,7 @@ func (h *AdminMusic) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	album, err := h.store.AdminAlbumByID(r.Context(), id)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	tracks, err := h.store.TracksForAlbum(r.Context(), album.ID)
@@ -63,7 +63,7 @@ func (h *AdminMusic) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.UpdateAlbum(r.Context(), id, up); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	h.Get(w, r)
@@ -76,7 +76,7 @@ func (h *AdminMusic) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteAlbum(r.Context(), id); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	if err := h.artwork.DeleteForOwner(r.Context(), "album", id); err != nil {
@@ -100,7 +100,7 @@ func (h *AdminMusic) UpdateTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.UpdateTrackName(r.Context(), id, req.Name); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
@@ -113,7 +113,7 @@ func (h *AdminMusic) DeleteTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteTrack(r.Context(), id); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

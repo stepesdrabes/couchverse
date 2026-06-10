@@ -1,7 +1,10 @@
-package store
+// Package db owns the shared pgx pool lifecycle (connect, migrate) and the
+// not-found sentinel stores return for missing rows.
+package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -12,6 +15,9 @@ import (
 
 	"couchverse/migrations"
 )
+
+// ErrNotFound lets stores signal a missing row without importing pgx everywhere.
+var ErrNotFound = errors.New("not found")
 
 // Connect opens a pgx pool, waiting for the database to become reachable
 // (compose may start the app before postgres is ready to accept connections).

@@ -15,7 +15,7 @@ import (
 	"couchverse/internal/artwork"
 	"couchverse/internal/auth"
 	"couchverse/internal/config"
-	"couchverse/internal/features"
+	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 	"couchverse/internal/subtitles"
@@ -110,12 +110,12 @@ func (s *Server) Handler() http.Handler {
 			p.Get("/subtitles/{id}.vtt", subtitlesAPI.Serve)
 
 			p.Get("/features", func(w http.ResponseWriter, r *http.Request) {
-				httpx.JSON(w, http.StatusOK, features.Load(r.Context(), s.store))
+				httpx.JSON(w, http.StatusOK, flags.Load(r.Context(), s.store))
 			})
 
 			// music (incl. track playlists) sits behind the feature toggle
 			p.Group(func(m chi.Router) {
-				m.Use(features.RequireMusic(s.store))
+				m.Use(flags.RequireMusic(s.store))
 				m.Get("/music", music.Home)
 				m.Get("/music/albums/{id}", music.Album)
 				m.Get("/music/artists/{id}", music.Artist)
@@ -162,7 +162,7 @@ func (s *Server) Handler() http.Handler {
 			adm.Delete("/episodes/{id}", adminTitles.DeleteEpisode)
 
 			adm.Group(func(m chi.Router) {
-				m.Use(features.RequireMusic(s.store))
+				m.Use(flags.RequireMusic(s.store))
 				m.Get("/music", adminMusic.List)
 				m.Get("/albums/{id}", adminMusic.Get)
 				m.Patch("/albums/{id}", adminMusic.Update)

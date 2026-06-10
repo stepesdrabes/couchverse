@@ -56,7 +56,7 @@ func (h *Music) Album(w http.ResponseWriter, r *http.Request) {
 	}
 	album, err := h.store.AlbumCardByID(r.Context(), id)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	tracks, err := h.store.TracksForAlbum(r.Context(), album.ID)
@@ -75,7 +75,7 @@ func (h *Music) Artist(w http.ResponseWriter, r *http.Request) {
 	}
 	artist, err := h.store.ArtistByID(r.Context(), id)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	albums, err := h.store.AlbumsByArtist(r.Context(), artist.ID)

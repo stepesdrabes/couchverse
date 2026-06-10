@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type AlbumCard struct {
@@ -85,7 +85,7 @@ func (s *Store) AlbumCardByID(ctx context.Context, id string) (*AlbumCard, error
 		return nil, err
 	}
 	if len(cards) == 0 {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	return &cards[0], nil
 }
@@ -120,7 +120,7 @@ func (s *Store) ArtistByID(ctx context.Context, id string) (*ArtistCard, error) 
 			(SELECT count(*) FROM albums al WHERE al.artist_id = ar.id AND al.status = 'published')
 		 FROM artists ar WHERE ar.id = $1`, id).Scan(&a.ID, &a.Name, &a.AlbumCount)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -266,7 +266,7 @@ func (s *Store) AdminAlbumByID(ctx context.Context, id string) (*AdminAlbumRow, 
 		Scan(&r.ID, &r.Name, &r.Year, &r.ArtistID, &r.ArtistName, &r.CoverID,
 			&r.TrackCount, &r.Status, &r.AddedAt, &r.SizeBytes)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -303,7 +303,7 @@ func (s *Store) UpdateAlbum(ctx context.Context, id string, up AlbumUpdate) erro
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }
@@ -314,7 +314,7 @@ func (s *Store) DeleteAlbum(ctx context.Context, id string) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }
@@ -325,7 +325,7 @@ func (s *Store) UpdateTrackName(ctx context.Context, id string, name string) err
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }
@@ -336,7 +336,7 @@ func (s *Store) DeleteTrack(ctx context.Context, id string) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }

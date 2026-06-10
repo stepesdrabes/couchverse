@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type UploadSession struct {
@@ -31,7 +31,7 @@ func scanUpload(row pgx.Row) (*UploadSession, error) {
 	err := row.Scan(&u.ID, &u.UserID, &u.Filename, &u.DeclaredSize, &u.ReceivedBytes, &u.TempPath,
 		&u.Status, &u.CreatedAt, &u.UpdatedAt, &u.ExpiresAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

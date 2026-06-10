@@ -1,5 +1,5 @@
-// Package features holds admin-toggleable feature flags stored in settings.
-package features
+// Package flags holds admin-toggleable feature flags stored in settings.
+package flags
 
 import (
 	"context"

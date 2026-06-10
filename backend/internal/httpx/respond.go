@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+
+	"couchverse/internal/db"
 )
 
 type apiError struct {
@@ -16,8 +18,9 @@ type errorBody struct {
 	Error apiError `json:"error"`
 }
 
-// ErrNotFound lets stores signal a missing row without importing pgx everywhere.
-var ErrNotFound = errors.New("not found")
+// ErrNotFound aliases db.ErrNotFound so handlers can match store errors
+// without importing the db package.
+var ErrNotFound = db.ErrNotFound
 
 func JSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -45,6 +48,15 @@ func NotFound(w http.ResponseWriter) {
 
 func BadRequest(w http.ResponseWriter, message string) {
 	Error(w, http.StatusBadRequest, "bad_request", message)
+}
+
+// StoreErr maps a store error to 404 for missing rows, 500 otherwise.
+func StoreErr(w http.ResponseWriter, err error) {
+	if errors.Is(err, ErrNotFound) {
+		NotFound(w)
+		return
+	}
+	Internal(w, err)
 }
 
 // Decode reads a JSON request body into v, capping the body size.

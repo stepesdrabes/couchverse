@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type MediaFile struct {
@@ -48,7 +48,7 @@ func scanMediaFile(row pgx.Row) (*MediaFile, error) {
 		&m.Bitrate, &m.Channels, &m.SampleRate, &m.VideoRange, &m.DirectPlay, &m.Probe,
 		&m.FileMtime, &m.ScannedAt, &m.SourceDeletedAt, &m.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

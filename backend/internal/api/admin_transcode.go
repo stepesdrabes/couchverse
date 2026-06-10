@@ -53,7 +53,7 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 	}
 	mf, err := h.store.MediaFileByID(r.Context(), mediaFileID)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	if mf.VideoCodec == "" {
@@ -127,7 +127,7 @@ func (h *AdminTranscode) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.jobHandler.RemoveVariant(r.Context(), id); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

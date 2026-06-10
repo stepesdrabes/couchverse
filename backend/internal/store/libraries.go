@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type Library struct {
@@ -23,7 +23,7 @@ func scanLibrary(row pgx.Row) (*Library, error) {
 	var l Library
 	err := row.Scan(&l.ID, &l.Name, &l.Kind, &l.Path, &l.Managed, &l.LastScannedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func (s *Store) DeleteLibrary(ctx context.Context, id int64) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }

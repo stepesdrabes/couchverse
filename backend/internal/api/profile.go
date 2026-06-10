@@ -32,7 +32,7 @@ func (h *Profile) Update(w http.ResponseWriter, r *http.Request) {
 	user, err := h.store.UpdateUser(r.Context(), auth.UserFrom(r.Context()).ID,
 		store.UserUpdate{DisplayName: &req.DisplayName})
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusOK, user)
@@ -42,7 +42,7 @@ func (h *Profile) Update(w http.ResponseWriter, r *http.Request) {
 func (h *Profile) Preferences(w http.ResponseWriter, r *http.Request) {
 	prefs, err := h.store.UserPreferences(r.Context(), auth.UserFrom(r.Context()).ID)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	if prefs == nil {
@@ -61,7 +61,7 @@ func (h *Profile) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 	prefs, err := h.store.MergeUserPreferences(r.Context(), auth.UserFrom(r.Context()).ID, patch)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -99,7 +99,7 @@ func (h *Profile) DeleteAvatar(w http.ResponseWriter, r *http.Request) {
 	self := auth.UserFrom(r.Context())
 	if self.AvatarID != nil {
 		if err := h.artwork.Delete(r.Context(), *self.AvatarID); err != nil {
-			respondStoreErr(w, err)
+			httpx.StoreErr(w, err)
 			return
 		}
 	}

@@ -26,7 +26,7 @@ func (h *Subtitles) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 	sub, err := h.store.SubtitleByID(r.Context(), id)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/vtt; charset=utf-8")
@@ -42,7 +42,7 @@ func (h *Subtitles) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := h.store.MediaFileByID(r.Context(), mediaFileID); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	if err := r.ParseMultipartForm(16 << 20); err != nil {
@@ -72,7 +72,7 @@ func (h *Subtitles) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.service.Delete(r.Context(), id); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

@@ -86,7 +86,7 @@ func (h *AdminMetadata) requireTmdbSeries(w http.ResponseWriter, r *http.Request
 	}
 	title, err := h.store.TitleByID(r.Context(), titleID)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return nil, false
 	}
 	if title.Kind != "series" {
@@ -116,7 +116,7 @@ func (h *AdminMetadata) Apply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := h.store.TitleByID(r.Context(), titleID); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	jobID, err := h.store.EnqueueJob(r.Context(), "fetch_metadata",

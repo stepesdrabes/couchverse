@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 func (s *Store) CreateSession(ctx context.Context, tokenHash []byte, userID int64, expiresAt time.Time, userAgent string) error {
@@ -43,7 +43,7 @@ func (s *Store) DeleteSession(ctx context.Context, tokenHash []byte) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }

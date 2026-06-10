@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type User struct {
@@ -32,7 +32,7 @@ func scanUser(row pgx.Row) (*User, error) {
 	var u User
 	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Role, &u.Disabled, &u.AvatarID, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (s *Store) UpdateUser(ctx context.Context, id int64, up UserUpdate) (*User,
 		return nil, err
 	}
 	if tag.RowsAffected() == 0 {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	return s.UserByID(ctx, id)
 }
@@ -116,7 +116,7 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }
@@ -125,7 +125,7 @@ func (s *Store) UserPreferences(ctx context.Context, id int64) (json.RawMessage,
 	var v json.RawMessage
 	err := s.pool.QueryRow(ctx, `SELECT preferences FROM users WHERE id = $1`, id).Scan(&v)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	return v, err
 }
@@ -142,7 +142,7 @@ func (s *Store) MergeUserPreferences(ctx context.Context, id int64, patch map[st
 		`UPDATE users SET preferences = preferences || $2::jsonb WHERE id = $1
 		 RETURNING preferences`, id, body).Scan(&v)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	return v, err
 }

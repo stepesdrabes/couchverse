@@ -55,7 +55,7 @@ func (h *AdminLibraries) Create(w http.ResponseWriter, r *http.Request) {
 func (h *AdminLibraries) Delete(w http.ResponseWriter, r *http.Request) {
 	lib, err := h.store.LibraryByID(r.Context(), httpx.ID(r, "id"))
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	if lib.Managed {
@@ -63,7 +63,7 @@ func (h *AdminLibraries) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteLibrary(r.Context(), lib.ID); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
@@ -72,7 +72,7 @@ func (h *AdminLibraries) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *AdminLibraries) Scan(w http.ResponseWriter, r *http.Request) {
 	lib, err := h.store.LibraryByID(r.Context(), httpx.ID(r, "id"))
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	jobID, err := h.store.EnqueueJobOnce(r.Context(), "scan_library",

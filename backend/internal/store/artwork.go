@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type Artwork struct {
@@ -28,7 +28,7 @@ func scanArtwork(row pgx.Row) (*Artwork, error) {
 	var a Artwork
 	err := row.Scan(&a.ID, &a.OwnerKind, &a.OwnerID, &a.Kind, &a.Path, &a.Width, &a.Height, &a.Source, &a.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

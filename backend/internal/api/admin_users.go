@@ -99,7 +99,7 @@ func (h *AdminUsers) Update(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.store.UpdateUser(r.Context(), id, up)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	if req.Disabled != nil && *req.Disabled {
@@ -118,7 +118,7 @@ func (h *AdminUsers) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteUser(r.Context(), id); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

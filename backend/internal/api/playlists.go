@@ -50,7 +50,7 @@ func (h *Playlists) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	playlist, err := h.store.PlaylistForUser(r.Context(), user.ID, id)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	entries, err := h.store.PlaylistEntries(r.Context(), playlist.ID)
@@ -75,7 +75,7 @@ func (h *Playlists) Rename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.RenamePlaylist(r.Context(), auth.UserFrom(r.Context()).ID, id, req.Name); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
@@ -88,7 +88,7 @@ func (h *Playlists) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeletePlaylist(r.Context(), auth.UserFrom(r.Context()).ID, id); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
@@ -103,7 +103,7 @@ func (h *Playlists) requirePlaylist(w http.ResponseWriter, r *http.Request) *sto
 	}
 	playlist, err := h.store.PlaylistForUser(r.Context(), auth.UserFrom(r.Context()).ID, id)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return nil
 	}
 	return playlist
@@ -139,7 +139,7 @@ func (h *Playlists) RemoveEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.RemovePlaylistEntry(r.Context(), playlist.ID, entryID); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

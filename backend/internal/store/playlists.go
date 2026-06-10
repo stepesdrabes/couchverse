@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type Playlist struct {
@@ -41,7 +41,7 @@ func scanPlaylist(row pgx.Row) (*Playlist, error) {
 	var p Playlist
 	err := row.Scan(&p.ID, &p.UserID, &p.Name, &p.TrackCount, &p.CoverID, &p.CreatedAt, &p.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (s *Store) RenamePlaylist(ctx context.Context, userID int64, playlistID str
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }
@@ -100,7 +100,7 @@ func (s *Store) DeletePlaylist(ctx context.Context, userID int64, playlistID str
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }
@@ -156,7 +156,7 @@ func (s *Store) RemovePlaylistEntry(ctx context.Context, playlistID, entryID str
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }

@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type Season struct {
@@ -33,7 +33,7 @@ func scanSeason(row pgx.Row) (*Season, error) {
 	var se Season
 	err := row.Scan(&se.ID, &se.TitleID, &se.SeasonNumber, &se.Name, &se.Overview)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func scanEpisode(row pgx.Row) (*Episode, error) {
 	var e Episode
 	err := row.Scan(&e.ID, &e.SeasonID, &e.EpisodeNumber, &e.Name, &e.Overview, &e.AirDate, &e.RuntimeMinutes)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func (s *Store) DeleteSeason(ctx context.Context, id string) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }
@@ -223,7 +223,7 @@ func (s *Store) DeleteEpisode(ctx context.Context, id string) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }

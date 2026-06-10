@@ -26,7 +26,7 @@ func (h *Artwork) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 	art, err := h.store.ArtworkByID(r.Context(), id)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	path, err := h.service.Resolve(r.Context(), art, r.URL.Query().Get("size"))
@@ -87,7 +87,7 @@ func (h *Artwork) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.service.Delete(r.Context(), id); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

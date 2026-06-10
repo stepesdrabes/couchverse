@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 	"couchverse/internal/slug"
 )
 
@@ -40,7 +40,7 @@ func scanTitle(row pgx.Row) (*Title, error) {
 	err := row.Scan(&t.ID, &t.Slug, &t.Kind, &t.Name, &t.SortName, &t.Overview, &t.Year, &t.ReleaseDate,
 		&t.ContentRating, &t.RuntimeMinutes, &t.Status, &t.TmdbID, &t.AddedAt, &t.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -228,7 +228,7 @@ func (s *Store) DeleteTitle(ctx context.Context, id string) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return httpx.ErrNotFound
+		return db.ErrNotFound
 	}
 	return nil
 }
@@ -310,7 +310,7 @@ func (s *Store) FindOrCreateTitle(ctx context.Context, kind, name string, year *
 		}
 		return t, nil
 	}
-	if !errors.Is(err, httpx.ErrNotFound) {
+	if !errors.Is(err, db.ErrNotFound) {
 		return nil, err
 	}
 	for attempt := 0; ; attempt++ {

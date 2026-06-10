@@ -52,7 +52,7 @@ func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 	mf, err := h.store.MediaFileByID(r.Context(), id)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	if mf.SourceDeletedAt != nil {
@@ -140,7 +140,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 	case "movie":
 		title, terr := h.store.TitleByID(r.Context(), id)
 		if terr != nil {
-			respondStoreErr(w, terr)
+			httpx.StoreErr(w, terr)
 			return
 		}
 		mf, err = h.store.PrimaryMediaFileForTitle(r.Context(), id)
@@ -274,7 +274,7 @@ func (h *Stream) HLSMaster(w http.ResponseWriter, r *http.Request) {
 	}
 	mf, err := h.store.MediaFileByID(r.Context(), mediaFileID)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	variants, err := h.store.VariantsForMediaFile(r.Context(), mediaFileID)

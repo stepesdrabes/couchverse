@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type Subtitle struct {
@@ -27,7 +27,7 @@ func scanSubtitle(row pgx.Row) (*Subtitle, error) {
 	var s Subtitle
 	err := row.Scan(&s.ID, &s.MediaFileID, &s.Lang, &s.Label, &s.Source, &s.Forced, &s.Path, &s.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

@@ -15,6 +15,7 @@ import (
 	"couchverse/internal/artwork"
 	"couchverse/internal/auth"
 	"couchverse/internal/config"
+	"couchverse/internal/db"
 	"couchverse/internal/jobs"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
@@ -66,13 +67,13 @@ func run() error {
 		return err
 	}
 
-	pool, err := store.Connect(ctx, cfg.DatabaseURL)
+	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	if err := store.Migrate(pool); err != nil {
+	if err := db.Migrate(pool); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
 

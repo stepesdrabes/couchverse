@@ -51,7 +51,7 @@ func (h *AdminUploads) Create(w http.ResponseWriter, r *http.Request) {
 func (h *AdminUploads) Get(w http.ResponseWriter, r *http.Request) {
 	session, err := h.store.UploadSession(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusOK, session)
@@ -104,7 +104,7 @@ func (h *AdminUploads) Complete(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminUploads) Abort(w http.ResponseWriter, r *http.Request) {
 	if err := h.manager.Abort(r.Context(), chi.URLParam(r, "id")); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

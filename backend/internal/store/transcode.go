@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"couchverse/internal/httpx"
+	"couchverse/internal/db"
 )
 
 type TranscodeVariant struct {
@@ -33,7 +33,7 @@ func scanVariant(row pgx.Row) (*TranscodeVariant, error) {
 	err := row.Scan(&v.ID, &v.MediaFileID, &v.Name, &v.Width, &v.Height, &v.VideoBitrate,
 		&v.AudioBitrate, &v.Mode, &v.Status, &v.PlaylistPath, &v.CreatedAt, &v.CompletedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, httpx.ErrNotFound
+		return nil, db.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

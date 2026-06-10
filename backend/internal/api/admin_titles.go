@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 
 	"couchverse/internal/artwork"
@@ -66,7 +65,7 @@ func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := h.store.TitleByID(r.Context(), id)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	out := map[string]any{"title": t}
@@ -122,7 +121,7 @@ func (h *AdminTitles) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := h.store.UpdateTitle(r.Context(), id, up)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusOK, t)
@@ -135,7 +134,7 @@ func (h *AdminTitles) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteTitle(r.Context(), id); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	if err := h.artwork.DeleteForOwner(r.Context(), "title", id); err != nil {
@@ -223,7 +222,7 @@ func (h *AdminTitles) DeleteSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteSeason(r.Context(), id); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
@@ -261,7 +260,7 @@ func (h *AdminTitles) UpdateEpisode(w http.ResponseWriter, r *http.Request) {
 	}
 	e, err := h.store.UpdateEpisode(r.Context(), id, up)
 	if err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusOK, e)
@@ -274,7 +273,7 @@ func (h *AdminTitles) DeleteEpisode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteEpisode(r.Context(), id); err != nil {
-		respondStoreErr(w, err)
+		httpx.StoreErr(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
@@ -286,12 +285,4 @@ func validStatus(s string) bool {
 		return true
 	}
 	return false
-}
-
-func respondStoreErr(w http.ResponseWriter, err error) {
-	if errors.Is(err, httpx.ErrNotFound) {
-		httpx.NotFound(w)
-		return
-	}
-	httpx.Internal(w, err)
 }
