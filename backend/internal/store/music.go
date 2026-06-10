@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -181,6 +183,162 @@ func (s *Store) RecordPlay(ctx context.Context, userID, trackID int64) error {
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO play_history (user_id, track_id) VALUES ($1, $2)`, userID, trackID)
 	return err
+}
+
+// Admin music management
+
+type AdminAlbumRow struct {
+	AlbumCard
+	Status    string    `json:"status"`
+	SizeBytes int64     `json:"sizeBytes"`
+	AddedAt   time.Time `json:"addedAt"`
+}
+
+var adminAlbumSorts = map[string]string{
+	"":      "al.added_at DESC",
+	"added": "al.added_at DESC",
+	"name":  "al.name ASC",
+	"year":  "al.year DESC NULLS LAST",
+	"size":  "size_bytes DESC",
+}
+
+func (s *Store) AdminListAlbums(ctx context.Context, query, sort string, page, pageSize int) ([]AdminAlbumRow, int, error) {
+	orderBy, ok := adminAlbumSorts[sort]
+	if !ok {
+		return nil, 0, fmt.Errorf("invalid sort %q", sort)
+	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 50
+	}
+	if page < 1 {
+		page = 1
+	}
+
+	var total int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM albums al WHERE $1 = '' OR al.name ILIKE '%' || $1 || '%'`,
+		query).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT al.id, al.name, al.year, ar.id, ar.name,
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id AND a.kind = 'album_cover'),
+			(SELECT count(*) FROM tracks t WHERE t.album_id = al.id),
+			al.status, al.added_at,
+			COALESCE((SELECT sum(mf.size_bytes) FROM media_files mf
+				JOIN tracks t ON t.id = mf.track_id WHERE t.album_id = al.id), 0) AS size_bytes
+		FROM albums al
+		JOIN artists ar ON ar.id = al.artist_id
+		WHERE $1 = '' OR al.name ILIKE '%' || $1 || '%'
+		ORDER BY `+orderBy+`
+		LIMIT $2 OFFSET $3`,
+		query, pageSize, (page-1)*pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := []AdminAlbumRow{}
+	for rows.Next() {
+		var r AdminAlbumRow
+		if err := rows.Scan(&r.ID, &r.Name, &r.Year, &r.ArtistID, &r.ArtistName, &r.CoverID,
+			&r.TrackCount, &r.Status, &r.AddedAt, &r.SizeBytes); err != nil {
+			return nil, 0, err
+		}
+		items = append(items, r)
+	}
+	return items, total, rows.Err()
+}
+
+func (s *Store) AdminAlbumByID(ctx context.Context, id int64) (*AdminAlbumRow, error) {
+	var r AdminAlbumRow
+	err := s.pool.QueryRow(ctx, `
+		SELECT al.id, al.name, al.year, ar.id, ar.name,
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id AND a.kind = 'album_cover'),
+			(SELECT count(*) FROM tracks t WHERE t.album_id = al.id),
+			al.status, al.added_at,
+			COALESCE((SELECT sum(mf.size_bytes) FROM media_files mf
+				JOIN tracks t ON t.id = mf.track_id WHERE t.album_id = al.id), 0)
+		FROM albums al
+		JOIN artists ar ON ar.id = al.artist_id
+		WHERE al.id = $1`, id).
+		Scan(&r.ID, &r.Name, &r.Year, &r.ArtistID, &r.ArtistName, &r.CoverID,
+			&r.TrackCount, &r.Status, &r.AddedAt, &r.SizeBytes)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, httpx.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+type AlbumUpdate struct {
+	Name       *string `json:"name"`
+	Year       *int    `json:"year"`
+	Status     *string `json:"status"`
+	ArtistName *string `json:"artistName"`
+}
+
+func (s *Store) UpdateAlbum(ctx context.Context, id int64, up AlbumUpdate) error {
+	if up.ArtistName != nil && *up.ArtistName != "" {
+		artistID, err := s.UpsertArtist(ctx, *up.ArtistName)
+		if err != nil {
+			return err
+		}
+		if _, err := s.pool.Exec(ctx,
+			`UPDATE albums SET artist_id = $2 WHERE id = $1`, id, artistID); err != nil {
+			return err
+		}
+	}
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE albums SET
+			name = COALESCE($2, name),
+			year = COALESCE($3, year),
+			status = COALESCE($4, status)
+		 WHERE id = $1`,
+		id, up.Name, up.Year, up.Status)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return httpx.ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) DeleteAlbum(ctx context.Context, id int64) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM albums WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return httpx.ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) UpdateTrackName(ctx context.Context, id int64, name string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE tracks SET name = $2 WHERE id = $1`, id, name)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return httpx.ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) DeleteTrack(ctx context.Context, id int64) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM tracks WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return httpx.ErrNotFound
+	}
+	return nil
 }
 
 // UpsertArtist returns the artist id for a name, creating it when new.

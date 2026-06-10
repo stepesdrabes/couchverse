@@ -287,6 +287,8 @@ type LibraryRow struct {
 	SizeBytes    int64     `json:"sizeBytes"`
 	MaxHeight    int       `json:"maxHeight"`
 	HDR          bool      `json:"hdr"`
+	PosterID     *int64    `json:"posterId"`
+	BackdropID   *int64    `json:"backdropId"`
 	AddedAt      time.Time `json:"addedAt"`
 }
 
@@ -340,7 +342,9 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 			count(DISTINCT e.id) AS episode_count,
 			COALESCE(sum(mf.size_bytes), 0) AS size_bytes,
 			COALESCE(max(mf.height), 0) AS max_height,
-			COALESCE(bool_or(mf.video_range <> 'sdr'), false) AS hdr
+			COALESCE(bool_or(mf.video_range <> 'sdr'), false) AS hdr,
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'poster') AS poster_id,
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'backdrop') AS backdrop_id
 		FROM titles t
 		LEFT JOIN seasons se ON se.title_id = t.id
 		LEFT JOIN episodes e ON e.season_id = se.id
@@ -359,7 +363,8 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 	for rows.Next() {
 		var r LibraryRow
 		if err := rows.Scan(&r.ID, &r.Kind, &r.Name, &r.Year, &r.Status, &r.AddedAt,
-			&r.SeasonCount, &r.EpisodeCount, &r.SizeBytes, &r.MaxHeight, &r.HDR); err != nil {
+			&r.SeasonCount, &r.EpisodeCount, &r.SizeBytes, &r.MaxHeight, &r.HDR,
+			&r.PosterID, &r.BackdropID); err != nil {
 			return nil, 0, err
 		}
 		items = append(items, r)

@@ -143,8 +143,26 @@ func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (int64
 		return 0, err
 	}
 
+	// uploading to a specific series: resolve SxxExx from the filename into a
+	// season/episode of that show, so the prober keeps the explicit target
+	titleID, episodeID := assign.TitleID, assign.EpisodeID
+	if lib.Kind == "series" && titleID != nil && episodeID == nil {
+		if parsed := media.ParseVideoPath(session.Filename); parsed.IsEpisode {
+			seasonID, serr := m.Store.FindOrCreateSeason(ctx, *titleID, parsed.Season)
+			if serr != nil {
+				return 0, serr
+			}
+			epID, eerr := m.Store.FindOrCreateEpisode(ctx, seasonID, parsed.Episode, parsed.Name)
+			if eerr != nil {
+				return 0, eerr
+			}
+			episodeID = &epID
+		}
+		titleID = nil // media files attach to episodes, never to a series title
+	}
+
 	mediaFileID, err := m.Store.CreateAssignedMediaFile(ctx, lib.ID, relPath,
-		session.ReceivedBytes, assign.TitleID, assign.EpisodeID)
+		session.ReceivedBytes, titleID, episodeID)
 	if err != nil {
 		return 0, err
 	}
@@ -187,9 +205,16 @@ func (m *Manager) destinationPath(ctx context.Context, lib *store.Library, filen
 					filename), nil
 			}
 		}
-		if parsed := media.ParseVideoPath(filename); parsed.IsEpisode {
+		parsed := media.ParseVideoPath(filename)
+		show := parsed.ShowName
+		if assign.TitleID != nil {
+			if t, err := m.Store.TitleByID(ctx, *assign.TitleID); err == nil {
+				show = t.Name
+			}
+		}
+		if parsed.IsEpisode && show != "" {
 			return filepath.Join(
-				sanitizeFilename(parsed.ShowName),
+				sanitizeFilename(show),
 				fmt.Sprintf("Season %02d", parsed.Season),
 				filename), nil
 		}

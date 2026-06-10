@@ -26,6 +26,26 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var featuredBackdropID *int64
+	featuredInList := false
+	if featured != nil {
+		art, aerr := h.store.ArtworkFor(r.Context(), "title", featured.ID)
+		if aerr != nil {
+			httpx.Internal(w, aerr)
+			return
+		}
+		for _, a := range art {
+			if a.Kind == "backdrop" {
+				id := a.ID
+				featuredBackdropID = &id
+			}
+		}
+		if featuredInList, err = h.store.WatchlistHas(r.Context(), user.ID, featured.ID); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+	}
+
 	configs, err := h.store.HomeRowConfigs(r.Context())
 	if err != nil {
 		httpx.Internal(w, err)
@@ -58,8 +78,10 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
-		"featured": featured,
-		"rows":     rows,
+		"featured":           featured,
+		"featuredBackdropId": featuredBackdropID,
+		"featuredInList":     featuredInList,
+		"rows":               rows,
 	})
 }
 

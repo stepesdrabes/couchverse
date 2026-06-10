@@ -52,6 +52,8 @@ func (s *Server) Handler() http.Handler {
 	music := api.NewMusic(s.store)
 	playlists := api.NewPlaylists(s.store)
 	adminStorage := api.NewAdminStorage(s.store, s.cfg.DataDir)
+	adminMusic := api.NewAdminMusic(s.store)
+	profile := api.NewProfile(s.store, s.artwork)
 	artworkAPI := api.NewArtwork(s.store, s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
 	uploadsAPI := api.NewAdminUploads(s.store, s.uploads)
@@ -108,6 +110,10 @@ func (s *Server) Handler() http.Handler {
 			p.Get("/music/artists/{id}", music.Artist)
 			p.Post("/plays", music.Scrobble)
 
+			p.Patch("/me/profile", profile.Update)
+			p.Post("/me/avatar", profile.SetAvatar)
+			p.Delete("/me/avatar", profile.DeleteAvatar)
+
 			p.Get("/me/playlists", playlists.List)
 			p.Post("/me/playlists", playlists.Create)
 			p.Get("/me/playlists/{id}", playlists.Get)
@@ -140,6 +146,13 @@ func (s *Server) Handler() http.Handler {
 			adm.Post("/seasons/{id}/episodes", adminTitles.CreateEpisode)
 			adm.Patch("/episodes/{id}", adminTitles.UpdateEpisode)
 			adm.Delete("/episodes/{id}", adminTitles.DeleteEpisode)
+
+			adm.Get("/music", adminMusic.List)
+			adm.Get("/albums/{id}", adminMusic.Get)
+			adm.Patch("/albums/{id}", adminMusic.Update)
+			adm.Delete("/albums/{id}", adminMusic.Delete)
+			adm.Patch("/tracks/{id}", adminMusic.UpdateTrack)
+			adm.Delete("/tracks/{id}", adminMusic.DeleteTrack)
 
 			adm.Get("/users", adminUsers.List)
 			adm.Post("/users", adminUsers.Create)

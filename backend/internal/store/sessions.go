@@ -20,9 +20,8 @@ func (s *Store) CreateSession(ctx context.Context, tokenHash []byte, userID int6
 // UserBySession resolves a session token hash to its (active, non-expired)
 // user and touches last_seen_at at most every 5 minutes.
 func (s *Store) UserBySession(ctx context.Context, tokenHash []byte) (*User, error) {
-	u, err := scanUser(s.pool.QueryRow(ctx,
-		`SELECT `+prefixCols("u", userCols)+`
-		 FROM sessions se JOIN users u ON u.id = se.user_id
+	u, err := scanUser(s.pool.QueryRow(ctx, userSelect+`
+		 JOIN sessions se ON se.user_id = u.id
 		 WHERE se.token_hash = $1 AND se.expires_at > now() AND NOT u.disabled`,
 		tokenHash))
 	if err != nil {

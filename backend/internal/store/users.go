@@ -18,14 +18,18 @@ type User struct {
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`
 	Disabled     bool      `json:"disabled"`
+	AvatarID     *int64    `json:"avatarId"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
-const userCols = `id, username, display_name, password_hash, role, disabled, created_at`
+const userSelect = `
+	SELECT u.id, u.username, u.display_name, u.password_hash, u.role, u.disabled, av.id, u.created_at
+	FROM users u
+	LEFT JOIN artwork av ON av.owner_kind = 'user' AND av.owner_id = u.id AND av.kind = 'avatar'`
 
 func scanUser(row pgx.Row) (*User, error) {
 	var u User
-	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Role, &u.Disabled, &u.CreatedAt)
+	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Role, &u.Disabled, &u.AvatarID, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, httpx.ErrNotFound
 	}
@@ -36,13 +40,11 @@ func scanUser(row pgx.Row) (*User, error) {
 }
 
 func (s *Store) UserByUsername(ctx context.Context, username string) (*User, error) {
-	return scanUser(s.pool.QueryRow(ctx,
-		`SELECT `+userCols+` FROM users WHERE username = $1`, username))
+	return scanUser(s.pool.QueryRow(ctx, userSelect+` WHERE u.username = $1`, username))
 }
 
 func (s *Store) UserByID(ctx context.Context, id int64) (*User, error) {
-	return scanUser(s.pool.QueryRow(ctx,
-		`SELECT `+userCols+` FROM users WHERE id = $1`, id))
+	return scanUser(s.pool.QueryRow(ctx, userSelect+` WHERE u.id = $1`, id))
 }
 
 func (s *Store) CountUsers(ctx context.Context) (int, error) {
@@ -52,15 +54,20 @@ func (s *Store) CountUsers(ctx context.Context) (int, error) {
 }
 
 func (s *Store) CreateUser(ctx context.Context, username, displayName, passwordHash, role string) (*User, error) {
-	return scanUser(s.pool.QueryRow(ctx,
+	var id int64
+	err := s.pool.QueryRow(ctx,
 		`INSERT INTO users (username, display_name, password_hash, role)
 		 VALUES ($1, $2, $3, $4)
-		 RETURNING `+userCols,
-		username, displayName, passwordHash, role))
+		 RETURNING id`,
+		username, displayName, passwordHash, role).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+	return s.UserByID(ctx, id)
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+userCols+` FROM users ORDER BY created_at`)
+	rows, err := s.pool.Query(ctx, userSelect+` ORDER BY u.created_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -85,15 +92,21 @@ type UserUpdate struct {
 }
 
 func (s *Store) UpdateUser(ctx context.Context, id int64, up UserUpdate) (*User, error) {
-	return scanUser(s.pool.QueryRow(ctx,
+	tag, err := s.pool.Exec(ctx,
 		`UPDATE users SET
 			display_name = COALESCE($2, display_name),
 			role = COALESCE($3, role),
 			disabled = COALESCE($4, disabled),
 			password_hash = COALESCE($5, password_hash)
-		 WHERE id = $1
-		 RETURNING `+userCols,
-		id, up.DisplayName, up.Role, up.Disabled, up.PasswordHash))
+		 WHERE id = $1`,
+		id, up.DisplayName, up.Role, up.Disabled, up.PasswordHash)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, httpx.ErrNotFound
+	}
+	return s.UserByID(ctx, id)
 }
 
 func (s *Store) DeleteUser(ctx context.Context, id int64) error {
@@ -107,7 +120,7 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 	return nil
 }
 
-// DisabledUserSessions removes all sessions of a disabled user.
+// DeleteUserSessions removes all sessions of a disabled user.
 func (s *Store) DeleteUserSessions(ctx context.Context, userID int64) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
 	if err != nil {
