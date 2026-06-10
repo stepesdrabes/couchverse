@@ -16,11 +16,10 @@ import (
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/media"
-	"couchverse/internal/store"
 )
 
 type Service struct {
-	Store      *store.Store
+	Subs       *Store
 	Files      *library.Store
 	DataDir    string
 	FFmpegPath string
@@ -30,12 +29,12 @@ func (s *Service) dir(mediaFileID string) string {
 	return filepath.Join(s.DataDir, "subtitles", mediaFileID)
 }
 
-func (s *Service) Path(sub *store.Subtitle) string {
+func (s *Service) Path(sub *media.Subtitle) string {
 	return filepath.Join(s.DataDir, sub.Path)
 }
 
 // SaveUpload converts an uploaded .srt/.vtt to WebVTT and registers it.
-func (s *Service) SaveUpload(ctx context.Context, mediaFileID string, lang, label, filename string, body io.Reader) (*store.Subtitle, error) {
+func (s *Service) SaveUpload(ctx context.Context, mediaFileID string, lang, label, filename string, body io.Reader) (*media.Subtitle, error) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	if ext != ".srt" && ext != ".vtt" {
 		return nil, fmt.Errorf("only .srt and .vtt files are supported")
@@ -58,7 +57,7 @@ func (s *Service) SaveUpload(ctx context.Context, mediaFileID string, lang, labe
 	}
 	tmp.Close()
 
-	sub, err := s.Store.CreateSubtitle(ctx, mediaFileID, lang, label, "uploaded", false, "pending")
+	sub, err := s.Subs.CreateSubtitle(ctx, mediaFileID, lang, label, "uploaded", false, "pending")
 	if err != nil {
 		return nil, err
 	}
@@ -78,11 +77,11 @@ func (s *Service) SaveUpload(ctx context.Context, mediaFileID string, lang, labe
 			return nil, err
 		}
 	} else if err := s.convert(ctx, tmp.Name(), abs); err != nil {
-		_, _ = s.Store.DeleteSubtitle(ctx, sub.ID)
+		_, _ = s.Subs.DeleteSubtitle(ctx, sub.ID)
 		return nil, err
 	}
 
-	return s.Store.UpdateSubtitlePath(ctx, sub.ID, rel)
+	return s.Subs.UpdateSubtitlePath(ctx, sub.ID, rel)
 }
 
 func (s *Service) convert(ctx context.Context, in, out string) error {
@@ -96,7 +95,7 @@ func (s *Service) convert(ctx context.Context, in, out string) error {
 }
 
 func (s *Service) Delete(ctx context.Context, id string) error {
-	sub, err := s.Store.DeleteSubtitle(ctx, id)
+	sub, err := s.Subs.DeleteSubtitle(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -143,7 +142,7 @@ func (s *Service) HandleExtract(ctx context.Context, job *jobs.Job, report func(
 		return fmt.Errorf("parse stored probe: %w", err)
 	}
 
-	if err := s.Store.DeleteEmbeddedSubtitles(ctx, mf.ID); err != nil {
+	if err := s.Subs.DeleteEmbeddedSubtitles(ctx, mf.ID); err != nil {
 		return err
 	}
 
@@ -161,7 +160,7 @@ func (s *Service) HandleExtract(ctx context.Context, job *jobs.Job, report func(
 			label = strings.ToUpper(lang)
 		}
 
-		sub, err := s.Store.CreateSubtitle(ctx, mf.ID, lang, label, "embedded",
+		sub, err := s.Subs.CreateSubtitle(ctx, mf.ID, lang, label, "embedded",
 			stream.Disposition.Forced == 1, "pending")
 		if err != nil {
 			return err
@@ -179,12 +178,12 @@ func (s *Service) HandleExtract(ctx context.Context, job *jobs.Job, report func(
 			"-f", "webvtt", out).CombinedOutput()
 		if err != nil {
 			// one bad stream shouldn't fail the rest
-			_, _ = s.Store.DeleteSubtitle(ctx, sub.ID)
+			_, _ = s.Subs.DeleteSubtitle(ctx, sub.ID)
 			slog.Warn("subtitle extraction failed", "file", mf.Path, "stream", stream.Index,
 				"err", strings.TrimSpace(string(cmdOut)))
 			continue
 		}
-		if _, err := s.Store.UpdateSubtitlePath(ctx, sub.ID, rel); err != nil {
+		if _, err := s.Subs.UpdateSubtitlePath(ctx, sub.ID, rel); err != nil {
 			return err
 		}
 		extracted++

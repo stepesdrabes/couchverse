@@ -19,11 +19,11 @@ import (
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/music"
+	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
-	"couchverse/internal/subtitles"
 	"couchverse/internal/transcode"
 	"couchverse/web"
 )
@@ -55,14 +55,14 @@ func (s *Server) Handler() http.Handler {
 	libraryModule := library.NewModule(s.library, s.jobs, s.uploads)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
 	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.music, s.jobs)
-	stream := api.NewStream(s.store, s.catalog, s.library, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
+	stream := api.NewStream(s.subtitles.Subs, s.catalog, s.library, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
 	transcodeAPI := api.NewAdminTranscode(s.library, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath)
 	musicModule := music.NewModule(s.music, s.settings, s.artwork)
 	adminStorage := api.NewAdminStorage(s.store, s.jobs, s.cfg.DataDir)
 	sysStats := api.NewSysStats()
 	theme := api.NewTheme(s.settings)
 	artworkAPI := artwork.NewHandlers(s.artwork)
-	subtitlesAPI := api.NewSubtitles(s.store, s.library, s.subtitles)
+	subtitlesAPI := subtitles.NewSubtitles(s.subtitles.Subs, s.library, s.subtitles)
 	metadataAPI := api.NewAdminMetadata(s.catalog, s.settings, s.jobs)
 
 	r := chi.NewRouter()
@@ -97,7 +97,7 @@ func (s *Server) Handler() http.Handler {
 			p.Post("/stream/sessions/{sid}/keepalive", stream.SessionKeepalive)
 			p.Get("/playback/{kind}/{id}", stream.Playback)
 			artworkAPI.MountUser(p)
-			p.Get("/subtitles/{id}.vtt", subtitlesAPI.Serve)
+			subtitlesAPI.MountUser(p)
 
 			p.Get("/features", func(w http.ResponseWriter, r *http.Request) {
 				httpx.JSON(w, http.StatusOK, flags.Load(r.Context(), s.settings))
@@ -132,9 +132,7 @@ func (s *Server) Handler() http.Handler {
 
 			artworkAPI.MountAdmin(adm)
 
-			adm.Get("/media-files/{id}/subtitles", subtitlesAPI.ListForMediaFile)
-			adm.Post("/media-files/{id}/subtitles", subtitlesAPI.Upload)
-			adm.Delete("/subtitles/{id}", subtitlesAPI.Delete)
+			subtitlesAPI.MountAdmin(adm)
 
 			adm.Get("/storage", adminStorage.Get)
 			adm.Get("/overview", adminStorage.Overview)

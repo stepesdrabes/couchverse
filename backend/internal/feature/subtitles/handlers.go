@@ -1,21 +1,19 @@
-package api
+package subtitles
 
 import (
 	"net/http"
 
 	"couchverse/internal/feature/library"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
-	"couchverse/internal/subtitles"
 )
 
 type Subtitles struct {
-	store   *store.Store
+	store   *Store
 	library *library.Store
-	service *subtitles.Service
+	service *Service
 }
 
-func NewSubtitles(st *store.Store, lib *library.Store, service *subtitles.Service) *Subtitles {
+func NewSubtitles(st *Store, lib *library.Store, service *Service) *Subtitles {
 	return &Subtitles{store: st, library: lib, service: service}
 }
 

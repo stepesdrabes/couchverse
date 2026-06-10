@@ -20,11 +20,11 @@ import (
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/music"
+	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
-	"couchverse/internal/subtitles"
 	"couchverse/internal/tmdb"
 	"couchverse/internal/transcode"
 )
@@ -96,7 +96,7 @@ func run() error {
 
 	uploadManager := &library.Manager{Files: libraryStore, Catalog: catalogStore, Jobs: jobsStore, DataDir: cfg.DataDir}
 	artworkService := &artwork.Service{Store: artwork.NewStore(pool), DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
-	subtitleService := &subtitles.Service{Store: st, Files: libraryStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	subtitleService := &subtitles.Service{Subs: subtitles.NewStore(pool), Files: libraryStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	transcodeHandler := &transcode.JobHandler{Files: libraryStore, Settings: set, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	sessionManager := &transcode.SessionManager{
 		Files: libraryStore, Settings: set, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath, MaxSessions: 3,

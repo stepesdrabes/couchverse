@@ -16,15 +16,15 @@ import (
 	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
+	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 	"couchverse/internal/transcode"
 )
 
 type Stream struct {
-	store    *store.Store
+	subs     *subtitles.Store
 	catalog  *catalog.Store
 	library  *library.Store
 	settings *settings.Store
@@ -34,8 +34,8 @@ type Stream struct {
 	ffmpeg   string
 }
 
-func NewStream(st *store.Store, cat *catalog.Store, lib *library.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
-	return &Stream{store: st, catalog: cat, library: lib, settings: set, jobs: jb, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
+func NewStream(subs *subtitles.Store, cat *catalog.Store, lib *library.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
+	return &Stream{subs: subs, catalog: cat, library: lib, settings: set, jobs: jb, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
 }
 
 var contentTypes = map[string]string{
@@ -203,7 +203,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 	info.MediaFileID = mf.ID
 	info.Duration = mf.DurationSeconds
 
-	subs, err := h.store.SubtitlesForMediaFile(r.Context(), mf.ID)
+	subs, err := h.subs.SubtitlesForMediaFile(r.Context(), mf.ID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
