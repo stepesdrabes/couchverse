@@ -47,10 +47,19 @@ export const retryJob = (id: number) => api<void>(`/admin/jobs/${id}/retry`, { m
 export const cancelJob = (id: number) => api<void>(`/admin/jobs/${id}/cancel`, { method: 'POST' });
 
 // storage & overview
+export type StorageCategoryKind = 'movies' | 'series' | 'music' | 'cache';
+
+export interface StorageCategory {
+	kind: StorageCategoryKind;
+	bytes: number;
+}
+
 export interface StorageInfo {
-	disk: { total?: number; used?: number; free?: number };
-	libraries: { libraryId: number; name: string; kind: string; bytes: number }[];
-	cache: { hls: number; images: number; uploads: number };
+	diskTotal: number;
+	free: number;
+	used: number; // Couchverse's total footprint
+	budget: number; // used + free = space available to Couchverse
+	categories: StorageCategory[];
 }
 
 export const getStorage = () => api<StorageInfo>('/admin/storage');

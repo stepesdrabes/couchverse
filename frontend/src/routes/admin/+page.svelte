@@ -2,6 +2,8 @@
 	import { Clapperboard, Disc3, ListVideo, Music, Tv, Users } from 'lucide-svelte';
 	import * as jobsApi from '$lib/features/jobs/api';
 	import type { OverviewInfo, StorageInfo } from '$lib/features/jobs/api';
+	import StorageBar from '$lib/components/admin/StorageBar.svelte';
+	import { categoryStyle } from '$lib/components/admin/storageColors';
 	import { formatBytes } from '$lib/utils/format';
 
 	let overview = $state<OverviewInfo | null>(null);
@@ -40,10 +42,6 @@
 			: []
 	);
 
-	const usedPct = $derived(
-		storage?.disk.total ? ((storage.disk.used ?? 0) / storage.disk.total) * 100 : 0
-	);
-
 	const statusColor: Record<string, string> = {
 		pending: 'text-muted',
 		running: 'text-accent',
@@ -73,30 +71,32 @@
 </div>
 
 <div class="mt-6 grid gap-6 lg:grid-cols-2">
-	{#if storage?.disk.total}
+	{#if storage && storage.diskTotal > 0}
 		<div class="rounded-card border border-edge bg-surface/40 p-6">
 			<div class="mb-3 flex items-baseline justify-between">
 				<h2 class="text-sm font-semibold text-muted">Storage</h2>
 				<span class="text-xs text-faint tnum">
-					{formatBytes(storage.disk.used ?? 0)} of {formatBytes(storage.disk.total)} used
+					{formatBytes(storage.used)} of {formatBytes(storage.budget)} available
 				</span>
 			</div>
-			<div class="mb-4 h-2 overflow-hidden rounded-full bg-surface-2">
-				<div
-					class="h-full rounded-full {usedPct > 90 ? 'bg-danger' : 'bg-accent'}"
-					style="width: {usedPct}%"
-				></div>
-			</div>
+			<StorageBar {storage} class="mb-4 h-2" />
 			<ul class="space-y-1.5 text-xs">
-				{#each storage.libraries as lib (lib.libraryId)}
-					<li class="flex justify-between">
-						<span class="text-muted">{lib.name}</span>
-						<span class="text-faint tnum">{formatBytes(lib.bytes)}</span>
+				{#each storage.categories as cat (cat.kind)}
+					<li class="flex items-center justify-between">
+						<span class="flex items-center gap-2 text-muted">
+							<span class="size-2 rounded-full" style="background: {categoryStyle[cat.kind].color}"
+							></span>
+							{categoryStyle[cat.kind].label}
+						</span>
+						<span class="text-faint tnum">{formatBytes(cat.bytes)}</span>
 					</li>
 				{/each}
-				<li class="flex justify-between border-t border-edge/50 pt-1.5">
-					<span class="text-muted">Transcode cache</span>
-					<span class="text-faint tnum">{formatBytes(storage.cache.hls)}</span>
+				<li class="flex items-center justify-between border-t border-edge/50 pt-1.5">
+					<span class="flex items-center gap-2 text-muted">
+						<span class="size-2 rounded-full bg-surface-2 ring-1 ring-edge"></span>
+						Free
+					</span>
+					<span class="text-faint tnum">{formatBytes(storage.free)}</span>
 				</li>
 			</ul>
 		</div>
