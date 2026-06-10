@@ -9,7 +9,7 @@
 	import { features } from '$lib/features/settings/features.svelte';
 	import AdminMusicTable from '$lib/components/admin/AdminMusicTable.svelte';
 	import NewTitleModal from '$lib/components/admin/NewTitleModal.svelte';
-	import Artwork from '$lib/components/media/Artwork.svelte';
+	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';

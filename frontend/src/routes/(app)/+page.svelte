@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { ContinueItem } from '$lib/features/catalog/types';
 	import type { AlbumCard as AlbumCardType } from '$lib/features/music/api';
-	import ContinueWatchingCard from '$lib/components/media/ContinueWatchingCard.svelte';
-	import HeroMarquee from '$lib/components/media/HeroMarquee.svelte';
-	import MediaRow from '$lib/components/media/MediaRow.svelte';
-	import TitleCard from '$lib/components/media/TitleCard.svelte';
-	import AlbumCard from '$lib/components/music/AlbumCard.svelte';
+	import ContinueWatchingCard from '$lib/features/catalog/components/ContinueWatchingCard.svelte';
+	import HeroMarquee from '$lib/features/catalog/components/HeroMarquee.svelte';
+	import MediaRow from '$lib/features/catalog/components/MediaRow.svelte';
+	import TitleCard from '$lib/features/catalog/components/TitleCard.svelte';
+	import AlbumCard from '$lib/features/music/components/AlbumCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
 

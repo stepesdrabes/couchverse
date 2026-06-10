@@ -4,7 +4,7 @@
 	import { toast } from 'svelte-sonner';
 	import * as catalog from '$lib/features/catalog/api';
 	import type { Episode, MediaFile } from '$lib/features/catalog/types';
-	import Artwork from '$lib/components/media/Artwork.svelte';
+	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import BrowseGrid from '$lib/components/media/BrowseGrid.svelte';
+	import BrowseGrid from '$lib/features/catalog/components/BrowseGrid.svelte';
 
 	const genre = $derived(decodeURIComponent(page.params.slug ?? ''));
 </script>

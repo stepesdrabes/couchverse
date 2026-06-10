@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { ArrowLeft, Loader } from 'lucide-svelte';
-	import VideoPlayer from '$lib/components/player/VideoPlayer.svelte';
+	import VideoPlayer from '$lib/features/playback/components/VideoPlayer.svelte';
 
 	let { data } = $props();
 

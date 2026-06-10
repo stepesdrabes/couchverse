@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as catalog from '$lib/features/catalog/api';
 	import type { CardItem } from '$lib/features/catalog/types';
-	import PosterCard from '$lib/components/media/PosterCard.svelte';
+	import PosterCard from '$lib/features/catalog/components/PosterCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
 	let items = $state<CardItem[]>([]);

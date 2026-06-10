@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BrowseGrid from '$lib/components/media/BrowseGrid.svelte';
+	import BrowseGrid from '$lib/features/catalog/components/BrowseGrid.svelte';
 </script>
 
 <svelte:head>

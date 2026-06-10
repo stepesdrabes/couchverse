@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Music, Play, Shuffle } from 'lucide-svelte';
-	import TrackList from '$lib/components/music/TrackList.svelte';
+	import TrackList from '$lib/features/music/components/TrackList.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { artworkUrl } from '$lib/features/catalog/api';
 	import { musicPlayer as player } from '$lib/features/music/player.svelte';

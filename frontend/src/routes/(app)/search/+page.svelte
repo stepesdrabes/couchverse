@@ -2,7 +2,7 @@
 	import { Music, Search } from 'lucide-svelte';
 	import * as catalog from '$lib/features/catalog/api';
 	import type { SearchResults } from '$lib/features/catalog/types';
-	import PosterCard from '$lib/components/media/PosterCard.svelte';
+	import PosterCard from '$lib/features/catalog/components/PosterCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
 

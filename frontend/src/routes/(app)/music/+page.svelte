@@ -2,8 +2,8 @@
 	import { invalidateAll } from '$app/navigation';
 	import { ListMusic, Mic2, Plus } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
-	import AlbumCard from '$lib/components/music/AlbumCard.svelte';
-	import MediaRow from '$lib/components/media/MediaRow.svelte';
+	import AlbumCard from '$lib/features/music/components/AlbumCard.svelte';
+	import MediaRow from '$lib/features/catalog/components/MediaRow.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Input from '$lib/components/ui/Input.svelte';

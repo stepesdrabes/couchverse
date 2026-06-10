@@ -1,5 +1,5 @@
 <script lang="ts">
-	import AlbumCard from '$lib/components/music/AlbumCard.svelte';
+	import AlbumCard from '$lib/features/music/components/AlbumCard.svelte';
 
 	let { data } = $props();
 </script>

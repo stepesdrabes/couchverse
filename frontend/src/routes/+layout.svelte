@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { Toaster } from 'svelte-sonner';
 	import favicon from '$lib/assets/favicon.svg';
-	import PlayerBar from '$lib/components/music/PlayerBar.svelte';
+	import PlayerBar from '$lib/features/music/components/PlayerBar.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
 
 	let { children } = $props();
