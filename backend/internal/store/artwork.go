@@ -76,3 +76,25 @@ func (s *Store) DeleteArtwork(ctx context.Context, id int64) (*Artwork, error) {
 	return scanArtwork(s.pool.QueryRow(ctx,
 		`DELETE FROM artwork WHERE id = $1 RETURNING `+artworkCols, id))
 }
+
+// DeleteArtworkForOwner removes all artwork rows of an owner, returning them
+// so callers can clean up files.
+func (s *Store) DeleteArtworkForOwner(ctx context.Context, ownerKind string, ownerID int64) ([]Artwork, error) {
+	rows, err := s.pool.Query(ctx,
+		`DELETE FROM artwork WHERE owner_kind = $1 AND owner_id = $2 RETURNING `+artworkCols,
+		ownerKind, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := []Artwork{}
+	for rows.Next() {
+		a, err := scanArtwork(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *a)
+	}
+	return items, rows.Err()
+}

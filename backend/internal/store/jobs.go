@@ -226,8 +226,8 @@ func (s *Store) TranscodeProgress(ctx context.Context, mediaFileID int64) (int, 
 // DeleteOldJobs prunes finished jobs to keep the table small.
 func (s *Store) DeleteOldJobs(ctx context.Context, olderThan time.Duration) (int64, error) {
 	tag, err := s.pool.Exec(ctx,
-		`DELETE FROM jobs WHERE status IN ('done', 'failed', 'cancelled') AND finished_at < now() - $1`,
-		olderThan)
+		`DELETE FROM jobs WHERE status IN ('done', 'failed', 'cancelled') AND finished_at < $1`,
+		time.Now().Add(-olderThan))
 	if err != nil {
 		return 0, fmt.Errorf("prune jobs: %w", err)
 	}

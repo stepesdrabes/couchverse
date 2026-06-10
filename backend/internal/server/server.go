@@ -40,7 +40,7 @@ func New(cfg config.Config, st *store.Store, uploads *upload.Manager, art *artwo
 func (s *Server) Handler() http.Handler {
 	sessions := auth.NewMiddleware(s.store)
 	authAPI := api.NewAuth(s.store, s.cfg)
-	adminTitles := api.NewAdminTitles(s.store)
+	adminTitles := api.NewAdminTitles(s.store, s.artwork)
 	adminUsers := api.NewAdminUsers(s.store)
 	adminSettings := api.NewAdminSettings(s.store)
 	adminLibraries := api.NewAdminLibraries(s.store)
@@ -52,7 +52,7 @@ func (s *Server) Handler() http.Handler {
 	music := api.NewMusic(s.store)
 	playlists := api.NewPlaylists(s.store)
 	adminStorage := api.NewAdminStorage(s.store, s.cfg.DataDir)
-	adminMusic := api.NewAdminMusic(s.store)
+	adminMusic := api.NewAdminMusic(s.store, s.artwork)
 	profile := api.NewProfile(s.store, s.artwork)
 	artworkAPI := api.NewArtwork(s.store, s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)

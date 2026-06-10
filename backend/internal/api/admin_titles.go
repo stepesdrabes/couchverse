@@ -4,16 +4,18 @@ import (
 	"errors"
 	"net/http"
 
+	"couchverse/internal/artwork"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 )
 
 type AdminTitles struct {
-	store *store.Store
+	store   *store.Store
+	artwork *artwork.Service
 }
 
-func NewAdminTitles(st *store.Store) *AdminTitles {
-	return &AdminTitles{store: st}
+func NewAdminTitles(st *store.Store, art *artwork.Service) *AdminTitles {
+	return &AdminTitles{store: st, artwork: art}
 }
 
 func (h *AdminTitles) Library(w http.ResponseWriter, r *http.Request) {
@@ -106,8 +108,13 @@ func (h *AdminTitles) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminTitles) Delete(w http.ResponseWriter, r *http.Request) {
-	if err := h.store.DeleteTitle(r.Context(), httpx.ID(r, "id")); err != nil {
+	id := httpx.ID(r, "id")
+	if err := h.store.DeleteTitle(r.Context(), id); err != nil {
 		respondStoreErr(w, err)
+		return
+	}
+	if err := h.artwork.DeleteForOwner(r.Context(), "title", id); err != nil {
+		httpx.Internal(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
@@ -133,6 +140,13 @@ func (h *AdminTitles) Bulk(w http.ResponseWriter, r *http.Request) {
 		err = h.store.SetTitlesStatus(r.Context(), req.IDs, "draft")
 	case "delete":
 		err = h.store.DeleteTitles(r.Context(), req.IDs)
+		if err == nil {
+			for _, id := range req.IDs {
+				if err = h.artwork.DeleteForOwner(r.Context(), "title", id); err != nil {
+					break
+				}
+			}
+		}
 	case "rescan":
 		var fileIDs []int64
 		fileIDs, err = h.store.MediaFileIDsForTitles(r.Context(), req.IDs)

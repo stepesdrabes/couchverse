@@ -30,7 +30,9 @@ func (h *Artwork) Serve(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	w.Header().Set("Cache-Control", "private, max-age=86400")
+	// no-cache = browser revalidates; ServeFile answers 304 via Last-Modified,
+	// so replaced artwork (TMDB re-apply, new upload) shows up immediately
+	w.Header().Set("Cache-Control", "private, no-cache")
 	http.ServeFile(w, r, path)
 }
 

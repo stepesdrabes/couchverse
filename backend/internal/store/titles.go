@@ -289,6 +289,7 @@ type LibraryRow struct {
 	HDR          bool      `json:"hdr"`
 	PosterID     *int64    `json:"posterId"`
 	BackdropID   *int64    `json:"backdropId"`
+	NeedsPrepare bool      `json:"needsPrepare"`
 	AddedAt      time.Time `json:"addedAt"`
 }
 
@@ -344,7 +345,11 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 			COALESCE(max(mf.height), 0) AS max_height,
 			COALESCE(bool_or(mf.video_range <> 'sdr'), false) AS hdr,
 			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'poster') AS poster_id,
-			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'backdrop') AS backdrop_id
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id AND a.kind = 'backdrop') AS backdrop_id,
+			COALESCE(bool_or(NOT mf.direct_play AND mf.scanned_at IS NOT NULL AND NOT EXISTS (
+				SELECT 1 FROM transcode_variants tv2
+				WHERE tv2.media_file_id = mf.id AND tv2.status IN ('queued', 'processing', 'ready')
+			)), false) AS needs_prepare
 		FROM titles t
 		LEFT JOIN seasons se ON se.title_id = t.id
 		LEFT JOIN episodes e ON e.season_id = se.id
@@ -364,7 +369,7 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 		var r LibraryRow
 		if err := rows.Scan(&r.ID, &r.Kind, &r.Name, &r.Year, &r.Status, &r.AddedAt,
 			&r.SeasonCount, &r.EpisodeCount, &r.SizeBytes, &r.MaxHeight, &r.HDR,
-			&r.PosterID, &r.BackdropID); err != nil {
+			&r.PosterID, &r.BackdropID, &r.NeedsPrepare); err != nil {
 			return nil, 0, err
 		}
 		items = append(items, r)

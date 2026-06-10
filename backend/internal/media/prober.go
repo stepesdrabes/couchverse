@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"couchverse/internal/store"
+	"couchverse/internal/transcode"
 )
 
 type Prober struct {
@@ -87,12 +88,30 @@ func (p *Prober) Handle(ctx context.Context, job *store.Job, report func(int)) e
 		}
 	}
 
-	// h264 in the wrong container / with incompatible audio: a cheap copy-remux
-	// to HLS makes it playable everywhere, so queue it right away
-	if res.HasVideo && !up.DirectPlay && res.VideoCodec == "h264" {
-		if _, err := p.Store.EnqueueJobOnce(ctx, "transcode_hls",
-			map[string]any{"mediaFileId": mf.ID, "variant": "source"}, store.EnqueueOpts{}); err != nil {
-			return err
+	// make non-browser-playable files streamable without admin intervention:
+	// h264 gets a cheap copy-remux; other codecs get ladder transcodes when
+	// auto-prepare is on (default). Variant rows are created up front so the
+	// admin library shows "Processing" immediately.
+	if res.HasVideo && !up.DirectPlay {
+		if res.VideoCodec == "h264" {
+			if _, err := p.Store.UpsertVariant(ctx, mf.ID, "source", res.Height, res.Bitrate, 192_000, "copy"); err != nil {
+				return err
+			}
+			if _, err := p.Store.EnqueueJobOnce(ctx, "transcode_hls",
+				map[string]any{"mediaFileId": mf.ID, "variant": "source"}, store.EnqueueOpts{}); err != nil {
+				return err
+			}
+		} else if settings := transcode.LoadSettings(ctx, p.Store); settings.AutoPrepareEnabled() {
+			for _, r := range transcode.PrepareRenditions(settings.Ladder, res.Height) {
+				if _, err := p.Store.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, "transcode"); err != nil {
+					return err
+				}
+				if _, err := p.Store.EnqueueJobOnce(ctx, "transcode_hls",
+					map[string]any{"mediaFileId": mf.ID, "variant": r.Name},
+					store.EnqueueOpts{MaxAttempts: 2}); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

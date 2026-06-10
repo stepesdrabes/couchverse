@@ -26,6 +26,35 @@ type Settings struct {
 	Preset        string   `json:"preset"`        // libx264 preset
 	MaxConcurrent int      `json:"maxConcurrent"` // concurrent transcode jobs
 	JITEnabled    *bool    `json:"jitEnabled"`    // nil = auto (on when hw encoder exists)
+	AutoPrepare   *bool    `json:"autoPrepare"`   // nil = on: queue transcodes for unplayable files at probe time
+}
+
+func (s Settings) AutoPrepareEnabled() bool {
+	return s.AutoPrepare == nil || *s.AutoPrepare
+}
+
+// PrepareRenditions picks the ladder entries that make sense for a source
+// height — never upscaling, and always returning at least the smallest one.
+func PrepareRenditions(ladder []string, sourceHeight int) []Rendition {
+	picked := []Rendition{}
+	var smallest *Rendition
+	for _, name := range ladder {
+		r, ok := Renditions[name]
+		if !ok {
+			continue
+		}
+		if smallest == nil || r.Height < smallest.Height {
+			rc := r
+			smallest = &rc
+		}
+		if sourceHeight <= 0 || r.Height <= sourceHeight {
+			picked = append(picked, r)
+		}
+	}
+	if len(picked) == 0 && smallest != nil {
+		picked = append(picked, *smallest)
+	}
+	return picked
 }
 
 // LoadSettings reads transcode preferences with Pi-friendly defaults.

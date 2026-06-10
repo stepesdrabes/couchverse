@@ -3,16 +3,18 @@ package api
 import (
 	"net/http"
 
+	"couchverse/internal/artwork"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 )
 
 type AdminMusic struct {
-	store *store.Store
+	store   *store.Store
+	artwork *artwork.Service
 }
 
-func NewAdminMusic(st *store.Store) *AdminMusic {
-	return &AdminMusic{store: st}
+func NewAdminMusic(st *store.Store, art *artwork.Service) *AdminMusic {
+	return &AdminMusic{store: st, artwork: art}
 }
 
 func (h *AdminMusic) List(w http.ResponseWriter, r *http.Request) {
@@ -58,8 +60,13 @@ func (h *AdminMusic) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminMusic) Delete(w http.ResponseWriter, r *http.Request) {
-	if err := h.store.DeleteAlbum(r.Context(), httpx.ID(r, "id")); err != nil {
+	id := httpx.ID(r, "id")
+	if err := h.store.DeleteAlbum(r.Context(), id); err != nil {
 		respondStoreErr(w, err)
+		return
+	}
+	if err := h.artwork.DeleteForOwner(r.Context(), "album", id); err != nil {
+		httpx.Internal(w, err)
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)

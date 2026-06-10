@@ -76,7 +76,9 @@ func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID int64
 }
 
 // Resolve returns the on-disk path for an artwork id at the requested size,
-// generating and caching the resized variant on first use.
+// generating and caching the resized variant on first use. The cache name is
+// derived from the original's mtime, so a replaced image (TMDB re-apply,
+// database reset reusing ids) can never serve a stale resize.
 func (s *Service) Resolve(ctx context.Context, art *store.Artwork, size string) (string, error) {
 	original := filepath.Join(s.DataDir, art.Path)
 	width, ok := sizes[size]
@@ -84,12 +86,24 @@ func (s *Service) Resolve(ctx context.Context, art *store.Artwork, size string) 
 		return original, nil
 	}
 
-	cached := filepath.Join(s.DataDir, "cache", "images", fmt.Sprintf("%d_%s.jpg", art.ID, size))
+	info, err := os.Stat(original)
+	if err != nil {
+		return "", err
+	}
+	cached := filepath.Join(s.DataDir, "cache", "images",
+		fmt.Sprintf("%d_%d_%s.jpg", art.ID, info.ModTime().UnixNano(), size))
 	if _, err := os.Stat(cached); err == nil {
 		return cached, nil
 	}
 	if err := os.MkdirAll(filepath.Dir(cached), 0o755); err != nil {
 		return "", err
+	}
+	// drop resizes of older versions of this artwork
+	if stale, err := filepath.Glob(filepath.Join(s.DataDir, "cache", "images",
+		fmt.Sprintf("%d_*_%s.jpg", art.ID, size))); err == nil {
+		for _, f := range stale {
+			os.Remove(f)
+		}
 	}
 
 	out, err := exec.CommandContext(ctx, s.FFmpegPath,
@@ -117,7 +131,26 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 }
 
 func (s *Service) dropCache(id int64) {
-	for size := range sizes {
-		os.Remove(filepath.Join(s.DataDir, "cache", "images", fmt.Sprintf("%d_%s.jpg", id, size)))
+	stale, err := filepath.Glob(filepath.Join(s.DataDir, "cache", "images", fmt.Sprintf("%d_*", id)))
+	if err != nil {
+		return
 	}
+	for _, f := range stale {
+		os.Remove(f)
+	}
+}
+
+// DeleteForOwner removes all artwork rows, files and cached resizes of an
+// owner — called when a title or album is deleted.
+func (s *Service) DeleteForOwner(ctx context.Context, ownerKind string, ownerID int64) error {
+	rows, err := s.Store.DeleteArtworkForOwner(ctx, ownerKind, ownerID)
+	if err != nil {
+		return err
+	}
+	for _, art := range rows {
+		os.Remove(filepath.Join(s.DataDir, art.Path))
+		s.dropCache(art.ID)
+	}
+	os.Remove(filepath.Join(s.DataDir, "artwork", ownerKind, fmt.Sprint(ownerID)))
+	return nil
 }
