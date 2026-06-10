@@ -47,12 +47,27 @@ docker compose up -d --build
 ```
 
 Open `http://<host>:8080`, sign in with the admin credentials from `.env`.
-Media lives under `MEDIA_ROOT` (default `./data`):
+
+### Where media lives
+
+By default media + app data live in a **Docker named volume** — zero setup, no
+permission issues, everything goes in through browser uploads. If you want your
+media on a real disk folder (so you can also drop files over SMB/SFTP and
+re-scan), set in `.env`:
+
+```sh
+MEDIA_ROOT=/mnt/usbdisk/couchverse   # the folder on your disk
+PUID=1000                            # owner of that folder: `id -u`
+PGID=1000                            # group of that folder: `id -g`
+```
+
+The container runs as `PUID:PGID`, so they must match the folder's owner —
+otherwise writes (uploads, transcodes, artwork) fail with permission denied.
+Layout inside `MEDIA_ROOT`:
 
 ```
-data/
-├── media/movies/   media/series/   media/music/   ← drop files here, then Scan
-├── artwork/  subtitles/  cache/                   ← managed by the app
+media/movies/   media/series/   media/music/   ← drop files here, then Scan
+artwork/  subtitles/  cache/                   ← managed by the app
 ```
 
 Add users under **Admin → Users** (no public signup). Set a TMDB API key under

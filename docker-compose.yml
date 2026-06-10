@@ -3,6 +3,9 @@ services:
     build: .
     ports:
       - "8080:8080"
+    # match the owner of MEDIA_ROOT when using a bind mount (id -u / id -g);
+    # the default works out of the box with the named volume
+    user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       DATABASE_URL: postgres://couchverse:${DB_PASSWORD}@db:5432/couchverse
       DATA_DIR: /data
@@ -11,8 +14,10 @@ services:
       COOKIE_SECURE: "false" # set to true behind a TLS reverse proxy
       JOB_WORKERS: "2"
     volumes:
-      # external disk with media + app data
-      - ${MEDIA_ROOT:-./data}:/data
+      # default: Docker-managed named volume (no permission issues, but media
+      # is only reachable through the app). To use a real disk folder instead,
+      # set MEDIA_ROOT=/path/to/disk in .env and PUID/PGID to its owner.
+      - ${MEDIA_ROOT:-mediadata}:/data
     depends_on:
       db:
         condition: service_healthy
@@ -38,3 +43,4 @@ services:
 
 volumes:
   pgdata:
+  mediadata:
