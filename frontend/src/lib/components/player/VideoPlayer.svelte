@@ -20,14 +20,20 @@
 	import { fade, fly } from 'svelte/transition';
 	import { musicPlayer } from '$lib/features/music/player.svelte';
 	import type { PlaybackInfo } from '$lib/features/playback/api';
-	import { beaconProgress, reportProgress } from '$lib/features/playback/api';
+	import { beaconProgress, jitKeepalive, reportProgress } from '$lib/features/playback/api';
 	import { formatClock } from '$lib/utils/format';
 
 	let {
 		info,
 		titleId = null,
-		episodeId = null
-	}: { info: PlaybackInfo; titleId?: number | null; episodeId?: number | null } = $props();
+		episodeId = null,
+		jitSessionId = null
+	}: {
+		info: PlaybackInfo;
+		titleId?: number | null;
+		episodeId?: number | null;
+		jitSessionId?: string | null;
+	} = $props();
 
 	let video = $state<HTMLVideoElement>();
 	let wrapper = $state<HTMLDivElement>();
@@ -234,6 +240,13 @@
 		poke();
 		musicPlayer.pause(); // never play video and music together
 		if (info.mode === 'hls') setupHls();
+
+		// JIT sessions are reaped server-side without this heartbeat
+		let keepaliveTimer: ReturnType<typeof setInterval> | undefined;
+		if (jitSessionId) {
+			keepaliveTimer = setInterval(() => jitKeepalive(jitSessionId!).catch(() => {}), 15000);
+		}
+
 		const onVisibility = () => {
 			if (document.visibilityState === 'hidden' && currentTime > 5) {
 				beaconProgress(progressBody());
@@ -243,6 +256,7 @@
 		return () => {
 			document.removeEventListener('visibilitychange', onVisibility);
 			clearTimeout(hideTimer);
+			clearInterval(keepaliveTimer);
 			hls?.destroy();
 			if (currentTime > 5) beaconProgress(progressBody());
 		};

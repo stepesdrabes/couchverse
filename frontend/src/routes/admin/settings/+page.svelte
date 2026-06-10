@@ -16,6 +16,7 @@
 	let ladder = $state<string[]>(['720p']);
 	let preset = $state('veryfast');
 	let maxConcurrent = $state('1');
+	let jit = $state('auto');
 	let savingTranscode = $state(false);
 
 	const allRenditions = ['1080p', '720p', '480p'];
@@ -30,6 +31,7 @@
 			ladder = info.settings.ladder;
 			preset = info.settings.preset;
 			maxConcurrent = String(info.settings.maxConcurrent);
+			jit = info.settings.jitEnabled === null ? 'auto' : info.settings.jitEnabled ? 'on' : 'off';
 		});
 	});
 
@@ -59,7 +61,8 @@
 					hwAccel,
 					ladder,
 					preset,
-					maxConcurrent: Math.max(1, Number(maxConcurrent) || 1)
+					maxConcurrent: Math.max(1, Number(maxConcurrent) || 1),
+					jitEnabled: jit === 'auto' ? null : jit === 'on'
 				}
 			});
 			toast.success('Transcoding settings saved — concurrency applies after a restart');
@@ -143,6 +146,22 @@
 				/>
 			</div>
 			<Input label="Max concurrent jobs" type="number" min="1" max="4" bind:value={maxConcurrent} />
+		</div>
+
+		<div>
+			<p class="mb-1.5 text-xs font-medium text-muted">Instant play (on-the-fly transcoding)</p>
+			<Select
+				bind:value={jit}
+				items={[
+					{ value: 'auto', label: 'Auto (on with a hardware encoder)' },
+					{ value: 'on', label: 'Always on' },
+					{ value: 'off', label: 'Off' }
+				]}
+			/>
+			<p class="mt-1.5 text-[11px] text-faint">
+				Plays unprepared files immediately by transcoding live while you watch. Heavy without
+				hardware acceleration.
+			</p>
 		</div>
 
 		<div class="flex justify-end">

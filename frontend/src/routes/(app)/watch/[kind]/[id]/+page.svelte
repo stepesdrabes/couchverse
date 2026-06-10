@@ -23,6 +23,7 @@
 			info={data.info}
 			titleId={data.kind === 'movie' ? data.id : null}
 			episodeId={data.kind === 'episode' ? data.id : null}
+			jitSessionId={data.jitSessionId}
 		/>
 	{/key}
 {:else if data.info.mode === 'preparing'}

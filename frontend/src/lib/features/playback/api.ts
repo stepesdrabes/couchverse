@@ -64,3 +64,13 @@ export function beaconProgress(report: ProgressReport) {
 }
 
 export const continueWatching = () => api<ContinueItem[]>('/me/continue-watching');
+
+// JIT ("instant play") sessions
+export const createJitSession = (mediaFileId: number, startAt: number) =>
+	api<{ sessionId: string; playlistUrl: string }>(`/stream/${mediaFileId}/sessions`, {
+		method: 'POST',
+		body: { startAt }
+	});
+
+export const jitKeepalive = (sessionId: string) =>
+	api<void>(`/stream/sessions/${sessionId}/keepalive`, { method: 'POST' });
