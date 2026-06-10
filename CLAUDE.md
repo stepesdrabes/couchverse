@@ -17,8 +17,9 @@ Feature inventory + per-feature docs (endpoints, tables, dependency graph): see 
 
 A feature owns its HTTP handlers, domain logic and SQL together.
 
-- Backend features live in `backend/internal/feature/<name>/` (artwork, auth, catalog, jobs,
-  library, metadata, music, playback, subtitles, system). Each is one Go package with:
+- Backend features live in `backend/internal/feature/<name>/` (analytics, artwork, auth,
+  catalog, jobs, library, metadata, music, playback, subtitles, system). Each is one Go
+  package with:
   - a per-feature `Store` struct over the shared pgx pool (`NewStore(pool)`) - SQL stays
     inside the feature;
   - handler files plus `routes.go` exposing `Mount*` methods (or a `Module`) that register
@@ -42,6 +43,9 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     `layout/` (TopNav, GlowBackdrop). Domain components live in their feature.
   - Shared catalog entities live in `features/catalog/types.ts`. The bare fetch wrapper
     stays in `src/lib/api/client.ts`. Never hand-write URLs in components.
+  - Forms that edit existing data track dirtiness with `FormState`
+    (`lib/utils/form-state.svelte.ts`); Save buttons are `disabled={!form.dirty}`
+    (disabled, not hidden).
 
 ## Stack
 

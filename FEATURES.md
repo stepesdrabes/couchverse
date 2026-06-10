@@ -24,6 +24,7 @@ that render a `XxxPage.svelte` component from the owning feature.
 | artwork | `internal/feature/artwork` | (via `catalog/api.artworkUrl`) | `artwork` |
 | jobs | `internal/feature/jobs` | `features/jobs` | `jobs` |
 | system | `internal/feature/system` | `features/settings`, `features/admin` | `settings`, `home_rows` |
+| analytics | `internal/feature/analytics` | (charts in `features/admin`) | `watch_time_daily` |
 
 Shared kernel (backend): `internal/config` (env), `internal/db` (pool, migrations,
 `ErrNotFound`), `internal/httpx` (JSON responses, param helpers), `internal/media`
@@ -65,7 +66,7 @@ library table, title/season/episode CRUD and bulk actions.
 
 ### music
 Spotify-style music: albums, artists, tracks, playlists (create/rename/reorder),
-scrobbling (`POST /plays`) and recently-played rows. The persistent bottom player and
+scrobbling (`POST /plays`, which also feeds analytics) and recently-played rows. The persistent bottom player and
 queue live entirely on the frontend. All music routes (user and admin) are gated by
 the `musicEnabled` feature flag - the gating lives inside the music module's mounts.
 - Endpoints: `/music`, `/music/albums/{id}`, `/music/artists/{id}`, `/plays`,
@@ -85,9 +86,12 @@ engine (ffmpeg HLS encode, hardware encoder detection/probing) and transcode adm
   `/admin/media-files/{id}/transcode|variants`, `/admin/transcode-variants/{id}`.
 - Job handler: `transcode_hls` (per-type concurrency = `maxConcurrent` setting).
 - Frontend: WatchPage + VideoPlayer (828-line component: HLS.js, subtitles, shortcuts,
-  progress beacons, JIT keepalive - splitting it is a known follow-up).
+  progress beacons incl. watched-seconds deltas, JIT keepalive - splitting it is a
+  known follow-up).
 - Transcode ladder/settings policy lives in the `media` kernel so library's prober can
-  auto-prepare variants without importing playback.
+  auto-prepare variants without importing playback. Rendition bitrates are capped at
+  the source bitrate (`Rendition.CappedAt`) so transcodes never outweigh their source;
+  variant sizes are measured into `transcode_variants.size_bytes` when a job finishes.
 
 ### library
 Media ingestion: library folders on disk, the scan -> probe pipeline (filename parsing
@@ -97,9 +101,9 @@ auto-prepare of HLS variants), resumable chunked uploads, and ownership of the
 - Endpoints (admin): `/admin/libraries...` (+ `/scan`, `/scan-all`), `/admin/uploads...`.
 - Job handlers: `scan_library`, `probe`.
 - Frontend: `features/library` (AdminLibraryPage, AdminTitleEditorPage, AdminAlbumPage,
-  editor components, NewTitleModal, TmdbSearchModal, ArtworkCard, FileVariants,
-  AdminMusicTable), `features/uploads` (upload queue store, AdminUploadsPage,
-  EditorUploadCard).
+  editor components incl. EditorHero with hover poster/backdrop editing, NewTitleModal,
+  TmdbSearchModal, FileVariants, AdminMusicTable), `features/uploads` (upload queue
+  store, AdminUploadsPage, EditorUploadCard).
 
 ### metadata
 TMDB integration: search, one-click apply of metadata + poster/backdrop to a title,
@@ -126,18 +130,35 @@ The Postgres-backed job queue (no Redis): enqueue/claim with `FOR UPDATE SKIP LO
 per-type concurrency slots, retries with backoff, progress reporting, admin
 cancellation, and the in-process worker runner. Other features register handlers in
 `cmd/couchverse/main.go`; the hourly `cleanup` handler lives in `cmd/` too.
-- Endpoints (admin): `/admin/jobs`, `/admin/jobs/{id}/retry|cancel`.
-- Frontend: `features/jobs` (AdminJobsPage, overview/storage/system api calls).
+- Endpoints (admin): `/admin/jobs` (supports `?mediaFileId=` and returns a `subject`
+  per job - the title/episode/track it works on, resolved by SQL joins from the
+  payload), `/admin/jobs/{id}/retry|cancel`.
+- Frontend: `features/jobs` (AdminJobsPage, MediaFileJobs, job-label helpers,
+  overview/storage/system/analytics api calls).
 
 ### system
 Server-level concerns: the public accent theme endpoint, admin settings KV editing
 (with transcode-settings validation), the feature-flags endpoint, storage stats,
-catalog overview counts, live host metrics (CPU/RAM/disk, platform-specific) and the
+catalog overview counts, live host metrics (CPU/RAM/disk, platform-specific, with
+per-process attribution to the Go app and ffmpeg children via /proc) and the
 home-rows editor.
-- Endpoints: `/theme` (public), `/features`; admin `/admin/settings`, `/admin/storage`,
+- Endpoints: `/theme` (public), `/features`; admin `/admin/settings`, `/admin/storage`
+  (categories movies/series/music/transcodes/cache - transcodes is the SQL sum of
+  ready variant sizes, cache covers images/uploads/JIT session scratch),
   `/admin/overview`, `/admin/system`, `/admin/home-rows`.
 - Frontend: `features/settings` (AdminSettingsPage, HomeRowsEditor, feature-flags store),
-  `features/admin` (AdminDashboardPage, AdminSidebar, meters/sparkline widgets).
+  `features/admin` (AdminDashboardPage, AdminSidebar, meters/sparkline/BarChart widgets).
+
+### analytics
+Watch/listen time measurement behind the admin overview charts. One daily rollup
+table (`watch_time_daily`), upserted on every video progress beacon (the player sends
+an actually-played `watchedSeconds` delta) and on every music scrobble (counted as
+the track duration). Kernel-only imports - catalog and music call `RecordWatch`/
+`RecordListen` on its Store, best effort (analytics never fails a beacon).
+- Endpoints (admin): `/admin/analytics/overview?days=N` - dense daily series
+  (video/music seconds, active users), totals, top titles, top users.
+- Frontend: charts on AdminDashboardPage (`features/admin`), api call in
+  `features/jobs/api.ts` next to the other overview endpoints.
 
 ## Backend dependency graph
 
@@ -149,6 +170,7 @@ must stay acyclic:
 artwork <- auth <- music <- catalog <- metadata
    ^        ^       ^         ^
    +--------+-------+---- library <- subtitles <- playback        system
+analytics <- music, catalog (leaf: imports kernel only)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
 ```
