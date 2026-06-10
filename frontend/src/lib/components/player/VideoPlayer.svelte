@@ -152,6 +152,15 @@
 		return [...groups.entries()].sort((a, b) => a[0] - b[0]);
 	});
 
+	const currentSeasonNumber = $derived(
+		(info.episodes ?? []).find((e) => e.episodeId === info.currentEpisodeId)?.seasonNumber ??
+			episodesBySeason[0]?.[0] ??
+			null
+	);
+	let pickedSeason = $state<number | null>(null);
+	const activeSeason = $derived(pickedSeason ?? currentSeasonNumber);
+	const seasonEpisodes = $derived(episodesBySeason.find(([n]) => n === activeSeason)?.[1] ?? []);
+
 	function openEpisode(episodeId: string) {
 		if (episodeId === info.currentEpisodeId) return;
 		report();
@@ -279,39 +288,83 @@
 		poke();
 	}
 
-	// HLS: hls.js where needed, native playback on Safari
+	// playback source + quality. The source can direct-play the original or
+	// stream the transcoded HLS ladder; the quality menu switches between them.
 	let hls: Hls | null = null;
-	let qualityLevels = $state<{ index: number; height: number }[]>([]);
-	let currentLevel = $state(-1); // -1 = auto
+	let videoSrc = $state<string | undefined>(info.mode === 'direct' ? info.streamUrl : undefined);
+	const directUrl = info.mode === 'direct' ? (info.streamUrl ?? null) : null;
+	// initial HLS load uses streamUrl (also the JIT session playlist); quality
+	// switches from direct-play use the variants master at hlsUrl
+	const initialHlsUrl = info.mode === 'hls' ? (info.streamUrl ?? null) : null;
+	const switchHlsUrl = info.hlsUrl ?? initialHlsUrl;
 
-	async function setupHls() {
-		if (!video || !info.streamUrl) return;
+	// 'direct' | 'auto' | a rendition name ("1080p")
+	let quality = $state(info.mode === 'direct' ? 'direct' : 'auto');
+	let didRestoreSub = false;
+	let pendingResume: { at: number; play: boolean } | null = null;
+
+	const qualityOptions = $derived.by(() => {
+		const opts: { key: string; label: string }[] = [];
+		if (directUrl) opts.push({ key: 'direct', label: 'Original' });
+		if (switchHlsUrl && (info.variants?.length ?? 0) > 0) opts.push({ key: 'auto', label: 'Auto' });
+		for (const v of info.variants ?? []) opts.push({ key: v.name, label: `${v.height}p` });
+		return opts;
+	});
+
+	async function attachHls(url: string, pinName: string | null) {
+		if (!video) return;
+		// Safari plays HLS natively but exposes no level API — adaptive only
 		if (video.canPlayType('application/vnd.apple.mpegurl')) {
-			video.src = info.streamUrl;
+			videoSrc = url;
 			return;
 		}
 		const { default: HlsCtor } = await import('hls.js');
 		if (!HlsCtor.isSupported()) return;
 		hls = new HlsCtor();
-		hls.loadSource(info.streamUrl);
+		hls.loadSource(url);
 		hls.attachMedia(video);
 		hls.on(HlsCtor.Events.MANIFEST_PARSED, () => {
-			qualityLevels = (hls?.levels ?? []).map((level, index) => ({
-				index,
-				height: level.height
-			}));
+			if (!hls) return;
+			const idx = pinName ? hls.levels.findIndex((l) => l.name === pinName) : -1;
+			hls.currentLevel = idx;
 		});
 	}
 
-	function selectLevel(index: number) {
-		currentLevel = index;
-		if (hls) hls.currentLevel = index;
+	function selectQuality(key: string) {
+		if (key === quality || !video) return;
+		pendingResume = { at: video.currentTime, play: !video.paused };
+		quality = key;
+		hls?.destroy();
+		hls = null;
+		if (key === 'direct' && directUrl) {
+			videoSrc = directUrl;
+		} else {
+			videoSrc = undefined;
+			attachHls(switchHlsUrl!, key === 'auto' ? null : key);
+		}
+	}
+
+	function onLoadedMetadata() {
+		if (!video) return;
+		if (pendingResume) {
+			video.currentTime = pendingResume.at;
+			if (pendingResume.play) video.play().catch(() => {});
+			pendingResume = null;
+		} else if (info.resumePosition > 5) {
+			video.currentTime = info.resumePosition;
+		}
+		if (!didRestoreSub) {
+			restorePreferredSubtitle();
+			didRestoreSub = true;
+		} else {
+			applySubtitles(); // re-bind the active track after a source switch
+		}
 	}
 
 	onMount(() => {
 		poke();
 		musicPlayer.pause(); // never play video and music together
-		if (info.mode === 'hls') setupHls();
+		if (info.mode === 'hls' && initialHlsUrl) attachHls(initialHlsUrl, null);
 
 		// JIT sessions are reaped server-side without this heartbeat
 		let keepaliveTimer: ReturnType<typeof setInterval> | undefined;
@@ -348,7 +401,7 @@
 	<!-- svelte-ignore a11y_media_has_caption -->
 	<video
 		bind:this={video}
-		src={info.mode === 'direct' ? info.streamUrl : undefined}
+		src={videoSrc}
 		autoplay
 		class="size-full object-contain"
 		bind:volume
@@ -362,10 +415,7 @@
 		ontimeupdate={onTimeUpdate}
 		onprogress={onProgress}
 		ondurationchange={() => (duration = video?.duration || info.durationSeconds)}
-		onloadedmetadata={() => {
-			if (video && info.resumePosition > 5) video.currentTime = info.resumePosition;
-			restorePreferredSubtitle();
-		}}
+		onloadedmetadata={onLoadedMetadata}
 		onended={onEnded}
 		onclick={togglePlay}
 		ondblclick={toggleFullscreen}
@@ -406,7 +456,7 @@
 		<!-- bottom controls -->
 		<div
 			transition:fade={{ duration: 200 }}
-			class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-5 pt-16 pb-5"
+			class="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 to-transparent px-5 pt-16 pb-5"
 		>
 			<!-- seek bar -->
 			<div
@@ -495,15 +545,23 @@
 							<Popover.Content
 								side="top"
 								sideOffset={10}
-								class="z-50 max-h-[60vh] w-72 animate-pop-in overflow-y-auto rounded-card border border-edge bg-surface-2/95 p-1 shadow-xl backdrop-blur scrollbar-none"
+								class="z-50 flex max-h-[60vh] w-72 animate-pop-in flex-col rounded-card border border-edge bg-surface-2/95 p-1 shadow-xl backdrop-blur"
 							>
-								{#each episodesBySeason as [seasonNumber, eps] (seasonNumber)}
-									<p
-										class="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-widest text-faint uppercase"
-									>
-										Season {seasonNumber}
-									</p>
-									{#each eps as ep (ep.episodeId)}
+								{#if episodesBySeason.length > 1}
+									<div class="flex flex-wrap gap-1 border-b border-edge/70 p-2">
+										{#each episodesBySeason as [seasonNumber] (seasonNumber)}
+											<button
+												class="rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors
+													{seasonNumber === activeSeason ? 'bg-accent text-white' : 'bg-surface text-muted hover:text-text'}"
+												onclick={() => (pickedSeason = seasonNumber)}
+											>
+												S{seasonNumber}
+											</button>
+										{/each}
+									</div>
+								{/if}
+								<div class="overflow-y-auto p-1 scrollbar-none">
+									{#each seasonEpisodes as ep (ep.episodeId)}
 										<button
 											class="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-xs
 												{ep.episodeId === info.currentEpisodeId ? 'text-text' : 'text-muted'} hover:bg-surface"
@@ -517,13 +575,13 @@
 											{/if}
 										</button>
 									{/each}
-								{/each}
+								</div>
 							</Popover.Content>
 						</Popover.Portal>
 					</Popover.Root>
 				{/if}
 
-				{#if qualityLevels.length > 1}
+				{#if qualityOptions.length > 1}
 					<Popover.Root>
 						<Popover.Trigger class="player-btn" aria-label="Quality">
 							<SlidersHorizontal class="size-4.5" />
@@ -539,22 +597,14 @@
 								>
 									Quality
 								</p>
-								<button
-									class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
-										{currentLevel === -1 ? 'text-text' : 'text-muted'} hover:bg-surface"
-									onclick={() => selectLevel(-1)}
-								>
-									Auto
-									{#if currentLevel === -1}<Check class="size-3.5 text-accent" />{/if}
-								</button>
-								{#each qualityLevels as level (level.index)}
+								{#each qualityOptions as opt (opt.key)}
 									<button
 										class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
-											{currentLevel === level.index ? 'text-text' : 'text-muted'} hover:bg-surface"
-										onclick={() => selectLevel(level.index)}
+											{quality === opt.key ? 'text-text' : 'text-muted'} hover:bg-surface"
+										onclick={() => selectQuality(opt.key)}
 									>
-										{level.height}p
-										{#if currentLevel === level.index}<Check class="size-3.5 text-accent" />{/if}
+										{opt.label}
+										{#if quality === opt.key}<Check class="size-3.5 text-accent" />{/if}
 									</button>
 								{/each}
 							</Popover.Content>

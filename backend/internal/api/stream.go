@@ -95,7 +95,14 @@ type playbackInfo struct {
 	Subtitles      []subtitleTrack       `json:"subtitles"`
 	Episodes       []store.SeriesEpisode `json:"episodes,omitempty"`
 	CurrentEpisode string                `json:"currentEpisodeId,omitempty"`
+	HLSURL         string                `json:"hlsUrl,omitempty"`
+	Variants       []qualityVariant      `json:"variants,omitempty"`
 	JobProgress    int                   `json:"jobProgress,omitempty"`
+}
+
+type qualityVariant struct {
+	Name   string `json:"name"`
+	Height int    `json:"height"`
 }
 
 type subtitleTrack struct {
@@ -204,6 +211,34 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// ready transcode variants power the player's quality menu and are offered
+	// even when the source direct-plays, so users can pick a specific rendition
+	variants, verr := h.store.VariantsForMediaFile(r.Context(), mf.ID)
+	if verr != nil {
+		httpx.Internal(w, verr)
+		return
+	}
+	ready, pending := false, false
+	for _, v := range variants {
+		switch v.Status {
+		case "ready":
+			ready = true
+			if v.Name != "source" { // the "source" remux isn't a distinct quality
+				height := v.Height
+				if v.Mode == "copy" {
+					height = mf.Height
+				}
+				info.Variants = append(info.Variants, qualityVariant{Name: v.Name, Height: height})
+			}
+		case "queued", "processing":
+			pending = true
+		}
+	}
+	hlsURL := "/api/v1/stream/" + mf.ID + "/hls/master.m3u8"
+	if ready {
+		info.HLSURL = hlsURL
+	}
+
 	caps := strings.Split(r.URL.Query().Get("caps"), ",")
 	switch {
 	// a cleaned-up source can't be served directly no matter what the caps say
@@ -212,36 +247,19 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		info.Mode = "direct"
 		info.StreamURL = "/api/v1/stream/" + mf.ID
 
+	case ready:
+		info.Mode = "hls"
+		info.StreamURL = hlsURL
+	case pending:
+		info.Mode = "preparing"
+		if progress, perr := h.store.TranscodeProgress(r.Context(), mf.ID); perr == nil {
+			info.JobProgress = progress
+		}
+	case mf.SourceDeletedAt == nil && h.jitAllowed(r.Context()):
+		// the client opens a JIT session via POST /stream/{id}/sessions
+		info.Mode = "jit"
 	default:
-		variants, verr := h.store.VariantsForMediaFile(r.Context(), mf.ID)
-		if verr != nil {
-			httpx.Internal(w, verr)
-			return
-		}
-		ready, pending := false, false
-		for _, v := range variants {
-			switch v.Status {
-			case "ready":
-				ready = true
-			case "queued", "processing":
-				pending = true
-			}
-		}
-		switch {
-		case ready:
-			info.Mode = "hls"
-			info.StreamURL = "/api/v1/stream/" + mf.ID + "/hls/master.m3u8"
-		case pending:
-			info.Mode = "preparing"
-			if progress, perr := h.store.TranscodeProgress(r.Context(), mf.ID); perr == nil {
-				info.JobProgress = progress
-			}
-		case mf.SourceDeletedAt == nil && h.jitAllowed(r.Context()):
-			// the client opens a JIT session via POST /stream/{id}/sessions
-			info.Mode = "jit"
-		default:
-			info.Mode = "unsupported"
-		}
+		info.Mode = "unsupported"
 	}
 
 	httpx.JSON(w, http.StatusOK, info)

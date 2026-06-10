@@ -31,7 +31,14 @@ export interface PlaybackInfo {
 	subtitles: SubtitleTrack[];
 	episodes?: SeriesEpisode[];
 	currentEpisodeId?: string;
+	hlsUrl?: string;
+	variants?: QualityVariant[];
 	jobProgress?: number;
+}
+
+export interface QualityVariant {
+	name: string;
+	height: number;
 }
 
 export interface SeriesEpisode {
