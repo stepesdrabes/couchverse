@@ -65,9 +65,13 @@ export const createTitle = (input: TitleInput) =>
 	api<Title>('/admin/titles', { method: 'POST', body: input });
 
 export const getTitle = (id: string) =>
-	api<{ title: Title; seasons?: Season[]; mediaFiles: MediaFile[]; artwork: ArtworkRef[] }>(
-		`/admin/titles/${id}`
-	);
+	api<{
+		title: Title;
+		seasons?: Season[];
+		mediaFiles: MediaFile[];
+		artwork: ArtworkRef[];
+		subtitlesByFile: Record<string, SubtitleInfo[]>;
+	}>(`/admin/titles/${id}`);
 
 export const updateTitle = (id: string, patch: TitlePatch) =>
 	api<Title>(`/admin/titles/${id}`, { method: 'PATCH', body: patch });
@@ -119,6 +123,22 @@ export const applyTmdb = (titleId: string, tmdbId: number) =>
 	api<{ jobId: number }>(`/admin/titles/${titleId}/metadata/apply`, {
 		method: 'POST',
 		body: { tmdbId }
+	});
+
+export interface TmdbSeasonPreview {
+	seasonNumber: number;
+	name: string;
+	overview: string;
+	episodeCount: number;
+}
+
+export const getTmdbSeasons = (titleId: string) =>
+	api<TmdbSeasonPreview[]>(`/admin/titles/${titleId}/metadata/seasons`);
+
+export const importEpisodes = (titleId: string, seasons?: number[]) =>
+	api<{ jobId: number }>(`/admin/titles/${titleId}/metadata/import-episodes`, {
+		method: 'POST',
+		body: { seasons: seasons ?? [] }
 	});
 
 // artwork
@@ -223,6 +243,7 @@ export interface TranscodeVariant {
 
 export interface TranscodeInfo {
 	detectedEncoders: string[];
+	detecting: boolean;
 	renditions: string[];
 	settings: {
 		hwAccel: string;
@@ -231,6 +252,7 @@ export interface TranscodeInfo {
 		maxConcurrent: number;
 		jitEnabled: boolean | null;
 		autoPrepare: boolean | null;
+		deleteSourceAfterTranscode: boolean | null;
 	};
 }
 
