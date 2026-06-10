@@ -66,6 +66,7 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 		if !ok {
 			return fmt.Errorf("unknown rendition %q", p.Variant)
 		}
+		r = r.CappedAt(mf.Bitrate)
 		spec.Mode = "transcode"
 		spec.Rendition = r
 		spec.Encoder = PickEncoder(h.FFmpegPath, settings.HWAccel)

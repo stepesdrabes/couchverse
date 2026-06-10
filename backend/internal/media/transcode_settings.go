@@ -22,6 +22,16 @@ var Renditions = map[string]Rendition{
 	"480p":  {Name: "480p", Height: 480, VideoBitrate: 1_200_000, AudioBitrate: 96_000},
 }
 
+// CappedAt bounds the target video bitrate at the source's overall bitrate,
+// so a transcode never outweighs the file it came from (an efficient HEVC
+// source would otherwise ride the much higher h264 ladder cap).
+func (r Rendition) CappedAt(sourceBitrate int64) Rendition {
+	if sourceBitrate > 0 && sourceBitrate < r.VideoBitrate {
+		r.VideoBitrate = sourceBitrate
+	}
+	return r
+}
+
 type TranscodeSettings struct {
 	HWAccel       string   `json:"hwAccel"`       // auto | none | encoder name
 	Ladder        []string `json:"ladder"`        // rendition names for full transcodes

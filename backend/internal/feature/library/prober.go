@@ -112,6 +112,7 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 			}
 		} else if settings := media.LoadTranscodeSettings(ctx, p.Settings); settings.AutoPrepareEnabled() {
 			for _, r := range media.PrepareRenditions(settings.Ladder, res.Height) {
+				r = r.CappedAt(res.Bitrate)
 				if _, err := p.Files.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, "transcode"); err != nil {
 					return err
 				}

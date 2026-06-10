@@ -111,6 +111,7 @@ func (m *SessionManager) Create(ctx context.Context, appCtx context.Context, med
 	if mf.Height > 0 && mf.Height < 600 {
 		rendition = media.Renditions["480p"]
 	}
+	rendition = rendition.CappedAt(mf.Bitrate)
 
 	session := &Session{
 		ID:          id,

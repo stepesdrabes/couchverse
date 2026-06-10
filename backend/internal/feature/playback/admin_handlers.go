@@ -89,6 +89,7 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 		if ok && mf.Height > 0 && rendition.Height > mf.Height {
 			continue
 		}
+		rendition = rendition.CappedAt(mf.Bitrate)
 		mode := "transcode"
 		height := rendition.Height
 		var vbr, abr int64 = rendition.VideoBitrate, rendition.AudioBitrate
