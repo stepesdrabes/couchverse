@@ -143,22 +143,25 @@ func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (strin
 		return "", err
 	}
 
-	// uploading to a specific series: resolve SxxExx from the filename into a
-	// season/episode of that show, so the prober keeps the explicit target
+	// media files in a series attach to an episode, never to the show title —
+	// the check constraint allows at most one owner. When only a title is given
+	// (drag-drop onto the show), resolve SxxExx from the filename into an episode.
 	titleID, episodeID := assign.TitleID, assign.EpisodeID
-	if lib.Kind == "series" && titleID != nil && episodeID == nil {
-		if parsed := media.ParseVideoPath(session.Filename); parsed.IsEpisode {
-			seasonID, serr := m.Store.FindOrCreateSeason(ctx, *titleID, parsed.Season)
-			if serr != nil {
-				return "", serr
+	if lib.Kind == "series" {
+		if episodeID == nil && titleID != nil {
+			if parsed := media.ParseVideoPath(session.Filename); parsed.IsEpisode {
+				seasonID, serr := m.Store.FindOrCreateSeason(ctx, *titleID, parsed.Season)
+				if serr != nil {
+					return "", serr
+				}
+				epID, eerr := m.Store.FindOrCreateEpisode(ctx, seasonID, parsed.Episode, parsed.Name)
+				if eerr != nil {
+					return "", eerr
+				}
+				episodeID = &epID
 			}
-			epID, eerr := m.Store.FindOrCreateEpisode(ctx, seasonID, parsed.Episode, parsed.Name)
-			if eerr != nil {
-				return "", eerr
-			}
-			episodeID = &epID
 		}
-		titleID = nil // media files attach to episodes, never to a series title
+		titleID = nil
 	}
 
 	mediaFileID, err := m.Store.CreateAssignedMediaFile(ctx, lib.ID, relPath,
