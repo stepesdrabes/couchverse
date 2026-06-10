@@ -14,19 +14,19 @@
 		open?: boolean;
 		title: string;
 		description?: string;
-		size?: 'md' | 'lg';
+		size?: 'md' | 'lg' | 'xl';
 		children: Snippet;
 		footer?: Snippet;
 	} = $props();
+
+	const sizeClass = { md: 'max-w-md', lg: 'max-w-xl', xl: 'max-w-3xl' };
 </script>
 
 <Dialog.Root bind:open>
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 z-50 animate-fade-in bg-black/60 backdrop-blur-sm" />
 		<Dialog.Content
-			class="fixed top-1/2 left-1/2 z-50 w-full {size === 'lg'
-				? 'max-w-xl'
-				: 'max-w-md'} -translate-x-1/2 -translate-y-1/2
+			class="fixed top-1/2 left-1/2 z-50 w-full {sizeClass[size]} -translate-x-1/2 -translate-y-1/2
 				animate-pop-in rounded-card border border-edge bg-surface-2 p-6 shadow-2xl shadow-black/50"
 		>
 			<div class="mb-4 flex items-start justify-between gap-4">

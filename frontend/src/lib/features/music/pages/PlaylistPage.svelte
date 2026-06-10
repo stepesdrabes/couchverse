@@ -10,6 +10,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import * as musicApi from '$lib/features/music/api';
 	import { musicPlayer as player } from '$lib/features/music/player.svelte';
+	import { FormState } from '$lib/utils/form-state.svelte';
 	import { formatClock } from '$lib/utils/format';
 
 	let { data }: { data: Awaited<ReturnType<typeof musicApi.getPlaylist>> } = $props();
@@ -20,6 +21,13 @@
 	let renameOpen = $state(false);
 	let newName = $state(data.playlist.name);
 	let confirmDelete = $state(false);
+	const renameForm = new FormState(() => ({ newName }));
+
+	function openRename() {
+		newName = data.playlist.name;
+		renameForm.reset();
+		renameOpen = true;
+	}
 
 	const tracks = $derived(entries.map((e) => e.track));
 
@@ -95,7 +103,7 @@
 				<Play class="size-4 fill-current" />
 				Play
 			</Button>
-			<Button variant="ghost" size="md" onclick={() => (renameOpen = true)} aria-label="Rename">
+			<Button variant="ghost" size="md" onclick={openRename} aria-label="Rename">
 				<Pencil class="size-4" />
 			</Button>
 			<Button
@@ -174,7 +182,7 @@
 	<form onsubmit={rename} class="space-y-4">
 		<Input label="Name" bind:value={newName} required />
 		<div class="flex justify-end">
-			<Button type="submit">Save</Button>
+			<Button type="submit" disabled={!renameForm.dirty}>Save</Button>
 		</div>
 	</form>
 </Modal>

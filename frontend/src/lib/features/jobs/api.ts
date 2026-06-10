@@ -24,6 +24,20 @@ export interface Job {
 	claimedAt: string | null;
 	createdAt: string;
 	finishedAt: string | null;
+	subject?: JobSubject | null;
+}
+
+// The content a job works on, resolved server-side from the payload.
+export interface JobSubject {
+	mediaFileId?: string;
+	titleId?: string;
+	titleName?: string;
+	titleKind?: 'movie' | 'series';
+	seasonNumber?: number;
+	episodeNumber?: number;
+	episodeName?: string;
+	trackName?: string;
+	variant?: string;
 }
 
 export const listLibraries = () => api<Library[]>('/admin/libraries');
@@ -40,8 +54,14 @@ export const scanLibrary = (id: number) =>
 export const scanAllLibraries = () =>
 	api<{ libraries: number }>('/admin/libraries/scan-all', { method: 'POST' });
 
-export const listJobs = (status = '', limit = 50) =>
-	api<Job[]>(`/admin/jobs${qs({ status, limit })}`);
+export const listJobs = (filter: { status?: string; limit?: number; mediaFileId?: string } = {}) =>
+	api<Job[]>(
+		`/admin/jobs${qs({
+			status: filter.status ?? '',
+			limit: filter.limit ?? 50,
+			mediaFileId: filter.mediaFileId ?? ''
+		})}`
+	);
 
 export const retryJob = (id: number) => api<void>(`/admin/jobs/${id}/retry`, { method: 'POST' });
 export const cancelJob = (id: number) => api<void>(`/admin/jobs/${id}/cancel`, { method: 'POST' });
@@ -59,7 +79,7 @@ export interface ActiveTranscode {
 export const listActiveTranscodes = () => api<ActiveTranscode[]>('/admin/transcode/active');
 
 // storage & overview
-export type StorageCategoryKind = 'movies' | 'series' | 'music' | 'cache';
+export type StorageCategoryKind = 'movies' | 'series' | 'music' | 'transcodes' | 'cache';
 
 export interface StorageCategory {
 	kind: StorageCategoryKind;
@@ -100,6 +120,8 @@ export interface SystemStats {
 	goHeapBytes: number;
 	goroutines: number;
 	uptimeSeconds: number;
+	app: { cpuPercent: number; memBytes: number };
+	ffmpeg: { cpuPercent: number; memBytes: number; processes: number };
 }
 
 export const getSystem = () => api<SystemStats>('/admin/system');

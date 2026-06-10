@@ -6,9 +6,8 @@
 
 <div class="flex min-h-dvh">
 	<AdminSidebar />
+	<!-- pages in this group own their container so heroes can bleed full width -->
 	<main class="min-w-0 flex-1 overflow-x-hidden">
-		<div class="mx-auto max-w-7xl px-8 pb-12">
-			{@render children()}
-		</div>
+		{@render children()}
 	</main>
 </div>

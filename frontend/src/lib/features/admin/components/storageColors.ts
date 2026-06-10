@@ -5,5 +5,6 @@ export const categoryStyle: Record<StorageCategoryKind, { label: string; color: 
 	movies: { label: 'Movies', color: '#8b7cf0' }, // accent violet
 	series: { label: 'Series', color: '#38bdf8' }, // sky
 	music: { label: 'Music', color: '#f5b14c' }, // amber
+	transcodes: { label: 'Transcodes', color: '#34d399' }, // emerald
 	cache: { label: 'Cache', color: '#5b6072' } // faint grey
 };

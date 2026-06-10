@@ -9,14 +9,19 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
+	import { FormState } from '$lib/utils/form-state.svelte';
 
 	let rows = $state<HomeRowConfig[]>([]);
 	let genres = $state<Genre[]>([]);
 	let saving = $state(false);
 	let nextTempID = -1;
+	const form = new FormState(() => rows);
 
 	$effect(() => {
-		jobsApi.getHomeRows().then((r) => (rows = r));
+		jobsApi.getHomeRows().then((r) => {
+			rows = r;
+			form.reset();
+		});
 		listGenres().then((g) => (genres = g));
 	});
 
@@ -61,6 +66,7 @@
 		saving = true;
 		try {
 			rows = await jobsApi.putHomeRows(rows);
+			form.reset();
 			toast.success('Home page rows saved');
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : 'Failed to save rows');
@@ -139,6 +145,6 @@
 	</ul>
 
 	<div class="mt-4 flex justify-end">
-		<Button onclick={save} loading={saving}>Save rows</Button>
+		<Button onclick={save} loading={saving} disabled={!form.dirty}>Save rows</Button>
 	</div>
 </div>

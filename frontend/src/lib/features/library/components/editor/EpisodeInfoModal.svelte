@@ -7,12 +7,14 @@
 	import type { SubtitleInfo } from '$lib/features/library/api';
 	import type { Upload } from '$lib/features/uploads/uploader.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
+	import MediaFileJobs from '$lib/features/jobs/components/MediaFileJobs.svelte';
 	import FileVariants from '$lib/features/library/components/FileVariants.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Textarea from '$lib/components/ui/Textarea.svelte';
+	import { FormState } from '$lib/utils/form-state.svelte';
 	import { formatBytes, formatYearDate, qualityLabel } from '$lib/utils/format';
 	import SubtitleManager from './SubtitleManager.svelte';
 
@@ -36,6 +38,7 @@
 	let upload = $state<Upload | null>(null);
 	let fileInput = $state<HTMLInputElement>();
 	let loadedId = '';
+	const form = new FormState(() => ({ name, overview }));
 
 	$effect(() => {
 		if (episode && episode.id !== loadedId) {
@@ -43,6 +46,7 @@
 			name = episode.name;
 			overview = episode.overview;
 			upload = null;
+			form.reset();
 		}
 	});
 
@@ -51,6 +55,7 @@
 		saving = true;
 		try {
 			await libraryApi.updateEpisode(episode.id, { name, overview });
+			form.reset();
 			toast.success('Episode saved');
 			invalidateAll();
 		} catch {
@@ -78,21 +83,24 @@
 {#if episode}
 	<Modal
 		bind:open
-		size="lg"
+		size="xl"
 		title="Episode {episode.episodeNumber}"
 		description={episode.airDate ? `Aired ${formatYearDate(episode.airDate)}` : ''}
 	>
-		<div class="space-y-4">
-			<Input label="Name" bind:value={name} />
-			<Textarea label="Overview" bind:value={overview} />
-			<div class="flex justify-end">
-				<Button size="sm" loading={saving} onclick={save}>Save</Button>
+		<div class="space-y-6">
+			<div class="space-y-4">
+				<Input label="Name" bind:value={name} />
+				<Textarea label="Overview" bind:value={overview} rows={4} />
+				<div class="flex justify-end">
+					<Button loading={saving} disabled={!form.dirty} onclick={save}>Save</Button>
+				</div>
 			</div>
 
 			{#if file}
-				<div class="rounded-input border border-edge/70 bg-surface/40 p-3 text-xs">
-					<p class="truncate font-mono text-muted" title={file.path}>{file.path}</p>
-					<p class="mt-1 flex flex-wrap gap-1">
+				<section>
+					<h3 class="mb-2 text-sm font-semibold text-muted">File</h3>
+					<p class="truncate font-mono text-xs text-muted" title={file.path}>{file.path}</p>
+					<p class="mt-1.5 flex flex-wrap gap-1">
 						{#if qualityLabel(file.height)}
 							<Badge>{qualityLabel(file.height)}</Badge>
 						{/if}
@@ -107,7 +115,13 @@
 						{/if}
 					</p>
 					<FileVariants {file} />
-				</div>
+				</section>
+
+				<section>
+					<h3 class="mb-2 text-sm font-semibold text-muted">Jobs</h3>
+					<MediaFileJobs mediaFileId={file.id} />
+				</section>
+
 				<SubtitleManager mediaFile={file} {subtitles} />
 			{:else if !uploadActive}
 				<p class="text-xs text-faint">No video file attached to this episode yet.</p>

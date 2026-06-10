@@ -1,7 +1,10 @@
 <script lang="ts">
-	import { ArrowLeft, ListPlus, Sparkles, Trash2 } from 'lucide-svelte';
+	import { invalidateAll } from '$app/navigation';
+	import { ArrowLeft, ImagePlus, ListPlus, Sparkles, Trash2 } from 'lucide-svelte';
+	import { toast } from 'svelte-sonner';
 	import { artworkUrl } from '$lib/features/catalog/api';
 	import type { ArtworkRef, Title } from '$lib/features/catalog/types';
+	import * as libraryApi from '$lib/features/library/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import StatusPill from '$lib/components/ui/StatusPill.svelte';
 
@@ -21,9 +24,33 @@
 
 	const poster = $derived(artwork.find((a) => a.kind === 'poster'));
 	const backdrop = $derived(artwork.find((a) => a.kind === 'backdrop'));
+
+	let posterInput = $state<HTMLInputElement>();
+	let backdropInput = $state<HTMLInputElement>();
+
+	async function upload(kind: 'poster' | 'backdrop', files: FileList | null) {
+		const file = files?.[0];
+		if (!file) return;
+		try {
+			await libraryApi.uploadArtwork('title', title.id, kind, file);
+			toast.success(`${kind} updated`);
+			invalidateAll();
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'upload failed');
+		}
+	}
+
+	async function remove(art: ArtworkRef) {
+		try {
+			await libraryApi.deleteArtwork(art.id);
+			invalidateAll();
+		} catch {
+			toast.error('failed to delete artwork');
+		}
+	}
 </script>
 
-<header class="relative -mx-8 mb-8 overflow-hidden">
+<header class="group/hero relative mb-8 overflow-hidden">
 	<div class="absolute inset-0">
 		{#if backdrop}
 			<img src={artworkUrl(backdrop.id)} alt="" class="size-full object-cover opacity-30" />
@@ -33,7 +60,34 @@
 		<div class="absolute inset-0 bg-gradient-to-t from-bg via-bg/70 to-bg/30"></div>
 	</div>
 
-	<div class="relative px-8 pt-6 pb-8">
+	<!-- backdrop controls: hover-revealed on desktop, always visible on touch -->
+	<div
+		class="absolute top-5 right-5 z-10 flex gap-2 transition-opacity
+			md:opacity-0 md:group-hover/hero:opacity-100 md:focus-within:opacity-100"
+	>
+		<button
+			type="button"
+			class="flex items-center gap-1.5 rounded-full border border-edge/60 bg-bg/60 px-3 py-1.5
+				text-xs font-medium text-muted backdrop-blur transition-colors hover:text-text"
+			onclick={() => backdropInput?.click()}
+		>
+			<ImagePlus class="size-3.5" />
+			{backdrop ? 'Replace backdrop' : 'Add backdrop'}
+		</button>
+		{#if backdrop}
+			<button
+				type="button"
+				class="rounded-full border border-edge/60 bg-bg/60 p-2 text-muted backdrop-blur
+					transition-colors hover:text-danger"
+				onclick={() => remove(backdrop)}
+				aria-label="Remove backdrop"
+			>
+				<Trash2 class="size-3.5" />
+			</button>
+		{/if}
+	</div>
+
+	<div class="relative mx-auto max-w-7xl px-8 pt-6 pb-8">
 		<a
 			href="/admin/library"
 			class="mb-8 inline-flex items-center gap-1.5 text-xs font-medium text-faint transition-colors hover:text-text"
@@ -44,11 +98,35 @@
 
 		<div class="flex items-end gap-6">
 			<div
-				class="hidden aspect-[2/3] w-28 shrink-0 overflow-hidden rounded-card border border-edge/60
-					bg-surface-2 shadow-2xl shadow-black/50 md:block"
+				class="group/poster relative aspect-[2/3] w-24 shrink-0 overflow-hidden rounded-card
+					border border-edge/60 bg-surface-2 shadow-2xl shadow-black/50 md:w-28"
 			>
 				{#if poster}
 					<img src="{artworkUrl(poster.id)}?size=w342" alt="" class="size-full object-cover" />
+				{:else}
+					<span class="flex size-full items-center justify-center">
+						<ImagePlus class="size-5 text-faint" />
+					</span>
+				{/if}
+				<button
+					type="button"
+					class="absolute inset-0 flex items-center justify-center bg-black/55 opacity-0
+						transition-opacity group-hover/poster:opacity-100 focus-visible:opacity-100"
+					onclick={() => posterInput?.click()}
+					title={poster ? 'Replace poster' : 'Upload poster'}
+				>
+					<ImagePlus class="size-5 text-white" />
+				</button>
+				{#if poster}
+					<button
+						type="button"
+						class="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1.5 text-white/80 opacity-0
+							transition-opacity group-hover/poster:opacity-100 hover:text-danger"
+						onclick={() => remove(poster)}
+						aria-label="Remove poster"
+					>
+						<Trash2 class="size-3" />
+					</button>
 				{/if}
 			</div>
 
@@ -88,3 +166,24 @@
 		</div>
 	</div>
 </header>
+
+<input
+	bind:this={posterInput}
+	type="file"
+	accept=".jpg,.jpeg,.png,.webp"
+	class="hidden"
+	onchange={(e) => {
+		upload('poster', e.currentTarget.files);
+		e.currentTarget.value = '';
+	}}
+/>
+<input
+	bind:this={backdropInput}
+	type="file"
+	accept=".jpg,.jpeg,.png,.webp"
+	class="hidden"
+	onchange={(e) => {
+		upload('backdrop', e.currentTarget.files);
+		e.currentTarget.value = '';
+	}}
+/>

@@ -3,7 +3,6 @@
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import * as libraryApi from '$lib/features/library/api';
-	import ArtworkCard from '$lib/features/library/components/ArtworkCard.svelte';
 	import TmdbSearchModal from '$lib/features/library/components/TmdbSearchModal.svelte';
 	import EditorHero from '$lib/features/library/components/editor/EditorHero.svelte';
 	import EpisodesTable from '$lib/features/library/components/editor/EpisodesTable.svelte';
@@ -105,54 +104,47 @@
 	onDelete={() => (confirmDeleteTitle = true)}
 />
 
-<div class="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_340px]">
-	<div class="space-y-8">
-		<form onsubmit={save} class="space-y-4 rounded-card border border-edge bg-surface/40 p-6">
-			<h2 class="text-sm font-semibold text-muted">Metadata</h2>
-			<div class="grid gap-4 sm:grid-cols-2">
-				<Input label="Name" bind:value={name} required />
-				<Input label="Year" type="number" bind:value={year} />
-				<Input label="Content rating" bind:value={contentRating} placeholder="TV-14, PG-13…" />
-				{#if data.title.kind === 'movie'}
-					<Input label="Runtime (minutes)" type="number" bind:value={runtime} />
-				{/if}
-			</div>
-			<Textarea label="Overview" bind:value={overview} />
-			<Input label="Genres" bind:value={genres} placeholder="Sci-Fi, Drama" />
-			<div class="flex items-center justify-between pt-2">
-				<Select
-					bind:value={status}
-					label="Status"
-					items={[
-						{ value: 'draft', label: 'Draft' },
-						{ value: 'published', label: 'Published' },
-						{ value: 'hidden', label: 'Hidden' }
-					]}
-				/>
-				<Button type="submit" loading={saving} disabled={!form.dirty}>Save changes</Button>
-			</div>
-		</form>
-
-		{#if data.title.kind === 'series'}
-			<EpisodesTable
-				titleId={data.title.id}
-				seasons={data.seasons ?? []}
-				mediaFiles={data.mediaFiles}
-				subtitlesByFile={data.subtitlesByFile ?? {}}
+<div class="mx-auto max-w-7xl space-y-8 px-8 pb-12">
+	<form onsubmit={save} class="space-y-4 rounded-card border border-edge bg-surface/40 p-6">
+		<h2 class="text-sm font-semibold text-muted">Metadata</h2>
+		<div class="grid gap-4 sm:grid-cols-2">
+			<Input label="Name" bind:value={name} required />
+			<Input label="Year" type="number" bind:value={year} />
+			<Input label="Content rating" bind:value={contentRating} placeholder="TV-14, PG-13…" />
+			{#if data.title.kind === 'movie'}
+				<Input label="Runtime (minutes)" type="number" bind:value={runtime} />
+			{/if}
+		</div>
+		<Textarea label="Overview" bind:value={overview} />
+		<Input label="Genres" bind:value={genres} placeholder="Sci-Fi, Drama" />
+		<div class="flex items-center justify-between pt-2">
+			<Select
+				bind:value={status}
+				label="Status"
+				items={[
+					{ value: 'draft', label: 'Draft' },
+					{ value: 'published', label: 'Published' },
+					{ value: 'hidden', label: 'Hidden' }
+				]}
 			/>
-		{/if}
-	</div>
+			<Button type="submit" loading={saving} disabled={!form.dirty}>Save changes</Button>
+		</div>
+	</form>
 
-	<aside class="order-first space-y-6 lg:order-none">
-		<ArtworkCard titleId={data.title.id} artwork={data.artwork} />
-		{#if data.title.kind === 'movie'}
-			<MovieFilesPanel
-				titleId={data.title.id}
-				mediaFiles={data.mediaFiles}
-				subtitlesByFile={data.subtitlesByFile ?? {}}
-			/>
-		{/if}
-	</aside>
+	{#if data.title.kind === 'series'}
+		<EpisodesTable
+			titleId={data.title.id}
+			seasons={data.seasons ?? []}
+			mediaFiles={data.mediaFiles}
+			subtitlesByFile={data.subtitlesByFile ?? {}}
+		/>
+	{:else}
+		<MovieFilesPanel
+			titleId={data.title.id}
+			mediaFiles={data.mediaFiles}
+			subtitlesByFile={data.subtitlesByFile ?? {}}
+		/>
+	{/if}
 </div>
 
 <Confirm

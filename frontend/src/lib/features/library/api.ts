@@ -237,6 +237,7 @@ export interface TranscodeVariant {
 	height: number;
 	mode: 'copy' | 'transcode';
 	status: 'queued' | 'processing' | 'ready' | 'failed';
+	sizeBytes: number;
 	createdAt: string;
 	completedAt: string | null;
 }

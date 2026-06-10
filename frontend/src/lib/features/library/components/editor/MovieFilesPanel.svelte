@@ -5,6 +5,7 @@
 	import type { SubtitleInfo } from '$lib/features/library/api';
 	import type { Upload } from '$lib/features/uploads/uploader.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
+	import MediaFileJobs from '$lib/features/jobs/components/MediaFileJobs.svelte';
 	import FileVariants from '$lib/features/library/components/FileVariants.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -123,6 +124,10 @@
 						</button>
 					</div>
 					<FileVariants {file} />
+					<div class="mt-3">
+						<p class="mb-1 text-[11px] font-medium text-faint">Jobs</p>
+						<MediaFileJobs mediaFileId={file.id} />
+					</div>
 				</li>
 			{/each}
 		</ul>

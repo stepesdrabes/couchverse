@@ -6,16 +6,20 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
+	import { FormState } from '$lib/utils/form-state.svelte';
 
 	let displayName = $state(session.user?.displayName ?? '');
 	let saving = $state(false);
 	let fileInput = $state<HTMLInputElement>();
+	const form = new FormState(() => ({ displayName }));
+	form.reset();
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
 		saving = true;
 		try {
 			session.user = await authApi.updateProfile(displayName.trim());
+			form.reset();
 			toast.success('Profile saved');
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : 'Failed to save profile');
@@ -91,7 +95,7 @@
 		<form onsubmit={save} class="space-y-4">
 			<Input label="Display name" bind:value={displayName} required maxlength={60} />
 			<div class="flex justify-end">
-				<Button type="submit" loading={saving}>Save</Button>
+				<Button type="submit" loading={saving} disabled={!form.dirty}>Save</Button>
 			</div>
 		</form>
 	</div>

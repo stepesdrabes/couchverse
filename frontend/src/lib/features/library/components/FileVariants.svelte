@@ -4,6 +4,7 @@
 	import type { MediaFile } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { TranscodeVariant } from '$lib/features/library/api';
+	import { formatBytes } from '$lib/utils/format';
 
 	let { file }: { file: MediaFile } = $props();
 
@@ -58,6 +59,9 @@
 						<span class="font-semibold">{variant.name}</span>
 						<span class={statusColor[variant.status]}>{variant.status}</span>
 						<span class="text-faint">({variant.mode})</span>
+						{#if variant.sizeBytes > 0}
+							<span class="text-faint tnum">{formatBytes(variant.sizeBytes)}</span>
+						{/if}
 						<button
 							class="rounded-full p-0.5 text-faint transition-colors hover:text-danger"
 							onclick={() => remove(variant)}
