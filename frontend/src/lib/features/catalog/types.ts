@@ -4,7 +4,8 @@ export type TitleKind = 'movie' | 'series';
 export type ContentStatus = 'draft' | 'processing' | 'published' | 'hidden';
 
 export interface Title {
-	id: number;
+	id: string;
+	slug: string;
 	kind: TitleKind;
 	name: string;
 	sortName: string;
@@ -21,8 +22,8 @@ export interface Title {
 }
 
 export interface Season {
-	id: number;
-	titleId: number;
+	id: string;
+	titleId: string;
 	seasonNumber: number;
 	name: string;
 	overview: string;
@@ -30,8 +31,8 @@ export interface Season {
 }
 
 export interface Episode {
-	id: number;
-	seasonId: number;
+	id: string;
+	seasonId: string;
 	episodeNumber: number;
 	name: string;
 	overview: string;
@@ -45,19 +46,20 @@ export interface Genre {
 }
 
 export interface CardItem {
-	titleId: number;
+	titleId: string;
+	slug: string;
 	kind: TitleKind;
 	name: string;
 	year: number | null;
-	posterId: number | null;
-	backdropId: number | null;
+	posterId: string | null;
+	backdropId: string | null;
 }
 
 export interface ContinueItem extends CardItem {
-	episodeId: number | null;
+	episodeId: string | null;
 	episodeLabel: string;
 	playbackKind: 'movie' | 'episode';
-	playbackId: number;
+	playbackId: string;
 	positionSeconds: number;
 	durationSeconds: number;
 	updatedAt: string;
@@ -71,15 +73,15 @@ export interface HomeRow {
 
 export interface HomeData {
 	featured: Title | null;
-	featuredBackdropId: number | null;
+	featuredBackdropId: string | null;
 	featuredInList: boolean;
 	rows: HomeRow[];
 }
 
 export interface ArtworkRef {
-	id: number;
+	id: string;
 	ownerKind: string;
-	ownerId: number;
+	ownerId: string;
 	kind: 'poster' | 'backdrop' | 'thumb' | 'album_cover' | 'artist_photo';
 	path: string;
 	width: number;
@@ -100,12 +102,12 @@ export interface TitleDetail {
 	mediaFiles: MediaFile[];
 	artwork: ArtworkRef[];
 	seasons?: Season[];
-	episodeProgress?: Record<number, EpisodeProgress>;
+	episodeProgress?: Record<string, EpisodeProgress>;
 	progress?: EpisodeProgress;
 }
 
 export interface SearchHit {
-	id: number;
+	id: string;
 	name: string;
 	subtitle: string;
 }
@@ -118,11 +120,11 @@ export interface SearchResults {
 }
 
 export interface MediaFile {
-	id: number;
+	id: string;
 	libraryId: number;
-	titleId: number | null;
-	episodeId: number | null;
-	trackId: number | null;
+	titleId: string | null;
+	episodeId: string | null;
+	trackId: string | null;
 	path: string;
 	sizeBytes: number;
 	container: string;

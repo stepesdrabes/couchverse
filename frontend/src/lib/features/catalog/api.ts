@@ -16,17 +16,17 @@ export interface BrowseQuery {
 export const browse = (query: BrowseQuery) =>
 	api<{ items: CardItem[]; total: number }>(`/titles${qs({ ...query })}`);
 
-export const getTitle = (id: number) => api<TitleDetail>(`/titles/${id}`);
+export const getTitle = (slug: string) => api<TitleDetail>(`/titles/${slug}`);
 
 export const search = (q: string, signal?: AbortSignal) =>
 	api<SearchResults>(`/search${qs({ q })}`, { signal });
 
 export const myList = () => api<CardItem[]>('/me/watchlist');
 
-export const addToList = (titleId: number) =>
+export const addToList = (titleId: string) =>
 	api<void>(`/me/watchlist/${titleId}`, { method: 'PUT' });
 
-export const removeFromList = (titleId: number) =>
+export const removeFromList = (titleId: string) =>
 	api<void>(`/me/watchlist/${titleId}`, { method: 'DELETE' });
 
-export const artworkUrl = (id: number) => `/api/v1/artwork/${id}`;
+export const artworkUrl = (id: string) => `/api/v1/artwork/${id}`;

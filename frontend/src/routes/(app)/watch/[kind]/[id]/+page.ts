@@ -8,7 +8,7 @@ export async function load({ params }) {
 		error(404, 'Not found');
 	}
 	try {
-		const info = await getPlayback(kind, Number(params.id));
+		const info = await getPlayback(kind, params.id);
 		let jitSessionId: string | null = null;
 
 		if (info.mode === 'jit') {
@@ -19,7 +19,7 @@ export async function load({ params }) {
 			jitSessionId = session.sessionId;
 		}
 
-		return { info, kind, id: Number(params.id), jitSessionId };
+		return { info, kind, id: params.id, jitSessionId };
 	} catch (err) {
 		if (err instanceof ApiError && err.status === 404) {
 			error(404, err.message);

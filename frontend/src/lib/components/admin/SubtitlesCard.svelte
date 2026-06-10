@@ -9,10 +9,10 @@
 
 	const videoFiles = $derived(mediaFiles.filter((f) => f.videoCodec !== ''));
 
-	let subsByFile = $state<Record<number, SubtitleInfo[]>>({});
+	let subsByFile = $state<Record<string, SubtitleInfo[]>>({});
 	let lang = $state('en');
 	let fileInput = $state<HTMLInputElement>();
-	let targetFile = $state<number | null>(null);
+	let targetFile = $state<string | null>(null);
 
 	async function refresh() {
 		const entries = await Promise.all(
@@ -25,7 +25,7 @@
 		if (videoFiles.length > 0) refresh();
 	});
 
-	function pickFile(mediaFileId: number) {
+	function pickFile(mediaFileId: string) {
 		targetFile = mediaFileId;
 		fileInput?.click();
 	}

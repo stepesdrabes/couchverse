@@ -1,48 +1,48 @@
 import { api } from '$lib/api/client';
 
 export interface AlbumCard {
-	id: number;
+	id: string;
 	name: string;
 	year: number | null;
-	artistId: number;
+	artistId: string;
 	artistName: string;
-	coverId: number | null;
+	coverId: string | null;
 	trackCount: number;
 }
 
 export interface TrackItem {
-	id: number;
-	albumId: number;
+	id: string;
+	albumId: string;
 	discNumber: number;
 	trackNumber: number;
 	name: string;
 	durationSeconds: number;
 	trackArtist: string | null;
-	mediaFileId: number | null;
+	mediaFileId: string | null;
 	albumName: string;
-	artistId: number;
+	artistId: string;
 	artistName: string;
-	coverId: number | null;
+	coverId: string | null;
 }
 
 export interface ArtistCard {
-	id: number;
+	id: string;
 	name: string;
 	albumCount: number;
 }
 
 export interface Playlist {
-	id: number;
+	id: string;
 	userId: number;
 	name: string;
 	trackCount: number;
-	coverId: number | null;
+	coverId: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
 
 export interface PlaylistEntry {
-	entryId: number;
+	entryId: string;
 	position: number;
 	track: TrackItem;
 }
@@ -56,13 +56,13 @@ export interface MusicHome {
 
 export const musicHome = () => api<MusicHome>('/music');
 
-export const getAlbum = (id: number) =>
+export const getAlbum = (id: string) =>
 	api<{ album: AlbumCard; tracks: TrackItem[] }>(`/music/albums/${id}`);
 
-export const getArtist = (id: number) =>
+export const getArtist = (id: string) =>
 	api<{ artist: ArtistCard; albums: AlbumCard[] }>(`/music/artists/${id}`);
 
-export const scrobble = (trackId: number) =>
+export const scrobble = (trackId: string) =>
 	api<void>('/plays', { method: 'POST', body: { trackId } });
 
 // playlists
@@ -71,20 +71,20 @@ export const listPlaylists = () => api<Playlist[]>('/me/playlists');
 export const createPlaylist = (name: string) =>
 	api<Playlist>('/me/playlists', { method: 'POST', body: { name } });
 
-export const getPlaylist = (id: number) =>
+export const getPlaylist = (id: string) =>
 	api<{ playlist: Playlist; entries: PlaylistEntry[] }>(`/me/playlists/${id}`);
 
-export const renamePlaylist = (id: number, name: string) =>
+export const renamePlaylist = (id: string, name: string) =>
 	api<void>(`/me/playlists/${id}`, { method: 'PATCH', body: { name } });
 
-export const deletePlaylist = (id: number) =>
+export const deletePlaylist = (id: string) =>
 	api<void>(`/me/playlists/${id}`, { method: 'DELETE' });
 
-export const addPlaylistTrack = (playlistId: number, trackId: number) =>
+export const addPlaylistTrack = (playlistId: string, trackId: string) =>
 	api<void>(`/me/playlists/${playlistId}/tracks`, { method: 'POST', body: { trackId } });
 
-export const removePlaylistEntry = (playlistId: number, entryId: number) =>
+export const removePlaylistEntry = (playlistId: string, entryId: string) =>
 	api<void>(`/me/playlists/${playlistId}/tracks/${entryId}`, { method: 'DELETE' });
 
-export const reorderPlaylist = (playlistId: number, entryIds: number[]) =>
+export const reorderPlaylist = (playlistId: string, entryIds: string[]) =>
 	api<void>(`/me/playlists/${playlistId}/order`, { method: 'PUT', body: { entryIds } });

@@ -5,7 +5,7 @@
 		name,
 		avatarId,
 		class: cls = 'size-8 rounded-lg text-xs'
-	}: { name: string; avatarId: number | null | undefined; class?: string } = $props();
+	}: { name: string; avatarId: string | null | undefined; class?: string } = $props();
 </script>
 
 <span

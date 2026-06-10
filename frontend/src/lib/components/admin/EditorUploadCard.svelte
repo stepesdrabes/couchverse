@@ -10,7 +10,7 @@
 		kind,
 		titleId = null,
 		hint
-	}: { kind: LibraryKind; titleId?: number | null; hint: string } = $props();
+	}: { kind: LibraryKind; titleId?: string | null; hint: string } = $props();
 
 	// only the uploads started from this card
 	let mine = $state<Upload[]>([]);

@@ -6,7 +6,7 @@
 	import type { ArtworkRef } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
 
-	let { titleId, artwork }: { titleId: number; artwork: ArtworkRef[] } = $props();
+	let { titleId, artwork }: { titleId: string; artwork: ArtworkRef[] } = $props();
 
 	const slots: { kind: 'poster' | 'backdrop'; label: string; aspect: string }[] = [
 		{ kind: 'poster', label: 'Poster', aspect: 'aspect-[2/3] w-24' },

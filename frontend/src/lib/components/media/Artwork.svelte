@@ -5,7 +5,7 @@
 		artworkId,
 		name,
 		class: cls = ''
-	}: { artworkId: number | null; name: string; class?: string } = $props();
+	}: { artworkId: string | null; name: string; class?: string } = $props();
 </script>
 
 {#if artworkId}

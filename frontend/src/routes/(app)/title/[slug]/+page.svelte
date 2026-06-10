@@ -19,7 +19,7 @@
 	const backdrop = $derived(data.artwork.find((a) => a.kind === 'backdrop'));
 
 	const fileByEpisode = $derived(
-		new Map(data.mediaFiles.filter((f) => f.episodeId).map((f) => [f.episodeId as number, f]))
+		new Map(data.mediaFiles.filter((f) => f.episodeId).map((f) => [f.episodeId as string, f]))
 	);
 	const maxHeight = $derived(Math.max(0, ...data.mediaFiles.map((f) => f.height)));
 	const hdr = $derived(data.mediaFiles.some((f) => f.videoRange !== 'sdr'));

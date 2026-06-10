@@ -4,16 +4,16 @@ import type { ContinueItem } from '$lib/features/catalog/types';
 export type PlaybackKind = 'movie' | 'episode';
 
 export interface EpisodeRef {
-	episodeId: number;
+	episodeId: string;
 	seasonNumber: number;
 	episodeNumber: number;
 	name: string;
-	titleId: number;
+	titleId: string;
 	titleName: string;
 }
 
 export interface SubtitleTrack {
-	id: number;
+	id: string;
 	lang: string;
 	label: string;
 	forced: boolean;
@@ -22,17 +22,17 @@ export interface SubtitleTrack {
 
 export interface PlaybackInfo {
 	mode: 'direct' | 'hls' | 'jit' | 'preparing' | 'unsupported';
-	mediaFileId: number;
+	mediaFileId: string;
 	streamUrl?: string;
 	durationSeconds: number;
 	resumePosition: number;
-	display: { title: string; subtitle: string; titleId: number };
+	display: { title: string; subtitle: string; titleId: string; titleSlug: string };
 	nextEpisode: EpisodeRef | null;
 	subtitles: SubtitleTrack[];
 	jobProgress?: number;
 }
 
-export const getPlayback = (kind: PlaybackKind, id: number) =>
+export const getPlayback = (kind: PlaybackKind, id: string) =>
 	api<PlaybackInfo>(`/playback/${kind}/${id}?caps=${clientCaps().join(',')}`);
 
 /** codecs this browser can direct-play beyond the h264 baseline */
@@ -46,8 +46,8 @@ export function clientCaps(): string[] {
 }
 
 export interface ProgressReport {
-	titleId?: number;
-	episodeId?: number;
+	titleId?: string;
+	episodeId?: string;
 	positionSeconds: number;
 	durationSeconds: number;
 }
@@ -66,7 +66,7 @@ export function beaconProgress(report: ProgressReport) {
 export const continueWatching = () => api<ContinueItem[]>('/me/continue-watching');
 
 // JIT ("instant play") sessions
-export const createJitSession = (mediaFileId: number, startAt: number) =>
+export const createJitSession = (mediaFileId: string, startAt: number) =>
 	api<{ sessionId: string; playlistUrl: string }>(`/stream/${mediaFileId}/sessions`, {
 		method: 'POST',
 		body: { startAt }

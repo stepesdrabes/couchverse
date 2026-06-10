@@ -23,11 +23,12 @@ export const getSession = (id: string) => api<UploadSession>(`/admin/uploads/${i
 
 export interface UploadAssign {
 	/** attach the upload to a specific movie title or series (episode resolved from SxxExx) */
-	titleId?: number;
+	titleId?: string;
+	episodeId?: string;
 }
 
 export const completeSession = (id: string, libraryKind: LibraryKind, assign: UploadAssign = {}) =>
-	api<{ mediaFileId: number }>(`/admin/uploads/${id}/complete`, {
+	api<{ mediaFileId: string }>(`/admin/uploads/${id}/complete`, {
 		method: 'POST',
 		body: { libraryKind, ...assign }
 	});

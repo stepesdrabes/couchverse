@@ -32,7 +32,7 @@
 	let tmdbOpen = $state(false);
 
 	// season/episode editing state
-	let newEpisodeName = $state<Record<number, string>>({});
+	let newEpisodeName = $state<Record<string, string>>({});
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
@@ -93,7 +93,7 @@
 		}
 	}
 
-	async function removeEpisode(id: number) {
+	async function removeEpisode(id: string) {
 		try {
 			await libraryApi.deleteEpisode(id);
 			invalidateAll();

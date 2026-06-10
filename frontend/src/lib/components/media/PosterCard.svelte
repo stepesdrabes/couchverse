@@ -5,7 +5,7 @@
 	let { item }: { item: CardItem } = $props();
 </script>
 
-<a href="/title/{item.titleId}" class="group">
+<a href="/title/{item.slug}" class="group">
 	<div
 		class="aspect-[2/3] overflow-hidden rounded-xl border border-edge/50 transition-all
 			duration-300 group-hover:scale-[1.04] group-hover:border-accent/60 group-hover:shadow-lg

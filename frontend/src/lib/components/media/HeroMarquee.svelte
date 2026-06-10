@@ -12,7 +12,7 @@
 		featured,
 		backdropId = null,
 		inList = false
-	}: { featured: Title; backdropId?: number | null; inList?: boolean } = $props();
+	}: { featured: Title; backdropId?: string | null; inList?: boolean } = $props();
 
 	let listed = $derived(inList);
 
@@ -20,7 +20,7 @@
 
 	function play() {
 		if (featured.kind === 'movie') goto(`/watch/movie/${featured.id}`);
-		else goto(`/title/${featured.id}`);
+		else goto(`/title/${featured.slug}`);
 	}
 
 	async function toggleList() {

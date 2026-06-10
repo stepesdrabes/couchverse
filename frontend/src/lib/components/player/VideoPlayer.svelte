@@ -30,8 +30,8 @@
 		jitSessionId = null
 	}: {
 		info: PlaybackInfo;
-		titleId?: number | null;
-		episodeId?: number | null;
+		titleId?: string | null;
+		episodeId?: string | null;
 		jitSessionId?: string | null;
 	} = $props();
 
@@ -52,7 +52,7 @@
 	let lastReported = 0;
 
 	// subtitle selection: track id or null (off); restore the preferred language
-	let activeSub = $state<number | null>(null);
+	let activeSub = $state<string | null>(null);
 
 	function applySubtitles() {
 		if (!video) return;
@@ -62,7 +62,7 @@
 		}
 	}
 
-	function selectSubtitle(id: number | null) {
+	function selectSubtitle(id: string | null) {
 		activeSub = id;
 		const lang = info.subtitles.find((s) => s.id === id)?.lang;
 		if (lang) localStorage.setItem('cv.subLang', lang);
@@ -161,7 +161,7 @@
 	function onEnded() {
 		report();
 		if (info.nextEpisode) goNextEpisode();
-		else goto(`/title/${info.display.titleId}`);
+		else goto(`/title/${info.display.titleSlug}`);
 	}
 
 	function seekTo(event: PointerEvent, track: HTMLElement) {
@@ -311,7 +311,7 @@
 		>
 			<button
 				class="rounded-full p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-				onclick={() => goto(`/title/${info.display.titleId}`)}
+				onclick={() => goto(`/title/${info.display.titleSlug}`)}
 				aria-label="Back"
 			>
 				<ArrowLeft class="size-5" />

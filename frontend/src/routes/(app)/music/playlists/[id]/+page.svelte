@@ -44,7 +44,7 @@
 		}
 	}
 
-	async function removeEntry(entryId: number) {
+	async function removeEntry(entryId: string) {
 		entries = entries.filter((e) => e.entryId !== entryId);
 		try {
 			await musicApi.removePlaylistEntry(data.playlist.id, entryId);
@@ -74,7 +74,7 @@
 		}
 	}
 
-	const isPlaying = (trackId: number) => player.current?.id === trackId;
+	const isPlaying = (trackId: string) => player.current?.id === trackId;
 </script>
 
 <svelte:head>

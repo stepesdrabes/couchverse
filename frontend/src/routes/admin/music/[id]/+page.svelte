@@ -21,7 +21,7 @@
 	let saving = $state(false);
 	let confirmDelete = $state(false);
 
-	let editingTrack = $state<number | null>(null);
+	let editingTrack = $state<string | null>(null);
 	let trackName = $state('');
 	let coverInput = $state<HTMLInputElement>();
 
@@ -56,7 +56,7 @@
 		}
 	}
 
-	async function saveTrack(id: number) {
+	async function saveTrack(id: string) {
 		const next = trackName.trim();
 		editingTrack = null;
 		if (!next) return;
@@ -68,7 +68,7 @@
 		}
 	}
 
-	async function removeTrack(id: number) {
+	async function removeTrack(id: string) {
 		try {
 			await libraryApi.deleteTrack(id);
 			invalidateAll();

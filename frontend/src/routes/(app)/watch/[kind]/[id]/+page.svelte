@@ -49,7 +49,7 @@
 			title editor (Files → Prepare HLS).
 		</p>
 		<a
-			href="/title/{data.info.display.titleId}"
+			href="/title/{data.info.display.titleSlug}"
 			class="inline-flex h-10 items-center gap-2 rounded-full border border-edge bg-surface/60
 				px-5 text-sm font-semibold transition-colors hover:border-faint hover:bg-surface-2"
 		>

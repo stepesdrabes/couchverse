@@ -6,7 +6,7 @@ export interface User {
 	displayName: string;
 	role: 'admin' | 'member';
 	disabled: boolean;
-	avatarId: number | null;
+	avatarId: string | null;
 	createdAt: string;
 }
 

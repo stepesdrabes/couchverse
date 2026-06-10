@@ -26,7 +26,7 @@
 	let status = $state('');
 	let sort = $state('added');
 	let query = $state('');
-	const selected = new SvelteSet<number>();
+	const selected = new SvelteSet<string>();
 
 	let createOpen = $state(false);
 	let confirmDelete = $state(false);
@@ -70,7 +70,7 @@
 		}, 250);
 	}
 
-	function toggle(id: number, on: boolean) {
+	function toggle(id: string, on: boolean) {
 		if (on) selected.add(id);
 		else selected.delete(id);
 	}
