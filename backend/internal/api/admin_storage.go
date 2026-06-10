@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"net/http"
 	"path/filepath"
-	"syscall"
 
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
@@ -34,11 +33,8 @@ func dirSize(path string) int64 {
 }
 
 func (h *AdminStorage) Get(w http.ResponseWriter, r *http.Request) {
-	var stat syscall.Statfs_t
 	disk := map[string]int64{}
-	if err := syscall.Statfs(h.dataDir, &stat); err == nil {
-		total := int64(stat.Blocks) * int64(stat.Bsize)
-		free := int64(stat.Bavail) * int64(stat.Bsize)
+	if total, free, ok := diskUsage(h.dataDir); ok {
 		disk["total"] = total
 		disk["free"] = free
 		disk["used"] = total - free
