@@ -1,9 +1,11 @@
 <script lang="ts">
 	import type { ContinueItem } from '$lib/features/catalog/types';
+	import type { AlbumCard as AlbumCardType } from '$lib/features/music/api';
 	import ContinueWatchingCard from '$lib/components/media/ContinueWatchingCard.svelte';
 	import HeroMarquee from '$lib/components/media/HeroMarquee.svelte';
 	import MediaRow from '$lib/components/media/MediaRow.svelte';
 	import TitleCard from '$lib/components/media/TitleCard.svelte';
+	import AlbumCard from '$lib/components/music/AlbumCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
 	let { data } = $props();
@@ -25,8 +27,12 @@
 					{#each row.items as ContinueItem[] as item (item.playbackKind + item.playbackId)}
 						<ContinueWatchingCard {item} />
 					{/each}
+				{:else if row.kind === 'recently_played_music'}
+					{#each row.items as AlbumCardType[] as album (album.id)}
+						<AlbumCard {album} />
+					{/each}
 				{:else}
-					{#each row.items as item (item.titleId)}
+					{#each row.items as ContinueItem[] as item (item.titleId)}
 						<TitleCard {item} />
 					{/each}
 				{/if}

@@ -66,7 +66,7 @@ export interface ContinueItem extends CardItem {
 export interface HomeRow {
 	kind: 'continue_watching' | 'recently_added' | 'genre' | 'recently_played_music';
 	label: string;
-	items: CardItem[] | ContinueItem[];
+	items: CardItem[] | ContinueItem[] | import('$lib/features/music/api').AlbumCard[];
 }
 
 export interface HomeData {

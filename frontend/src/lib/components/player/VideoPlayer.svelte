@@ -18,6 +18,7 @@
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
+	import { musicPlayer } from '$lib/features/music/player.svelte';
 	import type { PlaybackInfo } from '$lib/features/playback/api';
 	import { beaconProgress, reportProgress } from '$lib/features/playback/api';
 	import { formatClock } from '$lib/utils/format';
@@ -231,6 +232,7 @@
 
 	onMount(() => {
 		poke();
+		musicPlayer.pause(); // never play video and music together
 		if (info.mode === 'hls') setupHls();
 		const onVisibility = () => {
 			if (document.visibilityState === 'hidden' && currentTime > 5) {

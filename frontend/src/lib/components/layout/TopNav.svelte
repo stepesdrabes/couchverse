@@ -8,6 +8,7 @@
 		{ href: '/', label: 'Home' },
 		{ href: '/series', label: 'Series' },
 		{ href: '/movies', label: 'Movies' },
+		{ href: '/music', label: 'Music' },
 		{ href: '/my-list', label: 'My List' },
 		{ href: '/genres', label: 'Genres' }
 	];

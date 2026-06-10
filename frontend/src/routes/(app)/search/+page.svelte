@@ -30,7 +30,13 @@
 	}
 
 	const musicHits = $derived(
-		results ? [...results.artists, ...results.albums, ...results.tracks] : []
+		results
+			? [
+					...results.artists.map((h) => ({ ...h, href: `/music/artists/${h.id}` })),
+					...results.albums.map((h) => ({ ...h, href: `/music/albums/${h.id}` })),
+					...results.tracks.map((h) => ({ ...h, href: null as string | null }))
+				]
+			: []
 	);
 	const empty = $derived(results !== null && results.titles.length === 0 && musicHits.length === 0);
 </script>
@@ -71,18 +77,25 @@
 			<h2 class="eyebrow mb-4">Music</h2>
 			<ul class="max-w-xl divide-y divide-edge/50 rounded-card border border-edge bg-surface/40">
 				{#each musicHits as hit (hit.name + hit.subtitle)}
-					<li class="flex items-center gap-3 px-4 py-3">
-						<Music class="size-4 text-faint" />
-						<div class="min-w-0">
-							<p class="truncate text-sm font-medium">{hit.name}</p>
-							{#if hit.subtitle}
-								<p class="truncate text-xs text-faint">{hit.subtitle}</p>
-							{/if}
-						</div>
+					<li>
+						<svelte:element
+							this={hit.href ? 'a' : 'div'}
+							href={hit.href ?? undefined}
+							class="flex items-center gap-3 px-4 py-3 {hit.href
+								? 'transition-colors hover:bg-surface-2/50'
+								: ''}"
+						>
+							<Music class="size-4 text-faint" />
+							<div class="min-w-0">
+								<p class="truncate text-sm font-medium">{hit.name}</p>
+								{#if hit.subtitle}
+									<p class="truncate text-xs text-faint">{hit.subtitle}</p>
+								{/if}
+							</div>
+						</svelte:element>
 					</li>
 				{/each}
 			</ul>
-			<p class="mt-3 text-xs text-faint">Music playback arrives with the music milestone.</p>
 		{/if}
 	{/if}
 </div>

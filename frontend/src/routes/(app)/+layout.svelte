@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import TopNav from '$lib/components/layout/TopNav.svelte';
+	import { musicPlayer } from '$lib/features/music/player.svelte';
 
 	let { children } = $props();
 
@@ -12,6 +13,6 @@
 	<TopNav />
 {/if}
 
-<main class="min-h-dvh">
+<main class="min-h-dvh {musicPlayer.current && !watching ? 'pb-24' : ''}">
 	{@render children()}
 </main>
