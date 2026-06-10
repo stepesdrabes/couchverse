@@ -58,6 +58,7 @@ func backfillVariantSizes(ctx context.Context, lib *library.Store, dataDir strin
 	if err != nil {
 		return err
 	}
+	filled := 0
 	for _, v := range variants {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -70,9 +71,10 @@ func backfillVariantSizes(ctx context.Context, lib *library.Store, dataDir strin
 		if err := lib.SetVariantSize(ctx, v.ID, size); err != nil {
 			return err
 		}
+		filled++
 	}
-	if len(variants) > 0 {
-		slog.Info("cleanup: backfilled variant sizes", "count", len(variants))
+	if filled > 0 {
+		slog.Info("cleanup: backfilled variant sizes", "count", filled)
 	}
 	return nil
 }
