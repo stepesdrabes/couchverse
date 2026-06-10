@@ -17,7 +17,9 @@
 	import Sparkline from '$lib/features/admin/components/Sparkline.svelte';
 	import StorageBar from '$lib/features/admin/components/StorageBar.svelte';
 	import { categoryStyle } from '$lib/features/admin/components/storageColors';
+	import { jobAction, jobSubjectLabel } from '$lib/features/jobs/job-label';
 	import { formatBytes, formatUptime } from '$lib/utils/format';
+	import { usageColor } from '$lib/utils/usage-color';
 
 	let overview = $state<OverviewInfo | null>(null);
 	let storage = $state<StorageInfo | null>(null);
@@ -55,15 +57,6 @@
 	// load relative to core count: <0.7/core healthy, <1.0 busy, ≥1.0 saturated
 	const loadPerCore = $derived(
 		system && system.load1 >= 0 && system.cpuCores > 0 ? system.load1 / system.cpuCores : -1
-	);
-	const loadColor = $derived(
-		loadPerCore < 0
-			? 'text-faint'
-			: loadPerCore < 0.7
-				? 'text-success'
-				: loadPerCore < 1
-					? 'text-amber-400'
-					: 'text-danger'
 	);
 	const loadLabel = $derived(
 		loadPerCore < 0 ? '' : loadPerCore < 0.7 ? 'Healthy' : loadPerCore < 1 ? 'Busy' : 'Saturated'
@@ -112,15 +105,22 @@
 
 <h1 class="mb-6 text-2xl font-bold">Overview</h1>
 
-<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 	{#each cards as card (card.label)}
 		<a
 			href={card.href}
-			class="group rounded-card border border-edge bg-surface/40 p-5 transition-colors hover:border-faint"
+			class="group flex items-center gap-4 rounded-card border border-edge bg-surface/40 p-6
+				transition-colors hover:border-accent/50 hover:bg-surface/70"
 		>
-			<card.icon class="mb-3 size-5 text-accent" />
-			<p class="text-2xl font-bold tnum">{card.value}</p>
-			<p class="text-xs font-medium text-muted group-hover:text-text">{card.label}</p>
+			<span class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent-soft">
+				<card.icon class="size-5 text-accent" />
+			</span>
+			<span class="min-w-0">
+				<span class="block text-3xl font-extrabold tracking-tight tnum">{card.value}</span>
+				<span class="block text-xs font-medium text-muted transition-colors group-hover:text-text">
+					{card.label}
+				</span>
+			</span>
 		</a>
 	{/each}
 </div>
@@ -135,13 +135,38 @@
 						<Cpu class="size-4 text-accent" /> CPU
 					</span>
 					{#if system.cpuPercent >= 0}
-						<span class="text-2xl leading-none font-bold tnum">{system.cpuPercent.toFixed(0)}%</span
+						<span
+							class="text-2xl leading-none font-bold tnum"
+							style="color: {usageColor(system.cpuPercent)}"
 						>
+							{system.cpuPercent.toFixed(0)}%
+						</span>
 					{/if}
 				</div>
 				{#if system.cpuPercent >= 0}
-					<Sparkline values={cpuHistory} max={100} class="h-20 w-full" />
-					<p class="mt-2 text-[11px] text-faint">{system.cpuCores} cores</p>
+					<Sparkline
+						values={cpuHistory}
+						max={100}
+						class="h-20 w-full"
+						color={usageColor(system.cpuPercent)}
+					/>
+					<div
+						class="mt-2 flex flex-wrap items-center justify-between gap-x-3 text-[11px] text-faint"
+					>
+						<span>{system.cpuCores} cores</span>
+						<span class="flex gap-3 tnum">
+							{#if system.app && system.app.cpuPercent >= 0}
+								<span>Go app {system.app.cpuPercent.toFixed(1)}%</span>
+							{/if}
+							{#if system.ffmpeg && system.ffmpeg.processes > 0}
+								<span>
+									Transcoding ({system.ffmpeg.processes} ffmpeg) {system.ffmpeg.cpuPercent.toFixed(
+										0
+									)}%
+								</span>
+							{/if}
+						</span>
+					</div>
 				{:else}
 					<p class="py-6 text-xs text-faint">Host CPU stats are unavailable on this platform.</p>
 				{/if}
@@ -153,7 +178,12 @@
 						<MemoryStick class="size-4 text-accent" /> Memory
 					</span>
 					{#if system.memTotal > 0}
-						<span class="text-2xl leading-none font-bold tnum">{memPercent.toFixed(0)}%</span>
+						<span
+							class="text-2xl leading-none font-bold tnum"
+							style="color: {usageColor(memPercent)}"
+						>
+							{memPercent.toFixed(0)}%
+						</span>
 					{/if}
 				</div>
 				{#if system.memTotal > 0}
@@ -161,11 +191,23 @@
 						values={memHistory}
 						max={100}
 						class="h-20 w-full"
-						color="var(--color-success)"
+						color={usageColor(memPercent)}
 					/>
-					<p class="mt-2 text-[11px] text-faint tnum">
-						{formatBytes(system.memUsed)} of {formatBytes(system.memTotal)} used
-					</p>
+					<div
+						class="mt-2 flex flex-wrap items-center justify-between gap-x-3 text-[11px] text-faint"
+					>
+						<span class="tnum">
+							{formatBytes(system.memUsed)} of {formatBytes(system.memTotal)} used
+						</span>
+						<span class="flex gap-3 tnum">
+							{#if system.app && system.app.memBytes > 0}
+								<span>Go app {formatBytes(system.app.memBytes)}</span>
+							{/if}
+							{#if system.ffmpeg && system.ffmpeg.processes > 0}
+								<span>Transcoding {formatBytes(system.ffmpeg.memBytes)}</span>
+							{/if}
+						</span>
+					</div>
 				{:else}
 					<p class="py-6 text-xs text-faint">Host memory stats are unavailable on this platform.</p>
 				{/if}
@@ -179,13 +221,19 @@
 				</dt>
 				{#if system.load1 >= 0}
 					<dd class="mt-1 flex items-baseline gap-2">
-						<span class="text-lg font-bold tnum {loadColor}">{system.load1.toFixed(2)}</span>
-						<span class="text-[11px] {loadColor}">{loadLabel}</span>
+						<span class="text-lg font-bold tnum" style="color: {usageColor(loadPerCore * 100)}">
+							{system.load1.toFixed(2)}
+						</span>
+						<span class="text-[11px]" style="color: {usageColor(loadPerCore * 100)}">
+							{loadLabel}
+						</span>
 					</dd>
 					<div class="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-2">
 						<div
-							class="h-full rounded-full bg-current {loadColor}"
-							style="width: {Math.min(100, loadPerCore * 100)}%"
+							class="h-full rounded-full"
+							style="width: {Math.min(100, loadPerCore * 100)}%; background: {usageColor(
+								loadPerCore * 100
+							)}"
 						></div>
 					</div>
 				{:else}
@@ -226,11 +274,11 @@
 			<StorageBar {storage} class="mb-4 h-2" />
 			<ul class="space-y-1.5 text-xs">
 				{#each storage.categories as cat (cat.kind)}
+					{@const style = categoryStyle[cat.kind] ?? { label: cat.kind, color: '#5b6072' }}
 					<li class="flex items-center justify-between">
 						<span class="flex items-center gap-2 text-muted">
-							<span class="size-2 rounded-full" style="background: {categoryStyle[cat.kind].color}"
-							></span>
-							{categoryStyle[cat.kind].label}
+							<span class="size-2 rounded-full" style="background: {style.color}"></span>
+							{style.label}
 						</span>
 						<span class="text-faint tnum">{formatBytes(cat.bytes)}</span>
 					</li>
@@ -259,8 +307,11 @@
 			{:else}
 				<ul class="space-y-2 text-xs">
 					{#each overview.recentJobs as job (job.id)}
+						{@const subject = jobSubjectLabel(job)}
 						<li class="flex items-center justify-between gap-3">
-							<span class="truncate text-muted">{job.type.replaceAll('_', ' ')} #{job.id}</span>
+							<span class="truncate text-muted">
+								{jobAction(job)}{subject ? ` - ${subject}` : ` #${job.id}`}
+							</span>
 							<span class="font-semibold capitalize {statusColor[job.status]}">{job.status}</span>
 						</li>
 					{/each}

@@ -20,6 +20,7 @@ export interface LibraryRow {
 	seasonCount: number;
 	episodeCount: number;
 	sizeBytes: number;
+	transcodedBytes: number;
 	maxHeight: number;
 	hdr: boolean;
 	posterId: string | null;

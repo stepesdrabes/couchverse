@@ -2,6 +2,7 @@
 	import { Cpu, MemoryStick } from 'lucide-svelte';
 	import * as jobsApi from '$lib/features/jobs/api';
 	import type { SystemStats } from '$lib/features/jobs/api';
+	import { usageColor } from '$lib/utils/usage-color';
 
 	let system = $state<SystemStats | null>(null);
 
@@ -33,7 +34,10 @@
 					<span class="text-faint tnum">{system.cpuPercent.toFixed(0)}%</span>
 				</div>
 				<div class="h-1 overflow-hidden rounded-full bg-surface-2">
-					<div class="h-full rounded-full bg-accent" style="width: {system.cpuPercent}%"></div>
+					<div
+						class="h-full rounded-full transition-colors duration-500"
+						style="width: {system.cpuPercent}%; background: {usageColor(system.cpuPercent)}"
+					></div>
 				</div>
 			</div>
 		{/if}
@@ -46,7 +50,10 @@
 					<span class="text-faint tnum">{memPercent.toFixed(0)}%</span>
 				</div>
 				<div class="h-1 overflow-hidden rounded-full bg-surface-2">
-					<div class="h-full rounded-full bg-accent" style="width: {memPercent}%"></div>
+					<div
+						class="h-full rounded-full transition-colors duration-500"
+						style="width: {memPercent}%; background: {usageColor(memPercent)}"
+					></div>
 				</div>
 			</div>
 		{/if}

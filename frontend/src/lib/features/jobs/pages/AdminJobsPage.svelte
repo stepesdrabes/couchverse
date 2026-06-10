@@ -3,6 +3,7 @@
 	import { toast } from 'svelte-sonner';
 	import * as jobsApi from '$lib/features/jobs/api';
 	import type { Job, Library } from '$lib/features/jobs/api';
+	import { jobAction, jobSubjectLabel } from '$lib/features/jobs/job-label';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { formatYearDate } from '$lib/utils/format';
@@ -48,17 +49,16 @@
 		cancelled: 'text-faint'
 	};
 
-	const jobLabel = (job: Job) => {
-		switch (job.type) {
-			case 'scan_library': {
-				const lib = libraries.find((l) => l.id === job.payload.libraryId);
-				return `Scan ${lib ? `“${lib.name}”` : `library #${job.payload.libraryId}`}`;
-			}
-			case 'probe':
-				return `Analyze file #${job.payload.mediaFileId}`;
-			default:
-				return job.type;
+	// subject comes from the backend; older payload shapes are the fallback
+	const jobSubject = (job: Job) => {
+		const subject = jobSubjectLabel(job);
+		if (subject) return subject;
+		if (job.type === 'scan_library') {
+			const lib = libraries.find((l) => l.id === job.payload.libraryId);
+			return lib ? `“${lib.name}”` : `library #${job.payload.libraryId}`;
 		}
+		if (typeof job.payload.mediaFileId === 'string') return `file #${job.payload.mediaFileId}`;
+		return null;
 	};
 </script>
 
@@ -121,9 +121,15 @@
 				</thead>
 				<tbody>
 					{#each jobs as job (job.id)}
+						{@const subject = jobSubject(job)}
 						<tr class="border-b border-edge/50 last:border-0">
 							<td class="px-4 py-3">
-								<p class="font-medium">{jobLabel(job)}</p>
+								<p class="font-medium">{jobAction(job)}</p>
+								{#if subject}
+									<p class="mt-0.5 max-w-md truncate text-xs text-muted" title={subject}>
+										{subject}
+									</p>
+								{/if}
 								{#if job.lastError && (job.status === 'failed' || job.status === 'pending')}
 									<p class="mt-0.5 max-w-md truncate text-xs text-danger" title={job.lastError}>
 										{job.lastError}

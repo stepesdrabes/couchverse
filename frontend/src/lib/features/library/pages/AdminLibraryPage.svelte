@@ -320,7 +320,14 @@
 								{/if}
 							</span>
 						</td>
-						<td class="py-3 pr-4 text-muted tnum">{formatBytes(row.sizeBytes)}</td>
+						<td class="py-3 pr-4 text-muted tnum">
+							{formatBytes(row.sizeBytes)}
+							{#if row.transcodedBytes > 0}
+								<span class="block text-[11px] text-faint">
+									+ {formatBytes(row.transcodedBytes)} HLS
+								</span>
+							{/if}
+						</td>
 						<td class="py-3 pr-4 text-muted tnum">{formatDate(row.addedAt)}</td>
 						<td class="py-3 pr-4"><StatusPill status={row.status} /></td>
 						<td class="py-3 pr-4">

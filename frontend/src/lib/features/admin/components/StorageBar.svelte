@@ -11,11 +11,12 @@
 
 <div class="flex w-full overflow-hidden rounded-full bg-surface-2 {cls}">
 	{#each storage.categories as cat (cat.kind)}
+		{@const style = categoryStyle[cat.kind] ?? { label: cat.kind, color: '#5b6072' }}
 		{#if cat.bytes > 0}
 			<div
 				class="h-full shrink-0 transition-all duration-500 first:rounded-l-full"
-				style="width: {pct(cat.bytes)}%; background: {categoryStyle[cat.kind].color}"
-				title="{categoryStyle[cat.kind].label}: {cat.bytes} bytes"
+				style="width: {pct(cat.bytes)}%; background: {style.color}"
+				title="{style.label}: {cat.bytes} bytes"
 			></div>
 		{/if}
 	{/each}

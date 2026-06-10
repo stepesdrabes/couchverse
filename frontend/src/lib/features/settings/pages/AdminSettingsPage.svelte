@@ -257,9 +257,8 @@
 			{/each}
 		</div>
 
-		<div class="flex items-center gap-3 pt-1">
+		<div class="flex justify-end pt-1">
 			<Button type="submit" loading={savingAccent} disabled={!accentForm.dirty}>Save</Button>
-			<span class="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white">Preview</span>
 		</div>
 	</form>
 {:else if tab === 'transcoding'}
