@@ -7,6 +7,7 @@
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
 
 	let tmdbKey = $state('');
 	let savingTmdb = $state(false);
@@ -17,6 +18,7 @@
 	let preset = $state('veryfast');
 	let maxConcurrent = $state('1');
 	let jit = $state('auto');
+	let autoPrepare = $state(true);
 	let savingTranscode = $state(false);
 
 	const allRenditions = ['1080p', '720p', '480p'];
@@ -32,6 +34,7 @@
 			preset = info.settings.preset;
 			maxConcurrent = String(info.settings.maxConcurrent);
 			jit = info.settings.jitEnabled === null ? 'auto' : info.settings.jitEnabled ? 'on' : 'off';
+			autoPrepare = info.settings.autoPrepare ?? true;
 		});
 	});
 
@@ -62,7 +65,8 @@
 					ladder,
 					preset,
 					maxConcurrent: Math.max(1, Number(maxConcurrent) || 1),
-					jitEnabled: jit === 'auto' ? null : jit === 'on'
+					jitEnabled: jit === 'auto' ? null : jit === 'on',
+					autoPrepare
 				}
 			});
 			toast.success('Transcoding settings saved — concurrency applies after a restart');
@@ -147,6 +151,16 @@
 			</div>
 			<Input label="Max concurrent jobs" type="number" min="1" max="4" bind:value={maxConcurrent} />
 		</div>
+
+		<label class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5">
+			<span>
+				<span class="block text-sm">Auto-prepare unplayable files</span>
+				<span class="block text-[11px] text-faint">
+					Queue background transcodes for files browsers can't play, right after scanning.
+				</span>
+			</span>
+			<Switch bind:checked={autoPrepare} />
+		</label>
 
 		<div>
 			<p class="mb-1.5 text-xs font-medium text-muted">Instant play (on-the-fly transcoding)</p>

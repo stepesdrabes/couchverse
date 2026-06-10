@@ -25,9 +25,7 @@
 
 <header
 	class="fixed inset-x-0 top-0 z-40 transition-all duration-300
-		{scrolled
-		? 'border-b border-edge/60 bg-bg/85 backdrop-blur-md'
-		: 'border-b border-transparent bg-gradient-to-b from-bg/80 to-transparent'}"
+		{scrolled ? 'bg-bg/85 backdrop-blur-md' : 'bg-gradient-to-b from-bg/80 to-transparent'}"
 	style="view-transition-name: top-nav"
 >
 	<div class="mx-auto flex h-16 max-w-[1700px] items-center gap-6 px-6">

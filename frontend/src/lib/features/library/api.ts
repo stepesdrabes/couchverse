@@ -23,6 +23,7 @@ export interface LibraryRow {
 	hdr: boolean;
 	posterId: number | null;
 	backdropId: number | null;
+	needsPrepare: boolean;
 	addedAt: string;
 }
 
@@ -228,6 +229,7 @@ export interface TranscodeInfo {
 		preset: string;
 		maxConcurrent: number;
 		jitEnabled: boolean | null;
+		autoPrepare: boolean | null;
 	};
 }
 

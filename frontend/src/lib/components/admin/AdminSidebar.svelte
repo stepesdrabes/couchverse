@@ -26,7 +26,10 @@
 		href === '/admin' ? page.url.pathname === '/admin' : page.url.pathname.startsWith(href);
 </script>
 
-<aside class="flex h-dvh w-60 shrink-0 flex-col border-r border-edge bg-surface/40">
+<aside
+	class="sticky top-0 flex h-dvh w-60 shrink-0 flex-col self-start border-r border-edge bg-surface/40"
+	style="view-transition-name: admin-sidebar"
+>
 	<a href="/admin" class="px-6 pt-6 pb-7">
 		<span class="text-lg font-extrabold tracking-tight">
 			couch<span class="text-accent">verse</span>
