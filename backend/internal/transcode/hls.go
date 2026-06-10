@@ -21,6 +21,8 @@ type BuildSpec struct {
 	Preset         string
 	HasAudio       bool
 	StartAt        float64 // JIT sessions seek before encoding
+	JIT            bool    // live session: timestamp offset, atomic segments, no VOD playlist
+	StartNumber    int     // first segment index (JIT restarts)
 	BackgroundNice bool
 }
 
@@ -66,10 +68,21 @@ func BuildArgs(spec BuildSpec) []string {
 			"-ac", "2")
 	}
 
+	args = append(args, "-f", "hls", "-hls_time", "4")
+	if spec.JIT {
+		// the session playlist is generated in Go; ffmpeg's own playlist is
+		// internal. temp_file makes finished segments appear atomically and
+		// the ts offset keeps timestamps aligned with the virtual timeline.
+		args = append(args,
+			"-output_ts_offset", fmt.Sprintf("%.3f", spec.StartAt),
+			"-start_number", strconv.Itoa(spec.StartNumber),
+			"-hls_flags", "temp_file",
+			"-hls_list_size", "0",
+		)
+	} else {
+		args = append(args, "-hls_playlist_type", "vod")
+	}
 	args = append(args,
-		"-f", "hls",
-		"-hls_time", "4",
-		"-hls_playlist_type", "vod",
 		"-hls_segment_filename", spec.OutDir+"/seg_%05d.ts",
 		"-progress", "pipe:1",
 		spec.OutDir+"/index.m3u8",

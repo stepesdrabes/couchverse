@@ -30,10 +30,11 @@ type Server struct {
 	artwork   *artwork.Service
 	subtitles *subtitles.Service
 	transcode *transcode.JobHandler
+	sessions  *transcode.SessionManager
 }
 
-func New(cfg config.Config, st *store.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler) *Server {
-	return &Server{cfg: cfg, store: st, uploads: uploads, artwork: art, subtitles: subs, transcode: tc}
+func New(cfg config.Config, st *store.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
+	return &Server{cfg: cfg, store: st, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -45,7 +46,7 @@ func (s *Server) Handler() http.Handler {
 	adminLibraries := api.NewAdminLibraries(s.store)
 	adminJobs := api.NewAdminJobs(s.store)
 	catalog := api.NewCatalog(s.store)
-	stream := api.NewStream(s.store, s.cfg.DataDir)
+	stream := api.NewStream(s.store, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
 	progress := api.NewProgress(s.store)
 	transcodeAPI := api.NewAdminTranscode(s.store, s.transcode, s.cfg.FFmpegPath)
 	music := api.NewMusic(s.store)
@@ -95,6 +96,9 @@ func (s *Server) Handler() http.Handler {
 			p.Get("/stream/{id}", stream.Serve)
 			p.Get("/stream/{id}/hls/master.m3u8", stream.HLSMaster)
 			p.Get("/stream/{id}/hls/{variant}/{file}", stream.HLSFile)
+			p.Post("/stream/{id}/sessions", stream.CreateSession)
+			p.Get("/stream/sessions/{sid}/{file}", stream.SessionFile)
+			p.Post("/stream/sessions/{sid}/keepalive", stream.SessionKeepalive)
 			p.Get("/playback/{kind}/{id}", stream.Playback)
 			p.Get("/artwork/{id}", artworkAPI.Serve)
 			p.Get("/subtitles/{id}.vtt", subtitlesAPI.Serve)

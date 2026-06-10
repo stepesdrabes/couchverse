@@ -88,6 +88,10 @@ func run() error {
 	artworkService := &artwork.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	subtitleService := &subtitles.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	transcodeHandler := &transcode.JobHandler{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	sessionManager := &transcode.SessionManager{
+		Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath, MaxSessions: 3,
+	}
+	defer sessionManager.StopAll()
 
 	go transcode.DetectEncoders(cfg.FFmpegPath)
 
@@ -105,7 +109,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, st, uploadManager, artworkService, subtitleService, transcodeHandler).Handler(),
+		Handler:           server.New(cfg, st, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

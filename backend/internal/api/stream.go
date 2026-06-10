@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,15 +17,18 @@ import (
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 	"couchverse/internal/store"
+	"couchverse/internal/transcode"
 )
 
 type Stream struct {
-	store   *store.Store
-	dataDir string
+	store    *store.Store
+	dataDir  string
+	sessions *transcode.SessionManager
+	ffmpeg   string
 }
 
-func NewStream(st *store.Store, dataDir string) *Stream {
-	return &Stream{store: st, dataDir: dataDir}
+func NewStream(st *store.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
+	return &Stream{store: st, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
 }
 
 var contentTypes = map[string]string{
@@ -211,6 +215,9 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 			if progress, perr := h.store.TranscodeProgress(r.Context(), mf.ID); perr == nil {
 				info.JobProgress = progress
 			}
+		case h.jitAllowed(r.Context()):
+			// the client opens a JIT session via POST /stream/{id}/sessions
+			info.Mode = "jit"
 		default:
 			info.Mode = "unsupported"
 		}
@@ -263,6 +270,79 @@ func (h *Stream) HLSMaster(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 	w.Header().Set("Cache-Control", "no-cache")
 	io.WriteString(w, b.String())
+}
+
+// jitAllowed: explicit setting wins; auto enables JIT when a hardware
+// encoder was detected (software JIT is usually too slow for live seeking).
+func (h *Stream) jitAllowed(ctx context.Context) bool {
+	settings := transcode.LoadSettings(ctx, h.store)
+	if settings.JITEnabled != nil {
+		return *settings.JITEnabled
+	}
+	return len(transcode.DetectEncoders(h.ffmpeg)) > 0
+}
+
+// CreateSession opens a JIT transcode session.
+func (h *Stream) CreateSession(w http.ResponseWriter, r *http.Request) {
+	if !h.jitAllowed(r.Context()) {
+		httpx.Error(w, http.StatusPreconditionFailed, "jit_disabled", "instant play is disabled")
+		return
+	}
+	var req struct {
+		StartAt float64 `json:"startAt"`
+	}
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.BadRequest(w, "invalid request body")
+		return
+	}
+	session, err := h.sessions.Create(r.Context(), context.Background(), httpx.ID(r, "id"), max(0, req.StartAt))
+	if err != nil {
+		httpx.Error(w, http.StatusServiceUnavailable, "session_failed", err.Error())
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, map[string]string{
+		"sessionId":   session.ID,
+		"playlistUrl": "/api/v1/stream/sessions/" + session.ID + "/index.m3u8",
+	})
+}
+
+func (h *Stream) SessionKeepalive(w http.ResponseWriter, r *http.Request) {
+	if !h.sessions.Touch(chi.URLParam(r, "sid")) {
+		httpx.NotFound(w)
+		return
+	}
+	httpx.JSON(w, http.StatusNoContent, nil)
+}
+
+var sessionIDRe = regexp.MustCompile(`^[a-f0-9]{24}$`)
+
+func (h *Stream) SessionFile(w http.ResponseWriter, r *http.Request) {
+	sid := chi.URLParam(r, "sid")
+	file := chi.URLParam(r, "file")
+	if !sessionIDRe.MatchString(sid) {
+		httpx.BadRequest(w, "invalid session id")
+		return
+	}
+	session := h.sessions.Get(sid)
+	if session == nil {
+		httpx.NotFound(w)
+		return
+	}
+
+	if file == "index.m3u8" {
+		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+		w.Header().Set("Cache-Control", "no-cache")
+		io.WriteString(w, session.Playlist())
+		return
+	}
+
+	path, err := h.sessions.SegmentPath(r.Context(), session, file)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "segment_unavailable", err.Error())
+		return
+	}
+	w.Header().Set("Cache-Control", "private, max-age=60")
+	http.ServeFile(w, r, path)
 }
 
 var hlsFileRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
