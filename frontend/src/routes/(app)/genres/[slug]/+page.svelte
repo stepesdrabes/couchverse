@@ -1,14 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import BrowseGrid from '$lib/features/catalog/components/BrowseGrid.svelte';
-
-	const genre = $derived(decodeURIComponent(page.params.slug ?? ''));
+	import GenrePage from '$lib/features/catalog/pages/GenrePage.svelte';
 </script>
 
-<svelte:head>
-	<title>{genre} — Couchverse</title>
-</svelte:head>
-
-{#key genre}
-	<BrowseGrid heading={genre} {genre} />
-{/key}
+<GenrePage />

@@ -1,9 +1,5 @@
 <script lang="ts">
-	import BrowseGrid from '$lib/features/catalog/components/BrowseGrid.svelte';
+	import SeriesPage from '$lib/features/catalog/pages/SeriesPage.svelte';
 </script>
 
-<svelte:head>
-	<title>Series — Couchverse</title>
-</svelte:head>
-
-<BrowseGrid heading="Series" kind="series" />
+<SeriesPage />
