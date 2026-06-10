@@ -57,6 +57,9 @@
 
 	let hideTimer: ReturnType<typeof setTimeout>;
 	let lastReported = 0;
+	// actually-played seconds since the last beacon (pauses/seeks excluded)
+	let watchedSeconds = 0;
+	let lastTickTime = -1;
 
 	// subtitle selection: track id or null (off); restore the preferred language
 	let activeSub = $state<string | null>(null);
@@ -168,11 +171,16 @@
 	}
 
 	const remaining = $derived(duration - currentTime);
-	const progressBody = () => ({
-		...(titleId ? { titleId } : { episodeId: episodeId! }),
-		positionSeconds: Math.floor(currentTime),
-		durationSeconds: Math.floor(duration)
-	});
+	const progressBody = () => {
+		const watched = Math.floor(watchedSeconds);
+		watchedSeconds -= watched; // keep the sub-second remainder
+		return {
+			...(titleId ? { titleId } : { episodeId: episodeId! }),
+			positionSeconds: Math.floor(currentTime),
+			durationSeconds: Math.floor(duration),
+			watchedSeconds: watched
+		};
+	};
 
 	function report() {
 		if (currentTime < 5) return;
@@ -211,6 +219,10 @@
 
 	function onTimeUpdate() {
 		if (!video) return;
+		// timeupdate fires ~4x/s while playing; bigger jumps are seeks
+		const tick = video.currentTime - lastTickTime;
+		if (lastTickTime >= 0 && tick > 0 && tick < 2) watchedSeconds += tick;
+		lastTickTime = video.currentTime;
 		currentTime = video.currentTime;
 		if (currentTime - lastReported >= 10) report();
 

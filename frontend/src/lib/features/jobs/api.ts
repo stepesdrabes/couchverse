@@ -126,6 +126,25 @@ export interface SystemStats {
 
 export const getSystem = () => api<SystemStats>('/admin/system');
 
+// analytics (watch/listen time rollup)
+export interface AnalyticsDay {
+	day: string; // YYYY-MM-DD
+	videoSeconds: number;
+	musicSeconds: number;
+	activeUsers: number;
+}
+
+export interface AnalyticsInfo {
+	days: number;
+	daily: AnalyticsDay[];
+	totals: { videoSeconds: number; musicSeconds: number; activeUsers: number };
+	topTitles: { titleId: string; slug: string; name: string; kind: string; seconds: number }[];
+	topUsers: { userId: number; displayName: string; seconds: number }[];
+}
+
+export const getAnalytics = (days = 30) =>
+	api<AnalyticsInfo>(`/admin/analytics/overview${qs({ days })}`);
+
 // home rows
 export interface HomeRowConfig {
 	id: number;

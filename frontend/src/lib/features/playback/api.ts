@@ -66,6 +66,8 @@ export interface ProgressReport {
 	episodeId?: string;
 	positionSeconds: number;
 	durationSeconds: number;
+	/** actually-played seconds since the last report (feeds analytics) */
+	watchedSeconds?: number;
 }
 
 export const reportProgress = (report: ProgressReport) =>

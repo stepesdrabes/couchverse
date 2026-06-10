@@ -13,23 +13,31 @@
 		Users
 	} from 'lucide-svelte';
 	import * as jobsApi from '$lib/features/jobs/api';
-	import type { OverviewInfo, StorageInfo, SystemStats } from '$lib/features/jobs/api';
+	import type {
+		AnalyticsInfo,
+		OverviewInfo,
+		StorageInfo,
+		SystemStats
+	} from '$lib/features/jobs/api';
+	import BarChart from '$lib/features/admin/components/BarChart.svelte';
 	import Sparkline from '$lib/features/admin/components/Sparkline.svelte';
 	import StorageBar from '$lib/features/admin/components/StorageBar.svelte';
 	import { categoryStyle } from '$lib/features/admin/components/storageColors';
 	import { jobAction, jobSubjectLabel } from '$lib/features/jobs/job-label';
-	import { formatBytes, formatUptime } from '$lib/utils/format';
+	import { formatBytes, formatDate, formatUptime } from '$lib/utils/format';
 	import { usageColor } from '$lib/utils/usage-color';
 
 	let overview = $state<OverviewInfo | null>(null);
 	let storage = $state<StorageInfo | null>(null);
 	let system = $state<SystemStats | null>(null);
+	let analytics = $state<AnalyticsInfo | null>(null);
 	let cpuHistory = $state<number[]>([]);
 	let memHistory = $state<number[]>([]);
 
 	$effect(() => {
 		jobsApi.getOverview().then((o) => (overview = o));
 		jobsApi.getStorage().then((s) => (storage = s));
+		jobsApi.getAnalytics(30).then((a) => (analytics = a));
 
 		async function pollSystem() {
 			if (document.visibilityState === 'hidden') return;
@@ -97,6 +105,24 @@
 		failed: 'text-danger',
 		cancelled: 'text-faint'
 	};
+
+	const MUSIC_COLOR = '#f5b14c'; // matches the storage music segment
+	const watchBars = $derived(
+		(analytics?.daily ?? []).map((d) => ({
+			label: formatDate(d.day),
+			segments: [
+				{ name: 'Video', value: d.videoSeconds, color: 'var(--color-accent)' },
+				{ name: 'Music', value: d.musicSeconds, color: MUSIC_COLOR }
+			]
+		}))
+	);
+	const watchTotal = $derived(
+		analytics ? analytics.totals.videoSeconds + analytics.totals.musicSeconds : 0
+	);
+	const avgActiveUsers = $derived.by(() => {
+		if (!analytics || analytics.daily.length === 0) return 0;
+		return analytics.daily.reduce((sum, d) => sum + d.activeUsers, 0) / analytics.daily.length;
+	});
 </script>
 
 <svelte:head>
@@ -259,6 +285,65 @@
 				<dd class="mt-1 text-lg font-bold tnum">{formatUptime(system.uptimeSeconds)}</dd>
 			</div>
 		</dl>
+	</div>
+{/if}
+
+{#if analytics && watchTotal > 0}
+	<div class="mt-6">
+		<h2 class="mb-3 text-sm font-semibold text-muted">Analytics - last {analytics.days} days</h2>
+		<div class="grid gap-6 lg:grid-cols-3">
+			<div class="rounded-card border border-edge bg-surface/40 p-6 lg:col-span-2">
+				<div class="mb-3 flex items-baseline justify-between">
+					<h3 class="text-sm font-semibold text-muted">Watch time</h3>
+					<span class="text-xs text-faint tnum">{formatUptime(watchTotal)} total</span>
+				</div>
+				<BarChart bars={watchBars} format={formatUptime} class="h-36 w-full" />
+				<div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 text-[11px]">
+					<span class="flex items-center gap-4 text-muted">
+						<span class="flex items-center gap-1.5">
+							<span class="size-2 rounded-full bg-accent"></span>
+							Video
+						</span>
+						<span class="flex items-center gap-1.5">
+							<span class="size-2 rounded-full" style="background: {MUSIC_COLOR}"></span>
+							Music
+						</span>
+					</span>
+					<span class="text-faint tnum">
+						avg {avgActiveUsers.toFixed(1)} active user{avgActiveUsers === 1 ? '' : 's'}/day
+					</span>
+				</div>
+			</div>
+
+			<div class="rounded-card border border-edge bg-surface/40 p-6">
+				<h3 class="mb-3 text-sm font-semibold text-muted">Top titles</h3>
+				{#if analytics.topTitles.length === 0}
+					<p class="text-xs text-faint">No watch time recorded yet.</p>
+				{:else}
+					<ul class="space-y-2.5 text-xs">
+						{#each analytics.topTitles.slice(0, 6) as title (title.titleId)}
+							<li>
+								<div class="flex items-baseline justify-between gap-3">
+									<a
+										href="/title/{title.slug}"
+										class="truncate font-medium transition-colors hover:text-accent"
+									>
+										{title.name}
+									</a>
+									<span class="shrink-0 text-faint tnum">{formatUptime(title.seconds)}</span>
+								</div>
+								<div class="mt-1 h-1 overflow-hidden rounded-full bg-surface-2">
+									<div
+										class="h-full rounded-full bg-accent"
+										style="width: {(title.seconds / analytics.topTitles[0].seconds) * 100}%"
+									></div>
+								</div>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		</div>
 	</div>
 {/if}
 
