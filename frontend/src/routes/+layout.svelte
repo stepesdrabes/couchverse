@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../app.css';
+	import { onNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Toaster } from 'svelte-sonner';
 	import favicon from '$lib/assets/favicon.svg';
@@ -11,6 +12,17 @@
 	const showPlayerBar = $derived(
 		!(page.route.id?.includes('/watch/') ?? false) && !(page.route.id?.includes('(auth)') ?? false)
 	);
+
+	// soft cross-fade between pages via the View Transitions API
+	onNavigate((navigation) => {
+		if (!document.startViewTransition) return;
+		return new Promise((resolve) => {
+			document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
 </script>
 
 <svelte:head>

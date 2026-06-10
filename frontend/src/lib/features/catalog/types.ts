@@ -71,6 +71,8 @@ export interface HomeRow {
 
 export interface HomeData {
 	featured: Title | null;
+	featuredBackdropId: number | null;
+	featuredInList: boolean;
 	rows: HomeRow[];
 }
 

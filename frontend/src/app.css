@@ -107,6 +107,29 @@
 	}
 }
 
+/* page transitions (View Transitions API) — content fades, chrome stays put */
+@media (prefers-reduced-motion: no-preference) {
+	::view-transition-old(root) {
+		animation: 160ms ease both vt-fade-out;
+	}
+	::view-transition-new(root) {
+		animation: 240ms ease both vt-fade-in;
+	}
+}
+
+@keyframes vt-fade-out {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes vt-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,

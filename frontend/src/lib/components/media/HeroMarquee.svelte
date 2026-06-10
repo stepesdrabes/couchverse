@@ -4,17 +4,17 @@
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import * as catalog from '$lib/features/catalog/api';
-	import type { ArtworkRef, Title } from '$lib/features/catalog/types';
+	import type { Title } from '$lib/features/catalog/types';
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 
 	let {
 		featured,
-		backdrop = null,
+		backdropId = null,
 		inList = false
-	}: { featured: Title; backdrop?: ArtworkRef | null; inList?: boolean } = $props();
+	}: { featured: Title; backdropId?: number | null; inList?: boolean } = $props();
 
-	let listed = $state(inList);
+	let listed = $derived(inList);
 
 	const eyebrow = $derived(['Featured', ...featured.genres.slice(0, 2)].join(' · ').toUpperCase());
 
@@ -35,18 +35,27 @@
 </script>
 
 <div class="relative flex min-h-[72vh] items-center justify-center overflow-hidden md:min-h-[82vh]">
-	{#if backdrop}
+	{#if backdropId}
 		<img
-			src={catalog.artworkUrl(backdrop.id)}
+			src={catalog.artworkUrl(backdropId)}
 			alt=""
-			class="absolute inset-0 size-full object-cover opacity-40"
+			class="absolute inset-0 size-full scale-105 object-cover"
 		/>
-		<div class="absolute inset-0 bg-gradient-to-t from-bg via-bg/40 to-bg/70"></div>
+		<!-- legibility scrims: the hero text is white, so even bright banners
+		     get a bottom fade into the page plus a dark vignette behind the text -->
+		<div class="absolute inset-0 bg-gradient-to-t from-bg via-bg/45 to-black/25"></div>
+		<div
+			class="absolute inset-0"
+			style="background: radial-gradient(ellipse 60% 55% at 50% 55%, rgb(0 0 0 / 0.55), transparent 75%)"
+		></div>
 	{:else}
 		<GlowBackdrop />
 	{/if}
 
-	<div class="relative mx-auto max-w-3xl px-6 pt-24 pb-16 text-center">
+	<div
+		class="relative mx-auto max-w-3xl px-6 pt-24 pb-16 text-center
+			{backdropId ? '[text-shadow:0_2px_18px_rgb(0_0_0/0.55)]' : ''}"
+	>
 		<p in:fly={{ y: 12, duration: 400, delay: 100 }} class="eyebrow mb-6">{eyebrow}</p>
 		<h1
 			in:fly={{ y: 16, duration: 450, delay: 200 }}

@@ -21,10 +21,15 @@ export const createSession = (filename: string, size: number) =>
 
 export const getSession = (id: string) => api<UploadSession>(`/admin/uploads/${id}`);
 
-export const completeSession = (id: string, libraryKind: LibraryKind) =>
+export interface UploadAssign {
+	/** attach the upload to a specific movie title or series (episode resolved from SxxExx) */
+	titleId?: number;
+}
+
+export const completeSession = (id: string, libraryKind: LibraryKind, assign: UploadAssign = {}) =>
 	api<{ mediaFileId: number }>(`/admin/uploads/${id}/complete`, {
 		method: 'POST',
-		body: { libraryKind }
+		body: { libraryKind, ...assign }
 	});
 
 export const abortSession = (id: string) => api<void>(`/admin/uploads/${id}`, { method: 'DELETE' });

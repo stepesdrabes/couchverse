@@ -5,6 +5,7 @@
 	import * as libraryApi from '$lib/features/library/api';
 	import type { Season } from '$lib/features/catalog/types';
 	import ArtworkCard from '$lib/components/admin/ArtworkCard.svelte';
+	import EditorUploadCard from '$lib/components/admin/EditorUploadCard.svelte';
 	import FileVariants from '$lib/components/admin/FileVariants.svelte';
 	import SubtitlesCard from '$lib/components/admin/SubtitlesCard.svelte';
 	import TmdbSearchModal from '$lib/components/admin/TmdbSearchModal.svelte';
@@ -227,6 +228,13 @@
 	</div>
 
 	<aside class="space-y-6">
+		<EditorUploadCard
+			kind={data.title.kind === 'movie' ? 'movies' : 'series'}
+			titleId={data.title.id}
+			hint={data.title.kind === 'movie'
+				? 'The file is attached to this movie.'
+				: 'Filenames need SxxExx — episodes are created under this show.'}
+		/>
 		<ArtworkCard titleId={data.title.id} artwork={data.artwork} />
 		<SubtitlesCard mediaFiles={data.mediaFiles} />
 

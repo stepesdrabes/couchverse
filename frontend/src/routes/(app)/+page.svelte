@@ -18,7 +18,11 @@
 </svelte:head>
 
 {#if data.featured}
-	<HeroMarquee featured={data.featured} />
+	<HeroMarquee
+		featured={data.featured}
+		backdropId={data.featuredBackdropId}
+		inList={data.featuredInList}
+	/>
 
 	<div class="relative z-10 -mt-10 space-y-10 pb-16">
 		{#each visibleRows as row (row.label)}

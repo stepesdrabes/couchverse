@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { DropdownMenu } from 'bits-ui';
-	import { LogOut, Search, Shield } from 'lucide-svelte';
+	import { LogOut, Search, Shield, UserRound } from 'lucide-svelte';
 	import { session } from '$lib/features/auth/session.svelte';
+	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 
 	const items = [
 		{ href: '/', label: 'Home' },
@@ -27,6 +28,7 @@
 		{scrolled
 		? 'border-b border-edge/60 bg-bg/85 backdrop-blur-md'
 		: 'border-b border-transparent bg-gradient-to-b from-bg/80 to-transparent'}"
+	style="view-transition-name: top-nav"
 >
 	<div class="mx-auto flex h-16 max-w-[1700px] items-center gap-6 px-6">
 		<a href="/" class="text-lg font-extrabold tracking-tight">
@@ -59,10 +61,14 @@
 
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger
-					class="flex size-8 items-center justify-center rounded-lg bg-danger/80 text-xs
-						font-bold text-white uppercase transition-transform hover:scale-105"
+					class="overflow-hidden rounded-lg transition-transform hover:scale-105"
+					aria-label="Account menu"
 				>
-					{session.user?.displayName?.[0] ?? '?'}
+					<UserAvatar
+						name={session.user?.displayName ?? '?'}
+						avatarId={session.user?.avatarId}
+						class="size-8 rounded-lg text-xs"
+					/>
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Portal>
 					<DropdownMenu.Content
@@ -87,6 +93,17 @@
 							{/each}
 							<div class="my-1 border-t border-edge/60"></div>
 						</div>
+						<DropdownMenu.Item
+							class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted
+								outline-none data-highlighted:bg-surface data-highlighted:text-text"
+						>
+							{#snippet child({ props })}
+								<a {...props} href="/profile">
+									<UserRound class="size-4" />
+									Profile
+								</a>
+							{/snippet}
+						</DropdownMenu.Item>
 						{#if session.isAdmin}
 							<DropdownMenu.Item
 								class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted

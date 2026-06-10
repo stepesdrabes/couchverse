@@ -1,13 +1,19 @@
 import * as uploadsApi from './api';
-import type { LibraryKind, UploadSession } from './api';
+import type { LibraryKind, UploadAssign, UploadSession } from './api';
 
 const CHUNK_SIZE = 8 * 1024 * 1024;
 
 export type UploadStatus = 'queued' | 'uploading' | 'paused' | 'completing' | 'done' | 'error';
 
+export interface UploadOpts {
+	assign?: UploadAssign;
+	onDone?: () => void;
+}
+
 export class Upload {
 	readonly file: File;
 	readonly libraryKind: LibraryKind;
+	readonly opts: UploadOpts;
 	sessionId = $state<string | null>(null);
 	offset = $state(0);
 	status = $state<UploadStatus>('queued');
@@ -15,9 +21,15 @@ export class Upload {
 
 	private aborter: AbortController | null = null;
 
-	constructor(file: File, libraryKind: LibraryKind, resumeFrom?: UploadSession) {
+	constructor(
+		file: File,
+		libraryKind: LibraryKind,
+		opts: UploadOpts = {},
+		resumeFrom?: UploadSession
+	) {
 		this.file = file;
 		this.libraryKind = libraryKind;
+		this.opts = opts;
 		if (resumeFrom) {
 			this.sessionId = resumeFrom.id;
 			this.offset = resumeFrom.receivedBytes;
@@ -57,8 +69,9 @@ export class Upload {
 			}
 
 			this.status = 'completing';
-			await uploadsApi.completeSession(this.sessionId, this.libraryKind);
+			await uploadsApi.completeSession(this.sessionId, this.libraryKind, this.opts.assign);
 			this.status = 'done';
+			this.opts.onDone?.();
 		} catch (err) {
 			if (this.aborter?.signal.aborted) return; // paused, not an error
 			this.status = 'error';
@@ -90,10 +103,10 @@ export class UploadQueue {
 	uploads = $state<Upload[]>([]);
 
 	/**
-	 * Queue files for upload. Files matching an interrupted server session
-	 * (same name + size) resume from the server offset.
+	 * Queue files for upload, returning the created entries. Files matching an
+	 * interrupted server session (same name + size) resume from its offset.
 	 */
-	async add(files: File[], libraryKind: LibraryKind) {
+	async add(files: File[], libraryKind: LibraryKind, opts: UploadOpts = {}): Promise<Upload[]> {
 		let sessions: UploadSession[] = [];
 		try {
 			sessions = await uploadsApi.listSessions();
@@ -101,14 +114,17 @@ export class UploadQueue {
 			// non-fatal — uploads just start fresh
 		}
 
+		const created: Upload[] = [];
 		for (const file of files) {
 			const resume = sessions.find(
 				(s) => s.filename === file.name && s.declaredSize === file.size && s.status === 'active'
 			);
-			const upload = new Upload(file, libraryKind, resume);
+			const upload = new Upload(file, libraryKind, opts, resume);
+			created.push(upload);
 			this.uploads = [...this.uploads, upload];
 			upload.start();
 		}
+		return created;
 	}
 
 	remove(upload: Upload) {

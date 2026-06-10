@@ -10,6 +10,7 @@
 		Users
 	} from 'lucide-svelte';
 	import { session } from '$lib/features/auth/session.svelte';
+	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import StorageMeter from './StorageMeter.svelte';
 
 	const items = [
@@ -59,16 +60,19 @@
 			Back to app
 		</a>
 		<StorageMeter />
-		<div class="flex items-center gap-3 rounded-card border border-edge bg-surface p-3">
-			<span
-				class="flex size-8 items-center justify-center rounded-lg bg-danger/80 text-xs font-bold text-white uppercase"
-			>
-				{session.user?.displayName?.[0] ?? '?'}
-			</span>
+		<a
+			href="/profile"
+			class="flex items-center gap-3 rounded-card border border-edge bg-surface p-3 transition-colors hover:border-faint"
+		>
+			<UserAvatar
+				name={session.user?.displayName ?? '?'}
+				avatarId={session.user?.avatarId}
+				class="size-8 rounded-lg text-xs"
+			/>
 			<div class="min-w-0">
 				<p class="truncate text-xs font-semibold">{session.user?.displayName}</p>
 				<p class="text-[10px] text-faint">Owner</p>
 			</div>
-		</div>
+		</a>
 	</div>
 </aside>

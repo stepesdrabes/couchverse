@@ -9,6 +9,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
+	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import { session } from '$lib/features/auth/session.svelte';
 	import { formatYearDate } from '$lib/utils/format';
 
@@ -129,11 +130,11 @@
 				<tr class="border-b border-edge/50 transition-colors last:border-0 hover:bg-surface-2/40">
 					<td class="px-4 py-3">
 						<span class="flex items-center gap-3">
-							<span
-								class="flex size-8 items-center justify-center rounded-lg bg-accent-soft text-xs font-bold text-accent uppercase"
-							>
-								{user.displayName[0]}
-							</span>
+							<UserAvatar
+								name={user.displayName}
+								avatarId={user.avatarId}
+								class="size-8 rounded-lg text-xs"
+							/>
 							<span>
 								<span class="block font-semibold">
 									{user.displayName}

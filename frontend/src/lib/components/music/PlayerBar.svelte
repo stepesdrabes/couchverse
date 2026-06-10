@@ -28,6 +28,7 @@
 	<div
 		transition:fly={{ y: 80, duration: 300 }}
 		class="fixed inset-x-0 bottom-0 z-40 border-t border-edge bg-surface/95 backdrop-blur-md"
+		style="view-transition-name: player-bar"
 	>
 		<div class="mx-auto flex h-20 max-w-[1700px] items-center gap-4 px-4 sm:px-6">
 			<!-- now playing -->
