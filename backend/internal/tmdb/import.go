@@ -8,15 +8,15 @@ import (
 	"slices"
 	"time"
 
+	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 )
 
 // ImportEpisodesJob creates missing seasons/episodes for a show from TMDB,
 // filling metadata gaps without touching episodes that already have a file.
 type ImportEpisodesJob struct {
-	Store    *store.Store
+	Catalog  *catalog.Store
 	Settings *settings.Store
 }
 
@@ -37,7 +37,7 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 	}
 	client := New(key)
 
-	title, err := j.Store.TitleByID(ctx, p.TitleID)
+	title, err := j.Catalog.TitleByID(ctx, p.TitleID)
 	if err != nil {
 		return err
 	}
@@ -63,11 +63,11 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 		return nil
 	}
 
-	hasMedia, err := j.Store.EpisodeIDsWithMedia(ctx, title.ID)
+	hasMedia, err := j.Catalog.EpisodeIDsWithMedia(ctx, title.ID)
 	if err != nil {
 		return err
 	}
-	existing, err := j.Store.SeasonsWithEpisodes(ctx, title.ID)
+	existing, err := j.Catalog.SeasonsWithEpisodes(ctx, title.ID)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 
 	created := 0
 	for i, season := range wanted {
-		seasonID, err := j.Store.ImportSeasonMeta(ctx, title.ID, season.SeasonNumber, season.Name, season.Overview)
+		seasonID, err := j.Catalog.ImportSeasonMeta(ctx, title.ID, season.SeasonNumber, season.Name, season.Overview)
 		if err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 			if ep.RuntimeMinutes > 0 {
 				runtime = &ep.RuntimeMinutes
 			}
-			inserted, err := j.Store.ImportEpisodeMeta(ctx, seasonID, ep.EpisodeNumber,
+			inserted, err := j.Catalog.ImportEpisodeMeta(ctx, seasonID, ep.EpisodeNumber,
 				ep.Name, ep.Overview, airDate, runtime,
 				protect[[2]int{season.SeasonNumber, ep.EpisodeNumber}])
 			if err != nil {

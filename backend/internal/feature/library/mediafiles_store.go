@@ -103,25 +103,3 @@ func (s *Store) ApplyProbe(ctx context.Context, id string, up ProbeUpdate) error
 		up.VideoRange, up.DirectPlay, up.Probe, up.TitleID, up.EpisodeID, up.TrackID)
 	return err
 }
-
-func (s *Store) MediaFilesForTitle(ctx context.Context, titleID string) ([]media.MediaFile, error) {
-	rows, err := s.db.Query(ctx,
-		`SELECT `+media.MediaFileCols+` FROM media_files
-		 WHERE title_id = $1
-			OR episode_id IN (SELECT e.id FROM episodes e JOIN seasons se ON se.id = e.season_id WHERE se.title_id = $1)
-		 ORDER BY path`, titleID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	files := []media.MediaFile{}
-	for rows.Next() {
-		m, err := media.ScanMediaFile(rows)
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, *m)
-	}
-	return files, rows.Err()
-}

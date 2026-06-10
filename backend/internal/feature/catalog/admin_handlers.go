@@ -1,29 +1,26 @@
-package api
+package catalog
 
 import (
 	"net/http"
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
-	"couchverse/internal/feature/library"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
-type AdminTitles struct {
-	store   *store.Store
-	library *library.Store
+type AdminHandlers struct {
+	store   *Store
 	jobs    *jobs.Store
 	artwork *artwork.Service
 }
 
-func NewAdminTitles(st *store.Store, lib *library.Store, jb *jobs.Store, art *artwork.Service) *AdminTitles {
-	return &AdminTitles{store: st, library: lib, jobs: jb, artwork: art}
+func NewAdminHandlers(st *Store, jb *jobs.Store, art *artwork.Service) *AdminHandlers {
+	return &AdminHandlers{store: st, jobs: jb, artwork: art}
 }
 
-func (h *AdminTitles) Library(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) Library(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	f := store.LibraryFilter{
+	f := LibraryFilter{
 		Kind:     q.Get("type"),
 		Status:   q.Get("status"),
 		Query:    q.Get("q"),
@@ -43,8 +40,8 @@ func (h *AdminTitles) Library(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *AdminTitles) Create(w http.ResponseWriter, r *http.Request) {
-	var in store.TitleInput
+func (h *AdminHandlers) Create(w http.ResponseWriter, r *http.Request) {
+	var in TitleInput
 	if err := httpx.Decode(r, &in); err != nil {
 		httpx.BadRequest(w, "invalid request body")
 		return
@@ -61,7 +58,7 @@ func (h *AdminTitles) Create(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, t)
 }
 
-func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
@@ -81,7 +78,7 @@ func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
 		}
 		out["seasons"] = seasons
 	}
-	files, err := h.library.MediaFilesForTitle(r.Context(), t.ID)
+	files, err := h.store.MediaFilesForTitle(r.Context(), t.ID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -108,13 +105,13 @@ func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, out)
 }
 
-func (h *AdminTitles) Update(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) Update(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
 		return
 	}
-	var up store.TitleUpdate
+	var up TitleUpdate
 	if err := httpx.Decode(r, &up); err != nil {
 		httpx.BadRequest(w, "invalid request body")
 		return
@@ -131,7 +128,7 @@ func (h *AdminTitles) Update(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, t)
 }
 
-func (h *AdminTitles) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
@@ -148,7 +145,7 @@ func (h *AdminTitles) Delete(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
-func (h *AdminTitles) Bulk(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) Bulk(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDs    []string `json:"ids"`
 		Action string   `json:"action"`
@@ -197,7 +194,7 @@ func (h *AdminTitles) Bulk(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
-func (h *AdminTitles) CreateSeason(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) CreateSeason(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		SeasonNumber int    `json:"seasonNumber"`
 		Name         string `json:"name"`
@@ -219,7 +216,7 @@ func (h *AdminTitles) CreateSeason(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, se)
 }
 
-func (h *AdminTitles) DeleteSeason(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) DeleteSeason(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
@@ -232,8 +229,8 @@ func (h *AdminTitles) DeleteSeason(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
-func (h *AdminTitles) CreateEpisode(w http.ResponseWriter, r *http.Request) {
-	var in store.EpisodeInput
+func (h *AdminHandlers) CreateEpisode(w http.ResponseWriter, r *http.Request) {
+	var in EpisodeInput
 	if err := httpx.Decode(r, &in); err != nil {
 		httpx.BadRequest(w, "invalid request body")
 		return
@@ -251,8 +248,8 @@ func (h *AdminTitles) CreateEpisode(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, e)
 }
 
-func (h *AdminTitles) UpdateEpisode(w http.ResponseWriter, r *http.Request) {
-	var up store.EpisodeUpdate
+func (h *AdminHandlers) UpdateEpisode(w http.ResponseWriter, r *http.Request) {
+	var up EpisodeUpdate
 	if err := httpx.Decode(r, &up); err != nil {
 		httpx.BadRequest(w, "invalid request body")
 		return
@@ -270,7 +267,7 @@ func (h *AdminTitles) UpdateEpisode(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, e)
 }
 
-func (h *AdminTitles) DeleteEpisode(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) DeleteEpisode(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)

@@ -15,6 +15,7 @@ import (
 	"couchverse/internal/config"
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
+	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/music"
@@ -32,6 +33,7 @@ type Server struct {
 	store     *store.Store
 	settings  *settings.Store
 	auth      *auth.Store
+	catalog   *catalog.Store
 	jobs      *jobs.Store
 	music     *music.Store
 	library   *library.Store
@@ -42,20 +44,18 @@ type Server struct {
 	sessions  *transcode.SessionManager
 }
 
-func New(cfg config.Config, st *store.Store, set *settings.Store, au *auth.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
-	return &Server{cfg: cfg, store: st, settings: set, auth: au, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
+func New(cfg config.Config, st *store.Store, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
+	return &Server{cfg: cfg, store: st, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
 }
 
 func (s *Server) Handler() http.Handler {
 	sessions := auth.NewMiddleware(s.auth)
 	authModule := auth.NewModule(s.auth, s.cfg, s.artwork)
-	adminTitles := api.NewAdminTitles(s.store, s.library, s.jobs, s.artwork)
 	adminSettings := api.NewAdminSettings(s.settings)
 	libraryModule := library.NewModule(s.library, s.jobs, s.uploads)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
-	catalog := api.NewCatalog(s.store, s.settings, s.artwork.Store, s.music, s.library)
-	stream := api.NewStream(s.store, s.library, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
-	progress := api.NewProgress(s.store)
+	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.music, s.jobs)
+	stream := api.NewStream(s.store, s.catalog, s.library, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
 	transcodeAPI := api.NewAdminTranscode(s.library, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath)
 	musicModule := music.NewModule(s.music, s.settings, s.artwork)
 	adminStorage := api.NewAdminStorage(s.store, s.jobs, s.cfg.DataDir)
@@ -63,7 +63,7 @@ func (s *Server) Handler() http.Handler {
 	theme := api.NewTheme(s.settings)
 	artworkAPI := artwork.NewHandlers(s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.library, s.subtitles)
-	metadataAPI := api.NewAdminMetadata(s.store, s.settings, s.jobs)
+	metadataAPI := api.NewAdminMetadata(s.catalog, s.settings, s.jobs)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -87,19 +87,7 @@ func (s *Server) Handler() http.Handler {
 		v1.Group(func(p chi.Router) {
 			p.Use(auth.RequireAuth)
 			authModule.MountUser(p)
-			p.Get("/genres", func(w http.ResponseWriter, r *http.Request) {
-				genres, err := s.store.ListGenres(r.Context())
-				if err != nil {
-					httpx.Internal(w, err)
-					return
-				}
-				httpx.JSON(w, http.StatusOK, genres)
-			})
-
-			p.Get("/home", catalog.Home)
-			p.Get("/titles", catalog.Browse)
-			p.Get("/titles/{slug}", catalog.Title)
-			p.Get("/search", catalog.Search)
+			catalogModule.MountUser(p)
 
 			p.Get("/stream/{id}", stream.Serve)
 			p.Get("/stream/{id}/hls/master.m3u8", stream.HLSMaster)
@@ -118,29 +106,13 @@ func (s *Server) Handler() http.Handler {
 			// music routes (incl. track playlists) gate themselves on the feature toggle
 			musicModule.MountUser(p)
 
-			p.Put("/progress", progress.Put)
-			p.Post("/progress", progress.Put) // sendBeacon can only POST
-			p.Get("/me/continue-watching", progress.ContinueWatching)
-			p.Get("/me/watchlist", progress.WatchlistGet)
-			p.Put("/me/watchlist/{titleId}", progress.WatchlistPut)
-			p.Delete("/me/watchlist/{titleId}", progress.WatchlistDelete)
 		})
 
 		// admin routes
 		v1.Route("/admin", func(adm chi.Router) {
 			adm.Use(auth.RequireAdmin)
 
-			adm.Get("/library", adminTitles.Library)
-			adm.Post("/titles", adminTitles.Create)
-			adm.Post("/titles/bulk", adminTitles.Bulk)
-			adm.Get("/titles/{id}", adminTitles.Get)
-			adm.Patch("/titles/{id}", adminTitles.Update)
-			adm.Delete("/titles/{id}", adminTitles.Delete)
-			adm.Post("/titles/{id}/seasons", adminTitles.CreateSeason)
-			adm.Delete("/seasons/{id}", adminTitles.DeleteSeason)
-			adm.Post("/seasons/{id}/episodes", adminTitles.CreateEpisode)
-			adm.Patch("/episodes/{id}", adminTitles.UpdateEpisode)
-			adm.Delete("/episodes/{id}", adminTitles.DeleteEpisode)
+			catalogModule.MountAdmin(adm)
 
 			musicModule.MountAdmin(adm)
 

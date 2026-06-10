@@ -14,16 +14,16 @@ import (
 
 	"github.com/google/uuid"
 
+	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/media"
-	"couchverse/internal/store"
 )
 
 const MaxChunkSize = 64 << 20
 
 type Manager struct {
 	Files   *Store
-	Catalog *store.Store
+	Catalog *catalog.Store
 	Jobs    *jobs.Store
 	DataDir string
 }

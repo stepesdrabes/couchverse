@@ -1,4 +1,4 @@
-package api
+package catalog
 
 import (
 	"errors"
@@ -8,27 +8,24 @@ import (
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
-	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 )
 
-type Catalog struct {
-	store    *store.Store
+type Handlers struct {
+	store    *Store
 	settings *settings.Store
 	artwork  *artwork.Store
 	music    *music.Store
-	library  *library.Store
 }
 
-func NewCatalog(st *store.Store, set *settings.Store, art *artwork.Store, mus *music.Store, lib *library.Store) *Catalog {
-	return &Catalog{store: st, settings: set, artwork: art, music: mus, library: lib}
+func NewHandlers(st *Store, set *settings.Store, art *artwork.Store, mus *music.Store) *Handlers {
+	return &Handlers{store: st, settings: set, artwork: art, music: mus}
 }
 
-func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
 
 	featured, err := h.store.FeaturedTitle(r.Context())
@@ -64,7 +61,7 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	flags := flags.Load(r.Context(), h.settings)
-	rows := []store.HomeRow{}
+	rows := []HomeRow{}
 	for _, cfg := range configs {
 		var items any
 		switch cfg.Kind {
@@ -89,7 +86,7 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 			httpx.Internal(w, err)
 			return
 		}
-		rows = append(rows, store.HomeRow{Kind: cfg.Kind, Label: cfg.Label, Items: items})
+		rows = append(rows, HomeRow{Kind: cfg.Kind, Label: cfg.Label, Items: items})
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
@@ -100,9 +97,9 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Catalog) Browse(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Browse(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	items, total, err := h.store.BrowseTitles(r.Context(), store.BrowseFilter{
+	items, total, err := h.store.BrowseTitles(r.Context(), BrowseFilter{
 		Kind:  q.Get("kind"),
 		Genre: q.Get("genre"),
 		Query: q.Get("q"),
@@ -116,7 +113,7 @@ func (h *Catalog) Browse(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
 }
 
-func (h *Catalog) Title(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Title(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -142,7 +139,7 @@ func (h *Catalog) Title(w http.ResponseWriter, r *http.Request) {
 	}
 	out["inWatchlist"] = watchlisted
 
-	files, err := h.library.MediaFilesForTitle(r.Context(), t.ID)
+	files, err := h.store.MediaFilesForTitle(r.Context(), t.ID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -176,13 +173,13 @@ func (h *Catalog) Title(w http.ResponseWriter, r *http.Request) {
 			httpx.Internal(w, err)
 			return
 		}
-		out["progress"] = store.EpisodeProgress{Position: position, Duration: duration}
+		out["progress"] = EpisodeProgress{Position: position, Duration: duration}
 	}
 
 	httpx.JSON(w, http.StatusOK, out)
 }
 
-func (h *Catalog) Search(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 	includeMusic := flags.Load(r.Context(), h.settings).MusicEnabled
 	res, err := h.store.Search(r.Context(), r.URL.Query().Get("q"), 12, includeMusic)
 	if err != nil {
@@ -190,4 +187,13 @@ func (h *Catalog) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, res)
+}
+
+func (h *Handlers) Genres(w http.ResponseWriter, r *http.Request) {
+	genres, err := h.store.ListGenres(r.Context())
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, genres)
 }

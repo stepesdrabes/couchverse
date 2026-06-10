@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"couchverse/internal/feature/auth"
+	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/httpx"
@@ -24,6 +25,7 @@ import (
 
 type Stream struct {
 	store    *store.Store
+	catalog  *catalog.Store
 	library  *library.Store
 	settings *settings.Store
 	jobs     *jobs.Store
@@ -32,8 +34,8 @@ type Stream struct {
 	ffmpeg   string
 }
 
-func NewStream(st *store.Store, lib *library.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
-	return &Stream{store: st, library: lib, settings: set, jobs: jb, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
+func NewStream(st *store.Store, cat *catalog.Store, lib *library.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
+	return &Stream{store: st, catalog: cat, library: lib, settings: set, jobs: jb, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
 }
 
 var contentTypes = map[string]string{
@@ -91,19 +93,19 @@ func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
 }
 
 type playbackInfo struct {
-	Mode           string                `json:"mode"` // direct | unsupported (hls/jit arrive with transcoding)
-	MediaFileID    string                `json:"mediaFileId"`
-	StreamURL      string                `json:"streamUrl,omitempty"`
-	Duration       float64               `json:"durationSeconds"`
-	ResumePosition int                   `json:"resumePosition"`
-	Display        playbackDisplay       `json:"display"`
-	NextEpisode    *store.EpisodeRef     `json:"nextEpisode"`
-	Subtitles      []subtitleTrack       `json:"subtitles"`
-	Episodes       []store.SeriesEpisode `json:"episodes,omitempty"`
-	CurrentEpisode string                `json:"currentEpisodeId,omitempty"`
-	HLSURL         string                `json:"hlsUrl,omitempty"`
-	Variants       []qualityVariant      `json:"variants,omitempty"`
-	JobProgress    int                   `json:"jobProgress,omitempty"`
+	Mode           string                  `json:"mode"` // direct | unsupported (hls/jit arrive with transcoding)
+	MediaFileID    string                  `json:"mediaFileId"`
+	StreamURL      string                  `json:"streamUrl,omitempty"`
+	Duration       float64                 `json:"durationSeconds"`
+	ResumePosition int                     `json:"resumePosition"`
+	Display        playbackDisplay         `json:"display"`
+	NextEpisode    *catalog.EpisodeRef     `json:"nextEpisode"`
+	Subtitles      []subtitleTrack         `json:"subtitles"`
+	Episodes       []catalog.SeriesEpisode `json:"episodes,omitempty"`
+	CurrentEpisode string                  `json:"currentEpisodeId,omitempty"`
+	HLSURL         string                  `json:"hlsUrl,omitempty"`
+	Variants       []qualityVariant        `json:"variants,omitempty"`
+	JobProgress    int                     `json:"jobProgress,omitempty"`
 }
 
 type qualityVariant struct {
@@ -144,18 +146,18 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 
 	switch kind {
 	case "movie":
-		title, terr := h.store.TitleByID(r.Context(), id)
+		title, terr := h.catalog.TitleByID(r.Context(), id)
 		if terr != nil {
 			httpx.StoreErr(w, terr)
 			return
 		}
-		mf, err = h.store.PrimaryMediaFileForTitle(r.Context(), id)
+		mf, err = h.catalog.PrimaryMediaFileForTitle(r.Context(), id)
 		if err != nil {
 			httpx.Error(w, http.StatusNotFound, "no_media", "this title has no media file yet")
 			return
 		}
 		info.Display = playbackDisplay{Title: title.Name, TitleID: title.ID, TitleSlug: title.Slug}
-		pos, _, perr := h.store.ProgressFor(r.Context(), user.ID, &id, nil)
+		pos, _, perr := h.catalog.ProgressFor(r.Context(), user.ID, &id, nil)
 		if perr != nil {
 			httpx.Internal(w, perr)
 			return
@@ -163,12 +165,12 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		info.ResumePosition = pos
 
 	case "episode":
-		ref, rerr := h.store.EpisodeRef(r.Context(), id)
+		ref, rerr := h.catalog.EpisodeRef(r.Context(), id)
 		if rerr != nil {
 			httpx.NotFound(w)
 			return
 		}
-		mf, err = h.store.PrimaryMediaFileForEpisode(r.Context(), id)
+		mf, err = h.catalog.PrimaryMediaFileForEpisode(r.Context(), id)
 		if err != nil {
 			httpx.Error(w, http.StatusNotFound, "no_media", "this episode has no media file yet")
 			return
@@ -179,16 +181,16 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 			TitleID:   ref.TitleID,
 			TitleSlug: ref.TitleSlug,
 		}
-		pos, _, perr := h.store.ProgressFor(r.Context(), user.ID, nil, &id)
+		pos, _, perr := h.catalog.ProgressFor(r.Context(), user.ID, nil, &id)
 		if perr != nil {
 			httpx.Internal(w, perr)
 			return
 		}
 		info.ResumePosition = pos
-		if next, nerr := h.store.NextEpisode(r.Context(), id); nerr == nil {
+		if next, nerr := h.catalog.NextEpisode(r.Context(), id); nerr == nil {
 			info.NextEpisode = next
 		}
-		if eps, eerr := h.store.PlayableEpisodes(r.Context(), ref.TitleID); eerr == nil {
+		if eps, eerr := h.catalog.PlayableEpisodes(r.Context(), ref.TitleID); eerr == nil {
 			info.Episodes = eps
 			info.CurrentEpisode = id
 		}
@@ -426,7 +428,7 @@ func (h *Stream) HLSFile(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, path)
 }
 
-func formatEpisodeSubtitle(ref *store.EpisodeRef) string {
+func formatEpisodeSubtitle(ref *catalog.EpisodeRef) string {
 	s := fmt.Sprintf("S%d E%d", ref.SeasonNumber, ref.EpisodeNumber)
 	if ref.Name != "" {
 		s += " · " + ref.Name

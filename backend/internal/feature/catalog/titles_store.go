@@ -1,4 +1,4 @@
-package store
+package catalog
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func scanTitle(row pgx.Row) (*Title, error) {
 }
 
 func (s *Store) TitleByID(ctx context.Context, id string) (*Title, error) {
-	t, err := scanTitle(s.pool.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE id = $1`, id))
+	t, err := scanTitle(s.db.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE id = $1`, id))
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (s *Store) TitleByID(ctx context.Context, id string) (*Title, error) {
 }
 
 func (s *Store) TitleBySlug(ctx context.Context, slug string) (*Title, error) {
-	t, err := scanTitle(s.pool.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE slug = $1`, slug))
+	t, err := scanTitle(s.db.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE slug = $1`, slug))
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (s *Store) TitleBySlug(ctx context.Context, slug string) (*Title, error) {
 }
 
 func (s *Store) loadTitleGenres(ctx context.Context, t *Title) error {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT g.name FROM genres g JOIN title_genres tg ON tg.genre_id = g.id
 		 WHERE tg.title_id = $1 ORDER BY g.name`, t.ID)
 	if err != nil {
@@ -91,7 +91,7 @@ func (s *Store) loadTitleGenres(ctx context.Context, t *Title) error {
 
 // uniqueSlug returns base or the first free base-N suffix.
 func (s *Store) uniqueSlug(ctx context.Context, base string) (string, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT slug FROM titles WHERE slug = $1 OR slug LIKE $1 || '-%'`, base)
 	if err != nil {
 		return "", err
@@ -141,7 +141,7 @@ func (s *Store) CreateTitle(ctx context.Context, in TitleInput) (*Title, error) 
 		if err != nil {
 			return nil, err
 		}
-		t, err = scanTitle(s.pool.QueryRow(ctx,
+		t, err = scanTitle(s.db.QueryRow(ctx,
 			`INSERT INTO titles (kind, name, slug, sort_name, overview, year, content_rating, runtime_minutes)
 			 VALUES ($1, $2, $3, $2, $4, $5, $6, $7)
 			 RETURNING `+titleCols,
@@ -176,7 +176,7 @@ type TitleUpdate struct {
 }
 
 func (s *Store) UpdateTitle(ctx context.Context, id string, up TitleUpdate) (*Title, error) {
-	t, err := scanTitle(s.pool.QueryRow(ctx,
+	t, err := scanTitle(s.db.QueryRow(ctx,
 		`UPDATE titles SET
 			name = COALESCE($2, name),
 			sort_name = COALESCE($3, sort_name),
@@ -211,19 +211,19 @@ func (s *Store) RegenerateTitleSlug(ctx context.Context, id string, name string,
 	if err != nil {
 		return "", err
 	}
-	_, err = s.pool.Exec(ctx,
+	_, err = s.db.Exec(ctx,
 		`UPDATE titles SET slug = $2, updated_at = now() WHERE id = $1`, id, sl)
 	return sl, err
 }
 
 func (s *Store) SetTitleReleaseDate(ctx context.Context, id string, date string) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`UPDATE titles SET release_date = $2::date, updated_at = now() WHERE id = $1`, id, date)
 	return err
 }
 
 func (s *Store) DeleteTitle(ctx context.Context, id string) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM titles WHERE id = $1`, id)
+	tag, err := s.db.Exec(ctx, `DELETE FROM titles WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
@@ -234,19 +234,19 @@ func (s *Store) DeleteTitle(ctx context.Context, id string) error {
 }
 
 func (s *Store) SetTitlesStatus(ctx context.Context, ids []string, status string) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`UPDATE titles SET status = $2, updated_at = now() WHERE id = ANY($1::uuid[])`, ids, status)
 	return err
 }
 
 func (s *Store) DeleteTitles(ctx context.Context, ids []string) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM titles WHERE id = ANY($1::uuid[])`, ids)
+	_, err := s.db.Exec(ctx, `DELETE FROM titles WHERE id = ANY($1::uuid[])`, ids)
 	return err
 }
 
 // SetTitleGenres replaces a title's genres, creating unknown genre names.
 func (s *Store) SetTitleGenres(ctx context.Context, titleID string, names []string) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -279,7 +279,7 @@ type Genre struct {
 }
 
 func (s *Store) ListGenres(ctx context.Context) ([]Genre, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id, name FROM genres ORDER BY name`)
+	rows, err := s.db.Query(ctx, `SELECT id, name FROM genres ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +298,7 @@ func (s *Store) ListGenres(ctx context.Context) ([]Genre, error) {
 // FindOrCreateTitle matches scanner-discovered files to existing titles by
 // case-insensitive name (and year when known), creating a draft otherwise.
 func (s *Store) FindOrCreateTitle(ctx context.Context, kind, name string, year *int) (*Title, error) {
-	t, err := scanTitle(s.pool.QueryRow(ctx,
+	t, err := scanTitle(s.db.QueryRow(ctx,
 		`SELECT `+titleCols+` FROM titles
 		 WHERE kind = $1 AND lower(name) = lower($2)
 			AND ($3::int IS NULL OR year IS NULL OR year = $3)
@@ -318,7 +318,7 @@ func (s *Store) FindOrCreateTitle(ctx context.Context, kind, name string, year *
 		if slugErr != nil {
 			return nil, slugErr
 		}
-		t, err = scanTitle(s.pool.QueryRow(ctx,
+		t, err = scanTitle(s.db.QueryRow(ctx,
 			`INSERT INTO titles (kind, name, slug, sort_name, year) VALUES ($1, $2, $3, $2, $4)
 			 RETURNING `+titleCols, kind, name, sl, year))
 		if err == nil {
@@ -333,7 +333,7 @@ func (s *Store) FindOrCreateTitle(ctx context.Context, kind, name string, year *
 
 func (s *Store) FindOrCreateSeason(ctx context.Context, titleID string, seasonNumber int) (string, error) {
 	var id string
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`INSERT INTO seasons (title_id, season_number, name)
 		 VALUES ($1, $2, $3)
 		 ON CONFLICT (title_id, season_number) DO UPDATE SET title_id = EXCLUDED.title_id
@@ -343,7 +343,7 @@ func (s *Store) FindOrCreateSeason(ctx context.Context, titleID string, seasonNu
 
 func (s *Store) FindOrCreateEpisode(ctx context.Context, seasonID string, episodeNumber int, name string) (string, error) {
 	var id string
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`INSERT INTO episodes (season_id, episode_number, name)
 		 VALUES ($1, $2, $3)
 		 ON CONFLICT (season_id, episode_number) DO UPDATE
@@ -406,13 +406,13 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 		AND ($3 = '' OR t.name ILIKE '%' || $3 || '%')`
 
 	var total int
-	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM titles t `+where,
+	err := s.db.QueryRow(ctx, `SELECT count(*) FROM titles t `+where,
 		f.Kind, f.Status, f.Query).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.db.Query(ctx, `
 		SELECT t.id, t.slug, t.kind, t.name, t.year,
 			CASE WHEN EXISTS (
 				SELECT 1 FROM transcode_variants tv

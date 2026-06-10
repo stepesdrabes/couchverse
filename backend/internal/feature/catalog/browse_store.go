@@ -1,4 +1,4 @@
-package store
+package catalog
 
 import (
 	"context"
@@ -44,7 +44,7 @@ const cardSelect = `
 	FROM titles t`
 
 func (s *Store) scanCards(ctx context.Context, query string, args ...any) ([]CardItem, error) {
-	rows, err := s.pool.Query(ctx, query, args...)
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (s *Store) TitlesByGenre(ctx context.Context, genreID int64, limit int) ([]
 
 // FeaturedTitle picks the hero: the most recently published title.
 func (s *Store) FeaturedTitle(ctx context.Context) (*Title, error) {
-	t, err := scanTitle(s.pool.QueryRow(ctx,
+	t, err := scanTitle(s.db.QueryRow(ctx,
 		`SELECT `+titleCols+` FROM titles WHERE status = 'published' ORDER BY added_at DESC LIMIT 1`))
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func (s *Store) HomeRowConfigs(ctx context.Context) ([]struct {
 	Label   string
 	GenreID *int64
 }, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT kind, label, genre_id FROM home_rows WHERE enabled ORDER BY position`)
 	if err != nil {
 		return nil, err
@@ -154,7 +154,7 @@ func (s *Store) BrowseTitles(ctx context.Context, f BrowseFilter) ([]CardItem, i
 			WHERE tg.title_id = t.id AND lower(g.name) = lower($3)))`
 
 	var total int
-	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM titles t `+where,
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM titles t `+where,
 		f.Kind, f.Query, f.Genre).Scan(&total); err != nil {
 		return nil, 0, err
 	}
@@ -196,7 +196,7 @@ func (s *Store) Search(ctx context.Context, q string, limit int, includeMusic bo
 	}
 
 	collect := func(query string) ([]SearchHit, error) {
-		rows, err := s.pool.Query(ctx, query, q, limit)
+		rows, err := s.db.Query(ctx, query, q, limit)
 		if err != nil {
 			return nil, err
 		}
@@ -235,13 +235,13 @@ func (s *Store) Search(ctx context.Context, q string, limit int, includeMusic bo
 
 // PrimaryMediaFileForTitle returns the playable file for a movie title.
 func (s *Store) PrimaryMediaFileForTitle(ctx context.Context, titleID string) (*media.MediaFile, error) {
-	return media.ScanMediaFile(s.pool.QueryRow(ctx,
+	return media.ScanMediaFile(s.db.QueryRow(ctx,
 		`SELECT `+media.MediaFileCols+` FROM media_files
 		 WHERE title_id = $1 ORDER BY height DESC, id LIMIT 1`, titleID))
 }
 
 func (s *Store) PrimaryMediaFileForEpisode(ctx context.Context, episodeID string) (*media.MediaFile, error) {
-	return media.ScanMediaFile(s.pool.QueryRow(ctx,
+	return media.ScanMediaFile(s.db.QueryRow(ctx,
 		`SELECT `+media.MediaFileCols+` FROM media_files
 		 WHERE episode_id = $1 ORDER BY height DESC, id LIMIT 1`, episodeID))
 }
@@ -258,7 +258,7 @@ type EpisodeRef struct {
 
 func (s *Store) EpisodeRef(ctx context.Context, episodeID string) (*EpisodeRef, error) {
 	var ref EpisodeRef
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name, t.slug
 		 FROM episodes e
 		 JOIN seasons se ON se.id = e.season_id
@@ -281,7 +281,7 @@ type SeriesEpisode struct {
 // PlayableEpisodes lists a series' episodes that have a media file, for the
 // in-player episode switcher.
 func (s *Store) PlayableEpisodes(ctx context.Context, titleID string) ([]SeriesEpisode, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT e.id, se.season_number, e.episode_number, e.name
 		 FROM episodes e
 		 JOIN seasons se ON se.id = e.season_id
@@ -306,7 +306,7 @@ func (s *Store) PlayableEpisodes(ctx context.Context, titleID string) ([]SeriesE
 // NextEpisode finds the episode that follows (same season, then next season).
 func (s *Store) NextEpisode(ctx context.Context, episodeID string) (*EpisodeRef, error) {
 	var ref EpisodeRef
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`WITH cur AS (
 			SELECT e.id, e.episode_number, se.season_number, se.title_id
 			FROM episodes e JOIN seasons se ON se.id = e.season_id
@@ -325,4 +325,74 @@ func (s *Store) NextEpisode(ctx context.Context, episodeID string) (*EpisodeRef,
 		return nil, nil // no next episode is not an error
 	}
 	return &ref, nil
+}
+
+// MediaFileIDsForTitles powers the bulk re-scan action.
+func (s *Store) MediaFileIDsForTitles(ctx context.Context, titleIDs []string) ([]string, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT id FROM media_files
+		 WHERE title_id = ANY($1::uuid[])
+			OR episode_id IN (
+				SELECT e.id FROM episodes e
+				JOIN seasons se ON se.id = e.season_id
+				WHERE se.title_id = ANY($1::uuid[]))`, titleIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// SubtitlesForMediaFiles bulk-loads subtitles keyed by media file id.
+func (s *Store) SubtitlesForMediaFiles(ctx context.Context, mediaFileIDs []string) (map[string][]media.Subtitle, error) {
+	out := map[string][]media.Subtitle{}
+	if len(mediaFileIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx,
+		`SELECT `+media.SubtitleCols+` FROM subtitles
+		 WHERE media_file_id = ANY($1::uuid[]) ORDER BY lang, id`, mediaFileIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		sub, err := media.ScanSubtitle(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[sub.MediaFileID] = append(out[sub.MediaFileID], *sub)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) MediaFilesForTitle(ctx context.Context, titleID string) ([]media.MediaFile, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT `+media.MediaFileCols+` FROM media_files
+		 WHERE title_id = $1
+			OR episode_id IN (SELECT e.id FROM episodes e JOIN seasons se ON se.id = e.season_id WHERE se.title_id = $1)
+		 ORDER BY path`, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	files := []media.MediaFile{}
+	for rows.Next() {
+		m, err := media.ScanMediaFile(rows)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, *m)
+	}
+	return files, rows.Err()
 }

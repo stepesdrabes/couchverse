@@ -3,21 +3,21 @@ package api
 import (
 	"net/http"
 
+	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 	"couchverse/internal/tmdb"
 )
 
 type AdminMetadata struct {
-	store    *store.Store
+	catalog  *catalog.Store
 	settings *settings.Store
 	jobs     *jobs.Store
 }
 
-func NewAdminMetadata(st *store.Store, set *settings.Store, jb *jobs.Store) *AdminMetadata {
-	return &AdminMetadata{store: st, settings: set, jobs: jb}
+func NewAdminMetadata(cat *catalog.Store, set *settings.Store, jb *jobs.Store) *AdminMetadata {
+	return &AdminMetadata{catalog: cat, settings: set, jobs: jb}
 }
 
 // Search proxies a TMDB search so the API key never reaches the browser.
@@ -82,13 +82,13 @@ func (h *AdminMetadata) ImportEpisodes(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusAccepted, map[string]int64{"jobId": jobID})
 }
 
-func (h *AdminMetadata) requireTmdbSeries(w http.ResponseWriter, r *http.Request) (*store.Title, bool) {
+func (h *AdminMetadata) requireTmdbSeries(w http.ResponseWriter, r *http.Request) (*catalog.Title, bool) {
 	titleID := httpx.UUID(r, "id")
 	if titleID == "" {
 		httpx.NotFound(w)
 		return nil, false
 	}
-	title, err := h.store.TitleByID(r.Context(), titleID)
+	title, err := h.catalog.TitleByID(r.Context(), titleID)
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return nil, false
@@ -119,7 +119,7 @@ func (h *AdminMetadata) Apply(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "tmdbId is required")
 		return
 	}
-	if _, err := h.store.TitleByID(r.Context(), titleID); err != nil {
+	if _, err := h.catalog.TitleByID(r.Context(), titleID); err != nil {
 		httpx.StoreErr(w, err)
 		return
 	}

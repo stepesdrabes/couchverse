@@ -1,4 +1,4 @@
-package store
+package catalog
 
 import (
 	"context"
@@ -11,7 +11,7 @@ func (s *Store) UpsertProgress(ctx context.Context, userID int64, titleID, episo
 	completed := duration > 0 && float64(position) >= float64(duration)*0.95
 
 	if titleID != nil {
-		_, err := s.pool.Exec(ctx,
+		_, err := s.db.Exec(ctx,
 			`INSERT INTO watch_progress (user_id, title_id, position_seconds, duration_seconds, completed)
 			 VALUES ($1, $2, $3, $4, $5)
 			 ON CONFLICT (user_id, title_id) WHERE title_id IS NOT NULL DO UPDATE
@@ -22,7 +22,7 @@ func (s *Store) UpsertProgress(ctx context.Context, userID int64, titleID, episo
 			userID, *titleID, position, duration, completed)
 		return err
 	}
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`INSERT INTO watch_progress (user_id, episode_id, position_seconds, duration_seconds, completed)
 		 VALUES ($1, $2, $3, $4, $5)
 		 ON CONFLICT (user_id, episode_id) WHERE episode_id IS NOT NULL DO UPDATE
@@ -35,7 +35,7 @@ func (s *Store) UpsertProgress(ctx context.Context, userID int64, titleID, episo
 }
 
 func (s *Store) ProgressFor(ctx context.Context, userID int64, titleID, episodeID *string) (position, duration int, err error) {
-	err = s.pool.QueryRow(ctx,
+	err = s.db.QueryRow(ctx,
 		`SELECT position_seconds, duration_seconds FROM watch_progress
 		 WHERE user_id = $1 AND NOT completed
 			AND (($2::uuid IS NOT NULL AND title_id = $2) OR ($3::uuid IS NOT NULL AND episode_id = $3))`,
@@ -49,7 +49,7 @@ func (s *Store) ProgressFor(ctx context.Context, userID int64, titleID, episodeI
 // ContinueWatching lists in-progress items, newest first. For series it keeps
 // only the most recently watched episode per show.
 func (s *Store) ContinueWatching(ctx context.Context, userID int64, limit int) ([]ContinueItem, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.db.Query(ctx, `
 		SELECT DISTINCT ON (t.id)
 			t.id, t.slug, t.kind, t.name, t.year,
 			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster'),
@@ -129,21 +129,21 @@ func deref(s *string) string {
 // Watchlist ("My List")
 
 func (s *Store) WatchlistAdd(ctx context.Context, userID int64, titleID string) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`INSERT INTO watchlist (user_id, title_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 		userID, titleID)
 	return err
 }
 
 func (s *Store) WatchlistRemove(ctx context.Context, userID int64, titleID string) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`DELETE FROM watchlist WHERE user_id = $1 AND title_id = $2`, userID, titleID)
 	return err
 }
 
 func (s *Store) WatchlistHas(ctx context.Context, userID int64, titleID string) (bool, error) {
 	var ok bool
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM watchlist WHERE user_id = $1 AND title_id = $2)`,
 		userID, titleID).Scan(&ok)
 	return ok, err
@@ -165,7 +165,7 @@ type EpisodeProgress struct {
 }
 
 func (s *Store) EpisodeProgressForTitle(ctx context.Context, userID int64, titleID string) (map[string]EpisodeProgress, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT wp.episode_id, wp.position_seconds, wp.duration_seconds, wp.completed
 		 FROM watch_progress wp
 		 JOIN episodes e ON e.id = wp.episode_id

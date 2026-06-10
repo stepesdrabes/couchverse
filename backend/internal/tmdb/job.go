@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"couchverse/internal/feature/artwork"
+	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 )
 
 // FetchJob applies TMDB metadata + artwork to a title.
 type FetchJob struct {
-	Store    *store.Store
+	Catalog  *catalog.Store
 	Settings *settings.Store
 	Artwork  *artwork.Service
 }
@@ -51,7 +51,7 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 	}
 	client := New(key)
 
-	title, err := j.Store.TitleByID(ctx, p.TitleID)
+	title, err := j.Catalog.TitleByID(ctx, p.TitleID)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 	}
 	report(30)
 
-	up := store.TitleUpdate{
+	up := catalog.TitleUpdate{
 		Overview: &details.Overview,
 		TmdbID:   &p.TmdbID,
 	}
@@ -79,7 +79,7 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 	if len(details.Genres) > 0 {
 		up.Genres = &details.Genres
 	}
-	if _, err := j.Store.UpdateTitle(ctx, title.ID, up); err != nil {
+	if _, err := j.Catalog.UpdateTitle(ctx, title.ID, up); err != nil {
 		return err
 	}
 	// drafts get their scanner-placeholder slug rebuilt from the TMDB name;
@@ -89,7 +89,7 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 		if details.Year > 0 {
 			year = &details.Year
 		}
-		_, _ = j.Store.RegenerateTitleSlug(ctx, title.ID, details.Name, year)
+		_, _ = j.Catalog.RegenerateTitleSlug(ctx, title.ID, details.Name, year)
 	}
 	report(50)
 
@@ -117,12 +117,12 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 	// release date column is informative only; parse quietly
 	if details.ReleaseDate != "" {
 		if _, err := time.Parse("2006-01-02", details.ReleaseDate); err == nil {
-			_ = setReleaseDate(ctx, j.Store, title.ID, details.ReleaseDate)
+			_ = setReleaseDate(ctx, j.Catalog, title.ID, details.ReleaseDate)
 		}
 	}
 	return nil
 }
 
-func setReleaseDate(ctx context.Context, st *store.Store, titleID string, date string) error {
+func setReleaseDate(ctx context.Context, st *catalog.Store, titleID string, date string) error {
 	return st.SetTitleReleaseDate(ctx, titleID, date)
 }

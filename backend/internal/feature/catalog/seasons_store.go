@@ -1,4 +1,4 @@
-package store
+package catalog
 
 import (
 	"context"
@@ -56,7 +56,7 @@ func scanEpisode(row pgx.Row) (*Episode, error) {
 
 // SeasonsWithEpisodes returns a title's seasons with episodes, ordered.
 func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Season, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT id, title_id, season_number, name, overview
 		 FROM seasons WHERE title_id = $1 ORDER BY season_number`, titleID)
 	if err != nil {
@@ -81,7 +81,7 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 		return seasons, nil
 	}
 
-	erows, err := s.pool.Query(ctx,
+	erows, err := s.db.Query(ctx,
 		`SELECT e.id, e.season_id, e.episode_number, e.name, e.overview, e.air_date, e.runtime_minutes
 		 FROM episodes e JOIN seasons se ON se.id = e.season_id
 		 WHERE se.title_id = $1 ORDER BY e.episode_number`, titleID)
@@ -102,14 +102,14 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 }
 
 func (s *Store) CreateSeason(ctx context.Context, titleID string, seasonNumber int, name string) (*Season, error) {
-	return scanSeason(s.pool.QueryRow(ctx,
+	return scanSeason(s.db.QueryRow(ctx,
 		`INSERT INTO seasons (title_id, season_number, name) VALUES ($1, $2, $3)
 		 RETURNING id, title_id, season_number, name, overview`,
 		titleID, seasonNumber, name))
 }
 
 func (s *Store) DeleteSeason(ctx context.Context, id string) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM seasons WHERE id = $1`, id)
+	tag, err := s.db.Exec(ctx, `DELETE FROM seasons WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ type EpisodeInput struct {
 }
 
 func (s *Store) CreateEpisode(ctx context.Context, seasonID string, in EpisodeInput) (*Episode, error) {
-	return scanEpisode(s.pool.QueryRow(ctx,
+	return scanEpisode(s.db.QueryRow(ctx,
 		`INSERT INTO episodes (season_id, episode_number, name, overview, runtime_minutes)
 		 VALUES ($1, $2, $3, $4, $5)
 		 RETURNING id, season_id, episode_number, name, overview, air_date, runtime_minutes`,
@@ -142,7 +142,7 @@ type EpisodeUpdate struct {
 }
 
 func (s *Store) UpdateEpisode(ctx context.Context, id string, up EpisodeUpdate) (*Episode, error) {
-	return scanEpisode(s.pool.QueryRow(ctx,
+	return scanEpisode(s.db.QueryRow(ctx,
 		`UPDATE episodes SET
 			episode_number = COALESCE($2, episode_number),
 			name = COALESCE($3, name),
@@ -157,7 +157,7 @@ func (s *Store) UpdateEpisode(ctx context.Context, id string, up EpisodeUpdate) 
 // empty fields on existing rows.
 func (s *Store) ImportSeasonMeta(ctx context.Context, titleID string, seasonNumber int, name, overview string) (string, error) {
 	var id string
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`INSERT INTO seasons (title_id, season_number, name, overview)
 		 VALUES ($1, $2, $3, $4)
 		 ON CONFLICT (title_id, season_number) DO UPDATE SET
@@ -174,7 +174,7 @@ func (s *Store) ImportSeasonMeta(ctx context.Context, titleID string, seasonNumb
 // EpisodeIDsWithMedia returns the title's episode ids that have a video file
 // attached — import must not overwrite their metadata.
 func (s *Store) EpisodeIDsWithMedia(ctx context.Context, titleID string) (map[string]bool, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT DISTINCT mf.episode_id FROM media_files mf
 		 JOIN episodes e ON e.id = mf.episode_id
 		 JOIN seasons se ON se.id = e.season_id
@@ -200,7 +200,7 @@ func (s *Store) EpisodeIDsWithMedia(ctx context.Context, titleID string) (map[st
 // inserted.
 func (s *Store) ImportEpisodeMeta(ctx context.Context, seasonID string, episodeNumber int,
 	name, overview string, airDate *time.Time, runtimeMinutes *int, fillOnlyEmpty bool) (created bool, err error) {
-	err = s.pool.QueryRow(ctx,
+	err = s.db.QueryRow(ctx,
 		`INSERT INTO episodes (season_id, episode_number, name, overview, air_date, runtime_minutes)
 		 VALUES ($1, $2, $3, $4, $5, $6)
 		 ON CONFLICT (season_id, episode_number) DO UPDATE SET
@@ -218,7 +218,7 @@ func (s *Store) ImportEpisodeMeta(ctx context.Context, seasonID string, episodeN
 }
 
 func (s *Store) DeleteEpisode(ctx context.Context, id string) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM episodes WHERE id = $1`, id)
+	tag, err := s.db.Exec(ctx, `DELETE FROM episodes WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}

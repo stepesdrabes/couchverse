@@ -8,16 +8,16 @@ import (
 	"path/filepath"
 
 	"couchverse/internal/feature/artwork"
+	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 )
 
 type Prober struct {
 	Files       *Store
-	Catalog     *store.Store
+	Catalog     *catalog.Store
 	Settings    *settings.Store
 	Jobs        *jobs.Store
 	Artwork     *artwork.Store

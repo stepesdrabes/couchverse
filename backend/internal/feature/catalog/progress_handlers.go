@@ -1,18 +1,17 @@
-package api
+package catalog
 
 import (
 	"net/http"
 
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
 type Progress struct {
-	store *store.Store
+	store *Store
 }
 
-func NewProgress(st *store.Store) *Progress {
+func NewProgress(st *Store) *Progress {
 	return &Progress{store: st}
 }
 
