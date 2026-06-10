@@ -21,12 +21,12 @@ import (
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/metadata"
 	"couchverse/internal/feature/music"
+	"couchverse/internal/feature/playback"
 	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
-	"couchverse/internal/transcode"
 )
 
 // ensureManagedLibraries creates the default upload-target libraries under
@@ -97,13 +97,13 @@ func run() error {
 	uploadManager := &library.Manager{Files: libraryStore, Catalog: catalogStore, Jobs: jobsStore, DataDir: cfg.DataDir}
 	artworkService := &artwork.Service{Store: artwork.NewStore(pool), DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	subtitleService := &subtitles.Service{Subs: subtitles.NewStore(pool), Files: libraryStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
-	transcodeHandler := &transcode.JobHandler{Files: libraryStore, Settings: set, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
-	sessionManager := &transcode.SessionManager{
+	transcodeHandler := &playback.JobHandler{Files: libraryStore, Settings: set, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	sessionManager := &playback.SessionManager{
 		Files: libraryStore, Settings: set, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath, MaxSessions: 3,
 	}
 	defer sessionManager.StopAll()
 
-	go transcode.DetectEncoders(cfg.FFmpegPath)
+	go playback.DetectEncoders(cfg.FFmpegPath)
 
 	// transcodes can occupy their full concurrency budget and still leave
 	// workers free for quick jobs (probes, scans, metadata) — otherwise a

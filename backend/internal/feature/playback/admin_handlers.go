@@ -1,4 +1,4 @@
-package api
+package playback
 
 import (
 	"net/http"
@@ -8,18 +8,17 @@ import (
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
-	"couchverse/internal/transcode"
 )
 
 type AdminTranscode struct {
 	library    *library.Store
 	settings   *settings.Store
 	jobs       *jobs.Store
-	jobHandler *transcode.JobHandler
+	jobHandler *JobHandler
 	ffmpegPath string
 }
 
-func NewAdminTranscode(lib *library.Store, set *settings.Store, jb *jobs.Store, jobHandler *transcode.JobHandler, ffmpegPath string) *AdminTranscode {
+func NewAdminTranscode(lib *library.Store, set *settings.Store, jb *jobs.Store, jobHandler *JobHandler, ffmpegPath string) *AdminTranscode {
 	return &AdminTranscode{library: lib, settings: set, jobs: jb, jobHandler: jobHandler, ffmpegPath: ffmpegPath}
 }
 
@@ -27,7 +26,7 @@ func NewAdminTranscode(lib *library.Store, set *settings.Store, jb *jobs.Store, 
 // detection runs in the background at startup; report progress rather than
 // blocking on it.
 func (h *AdminTranscode) Info(w http.ResponseWriter, r *http.Request) {
-	encoders, done := transcode.DetectedEncoders()
+	encoders, done := DetectedEncoders()
 	if encoders == nil {
 		encoders = []string{}
 	}
@@ -101,7 +100,7 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if _, err := h.jobs.EnqueueJobOnce(r.Context(), "transcode_hls",
-			transcode.Payload{MediaFileID: mf.ID, Variant: name},
+			Payload{MediaFileID: mf.ID, Variant: name},
 			jobs.EnqueueOpts{MaxAttempts: 2}); err != nil {
 			httpx.Internal(w, err)
 			return

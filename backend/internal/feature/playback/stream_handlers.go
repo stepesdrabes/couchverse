@@ -1,4 +1,4 @@
-package api
+package playback
 
 import (
 	"context"
@@ -20,7 +20,6 @@ import (
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
-	"couchverse/internal/transcode"
 )
 
 type Stream struct {
@@ -30,11 +29,11 @@ type Stream struct {
 	settings *settings.Store
 	jobs     *jobs.Store
 	dataDir  string
-	sessions *transcode.SessionManager
+	sessions *SessionManager
 	ffmpeg   string
 }
 
-func NewStream(subs *subtitles.Store, cat *catalog.Store, lib *library.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
+func NewStream(subs *subtitles.Store, cat *catalog.Store, lib *library.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *SessionManager, ffmpegPath string) *Stream {
 	return &Stream{subs: subs, catalog: cat, library: lib, settings: set, jobs: jb, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
 }
 
@@ -330,7 +329,7 @@ func (h *Stream) jitAllowed(ctx context.Context) bool {
 	if settings.JITEnabled != nil {
 		return *settings.JITEnabled
 	}
-	return len(transcode.DetectEncoders(h.ffmpeg)) > 0
+	return len(DetectEncoders(h.ffmpeg)) > 0
 }
 
 // CreateSession opens a JIT transcode session.

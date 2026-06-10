@@ -1,6 +1,7 @@
-// Package transcode turns non-browser-playable media into HLS, with hardware
-// acceleration when the host has a usable encoder.
-package transcode
+// Package playback serves video: direct play, prepared HLS variants and
+// just-in-time transcode sessions, with hardware acceleration when the host
+// has a usable encoder.
+package playback
 
 import (
 	"context"

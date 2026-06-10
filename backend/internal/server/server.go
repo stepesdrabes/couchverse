@@ -20,12 +20,12 @@ import (
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/metadata"
 	"couchverse/internal/feature/music"
+	"couchverse/internal/feature/playback"
 	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
-	"couchverse/internal/transcode"
 	"couchverse/web"
 )
 
@@ -41,11 +41,11 @@ type Server struct {
 	uploads   *library.Manager
 	artwork   *artwork.Service
 	subtitles *subtitles.Service
-	transcode *transcode.JobHandler
-	sessions  *transcode.SessionManager
+	transcode *playback.JobHandler
+	sessions  *playback.SessionManager
 }
 
-func New(cfg config.Config, st *store.Store, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
+func New(cfg config.Config, st *store.Store, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager) *Server {
 	return &Server{cfg: cfg, store: st, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
 }
 
@@ -56,8 +56,10 @@ func (s *Server) Handler() http.Handler {
 	libraryModule := library.NewModule(s.library, s.jobs, s.uploads)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
 	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.music, s.jobs)
-	stream := api.NewStream(s.subtitles.Subs, s.catalog, s.library, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
-	transcodeAPI := api.NewAdminTranscode(s.library, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath)
+	playbackModule := playback.NewModule(
+		playback.NewStream(s.subtitles.Subs, s.catalog, s.library, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath),
+		playback.NewAdminTranscode(s.library, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath),
+	)
 	musicModule := music.NewModule(s.music, s.settings, s.artwork)
 	adminStorage := api.NewAdminStorage(s.store, s.jobs, s.cfg.DataDir)
 	sysStats := api.NewSysStats()
@@ -90,13 +92,7 @@ func (s *Server) Handler() http.Handler {
 			authModule.MountUser(p)
 			catalogModule.MountUser(p)
 
-			p.Get("/stream/{id}", stream.Serve)
-			p.Get("/stream/{id}/hls/master.m3u8", stream.HLSMaster)
-			p.Get("/stream/{id}/hls/{variant}/{file}", stream.HLSFile)
-			p.Post("/stream/{id}/sessions", stream.CreateSession)
-			p.Get("/stream/sessions/{sid}/{file}", stream.SessionFile)
-			p.Post("/stream/sessions/{sid}/keepalive", stream.SessionKeepalive)
-			p.Get("/playback/{kind}/{id}", stream.Playback)
+			playbackModule.MountUser(p)
 			artworkAPI.MountUser(p)
 			subtitlesAPI.MountUser(p)
 
@@ -138,11 +134,7 @@ func (s *Server) Handler() http.Handler {
 			adm.Get("/home-rows", adminStorage.HomeRowsGet)
 			adm.Put("/home-rows", adminStorage.HomeRowsPut)
 
-			adm.Get("/transcode/info", transcodeAPI.Info)
-			adm.Get("/transcode/active", transcodeAPI.Active)
-			adm.Post("/media-files/{id}/transcode", transcodeAPI.Enqueue)
-			adm.Get("/media-files/{id}/variants", transcodeAPI.ListVariants)
-			adm.Delete("/transcode-variants/{id}", transcodeAPI.DeleteVariant)
+			playbackModule.MountAdmin(adm)
 		})
 	})
 
