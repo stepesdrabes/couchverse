@@ -1,7 +1,7 @@
 // Package upload implements resumable chunked uploads: create a session,
 // append sequential chunks (resume from the server-reported offset after a
 // disconnect), then complete to move the file into a managed library.
-package upload
+package library
 
 import (
 	"context"
@@ -22,7 +22,8 @@ import (
 const MaxChunkSize = 64 << 20
 
 type Manager struct {
-	Store   *store.Store
+	Files   *Store
+	Catalog *store.Store
 	Jobs    *jobs.Store
 	DataDir string
 }
@@ -43,7 +44,7 @@ func sanitizeFilename(name string) string {
 	return name
 }
 
-func (m *Manager) Create(ctx context.Context, userID int64, filename string, size int64) (*store.UploadSession, error) {
+func (m *Manager) Create(ctx context.Context, userID int64, filename string, size int64) (*UploadSession, error) {
 	if err := os.MkdirAll(m.tempDir(), 0o755); err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func (m *Manager) Create(ctx context.Context, userID int64, filename string, siz
 	}
 	f.Close()
 
-	return m.Store.CreateUploadSession(ctx, id, userID, sanitizeFilename(filename), size, tempPath)
+	return m.Files.CreateUploadSession(ctx, id, userID, sanitizeFilename(filename), size, tempPath)
 }
 
 // ErrOffsetMismatch carries the server-side offset so clients can resync.
@@ -69,7 +70,7 @@ func (e *ErrOffsetMismatch) Error() string {
 }
 
 func (m *Manager) Append(ctx context.Context, id string, offset int64, body io.Reader) (int64, error) {
-	session, err := m.Store.UploadSession(ctx, id)
+	session, err := m.Files.UploadSession(ctx, id)
 	if err != nil {
 		return 0, err
 	}
@@ -90,7 +91,7 @@ func (m *Manager) Append(ctx context.Context, id string, offset int64, body io.R
 	if err != nil {
 		// reconcile the on-disk size so the client can resume from truth
 		if info, statErr := f.Stat(); statErr == nil {
-			_ = m.Store.SetUploadReceived(context.WithoutCancel(ctx), id, info.Size())
+			_ = m.Files.SetUploadReceived(context.WithoutCancel(ctx), id, info.Size())
 		}
 		return 0, err
 	}
@@ -102,7 +103,7 @@ func (m *Manager) Append(ctx context.Context, id string, offset int64, body io.R
 	if newOffset > session.DeclaredSize {
 		return 0, fmt.Errorf("received more bytes than declared size")
 	}
-	if err := m.Store.SetUploadReceived(ctx, id, newOffset); err != nil {
+	if err := m.Files.SetUploadReceived(ctx, id, newOffset); err != nil {
 		return 0, err
 	}
 	return newOffset, nil
@@ -117,7 +118,7 @@ type Assign struct {
 // Complete moves the finished upload into its managed library (same
 // filesystem → rename) and queues a probe.
 func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (string, error) {
-	session, err := m.Store.UploadSession(ctx, id)
+	session, err := m.Files.UploadSession(ctx, id)
 	if err != nil {
 		return "", err
 	}
@@ -128,7 +129,7 @@ func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (strin
 		return "", fmt.Errorf("upload incomplete: %d of %d bytes", session.ReceivedBytes, session.DeclaredSize)
 	}
 
-	lib, err := m.Store.ManagedLibraryByKind(ctx, assign.LibraryKind)
+	lib, err := m.Files.ManagedLibraryByKind(ctx, assign.LibraryKind)
 	if err != nil {
 		return "", fmt.Errorf("no managed %q library", assign.LibraryKind)
 	}
@@ -152,11 +153,11 @@ func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (strin
 	if lib.Kind == "series" {
 		if episodeID == nil && titleID != nil {
 			if parsed := media.ParseVideoPath(session.Filename); parsed.IsEpisode {
-				seasonID, serr := m.Store.FindOrCreateSeason(ctx, *titleID, parsed.Season)
+				seasonID, serr := m.Catalog.FindOrCreateSeason(ctx, *titleID, parsed.Season)
 				if serr != nil {
 					return "", serr
 				}
-				epID, eerr := m.Store.FindOrCreateEpisode(ctx, seasonID, parsed.Episode, parsed.Name)
+				epID, eerr := m.Catalog.FindOrCreateEpisode(ctx, seasonID, parsed.Episode, parsed.Name)
 				if eerr != nil {
 					return "", eerr
 				}
@@ -166,28 +167,28 @@ func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (strin
 		titleID = nil
 	}
 
-	mediaFileID, err := m.Store.CreateAssignedMediaFile(ctx, lib.ID, relPath,
+	mediaFileID, err := m.Files.CreateAssignedMediaFile(ctx, lib.ID, relPath,
 		session.ReceivedBytes, titleID, episodeID)
 	if err != nil {
 		return "", err
 	}
 	if _, err := m.Jobs.EnqueueJobOnce(ctx, "probe",
-		media.ProbePayload{MediaFileID: mediaFileID}, jobs.EnqueueOpts{Priority: 5}); err != nil {
+		ProbePayload{MediaFileID: mediaFileID}, jobs.EnqueueOpts{Priority: 5}); err != nil {
 		return "", err
 	}
-	if err := m.Store.SetUploadStatus(ctx, id, "complete"); err != nil {
+	if err := m.Files.SetUploadStatus(ctx, id, "complete"); err != nil {
 		return "", err
 	}
 	return mediaFileID, nil
 }
 
 // destinationPath picks a tidy library-relative location for the upload.
-func (m *Manager) destinationPath(ctx context.Context, lib *store.Library, filename string, assign Assign) (string, error) {
+func (m *Manager) destinationPath(ctx context.Context, lib *Library, filename string, assign Assign) (string, error) {
 	switch lib.Kind {
 	case "movies":
 		folder := strings.TrimSuffix(filename, filepath.Ext(filename))
 		if assign.TitleID != nil {
-			if t, err := m.Store.TitleByID(ctx, *assign.TitleID); err == nil {
+			if t, err := m.Catalog.TitleByID(ctx, *assign.TitleID); err == nil {
 				folder = t.Name
 				if t.Year != nil {
 					folder = fmt.Sprintf("%s (%d)", t.Name, *t.Year)
@@ -203,7 +204,7 @@ func (m *Manager) destinationPath(ctx context.Context, lib *store.Library, filen
 
 	case "series":
 		if assign.EpisodeID != nil {
-			if ref, err := m.Store.EpisodeRef(ctx, *assign.EpisodeID); err == nil {
+			if ref, err := m.Catalog.EpisodeRef(ctx, *assign.EpisodeID); err == nil {
 				return filepath.Join(
 					sanitizeFilename(ref.TitleName),
 					fmt.Sprintf("Season %02d", ref.SeasonNumber),
@@ -213,7 +214,7 @@ func (m *Manager) destinationPath(ctx context.Context, lib *store.Library, filen
 		parsed := media.ParseVideoPath(filename)
 		show := parsed.ShowName
 		if assign.TitleID != nil {
-			if t, err := m.Store.TitleByID(ctx, *assign.TitleID); err == nil {
+			if t, err := m.Catalog.TitleByID(ctx, *assign.TitleID); err == nil {
 				show = t.Name
 			}
 		}
@@ -232,26 +233,26 @@ func (m *Manager) destinationPath(ctx context.Context, lib *store.Library, filen
 
 // Abort marks the session aborted and removes the temp file.
 func (m *Manager) Abort(ctx context.Context, id string) error {
-	session, err := m.Store.UploadSession(ctx, id)
+	session, err := m.Files.UploadSession(ctx, id)
 	if err != nil {
 		return err
 	}
 	os.Remove(session.TempPath)
-	if err := m.Store.SetUploadStatus(ctx, id, "aborted"); err != nil {
+	if err := m.Files.SetUploadStatus(ctx, id, "aborted"); err != nil {
 		return err
 	}
-	return m.Store.DeleteUploadSession(ctx, id)
+	return m.Files.DeleteUploadSession(ctx, id)
 }
 
 // Reap removes expired/aborted sessions and their temp files (cleanup job).
 func (m *Manager) Reap(ctx context.Context) (int, error) {
-	sessions, err := m.Store.ExpiredUploadSessions(ctx)
+	sessions, err := m.Files.ExpiredUploadSessions(ctx)
 	if err != nil {
 		return 0, err
 	}
 	for _, s := range sessions {
 		os.Remove(s.TempPath)
-		if err := m.Store.DeleteUploadSession(ctx, s.ID); err != nil {
+		if err := m.Files.DeleteUploadSession(ctx, s.ID); err != nil {
 			return 0, err
 		}
 	}

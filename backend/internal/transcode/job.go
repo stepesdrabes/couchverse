@@ -11,13 +11,13 @@ import (
 	"path/filepath"
 
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/feature/library"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 )
 
 type JobHandler struct {
-	Store      *store.Store
+	Files      *library.Store
 	Settings   *settings.Store
 	Jobs       *jobs.Store
 	DataDir    string
@@ -38,11 +38,11 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err
 	}
-	mf, err := h.Store.MediaFileByID(ctx, p.MediaFileID)
+	mf, err := h.Files.MediaFileByID(ctx, p.MediaFileID)
 	if err != nil {
 		return err
 	}
-	lib, err := h.Store.LibraryByID(ctx, mf.LibraryID)
+	lib, err := h.Files.LibraryByID(ctx, mf.LibraryID)
 	if err != nil {
 		return err
 	}
@@ -56,11 +56,11 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 		BackgroundNice: true,
 	}
 
-	var variant *store.TranscodeVariant
+	var variant *library.TranscodeVariant
 	if p.Variant == "source" {
 		spec.Mode = "copy"
 		spec.Rendition = media.Rendition{Name: "source", Height: mf.Height, AudioBitrate: 192_000}
-		variant, err = h.Store.UpsertVariant(ctx, mf.ID, "source", mf.Height, mf.Bitrate, 192_000, "copy")
+		variant, err = h.Files.UpsertVariant(ctx, mf.ID, "source", mf.Height, mf.Bitrate, 192_000, "copy")
 	} else {
 		r, ok := media.Renditions[p.Variant]
 		if !ok {
@@ -69,7 +69,7 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 		spec.Mode = "transcode"
 		spec.Rendition = r
 		spec.Encoder = PickEncoder(h.FFmpegPath, settings.HWAccel)
-		variant, err = h.Store.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, "transcode")
+		variant, err = h.Files.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, "transcode")
 	}
 	if err != nil {
 		return err
@@ -78,7 +78,7 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 	if err := os.MkdirAll(spec.OutDir, 0o755); err != nil {
 		return err
 	}
-	if err := h.Store.SetVariantStatus(ctx, variant.ID, "processing", ""); err != nil {
+	if err := h.Files.SetVariantStatus(ctx, variant.ID, "processing", ""); err != nil {
 		return err
 	}
 
@@ -89,12 +89,12 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 		if errors.Is(err, context.Canceled) {
 			status = "queued" // shutdown/cancel: leave it retryable
 		}
-		_ = h.Store.SetVariantStatus(finishCtx, variant.ID, status, "")
+		_ = h.Files.SetVariantStatus(finishCtx, variant.ID, status, "")
 		return err
 	}
 
 	rel := filepath.Join("cache", "hls", mf.ID, p.Variant, "index.m3u8")
-	if err := h.Store.SetVariantStatus(ctx, variant.ID, "ready", rel); err != nil {
+	if err := h.Files.SetVariantStatus(ctx, variant.ID, "ready", rel); err != nil {
 		return err
 	}
 	h.maybeDeleteSource(ctx, mf, lib.Path, job.ID, settings)
@@ -104,11 +104,11 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 // maybeDeleteSource removes the original file once every requested variant is
 // ready and nothing else still reads it. Failures only log — the variant this
 // job produced is already ready.
-func (h *JobHandler) maybeDeleteSource(ctx context.Context, mf *store.MediaFile, libPath string, jobID int64, settings media.TranscodeSettings) {
+func (h *JobHandler) maybeDeleteSource(ctx context.Context, mf *media.MediaFile, libPath string, jobID int64, settings media.TranscodeSettings) {
 	if !settings.DeleteSourceEnabled() || mf.SourceDeletedAt != nil || mf.VideoCodec == "" {
 		return
 	}
-	if allReady, err := h.Store.AllVariantsReady(ctx, mf.ID); err != nil || !allReady {
+	if allReady, err := h.Files.AllVariantsReady(ctx, mf.ID); err != nil || !allReady {
 		return
 	}
 	if busy, err := h.Jobs.HasOtherPendingJobsForMediaFile(ctx, mf.ID, jobID); err != nil || busy {
@@ -119,7 +119,7 @@ func (h *JobHandler) maybeDeleteSource(ctx context.Context, mf *store.MediaFile,
 		slog.Warn("post-transcode cleanup: remove source", "path", src, "err", err)
 		return
 	}
-	if err := h.Store.MarkSourceDeleted(ctx, mf.ID); err != nil {
+	if err := h.Files.MarkSourceDeleted(ctx, mf.ID); err != nil {
 		slog.Warn("post-transcode cleanup: mark deleted", "mediaFileId", mf.ID, "err", err)
 		return
 	}
@@ -128,7 +128,7 @@ func (h *JobHandler) maybeDeleteSource(ctx context.Context, mf *store.MediaFile,
 
 // RemoveVariant deletes the variant row and its segment directory.
 func (h *JobHandler) RemoveVariant(ctx context.Context, id string) error {
-	variant, err := h.Store.DeleteVariant(ctx, id)
+	variant, err := h.Files.DeleteVariant(ctx, id)
 	if err != nil {
 		return err
 	}

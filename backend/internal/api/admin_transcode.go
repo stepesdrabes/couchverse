@@ -4,23 +4,23 @@ import (
 	"net/http"
 
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/feature/library"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 	"couchverse/internal/transcode"
 )
 
 type AdminTranscode struct {
-	store      *store.Store
+	library    *library.Store
 	settings   *settings.Store
 	jobs       *jobs.Store
 	jobHandler *transcode.JobHandler
 	ffmpegPath string
 }
 
-func NewAdminTranscode(st *store.Store, set *settings.Store, jb *jobs.Store, jobHandler *transcode.JobHandler, ffmpegPath string) *AdminTranscode {
-	return &AdminTranscode{store: st, settings: set, jobs: jb, jobHandler: jobHandler, ffmpegPath: ffmpegPath}
+func NewAdminTranscode(lib *library.Store, set *settings.Store, jb *jobs.Store, jobHandler *transcode.JobHandler, ffmpegPath string) *AdminTranscode {
+	return &AdminTranscode{library: lib, settings: set, jobs: jb, jobHandler: jobHandler, ffmpegPath: ffmpegPath}
 }
 
 // Info exposes detected encoders and current transcode settings. Encoder
@@ -56,7 +56,7 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 		httpx.NotFound(w)
 		return
 	}
-	mf, err := h.store.MediaFileByID(r.Context(), mediaFileID)
+	mf, err := h.library.MediaFileByID(r.Context(), mediaFileID)
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
@@ -96,7 +96,7 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 		if name == "source" {
 			mode, height, vbr, abr = "copy", mf.Height, mf.Bitrate, 192_000
 		}
-		if _, err := h.store.UpsertVariant(r.Context(), mf.ID, name, height, vbr, abr, mode); err != nil {
+		if _, err := h.library.UpsertVariant(r.Context(), mf.ID, name, height, vbr, abr, mode); err != nil {
 			httpx.Internal(w, err)
 			return
 		}
@@ -117,7 +117,7 @@ func (h *AdminTranscode) ListVariants(w http.ResponseWriter, r *http.Request) {
 		httpx.NotFound(w)
 		return
 	}
-	variants, err := h.store.VariantsForMediaFile(r.Context(), mediaFileID)
+	variants, err := h.library.VariantsForMediaFile(r.Context(), mediaFileID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return

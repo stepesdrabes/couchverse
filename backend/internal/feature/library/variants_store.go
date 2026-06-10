@@ -1,4 +1,4 @@
-package store
+package library
 
 import (
 	"context"
@@ -43,7 +43,7 @@ func scanVariant(row pgx.Row) (*TranscodeVariant, error) {
 
 // UpsertVariant registers/resets a variant slot before its job runs.
 func (s *Store) UpsertVariant(ctx context.Context, mediaFileID string, name string, height int, videoBitrate, audioBitrate int64, mode string) (*TranscodeVariant, error) {
-	return scanVariant(s.pool.QueryRow(ctx,
+	return scanVariant(s.db.QueryRow(ctx,
 		`INSERT INTO transcode_variants (media_file_id, name, height, video_bitrate, audio_bitrate, mode)
 		 VALUES ($1, $2, $3, $4, $5, $6)
 		 ON CONFLICT (media_file_id, name) DO UPDATE
@@ -55,7 +55,7 @@ func (s *Store) UpsertVariant(ctx context.Context, mediaFileID string, name stri
 }
 
 func (s *Store) SetVariantStatus(ctx context.Context, id string, status, playlistPath string) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`UPDATE transcode_variants SET status = $2, playlist_path = $3,
 			completed_at = CASE WHEN $2 = 'ready' THEN now() ELSE NULL END
 		 WHERE id = $1`, id, status, playlistPath)
@@ -63,7 +63,7 @@ func (s *Store) SetVariantStatus(ctx context.Context, id string, status, playlis
 }
 
 func (s *Store) VariantsForMediaFile(ctx context.Context, mediaFileID string) ([]TranscodeVariant, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT `+variantCols+` FROM transcode_variants
 		 WHERE media_file_id = $1 ORDER BY height DESC`, mediaFileID)
 	if err != nil {
@@ -86,18 +86,18 @@ func (s *Store) VariantsForMediaFile(ctx context.Context, mediaFileID string) ([
 // and every one of them is ready.
 func (s *Store) AllVariantsReady(ctx context.Context, mediaFileID string) (bool, error) {
 	var total, ready int
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`SELECT count(*), count(*) FILTER (WHERE status = 'ready')
 		 FROM transcode_variants WHERE media_file_id = $1`, mediaFileID).Scan(&total, &ready)
 	return total > 0 && total == ready, err
 }
 
 func (s *Store) VariantByID(ctx context.Context, id string) (*TranscodeVariant, error) {
-	return scanVariant(s.pool.QueryRow(ctx,
+	return scanVariant(s.db.QueryRow(ctx,
 		`SELECT `+variantCols+` FROM transcode_variants WHERE id = $1`, id))
 }
 
 func (s *Store) DeleteVariant(ctx context.Context, id string) (*TranscodeVariant, error) {
-	return scanVariant(s.pool.QueryRow(ctx,
+	return scanVariant(s.db.QueryRow(ctx,
 		`DELETE FROM transcode_variants WHERE id = $1 RETURNING `+variantCols, id))
 }

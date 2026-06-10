@@ -14,6 +14,7 @@ import (
 
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/feature/library"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
@@ -23,6 +24,7 @@ import (
 
 type Stream struct {
 	store    *store.Store
+	library  *library.Store
 	settings *settings.Store
 	jobs     *jobs.Store
 	dataDir  string
@@ -30,8 +32,8 @@ type Stream struct {
 	ffmpeg   string
 }
 
-func NewStream(st *store.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
-	return &Stream{store: st, settings: set, jobs: jb, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
+func NewStream(st *store.Store, lib *library.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
+	return &Stream{store: st, library: lib, settings: set, jobs: jb, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
 }
 
 var contentTypes = map[string]string{
@@ -54,7 +56,7 @@ func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
 		httpx.NotFound(w)
 		return
 	}
-	mf, err := h.store.MediaFileByID(r.Context(), id)
+	mf, err := h.library.MediaFileByID(r.Context(), id)
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
@@ -63,7 +65,7 @@ func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "source_deleted", "the original file was removed after transcoding")
 		return
 	}
-	lib, err := h.store.LibraryByID(r.Context(), mf.LibraryID)
+	lib, err := h.library.LibraryByID(r.Context(), mf.LibraryID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -135,7 +137,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		mf   *store.MediaFile
+		mf   *media.MediaFile
 		err  error
 		info playbackInfo
 	)
@@ -217,7 +219,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 
 	// ready transcode variants power the player's quality menu and are offered
 	// even when the source direct-plays, so users can pick a specific rendition
-	variants, verr := h.store.VariantsForMediaFile(r.Context(), mf.ID)
+	variants, verr := h.library.VariantsForMediaFile(r.Context(), mf.ID)
 	if verr != nil {
 		httpx.Internal(w, verr)
 		return
@@ -276,12 +278,12 @@ func (h *Stream) HLSMaster(w http.ResponseWriter, r *http.Request) {
 		httpx.NotFound(w)
 		return
 	}
-	mf, err := h.store.MediaFileByID(r.Context(), mediaFileID)
+	mf, err := h.library.MediaFileByID(r.Context(), mediaFileID)
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
 	}
-	variants, err := h.store.VariantsForMediaFile(r.Context(), mediaFileID)
+	variants, err := h.library.VariantsForMediaFile(r.Context(), mediaFileID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -347,7 +349,7 @@ func (h *Stream) CreateSession(w http.ResponseWriter, r *http.Request) {
 		httpx.NotFound(w)
 		return
 	}
-	if mf, merr := h.store.MediaFileByID(r.Context(), mediaFileID); merr == nil && mf.SourceDeletedAt != nil {
+	if mf, merr := h.library.MediaFileByID(r.Context(), mediaFileID); merr == nil && mf.SourceDeletedAt != nil {
 		httpx.Error(w, http.StatusNotFound, "source_deleted", "the original file was removed after transcoding")
 		return
 	}

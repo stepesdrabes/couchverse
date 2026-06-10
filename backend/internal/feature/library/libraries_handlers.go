@@ -1,4 +1,4 @@
-package api
+package library
 
 import (
 	"net/http"
@@ -6,16 +6,14 @@ import (
 
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
-	"couchverse/internal/media"
-	"couchverse/internal/store"
 )
 
 type AdminLibraries struct {
-	store *store.Store
+	store *Store
 	jobs  *jobs.Store
 }
 
-func NewAdminLibraries(st *store.Store, jb *jobs.Store) *AdminLibraries {
+func NewAdminLibraries(st *Store, jb *jobs.Store) *AdminLibraries {
 	return &AdminLibraries{store: st, jobs: jb}
 }
 
@@ -78,7 +76,7 @@ func (h *AdminLibraries) Scan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jobID, err := h.jobs.EnqueueJobOnce(r.Context(), "scan_library",
-		media.ScanPayload{LibraryID: lib.ID}, jobs.EnqueueOpts{Priority: 10})
+		ScanPayload{LibraryID: lib.ID}, jobs.EnqueueOpts{Priority: 10})
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -95,7 +93,7 @@ func (h *AdminLibraries) ScanAll(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, lib := range libs {
 		if _, err := h.jobs.EnqueueJobOnce(r.Context(), "scan_library",
-			media.ScanPayload{LibraryID: lib.ID}, jobs.EnqueueOpts{Priority: 10}); err != nil {
+			ScanPayload{LibraryID: lib.ID}, jobs.EnqueueOpts{Priority: 10}); err != nil {
 			httpx.Internal(w, err)
 			return
 		}

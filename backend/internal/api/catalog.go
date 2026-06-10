@@ -8,6 +8,7 @@ import (
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
+	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
@@ -20,10 +21,11 @@ type Catalog struct {
 	settings *settings.Store
 	artwork  *artwork.Store
 	music    *music.Store
+	library  *library.Store
 }
 
-func NewCatalog(st *store.Store, set *settings.Store, art *artwork.Store, mus *music.Store) *Catalog {
-	return &Catalog{store: st, settings: set, artwork: art, music: mus}
+func NewCatalog(st *store.Store, set *settings.Store, art *artwork.Store, mus *music.Store, lib *library.Store) *Catalog {
+	return &Catalog{store: st, settings: set, artwork: art, music: mus, library: lib}
 }
 
 func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
@@ -140,7 +142,7 @@ func (h *Catalog) Title(w http.ResponseWriter, r *http.Request) {
 	}
 	out["inWatchlist"] = watchlisted
 
-	files, err := h.store.MediaFilesForTitle(r.Context(), t.ID)
+	files, err := h.library.MediaFilesForTitle(r.Context(), t.ID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return

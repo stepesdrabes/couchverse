@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"couchverse/internal/media"
 )
 
 // Public catalog queries — published content only, shaped for the user app.
@@ -232,15 +234,15 @@ func (s *Store) Search(ctx context.Context, q string, limit int, includeMusic bo
 }
 
 // PrimaryMediaFileForTitle returns the playable file for a movie title.
-func (s *Store) PrimaryMediaFileForTitle(ctx context.Context, titleID string) (*MediaFile, error) {
-	return scanMediaFile(s.pool.QueryRow(ctx,
-		`SELECT `+mediaFileCols+` FROM media_files
+func (s *Store) PrimaryMediaFileForTitle(ctx context.Context, titleID string) (*media.MediaFile, error) {
+	return media.ScanMediaFile(s.pool.QueryRow(ctx,
+		`SELECT `+media.MediaFileCols+` FROM media_files
 		 WHERE title_id = $1 ORDER BY height DESC, id LIMIT 1`, titleID))
 }
 
-func (s *Store) PrimaryMediaFileForEpisode(ctx context.Context, episodeID string) (*MediaFile, error) {
-	return scanMediaFile(s.pool.QueryRow(ctx,
-		`SELECT `+mediaFileCols+` FROM media_files
+func (s *Store) PrimaryMediaFileForEpisode(ctx context.Context, episodeID string) (*media.MediaFile, error) {
+	return media.ScanMediaFile(s.pool.QueryRow(ctx,
+		`SELECT `+media.MediaFileCols+` FROM media_files
 		 WHERE episode_id = $1 ORDER BY height DESC, id LIMIT 1`, episodeID))
 }
 

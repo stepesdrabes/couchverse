@@ -14,12 +14,14 @@ import (
 	"strings"
 
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/feature/library"
 	"couchverse/internal/media"
 	"couchverse/internal/store"
 )
 
 type Service struct {
 	Store      *store.Store
+	Files      *library.Store
 	DataDir    string
 	FFmpegPath string
 }
@@ -113,11 +115,11 @@ func (s *Service) HandleExtract(ctx context.Context, job *jobs.Job, report func(
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err
 	}
-	mf, err := s.Store.MediaFileByID(ctx, p.MediaFileID)
+	mf, err := s.Files.MediaFileByID(ctx, p.MediaFileID)
 	if err != nil {
 		return err
 	}
-	lib, err := s.Store.LibraryByID(ctx, mf.LibraryID)
+	lib, err := s.Files.LibraryByID(ctx, mf.LibraryID)
 	if err != nil {
 		return err
 	}

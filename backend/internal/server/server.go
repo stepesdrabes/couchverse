@@ -16,6 +16,7 @@ import (
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
@@ -23,7 +24,6 @@ import (
 	"couchverse/internal/store"
 	"couchverse/internal/subtitles"
 	"couchverse/internal/transcode"
-	"couchverse/internal/upload"
 	"couchverse/web"
 )
 
@@ -34,35 +34,35 @@ type Server struct {
 	auth      *auth.Store
 	jobs      *jobs.Store
 	music     *music.Store
-	uploads   *upload.Manager
+	library   *library.Store
+	uploads   *library.Manager
 	artwork   *artwork.Service
 	subtitles *subtitles.Service
 	transcode *transcode.JobHandler
 	sessions  *transcode.SessionManager
 }
 
-func New(cfg config.Config, st *store.Store, set *settings.Store, au *auth.Store, jb *jobs.Store, mus *music.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
-	return &Server{cfg: cfg, store: st, settings: set, auth: au, jobs: jb, music: mus, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
+func New(cfg config.Config, st *store.Store, set *settings.Store, au *auth.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
+	return &Server{cfg: cfg, store: st, settings: set, auth: au, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
 }
 
 func (s *Server) Handler() http.Handler {
 	sessions := auth.NewMiddleware(s.auth)
 	authModule := auth.NewModule(s.auth, s.cfg, s.artwork)
-	adminTitles := api.NewAdminTitles(s.store, s.jobs, s.artwork)
+	adminTitles := api.NewAdminTitles(s.store, s.library, s.jobs, s.artwork)
 	adminSettings := api.NewAdminSettings(s.settings)
-	adminLibraries := api.NewAdminLibraries(s.store, s.jobs)
+	libraryModule := library.NewModule(s.library, s.jobs, s.uploads)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
-	catalog := api.NewCatalog(s.store, s.settings, s.artwork.Store, s.music)
-	stream := api.NewStream(s.store, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
+	catalog := api.NewCatalog(s.store, s.settings, s.artwork.Store, s.music, s.library)
+	stream := api.NewStream(s.store, s.library, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
 	progress := api.NewProgress(s.store)
-	transcodeAPI := api.NewAdminTranscode(s.store, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath)
+	transcodeAPI := api.NewAdminTranscode(s.library, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath)
 	musicModule := music.NewModule(s.music, s.settings, s.artwork)
 	adminStorage := api.NewAdminStorage(s.store, s.jobs, s.cfg.DataDir)
 	sysStats := api.NewSysStats()
 	theme := api.NewTheme(s.settings)
 	artworkAPI := artwork.NewHandlers(s.artwork)
-	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
-	uploadsAPI := api.NewAdminUploads(s.store, s.uploads)
+	subtitlesAPI := api.NewSubtitles(s.store, s.library, s.subtitles)
 	metadataAPI := api.NewAdminMetadata(s.store, s.settings, s.jobs)
 
 	r := chi.NewRouter()
@@ -149,20 +149,9 @@ func (s *Server) Handler() http.Handler {
 			adm.Get("/settings", adminSettings.Get)
 			adm.Put("/settings", adminSettings.Put)
 
-			adm.Get("/libraries", adminLibraries.List)
-			adm.Post("/libraries", adminLibraries.Create)
-			adm.Delete("/libraries/{id}", adminLibraries.Delete)
-			adm.Post("/libraries/{id}/scan", adminLibraries.Scan)
-			adm.Post("/libraries/scan-all", adminLibraries.ScanAll)
+			libraryModule.MountAdmin(adm)
 
 			adminJobs.MountAdmin(adm)
-
-			adm.Get("/uploads", uploadsAPI.List)
-			adm.Post("/uploads", uploadsAPI.Create)
-			adm.Get("/uploads/{id}", uploadsAPI.Get)
-			adm.Put("/uploads/{id}", uploadsAPI.Append)
-			adm.Post("/uploads/{id}/complete", uploadsAPI.Complete)
-			adm.Delete("/uploads/{id}", uploadsAPI.Abort)
 
 			adm.Get("/metadata/search", metadataAPI.Search)
 			adm.Post("/titles/{id}/metadata/apply", metadataAPI.Apply)

@@ -54,7 +54,7 @@
 		<div class="ml-auto flex items-center gap-2">
 			<a
 				href="/search"
-				class="rounded-full p-2 text-muted transition-colors hover:bg-surface-2 hover:text-text"
+				class="rounded-full p-2 transition-colors hover:bg-surface-2 hover:text-text"
 				title="Search"
 			>
 				<Search class="size-4.5" />

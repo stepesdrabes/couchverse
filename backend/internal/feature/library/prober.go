@@ -1,4 +1,4 @@
-package media
+package library
 
 import (
 	"context"
@@ -10,12 +10,14 @@ import (
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/music"
+	"couchverse/internal/media"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
 
 type Prober struct {
-	Store       *store.Store
+	Files       *Store
+	Catalog     *store.Store
 	Settings    *settings.Store
 	Jobs        *jobs.Store
 	Artwork     *artwork.Store
@@ -36,23 +38,23 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 	if err := json.Unmarshal(job.Payload, &payload); err != nil {
 		return err
 	}
-	mf, err := p.Store.MediaFileByID(ctx, payload.MediaFileID)
+	mf, err := p.Files.MediaFileByID(ctx, payload.MediaFileID)
 	if err != nil {
 		return fmt.Errorf("media file %s: %w", payload.MediaFileID, err)
 	}
-	lib, err := p.Store.LibraryByID(ctx, mf.LibraryID)
+	lib, err := p.Files.LibraryByID(ctx, mf.LibraryID)
 	if err != nil {
 		return err
 	}
 	abs := filepath.Join(lib.Path, mf.Path)
 
-	res, err := Probe(ctx, p.FFprobePath, abs)
+	res, err := media.Probe(ctx, p.FFprobePath, abs)
 	if err != nil {
 		return err
 	}
 	report(50)
 
-	up := store.ProbeUpdate{
+	up := ProbeUpdate{
 		Container:       res.Container,
 		VideoCodec:      res.VideoCodec,
 		AudioCodec:      res.AudioCodec,
@@ -63,7 +65,7 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 		Channels:        res.Channels,
 		SampleRate:      res.SampleRate,
 		VideoRange:      res.VideoRange,
-		DirectPlay:      DirectPlay(res),
+		DirectPlay:      media.DirectPlay(res),
 		Probe:           res.Raw,
 		// manual assignments (e.g. from uploads) are kept
 		TitleID:   mf.TitleID,
@@ -84,11 +86,11 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 		}
 	}
 
-	if err := p.Store.ApplyProbe(ctx, mf.ID, up); err != nil {
+	if err := p.Files.ApplyProbe(ctx, mf.ID, up); err != nil {
 		return err
 	}
 
-	if res.HasVideo && HasTextSubtitles(res) {
+	if res.HasVideo && media.HasTextSubtitles(res) {
 		if _, err := p.Jobs.EnqueueJobOnce(ctx, "extract_subtitles",
 			map[string]string{"mediaFileId": mf.ID}, jobs.EnqueueOpts{}); err != nil {
 			return err
@@ -101,16 +103,16 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 	// admin library shows "Processing" immediately.
 	if res.HasVideo && !up.DirectPlay {
 		if res.VideoCodec == "h264" {
-			if _, err := p.Store.UpsertVariant(ctx, mf.ID, "source", res.Height, res.Bitrate, 192_000, "copy"); err != nil {
+			if _, err := p.Files.UpsertVariant(ctx, mf.ID, "source", res.Height, res.Bitrate, 192_000, "copy"); err != nil {
 				return err
 			}
 			if _, err := p.Jobs.EnqueueJobOnce(ctx, "transcode_hls",
 				map[string]any{"mediaFileId": mf.ID, "variant": "source"}, jobs.EnqueueOpts{}); err != nil {
 				return err
 			}
-		} else if settings := LoadTranscodeSettings(ctx, p.Settings); settings.AutoPrepareEnabled() {
-			for _, r := range PrepareRenditions(settings.Ladder, res.Height) {
-				if _, err := p.Store.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, "transcode"); err != nil {
+		} else if settings := media.LoadTranscodeSettings(ctx, p.Settings); settings.AutoPrepareEnabled() {
+			for _, r := range media.PrepareRenditions(settings.Ladder, res.Height) {
+				if _, err := p.Files.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, "transcode"); err != nil {
 					return err
 				}
 				if _, err := p.Jobs.EnqueueJobOnce(ctx, "transcode_hls",
@@ -124,19 +126,19 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 	return nil
 }
 
-func (p *Prober) assignVideo(ctx context.Context, lib *store.Library, relPath string, up *store.ProbeUpdate) error {
-	parsed := ParseVideoPath(relPath)
+func (p *Prober) assignVideo(ctx context.Context, lib *Library, relPath string, up *ProbeUpdate) error {
+	parsed := media.ParseVideoPath(relPath)
 
 	if parsed.IsEpisode && lib.Kind != "movies" {
-		title, err := p.Store.FindOrCreateTitle(ctx, "series", parsed.ShowName, parsed.Year)
+		title, err := p.Catalog.FindOrCreateTitle(ctx, "series", parsed.ShowName, parsed.Year)
 		if err != nil {
 			return err
 		}
-		seasonID, err := p.Store.FindOrCreateSeason(ctx, title.ID, parsed.Season)
+		seasonID, err := p.Catalog.FindOrCreateSeason(ctx, title.ID, parsed.Season)
 		if err != nil {
 			return err
 		}
-		episodeID, err := p.Store.FindOrCreateEpisode(ctx, seasonID, parsed.Episode, parsed.Name)
+		episodeID, err := p.Catalog.FindOrCreateEpisode(ctx, seasonID, parsed.Episode, parsed.Name)
 		if err != nil {
 			return err
 		}
@@ -144,7 +146,7 @@ func (p *Prober) assignVideo(ctx context.Context, lib *store.Library, relPath st
 		return nil
 	}
 
-	title, err := p.Store.FindOrCreateTitle(ctx, "movie", parsed.Name, parsed.Year)
+	title, err := p.Catalog.FindOrCreateTitle(ctx, "movie", parsed.Name, parsed.Year)
 	if err != nil {
 		return err
 	}
@@ -152,8 +154,8 @@ func (p *Prober) assignVideo(ctx context.Context, lib *store.Library, relPath st
 	return nil
 }
 
-func (p *Prober) assignAudio(ctx context.Context, abs string, res *ProbeResult, up *store.ProbeUpdate) error {
-	tags := ReadAudioTags(abs)
+func (p *Prober) assignAudio(ctx context.Context, abs string, res *media.ProbeResult, up *ProbeUpdate) error {
+	tags := media.ReadAudioTags(abs)
 
 	artistID, err := p.Music.UpsertArtist(ctx, tags.Artist)
 	if err != nil {

@@ -1,4 +1,4 @@
-package api
+package library
 
 import (
 	"errors"
@@ -7,18 +7,16 @@ import (
 
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
-	"couchverse/internal/upload"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type AdminUploads struct {
-	store   *store.Store
-	manager *upload.Manager
+	store   *Store
+	manager *Manager
 }
 
-func NewAdminUploads(st *store.Store, manager *upload.Manager) *AdminUploads {
+func NewAdminUploads(st *Store, manager *Manager) *AdminUploads {
 	return &AdminUploads{store: st, manager: manager}
 }
 
@@ -66,7 +64,7 @@ func (h *AdminUploads) Append(w http.ResponseWriter, r *http.Request) {
 
 	newOffset, err := h.manager.Append(r.Context(), chi.URLParam(r, "id"), offset, r.Body)
 	if err != nil {
-		var mismatch *upload.ErrOffsetMismatch
+		var mismatch *ErrOffsetMismatch
 		switch {
 		case errors.As(err, &mismatch):
 			httpx.JSON(w, http.StatusConflict, map[string]int64{"offset": mismatch.Offset})
@@ -81,7 +79,7 @@ func (h *AdminUploads) Append(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminUploads) Complete(w http.ResponseWriter, r *http.Request) {
-	var assign upload.Assign
+	var assign Assign
 	if err := httpx.Decode(r, &assign); err != nil {
 		httpx.BadRequest(w, "invalid request body")
 		return

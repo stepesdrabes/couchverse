@@ -17,6 +17,7 @@ import (
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
@@ -25,12 +26,11 @@ import (
 	"couchverse/internal/subtitles"
 	"couchverse/internal/tmdb"
 	"couchverse/internal/transcode"
-	"couchverse/internal/upload"
 )
 
 // ensureManagedLibraries creates the default upload-target libraries under
 // DATA_DIR/media on first start.
-func ensureManagedLibraries(ctx context.Context, st *store.Store, dataDir string) error {
+func ensureManagedLibraries(ctx context.Context, st *library.Store, dataDir string) error {
 	for _, lib := range []struct{ name, kind string }{
 		{"Movies", "movies"},
 		{"Series", "series"},
@@ -84,19 +84,20 @@ func run() error {
 	jobsStore := jobs.NewStore(pool)
 	authStore := auth.NewStore(pool)
 	musicStore := music.NewStore(pool)
+	libraryStore := library.NewStore(pool)
 	if err := auth.Bootstrap(ctx, authStore, cfg); err != nil {
 		return err
 	}
-	if err := ensureManagedLibraries(ctx, st, cfg.DataDir); err != nil {
+	if err := ensureManagedLibraries(ctx, libraryStore, cfg.DataDir); err != nil {
 		return err
 	}
 
-	uploadManager := &upload.Manager{Store: st, Jobs: jobsStore, DataDir: cfg.DataDir}
+	uploadManager := &library.Manager{Files: libraryStore, Catalog: st, Jobs: jobsStore, DataDir: cfg.DataDir}
 	artworkService := &artwork.Service{Store: artwork.NewStore(pool), DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
-	subtitleService := &subtitles.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
-	transcodeHandler := &transcode.JobHandler{Store: st, Settings: set, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	subtitleService := &subtitles.Service{Store: st, Files: libraryStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	transcodeHandler := &transcode.JobHandler{Files: libraryStore, Settings: set, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	sessionManager := &transcode.SessionManager{
-		Store: st, Settings: set, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath, MaxSessions: 3,
+		Files: libraryStore, Settings: set, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath, MaxSessions: 3,
 	}
 	defer sessionManager.StopAll()
 
@@ -112,13 +113,13 @@ func run() error {
 	}
 
 	runner := jobs.NewRunner(jobsStore, workers)
-	runner.Register("scan_library", 1, (&media.Scanner{Store: st, Jobs: jobsStore}).Handle)
-	runner.Register("probe", 2, (&media.Prober{Store: st, Settings: set, Jobs: jobsStore, Artwork: artworkService.Store, Music: musicStore, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
+	runner.Register("scan_library", 1, (&library.Scanner{Files: libraryStore, Jobs: jobsStore}).Handle)
+	runner.Register("probe", 2, (&library.Prober{Files: libraryStore, Catalog: st, Settings: set, Jobs: jobsStore, Artwork: artworkService.Store, Music: musicStore, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Store: st, Settings: set, Artwork: artworkService}).Handle)
 	runner.Register("import_episodes", 1, (&tmdb.ImportEpisodesJob{Store: st, Settings: set}).Handle)
 	runner.Register("transcode_hls", transcodeSlots, transcodeHandler.Handle)
-	runner.Register("cleanup", 1, cleanupHandler(st, authStore, jobsStore, uploadManager, cfg.DataDir))
+	runner.Register("cleanup", 1, cleanupHandler(libraryStore, authStore, jobsStore, uploadManager, cfg.DataDir))
 	if _, err := jobsStore.EnqueueJobOnce(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{}); err != nil {
 		return err
 	}
@@ -126,7 +127,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, st, set, authStore, jobsStore, musicStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
+		Handler:           server.New(cfg, st, set, authStore, jobsStore, musicStore, libraryStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

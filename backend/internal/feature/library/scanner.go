@@ -1,4 +1,4 @@
-package media
+package library
 
 import (
 	"context"
@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"couchverse/internal/feature/jobs"
-	"couchverse/internal/store"
+	"couchverse/internal/media"
 )
 
 type Scanner struct {
-	Store *store.Store
+	Files *Store
 	Jobs  *jobs.Store
 }
 
@@ -30,12 +30,12 @@ func (sc *Scanner) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err
 	}
-	lib, err := sc.Store.LibraryByID(ctx, p.LibraryID)
+	lib, err := sc.Files.LibraryByID(ctx, p.LibraryID)
 	if err != nil {
 		return fmt.Errorf("library %d: %w", p.LibraryID, err)
 	}
 
-	existing, err := sc.Store.MediaFileStubsByLibrary(ctx, lib.ID)
+	existing, err := sc.Files.MediaFileStubsByLibrary(ctx, lib.ID)
 	if err != nil {
 		return err
 	}
@@ -62,10 +62,10 @@ func (sc *Scanner) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 
 		ext := strings.ToLower(filepath.Ext(name))
 		if lib.Kind == "music" {
-			if !IsAudioFile(ext) {
+			if !media.IsAudioFile(ext) {
 				return nil
 			}
-		} else if !IsVideoFile(ext) {
+		} else if !media.IsVideoFile(ext) {
 			return nil
 		}
 
@@ -87,7 +87,7 @@ func (sc *Scanner) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 			return nil
 		}
 
-		id, err := sc.Store.UpsertMediaFileStub(ctx, lib.ID, rel, info.Size(), info.ModTime())
+		id, err := sc.Files.UpsertMediaFileStub(ctx, lib.ID, rel, info.Size(), info.ModTime())
 		if err != nil {
 			return err
 		}
@@ -104,7 +104,7 @@ func (sc *Scanner) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 	removed := 0
 	for path, stub := range existing {
 		if !seen[path] {
-			if err := sc.Store.DeleteMediaFile(ctx, stub.ID); err != nil {
+			if err := sc.Files.DeleteMediaFile(ctx, stub.ID); err != nil {
 				return err
 			}
 			removed++
@@ -112,5 +112,5 @@ func (sc *Scanner) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 	}
 
 	slog.Info("library scan finished", "library", lib.Name, "queuedProbes", queued, "removed", removed)
-	return sc.Store.TouchLibraryScanned(ctx, lib.ID)
+	return sc.Files.TouchLibraryScanned(ctx, lib.ID)
 }

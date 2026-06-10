@@ -1,4 +1,4 @@
-package store
+package library
 
 import (
 	"context"
@@ -40,7 +40,7 @@ func scanUpload(row pgx.Row) (*UploadSession, error) {
 }
 
 func (s *Store) CreateUploadSession(ctx context.Context, id string, userID int64, filename string, size int64, tempPath string) (*UploadSession, error) {
-	return scanUpload(s.pool.QueryRow(ctx,
+	return scanUpload(s.db.QueryRow(ctx,
 		`INSERT INTO upload_sessions (id, user_id, filename, declared_size, temp_path, expires_at)
 		 VALUES ($1, $2, $3, $4, $5, now() + interval '7 days')
 		 RETURNING `+uploadCols,
@@ -48,24 +48,24 @@ func (s *Store) CreateUploadSession(ctx context.Context, id string, userID int64
 }
 
 func (s *Store) UploadSession(ctx context.Context, id string) (*UploadSession, error) {
-	return scanUpload(s.pool.QueryRow(ctx,
+	return scanUpload(s.db.QueryRow(ctx,
 		`SELECT `+uploadCols+` FROM upload_sessions WHERE id = $1`, id))
 }
 
 func (s *Store) SetUploadReceived(ctx context.Context, id string, received int64) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`UPDATE upload_sessions SET received_bytes = $2, updated_at = now() WHERE id = $1`, id, received)
 	return err
 }
 
 func (s *Store) SetUploadStatus(ctx context.Context, id, status string) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`UPDATE upload_sessions SET status = $2, updated_at = now() WHERE id = $1`, id, status)
 	return err
 }
 
 func (s *Store) ActiveUploadSessions(ctx context.Context) ([]UploadSession, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT `+uploadCols+` FROM upload_sessions WHERE status = 'active' ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (s *Store) ActiveUploadSessions(ctx context.Context) ([]UploadSession, erro
 
 // ExpiredUploadSessions returns sessions to reap (cleanup job).
 func (s *Store) ExpiredUploadSessions(ctx context.Context) ([]UploadSession, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT `+uploadCols+` FROM upload_sessions
 		 WHERE (status = 'active' AND expires_at < now()) OR status = 'aborted'`)
 	if err != nil {
@@ -105,7 +105,7 @@ func (s *Store) ExpiredUploadSessions(ctx context.Context) ([]UploadSession, err
 }
 
 func (s *Store) DeleteUploadSession(ctx context.Context, id string) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM upload_sessions WHERE id = $1`, id)
+	_, err := s.db.Exec(ctx, `DELETE FROM upload_sessions WHERE id = $1`, id)
 	return err
 }
 
@@ -113,7 +113,7 @@ func (s *Store) DeleteUploadSession(ctx context.Context, id string) error {
 // title/episode assignment (kept by the probe job).
 func (s *Store) CreateAssignedMediaFile(ctx context.Context, libraryID int64, path string, size int64, titleID, episodeID *string) (string, error) {
 	var id string
-	err := s.pool.QueryRow(ctx,
+	err := s.db.QueryRow(ctx,
 		`INSERT INTO media_files (library_id, path, size_bytes, file_mtime, title_id, episode_id)
 		 VALUES ($1, $2, $3, now(), $4, $5)
 		 ON CONFLICT (library_id, path) DO UPDATE

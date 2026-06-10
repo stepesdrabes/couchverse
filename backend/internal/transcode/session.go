@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
+	"couchverse/internal/feature/library"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
-	"couchverse/internal/store"
 )
 
 // JIT ("instant play") sessions transcode on demand: ffmpeg starts at the
@@ -48,7 +48,7 @@ type Session struct {
 }
 
 type SessionManager struct {
-	Store       *store.Store
+	Files       *library.Store
 	Settings    *settings.Store
 	DataDir     string
 	FFmpegPath  string
@@ -70,14 +70,14 @@ func (m *SessionManager) ensureInit(ctx context.Context) {
 func (m *SessionManager) Create(ctx context.Context, appCtx context.Context, mediaFileID string, startAt float64) (*Session, error) {
 	m.ensureInit(appCtx)
 
-	mf, err := m.Store.MediaFileByID(ctx, mediaFileID)
+	mf, err := m.Files.MediaFileByID(ctx, mediaFileID)
 	if err != nil {
 		return nil, err
 	}
 	if mf.VideoCodec == "" {
 		return nil, fmt.Errorf("not a video file")
 	}
-	lib, err := m.Store.LibraryByID(ctx, mf.LibraryID)
+	lib, err := m.Files.LibraryByID(ctx, mf.LibraryID)
 	if err != nil {
 		return nil, err
 	}

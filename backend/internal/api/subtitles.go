@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"couchverse/internal/feature/library"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 	"couchverse/internal/subtitles"
@@ -10,11 +11,12 @@ import (
 
 type Subtitles struct {
 	store   *store.Store
+	library *library.Store
 	service *subtitles.Service
 }
 
-func NewSubtitles(st *store.Store, service *subtitles.Service) *Subtitles {
-	return &Subtitles{store: st, service: service}
+func NewSubtitles(st *store.Store, lib *library.Store, service *subtitles.Service) *Subtitles {
+	return &Subtitles{store: st, library: lib, service: service}
 }
 
 // Serve returns the WebVTT file for a subtitle track.
@@ -41,7 +43,7 @@ func (h *Subtitles) Upload(w http.ResponseWriter, r *http.Request) {
 		httpx.NotFound(w)
 		return
 	}
-	if _, err := h.store.MediaFileByID(r.Context(), mediaFileID); err != nil {
+	if _, err := h.library.MediaFileByID(r.Context(), mediaFileID); err != nil {
 		httpx.StoreErr(w, err)
 		return
 	}

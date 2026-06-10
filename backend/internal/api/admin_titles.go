@@ -5,18 +5,20 @@ import (
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/feature/library"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 )
 
 type AdminTitles struct {
 	store   *store.Store
+	library *library.Store
 	jobs    *jobs.Store
 	artwork *artwork.Service
 }
 
-func NewAdminTitles(st *store.Store, jb *jobs.Store, art *artwork.Service) *AdminTitles {
-	return &AdminTitles{store: st, jobs: jb, artwork: art}
+func NewAdminTitles(st *store.Store, lib *library.Store, jb *jobs.Store, art *artwork.Service) *AdminTitles {
+	return &AdminTitles{store: st, library: lib, jobs: jb, artwork: art}
 }
 
 func (h *AdminTitles) Library(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +81,7 @@ func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
 		}
 		out["seasons"] = seasons
 	}
-	files, err := h.store.MediaFilesForTitle(r.Context(), t.ID)
+	files, err := h.library.MediaFilesForTitle(r.Context(), t.ID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return

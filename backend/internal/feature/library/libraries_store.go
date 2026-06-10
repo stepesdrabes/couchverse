@@ -1,4 +1,4 @@
-package store
+package library
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func scanLibrary(row pgx.Row) (*Library, error) {
 const libraryCols = `id, name, kind, path, managed, last_scanned_at`
 
 func (s *Store) ListLibraries(ctx context.Context) ([]Library, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+libraryCols+` FROM libraries ORDER BY id`)
+	rows, err := s.db.Query(ctx, `SELECT `+libraryCols+` FROM libraries ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -51,26 +51,26 @@ func (s *Store) ListLibraries(ctx context.Context) ([]Library, error) {
 }
 
 func (s *Store) LibraryByID(ctx context.Context, id int64) (*Library, error) {
-	return scanLibrary(s.pool.QueryRow(ctx,
+	return scanLibrary(s.db.QueryRow(ctx,
 		`SELECT `+libraryCols+` FROM libraries WHERE id = $1`, id))
 }
 
 func (s *Store) CreateLibrary(ctx context.Context, name, kind, path string, managed bool) (*Library, error) {
-	return scanLibrary(s.pool.QueryRow(ctx,
+	return scanLibrary(s.db.QueryRow(ctx,
 		`INSERT INTO libraries (name, kind, path, managed) VALUES ($1, $2, $3, $4)
 		 RETURNING `+libraryCols, name, kind, path, managed))
 }
 
 // EnsureLibrary creates the library if its path is not registered yet.
 func (s *Store) EnsureLibrary(ctx context.Context, name, kind, path string, managed bool) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`INSERT INTO libraries (name, kind, path, managed) VALUES ($1, $2, $3, $4)
 		 ON CONFLICT (path) DO NOTHING`, name, kind, path, managed)
 	return err
 }
 
 func (s *Store) DeleteLibrary(ctx context.Context, id int64) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM libraries WHERE id = $1`, id)
+	tag, err := s.db.Exec(ctx, `DELETE FROM libraries WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
@@ -81,12 +81,12 @@ func (s *Store) DeleteLibrary(ctx context.Context, id int64) error {
 }
 
 func (s *Store) TouchLibraryScanned(ctx context.Context, id int64) error {
-	_, err := s.pool.Exec(ctx, `UPDATE libraries SET last_scanned_at = now() WHERE id = $1`, id)
+	_, err := s.db.Exec(ctx, `UPDATE libraries SET last_scanned_at = now() WHERE id = $1`, id)
 	return err
 }
 
 // ManagedLibraryByKind returns the managed library uploads land in.
 func (s *Store) ManagedLibraryByKind(ctx context.Context, kind string) (*Library, error) {
-	return scanLibrary(s.pool.QueryRow(ctx,
+	return scanLibrary(s.db.QueryRow(ctx,
 		`SELECT `+libraryCols+` FROM libraries WHERE kind = $1 AND managed ORDER BY id LIMIT 1`, kind))
 }
