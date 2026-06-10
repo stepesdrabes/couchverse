@@ -48,6 +48,8 @@ func (s *Server) Handler() http.Handler {
 	stream := api.NewStream(s.store, s.cfg.DataDir)
 	progress := api.NewProgress(s.store)
 	transcodeAPI := api.NewAdminTranscode(s.store, s.transcode, s.cfg.FFmpegPath)
+	music := api.NewMusic(s.store)
+	playlists := api.NewPlaylists(s.store)
 	artworkAPI := api.NewArtwork(s.store, s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
 	uploadsAPI := api.NewAdminUploads(s.store, s.uploads)
@@ -95,6 +97,20 @@ func (s *Server) Handler() http.Handler {
 			p.Get("/playback/{kind}/{id}", stream.Playback)
 			p.Get("/artwork/{id}", artworkAPI.Serve)
 			p.Get("/subtitles/{id}.vtt", subtitlesAPI.Serve)
+
+			p.Get("/music", music.Home)
+			p.Get("/music/albums/{id}", music.Album)
+			p.Get("/music/artists/{id}", music.Artist)
+			p.Post("/plays", music.Scrobble)
+
+			p.Get("/me/playlists", playlists.List)
+			p.Post("/me/playlists", playlists.Create)
+			p.Get("/me/playlists/{id}", playlists.Get)
+			p.Patch("/me/playlists/{id}", playlists.Rename)
+			p.Delete("/me/playlists/{id}", playlists.Delete)
+			p.Post("/me/playlists/{id}/tracks", playlists.AddTrack)
+			p.Delete("/me/playlists/{id}/tracks/{entryId}", playlists.RemoveEntry)
+			p.Put("/me/playlists/{id}/order", playlists.Reorder)
 
 			p.Put("/progress", progress.Put)
 			p.Post("/progress", progress.Put) // sendBeacon can only POST

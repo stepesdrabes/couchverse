@@ -2,7 +2,186 @@ package store
 
 import (
 	"context"
+	"errors"
+
+	"github.com/jackc/pgx/v5"
+
+	"couchverse/internal/httpx"
 )
+
+type AlbumCard struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	Year       *int   `json:"year"`
+	ArtistID   int64  `json:"artistId"`
+	ArtistName string `json:"artistName"`
+	CoverID    *int64 `json:"coverId"`
+	TrackCount int    `json:"trackCount"`
+}
+
+type TrackItem struct {
+	ID              int64   `json:"id"`
+	AlbumID         int64   `json:"albumId"`
+	DiscNumber      int     `json:"discNumber"`
+	TrackNumber     int     `json:"trackNumber"`
+	Name            string  `json:"name"`
+	DurationSeconds int     `json:"durationSeconds"`
+	TrackArtist     *string `json:"trackArtist"`
+	MediaFileID     *int64  `json:"mediaFileId"`
+	AlbumName       string  `json:"albumName"`
+	ArtistID        int64   `json:"artistId"`
+	ArtistName      string  `json:"artistName"`
+	CoverID         *int64  `json:"coverId"`
+}
+
+type ArtistCard struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	AlbumCount int    `json:"albumCount"`
+}
+
+const albumCardSelect = `
+	SELECT al.id, al.name, al.year, ar.id, ar.name,
+		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id AND a.kind = 'album_cover'),
+		(SELECT count(*) FROM tracks t WHERE t.album_id = al.id)
+	FROM albums al
+	JOIN artists ar ON ar.id = al.artist_id`
+
+func (s *Store) scanAlbumCards(ctx context.Context, query string, args ...any) ([]AlbumCard, error) {
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	cards := []AlbumCard{}
+	for rows.Next() {
+		var c AlbumCard
+		if err := rows.Scan(&c.ID, &c.Name, &c.Year, &c.ArtistID, &c.ArtistName, &c.CoverID, &c.TrackCount); err != nil {
+			return nil, err
+		}
+		cards = append(cards, c)
+	}
+	return cards, rows.Err()
+}
+
+func (s *Store) RecentAlbums(ctx context.Context, limit int) ([]AlbumCard, error) {
+	return s.scanAlbumCards(ctx, albumCardSelect+`
+		WHERE al.status = 'published'
+		ORDER BY al.added_at DESC LIMIT $1`, limit)
+}
+
+func (s *Store) AlbumsByArtist(ctx context.Context, artistID int64) ([]AlbumCard, error) {
+	return s.scanAlbumCards(ctx, albumCardSelect+`
+		WHERE al.status = 'published' AND al.artist_id = $1
+		ORDER BY al.year DESC NULLS LAST, al.name`, artistID)
+}
+
+func (s *Store) AlbumCardByID(ctx context.Context, id int64) (*AlbumCard, error) {
+	cards, err := s.scanAlbumCards(ctx, albumCardSelect+` WHERE al.id = $1`, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(cards) == 0 {
+		return nil, httpx.ErrNotFound
+	}
+	return &cards[0], nil
+}
+
+func (s *Store) ListArtists(ctx context.Context) ([]ArtistCard, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT ar.id, ar.name, count(al.id)
+		 FROM artists ar
+		 JOIN albums al ON al.artist_id = ar.id AND al.status = 'published'
+		 GROUP BY ar.id
+		 ORDER BY ar.sort_name, ar.name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	artists := []ArtistCard{}
+	for rows.Next() {
+		var a ArtistCard
+		if err := rows.Scan(&a.ID, &a.Name, &a.AlbumCount); err != nil {
+			return nil, err
+		}
+		artists = append(artists, a)
+	}
+	return artists, rows.Err()
+}
+
+func (s *Store) ArtistByID(ctx context.Context, id int64) (*ArtistCard, error) {
+	var a ArtistCard
+	err := s.pool.QueryRow(ctx,
+		`SELECT ar.id, ar.name,
+			(SELECT count(*) FROM albums al WHERE al.artist_id = ar.id AND al.status = 'published')
+		 FROM artists ar WHERE ar.id = $1`, id).Scan(&a.ID, &a.Name, &a.AlbumCount)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, httpx.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
+const trackItemSelect = `
+	SELECT t.id, t.album_id, t.disc_number, t.track_number, t.name, t.duration_seconds,
+		t.track_artist, mf.id, al.name, ar.id, ar.name,
+		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'album' AND a.owner_id = al.id AND a.kind = 'album_cover')
+	FROM tracks t
+	JOIN albums al ON al.id = t.album_id
+	JOIN artists ar ON ar.id = al.artist_id
+	LEFT JOIN media_files mf ON mf.track_id = t.id`
+
+func (s *Store) scanTrackItems(ctx context.Context, query string, args ...any) ([]TrackItem, error) {
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	tracks := []TrackItem{}
+	for rows.Next() {
+		var t TrackItem
+		if err := rows.Scan(&t.ID, &t.AlbumID, &t.DiscNumber, &t.TrackNumber, &t.Name,
+			&t.DurationSeconds, &t.TrackArtist, &t.MediaFileID, &t.AlbumName, &t.ArtistID,
+			&t.ArtistName, &t.CoverID); err != nil {
+			return nil, err
+		}
+		tracks = append(tracks, t)
+	}
+	return tracks, rows.Err()
+}
+
+func (s *Store) TracksForAlbum(ctx context.Context, albumID int64) ([]TrackItem, error) {
+	return s.scanTrackItems(ctx, trackItemSelect+`
+		WHERE t.album_id = $1
+		ORDER BY t.disc_number, t.track_number, t.name`, albumID)
+}
+
+// RecentlyPlayedAlbums powers the music home row.
+func (s *Store) RecentlyPlayedAlbums(ctx context.Context, userID int64, limit int) ([]AlbumCard, error) {
+	return s.scanAlbumCards(ctx, albumCardSelect+`
+		WHERE al.status = 'published' AND al.id IN (
+			SELECT DISTINCT t.album_id FROM play_history ph
+			JOIN tracks t ON t.id = ph.track_id
+			WHERE ph.user_id = $1
+		)
+		ORDER BY (
+			SELECT max(ph2.started_at) FROM play_history ph2
+			JOIN tracks t2 ON t2.id = ph2.track_id
+			WHERE ph2.user_id = $1 AND t2.album_id = al.id
+		) DESC
+		LIMIT $2`, userID, limit)
+}
+
+func (s *Store) RecordPlay(ctx context.Context, userID, trackID int64) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO play_history (user_id, track_id) VALUES ($1, $2)`, userID, trackID)
+	return err
+}
 
 // UpsertArtist returns the artist id for a name, creating it when new.
 func (s *Store) UpsertArtist(ctx context.Context, name string) (int64, error) {

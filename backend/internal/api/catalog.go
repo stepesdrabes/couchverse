@@ -45,8 +45,9 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			items, err = h.store.TitlesByGenre(r.Context(), *cfg.GenreID, 20)
+		case "recently_played_music":
+			items, err = h.store.RecentlyPlayedAlbums(r.Context(), user.ID, 20)
 		default:
-			// music rows arrive with the music milestone
 			continue
 		}
 		if err != nil {
