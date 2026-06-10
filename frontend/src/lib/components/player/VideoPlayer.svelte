@@ -54,11 +54,43 @@
 	// subtitle selection: track id or null (off); restore the preferred language
 	let activeSub = $state<string | null>(null);
 
+	// cues render in a custom overlay; tracks stay hidden so they still load and fire cuechange
+	let cueHtml = $state('');
+	let cueTrack: TextTrack | null = null;
+
+	function syncCues(track: TextTrack) {
+		if (!track.activeCues?.length) {
+			cueHtml = '';
+			return;
+		}
+		const div = document.createElement('div');
+		for (let i = 0; i < track.activeCues.length; i++) {
+			div.append((track.activeCues[i] as VTTCue).getCueAsHTML());
+		}
+		cueHtml = div.innerHTML;
+	}
+
+	function handleCueChange() {
+		if (cueTrack) syncCues(cueTrack);
+	}
+
+	function detachCueListener() {
+		cueTrack?.removeEventListener('cuechange', handleCueChange);
+		cueTrack = null;
+		cueHtml = '';
+	}
+
 	function applySubtitles() {
 		if (!video) return;
+		detachCueListener();
 		const selected = info.subtitles.findIndex((s) => s.id === activeSub);
 		for (let i = 0; i < video.textTracks.length; i++) {
-			video.textTracks[i].mode = i === selected ? 'showing' : 'hidden';
+			video.textTracks[i].mode = 'hidden';
+		}
+		if (selected >= 0 && video.textTracks[selected]) {
+			cueTrack = video.textTracks[selected];
+			cueTrack.addEventListener('cuechange', handleCueChange);
+			syncCues(cueTrack);
 		}
 	}
 
@@ -159,6 +191,7 @@
 	}
 
 	function onEnded() {
+		cueHtml = '';
 		report();
 		if (info.nextEpisode) goNextEpisode();
 		else goto(`/title/${info.display.titleSlug}`);
@@ -255,6 +288,7 @@
 		document.addEventListener('visibilitychange', onVisibility);
 		return () => {
 			document.removeEventListener('visibilitychange', onVisibility);
+			detachCueListener();
 			clearTimeout(hideTimer);
 			clearInterval(keepaliveTimer);
 			hls?.destroy();
@@ -301,6 +335,10 @@
 			<track kind="subtitles" src={sub.url} srclang={sub.lang} label={sub.label} />
 		{/each}
 	</video>
+
+	{#if cueHtml}
+		<div class="subtitle-overlay" class:raised={controlsVisible}>{@html cueHtml}</div>
+	{/if}
 
 	{#if controlsVisible}
 		<!-- top bar -->
@@ -545,5 +583,38 @@
 
 	.volume-slider {
 		accent-color: var(--color-accent);
+	}
+
+	.subtitle-overlay {
+		position: absolute;
+		left: 50%;
+		bottom: 4.5rem;
+		transform: translateX(-50%);
+		max-width: 85%;
+		padding: 0.25em 0.6em;
+		border-radius: 0.5rem;
+		background: rgb(0 0 0 / 0.55);
+		color: white;
+		text-align: center;
+		text-shadow: 0 1px 3px rgb(0 0 0 / 0.9);
+		font-size: clamp(1rem, 2.2vw, 1.5rem);
+		line-height: 1.4;
+		white-space: pre-line;
+		pointer-events: none;
+		transition: bottom 0.25s ease;
+
+		&.raised {
+			bottom: 8rem;
+		}
+
+		:global(b) {
+			font-weight: 700;
+		}
+		:global(i) {
+			font-style: italic;
+		}
+		:global(u) {
+			text-decoration: underline;
+		}
 	}
 </style>
