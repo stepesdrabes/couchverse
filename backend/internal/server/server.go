@@ -56,6 +56,7 @@ func (s *Server) Handler() http.Handler {
 	sysStats := api.NewSysStats()
 	adminMusic := api.NewAdminMusic(s.store, s.artwork)
 	profile := api.NewProfile(s.store, s.artwork)
+	theme := api.NewTheme(s.store)
 	artworkAPI := api.NewArtwork(s.store, s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
 	uploadsAPI := api.NewAdminUploads(s.store, s.uploads)
@@ -78,6 +79,7 @@ func (s *Server) Handler() http.Handler {
 
 		v1.Post("/auth/login", authAPI.Login)
 		v1.Post("/auth/logout", authAPI.Logout)
+		v1.Get("/theme", theme.Get) // public: accent applies on the login screen too
 
 		// authenticated routes
 		v1.Group(func(p chi.Router) {
@@ -130,6 +132,8 @@ func (s *Server) Handler() http.Handler {
 			})
 
 			p.Patch("/me/profile", profile.Update)
+			p.Get("/me/preferences", profile.Preferences)
+			p.Put("/me/preferences", profile.UpdatePreferences)
 			p.Post("/me/avatar", profile.SetAvatar)
 			p.Delete("/me/avatar", profile.DeleteAvatar)
 

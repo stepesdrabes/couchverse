@@ -85,15 +85,17 @@ func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
 }
 
 type playbackInfo struct {
-	Mode           string            `json:"mode"` // direct | unsupported (hls/jit arrive with transcoding)
-	MediaFileID    string            `json:"mediaFileId"`
-	StreamURL      string            `json:"streamUrl,omitempty"`
-	Duration       float64           `json:"durationSeconds"`
-	ResumePosition int               `json:"resumePosition"`
-	Display        playbackDisplay   `json:"display"`
-	NextEpisode    *store.EpisodeRef `json:"nextEpisode"`
-	Subtitles      []subtitleTrack   `json:"subtitles"`
-	JobProgress    int               `json:"jobProgress,omitempty"`
+	Mode           string                `json:"mode"` // direct | unsupported (hls/jit arrive with transcoding)
+	MediaFileID    string                `json:"mediaFileId"`
+	StreamURL      string                `json:"streamUrl,omitempty"`
+	Duration       float64               `json:"durationSeconds"`
+	ResumePosition int                   `json:"resumePosition"`
+	Display        playbackDisplay       `json:"display"`
+	NextEpisode    *store.EpisodeRef     `json:"nextEpisode"`
+	Subtitles      []subtitleTrack       `json:"subtitles"`
+	Episodes       []store.SeriesEpisode `json:"episodes,omitempty"`
+	CurrentEpisode string                `json:"currentEpisodeId,omitempty"`
+	JobProgress    int                   `json:"jobProgress,omitempty"`
 }
 
 type subtitleTrack struct {
@@ -172,6 +174,10 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		info.ResumePosition = pos
 		if next, nerr := h.store.NextEpisode(r.Context(), id); nerr == nil {
 			info.NextEpisode = next
+		}
+		if eps, eerr := h.store.PlayableEpisodes(r.Context(), ref.TitleID); eerr == nil {
+			info.Episodes = eps
+			info.CurrentEpisode = id
 		}
 
 	default:

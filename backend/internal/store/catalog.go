@@ -269,6 +269,38 @@ func (s *Store) EpisodeRef(ctx context.Context, episodeID string) (*EpisodeRef, 
 	return &ref, nil
 }
 
+type SeriesEpisode struct {
+	EpisodeID     string `json:"episodeId"`
+	SeasonNumber  int    `json:"seasonNumber"`
+	EpisodeNumber int    `json:"episodeNumber"`
+	Name          string `json:"name"`
+}
+
+// PlayableEpisodes lists a series' episodes that have a media file, for the
+// in-player episode switcher.
+func (s *Store) PlayableEpisodes(ctx context.Context, titleID string) ([]SeriesEpisode, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT e.id, se.season_number, e.episode_number, e.name
+		 FROM episodes e
+		 JOIN seasons se ON se.id = e.season_id
+		 WHERE se.title_id = $1
+			AND EXISTS (SELECT 1 FROM media_files mf WHERE mf.episode_id = e.id)
+		 ORDER BY se.season_number, e.episode_number`, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []SeriesEpisode{}
+	for rows.Next() {
+		var e SeriesEpisode
+		if err := rows.Scan(&e.EpisodeID, &e.SeasonNumber, &e.EpisodeNumber, &e.Name); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // NextEpisode finds the episode that follows (same season, then next season).
 func (s *Store) NextEpisode(ctx context.Context, episodeID string) (*EpisodeRef, error) {
 	var ref EpisodeRef

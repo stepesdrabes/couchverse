@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -118,6 +119,32 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 		return httpx.ErrNotFound
 	}
 	return nil
+}
+
+func (s *Store) UserPreferences(ctx context.Context, id int64) (json.RawMessage, error) {
+	var v json.RawMessage
+	err := s.pool.QueryRow(ctx, `SELECT preferences FROM users WHERE id = $1`, id).Scan(&v)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, httpx.ErrNotFound
+	}
+	return v, err
+}
+
+// MergeUserPreferences shallow-merges the given top-level keys into the user's
+// preferences blob (a null value removes its key).
+func (s *Store) MergeUserPreferences(ctx context.Context, id int64, patch map[string]json.RawMessage) (json.RawMessage, error) {
+	body, err := json.Marshal(patch)
+	if err != nil {
+		return nil, err
+	}
+	var v json.RawMessage
+	err = s.pool.QueryRow(ctx,
+		`UPDATE users SET preferences = preferences || $2::jsonb WHERE id = $1
+		 RETURNING preferences`, id, body).Scan(&v)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, httpx.ErrNotFound
+	}
+	return v, err
 }
 
 // DeleteUserSessions removes all sessions of a disabled user.

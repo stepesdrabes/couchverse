@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -35,6 +36,36 @@ func (h *Profile) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, user)
+}
+
+// Preferences returns the caller's settings blob (subtitle styling, etc.).
+func (h *Profile) Preferences(w http.ResponseWriter, r *http.Request) {
+	prefs, err := h.store.UserPreferences(r.Context(), auth.UserFrom(r.Context()).ID)
+	if err != nil {
+		respondStoreErr(w, err)
+		return
+	}
+	if prefs == nil {
+		prefs = json.RawMessage("{}")
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write(prefs)
+}
+
+// UpdatePreferences shallow-merges the posted top-level keys.
+func (h *Profile) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	var patch map[string]json.RawMessage
+	if err := httpx.Decode(r, &patch); err != nil {
+		httpx.BadRequest(w, "invalid request body")
+		return
+	}
+	prefs, err := h.store.MergeUserPreferences(r.Context(), auth.UserFrom(r.Context()).ID, patch)
+	if err != nil {
+		respondStoreErr(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write(prefs)
 }
 
 // SetAvatar accepts a multipart image and stores it as the user's avatar.
