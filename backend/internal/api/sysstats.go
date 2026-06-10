@@ -51,6 +51,7 @@ func (s *SysStats) Get(w http.ResponseWriter, r *http.Request) {
 
 	out := map[string]any{
 		"cpuPercent":    -1.0,
+		"cpuCores":      runtime.NumCPU(),
 		"memUsed":       0,
 		"memTotal":      0,
 		"load1":         -1.0,
