@@ -34,9 +34,6 @@
 		<span class="text-lg font-extrabold tracking-tight">
 			couch<span class="text-accent">verse</span>
 		</span>
-		<span class="mt-0.5 block text-[10px] font-semibold tracking-[0.25em] text-faint uppercase">
-			Server admin
-		</span>
 	</a>
 
 	<nav class="flex flex-1 flex-col gap-1 px-3">
