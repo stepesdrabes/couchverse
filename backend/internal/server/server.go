@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"couchverse/internal/config"
+	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/catalog"
@@ -43,10 +44,11 @@ type Server struct {
 	subtitles *subtitles.Service
 	transcode *playback.JobHandler
 	sessions  *playback.SessionManager
+	analytics *analytics.Store
 }
 
-func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, sys *system.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager) *Server {
-	return &Server{cfg: cfg, pool: pool, system: sys, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
+func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, sys *system.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager, an *analytics.Store) *Server {
+	return &Server{cfg: cfg, pool: pool, system: sys, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions, analytics: an}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -55,12 +57,13 @@ func (s *Server) Handler() http.Handler {
 	systemModule := system.NewModule(s.system, s.settings, s.jobs, s.cfg.DataDir)
 	libraryModule := library.NewModule(s.library, s.jobs, s.uploads)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
-	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.music, s.jobs)
+	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.music, s.jobs, s.analytics)
 	playbackModule := playback.NewModule(
 		playback.NewStream(s.subtitles.Subs, s.catalog, s.library, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath),
 		playback.NewAdminTranscode(s.library, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath),
 	)
-	musicModule := music.NewModule(s.music, s.settings, s.artwork)
+	musicModule := music.NewModule(s.music, s.settings, s.artwork, s.analytics)
+	analyticsModule := analytics.NewModule(s.analytics)
 	artworkAPI := artwork.NewHandlers(s.artwork)
 	subtitlesAPI := subtitles.NewSubtitles(s.subtitles.Subs, s.library, s.subtitles)
 	metadataAPI := metadata.NewAdminMetadata(s.catalog, s.settings, s.jobs)
@@ -115,6 +118,8 @@ func (s *Server) Handler() http.Handler {
 			libraryModule.MountAdmin(adm)
 
 			adminJobs.MountAdmin(adm)
+
+			analyticsModule.MountAdmin(adm)
 
 			metadataAPI.MountAdmin(adm)
 

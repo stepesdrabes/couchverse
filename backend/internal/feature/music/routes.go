@@ -3,6 +3,7 @@ package music
 import (
 	"github.com/go-chi/chi/v5"
 
+	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/flags"
 	"couchverse/internal/settings"
@@ -17,9 +18,9 @@ type Module struct {
 	settings  *settings.Store
 }
 
-func NewModule(st *Store, set *settings.Store, art *artwork.Service) *Module {
+func NewModule(st *Store, set *settings.Store, art *artwork.Service, an *analytics.Store) *Module {
 	return &Module{
-		handlers:  NewHandlers(st),
+		handlers:  NewHandlers(st, an),
 		playlists: NewPlaylists(st),
 		admin:     NewAdminHandlers(st, art),
 		settings:  set,

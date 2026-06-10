@@ -1,18 +1,21 @@
 package music
 
 import (
+	"log/slog"
 	"net/http"
 
+	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/httpx"
 )
 
 type Handlers struct {
-	store *Store
+	store     *Store
+	analytics *analytics.Store
 }
 
-func NewHandlers(st *Store) *Handlers {
-	return &Handlers{store: st}
+func NewHandlers(st *Store, an *analytics.Store) *Handlers {
+	return &Handlers{store: st, analytics: an}
 }
 
 func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
@@ -94,9 +97,14 @@ func (h *Handlers) Scrobble(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "trackId is required")
 		return
 	}
-	if err := h.store.RecordPlay(r.Context(), auth.UserFrom(r.Context()).ID, req.TrackID); err != nil {
+	user := auth.UserFrom(r.Context())
+	if err := h.store.RecordPlay(r.Context(), user.ID, req.TrackID); err != nil {
 		httpx.Internal(w, err)
 		return
+	}
+	// best effort - analytics must never fail the scrobble
+	if err := h.analytics.RecordListen(r.Context(), user.ID, req.TrackID); err != nil {
+		slog.Warn("record listen time", "err", err)
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
 }

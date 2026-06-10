@@ -14,6 +14,7 @@ import (
 
 	"couchverse/internal/config"
 	"couchverse/internal/db"
+	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/catalog"
@@ -87,6 +88,7 @@ func run() error {
 	systemStore := system.NewStore(pool)
 	musicStore := music.NewStore(pool)
 	libraryStore := library.NewStore(pool)
+	analyticsStore := analytics.NewStore(pool)
 	if err := auth.Bootstrap(ctx, authStore, cfg); err != nil {
 		return err
 	}
@@ -129,7 +131,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, pool, set, authStore, catalogStore, jobsStore, musicStore, libraryStore, systemStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
+		Handler:           server.New(cfg, pool, set, authStore, catalogStore, jobsStore, musicStore, libraryStore, systemStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager, analyticsStore).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

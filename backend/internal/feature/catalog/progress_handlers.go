@@ -1,18 +1,25 @@
 package catalog
 
 import (
+	"log/slog"
 	"net/http"
 
+	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/httpx"
 )
 
+// maxWatchedDelta bounds one beacon's watch-time contribution (missed-beacon
+// tolerance / abuse bound); the player reports roughly every 10 seconds.
+const maxWatchedDelta = 600
+
 type Progress struct {
-	store *Store
+	store     *Store
+	analytics *analytics.Store
 }
 
-func NewProgress(st *Store) *Progress {
-	return &Progress{store: st}
+func NewProgress(st *Store, an *analytics.Store) *Progress {
+	return &Progress{store: st, analytics: an}
 }
 
 func (h *Progress) Put(w http.ResponseWriter, r *http.Request) {
@@ -22,6 +29,7 @@ func (h *Progress) Put(w http.ResponseWriter, r *http.Request) {
 		EpisodeID       *string `json:"episodeId"`
 		PositionSeconds int     `json:"positionSeconds"`
 		DurationSeconds int     `json:"durationSeconds"`
+		WatchedSeconds  int     `json:"watchedSeconds"`
 	}
 	if err := httpx.Decode(r, &req); err != nil {
 		httpx.BadRequest(w, "invalid request body")
@@ -35,6 +43,13 @@ func (h *Progress) Put(w http.ResponseWriter, r *http.Request) {
 		req.PositionSeconds, req.DurationSeconds); err != nil {
 		httpx.Internal(w, err)
 		return
+	}
+	if req.WatchedSeconds > 0 {
+		// best effort - analytics must never fail the beacon
+		if err := h.analytics.RecordWatch(r.Context(), user.ID, req.TitleID, req.EpisodeID,
+			min(req.WatchedSeconds, maxWatchedDelta)); err != nil {
+			slog.Warn("record watch time", "err", err)
+		}
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
