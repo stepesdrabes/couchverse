@@ -10,3 +10,9 @@ func cpuTimes() (busy, total uint64, ok bool) { return 0, 0, false }
 func hostMemory() (used, total int64, ok bool) { return 0, 0, false }
 
 func loadAverage() (float64, bool) { return 0, false }
+
+func selfCPUTicks() (uint64, bool) { return 0, false }
+
+func selfRSS() (int64, bool) { return 0, false }
+
+func ffmpegProcs() (map[int]uint64, int64, int) { return nil, 0, 0 }
