@@ -193,6 +193,8 @@ func (s *Server) Handler() http.Handler {
 
 			adm.Get("/metadata/search", metadataAPI.Search)
 			adm.Post("/titles/{id}/metadata/apply", metadataAPI.Apply)
+			adm.Get("/titles/{id}/metadata/seasons", metadataAPI.Seasons)
+			adm.Post("/titles/{id}/metadata/import-episodes", metadataAPI.ImportEpisodes)
 
 			adm.Post("/artwork", artworkAPI.Upload)
 			adm.Delete("/artwork/{id}", artworkAPI.Delete)
@@ -207,6 +209,7 @@ func (s *Server) Handler() http.Handler {
 			adm.Put("/home-rows", adminStorage.HomeRowsPut)
 
 			adm.Get("/transcode/info", transcodeAPI.Info)
+			adm.Get("/transcode/active", transcodeAPI.Active)
 			adm.Post("/media-files/{id}/transcode", transcodeAPI.Enqueue)
 			adm.Get("/media-files/{id}/variants", transcodeAPI.ListVariants)
 			adm.Delete("/transcode-variants/{id}", transcodeAPI.DeleteVariant)

@@ -109,6 +109,7 @@ func run() error {
 	runner.Register("probe", 2, (&media.Prober{Store: st, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Store: st, Artwork: artworkService}).Handle)
+	runner.Register("import_episodes", 1, (&tmdb.ImportEpisodesJob{Store: st}).Handle)
 	runner.Register("transcode_hls", transcodeSlots, transcodeHandler.Handle)
 	runner.Register("cleanup", 1, cleanupHandler(st, uploadManager, cfg.DataDir))
 	if _, err := st.EnqueueJobOnce(ctx, "cleanup", struct{}{}, store.EnqueueOpts{}); err != nil {

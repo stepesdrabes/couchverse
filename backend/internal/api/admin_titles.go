@@ -85,6 +85,17 @@ func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	out["mediaFiles"] = files
 
+	fileIDs := make([]string, len(files))
+	for i, f := range files {
+		fileIDs[i] = f.ID
+	}
+	subsByFile, err := h.store.SubtitlesForMediaFiles(r.Context(), fileIDs)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	out["subtitlesByFile"] = subsByFile
+
 	art, err := h.store.ArtworkFor(r.Context(), "title", t.ID)
 	if err != nil {
 		httpx.Internal(w, err)

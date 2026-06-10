@@ -153,6 +153,70 @@ func (s *Store) UpdateEpisode(ctx context.Context, id string, up EpisodeUpdate) 
 		id, up.EpisodeNumber, up.Name, up.Overview, up.RuntimeMinutes))
 }
 
+// ImportSeasonMeta upserts a season from TMDB, filling only placeholder or
+// empty fields on existing rows.
+func (s *Store) ImportSeasonMeta(ctx context.Context, titleID string, seasonNumber int, name, overview string) (string, error) {
+	var id string
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO seasons (title_id, season_number, name, overview)
+		 VALUES ($1, $2, $3, $4)
+		 ON CONFLICT (title_id, season_number) DO UPDATE SET
+			name = CASE WHEN EXCLUDED.name = ''
+					OR (seasons.name <> '' AND seasons.name <> 'Season ' || seasons.season_number)
+				THEN seasons.name ELSE EXCLUDED.name END,
+			overview = CASE WHEN EXCLUDED.overview = '' OR seasons.overview <> ''
+				THEN seasons.overview ELSE EXCLUDED.overview END
+		 RETURNING id`,
+		titleID, seasonNumber, name, overview).Scan(&id)
+	return id, err
+}
+
+// EpisodeIDsWithMedia returns the title's episode ids that have a video file
+// attached — import must not overwrite their metadata.
+func (s *Store) EpisodeIDsWithMedia(ctx context.Context, titleID string) (map[string]bool, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT DISTINCT mf.episode_id FROM media_files mf
+		 JOIN episodes e ON e.id = mf.episode_id
+		 JOIN seasons se ON se.id = e.season_id
+		 WHERE se.title_id = $1`, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}
+
+// ImportEpisodeMeta upserts an episode from TMDB. With fillOnlyEmpty (episodes
+// that have a media file) existing values win; otherwise TMDB wins, though an
+// empty TMDB value never clears an existing one. Reports whether a row was
+// inserted.
+func (s *Store) ImportEpisodeMeta(ctx context.Context, seasonID string, episodeNumber int,
+	name, overview string, airDate *time.Time, runtimeMinutes *int, fillOnlyEmpty bool) (created bool, err error) {
+	err = s.pool.QueryRow(ctx,
+		`INSERT INTO episodes (season_id, episode_number, name, overview, air_date, runtime_minutes)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 ON CONFLICT (season_id, episode_number) DO UPDATE SET
+			name = CASE WHEN EXCLUDED.name = '' OR ($7 AND episodes.name <> '')
+				THEN episodes.name ELSE EXCLUDED.name END,
+			overview = CASE WHEN EXCLUDED.overview = '' OR ($7 AND episodes.overview <> '')
+				THEN episodes.overview ELSE EXCLUDED.overview END,
+			air_date = CASE WHEN EXCLUDED.air_date IS NULL OR ($7 AND episodes.air_date IS NOT NULL)
+				THEN episodes.air_date ELSE EXCLUDED.air_date END,
+			runtime_minutes = CASE WHEN EXCLUDED.runtime_minutes IS NULL OR ($7 AND episodes.runtime_minutes IS NOT NULL)
+				THEN episodes.runtime_minutes ELSE EXCLUDED.runtime_minutes END
+		 RETURNING (xmax = 0)`,
+		seasonID, episodeNumber, name, overview, airDate, runtimeMinutes, fillOnlyEmpty).Scan(&created)
+	return created, err
+}
+
 func (s *Store) DeleteEpisode(ctx context.Context, id string) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM episodes WHERE id = $1`, id)
 	if err != nil {

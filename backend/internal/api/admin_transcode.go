@@ -34,6 +34,16 @@ func (h *AdminTranscode) Info(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Active lists pending/running transcode jobs with their content references.
+func (h *AdminTranscode) Active(w http.ResponseWriter, r *http.Request) {
+	active, err := h.store.ActiveTranscodes(r.Context())
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, active)
+}
+
 // Enqueue queues HLS variants for a media file.
 func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 	mediaFileID := httpx.UUID(r, "id")

@@ -156,6 +156,68 @@ func (c *Client) Details(ctx context.Context, kind string, tmdbID int) (*Details
 	return d, nil
 }
 
+type SeasonInfo struct {
+	SeasonNumber int    `json:"seasonNumber"`
+	Name         string `json:"name"`
+	Overview     string `json:"overview"`
+	EpisodeCount int    `json:"episodeCount"`
+}
+
+type EpisodeInfo struct {
+	EpisodeNumber  int
+	Name           string
+	Overview       string
+	AirDate        string // YYYY-MM-DD or ""
+	RuntimeMinutes int
+}
+
+// SeriesSeasons lists a show's seasons (including specials/season 0).
+func (c *Client) SeriesSeasons(ctx context.Context, tmdbID int) ([]SeasonInfo, error) {
+	var raw struct {
+		Seasons []struct {
+			SeasonNumber int    `json:"season_number"`
+			Name         string `json:"name"`
+			Overview     string `json:"overview"`
+			EpisodeCount int    `json:"episode_count"`
+		} `json:"seasons"`
+	}
+	if err := c.get(ctx, fmt.Sprintf("/tv/%d", tmdbID), url.Values{}, &raw); err != nil {
+		return nil, err
+	}
+	seasons := []SeasonInfo{}
+	for _, s := range raw.Seasons {
+		seasons = append(seasons, SeasonInfo(s))
+	}
+	return seasons, nil
+}
+
+// SeasonEpisodes lists the episodes of one season.
+func (c *Client) SeasonEpisodes(ctx context.Context, tmdbID, season int) ([]EpisodeInfo, error) {
+	var raw struct {
+		Episodes []struct {
+			EpisodeNumber int    `json:"episode_number"`
+			Name          string `json:"name"`
+			Overview      string `json:"overview"`
+			AirDate       string `json:"air_date"`
+			Runtime       int    `json:"runtime"`
+		} `json:"episodes"`
+	}
+	if err := c.get(ctx, fmt.Sprintf("/tv/%d/season/%d", tmdbID, season), url.Values{}, &raw); err != nil {
+		return nil, err
+	}
+	episodes := []EpisodeInfo{}
+	for _, e := range raw.Episodes {
+		episodes = append(episodes, EpisodeInfo{
+			EpisodeNumber:  e.EpisodeNumber,
+			Name:           e.Name,
+			Overview:       e.Overview,
+			AirDate:        e.AirDate,
+			RuntimeMinutes: e.Runtime,
+		})
+	}
+	return episodes, nil
+}
+
 // DownloadImage fetches a TMDB image (poster_path/backdrop_path) at original size.
 func (c *Client) DownloadImage(ctx context.Context, imagePath string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageBase+"/original"+imagePath, nil)

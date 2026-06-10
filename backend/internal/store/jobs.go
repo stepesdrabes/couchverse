@@ -223,6 +223,44 @@ func (s *Store) TranscodeProgress(ctx context.Context, mediaFileID string) (int,
 	return progress, err
 }
 
+// ActiveTranscode links a pending/running transcode job to the content it
+// belongs to, for inline progress on the admin library pages.
+type ActiveTranscode struct {
+	JobID       int64   `json:"jobId"`
+	MediaFileID string  `json:"mediaFileId"`
+	TitleID     *string `json:"titleId"`
+	EpisodeID   *string `json:"episodeId"`
+	Variant     string  `json:"variant"`
+	Status      string  `json:"status"`
+	Progress    int     `json:"progress"`
+}
+
+func (s *Store) ActiveTranscodes(ctx context.Context) ([]ActiveTranscode, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT j.id, mf.id, COALESCE(mf.title_id, se.title_id), mf.episode_id,
+			COALESCE(j.payload->>'variant', ''), j.status, j.progress
+		 FROM jobs j
+		 JOIN media_files mf ON mf.id = (j.payload->>'mediaFileId')::uuid
+		 LEFT JOIN episodes e ON e.id = mf.episode_id
+		 LEFT JOIN seasons se ON se.id = e.season_id
+		 WHERE j.type = 'transcode_hls' AND j.status IN ('pending', 'running')
+		 ORDER BY j.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []ActiveTranscode{}
+	for rows.Next() {
+		var t ActiveTranscode
+		if err := rows.Scan(&t.JobID, &t.MediaFileID, &t.TitleID, &t.EpisodeID,
+			&t.Variant, &t.Status, &t.Progress); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 // HasOtherPendingJobsForMediaFile reports whether any pending/running job other
 // than excludeJobID still references the media file — sibling transcodes or a
 // subtitle extraction that still needs to read the source.
