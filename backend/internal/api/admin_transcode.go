@@ -50,6 +50,11 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "only video files can be transcoded")
 		return
 	}
+	if mf.SourceDeletedAt != nil {
+		httpx.Error(w, http.StatusConflict, "source_deleted",
+			"the original file was removed after transcoding; re-transcoding is not possible")
+		return
+	}
 
 	var req struct {
 		Variants []string `json:"variants"`

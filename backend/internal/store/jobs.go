@@ -223,6 +223,18 @@ func (s *Store) TranscodeProgress(ctx context.Context, mediaFileID string) (int,
 	return progress, err
 }
 
+// HasOtherPendingJobsForMediaFile reports whether any pending/running job other
+// than excludeJobID still references the media file — sibling transcodes or a
+// subtitle extraction that still needs to read the source.
+func (s *Store) HasOtherPendingJobsForMediaFile(ctx context.Context, mediaFileID string, excludeJobID int64) (bool, error) {
+	var exists bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM jobs
+		 WHERE status IN ('pending', 'running') AND id <> $2
+			AND (payload->>'mediaFileId')::uuid = $1)`, mediaFileID, excludeJobID).Scan(&exists)
+	return exists, err
+}
+
 // DeleteOldJobs prunes finished jobs to keep the table small.
 func (s *Store) DeleteOldJobs(ctx context.Context, olderThan time.Duration) (int64, error) {
 	tag, err := s.pool.Exec(ctx,

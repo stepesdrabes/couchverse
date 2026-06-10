@@ -55,6 +55,10 @@ func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
 		respondStoreErr(w, err)
 		return
 	}
+	if mf.SourceDeletedAt != nil {
+		httpx.Error(w, http.StatusNotFound, "source_deleted", "the original file was removed after transcoding")
+		return
+	}
 	lib, err := h.store.LibraryByID(r.Context(), mf.LibraryID)
 	if err != nil {
 		httpx.Internal(w, err)
@@ -196,8 +200,9 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 
 	caps := strings.Split(r.URL.Query().Get("caps"), ",")
 	switch {
-	case mf.DirectPlay,
-		media.DirectPlayWithCaps(mf.Container, mf.VideoCodec, mf.AudioCodec, caps):
+	// a cleaned-up source can't be served directly no matter what the caps say
+	case mf.SourceDeletedAt == nil &&
+		(mf.DirectPlay || media.DirectPlayWithCaps(mf.Container, mf.VideoCodec, mf.AudioCodec, caps)):
 		info.Mode = "direct"
 		info.StreamURL = "/api/v1/stream/" + mf.ID
 
@@ -225,7 +230,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 			if progress, perr := h.store.TranscodeProgress(r.Context(), mf.ID); perr == nil {
 				info.JobProgress = progress
 			}
-		case h.jitAllowed(r.Context()):
+		case mf.SourceDeletedAt == nil && h.jitAllowed(r.Context()):
 			// the client opens a JIT session via POST /stream/{id}/sessions
 			info.Mode = "jit"
 		default:
@@ -312,6 +317,10 @@ func (h *Stream) CreateSession(w http.ResponseWriter, r *http.Request) {
 	mediaFileID := httpx.UUID(r, "id")
 	if mediaFileID == "" {
 		httpx.NotFound(w)
+		return
+	}
+	if mf, merr := h.store.MediaFileByID(r.Context(), mediaFileID); merr == nil && mf.SourceDeletedAt != nil {
+		httpx.Error(w, http.StatusNotFound, "source_deleted", "the original file was removed after transcoding")
 		return
 	}
 	session, err := h.sessions.Create(r.Context(), context.Background(), mediaFileID, max(0, req.StartAt))

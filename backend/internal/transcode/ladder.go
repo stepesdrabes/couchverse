@@ -29,6 +29,12 @@ type Settings struct {
 	MaxConcurrent int      `json:"maxConcurrent"` // concurrent transcode jobs
 	JITEnabled    *bool    `json:"jitEnabled"`    // nil = auto (on when hw encoder exists)
 	AutoPrepare   *bool    `json:"autoPrepare"`   // nil = on: queue transcodes for unplayable files at probe time
+	// delete the original file once every requested variant is ready (default off)
+	DeleteSourceAfterTranscode *bool `json:"deleteSourceAfterTranscode"`
+}
+
+func (s Settings) DeleteSourceEnabled() bool {
+	return s.DeleteSourceAfterTranscode != nil && *s.DeleteSourceAfterTranscode
 }
 
 func (s Settings) AutoPrepareEnabled() bool {

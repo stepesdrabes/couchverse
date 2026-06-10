@@ -33,19 +33,20 @@ type MediaFile struct {
 	Probe           json.RawMessage `json:"-"`
 	FileMtime       *time.Time      `json:"fileMtime"`
 	ScannedAt       *time.Time      `json:"scannedAt"`
+	SourceDeletedAt *time.Time      `json:"sourceDeletedAt"`
 	CreatedAt       time.Time       `json:"createdAt"`
 }
 
 const mediaFileCols = `id, library_id, title_id, episode_id, track_id, path, size_bytes, container,
 	video_codec, audio_codec, width, height, duration_seconds, bitrate, channels, sample_rate,
-	video_range, direct_play, probe, file_mtime, scanned_at, created_at`
+	video_range, direct_play, probe, file_mtime, scanned_at, source_deleted_at, created_at`
 
 func scanMediaFile(row pgx.Row) (*MediaFile, error) {
 	var m MediaFile
 	err := row.Scan(&m.ID, &m.LibraryID, &m.TitleID, &m.EpisodeID, &m.TrackID, &m.Path, &m.SizeBytes,
 		&m.Container, &m.VideoCodec, &m.AudioCodec, &m.Width, &m.Height, &m.DurationSeconds,
 		&m.Bitrate, &m.Channels, &m.SampleRate, &m.VideoRange, &m.DirectPlay, &m.Probe,
-		&m.FileMtime, &m.ScannedAt, &m.CreatedAt)
+		&m.FileMtime, &m.ScannedAt, &m.SourceDeletedAt, &m.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, httpx.ErrNotFound
 	}
@@ -68,8 +69,11 @@ type FileStub struct {
 }
 
 func (s *Store) MediaFileStubsByLibrary(ctx context.Context, libraryID int64) (map[string]FileStub, error) {
+	// rows whose source was cleaned up after transcoding must stay invisible to
+	// the scanner, or it treats the missing file as vanished and deletes the row
 	rows, err := s.pool.Query(ctx,
-		`SELECT path, id, size_bytes, file_mtime FROM media_files WHERE library_id = $1`, libraryID)
+		`SELECT path, id, size_bytes, file_mtime FROM media_files
+		 WHERE library_id = $1 AND source_deleted_at IS NULL`, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +99,8 @@ func (s *Store) UpsertMediaFileStub(ctx context.Context, libraryID int64, path s
 		`INSERT INTO media_files (library_id, path, size_bytes, file_mtime)
 		 VALUES ($1, $2, $3, $4)
 		 ON CONFLICT (library_id, path) DO UPDATE
-			SET size_bytes = EXCLUDED.size_bytes, file_mtime = EXCLUDED.file_mtime, scanned_at = NULL
+			SET size_bytes = EXCLUDED.size_bytes, file_mtime = EXCLUDED.file_mtime,
+				scanned_at = NULL, source_deleted_at = NULL
 		 RETURNING id`,
 		libraryID, path, size, mtime).Scan(&id)
 	return id, err
@@ -103,6 +108,15 @@ func (s *Store) UpsertMediaFileStub(ctx context.Context, libraryID int64, path s
 
 func (s *Store) DeleteMediaFile(ctx context.Context, id string) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM media_files WHERE id = $1`, id)
+	return err
+}
+
+// MarkSourceDeleted records that the original file was removed after
+// transcoding; playback must use HLS variants from now on.
+func (s *Store) MarkSourceDeleted(ctx context.Context, id string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE media_files SET source_deleted_at = now(), direct_play = false, size_bytes = 0
+		 WHERE id = $1`, id)
 	return err
 }
 

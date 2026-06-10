@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -87,7 +89,36 @@ func (h *JobHandler) Handle(ctx context.Context, job *store.Job, report func(int
 	}
 
 	rel := filepath.Join("cache", "hls", mf.ID, p.Variant, "index.m3u8")
-	return h.Store.SetVariantStatus(ctx, variant.ID, "ready", rel)
+	if err := h.Store.SetVariantStatus(ctx, variant.ID, "ready", rel); err != nil {
+		return err
+	}
+	h.maybeDeleteSource(ctx, mf, lib.Path, job.ID, settings)
+	return nil
+}
+
+// maybeDeleteSource removes the original file once every requested variant is
+// ready and nothing else still reads it. Failures only log — the variant this
+// job produced is already ready.
+func (h *JobHandler) maybeDeleteSource(ctx context.Context, mf *store.MediaFile, libPath string, jobID int64, settings Settings) {
+	if !settings.DeleteSourceEnabled() || mf.SourceDeletedAt != nil || mf.VideoCodec == "" {
+		return
+	}
+	if allReady, err := h.Store.AllVariantsReady(ctx, mf.ID); err != nil || !allReady {
+		return
+	}
+	if busy, err := h.Store.HasOtherPendingJobsForMediaFile(ctx, mf.ID, jobID); err != nil || busy {
+		return
+	}
+	src := filepath.Join(libPath, mf.Path)
+	if err := os.Remove(src); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		slog.Warn("post-transcode cleanup: remove source", "path", src, "err", err)
+		return
+	}
+	if err := h.Store.MarkSourceDeleted(ctx, mf.ID); err != nil {
+		slog.Warn("post-transcode cleanup: mark deleted", "mediaFileId", mf.ID, "err", err)
+		return
+	}
+	slog.Info("post-transcode cleanup: removed source", "path", src, "mediaFileId", mf.ID)
 }
 
 // RemoveVariant deletes the variant row and its segment directory.
