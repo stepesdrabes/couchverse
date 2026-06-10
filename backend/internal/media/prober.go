@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
@@ -16,6 +17,7 @@ type Prober struct {
 	Store       *store.Store
 	Settings    *settings.Store
 	Jobs        *jobs.Store
+	Artwork     *artwork.Store
 	FFprobePath string
 	DataDir     string
 }
@@ -181,7 +183,7 @@ func (p *Prober) assignAudio(ctx context.Context, abs string, res *ProbeResult, 
 
 // saveAlbumCover stores embedded cover art once per album.
 func (p *Prober) saveAlbumCover(ctx context.Context, albumID string, data []byte, ext string) error {
-	existing, err := p.Store.ArtworkFor(ctx, "album", albumID)
+	existing, err := p.Artwork.ArtworkFor(ctx, "album", albumID)
 	if err != nil {
 		return err
 	}
@@ -199,6 +201,6 @@ func (p *Prober) saveAlbumCover(ctx context.Context, albumID string, data []byte
 	if err := os.WriteFile(abs, data, 0o644); err != nil {
 		return err
 	}
-	_, err = p.Store.SetArtwork(ctx, "album", albumID, "album_cover", rel, 0, 0, "embedded")
+	_, err = p.Artwork.SetArtwork(ctx, "album", albumID, "album_cover", rel, 0, 0, "embedded")
 	return err
 }

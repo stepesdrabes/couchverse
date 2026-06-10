@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"couchverse/internal/artwork"
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 )

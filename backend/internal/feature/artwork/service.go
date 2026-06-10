@@ -10,12 +10,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"couchverse/internal/store"
 )
 
 type Service struct {
-	Store      *store.Store
+	Store      *Store
 	DataDir    string
 	FFmpegPath string
 }
@@ -28,7 +26,7 @@ var sizes = map[string]int{
 var allowedExts = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
 
 // Save stores an uploaded original and upserts the artwork slot.
-func (s *Service) Save(ctx context.Context, ownerKind string, ownerID string, kind, filename string, body io.Reader) (*store.Artwork, error) {
+func (s *Service) Save(ctx context.Context, ownerKind string, ownerID string, kind, filename string, body io.Reader) (*Artwork, error) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	if !allowedExts[ext] {
 		return nil, fmt.Errorf("unsupported image type %q (jpg/png/webp)", ext)
@@ -58,7 +56,7 @@ func (s *Service) Save(ctx context.Context, ownerKind string, ownerID string, ki
 }
 
 // SaveBytes is used by metadata jobs (TMDB downloads, embedded covers).
-func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID string, kind, ext string, data []byte, source string) (*store.Artwork, error) {
+func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID string, kind, ext string, data []byte, source string) (*Artwork, error) {
 	rel := filepath.Join("artwork", ownerKind, ownerID, kind+ext)
 	abs := filepath.Join(s.DataDir, rel)
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
@@ -79,7 +77,7 @@ func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID strin
 // generating and caching the resized variant on first use. The cache name is
 // derived from the original's mtime, so a replaced image (TMDB re-apply,
 // database reset reusing ids) can never serve a stale resize.
-func (s *Service) Resolve(ctx context.Context, art *store.Artwork, size string) (string, error) {
+func (s *Service) Resolve(ctx context.Context, art *Artwork, size string) (string, error) {
 	original := filepath.Join(s.DataDir, art.Path)
 	width, ok := sizes[size]
 	if !ok {

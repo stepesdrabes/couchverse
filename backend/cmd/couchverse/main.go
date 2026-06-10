@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"couchverse/internal/artwork"
 	"couchverse/internal/auth"
 	"couchverse/internal/config"
 	"couchverse/internal/db"
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
@@ -89,7 +89,7 @@ func run() error {
 	}
 
 	uploadManager := &upload.Manager{Store: st, Jobs: jobsStore, DataDir: cfg.DataDir}
-	artworkService := &artwork.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	artworkService := &artwork.Service{Store: artwork.NewStore(pool), DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	subtitleService := &subtitles.Service{Store: st, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	transcodeHandler := &transcode.JobHandler{Store: st, Settings: set, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	sessionManager := &transcode.SessionManager{
@@ -110,7 +110,7 @@ func run() error {
 
 	runner := jobs.NewRunner(jobsStore, workers)
 	runner.Register("scan_library", 1, (&media.Scanner{Store: st, Jobs: jobsStore}).Handle)
-	runner.Register("probe", 2, (&media.Prober{Store: st, Settings: set, Jobs: jobsStore, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
+	runner.Register("probe", 2, (&media.Prober{Store: st, Settings: set, Jobs: jobsStore, Artwork: artworkService.Store, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Store: st, Settings: set, Artwork: artworkService}).Handle)
 	runner.Register("import_episodes", 1, (&tmdb.ImportEpisodesJob{Store: st, Settings: set}).Handle)

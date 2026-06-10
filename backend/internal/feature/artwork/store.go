@@ -1,4 +1,4 @@
-package store
+package artwork
 
 import (
 	"context"
@@ -6,9 +6,19 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"couchverse/internal/db"
 )
+
+// Store owns the artwork rows; image files live under DataDir/artwork.
+type Store struct {
+	db *pgxpool.Pool
+}
+
+func NewStore(db *pgxpool.Pool) *Store {
+	return &Store{db: db}
+}
 
 type Artwork struct {
 	ID        string    `json:"id"`
@@ -38,7 +48,7 @@ func scanArtwork(row pgx.Row) (*Artwork, error) {
 
 // SetArtwork upserts one artwork slot (e.g. a title's poster).
 func (s *Store) SetArtwork(ctx context.Context, ownerKind string, ownerID string, kind, path string, w, h int, source string) (*Artwork, error) {
-	return scanArtwork(s.pool.QueryRow(ctx,
+	return scanArtwork(s.db.QueryRow(ctx,
 		`INSERT INTO artwork (owner_kind, owner_id, kind, path, width, height, source)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 ON CONFLICT (owner_kind, owner_id, kind) DO UPDATE
@@ -49,12 +59,12 @@ func (s *Store) SetArtwork(ctx context.Context, ownerKind string, ownerID string
 }
 
 func (s *Store) ArtworkByID(ctx context.Context, id string) (*Artwork, error) {
-	return scanArtwork(s.pool.QueryRow(ctx,
+	return scanArtwork(s.db.QueryRow(ctx,
 		`SELECT `+artworkCols+` FROM artwork WHERE id = $1`, id))
 }
 
 func (s *Store) ArtworkFor(ctx context.Context, ownerKind string, ownerID string) ([]Artwork, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`SELECT `+artworkCols+` FROM artwork WHERE owner_kind = $1 AND owner_id = $2`, ownerKind, ownerID)
 	if err != nil {
 		return nil, err
@@ -73,14 +83,14 @@ func (s *Store) ArtworkFor(ctx context.Context, ownerKind string, ownerID string
 }
 
 func (s *Store) DeleteArtwork(ctx context.Context, id string) (*Artwork, error) {
-	return scanArtwork(s.pool.QueryRow(ctx,
+	return scanArtwork(s.db.QueryRow(ctx,
 		`DELETE FROM artwork WHERE id = $1 RETURNING `+artworkCols, id))
 }
 
 // DeleteArtworkForOwner removes all artwork rows of an owner, returning them
 // so callers can clean up files.
 func (s *Store) DeleteArtworkForOwner(ctx context.Context, ownerKind string, ownerID string) ([]Artwork, error) {
-	rows, err := s.pool.Query(ctx,
+	rows, err := s.db.Query(ctx,
 		`DELETE FROM artwork WHERE owner_kind = $1 AND owner_id = $2 RETURNING `+artworkCols,
 		ownerKind, ownerID)
 	if err != nil {

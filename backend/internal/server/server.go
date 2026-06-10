@@ -12,9 +12,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"couchverse/internal/api"
-	"couchverse/internal/artwork"
 	"couchverse/internal/auth"
 	"couchverse/internal/config"
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
@@ -50,7 +50,7 @@ func (s *Server) Handler() http.Handler {
 	adminSettings := api.NewAdminSettings(s.settings)
 	adminLibraries := api.NewAdminLibraries(s.store, s.jobs)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
-	catalog := api.NewCatalog(s.store, s.settings)
+	catalog := api.NewCatalog(s.store, s.settings, s.artwork.Store)
 	stream := api.NewStream(s.store, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
 	progress := api.NewProgress(s.store)
 	transcodeAPI := api.NewAdminTranscode(s.store, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath)
@@ -61,7 +61,7 @@ func (s *Server) Handler() http.Handler {
 	adminMusic := api.NewAdminMusic(s.store, s.artwork)
 	profile := api.NewProfile(s.store, s.artwork)
 	theme := api.NewTheme(s.settings)
-	artworkAPI := api.NewArtwork(s.store, s.artwork)
+	artworkAPI := artwork.NewHandlers(s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
 	uploadsAPI := api.NewAdminUploads(s.store, s.uploads)
 	metadataAPI := api.NewAdminMetadata(s.store, s.settings, s.jobs)
@@ -110,7 +110,7 @@ func (s *Server) Handler() http.Handler {
 			p.Get("/stream/sessions/{sid}/{file}", stream.SessionFile)
 			p.Post("/stream/sessions/{sid}/keepalive", stream.SessionKeepalive)
 			p.Get("/playback/{kind}/{id}", stream.Playback)
-			p.Get("/artwork/{id}", artworkAPI.Serve)
+			artworkAPI.MountUser(p)
 			p.Get("/subtitles/{id}.vtt", subtitlesAPI.Serve)
 
 			p.Get("/features", func(w http.ResponseWriter, r *http.Request) {
@@ -203,8 +203,7 @@ func (s *Server) Handler() http.Handler {
 			adm.Get("/titles/{id}/metadata/seasons", metadataAPI.Seasons)
 			adm.Post("/titles/{id}/metadata/import-episodes", metadataAPI.ImportEpisodes)
 
-			adm.Post("/artwork", artworkAPI.Upload)
-			adm.Delete("/artwork/{id}", artworkAPI.Delete)
+			artworkAPI.MountAdmin(adm)
 
 			adm.Get("/media-files/{id}/subtitles", subtitlesAPI.ListForMediaFile)
 			adm.Post("/media-files/{id}/subtitles", subtitlesAPI.Upload)

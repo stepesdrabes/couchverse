@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"couchverse/internal/artwork"
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"

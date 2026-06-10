@@ -1,30 +1,38 @@
-package api
+package artwork
 
 import (
 	"net/http"
 
-	"couchverse/internal/artwork"
+	"github.com/go-chi/chi/v5"
+
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
-type Artwork struct {
-	store   *store.Store
-	service *artwork.Service
+type Handlers struct {
+	service *Service
 }
 
-func NewArtwork(st *store.Store, service *artwork.Service) *Artwork {
-	return &Artwork{store: st, service: service}
+func NewHandlers(service *Service) *Handlers {
+	return &Handlers{service: service}
+}
+
+func (h *Handlers) MountUser(r chi.Router) {
+	r.Get("/artwork/{id}", h.Serve)
+}
+
+func (h *Handlers) MountAdmin(r chi.Router) {
+	r.Post("/artwork", h.Upload)
+	r.Delete("/artwork/{id}", h.Delete)
 }
 
 // Serve returns the artwork image, resized on first request when ?size= is given.
-func (h *Artwork) Serve(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Serve(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
 		return
 	}
-	art, err := h.store.ArtworkByID(r.Context(), id)
+	art, err := h.service.Store.ArtworkByID(r.Context(), id)
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
@@ -48,7 +56,7 @@ var artworkKinds = map[string]bool{
 }
 
 // Upload accepts multipart form data: ownerKind, ownerId, kind, file.
-func (h *Artwork) Upload(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Upload(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
 		httpx.BadRequest(w, "invalid multipart form")
 		return
@@ -80,7 +88,7 @@ func (h *Artwork) Upload(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, art)
 }
 
-func (h *Artwork) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Delete(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)

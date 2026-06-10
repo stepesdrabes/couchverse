@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"couchverse/internal/auth"
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
@@ -16,10 +17,11 @@ import (
 type Catalog struct {
 	store    *store.Store
 	settings *settings.Store
+	artwork  *artwork.Store
 }
 
-func NewCatalog(st *store.Store, set *settings.Store) *Catalog {
-	return &Catalog{store: st, settings: set}
+func NewCatalog(st *store.Store, set *settings.Store, art *artwork.Store) *Catalog {
+	return &Catalog{store: st, settings: set, artwork: art}
 }
 
 func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +36,7 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 	var featuredBackdropID *string
 	featuredInList := false
 	if featured != nil {
-		art, aerr := h.store.ArtworkFor(r.Context(), "title", featured.ID)
+		art, aerr := h.artwork.ArtworkFor(r.Context(), "title", featured.ID)
 		if aerr != nil {
 			httpx.Internal(w, aerr)
 			return
@@ -143,7 +145,7 @@ func (h *Catalog) Title(w http.ResponseWriter, r *http.Request) {
 	}
 	out["mediaFiles"] = files
 
-	artwork, err := h.store.ArtworkFor(r.Context(), "title", t.ID)
+	artwork, err := h.artwork.ArtworkFor(r.Context(), "title", t.ID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return

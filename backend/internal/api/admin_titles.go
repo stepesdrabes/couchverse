@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"couchverse/internal/artwork"
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
@@ -97,7 +97,7 @@ func (h *AdminTitles) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	out["subtitlesByFile"] = subsByFile
 
-	art, err := h.store.ArtworkFor(r.Context(), "title", t.ID)
+	art, err := h.artwork.Store.ArtworkFor(r.Context(), "title", t.ID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return

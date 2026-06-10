@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"couchverse/internal/artwork"
 	"couchverse/internal/auth"
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/httpx"
 	"couchverse/internal/store"
 )
