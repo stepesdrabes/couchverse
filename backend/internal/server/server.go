@@ -53,6 +53,7 @@ func (s *Server) Handler() http.Handler {
 	music := api.NewMusic(s.store)
 	playlists := api.NewPlaylists(s.store)
 	adminStorage := api.NewAdminStorage(s.store, s.cfg.DataDir)
+	sysStats := api.NewSysStats()
 	adminMusic := api.NewAdminMusic(s.store, s.artwork)
 	profile := api.NewProfile(s.store, s.artwork)
 	artworkAPI := api.NewArtwork(s.store, s.artwork)
@@ -205,6 +206,7 @@ func (s *Server) Handler() http.Handler {
 
 			adm.Get("/storage", adminStorage.Get)
 			adm.Get("/overview", adminStorage.Overview)
+			adm.Get("/system", sysStats.Get)
 			adm.Get("/home-rows", adminStorage.HomeRowsGet)
 			adm.Put("/home-rows", adminStorage.HomeRowsPut)
 
