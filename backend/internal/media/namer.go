@@ -27,6 +27,10 @@ var (
 // Movie:  "Movie Name (2023)/Movie Name (2023).mkv"
 func ParseVideoPath(relPath string) ParsedVideo {
 	relPath = strings.ReplaceAll(relPath, "\\", "/")
+	// Treat underscores as separators. They are word characters to regexp's
+	// \b, so "S01E01_Title" would otherwise hide the SxxExx token. Replacing
+	// '_' with a space is length-preserving, so substring indices stay valid.
+	relPath = strings.ReplaceAll(relPath, "_", " ")
 	dir, file := path.Split(relPath)
 	base := strings.TrimSuffix(file, path.Ext(file))
 

@@ -22,6 +22,15 @@ func TestParseVideoPath(t *testing.T) {
 			ParsedVideo{IsEpisode: true, ShowName: "Show Name", Season: 2, Episode: 3},
 		},
 		{
+			// underscore right after the episode token must not hide it
+			"Simpsonovi_S01E01_Vánoce u Simpsonových.mkv",
+			ParsedVideo{IsEpisode: true, ShowName: "Simpsonovi", Season: 1, Episode: 1, Name: "Vánoce u Simpsonových"},
+		},
+		{
+			"Simpsonovi/Season 01/S01E01_Vánoce u Simpsonových.mkv",
+			ParsedVideo{IsEpisode: true, ShowName: "Simpsonovi", Season: 1, Episode: 1, Name: "Vánoce u Simpsonových"},
+		},
+		{
 			"Glass Harbor (2025)/Glass Harbor (2025).mkv",
 			ParsedVideo{Name: "Glass Harbor", Year: intPtr(2025)},
 		},
