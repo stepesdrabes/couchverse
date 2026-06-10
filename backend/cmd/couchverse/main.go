@@ -97,6 +97,10 @@ func run() error {
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Store: st, Artwork: artworkService}).Handle)
 	runner.Register("transcode_hls", transcode.LoadSettings(ctx, st).MaxConcurrent, transcodeHandler.Handle)
+	runner.Register("cleanup", 1, cleanupHandler(st, uploadManager, cfg.DataDir))
+	if _, err := st.EnqueueJobOnce(ctx, "cleanup", struct{}{}, store.EnqueueOpts{}); err != nil {
+		return err
+	}
 	go runner.Run(ctx)
 
 	srv := &http.Server{

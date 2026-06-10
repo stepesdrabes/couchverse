@@ -13,14 +13,14 @@ import (
 // mode "copy" remuxes the h264 stream (I/O-bound, fast everywhere);
 // mode "transcode" re-encodes through the chosen encoder.
 type BuildSpec struct {
-	Input      string
-	OutDir     string // segments + index.m3u8 land here
-	Mode       string // copy | transcode
-	Rendition  Rendition
-	Encoder    string // libx264 | h264_videotoolbox | ...
-	Preset     string
-	HasAudio   bool
-	StartAt    float64 // JIT sessions seek before encoding
+	Input          string
+	OutDir         string // segments + index.m3u8 land here
+	Mode           string // copy | transcode
+	Rendition      Rendition
+	Encoder        string // libx264 | h264_videotoolbox | ...
+	Preset         string
+	HasAudio       bool
+	StartAt        float64 // JIT sessions seek before encoding
 	BackgroundNice bool
 }
 

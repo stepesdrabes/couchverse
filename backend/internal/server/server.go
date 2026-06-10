@@ -50,6 +50,7 @@ func (s *Server) Handler() http.Handler {
 	transcodeAPI := api.NewAdminTranscode(s.store, s.transcode, s.cfg.FFmpegPath)
 	music := api.NewMusic(s.store)
 	playlists := api.NewPlaylists(s.store)
+	adminStorage := api.NewAdminStorage(s.store, s.cfg.DataDir)
 	artworkAPI := api.NewArtwork(s.store, s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
 	uploadsAPI := api.NewAdminUploads(s.store, s.uploads)
@@ -170,6 +171,11 @@ func (s *Server) Handler() http.Handler {
 			adm.Get("/media-files/{id}/subtitles", subtitlesAPI.ListForMediaFile)
 			adm.Post("/media-files/{id}/subtitles", subtitlesAPI.Upload)
 			adm.Delete("/subtitles/{id}", subtitlesAPI.Delete)
+
+			adm.Get("/storage", adminStorage.Get)
+			adm.Get("/overview", adminStorage.Overview)
+			adm.Get("/home-rows", adminStorage.HomeRowsGet)
+			adm.Put("/home-rows", adminStorage.HomeRowsPut)
 
 			adm.Get("/transcode/info", transcodeAPI.Info)
 			adm.Post("/media-files/{id}/transcode", transcodeAPI.Enqueue)

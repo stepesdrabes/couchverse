@@ -47,6 +47,7 @@ func scanJob(row pgx.Row) (*Job, error) {
 type EnqueueOpts struct {
 	Priority    int
 	MaxAttempts int
+	RunAt       time.Time // zero = now
 }
 
 func (s *Store) EnqueueJob(ctx context.Context, jobType string, payload any, opts EnqueueOpts) (int64, error) {
@@ -57,10 +58,13 @@ func (s *Store) EnqueueJob(ctx context.Context, jobType string, payload any, opt
 	if opts.MaxAttempts <= 0 {
 		opts.MaxAttempts = 3
 	}
+	if opts.RunAt.IsZero() {
+		opts.RunAt = time.Now()
+	}
 	var id int64
 	err = s.pool.QueryRow(ctx,
-		`INSERT INTO jobs (type, payload, priority, max_attempts) VALUES ($1, $2, $3, $4) RETURNING id`,
-		jobType, body, opts.Priority, opts.MaxAttempts).Scan(&id)
+		`INSERT INTO jobs (type, payload, priority, max_attempts, run_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		jobType, body, opts.Priority, opts.MaxAttempts, opts.RunAt).Scan(&id)
 	return id, err
 }
 

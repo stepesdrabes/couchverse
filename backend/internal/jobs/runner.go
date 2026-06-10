@@ -210,4 +210,3 @@ func (r *Runner) release(jobType string) {
 		reg.slots <- struct{}{}
 	}
 }
-

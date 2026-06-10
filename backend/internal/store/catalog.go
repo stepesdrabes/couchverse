@@ -9,23 +9,23 @@ import (
 // Public catalog queries — published content only, shaped for the user app.
 
 type CardItem struct {
-	TitleID   int64   `json:"titleId"`
-	Kind      string  `json:"kind"`
-	Name      string  `json:"name"`
-	Year      *int    `json:"year"`
-	PosterID  *int64  `json:"posterId"`
+	TitleID    int64  `json:"titleId"`
+	Kind       string `json:"kind"`
+	Name       string `json:"name"`
+	Year       *int   `json:"year"`
+	PosterID   *int64 `json:"posterId"`
 	BackdropID *int64 `json:"backdropId"`
 }
 
 type ContinueItem struct {
 	CardItem
-	EpisodeID     *int64  `json:"episodeId"`
-	EpisodeLabel  string  `json:"episodeLabel"` // "S1 E3 · Pilot"
-	PlaybackKind  string  `json:"playbackKind"` // movie | episode
-	PlaybackID    int64   `json:"playbackId"`
-	Position      int     `json:"positionSeconds"`
-	Duration      int     `json:"durationSeconds"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	EpisodeID    *int64    `json:"episodeId"`
+	EpisodeLabel string    `json:"episodeLabel"` // "S1 E3 · Pilot"
+	PlaybackKind string    `json:"playbackKind"` // movie | episode
+	PlaybackID   int64     `json:"playbackId"`
+	Position     int       `json:"positionSeconds"`
+	Duration     int       `json:"durationSeconds"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
 type HomeRow struct {
@@ -163,10 +163,10 @@ func (s *Store) BrowseTitles(ctx context.Context, f BrowseFilter) ([]CardItem, i
 }
 
 type SearchResults struct {
-	Titles  []CardItem    `json:"titles"`
-	Artists []SearchHit   `json:"artists"`
-	Albums  []SearchHit   `json:"albums"`
-	Tracks  []SearchHit   `json:"tracks"`
+	Titles  []CardItem  `json:"titles"`
+	Artists []SearchHit `json:"artists"`
+	Albums  []SearchHit `json:"albums"`
+	Tracks  []SearchHit `json:"tracks"`
 }
 
 type SearchHit struct {

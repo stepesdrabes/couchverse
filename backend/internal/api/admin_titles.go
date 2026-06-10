@@ -133,6 +133,17 @@ func (h *AdminTitles) Bulk(w http.ResponseWriter, r *http.Request) {
 		err = h.store.SetTitlesStatus(r.Context(), req.IDs, "draft")
 	case "delete":
 		err = h.store.DeleteTitles(r.Context(), req.IDs)
+	case "rescan":
+		var fileIDs []int64
+		fileIDs, err = h.store.MediaFileIDsForTitles(r.Context(), req.IDs)
+		if err == nil {
+			for _, id := range fileIDs {
+				if _, err = h.store.EnqueueJobOnce(r.Context(), "probe",
+					map[string]int64{"mediaFileId": id}, store.EnqueueOpts{}); err != nil {
+					break
+				}
+			}
+		}
 	default:
 		httpx.BadRequest(w, "unknown action")
 		return
