@@ -16,6 +16,7 @@ import (
 	"couchverse/internal/config"
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/feature/music"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
@@ -31,6 +32,7 @@ type Server struct {
 	store     *store.Store
 	settings  *settings.Store
 	jobs      *jobs.Store
+	music     *music.Store
 	uploads   *upload.Manager
 	artwork   *artwork.Service
 	subtitles *subtitles.Service
@@ -38,8 +40,8 @@ type Server struct {
 	sessions  *transcode.SessionManager
 }
 
-func New(cfg config.Config, st *store.Store, set *settings.Store, jb *jobs.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
-	return &Server{cfg: cfg, store: st, settings: set, jobs: jb, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
+func New(cfg config.Config, st *store.Store, set *settings.Store, jb *jobs.Store, mus *music.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
+	return &Server{cfg: cfg, store: st, settings: set, jobs: jb, music: mus, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -50,15 +52,13 @@ func (s *Server) Handler() http.Handler {
 	adminSettings := api.NewAdminSettings(s.settings)
 	adminLibraries := api.NewAdminLibraries(s.store, s.jobs)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
-	catalog := api.NewCatalog(s.store, s.settings, s.artwork.Store)
+	catalog := api.NewCatalog(s.store, s.settings, s.artwork.Store, s.music)
 	stream := api.NewStream(s.store, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
 	progress := api.NewProgress(s.store)
 	transcodeAPI := api.NewAdminTranscode(s.store, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath)
-	music := api.NewMusic(s.store)
-	playlists := api.NewPlaylists(s.store)
+	musicModule := music.NewModule(s.music, s.settings, s.artwork)
 	adminStorage := api.NewAdminStorage(s.store, s.jobs, s.cfg.DataDir)
 	sysStats := api.NewSysStats()
-	adminMusic := api.NewAdminMusic(s.store, s.artwork)
 	profile := api.NewProfile(s.store, s.artwork)
 	theme := api.NewTheme(s.settings)
 	artworkAPI := artwork.NewHandlers(s.artwork)
@@ -117,23 +117,8 @@ func (s *Server) Handler() http.Handler {
 				httpx.JSON(w, http.StatusOK, flags.Load(r.Context(), s.settings))
 			})
 
-			// music (incl. track playlists) sits behind the feature toggle
-			p.Group(func(m chi.Router) {
-				m.Use(flags.RequireMusic(s.settings))
-				m.Get("/music", music.Home)
-				m.Get("/music/albums/{id}", music.Album)
-				m.Get("/music/artists/{id}", music.Artist)
-				m.Post("/plays", music.Scrobble)
-
-				m.Get("/me/playlists", playlists.List)
-				m.Post("/me/playlists", playlists.Create)
-				m.Get("/me/playlists/{id}", playlists.Get)
-				m.Patch("/me/playlists/{id}", playlists.Rename)
-				m.Delete("/me/playlists/{id}", playlists.Delete)
-				m.Post("/me/playlists/{id}/tracks", playlists.AddTrack)
-				m.Delete("/me/playlists/{id}/tracks/{entryId}", playlists.RemoveEntry)
-				m.Put("/me/playlists/{id}/order", playlists.Reorder)
-			})
+			// music routes (incl. track playlists) gate themselves on the feature toggle
+			musicModule.MountUser(p)
 
 			p.Patch("/me/profile", profile.Update)
 			p.Get("/me/preferences", profile.Preferences)
@@ -165,15 +150,7 @@ func (s *Server) Handler() http.Handler {
 			adm.Patch("/episodes/{id}", adminTitles.UpdateEpisode)
 			adm.Delete("/episodes/{id}", adminTitles.DeleteEpisode)
 
-			adm.Group(func(m chi.Router) {
-				m.Use(flags.RequireMusic(s.settings))
-				m.Get("/music", adminMusic.List)
-				m.Get("/albums/{id}", adminMusic.Get)
-				m.Patch("/albums/{id}", adminMusic.Update)
-				m.Delete("/albums/{id}", adminMusic.Delete)
-				m.Patch("/tracks/{id}", adminMusic.UpdateTrack)
-				m.Delete("/tracks/{id}", adminMusic.DeleteTrack)
-			})
+			musicModule.MountAdmin(adm)
 
 			adm.Get("/users", adminUsers.List)
 			adm.Post("/users", adminUsers.Create)

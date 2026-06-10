@@ -1,4 +1,4 @@
-package store
+package music
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func scanPlaylist(row pgx.Row) (*Playlist, error) {
 }
 
 func (s *Store) ListPlaylists(ctx context.Context, userID int64) ([]Playlist, error) {
-	rows, err := s.pool.Query(ctx, playlistSelect+`
+	rows, err := s.db.Query(ctx, playlistSelect+`
 		WHERE p.user_id = $1 ORDER BY p.updated_at DESC`, userID)
 	if err != nil {
 		return nil, err
@@ -70,18 +70,18 @@ func (s *Store) ListPlaylists(ctx context.Context, userID int64) ([]Playlist, er
 
 // PlaylistForUser fetches a playlist owned by the user (404 otherwise).
 func (s *Store) PlaylistForUser(ctx context.Context, userID int64, playlistID string) (*Playlist, error) {
-	return scanPlaylist(s.pool.QueryRow(ctx, playlistSelect+`
+	return scanPlaylist(s.db.QueryRow(ctx, playlistSelect+`
 		WHERE p.id = $1 AND p.user_id = $2`, playlistID, userID))
 }
 
 func (s *Store) CreatePlaylist(ctx context.Context, userID int64, name string) (*Playlist, error) {
-	return scanPlaylist(s.pool.QueryRow(ctx,
+	return scanPlaylist(s.db.QueryRow(ctx,
 		`WITH ins AS (INSERT INTO playlists (user_id, name) VALUES ($1, $2) RETURNING *)
 		 SELECT id, user_id, name, 0, NULL::uuid, created_at, updated_at FROM ins`, userID, name))
 }
 
 func (s *Store) RenamePlaylist(ctx context.Context, userID int64, playlistID string, name string) error {
-	tag, err := s.pool.Exec(ctx,
+	tag, err := s.db.Exec(ctx,
 		`UPDATE playlists SET name = $3, updated_at = now() WHERE id = $1 AND user_id = $2`,
 		playlistID, userID, name)
 	if err != nil {
@@ -94,7 +94,7 @@ func (s *Store) RenamePlaylist(ctx context.Context, userID int64, playlistID str
 }
 
 func (s *Store) DeletePlaylist(ctx context.Context, userID int64, playlistID string) error {
-	tag, err := s.pool.Exec(ctx,
+	tag, err := s.db.Exec(ctx,
 		`DELETE FROM playlists WHERE id = $1 AND user_id = $2`, playlistID, userID)
 	if err != nil {
 		return err
@@ -106,7 +106,7 @@ func (s *Store) DeletePlaylist(ctx context.Context, userID int64, playlistID str
 }
 
 func (s *Store) PlaylistEntries(ctx context.Context, playlistID string) ([]PlaylistEntry, error) {
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.db.Query(ctx, `
 		SELECT pt.id, pt.position,
 			t.id, t.album_id, t.disc_number, t.track_number, t.name, t.duration_seconds,
 			t.track_artist, mf.id, al.name, ar.id, ar.name,
@@ -138,19 +138,19 @@ func (s *Store) PlaylistEntries(ctx context.Context, playlistID string) ([]Playl
 }
 
 func (s *Store) AddPlaylistTrack(ctx context.Context, playlistID, trackID string) error {
-	_, err := s.pool.Exec(ctx,
+	_, err := s.db.Exec(ctx,
 		`INSERT INTO playlist_tracks (playlist_id, track_id, position)
 		 VALUES ($1, $2, COALESCE((SELECT max(position) FROM playlist_tracks WHERE playlist_id = $1), 0) + 1)`,
 		playlistID, trackID)
 	if err != nil {
 		return err
 	}
-	_, err = s.pool.Exec(ctx, `UPDATE playlists SET updated_at = now() WHERE id = $1`, playlistID)
+	_, err = s.db.Exec(ctx, `UPDATE playlists SET updated_at = now() WHERE id = $1`, playlistID)
 	return err
 }
 
 func (s *Store) RemovePlaylistEntry(ctx context.Context, playlistID, entryID string) error {
-	tag, err := s.pool.Exec(ctx,
+	tag, err := s.db.Exec(ctx,
 		`DELETE FROM playlist_tracks WHERE id = $1 AND playlist_id = $2`, entryID, playlistID)
 	if err != nil {
 		return err
@@ -163,7 +163,7 @@ func (s *Store) RemovePlaylistEntry(ctx context.Context, playlistID, entryID str
 
 // ReorderPlaylist rewrites entry positions to match the given entry id order.
 func (s *Store) ReorderPlaylist(ctx context.Context, playlistID string, entryIDs []string) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
 	}

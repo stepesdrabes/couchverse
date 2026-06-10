@@ -1,22 +1,21 @@
-package api
+package music
 
 import (
 	"net/http"
 
 	"couchverse/internal/auth"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
-type Music struct {
-	store *store.Store
+type Handlers struct {
+	store *Store
 }
 
-func NewMusic(st *store.Store) *Music {
-	return &Music{store: st}
+func NewHandlers(st *Store) *Handlers {
+	return &Handlers{store: st}
 }
 
-func (h *Music) Home(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
 
 	albums, err := h.store.RecentAlbums(r.Context(), 24)
@@ -48,7 +47,7 @@ func (h *Music) Home(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Music) Album(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Album(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
@@ -67,7 +66,7 @@ func (h *Music) Album(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"album": album, "tracks": tracks})
 }
 
-func (h *Music) Artist(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Artist(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
@@ -87,7 +86,7 @@ func (h *Music) Artist(w http.ResponseWriter, r *http.Request) {
 }
 
 // Scrobble records a track play for "recently played".
-func (h *Music) Scrobble(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Scrobble(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		TrackID string `json:"trackId"`
 	}

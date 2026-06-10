@@ -17,6 +17,7 @@ import (
 	"couchverse/internal/db"
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/feature/music"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
 	"couchverse/internal/settings"
@@ -81,6 +82,7 @@ func run() error {
 	st := store.New(pool)
 	set := settings.NewStore(pool)
 	jobsStore := jobs.NewStore(pool)
+	musicStore := music.NewStore(pool)
 	if err := auth.Bootstrap(ctx, st, cfg); err != nil {
 		return err
 	}
@@ -110,7 +112,7 @@ func run() error {
 
 	runner := jobs.NewRunner(jobsStore, workers)
 	runner.Register("scan_library", 1, (&media.Scanner{Store: st, Jobs: jobsStore}).Handle)
-	runner.Register("probe", 2, (&media.Prober{Store: st, Settings: set, Jobs: jobsStore, Artwork: artworkService.Store, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
+	runner.Register("probe", 2, (&media.Prober{Store: st, Settings: set, Jobs: jobsStore, Artwork: artworkService.Store, Music: musicStore, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&tmdb.FetchJob{Store: st, Settings: set, Artwork: artworkService}).Handle)
 	runner.Register("import_episodes", 1, (&tmdb.ImportEpisodesJob{Store: st, Settings: set}).Handle)
@@ -123,7 +125,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, st, set, jobsStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
+		Handler:           server.New(cfg, st, set, jobsStore, musicStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

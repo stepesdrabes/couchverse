@@ -1,18 +1,17 @@
-package api
+package music
 
 import (
 	"net/http"
 
 	"couchverse/internal/auth"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
 type Playlists struct {
-	store *store.Store
+	store *Store
 }
 
-func NewPlaylists(st *store.Store) *Playlists {
+func NewPlaylists(st *Store) *Playlists {
 	return &Playlists{store: st}
 }
 
@@ -95,7 +94,7 @@ func (h *Playlists) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // requirePlaylist loads the playlist ensuring ownership.
-func (h *Playlists) requirePlaylist(w http.ResponseWriter, r *http.Request) *store.Playlist {
+func (h *Playlists) requirePlaylist(w http.ResponseWriter, r *http.Request) *Playlist {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)

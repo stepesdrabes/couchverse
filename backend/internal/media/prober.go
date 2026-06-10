@@ -9,6 +9,7 @@ import (
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
+	"couchverse/internal/feature/music"
 	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
@@ -18,6 +19,7 @@ type Prober struct {
 	Settings    *settings.Store
 	Jobs        *jobs.Store
 	Artwork     *artwork.Store
+	Music       *music.Store
 	FFprobePath string
 	DataDir     string
 }
@@ -153,15 +155,15 @@ func (p *Prober) assignVideo(ctx context.Context, lib *store.Library, relPath st
 func (p *Prober) assignAudio(ctx context.Context, abs string, res *ProbeResult, up *store.ProbeUpdate) error {
 	tags := ReadAudioTags(abs)
 
-	artistID, err := p.Store.UpsertArtist(ctx, tags.Artist)
+	artistID, err := p.Music.UpsertArtist(ctx, tags.Artist)
 	if err != nil {
 		return err
 	}
-	albumID, err := p.Store.UpsertAlbum(ctx, artistID, tags.Album, tags.Year)
+	albumID, err := p.Music.UpsertAlbum(ctx, artistID, tags.Album, tags.Year)
 	if err != nil {
 		return err
 	}
-	trackID, err := p.Store.UpsertTrack(ctx, albumID, tags.Disc, tags.Track, tags.Title,
+	trackID, err := p.Music.UpsertTrack(ctx, albumID, tags.Disc, tags.Track, tags.Title,
 		int(res.DurationSeconds), tags.TrackArtist)
 	if err != nil {
 		return err
@@ -169,7 +171,7 @@ func (p *Prober) assignAudio(ctx context.Context, abs string, res *ProbeResult, 
 	up.TrackID = &trackID
 
 	if tags.Genre != "" {
-		if err := p.Store.SetAlbumGenre(ctx, albumID, tags.Genre); err != nil {
+		if err := p.Music.SetAlbumGenre(ctx, albumID, tags.Genre); err != nil {
 			return err
 		}
 	}

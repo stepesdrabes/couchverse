@@ -8,6 +8,7 @@ import (
 
 	"couchverse/internal/auth"
 	"couchverse/internal/feature/artwork"
+	"couchverse/internal/feature/music"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
@@ -18,10 +19,11 @@ type Catalog struct {
 	store    *store.Store
 	settings *settings.Store
 	artwork  *artwork.Store
+	music    *music.Store
 }
 
-func NewCatalog(st *store.Store, set *settings.Store, art *artwork.Store) *Catalog {
-	return &Catalog{store: st, settings: set, artwork: art}
+func NewCatalog(st *store.Store, set *settings.Store, art *artwork.Store, mus *music.Store) *Catalog {
+	return &Catalog{store: st, settings: set, artwork: art, music: mus}
 }
 
 func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +79,7 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 			if !flags.MusicEnabled {
 				continue
 			}
-			items, err = h.store.RecentlyPlayedAlbums(r.Context(), user.ID, 20)
+			items, err = h.music.RecentlyPlayedAlbums(r.Context(), user.ID, 20)
 		default:
 			continue
 		}

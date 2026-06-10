@@ -1,23 +1,22 @@
-package api
+package music
 
 import (
 	"net/http"
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
 )
 
-type AdminMusic struct {
-	store   *store.Store
+type AdminHandlers struct {
+	store   *Store
 	artwork *artwork.Service
 }
 
-func NewAdminMusic(st *store.Store, art *artwork.Service) *AdminMusic {
-	return &AdminMusic{store: st, artwork: art}
+func NewAdminHandlers(st *Store, art *artwork.Service) *AdminHandlers {
+	return &AdminHandlers{store: st, artwork: art}
 }
 
-func (h *AdminMusic) List(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	items, total, err := h.store.AdminListAlbums(r.Context(),
 		q.Get("q"), q.Get("sort"), httpx.QueryInt(r, "page", 1), httpx.QueryInt(r, "pageSize", 50))
@@ -28,7 +27,7 @@ func (h *AdminMusic) List(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
 }
 
-func (h *AdminMusic) Get(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
@@ -47,13 +46,13 @@ func (h *AdminMusic) Get(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"album": album, "tracks": tracks})
 }
 
-func (h *AdminMusic) Update(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) Update(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
 		return
 	}
-	var up store.AlbumUpdate
+	var up AlbumUpdate
 	if err := httpx.Decode(r, &up); err != nil {
 		httpx.BadRequest(w, "invalid request body")
 		return
@@ -69,7 +68,7 @@ func (h *AdminMusic) Update(w http.ResponseWriter, r *http.Request) {
 	h.Get(w, r)
 }
 
-func (h *AdminMusic) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
@@ -86,7 +85,7 @@ func (h *AdminMusic) Delete(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
-func (h *AdminMusic) UpdateTrack(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) UpdateTrack(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name string `json:"name"`
 	}
@@ -106,7 +105,7 @@ func (h *AdminMusic) UpdateTrack(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
-func (h *AdminMusic) DeleteTrack(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandlers) DeleteTrack(w http.ResponseWriter, r *http.Request) {
 	id := httpx.UUID(r, "id")
 	if id == "" {
 		httpx.NotFound(w)
@@ -117,4 +116,12 @@ func (h *AdminMusic) DeleteTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
+}
+
+func validStatus(s string) bool {
+	switch s {
+	case "draft", "processing", "published", "hidden":
+		return true
+	}
+	return false
 }
