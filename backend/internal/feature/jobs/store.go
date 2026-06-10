@@ -36,6 +36,22 @@ type Job struct {
 	ClaimedAt   *time.Time      `json:"claimedAt"`
 	CreatedAt   time.Time       `json:"createdAt"`
 	FinishedAt  *time.Time      `json:"finishedAt"`
+	Subject     *JobSubject     `json:"subject,omitempty"`
+}
+
+// JobSubject names the content a job works on, resolved from the payload's
+// mediaFileId/titleId for the admin UI. Nil when the job has no subject
+// (scan_library, cleanup) or the referenced rows are gone.
+type JobSubject struct {
+	MediaFileID   *string `json:"mediaFileId,omitempty"`
+	TitleID       *string `json:"titleId,omitempty"`
+	TitleName     *string `json:"titleName,omitempty"`
+	TitleKind     *string `json:"titleKind,omitempty"`
+	SeasonNumber  *int    `json:"seasonNumber,omitempty"`
+	EpisodeNumber *int    `json:"episodeNumber,omitempty"`
+	EpisodeName   *string `json:"episodeName,omitempty"`
+	TrackName     *string `json:"trackName,omitempty"`
+	Variant       *string `json:"variant,omitempty"`
 }
 
 const jobCols = `id, type, payload, status, priority, run_at, attempts, max_attempts,
@@ -191,14 +207,29 @@ func (s *Store) ResetRunningJobs(ctx context.Context) (int64, error) {
 	return tag.RowsAffected(), err
 }
 
-func (s *Store) ListJobs(ctx context.Context, status string, limit int) ([]Job, error) {
+// ListJobs returns recent jobs with their subject (the content they work on)
+// resolved from the payload. mediaFileID narrows to one file's jobs.
+func (s *Store) ListJobs(ctx context.Context, status, mediaFileID string, limit int) ([]Job, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
+	// payload ids are producer-controlled uuids (same assumption as
+	// ActiveTranscodes); the mediaFileId filter compares as text so
+	// arbitrary query-string input cannot break the casts.
 	rows, err := s.db.Query(ctx,
-		`SELECT `+jobCols+` FROM jobs
-		 WHERE ($1 = '' OR status = $1)
-		 ORDER BY id DESC LIMIT $2`, status, limit)
+		`SELECT j.id, j.type, j.payload, j.status, j.priority, j.run_at, j.attempts,
+			j.max_attempts, j.progress, j.last_error, j.claimed_at, j.created_at, j.finished_at,
+			mf.id, t.id, t.name, t.kind, se.season_number, e.episode_number,
+			NULLIF(e.name, ''), NULLIF(tr.name, ''), j.payload->>'variant'
+		 FROM jobs j
+		 LEFT JOIN media_files mf ON mf.id = (j.payload->>'mediaFileId')::uuid
+		 LEFT JOIN episodes e ON e.id = mf.episode_id
+		 LEFT JOIN seasons se ON se.id = e.season_id
+		 LEFT JOIN tracks tr ON tr.id = mf.track_id
+		 LEFT JOIN titles t ON t.id = COALESCE(mf.title_id, se.title_id, (j.payload->>'titleId')::uuid)
+		 WHERE ($1 = '' OR j.status = $1)
+			AND ($2 = '' OR j.payload->>'mediaFileId' = $2)
+		 ORDER BY j.id DESC LIMIT $3`, status, mediaFileID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -206,11 +237,19 @@ func (s *Store) ListJobs(ctx context.Context, status string, limit int) ([]Job, 
 
 	jobs := []Job{}
 	for rows.Next() {
-		j, err := scanJob(rows)
-		if err != nil {
+		var j Job
+		var sub JobSubject
+		if err := rows.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Priority, &j.RunAt,
+			&j.Attempts, &j.MaxAttempts, &j.Progress, &j.LastError, &j.ClaimedAt, &j.CreatedAt,
+			&j.FinishedAt, &sub.MediaFileID, &sub.TitleID, &sub.TitleName, &sub.TitleKind,
+			&sub.SeasonNumber, &sub.EpisodeNumber, &sub.EpisodeName, &sub.TrackName,
+			&sub.Variant); err != nil {
 			return nil, err
 		}
-		jobs = append(jobs, *j)
+		if sub.MediaFileID != nil || sub.TitleID != nil {
+			j.Subject = &sub
+		}
+		jobs = append(jobs, j)
 	}
 	return jobs, rows.Err()
 }

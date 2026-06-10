@@ -23,7 +23,8 @@ func (h *AdminJobs) MountAdmin(r chi.Router) {
 }
 
 func (h *AdminJobs) List(w http.ResponseWriter, r *http.Request) {
-	jobs, err := h.store.ListJobs(r.Context(), r.URL.Query().Get("status"), httpx.QueryInt(r, "limit", 50))
+	jobs, err := h.store.ListJobs(r.Context(), r.URL.Query().Get("status"),
+		r.URL.Query().Get("mediaFileId"), httpx.QueryInt(r, "limit", 50))
 	if err != nil {
 		httpx.Internal(w, err)
 		return

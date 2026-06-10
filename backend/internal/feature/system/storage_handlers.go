@@ -81,7 +81,7 @@ func (h *AdminStorage) Overview(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	recent, err := h.jobs.ListJobs(r.Context(), "", 6)
+	recent, err := h.jobs.ListJobs(r.Context(), "", "", 6)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
