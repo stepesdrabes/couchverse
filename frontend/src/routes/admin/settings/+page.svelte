@@ -2,6 +2,7 @@
 	import { toast } from 'svelte-sonner';
 	import * as libraryApi from '$lib/features/library/api';
 	import * as settingsApi from '$lib/features/settings/api';
+	import HomeRowsEditor from '$lib/components/admin/HomeRowsEditor.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -148,4 +149,8 @@
 			<Button type="submit" loading={savingTranscode}>Save</Button>
 		</div>
 	</form>
+
+	<div class="lg:col-span-2">
+		<HomeRowsEditor />
+	</div>
 </div>

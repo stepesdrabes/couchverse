@@ -70,8 +70,10 @@ export const updateTitle = (id: number, patch: TitlePatch) =>
 
 export const deleteTitle = (id: number) => api<void>(`/admin/titles/${id}`, { method: 'DELETE' });
 
-export const bulkTitles = (ids: number[], action: 'publish' | 'hide' | 'draft' | 'delete') =>
-	api<void>('/admin/titles/bulk', { method: 'POST', body: { ids, action } });
+export const bulkTitles = (
+	ids: number[],
+	action: 'publish' | 'hide' | 'draft' | 'delete' | 'rescan'
+) => api<void>('/admin/titles/bulk', { method: 'POST', body: { ids, action } });
 
 export const createSeason = (titleId: number, seasonNumber: number, name = '') =>
 	api<Season>(`/admin/titles/${titleId}/seasons`, {

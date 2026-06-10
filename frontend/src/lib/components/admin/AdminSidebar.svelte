@@ -10,6 +10,7 @@
 		Users
 	} from 'lucide-svelte';
 	import { session } from '$lib/features/auth/session.svelte';
+	import StorageMeter from './StorageMeter.svelte';
 
 	const items = [
 		{ href: '/admin', label: 'Overview', icon: LayoutDashboard },
@@ -57,6 +58,7 @@
 			<ArrowLeft class="size-3.5" />
 			Back to app
 		</a>
+		<StorageMeter />
 		<div class="flex items-center gap-3 rounded-card border border-edge bg-surface p-3">
 			<span
 				class="flex size-8 items-center justify-center rounded-lg bg-danger/80 text-xs font-bold text-white uppercase"

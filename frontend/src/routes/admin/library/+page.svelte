@@ -95,12 +95,16 @@
 		}
 	}
 
-	async function bulk(action: 'publish' | 'hide' | 'delete') {
+	async function bulk(action: 'publish' | 'hide' | 'delete' | 'rescan') {
+		const labels = {
+			publish: 'published',
+			hide: 'hidden',
+			delete: 'deleted',
+			rescan: 'queued for re-scan'
+		};
 		try {
 			await libraryApi.bulkTitles([...selected], action);
-			toast.success(
-				`${selected.size} title${selected.size > 1 ? 's' : ''} ${action === 'delete' ? 'deleted' : action === 'publish' ? 'published' : 'hidden'}`
-			);
+			toast.success(`${selected.size} title${selected.size > 1 ? 's' : ''} ${labels[action]}`);
 			selected.clear();
 			refresh();
 		} catch {
@@ -319,6 +323,7 @@
 		<span class="h-5 w-px bg-edge"></span>
 		<Button variant="ghost" size="sm" onclick={() => bulk('publish')}>Publish</Button>
 		<Button variant="ghost" size="sm" onclick={() => bulk('hide')}>Hide</Button>
+		<Button variant="ghost" size="sm" onclick={() => bulk('rescan')}>Re-scan</Button>
 		<Button variant="danger" size="sm" onclick={() => (confirmDelete = true)}>
 			<Trash2 class="size-3.5" />
 			Delete

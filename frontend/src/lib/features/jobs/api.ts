@@ -45,3 +45,42 @@ export const listJobs = (status = '', limit = 50) =>
 
 export const retryJob = (id: number) => api<void>(`/admin/jobs/${id}/retry`, { method: 'POST' });
 export const cancelJob = (id: number) => api<void>(`/admin/jobs/${id}/cancel`, { method: 'POST' });
+
+// storage & overview
+export interface StorageInfo {
+	disk: { total?: number; used?: number; free?: number };
+	libraries: { libraryId: number; name: string; kind: string; bytes: number }[];
+	cache: { hls: number; images: number; uploads: number };
+}
+
+export const getStorage = () => api<StorageInfo>('/admin/storage');
+
+export interface OverviewInfo {
+	counts: {
+		movies: number;
+		series: number;
+		episodes: number;
+		albums: number;
+		tracks: number;
+		users: number;
+	};
+	pendingJobs: number;
+	recentJobs: Job[];
+}
+
+export const getOverview = () => api<OverviewInfo>('/admin/overview');
+
+// home rows
+export interface HomeRowConfig {
+	id: number;
+	position: number;
+	kind: 'continue_watching' | 'recently_added' | 'genre' | 'recently_played_music';
+	genreId: number | null;
+	label: string;
+	enabled: boolean;
+}
+
+export const getHomeRows = () => api<HomeRowConfig[]>('/admin/home-rows');
+
+export const putHomeRows = (rows: HomeRowConfig[]) =>
+	api<HomeRowConfig[]>('/admin/home-rows', { method: 'PUT', body: rows });
