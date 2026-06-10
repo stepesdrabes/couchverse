@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
+	"couchverse/internal/settings"
 )
 
 type Flags struct {
@@ -16,9 +16,9 @@ type Flags struct {
 
 // Load reads the "features" settings key; absent or malformed means everything
 // is enabled (backwards compatible).
-func Load(ctx context.Context, st *store.Store) Flags {
+func Load(ctx context.Context, st *settings.Store) Flags {
 	f := Flags{MusicEnabled: true}
-	raw, err := st.Setting(ctx, "features")
+	raw, err := st.Get(ctx, "features")
 	if err == nil && raw != nil {
 		_ = json.Unmarshal(raw, &f)
 	}
@@ -26,7 +26,7 @@ func Load(ctx context.Context, st *store.Store) Flags {
 }
 
 // RequireMusic hides music routes entirely while the feature is disabled.
-func RequireMusic(st *store.Store) func(http.Handler) http.Handler {
+func RequireMusic(st *settings.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !Load(r.Context(), st).MusicEnabled {

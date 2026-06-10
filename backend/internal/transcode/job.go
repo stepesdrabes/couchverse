@@ -10,11 +10,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
 
 type JobHandler struct {
 	Store      *store.Store
+	Settings   *settings.Store
 	DataDir    string
 	FFmpegPath string
 }
@@ -42,7 +44,7 @@ func (h *JobHandler) Handle(ctx context.Context, job *store.Job, report func(int
 		return err
 	}
 
-	settings := LoadSettings(ctx, h.Store)
+	settings := LoadSettings(ctx, h.Settings)
 	spec := BuildSpec{
 		Input:          filepath.Join(lib.Path, mf.Path),
 		OutDir:         h.outDir(mf.ID, p.Variant),

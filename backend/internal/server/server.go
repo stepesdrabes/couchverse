@@ -17,6 +17,7 @@ import (
 	"couchverse/internal/config"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
+	"couchverse/internal/settings"
 	"couchverse/internal/store"
 	"couchverse/internal/subtitles"
 	"couchverse/internal/transcode"
@@ -27,6 +28,7 @@ import (
 type Server struct {
 	cfg       config.Config
 	store     *store.Store
+	settings  *settings.Store
 	uploads   *upload.Manager
 	artwork   *artwork.Service
 	subtitles *subtitles.Service
@@ -34,8 +36,8 @@ type Server struct {
 	sessions  *transcode.SessionManager
 }
 
-func New(cfg config.Config, st *store.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
-	return &Server{cfg: cfg, store: st, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
+func New(cfg config.Config, st *store.Store, set *settings.Store, uploads *upload.Manager, art *artwork.Service, subs *subtitles.Service, tc *transcode.JobHandler, sessions *transcode.SessionManager) *Server {
+	return &Server{cfg: cfg, store: st, settings: set, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -43,24 +45,24 @@ func (s *Server) Handler() http.Handler {
 	authAPI := api.NewAuth(s.store, s.cfg)
 	adminTitles := api.NewAdminTitles(s.store, s.artwork)
 	adminUsers := api.NewAdminUsers(s.store)
-	adminSettings := api.NewAdminSettings(s.store)
+	adminSettings := api.NewAdminSettings(s.settings)
 	adminLibraries := api.NewAdminLibraries(s.store)
 	adminJobs := api.NewAdminJobs(s.store)
-	catalog := api.NewCatalog(s.store)
-	stream := api.NewStream(s.store, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
+	catalog := api.NewCatalog(s.store, s.settings)
+	stream := api.NewStream(s.store, s.settings, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath)
 	progress := api.NewProgress(s.store)
-	transcodeAPI := api.NewAdminTranscode(s.store, s.transcode, s.cfg.FFmpegPath)
+	transcodeAPI := api.NewAdminTranscode(s.store, s.settings, s.transcode, s.cfg.FFmpegPath)
 	music := api.NewMusic(s.store)
 	playlists := api.NewPlaylists(s.store)
 	adminStorage := api.NewAdminStorage(s.store, s.cfg.DataDir)
 	sysStats := api.NewSysStats()
 	adminMusic := api.NewAdminMusic(s.store, s.artwork)
 	profile := api.NewProfile(s.store, s.artwork)
-	theme := api.NewTheme(s.store)
+	theme := api.NewTheme(s.settings)
 	artworkAPI := api.NewArtwork(s.store, s.artwork)
 	subtitlesAPI := api.NewSubtitles(s.store, s.subtitles)
 	uploadsAPI := api.NewAdminUploads(s.store, s.uploads)
-	metadataAPI := api.NewAdminMetadata(s.store)
+	metadataAPI := api.NewAdminMetadata(s.store, s.settings)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -110,12 +112,12 @@ func (s *Server) Handler() http.Handler {
 			p.Get("/subtitles/{id}.vtt", subtitlesAPI.Serve)
 
 			p.Get("/features", func(w http.ResponseWriter, r *http.Request) {
-				httpx.JSON(w, http.StatusOK, flags.Load(r.Context(), s.store))
+				httpx.JSON(w, http.StatusOK, flags.Load(r.Context(), s.settings))
 			})
 
 			// music (incl. track playlists) sits behind the feature toggle
 			p.Group(func(m chi.Router) {
-				m.Use(flags.RequireMusic(s.store))
+				m.Use(flags.RequireMusic(s.settings))
 				m.Get("/music", music.Home)
 				m.Get("/music/albums/{id}", music.Album)
 				m.Get("/music/artists/{id}", music.Artist)
@@ -162,7 +164,7 @@ func (s *Server) Handler() http.Handler {
 			adm.Delete("/episodes/{id}", adminTitles.DeleteEpisode)
 
 			adm.Group(func(m chi.Router) {
-				m.Use(flags.RequireMusic(s.store))
+				m.Use(flags.RequireMusic(s.settings))
 				m.Get("/music", adminMusic.List)
 				m.Get("/albums/{id}", adminMusic.Get)
 				m.Patch("/albums/{id}", adminMusic.Update)

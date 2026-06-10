@@ -4,16 +4,18 @@ import (
 	"net/http"
 
 	"couchverse/internal/httpx"
+	"couchverse/internal/settings"
 	"couchverse/internal/store"
 	"couchverse/internal/tmdb"
 )
 
 type AdminMetadata struct {
-	store *store.Store
+	store    *store.Store
+	settings *settings.Store
 }
 
-func NewAdminMetadata(st *store.Store) *AdminMetadata {
-	return &AdminMetadata{store: st}
+func NewAdminMetadata(st *store.Store, set *settings.Store) *AdminMetadata {
+	return &AdminMetadata{store: st, settings: set}
 }
 
 // Search proxies a TMDB search so the API key never reaches the browser.
@@ -25,7 +27,7 @@ func (h *AdminMetadata) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, err := tmdb.APIKey(r.Context(), h.store)
+	key, err := tmdb.APIKey(r.Context(), h.settings)
 	if err != nil {
 		httpx.Error(w, http.StatusPreconditionFailed, "no_tmdb_key", err.Error())
 		return
@@ -45,7 +47,7 @@ func (h *AdminMetadata) Seasons(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	key, err := tmdb.APIKey(r.Context(), h.store)
+	key, err := tmdb.APIKey(r.Context(), h.settings)
 	if err != nil {
 		httpx.Error(w, http.StatusPreconditionFailed, "no_tmdb_key", err.Error())
 		return

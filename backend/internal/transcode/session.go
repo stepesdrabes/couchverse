@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
 
@@ -47,6 +48,7 @@ type Session struct {
 
 type SessionManager struct {
 	Store       *store.Store
+	Settings    *settings.Store
 	DataDir     string
 	FFmpegPath  string
 	MaxSessions int
@@ -103,7 +105,7 @@ func (m *SessionManager) Create(ctx context.Context, appCtx context.Context, med
 	}
 	id := hex.EncodeToString(raw)
 
-	settings := LoadSettings(ctx, m.Store)
+	settings := LoadSettings(ctx, m.Settings)
 	rendition := Renditions["720p"]
 	if mf.Height > 0 && mf.Height < 600 {
 		rendition = Renditions["480p"]

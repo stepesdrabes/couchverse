@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	"couchverse/internal/store"
+	"couchverse/internal/settings"
 )
 
 type Rendition struct {
@@ -94,14 +94,14 @@ func PrepareRenditions(ladder []string, sourceHeight int) []Rendition {
 }
 
 // LoadSettings reads transcode preferences with Pi-friendly defaults.
-func LoadSettings(ctx context.Context, st *store.Store) Settings {
+func LoadSettings(ctx context.Context, st *settings.Store) Settings {
 	s := Settings{
 		HWAccel:       "auto",
 		Ladder:        []string{"720p"},
 		Preset:        "veryfast",
 		MaxConcurrent: 1,
 	}
-	raw, err := st.Setting(ctx, "transcode")
+	raw, err := st.Get(ctx, "transcode")
 	if err == nil && raw != nil {
 		_ = json.Unmarshal(raw, &s)
 	}

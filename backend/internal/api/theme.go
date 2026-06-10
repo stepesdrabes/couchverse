@@ -5,24 +5,24 @@ import (
 	"net/http"
 
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
+	"couchverse/internal/settings"
 )
 
 // defaultAccent is a Netflix-like red used until an admin picks one.
 const defaultAccent = "#e50914"
 
 type Theme struct {
-	store *store.Store
+	settings *settings.Store
 }
 
-func NewTheme(st *store.Store) *Theme {
-	return &Theme{store: st}
+func NewTheme(set *settings.Store) *Theme {
+	return &Theme{settings: set}
 }
 
 // Get is public so the accent applies on the login screen too.
 func (h *Theme) Get(w http.ResponseWriter, r *http.Request) {
 	accent := defaultAccent
-	if raw, err := h.store.Setting(r.Context(), "appearance"); err == nil && raw != nil {
+	if raw, err := h.settings.Get(r.Context(), "appearance"); err == nil && raw != nil {
 		var a struct {
 			Accent string `json:"accent"`
 		}

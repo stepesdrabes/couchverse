@@ -9,15 +9,17 @@ import (
 	"couchverse/internal/auth"
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
+	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
 
 type Catalog struct {
-	store *store.Store
+	store    *store.Store
+	settings *settings.Store
 }
 
-func NewCatalog(st *store.Store) *Catalog {
-	return &Catalog{store: st}
+func NewCatalog(st *store.Store, set *settings.Store) *Catalog {
+	return &Catalog{store: st, settings: set}
 }
 
 func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +57,7 @@ func (h *Catalog) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	flags := flags.Load(r.Context(), h.store)
+	flags := flags.Load(r.Context(), h.settings)
 	rows := []store.HomeRow{}
 	for _, cfg := range configs {
 		var items any
@@ -175,7 +177,7 @@ func (h *Catalog) Title(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Catalog) Search(w http.ResponseWriter, r *http.Request) {
-	includeMusic := flags.Load(r.Context(), h.store).MusicEnabled
+	includeMusic := flags.Load(r.Context(), h.settings).MusicEnabled
 	res, err := h.store.Search(r.Context(), r.URL.Query().Get("q"), 12, includeMusic)
 	if err != nil {
 		httpx.Internal(w, err)

@@ -7,13 +7,15 @@ import (
 	"time"
 
 	"couchverse/internal/artwork"
+	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
 
 // FetchJob applies TMDB metadata + artwork to a title.
 type FetchJob struct {
-	Store   *store.Store
-	Artwork *artwork.Service
+	Store    *store.Store
+	Settings *settings.Store
+	Artwork  *artwork.Service
 }
 
 type FetchPayload struct {
@@ -21,8 +23,8 @@ type FetchPayload struct {
 	TmdbID  int    `json:"tmdbId"`
 }
 
-func APIKey(ctx context.Context, st *store.Store) (string, error) {
-	raw, err := st.Setting(ctx, "tmdb.api_key")
+func APIKey(ctx context.Context, st *settings.Store) (string, error) {
+	raw, err := st.Get(ctx, "tmdb.api_key")
 	if err != nil {
 		return "", err
 	}
@@ -42,7 +44,7 @@ func (j *FetchJob) Handle(ctx context.Context, job *store.Job, report func(int))
 		return err
 	}
 
-	key, err := APIKey(ctx, j.Store)
+	key, err := APIKey(ctx, j.Settings)
 	if err != nil {
 		return err
 	}

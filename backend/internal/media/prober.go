@@ -7,12 +7,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"couchverse/internal/settings"
 	"couchverse/internal/store"
 	"couchverse/internal/transcode"
 )
 
 type Prober struct {
 	Store       *store.Store
+	Settings    *settings.Store
 	FFprobePath string
 	DataDir     string
 }
@@ -101,7 +103,7 @@ func (p *Prober) Handle(ctx context.Context, job *store.Job, report func(int)) e
 				map[string]any{"mediaFileId": mf.ID, "variant": "source"}, store.EnqueueOpts{}); err != nil {
 				return err
 			}
-		} else if settings := transcode.LoadSettings(ctx, p.Store); settings.AutoPrepareEnabled() {
+		} else if settings := transcode.LoadSettings(ctx, p.Settings); settings.AutoPrepareEnabled() {
 			for _, r := range transcode.PrepareRenditions(settings.Ladder, res.Height) {
 				if _, err := p.Store.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, "transcode"); err != nil {
 					return err

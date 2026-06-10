@@ -15,19 +15,21 @@ import (
 	"couchverse/internal/auth"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
+	"couchverse/internal/settings"
 	"couchverse/internal/store"
 	"couchverse/internal/transcode"
 )
 
 type Stream struct {
 	store    *store.Store
+	settings *settings.Store
 	dataDir  string
 	sessions *transcode.SessionManager
 	ffmpeg   string
 }
 
-func NewStream(st *store.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
-	return &Stream{store: st, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
+func NewStream(st *store.Store, set *settings.Store, dataDir string, sessions *transcode.SessionManager, ffmpegPath string) *Stream {
+	return &Stream{store: st, settings: set, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
 }
 
 var contentTypes = map[string]string{
@@ -318,7 +320,7 @@ func (h *Stream) HLSMaster(w http.ResponseWriter, r *http.Request) {
 // jitAllowed: explicit setting wins; auto enables JIT when a hardware
 // encoder was detected (software JIT is usually too slow for live seeking).
 func (h *Stream) jitAllowed(ctx context.Context) bool {
-	settings := transcode.LoadSettings(ctx, h.store)
+	settings := transcode.LoadSettings(ctx, h.settings)
 	if settings.JITEnabled != nil {
 		return *settings.JITEnabled
 	}

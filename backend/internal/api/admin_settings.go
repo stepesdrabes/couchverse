@@ -5,20 +5,20 @@ import (
 	"net/http"
 
 	"couchverse/internal/httpx"
-	"couchverse/internal/store"
+	"couchverse/internal/settings"
 	"couchverse/internal/transcode"
 )
 
 type AdminSettings struct {
-	store *store.Store
+	settings *settings.Store
 }
 
-func NewAdminSettings(st *store.Store) *AdminSettings {
-	return &AdminSettings{store: st}
+func NewAdminSettings(set *settings.Store) *AdminSettings {
+	return &AdminSettings{settings: set}
 }
 
 func (h *AdminSettings) Get(w http.ResponseWriter, r *http.Request) {
-	settings, err := h.store.AllSettings(r.Context())
+	settings, err := h.settings.All(r.Context())
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -46,7 +46,7 @@ func (h *AdminSettings) Put(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		if err := h.store.SetSetting(r.Context(), key, value); err != nil {
+		if err := h.settings.Set(r.Context(), key, value); err != nil {
 			httpx.Internal(w, err)
 			return
 		}

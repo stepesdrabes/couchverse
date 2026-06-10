@@ -4,18 +4,20 @@ import (
 	"net/http"
 
 	"couchverse/internal/httpx"
+	"couchverse/internal/settings"
 	"couchverse/internal/store"
 	"couchverse/internal/transcode"
 )
 
 type AdminTranscode struct {
 	store      *store.Store
+	settings   *settings.Store
 	jobHandler *transcode.JobHandler
 	ffmpegPath string
 }
 
-func NewAdminTranscode(st *store.Store, jobHandler *transcode.JobHandler, ffmpegPath string) *AdminTranscode {
-	return &AdminTranscode{store: st, jobHandler: jobHandler, ffmpegPath: ffmpegPath}
+func NewAdminTranscode(st *store.Store, set *settings.Store, jobHandler *transcode.JobHandler, ffmpegPath string) *AdminTranscode {
+	return &AdminTranscode{store: st, settings: set, jobHandler: jobHandler, ffmpegPath: ffmpegPath}
 }
 
 // Info exposes detected encoders and current transcode settings. Encoder
@@ -29,7 +31,7 @@ func (h *AdminTranscode) Info(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"detectedEncoders": encoders,
 		"detecting":        !done,
-		"settings":         transcode.LoadSettings(r.Context(), h.store),
+		"settings":         transcode.LoadSettings(r.Context(), h.settings),
 		"renditions":       []string{"1080p", "720p", "480p"},
 	})
 }
@@ -71,7 +73,7 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := httpx.Decode(r, &req); err != nil || len(req.Variants) == 0 {
 		// default: the configured ladder
-		req.Variants = transcode.LoadSettings(r.Context(), h.store).Ladder
+		req.Variants = transcode.LoadSettings(r.Context(), h.settings).Ladder
 	}
 
 	queued := []string{}

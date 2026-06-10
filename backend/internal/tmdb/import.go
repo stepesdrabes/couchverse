@@ -8,13 +8,15 @@ import (
 	"slices"
 	"time"
 
+	"couchverse/internal/settings"
 	"couchverse/internal/store"
 )
 
 // ImportEpisodesJob creates missing seasons/episodes for a show from TMDB,
 // filling metadata gaps without touching episodes that already have a file.
 type ImportEpisodesJob struct {
-	Store *store.Store
+	Store    *store.Store
+	Settings *settings.Store
 }
 
 type ImportEpisodesPayload struct {
@@ -28,7 +30,7 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *store.Job, report f
 		return err
 	}
 
-	key, err := APIKey(ctx, j.Store)
+	key, err := APIKey(ctx, j.Settings)
 	if err != nil {
 		return err
 	}
