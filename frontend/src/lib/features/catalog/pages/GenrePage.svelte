@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>{genre} — Couchverse</title>
+	<title>{genre} - Couchverse</title>
 </svelte:head>
 
 {#key genre}

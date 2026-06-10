@@ -34,7 +34,7 @@ func (h *AdminSettings) Put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for key, value := range req {
-		// the transcoder silently ignores values it doesn't know — reject them here
+		// the transcoder silently ignores values it doesn't know - reject them here
 		if key == "transcode" {
 			var ts media.TranscodeSettings
 			if err := json.Unmarshal(value, &ts); err != nil {

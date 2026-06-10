@@ -108,7 +108,7 @@
 	}
 }
 
-/* page transitions (View Transitions API) — content fades, chrome stays put */
+/* page transitions (View Transitions API) - content fades, chrome stays put */
 @media (prefers-reduced-motion: no-preference) {
 	::view-transition-old(root) {
 		animation: 160ms ease both vt-fade-out;

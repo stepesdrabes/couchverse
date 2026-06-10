@@ -89,7 +89,7 @@
 
 	{#if mediaFiles.length === 0}
 		<p class="text-xs leading-relaxed text-faint">
-			No media files yet — upload one or scan a library folder.
+			No media files yet - upload one or scan a library folder.
 		</p>
 	{:else}
 		<ul class="space-y-4">

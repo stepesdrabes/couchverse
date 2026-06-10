@@ -31,9 +31,9 @@
 			picks = Object.fromEntries(seasons.map((s) => [s.seasonNumber, s.seasonNumber !== 0]));
 		} catch (err) {
 			if (err instanceof ApiError && err.code === 'no_tmdb_id') {
-				errorMsg = 'This title is not linked to TMDB yet — use “Fetch from TMDB” first.';
+				errorMsg = 'This title is not linked to TMDB yet - use “Fetch from TMDB” first.';
 			} else if (err instanceof ApiError && err.code === 'no_tmdb_key') {
-				errorMsg = 'No TMDB API key configured — add one in Settings.';
+				errorMsg = 'No TMDB API key configured - add one in Settings.';
 			} else {
 				errorMsg = err instanceof Error ? err.message : 'Failed to load seasons';
 			}
@@ -48,7 +48,7 @@
 		importing = true;
 		try {
 			await libraryApi.importEpisodes(titleId, allSeasons ? undefined : selectedSeasons);
-			toast.success('Import started — episodes appear shortly');
+			toast.success('Import started - episodes appear shortly');
 			open = false;
 			// the import job usually lands within a few seconds
 			setTimeout(() => invalidateAll(), 4000);

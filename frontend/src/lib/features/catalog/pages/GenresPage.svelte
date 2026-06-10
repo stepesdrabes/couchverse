@@ -21,7 +21,7 @@
 </script>
 
 <svelte:head>
-	<title>Genres — Couchverse</title>
+	<title>Genres - Couchverse</title>
 </svelte:head>
 
 <div class="mx-auto max-w-[1700px] px-6 pt-24 pb-16 lg:px-12">

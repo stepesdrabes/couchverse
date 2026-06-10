@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-	<title>Series — Couchverse</title>
+	<title>Series - Couchverse</title>
 </svelte:head>
 
 <BrowseGrid heading="Series" kind="series" />

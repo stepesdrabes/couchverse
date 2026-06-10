@@ -80,7 +80,7 @@ func (s TranscodeSettings) Validate() error {
 }
 
 // PrepareRenditions picks the ladder entries that make sense for a source
-// height — never upscaling, and always returning at least the smallest one.
+// height - never upscaling, and always returning at least the smallest one.
 func PrepareRenditions(ladder []string, sourceHeight int) []Rendition {
 	picked := []Rendition{}
 	var smallest *Rendition

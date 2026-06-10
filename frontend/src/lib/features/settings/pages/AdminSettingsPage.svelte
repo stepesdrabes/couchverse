@@ -140,7 +140,7 @@
 				}
 			});
 			transcodeForm.reset();
-			toast.success('Transcoding settings saved — concurrency applies after a restart');
+			toast.success('Transcoding settings saved - concurrency applies after a restart');
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : 'Failed to save settings');
 		} finally {
@@ -182,7 +182,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings — Couchverse admin</title>
+	<title>Settings - Couchverse admin</title>
 </svelte:head>
 
 <h1 class="mb-6 text-2xl font-bold">Settings</h1>
@@ -230,7 +230,7 @@
 	>
 		<h2 class="text-sm font-semibold text-muted">Accent colour</h2>
 		<p class="text-xs leading-relaxed text-faint">
-			Sets the highlight colour across the whole app — buttons, links, the player and admin. Changes
+			Sets the highlight colour across the whole app - buttons, links, the player and admin. Changes
 			preview live; save to apply for everyone.
 		</p>
 
@@ -331,7 +331,7 @@
 			<span>
 				<span class="block text-sm">Delete original after transcoding</span>
 				<span class="block text-[11px] text-faint">
-					Permanently removes the source file once all quality tiers finish. This is irreversible —
+					Permanently removes the source file once all quality tiers finish. This is irreversible -
 					re-transcoding to other qualities won't be possible.
 				</span>
 			</span>

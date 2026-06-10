@@ -40,7 +40,7 @@ type storageCategory struct {
 
 // Get reports Couchverse's footprint relative to the space available to it,
 // not the whole disk. The denominator ("budget") is Couchverse's own usage
-// plus the disk's free space — i.e. everything Couchverse could occupy,
+// plus the disk's free space - i.e. everything Couchverse could occupy,
 // excluding whatever else already lives on the disk. Usage is broken down by
 // category (movies/series/music/cache) for the segmented bar.
 func (h *AdminStorage) Get(w http.ResponseWriter, r *http.Request) {

@@ -99,7 +99,7 @@
 </script>
 
 <svelte:head>
-	<title>Users — Couchverse admin</title>
+	<title>Users - Couchverse admin</title>
 </svelte:head>
 
 <div class="mb-6 flex items-center gap-4">

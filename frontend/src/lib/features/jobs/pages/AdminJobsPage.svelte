@@ -63,7 +63,7 @@
 </script>
 
 <svelte:head>
-	<title>Jobs & Storage — Couchverse admin</title>
+	<title>Jobs & Storage - Couchverse admin</title>
 </svelte:head>
 
 <h1 class="mb-6 text-2xl font-bold">Jobs & Storage</h1>
@@ -98,7 +98,7 @@
 		{/each}
 	</div>
 	<p class="mt-2 text-xs text-faint">
-		Drop files into a library folder (SMB/SFTP) and hit Scan — series like
+		Drop files into a library folder (SMB/SFTP) and hit Scan - series like
 		<span class="font-mono">Show/Season 01/Show S01E01.mkv</span>, movies like
 		<span class="font-mono">Name (2024)/Name (2024).mkv</span>, music sorted by its tags.
 	</p>
@@ -147,7 +147,7 @@
 										></div>
 									</div>
 								{:else}
-									<span class="text-xs text-faint">—</span>
+									<span class="text-xs text-faint">-</span>
 								{/if}
 							</td>
 							<td class="py-3 pr-4 text-right">

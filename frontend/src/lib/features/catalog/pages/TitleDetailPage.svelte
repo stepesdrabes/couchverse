@@ -84,7 +84,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.title.name} — Couchverse</title>
+	<title>{data.title.name} - Couchverse</title>
 </svelte:head>
 
 <div class="relative">

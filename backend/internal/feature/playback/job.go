@@ -102,7 +102,7 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 }
 
 // maybeDeleteSource removes the original file once every requested variant is
-// ready and nothing else still reads it. Failures only log — the variant this
+// ready and nothing else still reads it. Failures only log - the variant this
 // job produced is already ready.
 func (h *JobHandler) maybeDeleteSource(ctx context.Context, mf *media.MediaFile, libPath string, jobID int64, settings media.TranscodeSettings) {
 	if !settings.DeleteSourceEnabled() || mf.SourceDeletedAt != nil || mf.VideoCodec == "" {

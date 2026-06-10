@@ -35,7 +35,7 @@ export const completeSession = (id: string, libraryKind: LibraryKind, assign: Up
 
 export const abortSession = (id: string) => api<void>(`/admin/uploads/${id}`, { method: 'DELETE' });
 
-/** raw chunk PUT — returns the server offset after the append */
+/** raw chunk PUT - returns the server offset after the append */
 export async function putChunk(
 	id: string,
 	offset: number,

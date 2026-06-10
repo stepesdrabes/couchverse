@@ -27,13 +27,13 @@
 		uploading: 'Uploading',
 		paused: 'Paused',
 		completing: 'Finishing…',
-		done: 'Done — analyzing in background',
+		done: 'Done - analyzing in background',
 		error: 'Failed'
 	};
 </script>
 
 <svelte:head>
-	<title>Uploads — Couchverse admin</title>
+	<title>Uploads - Couchverse admin</title>
 </svelte:head>
 
 <h1 class="mb-6 text-2xl font-bold">Uploads</h1>
@@ -68,7 +68,7 @@
 	<span class="max-w-md text-xs text-faint">
 		Movies: <span class="font-mono">Name (2024).mkv</span> · Series:
 		<span class="font-mono">Show S01E01.mkv</span> · Music: tagged audio files. Uploads are resumable
-		— re-drop the same file to continue an interrupted one.
+		- re-drop the same file to continue an interrupted one.
 	</span>
 </button>
 <input
@@ -96,7 +96,7 @@
 						<p class="text-xs text-faint tnum">
 							{formatBytes(upload.offset)} / {formatBytes(upload.file.size)}
 							· {statusLabel[upload.status]}
-							{#if upload.error && upload.status === 'error'}— {upload.error}{/if}
+							{#if upload.error && upload.status === 'error'}- {upload.error}{/if}
 						</p>
 					</div>
 					{#if upload.status === 'done'}
@@ -138,7 +138,7 @@
 		{/each}
 	</ul>
 	<p class="mt-3 text-xs text-faint">
-		Finished uploads are analyzed automatically and matched into the library — watch the
+		Finished uploads are analyzed automatically and matched into the library - watch the
 		<a href="/admin/jobs" class="text-accent hover:underline">job queue</a>.
 	</p>
 {/if}

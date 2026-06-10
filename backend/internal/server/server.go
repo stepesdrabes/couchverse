@@ -164,7 +164,7 @@ func spaHandler() http.HandlerFunc {
 
 		index, err := fs.ReadFile(dist, "index.html")
 		if err != nil {
-			http.Error(w, "frontend not built — run `make build`", http.StatusInternalServerError)
+			http.Error(w, "frontend not built - run `make build`", http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

@@ -54,7 +54,7 @@
 				overview: result.overview
 			});
 			await libraryApi.applyTmdb(title.id, result.tmdbId);
-			toast.success(`Added “${result.name}” — fetching metadata & artwork`);
+			toast.success(`Added “${result.name}” - fetching metadata & artwork`);
 			open = false;
 			goto(`/admin/library/${title.id}`);
 		} catch {
@@ -109,7 +109,7 @@
 
 	{#if noTmdbKey}
 		<p class="mt-3 rounded-input border border-edge bg-surface px-3 py-2 text-xs text-faint">
-			No TMDB API key configured — add one under
+			No TMDB API key configured - add one under
 			<a href="/admin/settings" class="text-accent hover:underline">Settings</a>
 			to search, or create the title manually below.
 		</p>

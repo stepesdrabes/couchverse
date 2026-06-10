@@ -18,7 +18,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.info.display.title} — Couchverse</title>
+	<title>{data.info.display.title} - Couchverse</title>
 </svelte:head>
 
 {#if data.info.mode === 'direct' || data.info.mode === 'hls'}

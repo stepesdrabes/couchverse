@@ -178,7 +178,7 @@
 </script>
 
 <svelte:head>
-	<title>Library — Couchverse admin</title>
+	<title>Library - Couchverse admin</title>
 </svelte:head>
 
 <div class="mb-6 flex items-center gap-4">
@@ -295,7 +295,7 @@
 									<span
 										class="inline-flex items-center rounded border border-amber-400/30 bg-amber-400/10
 											px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-amber-300 uppercase"
-										title="Not browser-playable and no HLS version queued — re-scan or use Files → Prepare HLS in the editor"
+										title="Not browser-playable and no HLS version queued - re-scan or use Files → Prepare HLS in the editor"
 									>
 										needs prep
 									</span>

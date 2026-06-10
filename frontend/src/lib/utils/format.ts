@@ -1,5 +1,5 @@
 export function formatBytes(bytes: number): string {
-	if (bytes <= 0) return '—';
+	if (bytes <= 0) return '-';
 	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
 	let i = 0;
 	let value = bytes;

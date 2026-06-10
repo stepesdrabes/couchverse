@@ -14,7 +14,7 @@ const (
 )
 
 // NewToken returns a random session token for the cookie and its SHA-256 hash
-// for storage — a leaked sessions table cannot be used to forge cookies.
+// for storage - a leaked sessions table cannot be used to forge cookies.
 func NewToken() (token string, hash []byte, err error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {

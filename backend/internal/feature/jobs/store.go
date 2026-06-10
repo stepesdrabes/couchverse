@@ -272,7 +272,7 @@ func (s *Store) ActiveTranscodes(ctx context.Context) ([]ActiveTranscode, error)
 }
 
 // HasOtherPendingJobsForMediaFile reports whether any pending/running job other
-// than excludeJobID still references the media file — sibling transcodes or a
+// than excludeJobID still references the media file - sibling transcodes or a
 // subtitle extraction that still needs to read the source.
 func (s *Store) HasOtherPendingJobsForMediaFile(ctx context.Context, mediaFileID string, excludeJobID int64) (bool, error) {
 	var exists bool

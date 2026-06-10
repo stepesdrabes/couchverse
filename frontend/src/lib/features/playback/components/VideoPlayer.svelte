@@ -313,7 +313,7 @@
 
 	async function attachHls(url: string, pinName: string | null) {
 		if (!video) return;
-		// Safari plays HLS natively but exposes no level API — adaptive only
+		// Safari plays HLS natively but exposes no level API - adaptive only
 		if (video.canPlayType('application/vnd.apple.mpegurl')) {
 			videoSrc = url;
 			return;

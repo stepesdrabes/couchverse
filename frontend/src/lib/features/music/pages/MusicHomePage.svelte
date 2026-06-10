@@ -34,7 +34,7 @@
 </script>
 
 <svelte:head>
-	<title>Music — Couchverse</title>
+	<title>Music - Couchverse</title>
 </svelte:head>
 
 <div class="pt-24 pb-16">

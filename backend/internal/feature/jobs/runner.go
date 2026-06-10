@@ -34,7 +34,7 @@ func NewRunner(st *Store, workers int) *Runner {
 	return &Runner{store: st, workers: workers, handlers: map[string]registration{}}
 }
 
-// Register adds a handler for a job type with a per-type concurrency cap —
+// Register adds a handler for a job type with a per-type concurrency cap -
 // e.g. transcodes are limited to 1 so probes/scans keep flowing.
 func (r *Runner) Register(jobType string, maxConcurrent int, h Handler) {
 	if maxConcurrent < 1 {

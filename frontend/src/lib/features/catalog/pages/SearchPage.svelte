@@ -26,7 +26,7 @@
 		try {
 			results = await catalog.search(query.trim(), controller.signal);
 		} catch {
-			// aborted or failed — keep previous results
+			// aborted or failed - keep previous results
 		}
 	}
 
@@ -43,7 +43,7 @@
 </script>
 
 <svelte:head>
-	<title>Search — Couchverse</title>
+	<title>Search - Couchverse</title>
 </svelte:head>
 
 <div class="mx-auto max-w-[1700px] px-6 pt-24 pb-16 lg:px-12">

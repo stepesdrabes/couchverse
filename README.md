@@ -1,6 +1,6 @@
 # Couchverse
 
-A self-hosted, Netflix-style streaming server for your movies, TV series and music —
+A self-hosted, Netflix-style streaming server for your movies, TV series and music -
 with a Spotify-like music player and a full management panel. One Go binary, one
 Postgres database, runs on anything from a Raspberry Pi with a USB disk to a beefy
 home server.
@@ -31,10 +31,10 @@ home server.
 - TMDB integration: search & apply metadata + artwork with one click
 
 **Playback pipeline** (scales with your hardware)
-1. **Direct play** — browser-compatible files stream straight from disk (zero CPU)
-2. **Copy-remux** — h264 in MKV / AC3 audio is repackaged to HLS automatically (fast everywhere)
-3. **Background transcode** — admin-queued quality ladder (1080p/720p/480p)
-4. **Instant play (JIT)** — unprepared files transcode live while you watch, with
+1. **Direct play** - browser-compatible files stream straight from disk (zero CPU)
+2. **Copy-remux** - h264 in MKV / AC3 audio is repackaged to HLS automatically (fast everywhere)
+3. **Background transcode** - admin-queued quality ladder (1080p/720p/480p)
+4. **Instant play (JIT)** - unprepared files transcode live while you watch, with
    seek-anywhere; enabled automatically when a hardware encoder is detected
    (VideoToolbox, NVENC, QSV, VA-API, Raspberry Pi 4's V4L2)
 
@@ -50,7 +50,7 @@ Open `http://<host>:8080`, sign in with the admin credentials from `.env`.
 
 ### Where media lives
 
-By default media + app data live in a **Docker named volume** — zero setup, no
+By default media + app data live in a **Docker named volume** - zero setup, no
 permission issues, everything goes in through browser uploads. If you want your
 media on a real disk folder (so you can also drop files over SMB/SFTP and
 re-scan), set in `.env`:
@@ -61,7 +61,7 @@ PUID=1000                            # owner of that folder: `id -u`
 PGID=1000                            # group of that folder: `id -g`
 ```
 
-The container runs as `PUID:PGID`, so they must match the folder's owner —
+The container runs as `PUID:PGID`, so they must match the folder's owner -
 otherwise writes (uploads, transcodes, artwork) fail with permission denied.
 Layout inside `MEDIA_ROOT`:
 
@@ -75,11 +75,11 @@ Add users under **Admin → Users** (no public signup). Set a TMDB API key under
 
 ### Raspberry Pi notes
 
-- Put `MEDIA_ROOT` **and** the Postgres volume on the external SSD/USB disk — never
+- Put `MEDIA_ROOT` **and** the Postgres volume on the external SSD/USB disk - never
   the SD card (write wear, fsync latency). Bind `pgdata` to a disk path in
   `docker-compose.yml` if your root filesystem is an SD card.
 - Share `data/media` over SMB/SFTP and use **Jobs & Storage → Scan** after dropping
-  files — uploads through the browser work too.
+  files - uploads through the browser work too.
 - Keep the transcode ladder at 720p and 1 concurrent job (the defaults). On a Pi 4
   the `h264_v4l2m2m` hardware encoder is detected automatically; a Pi 5 has no
   video encoder, so prefer direct-play-friendly files (h264 mp4/mkv).
@@ -88,7 +88,7 @@ Add users under **Admin → Users** (no public signup). Set a TMDB API key under
 ### Stronger hardware
 
 With any hardware encoder (Intel QSV/VA-API via `/dev/dri`, NVIDIA NVENC, Apple
-VideoToolbox) **instant play** turns on automatically — everything plays immediately,
+VideoToolbox) **instant play** turns on automatically - everything plays immediately,
 even 4K HEVC remuxes. For VA-API/QSV inside Docker, pass the device through:
 
 ```yaml

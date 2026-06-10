@@ -30,6 +30,6 @@ export function applyAccent(accent: string) {
 	const root = document.documentElement.style;
 	root.setProperty('--color-accent', toHex(...rgb));
 	root.setProperty('--color-accent-strong', shade(rgb, -0.22));
-	// soft tint over the dark background — low-alpha accent
+	// soft tint over the dark background - low-alpha accent
 	root.setProperty('--color-accent-soft', `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.16)`);
 }

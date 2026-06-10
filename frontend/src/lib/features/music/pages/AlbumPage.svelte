@@ -21,7 +21,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.album.name} — Couchverse</title>
+	<title>{data.album.name} - Couchverse</title>
 </svelte:head>
 
 <div class="mx-auto max-w-4xl px-6 pt-28 pb-16">

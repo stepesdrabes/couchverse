@@ -111,7 +111,7 @@ export class UploadQueue {
 		try {
 			sessions = await uploadsApi.listSessions();
 		} catch {
-			// non-fatal — uploads just start fresh
+			// non-fatal - uploads just start fresh
 		}
 
 		const created: Upload[] = [];

@@ -45,7 +45,7 @@
 </script>
 
 <svelte:head>
-	<title>Profile — Couchverse</title>
+	<title>Profile - Couchverse</title>
 </svelte:head>
 
 <div class="mx-auto max-w-lg px-6 pt-28 pb-16">

@@ -1,5 +1,5 @@
 // Package subtitles extracts embedded text subtitles to WebVTT and converts
-// uploaded .srt files — players get side-car <track> elements either way.
+// uploaded .srt files - players get side-car <track> elements either way.
 package subtitles
 
 import (

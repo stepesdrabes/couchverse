@@ -94,7 +94,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.title.name} — Couchverse admin</title>
+	<title>{data.title.name} - Couchverse admin</title>
 </svelte:head>
 
 <EditorHero

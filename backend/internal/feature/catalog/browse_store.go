@@ -8,7 +8,7 @@ import (
 	"couchverse/internal/media"
 )
 
-// Public catalog queries — published content only, shaped for the user app.
+// Public catalog queries - published content only, shaped for the user app.
 
 type CardItem struct {
 	TitleID    string  `json:"titleId"`

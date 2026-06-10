@@ -30,7 +30,7 @@ services:
       POSTGRES_USER: couchverse
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      # loopback only — for local development (`make run-backend`)
+      # loopback only - for local development (`make run-backend`)
       - "127.0.0.1:5432:5432"
     volumes:
       # on a Raspberry Pi keep this off the SD card (bind-mount to SSD/USB)

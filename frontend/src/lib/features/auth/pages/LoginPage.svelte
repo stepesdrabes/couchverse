@@ -30,7 +30,7 @@
 </script>
 
 <svelte:head>
-	<title>Sign in — Couchverse</title>
+	<title>Sign in - Couchverse</title>
 </svelte:head>
 
 <div class="relative flex min-h-dvh items-center justify-center overflow-hidden px-4">

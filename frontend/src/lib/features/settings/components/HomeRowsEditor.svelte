@@ -37,7 +37,7 @@
 
 	function addGenreRow() {
 		if (genres.length === 0) {
-			toast.error('No genres yet — tag some titles first');
+			toast.error('No genres yet - tag some titles first');
 			return;
 		}
 		rows = [

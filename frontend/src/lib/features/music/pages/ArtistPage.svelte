@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.artist.name} — Couchverse</title>
+	<title>{data.artist.name} - Couchverse</title>
 </svelte:head>
 
 <div class="mx-auto max-w-5xl px-6 pt-28 pb-16">

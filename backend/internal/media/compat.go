@@ -36,7 +36,7 @@ func DirectPlayWithCaps(container, videoCodec, audioCodec string, caps []string)
 	return false
 }
 
-// embedded subtitle codecs convertible to WebVTT (bitmap subs need OCR — skipped)
+// embedded subtitle codecs convertible to WebVTT (bitmap subs need OCR - skipped)
 var textSubtitleCodecs = map[string]bool{
 	"subrip": true, "srt": true, "ass": true, "ssa": true, "mov_text": true, "webvtt": true,
 }

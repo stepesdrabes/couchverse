@@ -281,7 +281,7 @@ func (m *SessionManager) SegmentPath(ctx context.Context, s *Session, name strin
 		startSeg := s.startSeg
 		s.mu.Unlock()
 		// right after a restart the frontier lags behind the new window, and
-		// stale segments from earlier windows can make it overshoot — anchor
+		// stale segments from earlier windows can make it overshoot - anchor
 		// the lookahead at whichever is further along
 		frontier := max(s.encodeFrontier(), startSeg)
 

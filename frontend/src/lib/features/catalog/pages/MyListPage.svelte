@@ -19,7 +19,7 @@
 </script>
 
 <svelte:head>
-	<title>My List — Couchverse</title>
+	<title>My List - Couchverse</title>
 </svelte:head>
 
 <div class="mx-auto max-w-[1700px] px-6 pt-24 pb-16 lg:px-12">

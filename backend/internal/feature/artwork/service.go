@@ -139,7 +139,7 @@ func (s *Service) dropCache(id string) {
 }
 
 // DeleteForOwner removes all artwork rows, files and cached resizes of an
-// owner — called when a title or album is deleted.
+// owner - called when a title or album is deleted.
 func (s *Service) DeleteForOwner(ctx context.Context, ownerKind string, ownerID string) error {
 	rows, err := s.Store.DeleteArtworkForOwner(ctx, ownerKind, ownerID)
 	if err != nil {

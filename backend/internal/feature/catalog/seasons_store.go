@@ -172,7 +172,7 @@ func (s *Store) ImportSeasonMeta(ctx context.Context, titleID string, seasonNumb
 }
 
 // EpisodeIDsWithMedia returns the title's episode ids that have a video file
-// attached — import must not overwrite their metadata.
+// attached - import must not overwrite their metadata.
 func (s *Store) EpisodeIDsWithMedia(ctx context.Context, titleID string) (map[string]bool, error) {
 	rows, err := s.db.Query(ctx,
 		`SELECT DISTINCT mf.episode_id FROM media_files mf

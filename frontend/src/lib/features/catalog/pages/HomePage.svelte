@@ -20,7 +20,7 @@
 </script>
 
 <svelte:head>
-	<title>Home — Couchverse</title>
+	<title>Home - Couchverse</title>
 </svelte:head>
 
 {#if data.featured}

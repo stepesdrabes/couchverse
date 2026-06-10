@@ -106,7 +106,7 @@ func run() error {
 	go playback.DetectEncoders(cfg.FFmpegPath)
 
 	// transcodes can occupy their full concurrency budget and still leave
-	// workers free for quick jobs (probes, scans, metadata) — otherwise a
+	// workers free for quick jobs (probes, scans, metadata) - otherwise a
 	// queue of hour-long transcodes starves everything else
 	transcodeSlots := media.LoadTranscodeSettings(ctx, set).MaxConcurrent
 	workers := cfg.JobWorkers

@@ -27,7 +27,7 @@ func NewMiddleware(st *Store) *Middleware {
 }
 
 // Load resolves the session cookie into a user on the request context.
-// It never rejects — RequireAuth/RequireAdmin do that per route.
+// It never rejects - RequireAuth/RequireAdmin do that per route.
 func (m *Middleware) Load(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(SessionCookie)

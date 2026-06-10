@@ -146,7 +146,7 @@ func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (strin
 		return "", err
 	}
 
-	// media files in a series attach to an episode, never to the show title —
+	// media files in a series attach to an episode, never to the show title -
 	// the check constraint allows at most one owner. When only a title is given
 	// (drag-drop onto the show), resolve SxxExx from the filename into an episode.
 	titleID, episodeID := assign.TitleID, assign.EpisodeID
@@ -226,7 +226,7 @@ func (m *Manager) destinationPath(ctx context.Context, lib *Library, filename st
 		}
 		return filename, nil
 
-	default: // music — tags decide the catalog placement, keep files flat
+	default: // music - tags decide the catalog placement, keep files flat
 		return filename, nil
 	}
 }

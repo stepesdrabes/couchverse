@@ -223,7 +223,7 @@ class MusicPlayer {
 				position: Math.min(this.currentTime, this.duration)
 			});
 		} catch {
-			// invalid transient state — ignore
+			// invalid transient state - ignore
 		}
 	}
 }

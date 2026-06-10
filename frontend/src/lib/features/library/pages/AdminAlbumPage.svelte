@@ -24,7 +24,7 @@
 	let confirmDelete = $state(false);
 	const form = new FormState(() => ({ name, artistName, year, status }));
 
-	// re-sync after invalidateAll — $state initializers only run once
+	// re-sync after invalidateAll - $state initializers only run once
 	$effect(() => {
 		const album = data.album;
 		untrack(() => {
@@ -106,7 +106,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.album.name} — Couchverse admin</title>
+	<title>{data.album.name} - Couchverse admin</title>
 </svelte:head>
 
 <a
@@ -203,7 +203,7 @@
 						{/if}
 					</li>
 				{:else}
-					<li class="px-3 py-4 text-xs text-faint">No tracks — upload audio files.</li>
+					<li class="px-3 py-4 text-xs text-faint">No tracks - upload audio files.</li>
 				{/each}
 			</ul>
 		</section>
