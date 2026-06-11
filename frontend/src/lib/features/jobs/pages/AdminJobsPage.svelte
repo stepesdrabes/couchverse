@@ -214,7 +214,7 @@
 								{/if}{groupSummary(group)}
 							</span>
 						</div>
-						<div class="divide-y divide-edge/30">
+						<div class="pb-1">
 							{#each group.jobs as job (job.id)}
 								{@render jobRow(job)}
 							{/each}
