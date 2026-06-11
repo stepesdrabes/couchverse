@@ -16,6 +16,7 @@ func NewModule(stream *Stream, admin *AdminTranscode) *Module {
 
 func (m *Module) MountUser(r chi.Router) {
 	r.Get("/stream/{id}", m.stream.Serve)
+	r.Get("/stream/{id}/frame", m.stream.Frame)
 	r.Get("/stream/{id}/hls/master.m3u8", m.stream.HLSMaster)
 	r.Get("/stream/{id}/hls/{variant}/{file}", m.stream.HLSFile)
 	r.Post("/stream/{id}/sessions", m.stream.CreateSession)

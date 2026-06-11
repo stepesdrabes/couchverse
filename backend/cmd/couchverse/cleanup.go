@@ -36,7 +36,7 @@ func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, uploads 
 			slog.Info("cleanup: deleted expired sessions", "count", n)
 		}
 
-		if err := removeOrphanedHLS(ctx, lib, dataDir); err != nil {
+		if err := removeOrphanedCache(ctx, lib, dataDir); err != nil {
 			return err
 		}
 
@@ -79,24 +79,27 @@ func backfillVariantSizes(ctx context.Context, lib *library.Store, dataDir strin
 	return nil
 }
 
-// removeOrphanedHLS deletes cache/hls/<id> directories whose media file is gone.
-func removeOrphanedHLS(ctx context.Context, lib *library.Store, dataDir string) error {
-	hlsDir := filepath.Join(dataDir, "cache", "hls")
-	entries, err := os.ReadDir(hlsDir)
-	if err != nil {
-		return nil // cache dir may not exist yet
-	}
-	for _, entry := range entries {
-		if ctx.Err() != nil {
-			return ctx.Err()
+// removeOrphanedCache deletes per-media-file cache directories (HLS variants and
+// seek-preview frames) whose media file no longer exists.
+func removeOrphanedCache(ctx context.Context, lib *library.Store, dataDir string) error {
+	for _, sub := range []string{"hls", "frames"} {
+		dir := filepath.Join(dataDir, "cache", sub)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue // cache dir may not exist yet
 		}
-		id := entry.Name()
-		if len(id) != 36 {
-			continue
-		}
-		if _, err := lib.MediaFileByID(ctx, id); err != nil {
-			slog.Info("cleanup: removing orphaned hls cache", "mediaFileId", id)
-			os.RemoveAll(filepath.Join(hlsDir, entry.Name()))
+		for _, entry := range entries {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			id := entry.Name()
+			if len(id) != 36 {
+				continue
+			}
+			if _, err := lib.MediaFileByID(ctx, id); err != nil {
+				slog.Info("cleanup: removing orphaned cache", "kind", sub, "mediaFileId", id)
+				os.RemoveAll(filepath.Join(dir, entry.Name()))
+			}
 		}
 	}
 	return nil

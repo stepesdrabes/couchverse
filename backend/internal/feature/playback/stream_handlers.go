@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -48,6 +50,62 @@ var contentTypes = map[string]string{
 	"ogg":  "audio/ogg",
 	"opus": "audio/ogg",
 	"wav":  "audio/wav",
+}
+
+// Frame returns a single still from the source video at ?t=SECONDS, scaled
+// down for the player's seek-bar preview. Requests are bucketed to a few
+// seconds and cached so scrubbing reuses extracted frames.
+func (h *Stream) Frame(w http.ResponseWriter, r *http.Request) {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	mf, err := h.library.MediaFileByID(r.Context(), id)
+	if err != nil {
+		httpx.StoreErr(w, err)
+		return
+	}
+	if mf.SourceDeletedAt != nil || mf.VideoCodec == "" {
+		httpx.NotFound(w) // no source on disk to grab a frame from
+		return
+	}
+
+	const bucket = 5 // seconds; coarse enough to bound the cache and reuse hovers
+	t := httpx.QueryInt(r, "t", 0)
+	if t < 0 {
+		t = 0
+	}
+	if mf.DurationSeconds > 0 && float64(t) > mf.DurationSeconds {
+		t = int(mf.DurationSeconds)
+	}
+	t = (t / bucket) * bucket
+
+	dir := filepath.Join(h.dataDir, "cache", "frames", mf.ID)
+	cached := filepath.Join(dir, strconv.Itoa(t)+".jpg")
+	if _, err := os.Stat(cached); err != nil {
+		lib, lerr := h.library.LibraryByID(r.Context(), mf.LibraryID)
+		if lerr != nil {
+			httpx.Internal(w, lerr)
+			return
+		}
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		// -ss before -i is a fast input seek to the nearest keyframe
+		cmd := exec.CommandContext(r.Context(), h.ffmpeg,
+			"-hide_banner", "-loglevel", "error", "-y",
+			"-ss", strconv.Itoa(t), "-i", filepath.Join(lib.Path, mf.Path),
+			"-frames:v", "1", "-vf", "scale=240:-2", "-q:v", "5", cached)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			os.Remove(cached)
+			httpx.Error(w, http.StatusNotFound, "frame_failed", strings.TrimSpace(string(out)))
+			return
+		}
+	}
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	http.ServeFile(w, r, cached)
 }
 
 // Serve streams a media file with HTTP range support (direct play).
@@ -121,10 +179,11 @@ type subtitleTrack struct {
 }
 
 type playbackDisplay struct {
-	Title     string `json:"title"`
-	Subtitle  string `json:"subtitle"`
-	TitleID   string `json:"titleId"`
-	TitleSlug string `json:"titleSlug"`
+	Title      string  `json:"title"`
+	Subtitle   string  `json:"subtitle"`
+	TitleID    string  `json:"titleId"`
+	TitleSlug  string  `json:"titleSlug"`
+	BackdropID *string `json:"backdropId"`
 }
 
 // Playback resolves what to play for a movie title or an episode.
@@ -197,6 +256,11 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 	default:
 		httpx.BadRequest(w, "kind must be movie or episode")
 		return
+	}
+
+	// banner accent for the player (best effort)
+	if bid, berr := h.catalog.TitleBackdropID(r.Context(), info.Display.TitleID); berr == nil {
+		info.Display.BackdropID = bid
 	}
 
 	info.MediaFileID = mf.ID

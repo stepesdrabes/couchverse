@@ -47,7 +47,8 @@ func (h *AdminStorage) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	cache := media.DirSize(filepath.Join(h.dataDir, "cache", "images")) +
 		media.DirSize(filepath.Join(h.dataDir, "cache", "uploads")) +
-		media.DirSize(filepath.Join(h.dataDir, "cache", "sessions"))
+		media.DirSize(filepath.Join(h.dataDir, "cache", "sessions")) +
+		media.DirSize(filepath.Join(h.dataDir, "cache", "frames"))
 
 	categories := []storageCategory{
 		{Kind: "movies", Bytes: byKind["movies"]},

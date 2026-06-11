@@ -222,6 +222,21 @@ func (s *Store) SetTitleReleaseDate(ctx context.Context, id string, date string)
 	return err
 }
 
+// TitleBackdropID returns the title's backdrop artwork id, or nil when absent.
+func (s *Store) TitleBackdropID(ctx context.Context, titleID string) (*string, error) {
+	var id string
+	err := s.db.QueryRow(ctx,
+		`SELECT id FROM artwork WHERE owner_kind = 'title' AND owner_id = $1 AND kind = 'backdrop' LIMIT 1`,
+		titleID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
+}
+
 func (s *Store) DeleteTitle(ctx context.Context, id string) error {
 	tag, err := s.db.Exec(ctx, `DELETE FROM titles WHERE id = $1`, id)
 	if err != nil {
