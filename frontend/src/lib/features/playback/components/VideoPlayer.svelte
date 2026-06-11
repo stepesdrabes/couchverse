@@ -20,7 +20,7 @@
 		VolumeX
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { fade, fly } from 'svelte/transition';
+	import { fade, fly, scale } from 'svelte/transition';
 	import { artworkUrl } from '$lib/features/catalog/api';
 	import { musicPlayer } from '$lib/features/music/player.svelte';
 	import type { PlaybackInfo } from '$lib/features/playback/api';
@@ -55,6 +55,7 @@
 	let wrapper = $state<HTMLDivElement>();
 
 	let playing = $state(false);
+	let hasPlayed = $state(false); // suppress the pause indicator before autoplay starts
 	let currentTime = $state(0);
 	let duration = $state(info.durationSeconds || 0);
 	let buffered = $state<{ start: number; end: number }[]>([]);
@@ -218,8 +219,28 @@
 		else video.pause();
 	}
 
+	// center skip indicator: accumulates the amount on rapid presses (10s, 20s...)
+	let skipDir = $state<-1 | 1>(1);
+	let skipAmount = $state(0);
+	let skipSeq = $state(0);
+	let skipHideTimer: ReturnType<typeof setTimeout>;
+
+	function showSkip(seconds: number) {
+		const dir = seconds < 0 ? -1 : 1;
+		if (dir === skipDir && skipAmount > 0) skipAmount += Math.abs(seconds);
+		else {
+			skipDir = dir;
+			skipAmount = Math.abs(seconds);
+		}
+		skipSeq++;
+		clearTimeout(skipHideTimer);
+		skipHideTimer = setTimeout(() => (skipAmount = 0), 700);
+	}
+
 	function skip(seconds: number) {
-		if (video) video.currentTime = Math.min(Math.max(0, video.currentTime + seconds), duration);
+		if (!video) return;
+		video.currentTime = Math.min(Math.max(0, video.currentTime + seconds), duration);
+		showSkip(seconds);
 	}
 
 	function setVolume(v: number) {
@@ -475,7 +496,10 @@
 		class="size-full object-contain"
 		bind:volume
 		bind:muted
-		onplay={() => (playing = true)}
+		onplay={() => {
+			playing = true;
+			hasPlayed = true;
+		}}
 		onpause={() => {
 			playing = false;
 			report();
@@ -499,6 +523,44 @@
 			<!-- cue markup comes from the browser's own VTT parser (getCueAsHTML) -->
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html cueHtml}
+		</div>
+	{/if}
+
+	<!-- centre pause indicator (clicks pass through to the video) -->
+	{#if !playing && hasPlayed}
+		<div
+			transition:scale={{ duration: 220, start: 0.6 }}
+			class="pointer-events-none absolute inset-0 flex items-center justify-center"
+		>
+			<span
+				class="flex size-20 items-center justify-center rounded-full bg-black/45 text-white
+					shadow-xl shadow-black/40 backdrop-blur-sm"
+			>
+				<Play class="size-9 translate-x-0.5 fill-current" />
+			</span>
+		</div>
+	{/if}
+
+	<!-- skip indicators: a directional pill that pops on each +/-10s -->
+	{#if skipAmount > 0}
+		<div
+			transition:fade={{ duration: 180 }}
+			class="pointer-events-none absolute inset-y-0 flex items-center
+				{skipDir < 0 ? 'left-[6%] justify-start' : 'right-[6%] justify-end'}"
+		>
+			{#key skipSeq}
+				<div
+					class="skip-pop flex flex-col items-center gap-1.5 rounded-2xl bg-black/55 px-7 py-6
+						text-white backdrop-blur-sm"
+				>
+					{#if skipDir < 0}
+						<RotateCcw class="size-8" />
+					{:else}
+						<RotateCw class="size-8" />
+					{/if}
+					<span class="text-sm font-semibold tnum">{skipAmount}s</span>
+				</div>
+			{/key}
 		</div>
 	{/if}
 
@@ -928,6 +990,25 @@
 </div>
 
 <style lang="scss">
+	// each +/-10s press re-keys the pill so this pop replays
+	.skip-pop {
+		animation: skip-pop 0.4s ease-out;
+	}
+	@keyframes skip-pop {
+		0% {
+			transform: scale(0.7);
+			opacity: 0.5;
+		}
+		45% {
+			transform: scale(1.08);
+			opacity: 1;
+		}
+		100% {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+
 	:global(.player-btn) {
 		border-radius: 9999px;
 		padding: 0.5rem;
