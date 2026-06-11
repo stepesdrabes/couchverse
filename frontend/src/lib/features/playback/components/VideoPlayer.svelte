@@ -682,7 +682,9 @@
 										{#each episodesBySeason as [seasonNumber] (seasonNumber)}
 											<button
 												class="rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors
-													{seasonNumber === activeSeason ? 'bg-accent text-white' : 'bg-surface text-muted hover:text-text'}"
+													{seasonNumber === activeSeason
+													? 'bg-accent text-[var(--color-on-accent)]'
+													: 'bg-surface text-muted hover:text-text'}"
 												onclick={() => (pickedSeason = seasonNumber)}
 											>
 												S{seasonNumber}
@@ -829,7 +831,9 @@
 												{#each ['sans', 'serif', 'rounded', 'mono'] as const as font (font)}
 													<button
 														class="rounded px-2 py-1 text-[10px] capitalize transition-colors
-															{subStyle.fontFamily === font ? 'bg-accent text-white' : 'bg-surface text-muted hover:text-text'}"
+															{subStyle.fontFamily === font
+															? 'bg-accent text-[var(--color-on-accent)]'
+															: 'bg-surface text-muted hover:text-text'}"
 														onclick={() => updateSubStyle('fontFamily', font)}
 													>
 														{font}
