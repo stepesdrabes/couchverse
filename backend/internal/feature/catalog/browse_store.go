@@ -74,17 +74,33 @@ func (s *Store) TitlesByGenre(ctx context.Context, genreID int64, limit int) ([]
 		ORDER BY t.added_at DESC LIMIT $2`, genreID, limit)
 }
 
-// FeaturedTitle picks the hero: the most recently published title.
-func (s *Store) FeaturedTitle(ctx context.Context) (*Title, error) {
-	t, err := scanTitle(s.db.QueryRow(ctx,
-		`SELECT `+titleCols+` FROM titles WHERE status = 'published' ORDER BY added_at DESC LIMIT 1`))
+// FeaturedTitles picks the hero carousel: the most recently published titles.
+func (s *Store) FeaturedTitles(ctx context.Context, limit int) ([]Title, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT `+titleCols+` FROM titles WHERE status = 'published'
+		 ORDER BY added_at DESC LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.loadTitleGenres(ctx, t); err != nil {
+	defer rows.Close()
+
+	titles := []Title{}
+	for rows.Next() {
+		t, err := scanTitle(rows)
+		if err != nil {
+			return nil, err
+		}
+		titles = append(titles, *t)
+	}
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return t, nil
+	for i := range titles {
+		if err := s.loadTitleGenres(ctx, &titles[i]); err != nil {
+			return nil, err
+		}
+	}
+	return titles, nil
 }
 
 func (s *Store) HomeRowConfigs(ctx context.Context) ([]struct {

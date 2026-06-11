@@ -1,7 +1,8 @@
 package catalog
 
 import (
-	"errors"
+	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -25,19 +26,27 @@ func NewHandlers(st *Store, set *settings.Store, art *artwork.Store, mus *music.
 	return &Handlers{store: st, settings: set, artwork: art, music: mus}
 }
 
+// FeaturedItem is one slide of the home hero carousel: a title plus its
+// backdrop and the viewer's My List state.
+type FeaturedItem struct {
+	*Title
+	BackdropID *string `json:"backdropId"`
+	InList     bool    `json:"inList"`
+}
+
 func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
 
-	featured, err := h.store.FeaturedTitle(r.Context())
-	if err != nil && !errors.Is(err, httpx.ErrNotFound) {
+	titles, err := h.store.FeaturedTitles(r.Context(), featuredCount(r.Context(), h.settings))
+	if err != nil {
 		httpx.Internal(w, err)
 		return
 	}
 
-	var featuredBackdropID *string
-	featuredInList := false
-	if featured != nil {
-		art, aerr := h.artwork.ArtworkFor(r.Context(), "title", featured.ID)
+	featured := []FeaturedItem{}
+	for i := range titles {
+		item := FeaturedItem{Title: &titles[i]}
+		art, aerr := h.artwork.ArtworkFor(r.Context(), "title", titles[i].ID)
 		if aerr != nil {
 			httpx.Internal(w, aerr)
 			return
@@ -45,13 +54,14 @@ func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 		for _, a := range art {
 			if a.Kind == "backdrop" {
 				id := a.ID
-				featuredBackdropID = &id
+				item.BackdropID = &id
 			}
 		}
-		if featuredInList, err = h.store.WatchlistHas(r.Context(), user.ID, featured.ID); err != nil {
+		if item.InList, err = h.store.WatchlistHas(r.Context(), user.ID, titles[i].ID); err != nil {
 			httpx.Internal(w, err)
 			return
 		}
+		featured = append(featured, item)
 	}
 
 	configs, err := h.store.HomeRowConfigs(r.Context())
@@ -90,11 +100,28 @@ func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
-		"featured":           featured,
-		"featuredBackdropId": featuredBackdropID,
-		"featuredInList":     featuredInList,
-		"rows":               rows,
+		"featured": featured,
+		"rows":     rows,
 	})
+}
+
+// featuredCount is how many titles the home hero cycles through (default 3).
+func featuredCount(ctx context.Context, set *settings.Store) int {
+	const def = 3
+	raw, err := set.Get(ctx, "home")
+	if err != nil || raw == nil {
+		return def
+	}
+	var h struct {
+		FeaturedCount int `json:"featuredCount"`
+	}
+	if json.Unmarshal(raw, &h) != nil || h.FeaturedCount < 1 {
+		return def
+	}
+	if h.FeaturedCount > 10 {
+		return 10
+	}
+	return h.FeaturedCount
 }
 
 func (h *Handlers) Browse(w http.ResponseWriter, r *http.Request) {
