@@ -60,6 +60,52 @@
 		if (typeof job.payload.mediaFileId === 'string') return `file #${job.payload.mediaFileId}`;
 		return null;
 	};
+
+	// collapse jobs onto the content they belong to: all jobs for one media file
+	// (e.g. the 1080p/720p/480p transcodes of an episode) become one entry
+	const groupKey = (job: Job): string => {
+		const s = job.subject;
+		if (s?.mediaFileId) return `mf:${s.mediaFileId}`;
+		if (s?.titleId) return `title:${s.titleId}`;
+		const lib = job.payload.libraryId;
+		if (lib !== undefined && lib !== null) return `lib:${lib}`;
+		return `job:${job.id}`;
+	};
+
+	interface JobGroup {
+		key: string;
+		label: string | null;
+		jobs: Job[];
+		latestId: number;
+	}
+
+	const groups = $derived.by(() => {
+		// transient within the derived, recomputed each run - not reactive state
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const map = new Map<string, JobGroup>();
+		for (const job of jobs) {
+			const key = groupKey(job);
+			let group = map.get(key);
+			if (!group) {
+				group = { key, label: jobSubject(job), jobs: [], latestId: job.id };
+				map.set(key, group);
+			}
+			group.jobs.push(job);
+			group.latestId = Math.max(group.latestId, job.id);
+		}
+		// newest activity first
+		return [...map.values()].sort((a, b) => b.latestId - a.latestId);
+	});
+
+	const groupSummary = (group: JobGroup): string => {
+		const counts: Record<string, number> = {};
+		for (const job of group.jobs) counts[job.status] = (counts[job.status] ?? 0) + 1;
+		const order: Job['status'][] = ['running', 'pending', 'failed', 'cancelled', 'done'];
+		return order
+			.filter((s) => counts[s])
+			.map((s) => `${counts[s]} ${s}`)
+			.join(' · ');
+	};
 </script>
 
 <svelte:head>
@@ -104,83 +150,78 @@
 	</p>
 </section>
 
+{#snippet jobRow(job: Job)}
+	<div class="flex items-center gap-3 px-4 py-2.5 text-sm">
+		<div class="min-w-0 flex-1">
+			<div class="flex items-center gap-2">
+				<span class="truncate font-medium">{jobAction(job)}</span>
+				{#if job.attempts > 1}
+					<span class="text-[11px] text-faint">attempt {job.attempts}</span>
+				{/if}
+			</div>
+			{#if job.lastError && (job.status === 'failed' || job.status === 'pending')}
+				<p class="mt-0.5 max-w-md truncate text-xs text-danger" title={job.lastError}>
+					{job.lastError}
+				</p>
+			{/if}
+		</div>
+		<span class="w-20 shrink-0 text-xs font-semibold capitalize {statusColor[job.status]}">
+			{job.status}
+		</span>
+		<div class="w-28 shrink-0">
+			{#if job.status === 'running' || job.status === 'pending'}
+				<div class="h-1.5 overflow-hidden rounded-full bg-surface-2">
+					<div
+						class="h-full rounded-full bg-accent transition-all duration-500"
+						style="width: {job.progress}%"
+					></div>
+				</div>
+			{:else}
+				<span class="text-xs text-faint">-</span>
+			{/if}
+		</div>
+		<div class="w-24 shrink-0 text-right">
+			{#if job.status === 'failed' || job.status === 'cancelled'}
+				<Button variant="ghost" size="sm" onclick={() => jobsApi.retryJob(job.id).then(refresh)}>
+					<RotateCcw class="size-3.5" />
+					Retry
+				</Button>
+			{:else if job.status === 'pending' || job.status === 'running'}
+				<Button variant="ghost" size="sm" onclick={() => jobsApi.cancelJob(job.id).then(refresh)}>
+					<X class="size-3.5" />
+					Cancel
+				</Button>
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
 <section>
 	<h2 class="mb-3 text-sm font-semibold text-muted">Job queue</h2>
 	<div class="overflow-hidden rounded-card border border-edge bg-surface/40">
-		{#if jobs.length === 0}
+		{#if groups.length === 0}
 			<EmptyState title="No jobs yet" message="Library scans and file analysis show up here." />
 		{:else}
-			<table class="w-full text-left text-sm">
-				<thead>
-					<tr class="border-b border-edge text-[11px] tracking-wider text-faint uppercase">
-						<th class="px-4 py-3 font-semibold">Job</th>
-						<th class="py-3 pr-4 font-semibold">Status</th>
-						<th class="w-44 py-3 pr-4 font-semibold">Progress</th>
-						<th class="py-3 pr-4"></th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each jobs as job (job.id)}
-						{@const subject = jobSubject(job)}
-						<tr class="border-b border-edge/50 last:border-0">
-							<td class="px-4 py-3">
-								<p class="font-medium">{jobAction(job)}</p>
-								{#if subject}
-									<p class="mt-0.5 max-w-md truncate text-xs text-muted" title={subject}>
-										{subject}
-									</p>
-								{/if}
-								{#if job.lastError && (job.status === 'failed' || job.status === 'pending')}
-									<p class="mt-0.5 max-w-md truncate text-xs text-danger" title={job.lastError}>
-										{job.lastError}
-									</p>
-								{/if}
-							</td>
-							<td class="py-3 pr-4">
-								<span class="text-xs font-semibold capitalize {statusColor[job.status]}">
-									{job.status}
-									{#if job.attempts > 1}
-										<span class="font-normal text-faint">(attempt {job.attempts})</span>
-									{/if}
-								</span>
-							</td>
-							<td class="py-3 pr-4">
-								{#if job.status === 'running' || job.status === 'pending'}
-									<div class="h-1.5 w-36 overflow-hidden rounded-full bg-surface-2">
-										<div
-											class="h-full rounded-full bg-accent transition-all duration-500"
-											style="width: {job.progress}%"
-										></div>
-									</div>
-								{:else}
-									<span class="text-xs text-faint">-</span>
-								{/if}
-							</td>
-							<td class="py-3 pr-4 text-right">
-								{#if job.status === 'failed' || job.status === 'cancelled'}
-									<Button
-										variant="ghost"
-										size="sm"
-										onclick={() => jobsApi.retryJob(job.id).then(refresh)}
-									>
-										<RotateCcw class="size-3.5" />
-										Retry
-									</Button>
-								{:else if job.status === 'pending' || job.status === 'running'}
-									<Button
-										variant="ghost"
-										size="sm"
-										onclick={() => jobsApi.cancelJob(job.id).then(refresh)}
-									>
-										<X class="size-3.5" />
-										Cancel
-									</Button>
-								{/if}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+			<ul class="divide-y divide-edge/50">
+				{#each groups as group (group.key)}
+					<li>
+						<div class="flex items-baseline justify-between gap-3 px-4 pt-3 pb-1">
+							<p class="min-w-0 truncate text-sm font-semibold" title={group.label ?? undefined}>
+								{group.label ?? 'System'}
+							</p>
+							<span class="shrink-0 text-[11px] text-faint">
+								{#if group.jobs.length > 1}{group.jobs.length} jobs ·
+								{/if}{groupSummary(group)}
+							</span>
+						</div>
+						<div class="divide-y divide-edge/30">
+							{#each group.jobs as job (job.id)}
+								{@render jobRow(job)}
+							{/each}
+						</div>
+					</li>
+				{/each}
+			</ul>
 		{/if}
 	</div>
 </section>
