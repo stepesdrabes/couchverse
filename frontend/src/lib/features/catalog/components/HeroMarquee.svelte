@@ -17,6 +17,9 @@
 	let index = $state(0);
 	let progress = $state(0); // 0..1 within the current slide
 	let paused = $state(false);
+	// slight scroll parallax: the banner drifts slower than the page
+	let scrollY = $state(0);
+	const parallax = $derived(`translate3d(0, ${scrollY * 0.18}px, 0) scale(1.12)`);
 	// optimistic My List state per slide, keyed by title id
 	let listedOverrides = $state<Record<string, boolean>>({});
 
@@ -73,6 +76,8 @@
 	}
 </script>
 
+<svelte:window bind:scrollY />
+
 <div
 	class="relative flex min-h-[72vh] items-center justify-center overflow-hidden md:min-h-[82vh]"
 	style={accent.style}
@@ -89,8 +94,9 @@
 				<img
 					src={catalog.artworkUrl(item.backdropId)}
 					alt=""
-					class="absolute inset-0 size-full scale-105 object-cover transition-opacity duration-700
+					class="absolute inset-0 size-full object-cover transition-opacity duration-700
 						{i === index ? 'opacity-100' : 'opacity-0'}"
+					style="transform: {parallax}"
 				/>
 			{/if}
 		{/each}
