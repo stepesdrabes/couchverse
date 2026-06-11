@@ -36,6 +36,11 @@ func (m *Module) MountPublic(r chi.Router) {
 	r.Get("/theme", m.theme.Get)
 }
 
+// Favicon serves the accent-tinted app icon (registered at the root, not /api).
+func (m *Module) Favicon(w http.ResponseWriter, r *http.Request) {
+	m.theme.Favicon(w, r)
+}
+
 func (m *Module) MountUser(r chi.Router) {
 	r.Get("/features", m.Features)
 }

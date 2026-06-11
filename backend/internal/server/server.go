@@ -75,6 +75,7 @@ func (s *Server) Handler() http.Handler {
 	r.Use(middleware.Recoverer)
 
 	r.Get("/healthz", s.handleHealthz)
+	r.Get("/favicon.svg", systemModule.Favicon)
 
 	r.Route("/api/v1", func(v1 chi.Router) {
 		v1.Use(auth.CSRFOrigin)

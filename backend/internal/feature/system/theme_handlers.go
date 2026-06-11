@@ -1,6 +1,7 @@
 package system
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -19,10 +20,10 @@ func NewTheme(set *settings.Store) *Theme {
 	return &Theme{settings: set}
 }
 
-// Get is public so the accent applies on the login screen too.
-func (h *Theme) Get(w http.ResponseWriter, r *http.Request) {
+// accent reads the configured accent colour (shared by the theme + favicon).
+func (h *Theme) accent(ctx context.Context) string {
 	accent := defaultAccent
-	if raw, err := h.settings.Get(r.Context(), "appearance"); err == nil && raw != nil {
+	if raw, err := h.settings.Get(ctx, "appearance"); err == nil && raw != nil {
 		var a struct {
 			Accent string `json:"accent"`
 		}
@@ -30,5 +31,10 @@ func (h *Theme) Get(w http.ResponseWriter, r *http.Request) {
 			accent = a.Accent
 		}
 	}
-	httpx.JSON(w, http.StatusOK, map[string]string{"accent": accent})
+	return accent
+}
+
+// Get is public so the accent applies on the login screen too.
+func (h *Theme) Get(w http.ResponseWriter, r *http.Request) {
+	httpx.JSON(w, http.StatusOK, map[string]string{"accent": h.accent(r.Context())})
 }
