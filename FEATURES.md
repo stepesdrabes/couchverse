@@ -62,7 +62,10 @@ library table, title/season/episode CRUD and bulk actions.
 - Frontend pages: HomePage, MoviesPage, SeriesPage, GenresPage, GenrePage, MyListPage,
   SearchPage, TitleDetailPage; components HeroMarquee, MediaRow, PosterCard, TitleCard,
   ContinueWatchingCard, BrowseGrid, Artwork. `features/catalog/types.ts` is the shared
-  type hub for card/row shapes.
+  type hub for card/row shapes. The home hero and the title pages are accented from the
+  banner palette (`lib/utils/palette.svelte` `bannerAccent` + `lib/theme.accentVars`,
+  which also emits a contrast-aware `--color-on-accent`). Episode rows show thumbnails
+  (`Episode.thumbId`, from TMDB stills).
 
 ### music
 Spotify-style music: albums, artists, tracks, playlists (create/rename/reorder),
@@ -81,13 +84,15 @@ Everything that turns a media file into pixels: direct play streaming with range
 requests, prepared HLS variants, JIT ("instant play") transcode sessions with
 seek-anywhere, the playback-info decision endpoint, the background transcode job
 engine (ffmpeg HLS encode, hardware encoder detection/probing) and transcode admin.
-- Endpoints: `/stream/{id}`, `/stream/{id}/hls/...`, `/stream/{id}/sessions`,
-  `/stream/sessions/{sid}/...`, `/playback/{kind}/{id}`; admin `/admin/transcode/info|active`,
+- Endpoints: `/stream/{id}`, `/stream/{id}/frame?t=` (seek-preview still, ffmpeg input-seek
+  cached under `cache/frames`), `/stream/{id}/hls/...`, `/stream/{id}/sessions`,
+  `/stream/sessions/{sid}/...`, `/playback/{kind}/{id}` (its `display.backdropId` accents
+  the player); admin `/admin/transcode/info|active`,
   `/admin/media-files/{id}/transcode|variants`, `/admin/transcode-variants/{id}`.
 - Job handler: `transcode_hls` (per-type concurrency = `maxConcurrent` setting).
-- Frontend: WatchPage + VideoPlayer (828-line component: HLS.js, subtitles, shortcuts,
-  progress beacons incl. watched-seconds deltas, JIT keepalive - splitting it is a
-  known follow-up).
+- Frontend: WatchPage + VideoPlayer (HLS.js, subtitles, shortcuts, progress beacons incl.
+  watched-seconds deltas, JIT keepalive, banner-accented chrome, bits-ui control tooltips,
+  seek-bar time + frame preview - splitting it is a known follow-up).
 - Transcode ladder/settings policy lives in the `media` kernel so library's prober can
   auto-prepare variants without importing playback. Rendition bitrates are capped at
   the source bitrate (`Rendition.CappedAt`) so transcodes never outweigh their source;
@@ -107,7 +112,8 @@ auto-prepare of HLS variants), resumable chunked uploads, and ownership of the
 
 ### metadata
 TMDB integration: search, one-click apply of metadata + poster/backdrop to a title,
-and bulk import of missing seasons/episodes for a series. API key comes from settings.
+and bulk import of missing seasons/episodes for a series (episode stills are downloaded
+as episode `thumb` artwork). API key comes from settings.
 - Endpoints (admin): `/admin/metadata/search`, `/admin/titles/{id}/metadata/apply`,
   `/admin/titles/{id}/metadata/seasons`, `/admin/titles/{id}/metadata/import-episodes`.
 - Job handlers: `fetch_metadata`, `import_episodes`.
@@ -120,9 +126,10 @@ Side-car WebVTT subtitles: automatic extraction of embedded text subs (ffmpeg),
 - Job handler: `extract_subtitles`.
 
 ### artwork
-Posters, backdrops, episode thumbs, album covers and avatars: upload + storage under
-`DATA_DIR/artwork`, on-demand resizing via ffmpeg (`?size=w342|w780`) with an mtime-keyed
-cache, and TMDB/embedded-cover ingestion through `artwork.Service`.
+Posters, backdrops, episode thumbs (TMDB stills, `owner_kind='episode'` `kind='thumb'`),
+album covers and avatars: upload + storage under `DATA_DIR/artwork`, on-demand resizing
+via ffmpeg (`?size=w342|w780`) with an mtime-keyed cache, and TMDB/embedded-cover
+ingestion through `artwork.Service`.
 - Endpoints: `/artwork/{id}`; admin `POST /admin/artwork`, `DELETE /admin/artwork/{id}`.
 
 ### jobs

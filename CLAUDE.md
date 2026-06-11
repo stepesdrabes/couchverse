@@ -46,6 +46,11 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   - Forms that edit existing data track dirtiness with `FormState`
     (`lib/utils/form-state.svelte.ts`); Save buttons are `disabled={!form.dirty}`
     (disabled, not hidden).
+  - Banner-driven accent: `lib/utils/palette.svelte` `bannerAccent(getUrl)` extracts a
+    vibrant colour (node-vibrant) and returns a reactive `style` string of accent CSS
+    vars to scope on a subtree; `lib/theme.accentVars` emits `--color-accent[-strong|-soft]`
+    plus a contrast-aware `--color-on-accent` (use `text-[var(--color-on-accent)]` for
+    text on `bg-accent`). Tooltips use the bits-ui `ui/Tooltip.svelte` wrapper.
 
 ## Stack
 

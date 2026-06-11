@@ -10,10 +10,13 @@ home server.
 ## Features
 
 **Watching**
-- Immersive dark UI with a featured-title marquee, continue-watching and genre rows
-- Movies and series with seasons/episodes, resume positions, auto-next-episode
+- Immersive dark UI with a featured-title carousel, continue-watching and genre rows;
+  title pages and the player pick up an accent colour from each banner
+- Movies and series with seasons/episodes (episode thumbnails), resume positions,
+  auto-next-episode
 - My List, watch history, full-text search across video and music
-- Custom video player: subtitles (side-car VTT), quality menu, keyboard shortcuts
+- Custom video player: subtitles (side-car VTT), quality menu, picture-in-picture,
+  keyboard shortcuts, hover tooltips, and a seek bar with time + frame preview
 - Subtitle support: upload `.srt`/`.vtt` or automatic extraction of embedded text subs
 
 **Music**
