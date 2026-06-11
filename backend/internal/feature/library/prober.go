@@ -97,34 +97,52 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 		}
 	}
 
-	// make non-browser-playable files streamable without admin intervention:
-	// h264 gets a cheap copy-remux; other codecs get ladder transcodes when
-	// auto-prepare is on (default). Variant rows are created up front so the
-	// admin library shows "Processing" immediately.
+	// make non-browser-playable files streamable without admin intervention.
+	// Variant rows are created up front so the admin library shows "Processing".
 	if res.HasVideo && !up.DirectPlay {
+		settings := media.LoadTranscodeSettings(ctx, p.Settings)
 		if res.VideoCodec == "h264" {
-			if _, err := p.Files.UpsertVariant(ctx, mf.ID, "source", res.Height, res.Bitrate, 192_000, "copy"); err != nil {
+			// h264 streams as-is via a cheap copy-remux (full source quality)...
+			source := media.Rendition{Name: "source", Height: res.Height, VideoBitrate: res.Bitrate, AudioBitrate: 192_000}
+			if err := p.prepareVariant(ctx, mf.ID, source, "copy"); err != nil {
 				return err
 			}
-			if _, err := p.Jobs.EnqueueJobOnce(ctx, "transcode_hls",
-				map[string]any{"mediaFileId": mf.ID, "variant": "source"}, jobs.EnqueueOpts{}); err != nil {
-				return err
-			}
-		} else if settings := media.LoadTranscodeSettings(ctx, p.Settings); settings.AutoPrepareEnabled() {
-			for _, r := range media.PrepareRenditions(settings.Ladder, res.Height) {
-				r = r.CappedAt(res.Bitrate)
-				if _, err := p.Files.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, "transcode"); err != nil {
-					return err
+			// ...plus lower ladder rungs for adaptive streaming when auto-prepare
+			// is on. The source already covers the top tier, so skip rungs at or
+			// above its height.
+			if settings.AutoPrepareEnabled() {
+				for _, r := range media.PrepareRenditions(settings.Ladder, res.Height) {
+					if r.Height >= res.Height {
+						continue
+					}
+					if err := p.prepareVariant(ctx, mf.ID, r.CappedAt(res.Bitrate), "transcode"); err != nil {
+						return err
+					}
 				}
-				if _, err := p.Jobs.EnqueueJobOnce(ctx, "transcode_hls",
-					map[string]any{"mediaFileId": mf.ID, "variant": r.Name},
-					jobs.EnqueueOpts{MaxAttempts: 2}); err != nil {
+			}
+		} else if settings.AutoPrepareEnabled() {
+			for _, r := range media.PrepareRenditions(settings.Ladder, res.Height) {
+				if err := p.prepareVariant(ctx, mf.ID, r.CappedAt(res.Bitrate), "transcode"); err != nil {
 					return err
 				}
 			}
 		}
 	}
 	return nil
+}
+
+// prepareVariant registers a variant row and enqueues its HLS job.
+func (p *Prober) prepareVariant(ctx context.Context, mediaFileID string, r media.Rendition, mode string) error {
+	if _, err := p.Files.UpsertVariant(ctx, mediaFileID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, mode); err != nil {
+		return err
+	}
+	opts := jobs.EnqueueOpts{}
+	if mode == "transcode" {
+		opts.MaxAttempts = 2
+	}
+	_, err := p.Jobs.EnqueueJobOnce(ctx, "transcode_hls",
+		map[string]any{"mediaFileId": mediaFileID, "variant": r.Name}, opts)
+	return err
 }
 
 func (p *Prober) assignVideo(ctx context.Context, lib *Library, relPath string, up *ProbeUpdate) error {
