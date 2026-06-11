@@ -1,15 +1,27 @@
 <script lang="ts">
+	import { artworkUrl } from '$lib/features/catalog/api';
 	import type { CardItem } from '$lib/features/catalog/types';
+	import { hoverAccent } from '$lib/utils/palette.svelte';
 	import Artwork from './Artwork.svelte';
 
 	let { item }: { item: CardItem } = $props();
+
+	const ca = hoverAccent(() => {
+		const id = item.posterId ?? item.backdropId;
+		return id ? artworkUrl(id) : null;
+	});
+	// ring colour falls back to the themed accent until the poster's is extracted
+	const ringStyle = $derived(
+		'--tw-ring-color:var(--card-accent,var(--color-accent));--tw-ring-offset-color:var(--color-bg)' +
+			(ca.accent ? `;--card-accent:${ca.accent}` : '')
+	);
 </script>
 
-<a href="/title/{item.slug}" class="group">
+<a href="/title/{item.slug}" class="group" onpointerenter={ca.load} style={ringStyle}>
 	<div
-		class="aspect-[2/3] overflow-hidden rounded-xl border border-edge/50 transition-all
-			duration-300 group-hover:scale-[1.04] group-hover:border-accent/60 group-hover:shadow-lg
-			group-hover:shadow-black/40"
+		class="aspect-[2/3] overflow-hidden rounded-xl border border-edge/50 transition-all duration-300
+			group-hover:scale-[1.02] group-hover:shadow-lg group-hover:shadow-black/40 group-hover:ring-2
+			group-hover:ring-offset-2"
 	>
 		<Artwork artworkId={item.posterId ?? item.backdropId} name={item.name} />
 	</div>

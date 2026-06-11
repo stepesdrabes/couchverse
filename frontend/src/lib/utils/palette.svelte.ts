@@ -38,3 +38,24 @@ export function bannerAccent(url: () => string | null | undefined) {
 		}
 	};
 }
+
+/**
+ * Lazy per-element accent for hover effects: extracts the colour from an image
+ * the first time `load()` is called (e.g. on pointerenter), so a grid of cards
+ * pays nothing until hovered. `accent` is null until resolved.
+ */
+export function hoverAccent(url: () => string | null | undefined) {
+	let accent = $state<string | null>(null);
+	let started = false;
+	return {
+		get accent() {
+			return accent;
+		},
+		load() {
+			if (started) return;
+			started = true;
+			const u = url();
+			if (u) extractAccent(u).then((hex) => (accent = hex));
+		}
+	};
+}

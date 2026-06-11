@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Play } from 'lucide-svelte';
+	import { artworkUrl } from '$lib/features/catalog/api';
 	import type { ContinueItem } from '$lib/features/catalog/types';
+	import { hoverAccent } from '$lib/utils/palette.svelte';
 	import Artwork from './Artwork.svelte';
 
 	let { item }: { item: ContinueItem } = $props();
@@ -8,23 +10,34 @@
 	const pct = $derived(
 		item.durationSeconds > 0 ? (item.positionSeconds / item.durationSeconds) * 100 : 0
 	);
+
+	const ca = hoverAccent(() => {
+		const id = item.backdropId ?? item.posterId;
+		return id ? artworkUrl(id) : null;
+	});
+	const ringStyle = $derived(
+		'--tw-ring-color:var(--card-accent,var(--color-accent));--tw-ring-offset-color:var(--color-bg)' +
+			(ca.accent ? `;--card-accent:${ca.accent}` : '')
+	);
 </script>
 
 <a
 	href="/watch/{item.playbackKind}/{item.playbackId}"
 	class="group w-48 shrink-0 snap-start sm:w-56"
+	onpointerenter={ca.load}
+	style={ringStyle}
 >
 	<div
 		class="relative aspect-video overflow-hidden rounded-xl border border-edge/50 transition-all
-			duration-300 group-hover:scale-[1.04] group-hover:border-accent/60 group-hover:shadow-lg
-			group-hover:shadow-black/40"
+			duration-300 group-hover:scale-[1.02] group-hover:shadow-lg group-hover:shadow-black/40
+			group-hover:ring-2 group-hover:ring-offset-2"
 	>
 		<Artwork artworkId={item.backdropId ?? item.posterId} name={item.name} />
 		<div
 			class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0
 				transition-opacity group-hover:opacity-100"
 		>
-			<span class="rounded-full bg-accent p-3 text-white shadow-lg">
+			<span class="rounded-full bg-accent p-3 text-[var(--color-on-accent)] shadow-lg">
 				<Play class="size-5 fill-current" />
 			</span>
 		</div>
