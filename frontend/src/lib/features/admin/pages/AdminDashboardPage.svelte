@@ -12,6 +12,7 @@
 		Tv,
 		Users
 	} from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
 	import * as jobsApi from '$lib/features/jobs/api';
 	import type {
 		AnalyticsInfo,
@@ -132,8 +133,9 @@
 <h1 class="mb-6 text-2xl font-bold">Overview</h1>
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-	{#each cards as card (card.label)}
+	{#each cards as card, i (card.label)}
 		<a
+			in:fly|global={{ y: 16, duration: 350, delay: Math.min(i * 55, 300) }}
 			href={card.href}
 			class="group flex items-center gap-4 rounded-card border border-edge bg-surface/40 p-6
 				transition-colors hover:border-accent/50 hover:bg-surface/70"
@@ -152,7 +154,7 @@
 </div>
 
 {#if system}
-	<div class="mt-6">
+	<div class="mt-6" in:fly|global={{ y: 20, duration: 400 }}>
 		<h2 class="mb-3 text-sm font-semibold text-muted">System</h2>
 		<div class="grid gap-4 lg:grid-cols-2">
 			<div class="rounded-card border border-edge bg-surface/40 p-5">
@@ -289,7 +291,7 @@
 {/if}
 
 {#if analytics && watchTotal > 0}
-	<div class="mt-6">
+	<div class="mt-6" in:fly|global={{ y: 20, duration: 400 }}>
 		<h2 class="mb-3 text-sm font-semibold text-muted">Analytics - last {analytics.days} days</h2>
 		<div class="grid gap-6 lg:grid-cols-3">
 			<div class="rounded-card border border-edge bg-surface/40 p-6 lg:col-span-2">
@@ -347,7 +349,7 @@
 	</div>
 {/if}
 
-<div class="mt-6 grid gap-6 lg:grid-cols-2">
+<div class="mt-6 grid gap-6 lg:grid-cols-2" in:fly|global={{ y: 20, duration: 400, delay: 80 }}>
 	{#if storage && storage.diskTotal > 0}
 		<div class="rounded-card border border-edge bg-surface/40 p-6">
 			<div class="mb-3 flex items-baseline justify-between">

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { ArrowLeft, Database, LayoutDashboard, Library, Settings, Users } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
 	import { session } from '$lib/features/auth/session.svelte';
 	import LogoMark from '$lib/components/ui/LogoMark.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
@@ -20,6 +21,7 @@
 </script>
 
 <aside
+	in:fly={{ x: -32, duration: 380, opacity: 0 }}
 	class="sticky top-0 flex h-dvh w-60 shrink-0 flex-col self-start border-r border-edge bg-surface/40"
 	style="view-transition-name: admin-sidebar"
 >
@@ -40,8 +42,9 @@
 	</a>
 
 	<nav class="flex flex-1 flex-col gap-1 px-3">
-		{#each items as item (item.href)}
+		{#each items as item, i (item.href)}
 			<a
+				in:fly|global={{ x: -16, duration: 320, delay: 120 + i * 45 }}
 				href={item.href}
 				class="flex items-center gap-3 rounded-full px-4 py-2 text-[13px] font-medium transition-colors
 					{isActive(item.href)
