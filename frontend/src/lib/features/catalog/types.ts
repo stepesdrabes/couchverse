@@ -38,6 +38,7 @@ export interface Episode {
 	overview: string;
 	airDate: string | null;
 	runtimeMinutes: number | null;
+	thumbId: string | null;
 }
 
 export interface Genre {

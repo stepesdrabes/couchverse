@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Check, Play, Plus } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import * as catalog from '$lib/features/catalog/api';
 	import type { Episode, MediaFile } from '$lib/features/catalog/types';
@@ -9,6 +10,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import { formatClock, formatRuntime, qualityLabel } from '$lib/utils/format';
+	import { bannerAccent } from '$lib/utils/palette.svelte';
 
 	let { data }: { data: Awaited<ReturnType<typeof catalog.getTitle>> } = $props();
 
@@ -17,6 +19,9 @@
 
 	const poster = $derived(data.artwork.find((a) => a.kind === 'poster'));
 	const backdrop = $derived(data.artwork.find((a) => a.kind === 'backdrop'));
+
+	// accent the whole page from the title's backdrop, like the home hero
+	const accent = bannerAccent(() => (backdrop ? catalog.artworkUrl(backdrop.id) : null));
 
 	const fileByEpisode = $derived(
 		new Map(data.mediaFiles.filter((f) => f.episodeId).map((f) => [f.episodeId as string, f]))
@@ -87,7 +92,7 @@
 	<title>{data.title.name} - Couchverse</title>
 </svelte:head>
 
-<div class="relative">
+<div class="relative" style={accent.style}>
 	<div class="absolute inset-x-0 top-0 h-[480px] overflow-hidden">
 		{#if backdrop}
 			<img src={catalog.artworkUrl(backdrop.id)} alt="" class="size-full object-cover opacity-35" />
@@ -177,48 +182,69 @@
 					{/if}
 				</div>
 
-				<ul
-					class="divide-y divide-edge/50 overflow-hidden rounded-card border border-edge bg-surface/40"
-				>
-					{#each currentSeason?.episodes ?? [] as ep (ep.id)}
+				<ul class="space-y-2">
+					{#each currentSeason?.episodes ?? [] as ep, i (ep.id)}
 						{@const file = playable(ep)}
 						{@const pct = episodeProgressPct(ep)}
-						<li>
+						<li in:fly={{ y: 14, duration: 300, delay: Math.min(i * 40, 360) }}>
 							<svelte:element
 								this={file ? 'a' : 'div'}
 								href={file ? `/watch/episode/${ep.id}` : undefined}
-								class="group flex items-center gap-4 px-5 py-4 transition-colors
-									{file ? 'cursor-pointer hover:bg-surface-2/50' : 'opacity-50'}"
+								class="group flex gap-4 rounded-card border border-edge bg-surface/40 p-3 transition-colors
+									{file ? 'cursor-pointer hover:border-accent/40 hover:bg-surface-2/60' : 'opacity-50'}"
 							>
-								<span class="w-8 text-center text-sm font-semibold text-faint tnum">
-									{ep.episodeNumber}
-								</span>
-								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-semibold group-hover:text-accent">
-										{ep.name || `Episode ${ep.episodeNumber}`}
-									</p>
-									{#if ep.overview}
-										<p class="mt-0.5 line-clamp-1 text-xs text-faint">{ep.overview}</p>
+								<div
+									class="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg border
+										border-edge/60 bg-surface-2 sm:w-44"
+								>
+									<Artwork
+										artworkId={ep.thumbId ?? null}
+										name={ep.name || `Episode ${ep.episodeNumber}`}
+									/>
+									{#if file}
+										<div
+											class="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0
+												transition-opacity group-hover:opacity-100"
+										>
+											<span
+												class="rounded-full bg-accent p-2.5 text-[var(--color-on-accent)] shadow-lg"
+											>
+												<Play class="size-4 fill-current" />
+											</span>
+										</div>
 									{/if}
 									{#if pct > 0}
-										<div class="mt-2 h-0.5 w-40 overflow-hidden rounded-full bg-surface-2">
+										<div class="absolute inset-x-0 bottom-0 h-1 bg-black/50">
 											<div class="h-full bg-accent" style="width: {pct}%"></div>
 										</div>
 									{/if}
 								</div>
-								{#if file}
-									<span class="text-xs text-faint tnum">
-										{file.durationSeconds ? formatClock(file.durationSeconds) : ''}
-									</span>
-									<span
-										class="rounded-full border border-edge p-2 text-muted opacity-0 transition-opacity
-											group-hover:opacity-100"
-									>
-										<Play class="size-3.5 fill-current" />
-									</span>
-								{:else}
-									<span class="text-[11px] text-faint">no file</span>
-								{/if}
+
+								<div class="min-w-0 flex-1 py-0.5">
+									<div class="flex items-baseline gap-2">
+										<span class="shrink-0 text-sm font-semibold text-faint tnum"
+											>{ep.episodeNumber}</span
+										>
+										<p class="truncate text-sm font-semibold group-hover:text-accent">
+											{ep.name || `Episode ${ep.episodeNumber}`}
+										</p>
+									</div>
+									{#if ep.overview}
+										<p class="mt-1 line-clamp-2 text-xs leading-relaxed text-faint">
+											{ep.overview}
+										</p>
+									{/if}
+								</div>
+
+								<div class="shrink-0 py-0.5 text-right">
+									{#if file}
+										<span class="text-xs text-faint tnum">
+											{file.durationSeconds ? formatClock(file.durationSeconds) : ''}
+										</span>
+									{:else}
+										<span class="text-[11px] text-faint">no file</span>
+									{/if}
+								</div>
 							</svelte:element>
 						</li>
 					{/each}
