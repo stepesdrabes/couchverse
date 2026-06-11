@@ -44,6 +44,10 @@
 	let savingFeatures = $state(false);
 	const featuresForm = new FormState(() => ({ musicEnabled }));
 
+	let featuredCount = $state('3');
+	let savingHome = $state(false);
+	const homeForm = new FormState(() => ({ featuredCount }));
+
 	let accent = $state('#e50914');
 	let savingAccent = $state(false);
 	const accentForm = new FormState(() => ({ accent }));
@@ -83,6 +87,11 @@
 					const appearance = s.appearance as { accent?: string } | undefined;
 					accent = appearance?.accent ?? '#e50914';
 					accentForm.reset();
+				}
+				if (!homeForm.dirty) {
+					const homeCfg = s.home as { featuredCount?: number } | undefined;
+					featuredCount = String(homeCfg?.featuredCount ?? 3);
+					homeForm.reset();
 				}
 			})
 			.catch(() => toast.error('Failed to load settings'));
@@ -145,6 +154,22 @@
 			toast.error(err instanceof Error ? err.message : 'Failed to save settings');
 		} finally {
 			savingTranscode = false;
+		}
+	}
+
+	async function saveHome(e: SubmitEvent) {
+		e.preventDefault();
+		savingHome = true;
+		try {
+			const count = Math.min(10, Math.max(1, Number(featuredCount) || 3));
+			await settingsApi.putSettings({ home: { featuredCount: count } });
+			featuredCount = String(count);
+			homeForm.reset();
+			toast.success('Home settings saved');
+		} catch {
+			toast.error('Failed to save settings');
+		} finally {
+			savingHome = false;
 		}
 	}
 
@@ -218,6 +243,27 @@
 			</p>
 			<div class="flex justify-end">
 				<Button type="submit" loading={savingTmdb} disabled={!tmdbForm.dirty}>Save</Button>
+			</div>
+		</form>
+
+		<form
+			onsubmit={saveHome}
+			class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
+		>
+			<h2 class="text-sm font-semibold text-muted">Home page</h2>
+			<Input
+				label="Featured titles in the hero carousel"
+				type="number"
+				min="1"
+				max="10"
+				bind:value={featuredCount}
+				class="w-28"
+			/>
+			<p class="text-xs leading-relaxed text-faint">
+				The most recently published titles cycle through the banner on the home page (1-10).
+			</p>
+			<div class="flex justify-end">
+				<Button type="submit" loading={savingHome} disabled={!homeForm.dirty}>Save</Button>
 			</div>
 		</form>
 

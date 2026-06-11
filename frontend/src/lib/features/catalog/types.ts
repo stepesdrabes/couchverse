@@ -71,10 +71,13 @@ export interface HomeRow {
 	items: CardItem[] | ContinueItem[] | import('$lib/features/music/api').AlbumCard[];
 }
 
+export interface FeaturedItem extends Title {
+	backdropId: string | null;
+	inList: boolean;
+}
+
 export interface HomeData {
-	featured: Title | null;
-	featuredBackdropId: string | null;
-	featuredInList: boolean;
+	featured: FeaturedItem[];
 	rows: HomeRow[];
 }
 
