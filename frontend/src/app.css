@@ -13,6 +13,8 @@
 	--color-accent: #e50914;
 	--color-accent-strong: #b80710;
 	--color-accent-soft: #3a1216;
+	/* readable text on top of --color-accent (flips to dark for bright accents) */
+	--color-on-accent: #ffffff;
 	--color-success: #34d399;
 	--color-danger: #f0635c;
 

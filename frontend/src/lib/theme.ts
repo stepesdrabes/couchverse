@@ -23,6 +23,25 @@ function shade(rgb: [number, number, number], amount: number): string {
 	return toHex(...(rgb.map((c) => c + (target - c) * t) as [number, number, number]));
 }
 
+// WCAG relative luminance of an sRGB colour (0 = black, 1 = white).
+function luminance([r, g, b]: [number, number, number]): number {
+	const lin = (c: number) => {
+		const s = c / 255;
+		return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+	};
+	return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+const ON_ACCENT_LIGHT = '#ffffff';
+const ON_ACCENT_DARK = '#0b0c10';
+
+/** Pick the readable foreground (near-white or near-black) for text on `accent`. */
+export function readableTextOn(accent: string): string {
+	const rgb = parseHex(accent);
+	if (!rgb) return ON_ACCENT_LIGHT;
+	return luminance(rgb) > 0.42 ? ON_ACCENT_DARK : ON_ACCENT_LIGHT;
+}
+
 /** Apply an accent colour by setting the palette CSS variables on :root. */
 export function applyAccent(accent: string) {
 	const rgb = parseHex(accent);
@@ -32,12 +51,13 @@ export function applyAccent(accent: string) {
 	root.setProperty('--color-accent-strong', shade(rgb, -0.22));
 	// soft tint over the dark background - low-alpha accent
 	root.setProperty('--color-accent-soft', `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.16)`);
+	root.setProperty('--color-on-accent', readableTextOn(accent));
 }
 
 /**
- * The same accent palette as an inline `style` string, so a subtree (e.g. the
- * hero accented by its banner) can override the accent without touching :root.
- * Returns '' for an unparseable colour.
+ * The same accent palette as an inline `style` string, so a subtree (e.g. a
+ * title page accented by its banner) can override the accent without touching
+ * :root. Includes the contrast-aware text colour. Returns '' for a bad colour.
  */
 export function accentVars(accent: string): string {
 	const rgb = parseHex(accent);
@@ -45,6 +65,7 @@ export function accentVars(accent: string): string {
 	return (
 		`--color-accent:${toHex(...rgb)};` +
 		`--color-accent-strong:${shade(rgb, -0.22)};` +
-		`--color-accent-soft:rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.16)`
+		`--color-accent-soft:rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.16);` +
+		`--color-on-accent:${readableTextOn(accent)}`
 	);
 }

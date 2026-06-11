@@ -20,7 +20,7 @@
 	}: Props = $props();
 
 	const variants = {
-		primary: 'bg-accent text-white hover:bg-accent-strong',
+		primary: 'bg-accent text-[var(--color-on-accent)] hover:bg-accent-strong',
 		secondary: 'border border-edge bg-surface/60 text-text hover:border-faint hover:bg-surface-2',
 		ghost: 'text-muted hover:bg-surface-2 hover:text-text',
 		danger: 'bg-danger/15 text-danger hover:bg-danger/25'
@@ -34,7 +34,7 @@
 
 <button
 	class="relative inline-flex items-center justify-center rounded-full font-semibold transition-all
-		duration-200 select-none active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50
+		duration-200 select-none active:scale-[0.97] cursor-pointer disabled:pointer-events-none disabled:opacity-50
 		{variants[variant]} {sizes[size]} {cls}"
 	disabled={disabled || loading}
 	{...rest}
