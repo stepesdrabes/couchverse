@@ -169,6 +169,7 @@ type EpisodeInfo struct {
 	Overview       string
 	AirDate        string // YYYY-MM-DD or ""
 	RuntimeMinutes int
+	StillPath      string // TMDB still image path, "" when absent
 }
 
 // SeriesSeasons lists a show's seasons (including specials/season 0).
@@ -200,6 +201,7 @@ func (c *Client) SeasonEpisodes(ctx context.Context, tmdbID, season int) ([]Epis
 			Overview      string `json:"overview"`
 			AirDate       string `json:"air_date"`
 			Runtime       int    `json:"runtime"`
+			StillPath     string `json:"still_path"`
 		} `json:"episodes"`
 	}
 	if err := c.get(ctx, fmt.Sprintf("/tv/%d/season/%d", tmdbID, season), url.Values{}, &raw); err != nil {
@@ -213,6 +215,7 @@ func (c *Client) SeasonEpisodes(ctx context.Context, tmdbID, season int) ([]Epis
 			Overview:       e.Overview,
 			AirDate:        e.AirDate,
 			RuntimeMinutes: e.Runtime,
+			StillPath:      e.StillPath,
 		})
 	}
 	return episodes, nil

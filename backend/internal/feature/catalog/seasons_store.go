@@ -27,6 +27,7 @@ type Episode struct {
 	Overview       string     `json:"overview"`
 	AirDate        *time.Time `json:"airDate"`
 	RuntimeMinutes *int       `json:"runtimeMinutes"`
+	ThumbID        *string    `json:"thumbId"`
 }
 
 func scanSeason(row pgx.Row) (*Season, error) {
@@ -82,7 +83,9 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 	}
 
 	erows, err := s.db.Query(ctx,
-		`SELECT e.id, e.season_id, e.episode_number, e.name, e.overview, e.air_date, e.runtime_minutes
+		`SELECT e.id, e.season_id, e.episode_number, e.name, e.overview, e.air_date, e.runtime_minutes,
+			(SELECT a.id FROM artwork a
+			 WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb')
 		 FROM episodes e JOIN seasons se ON se.id = e.season_id
 		 WHERE se.title_id = $1 ORDER BY e.episode_number`, titleID)
 	if err != nil {
@@ -90,12 +93,13 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 	}
 	defer erows.Close()
 	for erows.Next() {
-		e, err := scanEpisode(erows)
-		if err != nil {
+		var e Episode
+		if err := erows.Scan(&e.ID, &e.SeasonID, &e.EpisodeNumber, &e.Name, &e.Overview,
+			&e.AirDate, &e.RuntimeMinutes, &e.ThumbID); err != nil {
 			return nil, err
 		}
 		if i, ok := byID[e.SeasonID]; ok {
-			seasons[i].Episodes = append(seasons[i].Episodes, *e)
+			seasons[i].Episodes = append(seasons[i].Episodes, e)
 		}
 	}
 	return seasons, erows.Err()
@@ -199,7 +203,7 @@ func (s *Store) EpisodeIDsWithMedia(ctx context.Context, titleID string) (map[st
 // empty TMDB value never clears an existing one. Reports whether a row was
 // inserted.
 func (s *Store) ImportEpisodeMeta(ctx context.Context, seasonID string, episodeNumber int,
-	name, overview string, airDate *time.Time, runtimeMinutes *int, fillOnlyEmpty bool) (created bool, err error) {
+	name, overview string, airDate *time.Time, runtimeMinutes *int, fillOnlyEmpty bool) (id string, created bool, err error) {
 	err = s.db.QueryRow(ctx,
 		`INSERT INTO episodes (season_id, episode_number, name, overview, air_date, runtime_minutes)
 		 VALUES ($1, $2, $3, $4, $5, $6)
@@ -212,9 +216,9 @@ func (s *Store) ImportEpisodeMeta(ctx context.Context, seasonID string, episodeN
 				THEN episodes.air_date ELSE EXCLUDED.air_date END,
 			runtime_minutes = CASE WHEN EXCLUDED.runtime_minutes IS NULL OR ($7 AND episodes.runtime_minutes IS NOT NULL)
 				THEN episodes.runtime_minutes ELSE EXCLUDED.runtime_minutes END
-		 RETURNING (xmax = 0)`,
-		seasonID, episodeNumber, name, overview, airDate, runtimeMinutes, fillOnlyEmpty).Scan(&created)
-	return created, err
+		 RETURNING id, (xmax = 0)`,
+		seasonID, episodeNumber, name, overview, airDate, runtimeMinutes, fillOnlyEmpty).Scan(&id, &created)
+	return id, created, err
 }
 
 func (s *Store) DeleteEpisode(ctx context.Context, id string) error {

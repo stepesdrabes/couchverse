@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/settings"
@@ -18,6 +19,7 @@ import (
 type ImportEpisodesJob struct {
 	Catalog  *catalog.Store
 	Settings *settings.Store
+	Artwork  *artwork.Service
 }
 
 type ImportEpisodesPayload struct {
@@ -99,7 +101,7 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 			if ep.RuntimeMinutes > 0 {
 				runtime = &ep.RuntimeMinutes
 			}
-			inserted, err := j.Catalog.ImportEpisodeMeta(ctx, seasonID, ep.EpisodeNumber,
+			episodeID, inserted, err := j.Catalog.ImportEpisodeMeta(ctx, seasonID, ep.EpisodeNumber,
 				ep.Name, ep.Overview, airDate, runtime,
 				protect[[2]int{season.SeasonNumber, ep.EpisodeNumber}])
 			if err != nil {
@@ -108,10 +110,35 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 			if inserted {
 				created++
 			}
+			j.importStill(ctx, client, episodeID, ep.StillPath)
 		}
 		report((i + 1) * 100 / len(wanted))
 	}
 	slog.Info("tmdb episode import finished",
 		"titleId", title.ID, "seasons", len(wanted), "episodesCreated", created)
 	return nil
+}
+
+// importStill downloads a TMDB episode still as the episode's thumb artwork,
+// skipping episodes that already have one. Best effort - a failure never fails
+// the import.
+func (j *ImportEpisodesJob) importStill(ctx context.Context, client *Client, episodeID, stillPath string) {
+	if stillPath == "" || j.Artwork == nil {
+		return
+	}
+	if existing, err := j.Artwork.Store.ArtworkFor(ctx, "episode", episodeID); err == nil {
+		for _, a := range existing {
+			if a.Kind == "thumb" {
+				return
+			}
+		}
+	}
+	data, err := client.DownloadImage(ctx, stillPath)
+	if err != nil {
+		slog.Warn("tmdb episode still download", "episodeId", episodeID, "err", err)
+		return
+	}
+	if _, err := j.Artwork.SaveBytes(ctx, "episode", episodeID, "thumb", ".jpg", data, "tmdb"); err != nil {
+		slog.Warn("save episode still", "episodeId", episodeID, "err", err)
+	}
 }
