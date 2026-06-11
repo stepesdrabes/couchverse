@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { UploadCloud } from 'lucide-svelte';
+	import { Loader2, UploadCloud } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import type { Episode, MediaFile } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
@@ -38,6 +38,7 @@
 	let upload = $state<Upload | null>(null);
 	let fileInput = $state<HTMLInputElement>();
 	let loadedId = '';
+	let jobActive = $state(false);
 	const form = new FormState(() => ({ name, overview }));
 
 	$effect(() => {
@@ -97,19 +98,34 @@
 			</div>
 
 			{#if file}
+				{@const codec = file.videoCodec || file.audioCodec}
 				<section>
-					<h3 class="mb-2 text-sm font-semibold text-muted">File</h3>
-					<p class="truncate font-mono text-xs text-muted" title={file.path}>{file.path}</p>
-					<p class="mt-1.5 flex flex-wrap gap-1">
+					<h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-muted">
+						File
+						{#if jobActive}
+							<span class="flex items-center gap-1.5 text-xs font-medium text-accent">
+								<Loader2 class="size-3.5 animate-spin" />
+								Processing
+							</span>
+						{/if}
+					</h3>
+					<p class="truncate text-sm text-muted" title={file.path}>{file.path}</p>
+					<p class="mt-2 flex flex-wrap gap-1">
 						{#if qualityLabel(file.height)}
 							<Badge>{qualityLabel(file.height)}</Badge>
 						{/if}
 						{#if file.videoRange !== 'sdr'}
 							<Badge>HDR</Badge>
 						{/if}
-						<Badge>{file.videoCodec || file.audioCodec}</Badge>
-						<Badge>{file.container}</Badge>
-						<Badge>{formatBytes(file.sizeBytes)}</Badge>
+						{#if codec}
+							<Badge>{codec}</Badge>
+						{/if}
+						{#if file.container}
+							<Badge>{file.container}</Badge>
+						{/if}
+						{#if file.sizeBytes > 0}
+							<Badge>{formatBytes(file.sizeBytes)}</Badge>
+						{/if}
 						{#if file.directPlay}
 							<Badge>direct play</Badge>
 						{/if}
@@ -119,7 +135,7 @@
 
 				<section>
 					<h3 class="mb-2 text-sm font-semibold text-muted">Jobs</h3>
-					<MediaFileJobs mediaFileId={file.id} />
+					<MediaFileJobs mediaFileId={file.id} bind:active={jobActive} />
 				</section>
 
 				<SubtitleManager mediaFile={file} {subtitles} />

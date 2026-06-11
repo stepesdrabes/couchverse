@@ -28,36 +28,40 @@
 
 <header
 	class="fixed inset-x-0 top-0 z-40 transition-all duration-300
-		{scrolled ? 'bg-bg/85 backdrop-blur-md' : 'bg-gradient-to-b from-bg/80 to-transparent'}"
+		{scrolled
+		? 'border-b border-edge/60 bg-bg/85 shadow-lg shadow-black/20 backdrop-blur-md'
+		: 'border-b border-transparent bg-gradient-to-b from-bg/90 to-transparent'}"
 	style="view-transition-name: top-nav"
 >
-	<div class="mx-auto flex h-16 max-w-[1700px] items-center gap-6 px-6">
-		<a href="/" class="text-lg font-extrabold tracking-tight">
+	<div class="mx-auto flex h-20 max-w-[1700px] items-center gap-6 px-6 lg:px-8">
+		<a href="/" class="text-xl font-extrabold tracking-tight">
 			couch<span class="text-accent">verse</span>
 		</a>
 
 		<nav
 			class="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-full border
-				border-edge/60 bg-surface/60 p-1 backdrop-blur md:flex"
+				border-edge/60 bg-surface/70 p-1.5 shadow-lg shadow-black/10 backdrop-blur md:flex"
 		>
 			{#each items as item (item.href)}
 				<a
 					href={item.href}
-					class="rounded-full px-4 py-1.5 text-xs font-semibold transition-colors
-						{isActive(item.href) ? 'bg-accent text-white' : 'text-muted hover:text-text'}"
+					class="rounded-full px-4 py-2 text-[13px] font-semibold transition-colors
+						{isActive(item.href)
+						? 'bg-accent text-white shadow-sm shadow-accent/30'
+						: 'text-muted hover:bg-surface-2 hover:text-text'}"
 				>
 					{item.label}
 				</a>
 			{/each}
 		</nav>
 
-		<div class="ml-auto flex items-center gap-2">
+		<div class="ml-auto flex items-center gap-2.5">
 			<a
 				href="/search"
-				class="rounded-full p-2 transition-colors hover:bg-surface-2 hover:text-text"
+				class="rounded-full p-2.5 text-muted transition-colors hover:bg-surface-2 hover:text-text"
 				title="Search"
 			>
-				<Search class="size-4.5" />
+				<Search class="size-5" />
 			</a>
 
 			<DropdownMenu.Root>
@@ -68,7 +72,8 @@
 					<UserAvatar
 						name={session.user?.displayName ?? '?'}
 						avatarId={session.user?.avatarId}
-						class="size-8 rounded-lg text-xs"
+						seed={session.user?.username}
+						class="size-9 rounded-lg text-xs"
 					/>
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Portal>

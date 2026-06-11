@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { Search } from 'lucide-svelte';
+	import { Loader2, Search } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { TmdbResult } from '$lib/features/library/api';
@@ -64,9 +64,13 @@
 		<Button type="submit" size="sm" loading={searching}>Search</Button>
 	</form>
 
-	{#if error}
+	{#if searching && results.length === 0}
+		<div class="flex justify-center py-10 text-faint">
+			<Loader2 class="size-6 animate-spin" />
+		</div>
+	{:else if error}
 		<p class="py-6 text-center text-sm text-danger">{error}</p>
-	{:else if results.length === 0 && !searching}
+	{:else if results.length === 0}
 		<p class="py-6 text-center text-sm text-faint">No results.</p>
 	{:else}
 		<ul class="max-h-80 space-y-2 overflow-y-auto pr-1">

@@ -66,6 +66,7 @@
 				<UserAvatar
 					name={session.user?.displayName ?? '?'}
 					avatarId={session.user?.avatarId}
+					seed={session.user?.username}
 					class="size-24 rounded-2xl text-3xl"
 				/>
 				<span

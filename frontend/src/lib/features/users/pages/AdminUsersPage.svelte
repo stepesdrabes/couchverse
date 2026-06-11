@@ -136,6 +136,7 @@
 							<UserAvatar
 								name={user.displayName}
 								avatarId={user.avatarId}
+								seed={user.username}
 								class="size-8 rounded-lg text-xs"
 							/>
 							<span>

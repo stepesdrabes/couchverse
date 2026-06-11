@@ -4,7 +4,8 @@
 	import { jobAction } from '$lib/features/jobs/job-label';
 	import { formatYearDate } from '$lib/utils/format';
 
-	let { mediaFileId }: { mediaFileId: string } = $props();
+	let { mediaFileId, active = $bindable(false) }: { mediaFileId: string; active?: boolean } =
+		$props();
 
 	let jobs = $state<Job[]>([]);
 	let loaded = $state(false);
@@ -24,6 +25,7 @@
 			if (document.visibilityState === 'hidden') return;
 			try {
 				jobs = await jobsApi.listJobs({ mediaFileId: id, limit: 8 });
+				active = jobs.some((j) => j.status === 'pending' || j.status === 'running');
 				loaded = true;
 			} catch {
 				// transient; the next tick retries

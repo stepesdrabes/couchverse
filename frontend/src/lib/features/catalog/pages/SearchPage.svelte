@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Music, Search } from 'lucide-svelte';
+	import { Loader2, Music, Search } from 'lucide-svelte';
 	import * as catalog from '$lib/features/catalog/api';
 	import type { SearchResults } from '$lib/features/catalog/types';
 	import PosterCard from '$lib/features/catalog/components/PosterCard.svelte';
@@ -8,6 +8,7 @@
 
 	let query = $state('');
 	let results = $state<SearchResults | null>(null);
+	let searching = $state(false);
 	let timer: ReturnType<typeof setTimeout>;
 	let controller: AbortController | null = null;
 
@@ -20,13 +21,18 @@
 		controller?.abort();
 		if (!query.trim()) {
 			results = null;
+			searching = false;
 			return;
 		}
-		controller = new AbortController();
+		const mine = new AbortController();
+		controller = mine;
+		searching = true;
 		try {
-			results = await catalog.search(query.trim(), controller.signal);
+			results = await catalog.search(query.trim(), mine.signal);
 		} catch {
 			// aborted or failed - keep previous results
+		} finally {
+			if (controller === mine) searching = false; // only the latest request clears it
 		}
 	}
 
@@ -55,9 +61,12 @@
 			oninput={onInput}
 			autofocus
 			placeholder="Search movies, series, music…"
-			class="h-12 w-full rounded-full border border-edge bg-surface pr-5 pl-12 text-[15px]
+			class="h-12 w-full rounded-full border border-edge bg-surface pr-12 pl-12 text-[15px]
 				transition-colors placeholder:text-faint focus:border-accent focus:outline-none"
 		/>
+		{#if searching}
+			<Loader2 class="absolute top-1/2 right-4 size-5 -translate-y-1/2 animate-spin text-faint" />
+		{/if}
 	</div>
 
 	{#if empty}
