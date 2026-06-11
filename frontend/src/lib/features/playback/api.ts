@@ -26,7 +26,13 @@ export interface PlaybackInfo {
 	streamUrl?: string;
 	durationSeconds: number;
 	resumePosition: number;
-	display: { title: string; subtitle: string; titleId: string; titleSlug: string };
+	display: {
+		title: string;
+		subtitle: string;
+		titleId: string;
+		titleSlug: string;
+		backdropId: string | null;
+	};
 	nextEpisode: EpisodeRef | null;
 	subtitles: SubtitleTrack[];
 	episodes?: SeriesEpisode[];
@@ -50,6 +56,10 @@ export interface SeriesEpisode {
 
 export const getPlayback = (kind: PlaybackKind, id: string) =>
 	api<PlaybackInfo>(`/playback/${kind}/${id}?caps=${clientCaps().join(',')}`);
+
+/** seek-preview still from the source video at `seconds` */
+export const frameUrl = (mediaFileId: string, seconds: number) =>
+	`/api/v1/stream/${mediaFileId}/frame?t=${Math.max(0, Math.floor(seconds))}`;
 
 /** codecs this browser can direct-play beyond the h264 baseline */
 export function clientCaps(): string[] {

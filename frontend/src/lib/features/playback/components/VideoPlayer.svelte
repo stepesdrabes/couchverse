@@ -21,15 +21,23 @@
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
+	import { artworkUrl } from '$lib/features/catalog/api';
 	import { musicPlayer } from '$lib/features/music/player.svelte';
 	import type { PlaybackInfo } from '$lib/features/playback/api';
-	import { beaconProgress, jitKeepalive, reportProgress } from '$lib/features/playback/api';
+	import {
+		beaconProgress,
+		frameUrl,
+		jitKeepalive,
+		reportProgress
+	} from '$lib/features/playback/api';
 	import {
 		preferences,
 		SUBTITLE_FONTS,
 		type SubtitleSettings
 	} from '$lib/features/preferences/preferences.svelte';
+	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import { formatClock } from '$lib/utils/format';
+	import { bannerAccent } from '$lib/utils/palette.svelte';
 
 	let {
 		info,
@@ -288,6 +296,22 @@
 
 	let scrubbing = $state(false);
 
+	// seek-bar hover: time tooltip + frame preview, accent from the banner
+	const accent = bannerAccent(() =>
+		info.display.backdropId ? artworkUrl(info.display.backdropId) : null
+	);
+	let hoverRatio = $state<number | null>(null);
+	const hoverTime = $derived(hoverRatio !== null ? hoverRatio * duration : 0);
+	// bucket to 5s so the preview reuses cached frames while scrubbing
+	const previewSrc = $derived(
+		hoverRatio !== null ? frameUrl(info.mediaFileId, Math.floor(hoverTime / 5) * 5) : ''
+	);
+
+	function onSeekHover(event: PointerEvent, track: HTMLElement) {
+		const rect = track.getBoundingClientRect();
+		hoverRatio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+	}
+
 	function onKeydown(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement) return;
 		switch (e.key) {
@@ -439,6 +463,7 @@
 <div
 	bind:this={wrapper}
 	class="relative h-dvh w-full overflow-hidden bg-black {controlsVisible ? '' : 'cursor-none'}"
+	style={accent.style}
 	onpointermove={poke}
 	role="presentation"
 >
@@ -484,13 +509,18 @@
 			class="absolute inset-x-0 top-0 flex items-center gap-4 bg-gradient-to-b from-black/80
 				to-transparent p-5 pb-12"
 		>
-			<button
-				class="rounded-full p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-				onclick={() => goto(`/title/${info.display.titleSlug}`)}
-				aria-label="Back"
-			>
-				<ArrowLeft class="size-5" />
-			</button>
+			<Tooltip label="Back to title" side="bottom" portalTo={wrapper}>
+				{#snippet trigger(props)}
+					<button
+						{...props}
+						class="rounded-full p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+						onclick={() => goto(`/title/${info.display.titleSlug}`)}
+						aria-label="Back"
+					>
+						<ArrowLeft class="size-5" />
+					</button>
+				{/snippet}
+			</Tooltip>
 			<div class="min-w-0">
 				<p class="truncate font-semibold text-white">{info.display.title}</p>
 				{#if info.display.subtitle}
@@ -512,8 +542,12 @@
 					seekTo(e, e.currentTarget);
 					e.currentTarget.setPointerCapture(e.pointerId);
 				}}
-				onpointermove={(e) => scrubbing && seekTo(e, e.currentTarget)}
+				onpointermove={(e) => {
+					onSeekHover(e, e.currentTarget);
+					if (scrubbing) seekTo(e, e.currentTarget);
+				}}
 				onpointerup={() => (scrubbing = false)}
+				onpointerleave={() => (hoverRatio = null)}
 				role="slider"
 				aria-label="Seek"
 				aria-valuemin={0}
@@ -521,6 +555,25 @@
 				aria-valuenow={currentTime}
 				tabindex="0"
 			>
+				{#if hoverRatio !== null && duration > 0}
+					<div
+						class="pointer-events-none absolute bottom-full mb-3 flex -translate-x-1/2 flex-col
+							items-center gap-1"
+						style="left: {Math.min(96, Math.max(4, hoverRatio * 100))}%"
+					>
+						{#key previewSrc}
+							<img
+								src={previewSrc}
+								alt=""
+								class="h-[4.5rem] w-32 rounded-md border border-white/15 bg-black object-cover shadow-xl"
+								onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
+							/>
+						{/key}
+						<span class="rounded bg-black/85 px-1.5 py-0.5 text-[11px] font-medium text-white tnum">
+							{formatClock(hoverTime)}
+						</span>
+					</div>
+				{/if}
 				{#each buffered as range (range.start)}
 					<div
 						class="absolute h-full rounded-full bg-white/25"
@@ -541,28 +594,59 @@
 			</div>
 
 			<div class="flex items-center gap-3">
-				<button class="player-btn" onclick={togglePlay} aria-label="Play/Pause">
-					{#if playing}
-						<Pause class="size-5 fill-current" />
-					{:else}
-						<Play class="size-5 fill-current" />
-					{/if}
-				</button>
-				<button class="player-btn" onclick={() => skip(-10)} aria-label="Back 10 seconds">
-					<RotateCcw class="size-4.5" />
-				</button>
-				<button class="player-btn" onclick={() => skip(10)} aria-label="Forward 10 seconds">
-					<RotateCw class="size-4.5" />
-				</button>
+				<Tooltip label={playing ? 'Pause' : 'Play'} portalTo={wrapper}>
+					{#snippet trigger(props)}
+						<button {...props} class="player-btn" onclick={togglePlay} aria-label="Play/Pause">
+							{#if playing}
+								<Pause class="size-5 fill-current" />
+							{:else}
+								<Play class="size-5 fill-current" />
+							{/if}
+						</button>
+					{/snippet}
+				</Tooltip>
+				<Tooltip label="Back 10 seconds" portalTo={wrapper}>
+					{#snippet trigger(props)}
+						<button
+							{...props}
+							class="player-btn"
+							onclick={() => skip(-10)}
+							aria-label="Back 10 seconds"
+						>
+							<RotateCcw class="size-4.5" />
+						</button>
+					{/snippet}
+				</Tooltip>
+				<Tooltip label="Forward 10 seconds" portalTo={wrapper}>
+					{#snippet trigger(props)}
+						<button
+							{...props}
+							class="player-btn"
+							onclick={() => skip(10)}
+							aria-label="Forward 10 seconds"
+						>
+							<RotateCw class="size-4.5" />
+						</button>
+					{/snippet}
+				</Tooltip>
 
 				<div class="group/vol flex items-center gap-2">
-					<button class="player-btn" onclick={() => (muted = !muted)} aria-label="Mute">
-						{#if muted || volume === 0}
-							<VolumeX class="size-4.5" />
-						{:else}
-							<Volume2 class="size-4.5" />
-						{/if}
-					</button>
+					<Tooltip label={muted ? 'Unmute' : 'Mute'} portalTo={wrapper}>
+						{#snippet trigger(props)}
+							<button
+								{...props}
+								class="player-btn"
+								onclick={() => (muted = !muted)}
+								aria-label="Mute"
+							>
+								{#if muted || volume === 0}
+									<VolumeX class="size-4.5" />
+								{:else}
+									<Volume2 class="size-4.5" />
+								{/if}
+							</button>
+						{/snippet}
+					</Tooltip>
 					<input
 						type="range"
 						min="0"
@@ -584,7 +668,7 @@
 
 				{#if episodesBySeason.length > 0}
 					<Popover.Root>
-						<Popover.Trigger class="player-btn" aria-label="Episodes">
+						<Popover.Trigger class="player-btn" aria-label="Episodes" title="Episodes">
 							<ListVideo class="size-5" />
 						</Popover.Trigger>
 						<Popover.Portal to={wrapper}>
@@ -629,7 +713,7 @@
 
 				{#if qualityOptions.length > 1}
 					<Popover.Root>
-						<Popover.Trigger class="player-btn" aria-label="Quality">
+						<Popover.Trigger class="player-btn" aria-label="Quality" title="Quality">
 							<SlidersHorizontal class="size-4.5" />
 						</Popover.Trigger>
 						<Popover.Portal to={wrapper}>
@@ -663,6 +747,7 @@
 						<Popover.Trigger
 							class="player-btn {activeSub !== null ? 'text-accent!' : ''}"
 							aria-label="Subtitles"
+							title="Subtitles"
 						>
 							<Captions class="size-5" />
 						</Popover.Trigger>
@@ -775,22 +860,36 @@
 				{/if}
 
 				{#if pipSupported}
-					<button
-						class="player-btn {pipActive ? 'text-accent!' : ''}"
-						onclick={togglePip}
-						aria-label="Picture in picture"
-					>
-						<PictureInPicture2 class="size-4.5" />
-					</button>
+					<Tooltip label="Picture in picture" portalTo={wrapper}>
+						{#snippet trigger(props)}
+							<button
+								{...props}
+								class="player-btn {pipActive ? 'text-accent!' : ''}"
+								onclick={togglePip}
+								aria-label="Picture in picture"
+							>
+								<PictureInPicture2 class="size-4.5" />
+							</button>
+						{/snippet}
+					</Tooltip>
 				{/if}
 
-				<button class="player-btn" onclick={toggleFullscreen} aria-label="Fullscreen">
-					{#if fullscreen}
-						<Minimize class="size-4.5" />
-					{:else}
-						<Maximize class="size-4.5" />
-					{/if}
-				</button>
+				<Tooltip label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'} portalTo={wrapper}>
+					{#snippet trigger(props)}
+						<button
+							{...props}
+							class="player-btn"
+							onclick={toggleFullscreen}
+							aria-label="Fullscreen"
+						>
+							{#if fullscreen}
+								<Minimize class="size-4.5" />
+							{:else}
+								<Maximize class="size-4.5" />
+							{/if}
+						</button>
+					{/snippet}
+				</Tooltip>
 			</div>
 		</div>
 	{/if}
