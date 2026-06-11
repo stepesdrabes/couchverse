@@ -33,3 +33,18 @@ export function applyAccent(accent: string) {
 	// soft tint over the dark background - low-alpha accent
 	root.setProperty('--color-accent-soft', `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.16)`);
 }
+
+/**
+ * The same accent palette as an inline `style` string, so a subtree (e.g. the
+ * hero accented by its banner) can override the accent without touching :root.
+ * Returns '' for an unparseable colour.
+ */
+export function accentVars(accent: string): string {
+	const rgb = parseHex(accent);
+	if (!rgb) return '';
+	return (
+		`--color-accent:${toHex(...rgb)};` +
+		`--color-accent-strong:${shade(rgb, -0.22)};` +
+		`--color-accent-soft:rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.16)`
+	);
+}

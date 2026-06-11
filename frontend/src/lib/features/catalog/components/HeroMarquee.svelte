@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Check, Play, Plus } from 'lucide-svelte';
+	import { Vibrant } from 'node-vibrant/browser';
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import * as catalog from '$lib/features/catalog/api';
 	import type { Title } from '$lib/features/catalog/types';
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import { accentVars } from '$lib/theme';
 
 	let {
 		featured,
@@ -17,6 +19,28 @@
 	let listed = $derived(inList);
 
 	const eyebrow = $derived(['Featured', ...featured.genres.slice(0, 2)].join(' · ').toUpperCase());
+
+	// pull a vibrant accent out of the banner and scope it to the hero subtree,
+	// so the eyebrow and buttons echo the featured artwork
+	let heroAccent = $state<string | null>(null);
+	$effect(() => {
+		heroAccent = null;
+		if (!backdropId) return;
+		let cancelled = false;
+		Vibrant.from(catalog.artworkUrl(backdropId))
+			.getPalette()
+			.then((p) => {
+				const swatch = p.Vibrant ?? p.LightVibrant ?? p.Muted ?? p.LightMuted;
+				if (!cancelled && swatch) heroAccent = swatch.hex;
+			})
+			.catch(() => {
+				// same-origin artwork, but ignore decode/quantize failures
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+	const heroStyle = $derived(heroAccent ? accentVars(heroAccent) : '');
 
 	function play() {
 		if (featured.kind === 'movie') goto(`/watch/movie/${featured.id}`);
@@ -34,7 +58,10 @@
 	}
 </script>
 
-<div class="relative flex min-h-[72vh] items-center justify-center overflow-hidden md:min-h-[82vh]">
+<div
+	class="relative flex min-h-[72vh] items-center justify-center overflow-hidden md:min-h-[82vh]"
+	style={heroStyle}
+>
 	{#if backdropId}
 		<img
 			src={catalog.artworkUrl(backdropId)}
