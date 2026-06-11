@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Loader2, Music, Search } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
 	import * as catalog from '$lib/features/catalog/api';
 	import type { SearchResults } from '$lib/features/catalog/types';
 	import PosterCard from '$lib/features/catalog/components/PosterCard.svelte';
@@ -77,8 +78,10 @@
 			<div
 				class="mb-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6"
 			>
-				{#each results.titles as item (item.titleId)}
-					<PosterCard {item} />
+				{#each results.titles as item, i (item.titleId)}
+					<div in:fly={{ y: 14, duration: 300, delay: Math.min(i * 35, 350) }}>
+						<PosterCard {item} />
+					</div>
 				{/each}
 			</div>
 		{/if}

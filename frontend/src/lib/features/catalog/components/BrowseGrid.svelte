@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fly } from 'svelte/transition';
 	import * as catalog from '$lib/features/catalog/api';
 	import type { CardItem, Genre } from '$lib/features/catalog/types';
 	import PosterCard from './PosterCard.svelte';
@@ -63,8 +64,10 @@
 		<EmptyState title="Nothing here yet" message="Published titles will show up in this view." />
 	{:else}
 		<div class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-			{#each items as item (item.titleId)}
-				<PosterCard {item} />
+			{#each items as item, i (item.titleId)}
+				<div in:fly={{ y: 14, duration: 300, delay: Math.min(i * 30, 360) }}>
+					<PosterCard {item} />
+				</div>
 			{/each}
 		</div>
 	{/if}
