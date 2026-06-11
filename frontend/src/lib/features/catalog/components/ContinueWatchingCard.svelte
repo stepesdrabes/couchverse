@@ -15,22 +15,20 @@
 		const id = item.backdropId ?? item.posterId;
 		return id ? artworkUrl(id) : null;
 	});
-	const ringStyle = $derived(
-		'--tw-ring-color:var(--card-accent,var(--color-accent));--tw-ring-offset-color:var(--color-bg)' +
-			(ca.accent ? `;--card-accent:${ca.accent}` : '')
-	);
+	const cardAccent = $derived(ca.accent ? `--card-accent:${ca.accent}` : '');
 </script>
 
 <a
 	href="/watch/{item.playbackKind}/{item.playbackId}"
 	class="group w-48 shrink-0 snap-start sm:w-56"
 	onpointerenter={ca.load}
-	style={ringStyle}
+	style={cardAccent}
 >
 	<div
 		class="relative aspect-video overflow-hidden rounded-xl border border-edge/50 transition-all
 			duration-300 group-hover:scale-[1.02] group-hover:shadow-lg group-hover:shadow-black/40
 			group-hover:ring-2 group-hover:ring-offset-2"
+		style="--tw-ring-color:var(--card-accent,var(--color-accent));--tw-ring-offset-color:var(--color-bg)"
 	>
 		<Artwork artworkId={item.backdropId ?? item.posterId} name={item.name} />
 		<div
