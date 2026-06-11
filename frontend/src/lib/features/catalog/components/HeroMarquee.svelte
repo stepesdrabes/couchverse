@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Check, Play, Plus } from 'lucide-svelte';
-	import { Vibrant } from 'node-vibrant/browser';
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import * as catalog from '$lib/features/catalog/api';
 	import type { FeaturedItem } from '$lib/features/catalog/types';
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import { accentVars } from '$lib/theme';
+	import { bannerAccent } from '$lib/utils/palette.svelte';
 
 	let { items }: { items: FeaturedItem[] } = $props();
 
@@ -46,32 +45,15 @@
 	});
 
 	function goTo(i: number) {
-		index = i;
+		index = (i + items.length) % items.length;
 		progress = 0;
 	}
 
 	// pull a vibrant accent out of the active banner and scope it to the hero
 	// subtree, so the eyebrow and buttons echo the featured artwork
-	let heroAccent = $state<string | null>(null);
-	$effect(() => {
-		const backdropId = active.backdropId;
-		heroAccent = null;
-		if (!backdropId) return;
-		let cancelled = false;
-		Vibrant.from(catalog.artworkUrl(backdropId))
-			.getPalette()
-			.then((p) => {
-				const swatch = p.Vibrant ?? p.LightVibrant ?? p.Muted ?? p.LightMuted;
-				if (!cancelled && swatch) heroAccent = swatch.hex;
-			})
-			.catch(() => {
-				// same-origin artwork, but ignore decode/quantize failures
-			});
-		return () => {
-			cancelled = true;
-		};
-	});
-	const heroStyle = $derived(heroAccent ? accentVars(heroAccent) : '');
+	const accent = bannerAccent(() =>
+		active.backdropId ? catalog.artworkUrl(active.backdropId) : null
+	);
 
 	function play() {
 		if (active.kind === 'movie') goto(`/watch/movie/${active.id}`);
@@ -93,9 +75,10 @@
 
 <div
 	class="relative flex min-h-[72vh] items-center justify-center overflow-hidden md:min-h-[82vh]"
-	style={heroStyle}
+	style={accent.style}
 	role="region"
 	aria-roledescription="carousel"
+	aria-label="Featured titles"
 	onpointerenter={() => (paused = true)}
 	onpointerleave={() => (paused = false)}
 >
@@ -180,21 +163,50 @@
 	{/key}
 
 	{#if items.length > 1}
-		<!-- story-style segmented progress: the active segment fills over the slide -->
-		<div class="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
-			{#each items as item, i (item.id)}
-				<button
-					type="button"
-					class="h-1 w-10 overflow-hidden rounded-full bg-white/25 transition-colors hover:bg-white/40"
-					aria-label="Show featured {i + 1}"
-					onclick={() => goTo(i)}
-				>
-					<div
-						class="h-full rounded-full bg-accent"
-						style="width: {i === index ? progress * 100 : i < index ? 100 : 0}%"
-					></div>
-				</button>
-			{/each}
+		<!-- prev/next + story-style segmented progress; the controls sit above the
+		     content and have a tall hit area so the thin bars stay easy to click -->
+		<div class="absolute inset-x-0 bottom-7 z-20 flex items-center justify-center gap-4">
+			<button
+				type="button"
+				class="flex size-8 items-center justify-center rounded-full bg-black/40 text-white/80
+					backdrop-blur transition-colors hover:bg-black/60 hover:text-white"
+				aria-label="Previous featured"
+				onclick={() => goTo(index - 1)}
+			>
+				<Play class="size-3.5 rotate-180 fill-current" />
+			</button>
+
+			<div class="flex items-center gap-2">
+				{#each items as item, i (item.id)}
+					<button
+						type="button"
+						class="group/seg flex h-6 items-center"
+						aria-label="Show featured {i + 1}: {item.name}"
+						aria-current={i === index}
+						onclick={() => goTo(i)}
+					>
+						<span
+							class="h-1.5 w-10 overflow-hidden rounded-full bg-white/25 transition-all
+								group-hover/seg:bg-white/40 {i === index ? 'w-14' : ''}"
+						>
+							<span
+								class="block h-full rounded-full bg-accent"
+								style="width: {i === index ? progress * 100 : i < index ? 100 : 0}%"
+							></span>
+						</span>
+					</button>
+				{/each}
+			</div>
+
+			<button
+				type="button"
+				class="flex size-8 items-center justify-center rounded-full bg-black/40 text-white/80
+					backdrop-blur transition-colors hover:bg-black/60 hover:text-white"
+				aria-label="Next featured"
+				onclick={() => goTo(index + 1)}
+			>
+				<Play class="size-3.5 fill-current" />
+			</button>
 		</div>
 	{/if}
 </div>
