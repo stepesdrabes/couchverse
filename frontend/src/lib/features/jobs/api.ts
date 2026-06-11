@@ -66,6 +66,26 @@ export const listJobs = (filter: { status?: string; limit?: number; mediaFileId?
 export const retryJob = (id: number) => api<void>(`/admin/jobs/${id}/retry`, { method: 'POST' });
 export const cancelJob = (id: number) => api<void>(`/admin/jobs/${id}/cancel`, { method: 'POST' });
 
+const TERMINAL_JOB_STATUSES = ['done', 'failed', 'cancelled'];
+
+/**
+ * Poll the job queue until `id` reaches a terminal status, so callers can
+ * refresh once the work has actually landed. Returns the finished job, or null
+ * if it didn't settle before the timeout.
+ */
+export async function waitForJob(
+	id: number,
+	{ intervalMs = 1500, timeoutMs = 60000 } = {}
+): Promise<Job | null> {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		const job = (await listJobs({ limit: 50 })).find((j) => j.id === id);
+		if (job && TERMINAL_JOB_STATUSES.includes(job.status)) return job;
+		await new Promise((resolve) => setTimeout(resolve, intervalMs));
+	}
+	return null;
+}
+
 export interface ActiveTranscode {
 	jobId: number;
 	mediaFileId: string;

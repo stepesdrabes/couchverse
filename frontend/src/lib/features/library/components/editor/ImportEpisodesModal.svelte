@@ -4,6 +4,7 @@
 	import { ApiError } from '$lib/api/client';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { TmdbSeasonPreview } from '$lib/features/library/api';
+	import { waitForJob } from '$lib/features/jobs/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
@@ -46,14 +47,19 @@
 
 	async function startImport() {
 		importing = true;
+		const pending = toast.loading('Importing episodes from TMDB…');
 		try {
-			await libraryApi.importEpisodes(titleId, allSeasons ? undefined : selectedSeasons);
-			toast.success('Import started - episodes appear shortly');
+			const { jobId } = await libraryApi.importEpisodes(
+				titleId,
+				allSeasons ? undefined : selectedSeasons
+			);
 			open = false;
-			// the import job usually lands within a few seconds
-			setTimeout(() => invalidateAll(), 4000);
+			const job = await waitForJob(jobId);
+			await invalidateAll();
+			if (job?.status === 'failed') toast.error('Episode import failed', { id: pending });
+			else toast.success('Episodes imported', { id: pending });
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'failed to start import');
+			toast.error(err instanceof Error ? err.message : 'failed to start import', { id: pending });
 		} finally {
 			importing = false;
 		}

@@ -4,6 +4,7 @@
 	import { toast } from 'svelte-sonner';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { TmdbResult } from '$lib/features/library/api';
+	import { waitForJob } from '$lib/features/jobs/api';
 	import type { Title } from '$lib/features/catalog/types';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
@@ -36,14 +37,16 @@
 
 	async function apply(result: TmdbResult) {
 		applying = result.tmdbId;
+		const pending = toast.loading('Fetching metadata & artwork from TMDB…');
 		try {
-			await libraryApi.applyTmdb(title.id, result.tmdbId);
-			toast.success('Fetching metadata & artwork from TMDB…');
+			const { jobId } = await libraryApi.applyTmdb(title.id, result.tmdbId);
 			open = false;
-			// the fetch job usually lands within a few seconds
-			setTimeout(() => invalidateAll(), 4000);
+			const job = await waitForJob(jobId);
+			await invalidateAll(); // pull in the new poster/backdrop/metadata + tmdbId
+			if (job?.status === 'failed') toast.error('TMDB fetch failed', { id: pending });
+			else toast.success('Metadata & artwork applied', { id: pending });
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'failed to apply');
+			toast.error(err instanceof Error ? err.message : 'failed to apply', { id: pending });
 		} finally {
 			applying = null;
 		}
