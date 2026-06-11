@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { ArrowLeft, Database, LayoutDashboard, Library, Settings, Users } from 'lucide-svelte';
 	import { session } from '$lib/features/auth/session.svelte';
+	import LogoMark from '$lib/components/ui/LogoMark.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import StorageMeter from './StorageMeter.svelte';
 	import SystemMeter from './SystemMeter.svelte';
@@ -22,7 +23,8 @@
 	class="sticky top-0 flex h-dvh w-60 shrink-0 flex-col self-start border-r border-edge bg-surface/40"
 	style="view-transition-name: admin-sidebar"
 >
-	<a href="/admin" class="px-6 pt-6 pb-4">
+	<a href="/admin" class="flex items-center gap-2.5 px-6 pt-6 pb-4">
+		<LogoMark class="size-8 rounded-md" />
 		<span class="text-lg font-extrabold tracking-tight">
 			couch<span class="text-accent">verse</span>
 		</span>

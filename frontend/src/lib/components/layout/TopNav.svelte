@@ -4,6 +4,7 @@
 	import { LogOut, Search, Shield, UserRound } from 'lucide-svelte';
 	import { session } from '$lib/features/auth/session.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
+	import LogoMark from '$lib/components/ui/LogoMark.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 
 	const items = $derived(
@@ -41,8 +42,11 @@
 	></div>
 
 	<div class="relative mx-auto flex h-20 max-w-[1700px] items-center gap-6 px-6 lg:px-8">
-		<a href="/" class="text-xl font-extrabold tracking-tight">
-			couch<span class="text-accent">verse</span>
+		<a href="/" class="flex items-center gap-2.5">
+			<LogoMark class="size-9 rounded-lg" />
+			<span class="text-xl font-extrabold tracking-tight">
+				couch<span class="text-accent">verse</span>
+			</span>
 		</a>
 
 		<nav
