@@ -3,7 +3,6 @@
 	import { onNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Toaster } from 'svelte-sonner';
-	import favicon from '$lib/assets/favicon.svg';
 	import PlayerBar from '$lib/features/music/components/PlayerBar.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
 
@@ -29,7 +28,6 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
 	<title>Couchverse</title>
 </svelte:head>
 

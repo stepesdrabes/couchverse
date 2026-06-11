@@ -36,7 +36,7 @@
 	</div>
 	<div
 		bind:this={scroller}
-		class="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth scroll-px-6 px-6 pt-1 pb-4
+		class="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth scroll-px-6 px-6 pt-2 pb-4
 			scrollbar-none lg:scroll-px-12 lg:px-12"
 	>
 		{@render children()}

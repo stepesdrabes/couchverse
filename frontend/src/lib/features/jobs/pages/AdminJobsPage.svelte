@@ -154,7 +154,7 @@
 	<div class="flex items-center gap-3 px-4 py-2.5 text-sm">
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-2">
-				<span class="truncate font-medium">{jobAction(job)}</span>
+				<span class="truncate text-muted">{jobAction(job)}</span>
 				{#if job.attempts > 1}
 					<span class="text-[11px] text-faint">attempt {job.attempts}</span>
 				{/if}
