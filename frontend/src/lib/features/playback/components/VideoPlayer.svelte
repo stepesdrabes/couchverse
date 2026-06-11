@@ -10,6 +10,7 @@
 		Maximize,
 		Minimize,
 		Pause,
+		PictureInPicture2,
 		Play,
 		RotateCcw,
 		RotateCw,
@@ -52,6 +53,8 @@
 	let volume = $state(Number(localStorage.getItem('cv.volume') ?? 1));
 	let muted = $state(false);
 	let fullscreen = $state(false);
+	let pipActive = $state(false);
+	const pipSupported = typeof document !== 'undefined' && document.pictureInPictureEnabled === true;
 	let controlsVisible = $state(true);
 	let nextCountdown = $state<number | null>(null);
 
@@ -99,6 +102,9 @@
 		}
 		if (selected >= 0 && video.textTracks[selected]) {
 			cueTrack = video.textTracks[selected];
+			// in PiP the browser only paints the video element, so let it render
+			// native captions; otherwise keep them hidden and use the custom overlay
+			cueTrack.mode = pipActive ? 'showing' : 'hidden';
 			cueTrack.addEventListener('cuechange', handleCueChange);
 			syncCues(cueTrack);
 		}
@@ -215,6 +221,21 @@
 	function toggleFullscreen() {
 		if (document.fullscreenElement) document.exitFullscreen();
 		else wrapper?.requestFullscreen();
+	}
+
+	async function togglePip() {
+		if (!video) return;
+		try {
+			if (document.pictureInPictureElement) await document.exitPictureInPicture();
+			else await video.requestPictureInPicture();
+		} catch {
+			// PiP unsupported or blocked by the browser
+		}
+	}
+
+	function onPipChange(active: boolean) {
+		pipActive = active;
+		applySubtitles(); // swap captions between native (PiP) and the overlay
 	}
 
 	function onTimeUpdate() {
@@ -390,8 +411,17 @@
 			}
 		};
 		document.addEventListener('visibilitychange', onVisibility);
+
+		// PiP events aren't in Svelte's element typings, so bind them here
+		const onEnterPip = () => onPipChange(true);
+		const onLeavePip = () => onPipChange(false);
+		video?.addEventListener('enterpictureinpicture', onEnterPip);
+		video?.addEventListener('leavepictureinpicture', onLeavePip);
+
 		return () => {
 			document.removeEventListener('visibilitychange', onVisibility);
+			video?.removeEventListener('enterpictureinpicture', onEnterPip);
+			video?.removeEventListener('leavepictureinpicture', onLeavePip);
 			detachCueListener();
 			clearTimeout(hideTimer);
 			clearInterval(keepaliveTimer);
@@ -437,7 +467,7 @@
 		{/each}
 	</video>
 
-	{#if cueHtml}
+	{#if cueHtml && !pipActive}
 		<div class="subtitle-overlay" class:raised={controlsVisible} style={subCssVars}>
 			{@html cueHtml}
 		</div>
@@ -553,7 +583,7 @@
 						<Popover.Trigger class="player-btn" aria-label="Episodes">
 							<ListVideo class="size-5" />
 						</Popover.Trigger>
-						<Popover.Portal>
+						<Popover.Portal to={wrapper}>
 							<Popover.Content
 								side="top"
 								sideOffset={10}
@@ -598,7 +628,7 @@
 						<Popover.Trigger class="player-btn" aria-label="Quality">
 							<SlidersHorizontal class="size-4.5" />
 						</Popover.Trigger>
-						<Popover.Portal>
+						<Popover.Portal to={wrapper}>
 							<Popover.Content
 								side="top"
 								sideOffset={10}
@@ -632,7 +662,7 @@
 						>
 							<Captions class="size-5" />
 						</Popover.Trigger>
-						<Popover.Portal>
+						<Popover.Portal to={wrapper}>
 							<Popover.Content
 								side="top"
 								sideOffset={10}
@@ -738,6 +768,16 @@
 							</Popover.Content>
 						</Popover.Portal>
 					</Popover.Root>
+				{/if}
+
+				{#if pipSupported}
+					<button
+						class="player-btn {pipActive ? 'text-accent!' : ''}"
+						onclick={togglePip}
+						aria-label="Picture in picture"
+					>
+						<PictureInPicture2 class="size-4.5" />
+					</button>
 				{/if}
 
 				<button class="player-btn" onclick={toggleFullscreen} aria-label="Fullscreen">
