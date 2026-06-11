@@ -75,15 +75,17 @@
 	{:else if results}
 		{#if results.titles.length > 0}
 			<h2 class="eyebrow mb-4">Movies & Series</h2>
-			<div
-				class="mb-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6"
-			>
-				{#each results.titles as item, i (item.titleId)}
-					<div in:fly={{ y: 14, duration: 300, delay: Math.min(i * 35, 350) }}>
-						<PosterCard {item} />
-					</div>
-				{/each}
-			</div>
+			{#key results}
+				<div
+					class="mb-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6"
+				>
+					{#each results.titles as item, i (item.titleId)}
+						<div in:fly|global={{ y: 14, duration: 300, delay: Math.min(i * 35, 350) }}>
+							<PosterCard {item} />
+						</div>
+					{/each}
+				</div>
+			{/key}
 		{/if}
 
 		{#if musicHits.length > 0}

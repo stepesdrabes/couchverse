@@ -63,12 +63,14 @@
 	{#if loaded && items.length === 0}
 		<EmptyState title="Nothing here yet" message="Published titles will show up in this view." />
 	{:else}
-		<div class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-			{#each items as item, i (item.titleId)}
-				<div in:fly={{ y: 14, duration: 300, delay: Math.min(i * 30, 360) }}>
-					<PosterCard {item} />
-				</div>
-			{/each}
-		</div>
+		{#key items}
+			<div class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+				{#each items as item, i (item.titleId)}
+					<div in:fly|global={{ y: 14, duration: 300, delay: Math.min(i * 30, 360) }}>
+						<PosterCard {item} />
+					</div>
+				{/each}
+			</div>
+		{/key}
 	{/if}
 </div>

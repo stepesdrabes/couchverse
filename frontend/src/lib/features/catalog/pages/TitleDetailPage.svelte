@@ -186,7 +186,7 @@
 					{#each currentSeason?.episodes ?? [] as ep, i (ep.id)}
 						{@const file = playable(ep)}
 						{@const pct = episodeProgressPct(ep)}
-						<li in:fly={{ y: 14, duration: 300, delay: Math.min(i * 40, 360) }}>
+						<li in:fly|global={{ y: 14, duration: 300, delay: Math.min(i * 40, 360) }}>
 							<svelte:element
 								this={file ? 'a' : 'div'}
 								href={file ? `/watch/episode/${ep.id}` : undefined}
