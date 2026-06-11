@@ -27,13 +27,20 @@
 <svelte:window bind:scrollY />
 
 <header
-	class="fixed inset-x-0 top-0 z-40 transition-all duration-300
+	class="fixed inset-x-0 top-0 z-40 border-b transition-all duration-300
 		{scrolled
-		? 'border-b border-edge/60 bg-bg/85 shadow-lg shadow-black/20 backdrop-blur-md'
-		: 'border-b border-transparent bg-gradient-to-b from-bg/90 to-transparent'}"
+		? 'border-edge/60 bg-bg/85 shadow-lg shadow-black/20 backdrop-blur-md'
+		: 'border-transparent bg-transparent shadow-none'}"
 	style="view-transition-name: top-nav"
 >
-	<div class="mx-auto flex h-20 max-w-[1700px] items-center gap-6 px-6 lg:px-8">
+	<!-- legibility scrim for white nav over a hero; fades out once scrolled, so
+	     the solid bar fades in smoothly without swapping a gradient for a colour -->
+	<div
+		class="pointer-events-none absolute inset-0 bg-gradient-to-b from-bg/85 to-transparent
+			transition-opacity duration-300 {scrolled ? 'opacity-0' : 'opacity-100'}"
+	></div>
+
+	<div class="relative mx-auto flex h-20 max-w-[1700px] items-center gap-6 px-6 lg:px-8">
 		<a href="/" class="text-xl font-extrabold tracking-tight">
 			couch<span class="text-accent">verse</span>
 		</a>
@@ -58,7 +65,7 @@
 		<div class="ml-auto flex items-center gap-2.5">
 			<a
 				href="/search"
-				class="rounded-full p-2.5 text-muted transition-colors hover:bg-surface-2 hover:text-text"
+				class="rounded-full p-2.5 text-text/90 transition-colors hover:bg-surface-2 hover:text-text"
 				title="Search"
 			>
 				<Search class="size-5" />
