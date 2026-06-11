@@ -152,6 +152,8 @@
 
 	// episode switcher: group the series' playable episodes by season
 	const episodesBySeason = $derived.by(() => {
+		// transient within the derived, recomputed each run - not reactive state
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const groups = new Map<number, { episodeId: string; episodeNumber: number; name: string }[]>();
 		for (const ep of info.episodes ?? []) {
 			const list = groups.get(ep.seasonNumber) ?? [];
@@ -469,6 +471,8 @@
 
 	{#if cueHtml && !pipActive}
 		<div class="subtitle-overlay" class:raised={controlsVisible} style={subCssVars}>
+			<!-- cue markup comes from the browser's own VTT parser (getCueAsHTML) -->
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html cueHtml}
 		</div>
 	{/if}

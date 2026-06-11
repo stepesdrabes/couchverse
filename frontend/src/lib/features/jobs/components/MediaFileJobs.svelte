@@ -4,6 +4,8 @@
 	import { jobAction } from '$lib/features/jobs/job-label';
 	import { formatYearDate } from '$lib/utils/format';
 
+	// `active` is a write-only bindable consumed by the parent
+	// eslint-disable-next-line no-useless-assignment
 	let { mediaFileId, active = $bindable(false) }: { mediaFileId: string; active?: boolean } =
 		$props();
 

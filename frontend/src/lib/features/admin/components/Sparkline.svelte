@@ -1,7 +1,3 @@
-<script lang="ts" module>
-	let uid = 0;
-</script>
-
 <script lang="ts">
 	// Rolling area+line sparkline. `values` are plotted left→right; `max` fixes
 	// the vertical scale (e.g. 100 for a percentage) so the line doesn't rescale
@@ -18,7 +14,8 @@
 		color?: string;
 	} = $props();
 
-	const gradId = `spark-${uid++}`;
+	const uid = $props.id();
+	const gradId = `spark-${uid}`;
 	const W = 100;
 	const H = 40;
 

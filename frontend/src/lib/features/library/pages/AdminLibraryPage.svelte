@@ -79,6 +79,8 @@
 
 	let activeTranscodes = $state<ActiveTranscode[]>([]);
 	const transcodesByTitle = $derived.by(() => {
+		// transient within the derived, recomputed each run - not reactive state
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const map = new Map<string, ActiveTranscode[]>();
 		for (const t of activeTranscodes) {
 			if (t.titleId) map.set(t.titleId, [...(map.get(t.titleId) ?? []), t]);

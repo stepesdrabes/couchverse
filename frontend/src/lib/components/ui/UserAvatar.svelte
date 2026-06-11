@@ -25,6 +25,7 @@
 {:else}
 	<span class="identicon flex items-center justify-center overflow-hidden bg-surface-2 {cls}">
 		<!-- minidenticon returns a GitHub-style pixel SVG; hue derives from the seed -->
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html identicon}
 	</span>
 {/if}
