@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import * as libraryApi from '$lib/features/library/api';
 	import * as settingsApi from '$lib/features/settings/api';
@@ -224,204 +225,223 @@
 	/>
 </div>
 
-{#if tab === 'general'}
-	<div class="max-w-4xl space-y-6">
-		<form
-			onsubmit={saveTmdb}
-			class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
-		>
-			<h2 class="text-sm font-semibold text-muted">Metadata</h2>
-			<Input
-				label="TMDB API key"
-				bind:value={tmdbKey}
-				placeholder="paste your themoviedb.org API key"
-				autocomplete="off"
-			/>
-			<p class="text-xs leading-relaxed text-faint">
-				With a key set, the title editor can search TMDB and fill in posters, overviews and genres
-				automatically.
-			</p>
-			<div class="flex justify-end">
-				<Button type="submit" loading={savingTmdb} disabled={!tmdbForm.dirty}>Save</Button>
+{#key tab}
+	<div in:fly|global={{ y: 10, duration: 250 }}>
+		{#if tab === 'general'}
+			<div class="max-w-4xl space-y-6">
+				<form
+					onsubmit={saveTmdb}
+					class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
+				>
+					<h2 class="text-sm font-semibold text-muted">Metadata</h2>
+					<Input
+						label="TMDB API key"
+						bind:value={tmdbKey}
+						placeholder="paste your themoviedb.org API key"
+						autocomplete="off"
+					/>
+					<p class="text-xs leading-relaxed text-faint">
+						With a key set, the title editor can search TMDB and fill in posters, overviews and
+						genres automatically.
+					</p>
+					<div class="flex justify-end">
+						<Button type="submit" loading={savingTmdb} disabled={!tmdbForm.dirty}>Save</Button>
+					</div>
+				</form>
+
+				<form
+					onsubmit={saveHome}
+					class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
+				>
+					<h2 class="text-sm font-semibold text-muted">Home page</h2>
+					<Input
+						label="Featured titles in the hero carousel"
+						type="number"
+						min="1"
+						max="10"
+						bind:value={featuredCount}
+						class="w-28"
+					/>
+					<p class="text-xs leading-relaxed text-faint">
+						The most recently published titles cycle through the banner on the home page (1-10).
+					</p>
+					<div class="flex justify-end">
+						<Button type="submit" loading={savingHome} disabled={!homeForm.dirty}>Save</Button>
+					</div>
+				</form>
+
+				<HomeRowsEditor />
 			</div>
-		</form>
+		{:else if tab === 'appearance'}
+			<form
+				onsubmit={saveAccent}
+				class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
+			>
+				<h2 class="text-sm font-semibold text-muted">Accent colour</h2>
+				<p class="text-xs leading-relaxed text-faint">
+					Sets the highlight colour across the whole app - buttons, links, the player and admin.
+					Changes preview live; save to apply for everyone.
+				</p>
 
-		<form
-			onsubmit={saveHome}
-			class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
-		>
-			<h2 class="text-sm font-semibold text-muted">Home page</h2>
-			<Input
-				label="Featured titles in the hero carousel"
-				type="number"
-				min="1"
-				max="10"
-				bind:value={featuredCount}
-				class="w-28"
-			/>
-			<p class="text-xs leading-relaxed text-faint">
-				The most recently published titles cycle through the banner on the home page (1-10).
-			</p>
-			<div class="flex justify-end">
-				<Button type="submit" loading={savingHome} disabled={!homeForm.dirty}>Save</Button>
-			</div>
-		</form>
+				<div class="flex items-center gap-3">
+					<input
+						type="color"
+						bind:value={accent}
+						class="size-11 cursor-pointer rounded-input border border-edge bg-transparent"
+						aria-label="Accent colour"
+					/>
+					<Input bind:value={accent} class="w-32 font-mono" aria-label="Accent hex" />
+				</div>
 
-		<HomeRowsEditor />
-	</div>
-{:else if tab === 'appearance'}
-	<form
-		onsubmit={saveAccent}
-		class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
-	>
-		<h2 class="text-sm font-semibold text-muted">Accent colour</h2>
-		<p class="text-xs leading-relaxed text-faint">
-			Sets the highlight colour across the whole app - buttons, links, the player and admin. Changes
-			preview live; save to apply for everyone.
-		</p>
-
-		<div class="flex items-center gap-3">
-			<input
-				type="color"
-				bind:value={accent}
-				class="size-11 cursor-pointer rounded-input border border-edge bg-transparent"
-				aria-label="Accent colour"
-			/>
-			<Input bind:value={accent} class="w-32 font-mono" aria-label="Accent hex" />
-		</div>
-
-		<div class="flex flex-wrap gap-2">
-			{#each accentPresets as preset (preset)}
-				<button
-					type="button"
-					onclick={() => (accent = preset)}
-					class="size-7 rounded-full border-2 transition-transform hover:scale-110
+				<div class="flex flex-wrap gap-2">
+					{#each accentPresets as preset (preset)}
+						<button
+							type="button"
+							onclick={() => (accent = preset)}
+							class="size-7 rounded-full border-2 transition-transform hover:scale-110
 						{accent.toLowerCase() === preset ? 'border-text' : 'border-transparent'}"
-					style="background: {preset}"
-					aria-label={preset}
-				></button>
-			{/each}
-		</div>
+							style="background: {preset}"
+							aria-label={preset}
+						></button>
+					{/each}
+				</div>
 
-		<div class="flex justify-end pt-1">
-			<Button type="submit" loading={savingAccent} disabled={!accentForm.dirty}>Save</Button>
-		</div>
-	</form>
-{:else if tab === 'transcoding'}
-	<form
-		onsubmit={saveTranscode}
-		class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
-	>
-		<h2 class="text-sm font-semibold text-muted">Transcoding</h2>
+				<div class="flex justify-end pt-1">
+					<Button type="submit" loading={savingAccent} disabled={!accentForm.dirty}>Save</Button>
+				</div>
+			</form>
+		{:else if tab === 'transcoding'}
+			<form
+				onsubmit={saveTranscode}
+				class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
+			>
+				<h2 class="text-sm font-semibold text-muted">Transcoding</h2>
 
-		<div>
-			<p class="mb-1.5 text-xs font-medium text-muted">Hardware acceleration</p>
-			<Select
-				bind:value={hwAccel}
-				items={[
-					{ value: 'auto', label: 'Auto (best available)' },
-					{ value: 'none', label: 'Software (libx264)' },
-					...detectedEncoders.map((e) => ({ value: e, label: e }))
-				]}
-			/>
-			<p class="mt-1.5 text-[11px] text-faint">
-				Detected: {detecting
-					? 'detecting encoders…'
-					: detectedEncoders.length
-						? detectedEncoders.join(', ')
-						: 'none (software only)'}
-			</p>
-		</div>
+				<div>
+					<p class="mb-1.5 text-xs font-medium text-muted">Hardware acceleration</p>
+					<Select
+						bind:value={hwAccel}
+						items={[
+							{ value: 'auto', label: 'Auto (best available)' },
+							{ value: 'none', label: 'Software (libx264)' },
+							...detectedEncoders.map((e) => ({ value: e, label: e }))
+						]}
+					/>
+					<p class="mt-1.5 text-[11px] text-faint">
+						Detected: {detecting
+							? 'detecting encoders…'
+							: detectedEncoders.length
+								? detectedEncoders.join(', ')
+								: 'none (software only)'}
+					</p>
+				</div>
 
-		<div>
-			<p class="mb-1.5 text-xs font-medium text-muted">Quality ladder (full transcodes)</p>
-			<div class="flex gap-4">
-				{#each allRenditions as rendition (rendition)}
-					<label class="flex items-center gap-2 text-sm">
-						<Checkbox
-							checked={ladder.includes(rendition)}
-							onCheckedChange={(on) => toggleRendition(rendition, on)}
+				<div>
+					<p class="mb-1.5 text-xs font-medium text-muted">Quality ladder (full transcodes)</p>
+					<div class="flex gap-4">
+						{#each allRenditions as rendition (rendition)}
+							<label class="flex items-center gap-2 text-sm">
+								<Checkbox
+									checked={ladder.includes(rendition)}
+									onCheckedChange={(on) => toggleRendition(rendition, on)}
+								/>
+								{rendition}
+							</label>
+						{/each}
+					</div>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<p class="mb-1.5 text-xs font-medium text-muted">x264 preset</p>
+						<Select
+							bind:value={preset}
+							items={['ultrafast', 'veryfast', 'fast', 'medium'].map((p) => ({
+								value: p,
+								label: p
+							}))}
 						/>
-						{rendition}
-					</label>
-				{/each}
-			</div>
-		</div>
+					</div>
+					<Input
+						label="Max concurrent jobs"
+						type="number"
+						min="1"
+						max="4"
+						bind:value={maxConcurrent}
+					/>
+				</div>
 
-		<div class="grid grid-cols-2 gap-4">
-			<div>
-				<p class="mb-1.5 text-xs font-medium text-muted">x264 preset</p>
-				<Select
-					bind:value={preset}
-					items={['ultrafast', 'veryfast', 'fast', 'medium'].map((p) => ({
-						value: p,
-						label: p
-					}))}
-				/>
-			</div>
-			<Input label="Max concurrent jobs" type="number" min="1" max="4" bind:value={maxConcurrent} />
-		</div>
+				<label
+					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"
+				>
+					<span>
+						<span class="block text-sm">Auto-prepare unplayable files</span>
+						<span class="block text-[11px] text-faint">
+							Queue background transcodes for files browsers can't play, right after scanning.
+						</span>
+					</span>
+					<Switch bind:checked={autoPrepare} />
+				</label>
 
-		<label class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5">
-			<span>
-				<span class="block text-sm">Auto-prepare unplayable files</span>
-				<span class="block text-[11px] text-faint">
-					Queue background transcodes for files browsers can't play, right after scanning.
-				</span>
-			</span>
-			<Switch bind:checked={autoPrepare} />
-		</label>
+				<label
+					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"
+				>
+					<span>
+						<span class="block text-sm">Delete original after transcoding</span>
+						<span class="block text-[11px] text-faint">
+							Permanently removes the source file once all quality tiers finish. This is
+							irreversible - re-transcoding to other qualities won't be possible.
+						</span>
+					</span>
+					<Switch bind:checked={deleteSource} />
+				</label>
 
-		<label class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5">
-			<span>
-				<span class="block text-sm">Delete original after transcoding</span>
-				<span class="block text-[11px] text-faint">
-					Permanently removes the source file once all quality tiers finish. This is irreversible -
-					re-transcoding to other qualities won't be possible.
-				</span>
-			</span>
-			<Switch bind:checked={deleteSource} />
-		</label>
+				<div>
+					<p class="mb-1.5 text-xs font-medium text-muted">Instant play (on-the-fly transcoding)</p>
+					<Select
+						bind:value={jit}
+						items={[
+							{ value: 'auto', label: 'Auto (on with a hardware encoder)' },
+							{ value: 'on', label: 'Always on' },
+							{ value: 'off', label: 'Off' }
+						]}
+					/>
+					<p class="mt-1.5 text-[11px] text-faint">
+						Plays unprepared files immediately by transcoding live while you watch. Heavy without
+						hardware acceleration.
+					</p>
+				</div>
 
-		<div>
-			<p class="mb-1.5 text-xs font-medium text-muted">Instant play (on-the-fly transcoding)</p>
-			<Select
-				bind:value={jit}
-				items={[
-					{ value: 'auto', label: 'Auto (on with a hardware encoder)' },
-					{ value: 'on', label: 'Always on' },
-					{ value: 'off', label: 'Off' }
-				]}
-			/>
-			<p class="mt-1.5 text-[11px] text-faint">
-				Plays unprepared files immediately by transcoding live while you watch. Heavy without
-				hardware acceleration.
-			</p>
-		</div>
+				<div class="flex justify-end">
+					<Button type="submit" loading={savingTranscode} disabled={!transcodeForm.dirty}
+						>Save</Button
+					>
+				</div>
+			</form>
+		{:else if tab === 'features'}
+			<form
+				onsubmit={saveFeatures}
+				class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
+			>
+				<h2 class="text-sm font-semibold text-muted">Features</h2>
 
-		<div class="flex justify-end">
-			<Button type="submit" loading={savingTranscode} disabled={!transcodeForm.dirty}>Save</Button>
-		</div>
-	</form>
-{:else if tab === 'features'}
-	<form
-		onsubmit={saveFeatures}
-		class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
-	>
-		<h2 class="text-sm font-semibold text-muted">Features</h2>
+				<label
+					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"
+				>
+					<span>
+						<span class="block text-sm">Music library</span>
+						<span class="block text-[11px] text-faint">
+							When off, all music pages, the player bar and the music API endpoints are hidden.
+						</span>
+					</span>
+					<Switch bind:checked={musicEnabled} />
+				</label>
 
-		<label class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5">
-			<span>
-				<span class="block text-sm">Music library</span>
-				<span class="block text-[11px] text-faint">
-					When off, all music pages, the player bar and the music API endpoints are hidden.
-				</span>
-			</span>
-			<Switch bind:checked={musicEnabled} />
-		</label>
-
-		<div class="flex justify-end">
-			<Button type="submit" loading={savingFeatures} disabled={!featuresForm.dirty}>Save</Button>
-		</div>
-	</form>
-{/if}
+				<div class="flex justify-end">
+					<Button type="submit" loading={savingFeatures} disabled={!featuresForm.dirty}>Save</Button
+					>
+				</div>
+			</form>
+		{/if}
+	</div>
+{/key}
