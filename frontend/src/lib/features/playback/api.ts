@@ -32,6 +32,8 @@ export interface PlaybackInfo {
 		titleId: string;
 		titleSlug: string;
 		backdropId: string | null;
+		backdropVer?: number;
+		backdropAccent?: string;
 	};
 	nextEpisode: EpisodeRef | null;
 	subtitles: SubtitleTrack[];

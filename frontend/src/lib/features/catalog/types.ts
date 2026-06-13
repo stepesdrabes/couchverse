@@ -55,8 +55,10 @@ export interface CardItem {
 	year: number | null;
 	posterId: string | null;
 	posterVer?: number;
+	posterAccent?: string;
 	backdropId: string | null;
 	backdropVer?: number;
+	backdropAccent?: string;
 }
 
 export interface ContinueItem extends CardItem {
@@ -78,6 +80,7 @@ export interface HomeRow {
 export interface FeaturedItem extends Title {
 	backdropId: string | null;
 	backdropVer?: number;
+	backdropAccent?: string;
 	inList: boolean;
 }
 
@@ -95,6 +98,7 @@ export interface ArtworkRef {
 	width: number;
 	height: number;
 	source: string;
+	accent?: string;
 	createdAt: string;
 }
 

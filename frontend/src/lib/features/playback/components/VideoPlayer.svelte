@@ -21,7 +21,6 @@
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly, scale } from 'svelte/transition';
-	import { artworkUrl } from '$lib/features/catalog/api';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import { musicPlayer } from '$lib/features/music/player.svelte';
 	import type { PlaybackInfo, SeriesEpisode } from '$lib/features/playback/api';
@@ -37,8 +36,8 @@
 		type SubtitleSettings
 	} from '$lib/features/preferences/preferences.svelte';
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
+	import { accentVars } from '$lib/theme';
 	import { formatClock } from '$lib/utils/format';
-	import { bannerAccent } from '$lib/utils/palette.svelte';
 
 	let {
 		info,
@@ -318,9 +317,9 @@
 
 	let scrubbing = $state(false);
 
-	// seek-bar hover: time tooltip + frame preview, accent from the banner
-	const accent = bannerAccent(() =>
-		info.display.backdropId ? artworkUrl(info.display.backdropId) : null
+	// banner accent for the player, from the title backdrop's server-extracted colour
+	const accentStyle = $derived(
+		info.display.backdropAccent ? accentVars(info.display.backdropAccent) : ''
 	);
 	let hoverRatio = $state<number | null>(null);
 	const hoverTime = $derived(hoverRatio !== null ? hoverRatio * duration : 0);
@@ -485,7 +484,7 @@
 <div
 	bind:this={wrapper}
 	class="relative h-dvh w-full overflow-hidden bg-black {controlsVisible ? '' : 'cursor-none'}"
-	style={accent.style}
+	style={accentStyle}
 	onpointermove={poke}
 	role="presentation"
 >

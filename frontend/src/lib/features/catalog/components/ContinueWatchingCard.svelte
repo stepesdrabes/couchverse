@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { Play } from 'lucide-svelte';
-	import { artworkUrl } from '$lib/features/catalog/api';
 	import type { ContinueItem } from '$lib/features/catalog/types';
-	import { hoverAccent } from '$lib/utils/palette.svelte';
 	import Artwork from './Artwork.svelte';
 
 	let { item }: { item: ContinueItem } = $props();
@@ -13,18 +11,16 @@
 
 	const art = $derived(
 		item.backdropId
-			? { id: item.backdropId, v: item.backdropVer }
-			: { id: item.posterId, v: item.posterVer }
+			? { id: item.backdropId, v: item.backdropVer, accent: item.backdropAccent }
+			: { id: item.posterId, v: item.posterVer, accent: item.posterAccent }
 	);
 
-	const ca = hoverAccent(() => (art.id ? artworkUrl(art.id, art.v) : null));
-	const cardAccent = $derived(ca.accent ? `--card-accent:${ca.accent}` : '');
+	const cardAccent = $derived(art.accent?.startsWith('#') ? `--card-accent:${art.accent}` : '');
 </script>
 
 <a
 	href="/watch/{item.playbackKind}/{item.playbackId}"
 	class="group w-48 shrink-0 snap-start sm:w-56"
-	onpointerenter={ca.load}
 	style={cardAccent}
 >
 	<div

@@ -1,24 +1,21 @@
 <script lang="ts">
-	import { artworkUrl } from '$lib/features/catalog/api';
 	import type { CardItem } from '$lib/features/catalog/types';
-	import { hoverAccent } from '$lib/utils/palette.svelte';
 	import Artwork from './Artwork.svelte';
 
 	let { item }: { item: CardItem } = $props();
 
 	const art = $derived(
 		item.posterId
-			? { id: item.posterId, v: item.posterVer }
-			: { id: item.backdropId, v: item.backdropVer }
+			? { id: item.posterId, v: item.posterVer, accent: item.posterAccent }
+			: { id: item.backdropId, v: item.backdropVer, accent: item.backdropAccent }
 	);
 
-	const ca = hoverAccent(() => (art.id ? artworkUrl(art.id, art.v) : null));
 	// --card-accent inherits to the ring div (Tailwind's --tw-ring-color does not);
-	// it falls back to the themed accent until the poster's colour is extracted
-	const cardAccent = $derived(ca.accent ? `--card-accent:${ca.accent}` : '');
+	// it falls back to the themed accent when the art has no extracted colour
+	const cardAccent = $derived(art.accent?.startsWith('#') ? `--card-accent:${art.accent}` : '');
 </script>
 
-<a href="/title/{item.slug}" class="group" onpointerenter={ca.load} style={cardAccent}>
+<a href="/title/{item.slug}" class="group" style={cardAccent}>
 	<div
 		class="aspect-[2/3] overflow-hidden rounded-xl border border-edge/50 transition-all duration-300
 			group-hover:scale-[1.02] group-hover:shadow-lg group-hover:shadow-black/40 group-hover:ring-2

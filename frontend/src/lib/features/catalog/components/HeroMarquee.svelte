@@ -7,7 +7,7 @@
 	import type { FeaturedItem } from '$lib/features/catalog/types';
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import { bannerAccent } from '$lib/utils/palette.svelte';
+	import { accentVars } from '$lib/theme';
 
 	let { items }: { items: FeaturedItem[] } = $props();
 
@@ -52,11 +52,9 @@
 		progress = 0;
 	}
 
-	// pull a vibrant accent out of the active banner and scope it to the hero
-	// subtree, so the eyebrow and buttons echo the featured artwork
-	const accent = bannerAccent(() =>
-		active.backdropId ? catalog.artworkUrl(active.backdropId, active.backdropVer) : null
-	);
+	// accent the hero subtree from the active banner's server-extracted colour,
+	// so the eyebrow and buttons echo the featured artwork
+	const accentStyle = $derived(active.backdropAccent ? accentVars(active.backdropAccent) : '');
 
 	function play() {
 		if (active.kind === 'movie') goto(`/watch/movie/${active.id}`);
@@ -80,7 +78,7 @@
 
 <div
 	class="relative flex min-h-[72vh] items-center justify-center overflow-hidden md:min-h-[82vh]"
-	style={accent.style}
+	style={accentStyle}
 	role="region"
 	aria-roledescription="carousel"
 	aria-label="Featured titles"

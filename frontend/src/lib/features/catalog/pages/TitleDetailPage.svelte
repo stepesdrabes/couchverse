@@ -9,8 +9,8 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import { accentVars } from '$lib/theme';
 	import { formatClock, formatRuntime, qualityLabel } from '$lib/utils/format';
-	import { bannerAccent } from '$lib/utils/palette.svelte';
 
 	let { data }: { data: Awaited<ReturnType<typeof catalog.getTitle>> } = $props();
 
@@ -20,10 +20,8 @@
 	const poster = $derived(data.artwork.find((a) => a.kind === 'poster'));
 	const backdrop = $derived(data.artwork.find((a) => a.kind === 'backdrop'));
 
-	// accent the whole page from the title's backdrop, like the home hero
-	const accent = bannerAccent(() =>
-		backdrop ? catalog.artworkUrl(backdrop.id, catalog.artworkVer(backdrop.createdAt)) : null
-	);
+	// accent the whole page from the title's backdrop (server-extracted colour)
+	const accentStyle = $derived(backdrop?.accent ? accentVars(backdrop.accent) : '');
 
 	const fileByEpisode = $derived(
 		new Map(data.mediaFiles.filter((f) => f.episodeId).map((f) => [f.episodeId as string, f]))
@@ -94,7 +92,7 @@
 	<title>{data.title.name} - Couchverse</title>
 </svelte:head>
 
-<div class="relative" style={accent.style}>
+<div class="relative" style={accentStyle}>
 	<div class="absolute inset-x-0 top-0 h-[480px] overflow-hidden">
 		{#if backdrop}
 			<img
