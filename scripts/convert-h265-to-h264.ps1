@@ -69,13 +69,31 @@ function Probe-File($path) {
 function To-Double($v) { $d = 0.0; [double]::TryParse("$v", [ref]$d) | Out-Null; return $d }
 function Human($bytes) { "{0:N2} GB" -f ($bytes / 1GB) }
 
-# video encoder args for a real h265 -> h264 re-encode
-function Video-Args {
+# Encode plan for one file. Returns pre-input flags (hwaccel), output filters,
+# and video codec args. h264 sources are remuxed (no re-encode).
+function Build-VideoPlan($vcodec) {
+    if ($vcodec -eq "h264") {
+        return @{ Pre = @(); Filter = @(); V = @("-c:v", "copy") }
+    }
     switch ($Encoder) {
-        "libx264" { @("-c:v", "libx264", "-preset", $Preset, "-crf", "$Crf", "-pix_fmt", "yuv420p") }
-        "nvenc"   { @("-c:v", "h264_nvenc", "-preset", "p6", "-tune", "hq", "-rc", "vbr", "-cq", "$Crf", "-b:v", "0", "-pix_fmt", "yuv420p") }
-        "qsv"     { @("-c:v", "h264_qsv", "-preset", "veryslow", "-global_quality", "$Crf", "-pix_fmt", "nv12") }
-        "amf"     { @("-c:v", "h264_amf", "-rc", "cqp", "-qp_i", "$Crf", "-qp_p", "$Crf", "-quality", "quality", "-pix_fmt", "yuv420p") }
+        "nvenc" {
+            # full GPU: NVDEC decodes, scale_cuda converts to 8-bit on the GPU,
+            # NVENC encodes - frames never leave the card, CPU stays idle
+            return @{
+                Pre    = @("-hwaccel", "cuda", "-hwaccel_output_format", "cuda")
+                Filter = @("-vf", "scale_cuda=format=yuv420p")
+                V      = @("-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-rc", "vbr", "-cq", "$Crf", "-b:v", "0")
+            }
+        }
+        "qsv" {
+            return @{ Pre = @(); Filter = @(); V = @("-c:v", "h264_qsv", "-preset", "veryslow", "-global_quality", "$Crf", "-pix_fmt", "nv12") }
+        }
+        "amf" {
+            return @{ Pre = @(); Filter = @(); V = @("-c:v", "h264_amf", "-rc", "cqp", "-qp_i", "$Crf", "-qp_p", "$Crf", "-quality", "quality", "-pix_fmt", "yuv420p") }
+        }
+        default {
+            return @{ Pre = @(); Filter = @(); V = @("-c:v", "libx264", "-preset", $Preset, "-crf", "$Crf", "-pix_fmt", "yuv420p") }
+        }
     }
 }
 
@@ -114,7 +132,7 @@ foreach ($folder in $folders) {
             $a      = $probe.streams | Where-Object { $_.codec_type -eq "audio" } | Select-Object -First 1
             $acodec = if ($a) { "$($a.codec_name)".ToLower() } else { "" }
 
-            if ($vcodec -eq "h264") { $vargs = @("-c:v", "copy") } else { $vargs = Video-Args }
+            $plan = Build-VideoPlan $vcodec
             $maps = @("-map", "0:v:0")
             $aargs = @()
             if ($a) {
@@ -127,9 +145,11 @@ foreach ($folder in $folders) {
             if ($DryRun) { Log "WOULD CONVERT ($action): $($file.Name)"; $skipped++; continue }
 
             Log "CONVERT ($action): $($file.Name)"
-            $ff = @("-hide_banner", "-loglevel", "warning", "-stats", "-y", "-i", $in) + $maps + $vargs + $aargs +
+            $ff = @("-hide_banner", "-loglevel", "warning", "-stats", "-y") + $plan.Pre + @("-i", $in) +
+                  $maps + $plan.Filter + $plan.V + $aargs +
                   @("-movflags", "+faststart", "-sn", "-dn", "-map_metadata", "0", "-map_chapters", "0", $tmp)
-            & $FfmpegPath @ff
+            # 2>&1 | Out-Host shows progress and stops ffmpeg's stderr from aborting the script
+            & $FfmpegPath @ff 2>&1 | Out-Host
             $code = $LASTEXITCODE
 
             # verify before we trust it enough to delete the source
