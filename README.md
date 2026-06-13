@@ -84,8 +84,18 @@ Add users under **Admin → Users** (no public signup). Set a TMDB API key under
 - Share `data/media` over SMB/SFTP and use **Jobs & Storage → Scan** after dropping
   files - uploads through the browser work too.
 - Keep the transcode ladder at 720p and 1 concurrent job (the defaults). On a Pi 4
-  the `h264_v4l2m2m` hardware encoder is detected automatically; a Pi 5 has no
-  video encoder, so prefer direct-play-friendly files (h264 mp4/mkv).
+  start the stack with the hardware-encoder overlay so transcodes use the
+  `h264_v4l2m2m` video encoder (~3x realtime) instead of software libx264, which is
+  unusably slow on a Pi:
+
+  ```sh
+  docker compose -f docker-compose.yml -f docker-compose.pi.yml up -d --build
+  ```
+
+  The overlay passes `/dev/video11` (the Pi's H.264 encoder) into the container and
+  adds the `video` group. Once the encoder is detected, instant play (JIT) also
+  turns on automatically. A Pi 5 has no video encoder, so prefer direct-play-friendly
+  files (h264 mp4/mkv) there.
 - Images are multi-arch: `docker buildx build --platform linux/arm64 .`
 
 ### Stronger hardware

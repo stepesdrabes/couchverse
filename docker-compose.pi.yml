@@ -1,0 +1,19 @@
+# Raspberry Pi 4 overlay: hand the container the V4L2 hardware H.264 encoder.
+#
+# Without this, ffmpeg inside the container has no encoder device, detection
+# falls back to software libx264 (~0.3x realtime on a Pi 4 - unusable), and
+# instant play stays off. With /dev/video11 passed through, transcodes use
+# h264_v4l2m2m (~3x realtime) and JIT turns on automatically.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.pi.yml up -d --build
+#
+# /dev/video11 is the Pi 4's bcm2835-codec H.264 encoder. group 44 is `video`,
+# the device's owning group; if `getent group video` prints a different gid on
+# your Pi, change the number below to match.
+services:
+  app:
+    group_add:
+      - "44"
+    devices:
+      - /dev/video11:/dev/video11
