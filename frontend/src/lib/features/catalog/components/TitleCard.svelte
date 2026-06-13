@@ -10,10 +10,13 @@
 		[item.kind === 'series' ? 'Series' : 'Movie', item.year].filter(Boolean).join(' · ')
 	);
 
-	const ca = hoverAccent(() => {
-		const id = item.backdropId ?? item.posterId;
-		return id ? artworkUrl(id) : null;
-	});
+	const art = $derived(
+		item.backdropId
+			? { id: item.backdropId, v: item.backdropVer }
+			: { id: item.posterId, v: item.posterVer }
+	);
+
+	const ca = hoverAccent(() => (art.id ? artworkUrl(art.id, art.v) : null));
 	const cardAccent = $derived(ca.accent ? `--card-accent:${ca.accent}` : '');
 </script>
 
@@ -29,7 +32,7 @@
 			group-hover:ring-offset-2"
 		style="--tw-ring-color:var(--card-accent,var(--color-accent));--tw-ring-offset-color:var(--color-bg)"
 	>
-		<Artwork artworkId={item.backdropId ?? item.posterId} name={item.name} />
+		<Artwork artworkId={art.id} v={art.v} name={item.name} />
 	</div>
 	<p class="mt-2 truncate text-sm font-semibold transition-colors group-hover:text-accent">
 		{item.name}

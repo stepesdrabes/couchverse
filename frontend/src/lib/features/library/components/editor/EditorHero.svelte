@@ -11,12 +11,14 @@
 	let {
 		title,
 		artwork,
+		busy = false,
 		onFetchTmdb,
 		onImportEpisodes,
 		onDelete
 	}: {
 		title: Title;
 		artwork: ArtworkRef[];
+		busy?: boolean;
 		onFetchTmdb: () => void;
 		onImportEpisodes: () => void;
 		onDelete: () => void;
@@ -139,7 +141,7 @@
 				</div>
 
 				<div class="mt-5 flex flex-wrap items-center gap-2">
-					<Button variant="secondary" size="sm" onclick={onFetchTmdb}>
+					<Button variant="secondary" size="sm" disabled={busy} onclick={onFetchTmdb}>
 						<Sparkles class="size-3.5" />
 						Fetch from TMDB
 					</Button>
@@ -149,7 +151,7 @@
 							<Button
 								variant="secondary"
 								size="sm"
-								disabled={!title.tmdbId}
+								disabled={!title.tmdbId || busy}
 								onclick={onImportEpisodes}
 							>
 								<ListPlus class="size-3.5" />

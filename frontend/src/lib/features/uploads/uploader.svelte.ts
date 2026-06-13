@@ -130,6 +130,21 @@ export class UploadQueue {
 	remove(upload: Upload) {
 		this.uploads = this.uploads.filter((u) => u !== upload);
 	}
+
+	/**
+	 * True while losing the tab would interrupt or discard upload progress -
+	 * drives the beforeunload guard. Paused/errored uploads with bytes already
+	 * sent count too, since a reload restarts them from scratch.
+	 */
+	get inFlight(): boolean {
+		return this.uploads.some(
+			(u) =>
+				u.status === 'uploading' ||
+				u.status === 'completing' ||
+				u.status === 'queued' ||
+				((u.status === 'paused' || u.status === 'error') && u.offset > 0)
+		);
+	}
 }
 
 export const uploadQueue = new UploadQueue();

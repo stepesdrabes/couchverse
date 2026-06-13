@@ -21,7 +21,9 @@
 	const backdrop = $derived(data.artwork.find((a) => a.kind === 'backdrop'));
 
 	// accent the whole page from the title's backdrop, like the home hero
-	const accent = bannerAccent(() => (backdrop ? catalog.artworkUrl(backdrop.id) : null));
+	const accent = bannerAccent(() =>
+		backdrop ? catalog.artworkUrl(backdrop.id, catalog.artworkVer(backdrop.createdAt)) : null
+	);
 
 	const fileByEpisode = $derived(
 		new Map(data.mediaFiles.filter((f) => f.episodeId).map((f) => [f.episodeId as string, f]))
@@ -95,7 +97,11 @@
 <div class="relative" style={accent.style}>
 	<div class="absolute inset-x-0 top-0 h-[480px] overflow-hidden">
 		{#if backdrop}
-			<img src={catalog.artworkUrl(backdrop.id)} alt="" class="size-full object-cover opacity-35" />
+			<img
+				src={catalog.artworkUrl(backdrop.id, catalog.artworkVer(backdrop.createdAt))}
+				alt=""
+				class="size-full object-cover opacity-35"
+			/>
 		{:else}
 			<div class="size-full bg-gradient-to-br from-accent-soft/40 via-bg to-bg"></div>
 		{/if}
@@ -108,7 +114,11 @@
 				class="hidden h-64 w-44 shrink-0 animate-slide-up overflow-hidden rounded-card border
 					border-edge/60 shadow-2xl shadow-black/50 md:block"
 			>
-				<Artwork artworkId={poster?.id ?? null} name={data.title.name} />
+				<Artwork
+					artworkId={poster?.id ?? null}
+					v={poster ? catalog.artworkVer(poster.createdAt) : null}
+					name={data.title.name}
+				/>
 			</div>
 
 			<div class="min-w-0 animate-slide-up">
@@ -199,6 +209,7 @@
 								>
 									<Artwork
 										artworkId={ep.thumbId ?? null}
+										v={ep.thumbVer}
 										name={ep.name || `Episode ${ep.episodeNumber}`}
 									/>
 									{#if file}

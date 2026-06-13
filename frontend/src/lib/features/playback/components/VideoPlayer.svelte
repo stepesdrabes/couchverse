@@ -14,7 +14,7 @@
 		Play,
 		RotateCcw,
 		RotateCw,
-		SlidersHorizontal,
+		Settings,
 		Type,
 		Volume2,
 		VolumeX
@@ -22,8 +22,9 @@
 	import { onMount } from 'svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { artworkUrl } from '$lib/features/catalog/api';
+	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import { musicPlayer } from '$lib/features/music/player.svelte';
-	import type { PlaybackInfo } from '$lib/features/playback/api';
+	import type { PlaybackInfo, SeriesEpisode } from '$lib/features/playback/api';
 	import {
 		beaconProgress,
 		frameUrl,
@@ -163,7 +164,7 @@
 	const episodesBySeason = $derived.by(() => {
 		// transient within the derived, recomputed each run - not reactive state
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const groups = new Map<number, { episodeId: string; episodeNumber: number; name: string }[]>();
+		const groups = new Map<number, SeriesEpisode[]>();
 		for (const ep of info.episodes ?? []) {
 			const list = groups.get(ep.seasonNumber) ?? [];
 			list.push(ep);
@@ -737,36 +738,72 @@
 							<Popover.Content
 								side="top"
 								sideOffset={10}
-								class="z-50 flex max-h-[60vh] w-72 animate-pop-in flex-col rounded-card border border-edge bg-surface-2/95 p-1 shadow-xl backdrop-blur"
+								class="z-50 flex max-h-[65vh] w-[26rem] max-w-[calc(100vw-2rem)] animate-pop-in flex-col rounded-card border border-edge bg-surface-2/95 shadow-xl backdrop-blur"
 							>
-								{#if episodesBySeason.length > 1}
-									<div class="flex flex-wrap gap-1 border-b border-edge/70 p-2">
-										{#each episodesBySeason as [seasonNumber] (seasonNumber)}
-											<button
-												class="rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors
-													{seasonNumber === activeSeason
-													? 'bg-accent text-[var(--color-on-accent)]'
-													: 'bg-surface text-muted hover:text-text'}"
-												onclick={() => (pickedSeason = seasonNumber)}
-											>
-												S{seasonNumber}
-											</button>
-										{/each}
-									</div>
-								{/if}
-								<div class="overflow-y-auto p-1 scrollbar-none">
+								<div
+									class="flex items-center justify-between gap-2 border-b border-edge/70 px-3 py-2.5"
+								>
+									<p class="text-xs font-semibold">Episodes</p>
+									{#if episodesBySeason.length > 1}
+										<div class="flex flex-wrap justify-end gap-1">
+											{#each episodesBySeason as [seasonNumber] (seasonNumber)}
+												<button
+													class="rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors
+														{seasonNumber === activeSeason
+														? 'bg-accent text-[var(--color-on-accent)]'
+														: 'bg-surface text-muted hover:text-text'}"
+													onclick={() => (pickedSeason = seasonNumber)}
+												>
+													S{seasonNumber}
+												</button>
+											{/each}
+										</div>
+									{/if}
+								</div>
+								<div class="space-y-1 overflow-y-auto p-2 scrollbar-none">
 									{#each seasonEpisodes as ep (ep.episodeId)}
+										{@const current = ep.episodeId === info.currentEpisodeId}
 										<button
-											class="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-xs
-												{ep.episodeId === info.currentEpisodeId ? 'text-text' : 'text-muted'} hover:bg-surface"
+											class="group flex w-full gap-3 rounded-lg p-1.5 text-left transition-colors
+												{current ? 'bg-surface' : 'hover:bg-surface'}"
 											onclick={() => openEpisode(ep.episodeId)}
 										>
-											<span class="w-6 shrink-0 text-faint tnum">E{ep.episodeNumber}</span>
-											<span class="flex-1 truncate">{ep.name || `Episode ${ep.episodeNumber}`}</span
+											<div
+												class="relative aspect-video w-28 shrink-0 overflow-hidden rounded-md border
+													border-edge/60 bg-surface-2"
 											>
-											{#if ep.episodeId === info.currentEpisodeId}
-												<Play class="size-3 shrink-0 fill-current text-accent" />
-											{/if}
+												<Artwork
+													artworkId={ep.thumbId ?? null}
+													v={ep.thumbVer}
+													name={ep.name || `Episode ${ep.episodeNumber}`}
+												/>
+												<div
+													class="absolute inset-0 flex items-center justify-center bg-black/45 transition-opacity
+														{current ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}"
+												>
+													<span
+														class="rounded-full bg-accent p-1.5 text-[var(--color-on-accent)] shadow-lg"
+													>
+														<Play class="size-3.5 fill-current" />
+													</span>
+												</div>
+											</div>
+											<div class="min-w-0 flex-1 py-0.5">
+												<div class="flex items-center gap-1.5">
+													<span class="text-xs font-semibold text-faint tnum"
+														>E{ep.episodeNumber}</span
+													>
+													{#if current}
+														<span class="text-[10px] font-semibold text-accent">Now playing</span>
+													{/if}
+												</div>
+												<p
+													class="mt-0.5 line-clamp-2 text-xs font-medium
+														{current ? 'text-text' : 'text-muted'} group-hover:text-accent"
+												>
+													{ep.name || `Episode ${ep.episodeNumber}`}
+												</p>
+											</div>
 										</button>
 									{/each}
 								</div>
@@ -778,7 +815,7 @@
 				{#if qualityOptions.length > 1}
 					<Popover.Root>
 						<Popover.Trigger class="player-btn" aria-label="Quality" title="Quality">
-							<SlidersHorizontal class="size-4.5" />
+							<Settings class="size-4.5" />
 						</Popover.Trigger>
 						<Popover.Portal to={wrapper}>
 							<Popover.Content

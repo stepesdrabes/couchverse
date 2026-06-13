@@ -52,6 +52,8 @@ export interface SeriesEpisode {
 	seasonNumber: number;
 	episodeNumber: number;
 	name: string;
+	thumbId?: string | null;
+	thumbVer?: number;
 }
 
 export const getPlayback = (kind: PlaybackKind, id: string) =>

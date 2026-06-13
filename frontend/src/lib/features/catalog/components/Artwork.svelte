@@ -4,12 +4,18 @@
 	let {
 		artworkId,
 		name,
+		v = null,
 		class: cls = ''
-	}: { artworkId: string | null; name: string; class?: string } = $props();
+	}: { artworkId: string | null; name: string; v?: number | null; class?: string } = $props();
 </script>
 
 {#if artworkId}
-	<img src={artworkUrl(artworkId)} alt={name} loading="lazy" class="size-full object-cover {cls}" />
+	<img
+		src={artworkUrl(artworkId, v)}
+		alt={name}
+		loading="lazy"
+		class="size-full object-cover {cls}"
+	/>
 {:else}
 	<div
 		class="flex size-full items-center justify-center bg-gradient-to-br from-accent-soft

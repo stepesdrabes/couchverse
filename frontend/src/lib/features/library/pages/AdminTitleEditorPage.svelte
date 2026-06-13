@@ -2,6 +2,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { waitForJob } from '$lib/features/jobs/api';
 	import * as libraryApi from '$lib/features/library/api';
 	import TmdbSearchModal from '$lib/features/library/components/TmdbSearchModal.svelte';
 	import EditorHero from '$lib/features/library/components/editor/EditorHero.svelte';
@@ -54,6 +55,64 @@
 	let confirmDeleteTitle = $state(false);
 	let tmdbOpen = $state(false);
 	let importOpen = $state(false);
+	// a TMDB metadata/import job (or the chained pair) is running
+	let jobActive = $state(false);
+
+	// Apply TMDB metadata + artwork. For a series, automatically chain into the
+	// episode import so the whole show fills in from one action, holding the
+	// in-page loading indicator across both jobs.
+	async function runTmdb(tmdbId: number) {
+		jobActive = true;
+		const pending = toast.loading('Fetching metadata & artwork from TMDB…');
+		try {
+			const { jobId } = await libraryApi.applyTmdb(data.title.id, tmdbId);
+			const job = await waitForJob(jobId);
+			if (job?.status === 'failed') {
+				toast.error('TMDB fetch failed', { id: pending });
+				return;
+			}
+			await invalidateAll(); // pull in the new poster/backdrop/metadata + tmdbId
+			if (data.title.kind === 'series') {
+				toast.loading('Importing episodes from TMDB…', { id: pending });
+				await importEpisodeJob(pending);
+			} else {
+				toast.success('Metadata & artwork applied', { id: pending });
+			}
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'failed to apply', { id: pending });
+		} finally {
+			jobActive = false;
+		}
+	}
+
+	// Manual "Import episodes" path (re-import or pick specific seasons).
+	async function runImport(seasons?: number[]) {
+		jobActive = true;
+		const pending = toast.loading('Importing episodes from TMDB…');
+		try {
+			await importEpisodeJob(pending, seasons);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'failed to import', { id: pending });
+		} finally {
+			jobActive = false;
+		}
+	}
+
+	// Run the import job and refresh, then refresh once more after a short delay:
+	// episode stills download best-effort *after* the job completes, so the
+	// delayed reload pulls in thumbnails that land just afterwards (Artwork shows
+	// a letter fallback until then).
+	async function importEpisodeJob(toastId: string | number, seasons?: number[]) {
+		const { jobId } = await libraryApi.importEpisodes(data.title.id, seasons);
+		const job = await waitForJob(jobId);
+		await invalidateAll();
+		if (job?.status === 'failed') {
+			toast.error('Episode import failed', { id: toastId });
+			return;
+		}
+		toast.success('Episodes imported', { id: toastId });
+		setTimeout(() => invalidateAll(), 4000);
+	}
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
@@ -99,6 +158,7 @@
 <EditorHero
 	title={data.title}
 	artwork={data.artwork}
+	busy={jobActive}
 	onFetchTmdb={() => (tmdbOpen = true)}
 	onImportEpisodes={() => (importOpen = true)}
 	onDelete={() => (confirmDeleteTitle = true)}
@@ -137,6 +197,7 @@
 			seasons={data.seasons ?? []}
 			mediaFiles={data.mediaFiles}
 			subtitlesByFile={data.subtitlesByFile ?? {}}
+			importing={jobActive}
 		/>
 	{:else}
 		<MovieFilesPanel
@@ -154,8 +215,8 @@
 	onconfirm={deleteTitle}
 />
 
-<TmdbSearchModal bind:open={tmdbOpen} title={data.title} />
+<TmdbSearchModal bind:open={tmdbOpen} title={data.title} onApply={runTmdb} />
 
 {#if data.title.kind === 'series'}
-	<ImportEpisodesModal bind:open={importOpen} titleId={data.title.id} />
+	<ImportEpisodesModal bind:open={importOpen} titleId={data.title.id} onImport={runImport} />
 {/if}

@@ -6,10 +6,13 @@
 
 	let { item }: { item: CardItem } = $props();
 
-	const ca = hoverAccent(() => {
-		const id = item.posterId ?? item.backdropId;
-		return id ? artworkUrl(id) : null;
-	});
+	const art = $derived(
+		item.posterId
+			? { id: item.posterId, v: item.posterVer }
+			: { id: item.backdropId, v: item.backdropVer }
+	);
+
+	const ca = hoverAccent(() => (art.id ? artworkUrl(art.id, art.v) : null));
 	// --card-accent inherits to the ring div (Tailwind's --tw-ring-color does not);
 	// it falls back to the themed accent until the poster's colour is extracted
 	const cardAccent = $derived(ca.accent ? `--card-accent:${ca.accent}` : '');
@@ -22,7 +25,7 @@
 			group-hover:ring-offset-2"
 		style="--tw-ring-color:var(--card-accent,var(--color-accent));--tw-ring-offset-color:var(--color-bg)"
 	>
-		<Artwork artworkId={item.posterId ?? item.backdropId} name={item.name} />
+		<Artwork artworkId={art.id} v={art.v} name={item.name} />
 	</div>
 	<p class="mt-2 truncate text-sm font-semibold transition-colors group-hover:text-accent">
 		{item.name}

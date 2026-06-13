@@ -39,6 +39,7 @@ export interface Episode {
 	airDate: string | null;
 	runtimeMinutes: number | null;
 	thumbId: string | null;
+	thumbVer?: number;
 }
 
 export interface Genre {
@@ -53,7 +54,9 @@ export interface CardItem {
 	name: string;
 	year: number | null;
 	posterId: string | null;
+	posterVer?: number;
 	backdropId: string | null;
+	backdropVer?: number;
 }
 
 export interface ContinueItem extends CardItem {
@@ -74,6 +77,7 @@ export interface HomeRow {
 
 export interface FeaturedItem extends Title {
 	backdropId: string | null;
+	backdropVer?: number;
 	inList: boolean;
 }
 

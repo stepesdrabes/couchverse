@@ -1,21 +1,21 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
-	import { toast } from 'svelte-sonner';
 	import { ApiError } from '$lib/api/client';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { TmdbSeasonPreview } from '$lib/features/library/api';
-	import { waitForJob } from '$lib/features/jobs/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 
-	let { open = $bindable(false), titleId }: { open?: boolean; titleId: string } = $props();
+	let {
+		open = $bindable(false),
+		titleId,
+		onImport
+	}: { open?: boolean; titleId: string; onImport: (seasons?: number[]) => void } = $props();
 
 	let seasons = $state<TmdbSeasonPreview[]>([]);
 	let picks = $state<Record<number, boolean>>({});
 	let allSeasons = $state(true);
 	let loading = $state(false);
-	let importing = $state(false);
 	let errorMsg = $state('');
 
 	$effect(() => {
@@ -45,24 +45,11 @@
 
 	const selectedSeasons = $derived(seasons.map((s) => s.seasonNumber).filter((n) => picks[n]));
 
-	async function startImport() {
-		importing = true;
-		const pending = toast.loading('Importing episodes from TMDB…');
-		try {
-			const { jobId } = await libraryApi.importEpisodes(
-				titleId,
-				allSeasons ? undefined : selectedSeasons
-			);
-			open = false;
-			const job = await waitForJob(jobId);
-			await invalidateAll();
-			if (job?.status === 'failed') toast.error('Episode import failed', { id: pending });
-			else toast.success('Episodes imported', { id: pending });
-		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'failed to start import', { id: pending });
-		} finally {
-			importing = false;
-		}
+	// the editor page runs the import job and shows progress in-page; this modal
+	// just hands back the season selection and closes
+	function startImport() {
+		open = false;
+		onImport(allSeasons ? undefined : selectedSeasons);
 	}
 </script>
 
@@ -104,7 +91,6 @@
 	{#snippet footer()}
 		<Button variant="ghost" onclick={() => (open = false)}>Cancel</Button>
 		<Button
-			loading={importing}
 			disabled={loading ||
 				errorMsg !== '' ||
 				seasons.length === 0 ||

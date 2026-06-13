@@ -1,0 +1,182 @@
+<script lang="ts">
+	import {
+		ChevronDown,
+		CircleCheck,
+		Loader2,
+		Pause,
+		Play,
+		RotateCw,
+		UploadCloud,
+		X
+	} from 'lucide-svelte';
+	import { fly, slide } from 'svelte/transition';
+	import type { Upload } from '$lib/features/uploads/uploader.svelte';
+	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
+	import { formatBytes } from '$lib/utils/format';
+
+	// raise above the music bar when it is showing so the two never overlap
+	let { playerBarVisible = false }: { playerBarVisible?: boolean } = $props();
+
+	let collapsed = $state(false);
+
+	const uploads = $derived(uploadQueue.uploads);
+	const activeCount = $derived(
+		uploads.filter(
+			(u) => u.status === 'uploading' || u.status === 'completing' || u.status === 'queued'
+		).length
+	);
+	const doneCount = $derived(uploads.filter((u) => u.status === 'done').length);
+	const errorCount = $derived(uploads.filter((u) => u.status === 'error').length);
+
+	// aggregate progress by bytes across the whole queue
+	const aggregatePct = $derived.by(() => {
+		const total = uploads.reduce((sum, u) => sum + u.file.size, 0);
+		if (total === 0) return 0;
+		const loaded = uploads.reduce(
+			(sum, u) => sum + (u.status === 'done' ? u.file.size : u.offset),
+			0
+		);
+		return Math.round((loaded / total) * 100);
+	});
+
+	const header = $derived.by(() => {
+		if (activeCount > 0) {
+			return `Uploading ${Math.min(doneCount + 1, uploads.length)} of ${uploads.length} · ${aggregatePct}%`;
+		}
+		if (errorCount > 0) return `${errorCount} failed · ${doneCount} done`;
+		return uploads.length === 1 ? 'Upload complete' : `${doneCount} uploads complete`;
+	});
+
+	function cancel(upload: Upload) {
+		upload.abort().finally(() => uploadQueue.remove(upload));
+	}
+
+	function clearFinished() {
+		for (const u of uploads.filter((x) => x.status === 'done' || x.status === 'error')) {
+			uploadQueue.remove(u);
+		}
+	}
+</script>
+
+{#if uploads.length > 0}
+	<div
+		transition:fly={{ y: 24, duration: 250 }}
+		class="fixed right-4 z-40 w-80 overflow-hidden rounded-card border border-edge bg-surface-2/95
+			shadow-2xl shadow-black/50 backdrop-blur"
+		style="bottom: {playerBarVisible ? '6rem' : '1rem'}"
+	>
+		<div class="flex items-center gap-2 px-3 py-2.5">
+			<UploadCloud class="size-4 shrink-0 {activeCount > 0 ? 'text-accent' : 'text-muted'}" />
+			<span class="min-w-0 flex-1 truncate text-xs font-semibold">{header}</span>
+			{#if doneCount > 0 || errorCount > 0}
+				<button
+					class="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-faint transition-colors hover:text-text"
+					onclick={clearFinished}
+				>
+					Clear
+				</button>
+			{/if}
+			<button
+				class="shrink-0 rounded-full p-1 text-faint transition-colors hover:bg-surface hover:text-text"
+				onclick={() => (collapsed = !collapsed)}
+				aria-label={collapsed ? 'Expand uploads' : 'Collapse uploads'}
+			>
+				<ChevronDown class="size-4 transition-transform {collapsed ? '' : 'rotate-180'}" />
+			</button>
+		</div>
+
+		{#if activeCount > 0}
+			<div class="h-0.5 bg-surface">
+				<div
+					class="h-full bg-accent transition-all duration-300"
+					style="width: {aggregatePct}%"
+				></div>
+			</div>
+		{/if}
+
+		{#if !collapsed}
+			<ul
+				transition:slide={{ duration: 200 }}
+				class="max-h-72 space-y-0.5 overflow-y-auto border-t border-edge/60 p-2 scrollbar-none"
+			>
+				{#each uploads as upload (upload)}
+					<li class="rounded-lg px-2 py-1.5 hover:bg-surface/60">
+						<div class="flex items-center gap-2">
+							<span class="min-w-0 flex-1 truncate text-xs font-medium">{upload.file.name}</span>
+							{#if upload.status === 'done'}
+								<CircleCheck class="size-4 shrink-0 text-success" />
+								<button
+									class="dock-btn"
+									onclick={() => uploadQueue.remove(upload)}
+									aria-label="Dismiss"
+								>
+									<X class="size-3.5" />
+								</button>
+							{:else if upload.status === 'error'}
+								<button class="dock-btn" onclick={() => upload.start()} aria-label="Retry upload">
+									<RotateCw class="size-3.5" />
+								</button>
+								<button
+									class="dock-btn"
+									onclick={() => uploadQueue.remove(upload)}
+									aria-label="Dismiss"
+								>
+									<X class="size-3.5" />
+								</button>
+							{:else if upload.status === 'uploading'}
+								<button class="dock-btn" onclick={() => upload.pause()} aria-label="Pause upload">
+									<Pause class="size-3.5" />
+								</button>
+								<button class="dock-btn" onclick={() => cancel(upload)} aria-label="Cancel upload">
+									<X class="size-3.5" />
+								</button>
+							{:else if upload.status === 'paused'}
+								<button class="dock-btn" onclick={() => upload.start()} aria-label="Resume upload">
+									<Play class="size-3.5" />
+								</button>
+								<button class="dock-btn" onclick={() => cancel(upload)} aria-label="Cancel upload">
+									<X class="size-3.5" />
+								</button>
+							{:else}
+								<Loader2 class="size-4 shrink-0 animate-spin text-muted" />
+							{/if}
+						</div>
+
+						{#if upload.status === 'error'}
+							<p class="mt-0.5 text-[11px] text-danger">{upload.error}</p>
+						{:else if upload.status !== 'done'}
+							<div class="mt-1.5 flex items-center gap-2">
+								<div class="h-1 flex-1 overflow-hidden rounded-full bg-surface">
+									<div
+										class="h-full rounded-full bg-accent transition-all duration-300"
+										style="width: {upload.progress * 100}%"
+									></div>
+								</div>
+								<span class="shrink-0 text-[10px] text-faint tnum">
+									{formatBytes(upload.offset)} / {formatBytes(upload.file.size)}
+								</span>
+							</div>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</div>
+{/if}
+
+<style lang="scss">
+	:global(.dock-btn) {
+		flex-shrink: 0;
+		border-radius: 9999px;
+		padding: 0.25rem;
+		color: var(--color-faint);
+		transition:
+			background-color 0.15s,
+			color 0.15s;
+
+		&:hover {
+			background-color: var(--color-surface);
+			color: var(--color-text);
+		}
+	}
+</style>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { Film, Info, Plus, Trash2, UploadCloud } from 'lucide-svelte';
+	import { Film, Info, Loader2, Plus, Trash2, UploadCloud } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import type { Episode, MediaFile, Season } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
@@ -9,18 +9,21 @@
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import EpisodeInfoModal from './EpisodeInfoModal.svelte';
 
 	let {
 		titleId,
 		seasons,
 		mediaFiles,
-		subtitlesByFile
+		subtitlesByFile,
+		importing = false
 	}: {
 		titleId: string;
 		seasons: Season[];
 		mediaFiles: MediaFile[];
 		subtitlesByFile: Record<string, SubtitleInfo[]>;
+		importing?: boolean;
 	} = $props();
 
 	const fileByEpisode = $derived(
@@ -102,7 +105,15 @@
 
 <section class="rounded-card border border-edge bg-surface/40 p-6">
 	<div class="mb-4 flex items-center justify-between">
-		<h2 class="text-sm font-semibold text-muted">Seasons & episodes</h2>
+		<div class="flex items-center gap-2.5">
+			<h2 class="text-sm font-semibold text-muted">Seasons & episodes</h2>
+			{#if importing}
+				<span class="flex items-center gap-1.5 text-xs font-medium text-accent">
+					<Loader2 class="size-3.5 animate-spin" />
+					Importing from TMDB…
+				</span>
+			{/if}
+		</div>
 		<Button variant="secondary" size="sm" onclick={addSeason}>
 			<Plus class="size-3.5" />
 			Add season
@@ -208,7 +219,15 @@
 			</ul>
 		</div>
 	{:else}
-		<p class="text-xs text-faint">No seasons yet.</p>
+		{#if importing}
+			<div class="space-y-2">
+				{#each [0, 1, 2] as i (i)}
+					<Skeleton class="h-12 w-full" />
+				{/each}
+			</div>
+		{:else}
+			<p class="text-xs text-faint">No seasons yet.</p>
+		{/if}
 	{/each}
 </section>
 

@@ -55,7 +55,7 @@
 	// pull a vibrant accent out of the active banner and scope it to the hero
 	// subtree, so the eyebrow and buttons echo the featured artwork
 	const accent = bannerAccent(() =>
-		active.backdropId ? catalog.artworkUrl(active.backdropId) : null
+		active.backdropId ? catalog.artworkUrl(active.backdropId, active.backdropVer) : null
 	);
 
 	function play() {
@@ -92,7 +92,7 @@
 		{#each items as item, i (item.id)}
 			{#if item.backdropId}
 				<img
-					src={catalog.artworkUrl(item.backdropId)}
+					src={catalog.artworkUrl(item.backdropId, item.backdropVer)}
 					alt=""
 					class="absolute inset-0 size-full object-cover transition-opacity duration-700
 						{i === index ? 'opacity-100' : 'opacity-0'}"

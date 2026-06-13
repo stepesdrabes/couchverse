@@ -29,4 +29,18 @@ export const addToList = (titleId: string) =>
 export const removeFromList = (titleId: string) =>
 	api<void>(`/me/watchlist/${titleId}`, { method: 'DELETE' });
 
-export const artworkUrl = (id: string) => `/api/v1/artwork/${id}`;
+/**
+ * Build an artwork URL. Pass `v` (the artwork's version token) to opt into
+ * immutable browser caching - it busts automatically when the art is replaced.
+ * `size` requests a resized variant (e.g. 'w342').
+ */
+export const artworkUrl = (id: string, v?: number | string | null, size?: string) => {
+	const params = new URLSearchParams();
+	if (size) params.set('size', size);
+	if (v) params.set('v', String(v));
+	const query = params.toString();
+	return `/api/v1/artwork/${id}${query ? `?${query}` : ''}`;
+};
+
+/** Version token (unix seconds) for a full artwork object's `createdAt`. */
+export const artworkVer = (createdAt: string) => Math.floor(new Date(createdAt).getTime() / 1000);

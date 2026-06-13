@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
 	import { Loader2, Search } from 'lucide-svelte';
-	import { toast } from 'svelte-sonner';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { TmdbResult } from '$lib/features/library/api';
-	import { waitForJob } from '$lib/features/jobs/api';
 	import type { Title } from '$lib/features/catalog/types';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 
-	let { open = $bindable(false), title }: { open?: boolean; title: Title } = $props();
+	let {
+		open = $bindable(false),
+		title,
+		onApply
+	}: { open?: boolean; title: Title; onApply: (tmdbId: number) => void } = $props();
 
 	let query = $state(title.name);
 	let results = $state<TmdbResult[]>([]);
 	let searching = $state(false);
-	let applying = $state<number | null>(null);
 	let error = $state('');
 
 	async function search(e?: SubmitEvent) {
@@ -35,21 +35,11 @@
 		if (open && results.length === 0 && !error) search();
 	});
 
-	async function apply(result: TmdbResult) {
-		applying = result.tmdbId;
-		const pending = toast.loading('Fetching metadata & artwork from TMDB…');
-		try {
-			const { jobId } = await libraryApi.applyTmdb(title.id, result.tmdbId);
-			open = false;
-			const job = await waitForJob(jobId);
-			await invalidateAll(); // pull in the new poster/backdrop/metadata + tmdbId
-			if (job?.status === 'failed') toast.error('TMDB fetch failed', { id: pending });
-			else toast.success('Metadata & artwork applied', { id: pending });
-		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'failed to apply', { id: pending });
-		} finally {
-			applying = null;
-		}
+	// the editor page runs the metadata job and, for a series, chains the episode
+	// import - so this modal just hands back the pick and closes
+	function apply(result: TmdbResult) {
+		open = false;
+		onApply(result.tmdbId);
 	}
 </script>
 
@@ -96,13 +86,7 @@
 						</p>
 						<p class="mt-0.5 line-clamp-2 text-xs text-faint">{result.overview}</p>
 					</div>
-					<Button
-						variant="secondary"
-						size="sm"
-						class="self-center"
-						loading={applying === result.tmdbId}
-						onclick={() => apply(result)}
-					>
+					<Button variant="secondary" size="sm" class="self-center" onclick={() => apply(result)}>
 						Apply
 					</Button>
 				</li>
