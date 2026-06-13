@@ -11,13 +11,15 @@ import (
 // Public catalog queries - published content only, shaped for the user app.
 
 type CardItem struct {
-	TitleID    string  `json:"titleId"`
-	Slug       string  `json:"slug"`
-	Kind       string  `json:"kind"`
-	Name       string  `json:"name"`
-	Year       *int    `json:"year"`
-	PosterID   *string `json:"posterId"`
-	BackdropID *string `json:"backdropId"`
+	TitleID     string  `json:"titleId"`
+	Slug        string  `json:"slug"`
+	Kind        string  `json:"kind"`
+	Name        string  `json:"name"`
+	Year        *int    `json:"year"`
+	PosterID    *string `json:"posterId"`
+	PosterVer   int64   `json:"posterVer,omitempty"`
+	BackdropID  *string `json:"backdropId"`
+	BackdropVer int64   `json:"backdropVer,omitempty"`
 }
 
 type ContinueItem struct {
@@ -37,10 +39,14 @@ type HomeRow struct {
 	Items any    `json:"items"`
 }
 
+// the *_ver columns are the artwork's updated time (unix seconds), used as an
+// immutable cache-busting token on the image URL; 0 when there is no art.
 const cardSelect = `
 	SELECT t.id, t.slug, t.kind, t.name, t.year,
 		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster') AS poster_id,
-		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop') AS backdrop_id
+		COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster'), 0) AS poster_ver,
+		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop') AS backdrop_id,
+		COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop'), 0) AS backdrop_ver
 	FROM titles t`
 
 func (s *Store) scanCards(ctx context.Context, query string, args ...any) ([]CardItem, error) {
@@ -53,7 +59,8 @@ func (s *Store) scanCards(ctx context.Context, query string, args ...any) ([]Car
 	items := []CardItem{}
 	for rows.Next() {
 		var c CardItem
-		if err := rows.Scan(&c.TitleID, &c.Slug, &c.Kind, &c.Name, &c.Year, &c.PosterID, &c.BackdropID); err != nil {
+		if err := rows.Scan(&c.TitleID, &c.Slug, &c.Kind, &c.Name, &c.Year,
+			&c.PosterID, &c.PosterVer, &c.BackdropID, &c.BackdropVer); err != nil {
 			return nil, err
 		}
 		items = append(items, c)
@@ -288,17 +295,21 @@ func (s *Store) EpisodeRef(ctx context.Context, episodeID string) (*EpisodeRef, 
 }
 
 type SeriesEpisode struct {
-	EpisodeID     string `json:"episodeId"`
-	SeasonNumber  int    `json:"seasonNumber"`
-	EpisodeNumber int    `json:"episodeNumber"`
-	Name          string `json:"name"`
+	EpisodeID     string  `json:"episodeId"`
+	SeasonNumber  int     `json:"seasonNumber"`
+	EpisodeNumber int     `json:"episodeNumber"`
+	Name          string  `json:"name"`
+	ThumbID       *string `json:"thumbId"`
+	ThumbVer      int64   `json:"thumbVer,omitempty"`
 }
 
 // PlayableEpisodes lists a series' episodes that have a media file, for the
-// in-player episode switcher.
+// in-player episode switcher (with each episode's still thumbnail).
 func (s *Store) PlayableEpisodes(ctx context.Context, titleID string) ([]SeriesEpisode, error) {
 	rows, err := s.db.Query(ctx,
-		`SELECT e.id, se.season_number, e.episode_number, e.name
+		`SELECT e.id, se.season_number, e.episode_number, e.name,
+			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb'),
+			COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb'), 0)
 		 FROM episodes e
 		 JOIN seasons se ON se.id = e.season_id
 		 WHERE se.title_id = $1
@@ -311,7 +322,7 @@ func (s *Store) PlayableEpisodes(ctx context.Context, titleID string) ([]SeriesE
 	out := []SeriesEpisode{}
 	for rows.Next() {
 		var e SeriesEpisode
-		if err := rows.Scan(&e.EpisodeID, &e.SeasonNumber, &e.EpisodeNumber, &e.Name); err != nil {
+		if err := rows.Scan(&e.EpisodeID, &e.SeasonNumber, &e.EpisodeNumber, &e.Name, &e.ThumbID, &e.ThumbVer); err != nil {
 			return nil, err
 		}
 		out = append(out, e)

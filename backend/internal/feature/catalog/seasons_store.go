@@ -28,6 +28,7 @@ type Episode struct {
 	AirDate        *time.Time `json:"airDate"`
 	RuntimeMinutes *int       `json:"runtimeMinutes"`
 	ThumbID        *string    `json:"thumbId"`
+	ThumbVer       int64      `json:"thumbVer,omitempty"`
 }
 
 func scanSeason(row pgx.Row) (*Season, error) {
@@ -85,7 +86,9 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 	erows, err := s.db.Query(ctx,
 		`SELECT e.id, e.season_id, e.episode_number, e.name, e.overview, e.air_date, e.runtime_minutes,
 			(SELECT a.id FROM artwork a
-			 WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb')
+			 WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb'),
+			COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a
+			 WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb'), 0)
 		 FROM episodes e JOIN seasons se ON se.id = e.season_id
 		 WHERE se.title_id = $1 ORDER BY e.episode_number`, titleID)
 	if err != nil {
@@ -95,7 +98,7 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 	for erows.Next() {
 		var e Episode
 		if err := erows.Scan(&e.ID, &e.SeasonID, &e.EpisodeNumber, &e.Name, &e.Overview,
-			&e.AirDate, &e.RuntimeMinutes, &e.ThumbID); err != nil {
+			&e.AirDate, &e.RuntimeMinutes, &e.ThumbID, &e.ThumbVer); err != nil {
 			return nil, err
 		}
 		if i, ok := byID[e.SeasonID]; ok {

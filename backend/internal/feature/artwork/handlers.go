@@ -42,9 +42,15 @@ func (h *Handlers) Serve(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	// no-cache = browser revalidates; ServeFile answers 304 via Last-Modified,
-	// so replaced artwork (TMDB re-apply, new upload) shows up immediately
-	w.Header().Set("Cache-Control", "private, no-cache")
+	// versioned URLs (?v=<token>) carry the artwork's updated time, so the bytes
+	// for a given URL never change - cache them hard. Unversioned URLs keep
+	// revalidating (ServeFile answers 304 via Last-Modified) so replaced artwork
+	// shows up immediately even from a call site that doesn't pass a version.
+	if r.URL.Query().Get("v") != "" {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		w.Header().Set("Cache-Control", "private, no-cache")
+	}
 	http.ServeFile(w, r, path)
 }
 

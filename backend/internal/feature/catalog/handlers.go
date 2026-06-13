@@ -30,8 +30,9 @@ func NewHandlers(st *Store, set *settings.Store, art *artwork.Store, mus *music.
 // backdrop and the viewer's My List state.
 type FeaturedItem struct {
 	*Title
-	BackdropID *string `json:"backdropId"`
-	InList     bool    `json:"inList"`
+	BackdropID  *string `json:"backdropId"`
+	BackdropVer int64   `json:"backdropVer,omitempty"`
+	InList      bool    `json:"inList"`
 }
 
 func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
@@ -55,6 +56,7 @@ func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 			if a.Kind == "backdrop" {
 				id := a.ID
 				item.BackdropID = &id
+				item.BackdropVer = a.CreatedAt.Unix()
 			}
 		}
 		if item.InList, err = h.store.WatchlistHas(r.Context(), user.ID, titles[i].ID); err != nil {
