@@ -224,6 +224,6 @@ func (p *Prober) saveAlbumCover(ctx context.Context, albumID string, data []byte
 	if err := os.WriteFile(abs, data, 0o644); err != nil {
 		return err
 	}
-	_, err = p.Artwork.SetArtwork(ctx, "album", albumID, "album_cover", rel, 0, 0, "embedded")
+	_, err = p.Artwork.SetArtwork(ctx, "album", albumID, "album_cover", rel, 0, 0, "embedded", artwork.AccentFor(abs))
 	return err
 }

@@ -1,16 +1,34 @@
-// Package artwork stores poster/backdrop/cover images and produces resized
-// variants on demand by shelling out to ffmpeg (no Go imaging dependencies).
+// Package artwork stores poster/backdrop/cover images, produces resized
+// variants on demand by shelling out to ffmpeg, and extracts a vibrant accent
+// colour per image (stdlib decode, see accent.go) for the UI to theme with.
 package artwork
 
 import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+// accentUnknown marks an artwork whose image yielded no colour (or couldn't be
+// decoded), so the backfill records it as processed instead of retrying it. The
+// UI ignores any accent that isn't a valid hex.
+const accentUnknown = "-"
+
+// AccentFor extracts an artwork's accent, returning the sentinel when none was
+// found so the value is never left empty. Used at every write site (uploads,
+// TMDB downloads, embedded covers) so callers store a stable accent in one step.
+func AccentFor(path string) string {
+	if hex := ExtractAccent(path); hex != "" {
+		return hex
+	}
+	return accentUnknown
+}
 
 type Service struct {
 	Store      *Store
@@ -47,7 +65,7 @@ func (s *Service) Save(ctx context.Context, ownerKind string, ownerID string, ki
 	}
 	f.Close()
 
-	art, err := s.Store.SetArtwork(ctx, ownerKind, ownerID, kind, rel, 0, 0, "uploaded")
+	art, err := s.Store.SetArtwork(ctx, ownerKind, ownerID, kind, rel, 0, 0, "uploaded", AccentFor(abs))
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +83,7 @@ func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID strin
 	if err := os.WriteFile(abs, data, 0o644); err != nil {
 		return nil, err
 	}
-	art, err := s.Store.SetArtwork(ctx, ownerKind, ownerID, kind, rel, 0, 0, source)
+	art, err := s.Store.SetArtwork(ctx, ownerKind, ownerID, kind, rel, 0, 0, source, AccentFor(abs))
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +153,38 @@ func (s *Service) dropCache(id string) {
 	}
 	for _, f := range stale {
 		os.Remove(f)
+	}
+}
+
+// BackfillAccents fills the accent for artwork rows that predate accent
+// extraction (existing libraries). Meant to run once in a background goroutine
+// on startup: each row is marked when processed, so it never loops and a
+// restart resumes where it left off. Gentle on CPU so it doesn't fight startup.
+func (s *Service) BackfillAccents(ctx context.Context) {
+	const batch = 200
+	total := 0
+	for {
+		rows, err := s.Store.ArtworkMissingAccent(ctx, batch)
+		if err != nil {
+			slog.Warn("accent backfill query", "err", err)
+			return
+		}
+		if len(rows) == 0 {
+			if total > 0 {
+				slog.Info("artwork accent backfill done", "processed", total)
+			}
+			return
+		}
+		for _, art := range rows {
+			if ctx.Err() != nil {
+				return
+			}
+			if err := s.Store.SetAccent(ctx, art.ID, AccentFor(filepath.Join(s.DataDir, art.Path))); err != nil {
+				slog.Warn("accent backfill", "id", art.ID, "err", err)
+			}
+			total++
+			time.Sleep(20 * time.Millisecond)
+		}
 	}
 }
 

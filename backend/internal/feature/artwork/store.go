@@ -29,14 +29,15 @@ type Artwork struct {
 	Width     int       `json:"width"`
 	Height    int       `json:"height"`
 	Source    string    `json:"source"`
+	Accent    string    `json:"accent,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-const artworkCols = `id, owner_kind, owner_id, kind, path, width, height, source, created_at`
+const artworkCols = `id, owner_kind, owner_id, kind, path, width, height, source, accent, created_at`
 
 func scanArtwork(row pgx.Row) (*Artwork, error) {
 	var a Artwork
-	err := row.Scan(&a.ID, &a.OwnerKind, &a.OwnerID, &a.Kind, &a.Path, &a.Width, &a.Height, &a.Source, &a.CreatedAt)
+	err := row.Scan(&a.ID, &a.OwnerKind, &a.OwnerID, &a.Kind, &a.Path, &a.Width, &a.Height, &a.Source, &a.Accent, &a.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -47,15 +48,42 @@ func scanArtwork(row pgx.Row) (*Artwork, error) {
 }
 
 // SetArtwork upserts one artwork slot (e.g. a title's poster).
-func (s *Store) SetArtwork(ctx context.Context, ownerKind string, ownerID string, kind, path string, w, h int, source string) (*Artwork, error) {
+func (s *Store) SetArtwork(ctx context.Context, ownerKind string, ownerID string, kind, path string, w, h int, source, accent string) (*Artwork, error) {
 	return scanArtwork(s.db.QueryRow(ctx,
-		`INSERT INTO artwork (owner_kind, owner_id, kind, path, width, height, source)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`INSERT INTO artwork (owner_kind, owner_id, kind, path, width, height, source, accent)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		 ON CONFLICT (owner_kind, owner_id, kind) DO UPDATE
 			SET path = EXCLUDED.path, width = EXCLUDED.width, height = EXCLUDED.height,
-				source = EXCLUDED.source, created_at = now()
+				source = EXCLUDED.source, accent = EXCLUDED.accent, created_at = now()
 		 RETURNING `+artworkCols,
-		ownerKind, ownerID, kind, path, w, h, source))
+		ownerKind, ownerID, kind, path, w, h, source, accent))
+}
+
+// SetAccent stores a freshly computed accent for an existing artwork row
+// (used by the background backfill).
+func (s *Store) SetAccent(ctx context.Context, id, accent string) error {
+	_, err := s.db.Exec(ctx, `UPDATE artwork SET accent = $2 WHERE id = $1`, id, accent)
+	return err
+}
+
+// ArtworkMissingAccent returns up to limit artwork ids+paths that have no
+// accent yet, for the startup backfill.
+func (s *Store) ArtworkMissingAccent(ctx context.Context, limit int) ([]Artwork, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT `+artworkCols+` FROM artwork WHERE accent = '' ORDER BY created_at LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Artwork{}
+	for rows.Next() {
+		a, err := scanArtwork(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *a)
+	}
+	return items, rows.Err()
 }
 
 func (s *Store) ArtworkByID(ctx context.Context, id string) (*Artwork, error) {

@@ -222,19 +222,21 @@ func (s *Store) SetTitleReleaseDate(ctx context.Context, id string, date string)
 	return err
 }
 
-// TitleBackdropID returns the title's backdrop artwork id, or nil when absent.
-func (s *Store) TitleBackdropID(ctx context.Context, titleID string) (*string, error) {
-	var id string
-	err := s.db.QueryRow(ctx,
-		`SELECT id FROM artwork WHERE owner_kind = 'title' AND owner_id = $1 AND kind = 'backdrop' LIMIT 1`,
-		titleID).Scan(&id)
+// TitleBackdrop returns the title's backdrop artwork id, version token (unix
+// seconds) and accent colour for the player banner, or zero values when absent.
+func (s *Store) TitleBackdrop(ctx context.Context, titleID string) (id *string, ver int64, accent string, err error) {
+	var aid string
+	var created time.Time
+	err = s.db.QueryRow(ctx,
+		`SELECT id, created_at, accent FROM artwork WHERE owner_kind = 'title' AND owner_id = $1 AND kind = 'backdrop' LIMIT 1`,
+		titleID).Scan(&aid, &created, &accent)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return nil, 0, "", nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, 0, "", err
 	}
-	return &id, nil
+	return &aid, created.Unix(), accent, nil
 }
 
 func (s *Store) DeleteTitle(ctx context.Context, id string) error {

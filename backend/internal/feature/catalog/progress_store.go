@@ -54,8 +54,10 @@ func (s *Store) ContinueWatching(ctx context.Context, userID int64, limit int) (
 			t.id, t.slug, t.kind, t.name, t.year,
 			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster'),
 			COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster'), 0),
+			COALESCE((SELECT a.accent FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster'), ''),
 			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop'),
 			COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop'), 0),
+			COALESCE((SELECT a.accent FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop'), ''),
 			e.id, se.season_number, e.episode_number, e.name,
 			wp.position_seconds, wp.duration_seconds, wp.updated_at
 		FROM watch_progress wp
@@ -77,7 +79,7 @@ func (s *Store) ContinueWatching(ctx context.Context, userID int64, limit int) (
 		var seasonNum, epNum *int
 		var epName *string
 		if err := rows.Scan(&it.TitleID, &it.Slug, &it.Kind, &it.Name, &it.Year,
-			&it.PosterID, &it.PosterVer, &it.BackdropID, &it.BackdropVer,
+			&it.PosterID, &it.PosterVer, &it.PosterAccent, &it.BackdropID, &it.BackdropVer, &it.BackdropAccent,
 			&epID, &seasonNum, &epNum, &epName, &it.Position, &it.Duration, &it.UpdatedAt); err != nil {
 			return nil, err
 		}

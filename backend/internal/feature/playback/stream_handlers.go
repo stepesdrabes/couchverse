@@ -179,11 +179,13 @@ type subtitleTrack struct {
 }
 
 type playbackDisplay struct {
-	Title      string  `json:"title"`
-	Subtitle   string  `json:"subtitle"`
-	TitleID    string  `json:"titleId"`
-	TitleSlug  string  `json:"titleSlug"`
-	BackdropID *string `json:"backdropId"`
+	Title          string  `json:"title"`
+	Subtitle       string  `json:"subtitle"`
+	TitleID        string  `json:"titleId"`
+	TitleSlug      string  `json:"titleSlug"`
+	BackdropID     *string `json:"backdropId"`
+	BackdropVer    int64   `json:"backdropVer,omitempty"`
+	BackdropAccent string  `json:"backdropAccent,omitempty"`
 }
 
 // Playback resolves what to play for a movie title or an episode.
@@ -259,8 +261,10 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// banner accent for the player (best effort)
-	if bid, berr := h.catalog.TitleBackdropID(r.Context(), info.Display.TitleID); berr == nil {
+	if bid, bver, accent, berr := h.catalog.TitleBackdrop(r.Context(), info.Display.TitleID); berr == nil {
 		info.Display.BackdropID = bid
+		info.Display.BackdropVer = bver
+		info.Display.BackdropAccent = accent
 	}
 
 	info.MediaFileID = mf.ID

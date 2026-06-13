@@ -11,15 +11,17 @@ import (
 // Public catalog queries - published content only, shaped for the user app.
 
 type CardItem struct {
-	TitleID     string  `json:"titleId"`
-	Slug        string  `json:"slug"`
-	Kind        string  `json:"kind"`
-	Name        string  `json:"name"`
-	Year        *int    `json:"year"`
-	PosterID    *string `json:"posterId"`
-	PosterVer   int64   `json:"posterVer,omitempty"`
-	BackdropID  *string `json:"backdropId"`
-	BackdropVer int64   `json:"backdropVer,omitempty"`
+	TitleID        string  `json:"titleId"`
+	Slug           string  `json:"slug"`
+	Kind           string  `json:"kind"`
+	Name           string  `json:"name"`
+	Year           *int    `json:"year"`
+	PosterID       *string `json:"posterId"`
+	PosterVer      int64   `json:"posterVer,omitempty"`
+	PosterAccent   string  `json:"posterAccent,omitempty"`
+	BackdropID     *string `json:"backdropId"`
+	BackdropVer    int64   `json:"backdropVer,omitempty"`
+	BackdropAccent string  `json:"backdropAccent,omitempty"`
 }
 
 type ContinueItem struct {
@@ -39,15 +41,23 @@ type HomeRow struct {
 	Items any    `json:"items"`
 }
 
-// the *_ver columns are the artwork's updated time (unix seconds), used as an
-// immutable cache-busting token on the image URL; 0 when there is no art.
+// Each card carries its poster/backdrop id plus a version token (artwork
+// updated time, unix seconds - an immutable cache-busting key; 0 when absent)
+// and the server-extracted accent colour. The lateral joins fetch all three in
+// one lookup per artwork kind.
 const cardSelect = `
 	SELECT t.id, t.slug, t.kind, t.name, t.year,
-		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster') AS poster_id,
-		COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster'), 0) AS poster_ver,
-		(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop') AS backdrop_id,
-		COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop'), 0) AS backdrop_ver
-	FROM titles t`
+		poster.id, COALESCE(poster.ver, 0), COALESCE(poster.accent, ''),
+		backdrop.id, COALESCE(backdrop.ver, 0), COALESCE(backdrop.accent, '')
+	FROM titles t
+	LEFT JOIN LATERAL (
+		SELECT a.id, extract(epoch FROM a.created_at)::bigint AS ver, a.accent FROM artwork a
+		WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster' LIMIT 1
+	) poster ON true
+	LEFT JOIN LATERAL (
+		SELECT a.id, extract(epoch FROM a.created_at)::bigint AS ver, a.accent FROM artwork a
+		WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop' LIMIT 1
+	) backdrop ON true`
 
 func (s *Store) scanCards(ctx context.Context, query string, args ...any) ([]CardItem, error) {
 	rows, err := s.db.Query(ctx, query, args...)
@@ -60,7 +70,8 @@ func (s *Store) scanCards(ctx context.Context, query string, args ...any) ([]Car
 	for rows.Next() {
 		var c CardItem
 		if err := rows.Scan(&c.TitleID, &c.Slug, &c.Kind, &c.Name, &c.Year,
-			&c.PosterID, &c.PosterVer, &c.BackdropID, &c.BackdropVer); err != nil {
+			&c.PosterID, &c.PosterVer, &c.PosterAccent,
+			&c.BackdropID, &c.BackdropVer, &c.BackdropAccent); err != nil {
 			return nil, err
 		}
 		items = append(items, c)

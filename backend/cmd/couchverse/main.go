@@ -128,6 +128,9 @@ func run() error {
 		return err
 	}
 	go runner.Run(ctx)
+	// theme existing libraries: fill in accents for artwork that predates
+	// server-side extraction, in the background so startup isn't blocked
+	go artworkService.BackfillAccents(ctx)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
