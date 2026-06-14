@@ -14,6 +14,7 @@
 	import Input from '$lib/components/ui/Input.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import Textarea from '$lib/components/ui/Textarea.svelte';
+	import LanguageChips from '$lib/features/library/components/LanguageChips.svelte';
 	import { FormState } from '$lib/utils/form-state.svelte';
 	import * as m from '$lib/paraglide/messages';
 
@@ -26,6 +27,7 @@
 	let status = $state<string>('draft');
 	let genres = $state('');
 	let runtime = $state('');
+	let languages = $state<string[]>([]);
 	let saving = $state(false);
 	const form = new FormState(() => ({
 		name,
@@ -34,7 +36,8 @@
 		overview,
 		status,
 		genres,
-		runtime
+		runtime,
+		languages: languages.join('|')
 	}));
 
 	// re-sync after load/invalidateAll, but never clobber in-progress edits
@@ -49,6 +52,7 @@
 			status = title.status;
 			genres = title.genres.join(', ');
 			runtime = title.runtimeMinutes?.toString() ?? '';
+			languages = title.metadataLanguages ?? [];
 			form.reset();
 		});
 	});
@@ -131,7 +135,8 @@
 				genres: genres
 					.split(',')
 					.map((g) => g.trim())
-					.filter(Boolean)
+					.filter(Boolean),
+				metadataLanguages: languages
 			});
 			form.reset();
 			toast.success(m.common_saved());
@@ -188,6 +193,11 @@
 			bind:value={genres}
 			placeholder={m.library_genres_placeholder()}
 		/>
+		<div>
+			<p class="mb-1.5 text-xs font-medium text-muted">{m.library_content_languages()}</p>
+			<LanguageChips bind:selected={languages} />
+			<p class="mt-1.5 text-[11px] text-faint">{m.library_content_languages_help()}</p>
+		</div>
 		<div class="flex items-center justify-between pt-2">
 			<Select
 				bind:value={status}

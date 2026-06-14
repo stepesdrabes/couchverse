@@ -48,6 +48,7 @@ export interface TitleInput {
 	contentRating?: string;
 	runtimeMinutes?: number | null;
 	genres?: string[];
+	metadataLanguages?: string[];
 }
 
 export type TitlePatch = Partial<{
@@ -60,6 +61,7 @@ export type TitlePatch = Partial<{
 	status: string;
 	tmdbId: number | null;
 	genres: string[];
+	metadataLanguages: string[];
 }>;
 
 export const createTitle = (input: TitleInput) =>

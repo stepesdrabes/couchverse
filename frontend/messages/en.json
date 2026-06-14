@@ -194,6 +194,8 @@
 	"library_col_size": "Size",
 	"library_col_title": "Title",
 	"library_col_type": "Type",
+	"library_content_languages": "Content languages",
+	"library_content_languages_help": "TMDB metadata is fetched in each selected language. After adding one, use Fetch from TMDB.",
 	"library_content_rating": "Content rating",
 	"library_cover": "Cover",
 	"library_cover_updated": "Cover updated",

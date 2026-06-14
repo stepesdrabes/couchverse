@@ -10,6 +10,7 @@
 	import Input from '$lib/components/ui/Input.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Tabs from '$lib/components/ui/Tabs.svelte';
+	import LanguageChips from '$lib/features/library/components/LanguageChips.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
@@ -24,6 +25,8 @@
 	let manualName = $state('');
 	let manualYear = $state('');
 	let creating = $state(false);
+
+	let languages = $state<string[]>(['en']);
 
 	async function search(e?: SubmitEvent) {
 		e?.preventDefault();
@@ -52,7 +55,8 @@
 				kind,
 				name: result.name,
 				year: result.year || null,
-				overview: result.overview
+				overview: result.overview,
+				metadataLanguages: languages
 			});
 			await libraryApi.applyTmdb(title.id, result.tmdbId);
 			toast.success(m.library_added_fetching({ name: result.name }));
@@ -72,7 +76,8 @@
 			const title = await libraryApi.createTitle({
 				kind,
 				name: manualName,
-				year: manualYear ? Number(manualYear) : null
+				year: manualYear ? Number(manualYear) : null,
+				metadataLanguages: languages
 			});
 			open = false;
 			goto(`/admin/library/${title.id}`);
@@ -98,6 +103,11 @@
 				{ value: 'series', label: m.library_kind_series() }
 			]}
 		/>
+	</div>
+
+	<div class="mb-4">
+		<p class="mb-1.5 text-xs font-medium text-muted">{m.library_content_languages()}</p>
+		<LanguageChips bind:selected={languages} />
 	</div>
 
 	<form onsubmit={search} class="flex gap-2">

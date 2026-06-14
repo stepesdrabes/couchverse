@@ -194,6 +194,8 @@
 	"library_col_size": "Velikost",
 	"library_col_title": "Titul",
 	"library_col_type": "Typ",
+	"library_content_languages": "Jazyky obsahu",
+	"library_content_languages_help": "Metadata z TMDB se načítají v každém zvoleném jazyce. Po přidání použij Načíst z TMDB.",
 	"library_content_rating": "Hodnocení obsahu",
 	"library_cover": "Obal",
 	"library_cover_updated": "Obal aktualizován",

@@ -19,6 +19,7 @@ export interface Title {
 	addedAt: string;
 	updatedAt: string;
 	genres: string[];
+	metadataLanguages: string[];
 }
 
 export interface Season {
