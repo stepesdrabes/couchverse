@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -251,7 +252,18 @@ func (s *Store) SetSeasonTranslation(ctx context.Context, seasonID, lang, name, 
 	return err
 }
 
-// SetEpisodeTranslation merges one language's TMDB text into an episode's
+// EpisodeTranslations returns an episode's raw per-language translations jsonb
+// for the admin editor.
+func (s *Store) EpisodeTranslations(ctx context.Context, episodeID string) (json.RawMessage, error) {
+	var tr json.RawMessage
+	err := s.db.QueryRow(ctx, `SELECT translations FROM episodes WHERE id = $1`, episodeID).Scan(&tr)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, db.ErrNotFound
+	}
+	return tr, err
+}
+
+// SetEpisodeTranslation merges one language's text into an episode's
 // translations JSONB, leaving the base columns as the fallback.
 func (s *Store) SetEpisodeTranslation(ctx context.Context, episodeID, lang, name, overview string) error {
 	_, err := s.db.Exec(ctx,

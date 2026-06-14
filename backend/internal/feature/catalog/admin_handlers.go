@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -294,6 +295,47 @@ func (h *AdminHandlers) UpdateEpisode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, e)
+}
+
+// EpisodeTranslations returns an episode's raw translations for the editor.
+func (h *AdminHandlers) EpisodeTranslations(w http.ResponseWriter, r *http.Request) {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	tr, err := h.store.EpisodeTranslations(r.Context(), id)
+	if err != nil {
+		httpx.StoreErr(w, err)
+		return
+	}
+	if len(tr) == 0 {
+		tr = json.RawMessage("{}")
+	}
+	httpx.JSON(w, http.StatusOK, tr)
+}
+
+// SetEpisodeTranslation saves a manually-edited name/overview for one language.
+func (h *AdminHandlers) SetEpisodeTranslation(w http.ResponseWriter, r *http.Request) {
+	id := httpx.UUID(r, "id")
+	lang := chi.URLParam(r, "lang")
+	if id == "" || len(lang) < 2 || len(lang) > 5 {
+		httpx.NotFound(w)
+		return
+	}
+	var req struct {
+		Name     string `json:"name"`
+		Overview string `json:"overview"`
+	}
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.BadRequest(w, "invalid request body")
+		return
+	}
+	if err := h.store.SetEpisodeTranslation(r.Context(), id, lang, req.Name, req.Overview); err != nil {
+		httpx.StoreErr(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
 func (h *AdminHandlers) DeleteEpisode(w http.ResponseWriter, r *http.Request) {
