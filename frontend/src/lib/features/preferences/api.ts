@@ -9,6 +9,7 @@ export interface SubtitleSettings {
 
 export interface Preferences {
 	subtitles?: Partial<SubtitleSettings>;
+	language?: string;
 	[key: string]: unknown;
 }
 

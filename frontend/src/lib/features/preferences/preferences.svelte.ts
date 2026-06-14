@@ -19,6 +19,8 @@ export const DEFAULT_SUBTITLES: SubtitleSettings = {
 
 class UserPreferences {
 	subtitles = $state<SubtitleSettings>({ ...DEFAULT_SUBTITLES });
+	/** saved display-language code, reconciled into Paraglide on boot */
+	language = $state<string | null>(null);
 
 	async init() {
 		try {
@@ -31,6 +33,7 @@ class UserPreferences {
 
 	private apply(prefs: Preferences) {
 		this.subtitles = { ...DEFAULT_SUBTITLES, ...(prefs.subtitles ?? {}) };
+		this.language = typeof prefs.language === 'string' ? prefs.language : null;
 	}
 
 	/** persist the current subtitle settings to the account */

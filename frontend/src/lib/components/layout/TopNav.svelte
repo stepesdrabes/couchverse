@@ -6,15 +6,17 @@
 	import { features } from '$lib/features/settings/features.svelte';
 	import LogoMark from '$lib/components/ui/LogoMark.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
+	import LanguageSwitcher from '$lib/components/layout/LanguageSwitcher.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	const items = $derived(
 		[
-			{ href: '/', label: 'Home' },
-			{ href: '/series', label: 'Series' },
-			{ href: '/movies', label: 'Movies' },
-			{ href: '/music', label: 'Music' },
-			{ href: '/my-list', label: 'My List' },
-			{ href: '/genres', label: 'Genres' }
+			{ href: '/', label: m.nav_home() },
+			{ href: '/series', label: m.nav_series() },
+			{ href: '/movies', label: m.nav_movies() },
+			{ href: '/music', label: m.nav_music() },
+			{ href: '/my-list', label: m.nav_my_list() },
+			{ href: '/genres', label: m.nav_genres() }
 		].filter((item) => item.href !== '/music' || features.musicEnabled)
 	);
 
@@ -70,15 +72,17 @@
 			<a
 				href="/search"
 				class="rounded-full p-2.5 text-text/90 transition-colors hover:bg-surface-2 hover:text-text"
-				title="Search"
+				title={m.nav_search()}
 			>
 				<Search class="size-5" />
 			</a>
 
+			<LanguageSwitcher />
+
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger
 					class="overflow-hidden rounded-lg transition-transform hover:scale-105"
-					aria-label="Account menu"
+					aria-label={m.nav_account_menu()}
 				>
 					<UserAvatar
 						name={session.user?.displayName ?? '?'}
@@ -117,7 +121,7 @@
 							{#snippet child({ props })}
 								<a {...props} href="/profile">
 									<UserRound class="size-4" />
-									Profile
+									{m.nav_profile()}
 								</a>
 							{/snippet}
 						</DropdownMenu.Item>
@@ -129,7 +133,7 @@
 								{#snippet child({ props })}
 									<a {...props} href="/admin">
 										<Shield class="size-4" />
-										Server admin
+										{m.nav_server_admin()}
 									</a>
 								{/snippet}
 							</DropdownMenu.Item>
@@ -140,7 +144,7 @@
 							onSelect={() => session.logout()}
 						>
 							<LogOut class="size-4" />
-							Sign out
+							{m.nav_sign_out()}
 						</DropdownMenu.Item>
 					</DropdownMenu.Content>
 				</DropdownMenu.Portal>

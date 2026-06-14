@@ -1,3 +1,5 @@
+import { currentLang } from '$lib/i18n/locale.svelte';
+
 export class ApiError extends Error {
 	constructor(
 		public status: number,
@@ -14,6 +16,8 @@ interface RequestOptions {
 	signal?: AbortSignal;
 	/** skip the global 401 → login redirect (e.g. the initial /auth/me probe) */
 	skipAuthRedirect?: boolean;
+	/** omit the display-language (?lang=) query param */
+	skipLang?: boolean;
 }
 
 // registered by the session module to avoid a circular import
@@ -33,7 +37,11 @@ export function qs(params: Record<string, string | number | undefined>) {
 }
 
 export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-	const res = await fetch(`/api/v1${path}`, {
+	// the display language rides on every request; the backend honours it only on
+	// public catalog reads (admin/auth ignore it), so sending it globally is safe
+	const sep = path.includes('?') ? '&' : '?';
+	const url = opts.skipLang ? `/api/v1${path}` : `/api/v1${path}${sep}lang=${currentLang()}`;
+	const res = await fetch(url, {
 		method: opts.method ?? 'GET',
 		headers: opts.body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
 		body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
