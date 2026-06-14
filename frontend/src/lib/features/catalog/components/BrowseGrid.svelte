@@ -45,7 +45,7 @@
 					placeholder={m.catalog_filter_all()}
 					items={[
 						{ value: '', label: m.catalog_filter_all() },
-						...genres.map((g) => ({ value: g.name, label: g.name }))
+						...genres.map((g) => ({ value: g.name, label: g.label }))
 					]}
 				/>
 			{/if}

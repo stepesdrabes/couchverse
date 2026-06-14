@@ -44,7 +44,7 @@
 					)} 40% 16%), var(--color-surface))"
 				>
 					<span class="text-lg font-bold transition-colors group-hover:text-accent">
-						{genre.name}
+						{genre.label}
 					</span>
 				</a>
 			{/each}

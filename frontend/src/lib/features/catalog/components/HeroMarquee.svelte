@@ -31,7 +31,7 @@
 
 	const active = $derived(items[index] ?? items[0]);
 	const listed = $derived(listedOverrides[active.id] ?? active.inList);
-	const eyebrow = $derived([m.catalog_featured(), ...active.genres.slice(0, 2)].join(' · '));
+	const eyebrow = $derived([m.catalog_featured(), ...active.genreLabels.slice(0, 2)].join(' · '));
 
 	// single ticking timer drives both the progress indicator and auto-advance,
 	// so they never drift apart

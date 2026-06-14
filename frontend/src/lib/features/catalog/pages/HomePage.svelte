@@ -18,6 +18,27 @@
 			(r) => r.items.length > 0 && (r.kind !== 'recently_played_music' || features.musicEnabled)
 		)
 	);
+
+	// built-in home rows ship English default labels in the DB; translate those by
+	// kind, but respect a label the admin customized in the home-row editor.
+	const ROW_DEFAULTS: Record<string, string> = {
+		continue_watching: 'Continue Watching',
+		recently_added: 'Up on the Marquee',
+		recently_played_music: 'Recently Played'
+	};
+	function rowLabel(row: { kind: string; label: string }): string {
+		if (row.label !== ROW_DEFAULTS[row.kind]) return row.label;
+		switch (row.kind) {
+			case 'continue_watching':
+				return m.home_row_continue_watching();
+			case 'recently_added':
+				return m.home_row_recently_added();
+			case 'recently_played_music':
+				return m.home_row_recently_played();
+			default:
+				return row.label;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -29,7 +50,7 @@
 
 	<div class="relative z-10 -mt-10 space-y-10 pb-16">
 		{#each visibleRows as row (row.label)}
-			<MediaRow label={row.label}>
+			<MediaRow label={rowLabel(row)}>
 				{#if row.kind === 'continue_watching'}
 					{#each row.items as ContinueItem[] as item (item.playbackKind + item.playbackId)}
 						<ContinueWatchingCard {item} />

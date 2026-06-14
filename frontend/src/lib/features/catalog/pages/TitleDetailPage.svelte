@@ -147,8 +147,8 @@
 					</p>
 				{/if}
 
-				{#if data.title.genres.length}
-					<p class="mt-3 text-xs text-faint">{data.title.genres.join(' · ')}</p>
+				{#if data.title.genreLabels.length}
+					<p class="mt-3 text-xs text-faint">{data.title.genreLabels.join(' · ')}</p>
 				{/if}
 
 				<div class="mt-6 flex items-center gap-3">

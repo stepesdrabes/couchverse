@@ -19,6 +19,7 @@ export interface Title {
 	addedAt: string;
 	updatedAt: string;
 	genres: string[];
+	genreLabels: string[];
 	metadataLanguages: string[];
 }
 
@@ -46,6 +47,7 @@ export interface Episode {
 export interface Genre {
 	id: number;
 	name: string;
+	label: string;
 }
 
 export interface CardItem {

@@ -124,6 +124,10 @@
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
 		saving = true;
+		// a newly-added content language has no TMDB text yet - re-fetch to pull it
+		const addedLang =
+			data.title.tmdbId != null &&
+			languages.some((l) => !(data.title.metadataLanguages ?? []).includes(l));
 		try {
 			await libraryApi.updateTitle(data.title.id, {
 				name,
@@ -140,7 +144,10 @@
 			});
 			form.reset();
 			toast.success(m.common_saved());
-			invalidateAll();
+			await invalidateAll();
+			if (addedLang && data.title.tmdbId != null) {
+				await runTmdb(data.title.tmdbId);
+			}
 		} catch {
 			toast.error(m.common_save_failed());
 		} finally {
