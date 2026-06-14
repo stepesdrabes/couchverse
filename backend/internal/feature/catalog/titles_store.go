@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"couchverse/internal/db"
+	"couchverse/internal/httpx"
 	"couchverse/internal/slug"
 )
 
@@ -31,6 +32,7 @@ type Title struct {
 	AddedAt           time.Time       `json:"addedAt"`
 	UpdatedAt         time.Time       `json:"updatedAt"`
 	Genres            []string        `json:"genres"`
+	GenreLabels       []string        `json:"genreLabels"`
 	MetadataLanguages []string        `json:"metadataLanguages"`
 	Translations      json.RawMessage `json:"-"`
 }
@@ -50,6 +52,7 @@ func scanTitle(ctx context.Context, row pgx.Row) (*Title, error) {
 		return nil, err
 	}
 	t.Genres = []string{}
+	t.GenreLabels = []string{}
 	if t.MetadataLanguages == nil {
 		t.MetadataLanguages = []string{}
 	}
@@ -87,12 +90,14 @@ func (s *Store) loadTitleGenres(ctx context.Context, t *Title) error {
 		return err
 	}
 	defer rows.Close()
+	lang := httpx.LangFrom(ctx)
 	for rows.Next() {
 		var name string
 		if err := rows.Scan(&name); err != nil {
 			return err
 		}
 		t.Genres = append(t.Genres, name)
+		t.GenreLabels = append(t.GenreLabels, genreLabel(name, lang))
 	}
 	return rows.Err()
 }
@@ -321,8 +326,9 @@ func (s *Store) SetTitleGenres(ctx context.Context, titleID string, names []stri
 }
 
 type Genre struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`  // English - stable identity for URLs/filters
+	Label string `json:"label"` // resolved display label
 }
 
 func (s *Store) ListGenres(ctx context.Context) ([]Genre, error) {
@@ -331,12 +337,14 @@ func (s *Store) ListGenres(ctx context.Context) ([]Genre, error) {
 		return nil, err
 	}
 	defer rows.Close()
+	lang := httpx.LangFrom(ctx)
 	genres := []Genre{}
 	for rows.Next() {
 		var g Genre
 		if err := rows.Scan(&g.ID, &g.Name); err != nil {
 			return nil, err
 		}
+		g.Label = genreLabel(g.Name, lang)
 		genres = append(genres, g)
 	}
 	return genres, rows.Err()
