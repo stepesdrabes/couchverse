@@ -13,5 +13,14 @@ export const CONTENT_LANGS = [
 	{ code: 'ja', label: '日本語' }
 ];
 
-export const langLabel = (code: string): string =>
-	CONTENT_LANGS.find((l) => l.code === code)?.label ?? code.toUpperCase();
+// label for a code: the curated endonym, else the browser's language name for
+// any ISO code (so custom languages read nicely), else the uppercased code.
+export const langLabel = (code: string): string => {
+	const known = CONTENT_LANGS.find((l) => l.code === code);
+	if (known) return known.label;
+	try {
+		return new Intl.DisplayNames([code], { type: 'language' }).of(code) ?? code.toUpperCase();
+	} catch {
+		return code.toUpperCase();
+	}
+};
