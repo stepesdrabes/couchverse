@@ -3,6 +3,8 @@ package catalog
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
@@ -70,6 +72,9 @@ func (h *AdminHandlers) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := map[string]any{"title": t}
+	if len(t.Translations) > 0 {
+		out["translations"] = t.Translations // raw per-language jsonb for the editor
+	}
 	if t.Kind == "series" {
 		seasons, err := h.store.SeasonsWithEpisodes(r.Context(), t.ID)
 		if err != nil {
@@ -126,6 +131,30 @@ func (h *AdminHandlers) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, t)
+}
+
+// SetTranslation saves a manually-edited name/overview for one language, so
+// admins can localize titles that were not fetched from TMDB.
+func (h *AdminHandlers) SetTranslation(w http.ResponseWriter, r *http.Request) {
+	id := httpx.UUID(r, "id")
+	lang := chi.URLParam(r, "lang")
+	if id == "" || len(lang) < 2 || len(lang) > 5 {
+		httpx.NotFound(w)
+		return
+	}
+	var req struct {
+		Name     string `json:"name"`
+		Overview string `json:"overview"`
+	}
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.BadRequest(w, "invalid request body")
+		return
+	}
+	if err := h.store.SetTitleTranslationText(r.Context(), id, lang, req.Name, req.Overview); err != nil {
+		httpx.StoreErr(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
 func (h *AdminHandlers) Delete(w http.ResponseWriter, r *http.Request) {

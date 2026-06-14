@@ -240,6 +240,17 @@ func (s *Store) SetTitleTranslation(ctx context.Context, id, lang, name, overvie
 	return err
 }
 
+// SetTitleTranslationText merges a manually-edited name/overview into one
+// language's translation subtree, preserving other keys (e.g. a TMDB tagline).
+func (s *Store) SetTitleTranslationText(ctx context.Context, id, lang, name, overview string) error {
+	_, err := s.db.Exec(ctx,
+		`UPDATE titles SET translations = translations || jsonb_build_object($2::text,
+			coalesce(translations->$2, '{}'::jsonb) || jsonb_build_object('name', $3::text, 'overview', $4::text)),
+			updated_at = now()
+		 WHERE id = $1`, id, lang, name, overview)
+	return err
+}
+
 // RegenerateTitleSlug rebuilds the slug from name+year, keeping it unique.
 func (s *Store) RegenerateTitleSlug(ctx context.Context, id string, name string, year *int) (string, error) {
 	sl, err := s.uniqueSlug(ctx, slug.Make(name, year))
