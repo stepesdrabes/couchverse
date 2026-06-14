@@ -430,14 +430,35 @@
 	const audioTracks = $derived(info.audio ?? []);
 	let activeAudioId = $state<string | null>(info.audio?.find((a) => a.default)?.id ?? null);
 
-	// model-B audio switch: swap the whole source to the chosen-language file and
-	// re-seek (browsers can't switch the audio of a progressive file, so each
-	// language is its own direct-play file).
+	// Audio switch. Embedded (model A): switch the HLS audio rendition in place via
+	// hls.js (or Safari's native video.audioTracks). File (model B): swap the whole
+	// source to the chosen-language file and re-seek, since browsers can't switch
+	// the audio of a progressive file.
 	function selectAudio(track: AudioTrack) {
 		if (track.id === activeAudioId || !video) return;
 		activeAudioId = track.id;
 		if (track.lang) localStorage.setItem('cv.audioLang', track.lang);
 		else localStorage.removeItem('cv.audioLang');
+
+		if (track.source === 'embedded') {
+			if (hls) {
+				const idx = hls.audioTracks.findIndex((t) => t.lang === track.lang);
+				if (idx >= 0) hls.audioTrack = idx;
+			} else {
+				// Safari plays HLS natively and exposes the audio group here
+				const native = video as HTMLVideoElement & {
+					audioTracks?: { length: number; [i: number]: { language: string; enabled: boolean } };
+				};
+				const list = native.audioTracks;
+				if (list) {
+					for (let i = 0; i < list.length; i++) {
+						list[i].enabled = list[i].language === track.lang;
+					}
+				}
+			}
+			return;
+		}
+
 		pendingResume = { at: video.currentTime, play: !video.paused };
 		hls?.destroy();
 		hls = null;
