@@ -17,6 +17,7 @@
 	import { FormState } from '$lib/utils/form-state.svelte';
 	import { formatBytes, formatYearDate, qualityLabel } from '$lib/utils/format';
 	import SubtitleManager from './SubtitleManager.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		open = $bindable(false),
@@ -57,10 +58,10 @@
 		try {
 			await libraryApi.updateEpisode(episode.id, { name, overview });
 			form.reset();
-			toast.success('Episode saved');
+			toast.success(m.library_episode_saved());
 			invalidateAll();
 		} catch {
-			toast.error('Failed to save episode');
+			toast.error(m.library_save_episode_failed());
 		} finally {
 			saving = false;
 		}
@@ -85,15 +86,17 @@
 	<Modal
 		bind:open
 		size="xl"
-		title="Episode {episode.episodeNumber}"
-		description={episode.airDate ? `Aired ${formatYearDate(episode.airDate)}` : ''}
+		title={m.library_episode_number({ number: episode.episodeNumber })}
+		description={episode.airDate
+			? m.library_episode_aired({ date: formatYearDate(episode.airDate) })
+			: ''}
 	>
 		<div class="space-y-6">
 			<div class="space-y-4">
-				<Input label="Name" bind:value={name} />
-				<Textarea label="Overview" bind:value={overview} rows={4} />
+				<Input label={m.common_name()} bind:value={name} />
+				<Textarea label={m.library_overview()} bind:value={overview} rows={4} />
 				<div class="flex justify-end">
-					<Button loading={saving} disabled={!form.dirty} onclick={save}>Save</Button>
+					<Button loading={saving} disabled={!form.dirty} onclick={save}>{m.common_save()}</Button>
 				</div>
 			</div>
 
@@ -101,11 +104,11 @@
 				{@const codec = file.videoCodec || file.audioCodec}
 				<section>
 					<h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-muted">
-						File
+						{m.library_file()}
 						{#if jobActive}
 							<span class="flex items-center gap-1.5 text-xs font-medium text-accent">
 								<Loader2 class="size-3.5 animate-spin" />
-								Processing
+								{m.library_processing()}
 							</span>
 						{/if}
 					</h3>
@@ -127,20 +130,20 @@
 							<Badge>{formatBytes(file.sizeBytes)}</Badge>
 						{/if}
 						{#if file.directPlay}
-							<Badge>direct play</Badge>
+							<Badge>{m.library_direct_play()}</Badge>
 						{/if}
 					</p>
 					<FileVariants {file} />
 				</section>
 
 				<section>
-					<h3 class="mb-2 text-sm font-semibold text-muted">Jobs</h3>
+					<h3 class="mb-2 text-sm font-semibold text-muted">{m.library_jobs()}</h3>
 					<MediaFileJobs mediaFileId={file.id} bind:active={jobActive} />
 				</section>
 
 				<SubtitleManager mediaFile={file} {subtitles} />
 			{:else if !uploadActive}
-				<p class="text-xs text-faint">No video file attached to this episode yet.</p>
+				<p class="text-xs text-faint">{m.library_no_video_file()}</p>
 			{/if}
 
 			{#if upload}
@@ -168,7 +171,7 @@
 
 			<Button variant="secondary" size="sm" onclick={() => fileInput?.click()}>
 				<UploadCloud class="size-3.5" />
-				{file ? 'Upload replacement file' : 'Upload file'}
+				{file ? m.library_upload_replacement_file() : m.library_upload_file()}
 			</Button>
 		</div>
 	</Modal>

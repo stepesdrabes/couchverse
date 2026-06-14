@@ -10,6 +10,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { formatBytes, qualityLabel } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 	import SubtitlesModal from './SubtitlesModal.svelte';
 
 	let {
@@ -45,10 +46,10 @@
 
 <div class="rounded-card border border-edge bg-surface/40 p-6">
 	<div class="mb-4 flex items-center justify-between gap-3">
-		<h2 class="text-sm font-semibold text-muted">Files</h2>
+		<h2 class="text-sm font-semibold text-muted">{m.library_files_heading()}</h2>
 		<Button variant="secondary" size="sm" onclick={() => fileInput?.click()}>
 			<UploadCloud class="size-3.5" />
-			Upload file
+			{m.library_upload_file()}
 		</Button>
 	</div>
 
@@ -69,7 +70,7 @@
 							<button
 								class="shrink-0 rounded-full p-0.5 text-faint hover:text-danger"
 								onclick={() => upload.abort().then(() => (mine = mine.filter((u) => u !== upload)))}
-								aria-label="Cancel upload"
+								aria-label={m.library_cancel_upload()}
 							>
 								<X class="size-3.5" />
 							</button>
@@ -90,7 +91,7 @@
 
 	{#if mediaFiles.length === 0}
 		<p class="text-xs leading-relaxed text-faint">
-			No media files yet - upload one or scan a library folder.
+			{m.library_no_media_files()}
 		</p>
 	{:else}
 		<ul class="space-y-4">
@@ -108,7 +109,7 @@
 						<Badge>{file.container}</Badge>
 						<Badge>{formatBytes(file.sizeBytes)}</Badge>
 						{#if file.directPlay}
-							<Badge>direct play</Badge>
+							<Badge>{m.library_direct_play()}</Badge>
 						{/if}
 					</p>
 					<div class="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -120,12 +121,12 @@
 							onclick={() => openSubtitles(file)}
 						>
 							<Languages class="size-3" />
-							Subtitles
+							{m.library_subtitles()}
 						</button>
 					</div>
 					<FileVariants {file} />
 					<div class="mt-3">
-						<p class="mb-1 text-[11px] font-medium text-faint">Jobs</p>
+						<p class="mb-1 text-[11px] font-medium text-faint">{m.library_jobs()}</p>
 						<MediaFileJobs mediaFileId={file.id} />
 					</div>
 				</li>

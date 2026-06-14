@@ -7,14 +7,15 @@
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import StorageMeter from './StorageMeter.svelte';
 	import SystemMeter from './SystemMeter.svelte';
+	import * as m from '$lib/paraglide/messages';
 
-	const items = [
-		{ href: '/admin', label: 'Overview', icon: LayoutDashboard },
-		{ href: '/admin/library', label: 'Library', icon: Library },
-		{ href: '/admin/users', label: 'Users', icon: Users },
-		{ href: '/admin/jobs', label: 'Jobs & Storage', icon: Database },
-		{ href: '/admin/settings', label: 'Settings', icon: Settings }
-	];
+	const items = $derived([
+		{ href: '/admin', label: m.admin_nav_overview(), icon: LayoutDashboard },
+		{ href: '/admin/library', label: m.admin_nav_library(), icon: Library },
+		{ href: '/admin/users', label: m.admin_nav_users(), icon: Users },
+		{ href: '/admin/jobs', label: m.admin_nav_jobs_storage(), icon: Database },
+		{ href: '/admin/settings', label: m.admin_nav_settings(), icon: Settings }
+	]);
 
 	const isActive = (href: string) =>
 		href === '/admin' ? page.url.pathname === '/admin' : page.url.pathname.startsWith(href);
@@ -38,7 +39,7 @@
 			transition-colors hover:bg-surface-2 hover:text-text"
 	>
 		<ArrowLeft class="size-3.5" />
-		Back to app
+		{m.admin_back_to_app()}
 	</a>
 
 	<nav class="flex flex-1 flex-col gap-1 px-3">
@@ -72,7 +73,7 @@
 			/>
 			<div class="min-w-0">
 				<p class="truncate text-xs font-semibold">{session.user?.displayName}</p>
-				<p class="text-[10px] text-faint">Owner</p>
+				<p class="text-[10px] text-faint">{m.admin_owner()}</p>
 			</div>
 		</a>
 	</div>

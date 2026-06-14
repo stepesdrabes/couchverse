@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { StorageInfo } from '$lib/features/jobs/api';
 	import { categoryStyle } from './storageColors';
+	import * as m from '$lib/paraglide/messages';
 
 	// Segments are sized against `budget` (Couchverse usage + free), so the
 	// leftover track shows the free space available to Couchverse.
@@ -16,7 +17,7 @@
 			<div
 				class="h-full shrink-0 transition-all duration-500 first:rounded-l-full"
 				style="width: {pct(cat.bytes)}%; background: {style.color}"
-				title="{style.label}: {cat.bytes} bytes"
+				title={m.admin_storage_bar_title({ label: style.label, bytes: cat.bytes })}
 			></div>
 		{/if}
 	{/each}

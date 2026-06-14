@@ -3,6 +3,7 @@
 	import * as jobsApi from '$lib/features/jobs/api';
 	import type { SystemStats } from '$lib/features/jobs/api';
 	import { usageColor } from '$lib/utils/usage-color';
+	import * as m from '$lib/paraglide/messages';
 
 	let system = $state<SystemStats | null>(null);
 
@@ -30,7 +31,9 @@
 		{#if system.cpuPercent >= 0}
 			<div>
 				<div class="mb-1 flex items-center justify-between text-[11px]">
-					<span class="flex items-center gap-1.5 text-muted"><Cpu class="size-3" /> CPU</span>
+					<span class="flex items-center gap-1.5 text-muted"
+						><Cpu class="size-3" /> {m.admin_cpu()}</span
+					>
 					<span class="text-faint tnum">{system.cpuPercent.toFixed(0)}%</span>
 				</div>
 				<div class="h-1 overflow-hidden rounded-full bg-surface-2">
@@ -45,7 +48,8 @@
 			<div>
 				<div class="mb-1 flex items-center justify-between text-[11px]">
 					<span class="flex items-center gap-1.5 text-muted">
-						<MemoryStick class="size-3" /> RAM
+						<MemoryStick class="size-3" />
+						{m.admin_ram()}
 					</span>
 					<span class="text-faint tnum">{memPercent.toFixed(0)}%</span>
 				</div>

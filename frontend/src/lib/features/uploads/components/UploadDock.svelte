@@ -13,6 +13,7 @@
 	import type { Upload } from '$lib/features/uploads/uploader.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
 	import { formatBytes, formatEta } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	// raise above the music bar when it is showing so the two never overlap
 	let { playerBarVisible = false }: { playerBarVisible?: boolean } = $props();
@@ -55,10 +56,16 @@
 
 	const header = $derived.by(() => {
 		if (activeCount > 0) {
-			return `Uploading ${Math.min(doneCount + 1, uploads.length)} of ${uploads.length} · ${aggregatePct}%`;
+			return m.uploads_uploading_progress({
+				done: Math.min(doneCount + 1, uploads.length),
+				total: uploads.length,
+				pct: aggregatePct
+			});
 		}
-		if (errorCount > 0) return `${errorCount} failed · ${doneCount} done`;
-		return uploads.length === 1 ? 'Upload complete' : `${doneCount} uploads complete`;
+		if (errorCount > 0) return m.uploads_failed_done({ failed: errorCount, done: doneCount });
+		return uploads.length === 1
+			? m.uploads_complete_one()
+			: m.uploads_complete_many({ count: doneCount });
 	});
 
 	function cancel(upload: Upload) {
@@ -86,7 +93,7 @@
 				{#if activeCount > 0 && aggregateSpeed > 0}
 					<p class="truncate text-[11px] text-faint tnum">
 						{formatBytes(aggregateSpeed)}/s{#if etaSeconds !== null}
-							· {formatEta(etaSeconds)} left{/if}
+							· {m.uploads_eta_left({ eta: formatEta(etaSeconds) })}{/if}
 					</p>
 				{/if}
 			</div>
@@ -95,13 +102,13 @@
 					class="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-faint transition-colors hover:text-text"
 					onclick={clearFinished}
 				>
-					Clear
+					{m.common_clear()}
 				</button>
 			{/if}
 			<button
 				class="shrink-0 rounded-full p-1.5 text-faint transition-colors hover:bg-surface hover:text-text"
 				onclick={() => (collapsed = !collapsed)}
-				aria-label={collapsed ? 'Expand uploads' : 'Collapse uploads'}
+				aria-label={collapsed ? m.uploads_expand() : m.uploads_collapse()}
 			>
 				<ChevronDown class="size-4 transition-transform {collapsed ? '' : 'rotate-180'}" />
 			</button>
@@ -131,33 +138,53 @@
 								<button
 									class="dock-btn"
 									onclick={() => uploadQueue.remove(upload)}
-									aria-label="Dismiss"
+									aria-label={m.uploads_dismiss()}
 								>
 									<X class="size-3.5" />
 								</button>
 							{:else if upload.status === 'error'}
-								<button class="dock-btn" onclick={() => upload.start()} aria-label="Retry upload">
+								<button
+									class="dock-btn"
+									onclick={() => upload.start()}
+									aria-label={m.uploads_retry()}
+								>
 									<RotateCw class="size-3.5" />
 								</button>
 								<button
 									class="dock-btn"
 									onclick={() => uploadQueue.remove(upload)}
-									aria-label="Dismiss"
+									aria-label={m.uploads_dismiss()}
 								>
 									<X class="size-3.5" />
 								</button>
 							{:else if upload.status === 'uploading'}
-								<button class="dock-btn" onclick={() => upload.pause()} aria-label="Pause upload">
+								<button
+									class="dock-btn"
+									onclick={() => upload.pause()}
+									aria-label={m.uploads_pause()}
+								>
 									<Pause class="size-3.5" />
 								</button>
-								<button class="dock-btn" onclick={() => cancel(upload)} aria-label="Cancel upload">
+								<button
+									class="dock-btn"
+									onclick={() => cancel(upload)}
+									aria-label={m.uploads_cancel()}
+								>
 									<X class="size-3.5" />
 								</button>
 							{:else if upload.status === 'paused'}
-								<button class="dock-btn" onclick={() => upload.start()} aria-label="Resume upload">
+								<button
+									class="dock-btn"
+									onclick={() => upload.start()}
+									aria-label={m.uploads_resume()}
+								>
 									<Play class="size-3.5" />
 								</button>
-								<button class="dock-btn" onclick={() => cancel(upload)} aria-label="Cancel upload">
+								<button
+									class="dock-btn"
+									onclick={() => cancel(upload)}
+									aria-label={m.uploads_cancel()}
+								>
 									<X class="size-3.5" />
 								</button>
 							{:else}

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import * as m from '$lib/paraglide/messages';
+
 	// Rolling area+line sparkline. `values` are plotted left→right; `max` fixes
 	// the vertical scale (e.g. 100 for a percentage) so the line doesn't rescale
 	// on every tick.
@@ -35,7 +37,7 @@
 	viewBox="0 0 {W} {H}"
 	preserveAspectRatio="none"
 	role="img"
-	aria-label="trend"
+	aria-label={m.admin_trend()}
 >
 	<defs>
 		<linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">

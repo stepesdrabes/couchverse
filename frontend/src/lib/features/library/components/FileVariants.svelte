@@ -5,6 +5,7 @@
 	import * as libraryApi from '$lib/features/library/api';
 	import type { TranscodeVariant } from '$lib/features/library/api';
 	import { formatBytes } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	let { file }: { file: MediaFile } = $props();
 
@@ -26,10 +27,10 @@
 	async function prepare() {
 		try {
 			const res = await libraryApi.enqueueTranscode(file.id);
-			toast.success(`Queued: ${res.queued.join(', ')}`);
+			toast.success(m.library_queued({ items: res.queued.join(', ') }));
 			refresh();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'failed to queue transcode');
+			toast.error(err instanceof Error ? err.message : m.library_queue_transcode_failed());
 		}
 	}
 
@@ -38,7 +39,7 @@
 			await libraryApi.deleteVariant(variant.id);
 			refresh();
 		} catch {
-			toast.error('failed to delete variant');
+			toast.error(m.library_delete_variant_failed());
 		}
 	}
 
@@ -65,7 +66,7 @@
 						<button
 							class="rounded-full p-0.5 text-faint transition-colors hover:text-danger"
 							onclick={() => remove(variant)}
-							title="Delete variant"
+							title={m.library_delete_variant()}
 						>
 							<Trash2 class="size-3" />
 						</button>
@@ -78,7 +79,7 @@
 			onclick={prepare}
 		>
 			<Clapperboard class="size-3" />
-			Prepare HLS
+			{m.library_prepare_hls()}
 		</button>
 	</div>
 {/if}

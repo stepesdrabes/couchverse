@@ -13,6 +13,7 @@
 	import StatusPill from '$lib/components/ui/StatusPill.svelte';
 	import { formatClock } from '$lib/utils/format';
 	import { FormState } from '$lib/utils/form-state.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: Awaited<ReturnType<typeof libraryApi.getAdminAlbum>> } = $props();
 
@@ -52,10 +53,10 @@
 				status
 			});
 			form.reset();
-			toast.success('Saved');
+			toast.success(m.common_saved());
 			invalidateAll();
 		} catch {
-			toast.error('Failed to save');
+			toast.error(m.library_album_save_failed());
 		} finally {
 			saving = false;
 		}
@@ -66,10 +67,10 @@
 		if (!file) return;
 		try {
 			await libraryApi.uploadArtwork('album', data.album.id, 'album_cover', file);
-			toast.success('Cover updated');
+			toast.success(m.library_cover_updated());
 			invalidateAll();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Cover upload failed');
+			toast.error(err instanceof Error ? err.message : m.library_cover_upload_failed());
 		}
 	}
 
@@ -81,7 +82,7 @@
 			await libraryApi.renameTrack(id, next);
 			invalidateAll();
 		} catch {
-			toast.error('Failed to rename track');
+			toast.error(m.library_track_rename_failed());
 		}
 	}
 
@@ -90,23 +91,23 @@
 			await libraryApi.deleteTrack(id);
 			invalidateAll();
 		} catch {
-			toast.error('Failed to delete track');
+			toast.error(m.library_track_delete_failed());
 		}
 	}
 
 	async function removeAlbum() {
 		try {
 			await libraryApi.deleteAlbum(data.album.id);
-			toast.success('Album deleted');
+			toast.success(m.library_album_deleted());
 			goto('/admin/library');
 		} catch {
-			toast.error('Failed to delete album');
+			toast.error(m.library_album_delete_failed());
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>{data.album.name} - Couchverse admin</title>
+	<title>{m.library_album_page_title({ name: data.album.name })}</title>
 </svelte:head>
 
 <a
@@ -114,41 +115,43 @@
 	class="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-faint transition-colors hover:text-text"
 >
 	<ArrowLeft class="size-3.5" />
-	Library
+	{m.library_heading()}
 </a>
 
 <div class="mb-6 flex items-center gap-4">
 	<h1 class="text-2xl font-bold">{data.album.name}</h1>
 	<StatusPill status={data.album.status} />
-	<span class="text-xs text-faint">Album</span>
+	<span class="text-xs text-faint">{m.library_album()}</span>
 </div>
 
 <div class="grid gap-8 lg:grid-cols-[1fr_320px]">
 	<div class="space-y-8">
 		<form onsubmit={save} class="space-y-4 rounded-card border border-edge bg-surface/40 p-6">
-			<h2 class="text-sm font-semibold text-muted">Metadata</h2>
+			<h2 class="text-sm font-semibold text-muted">{m.library_metadata()}</h2>
 			<div class="grid gap-4 sm:grid-cols-2">
-				<Input label="Album name" bind:value={name} required />
-				<Input label="Artist" bind:value={artistName} required />
-				<Input label="Year" type="number" bind:value={year} />
+				<Input label={m.library_album_name()} bind:value={name} required />
+				<Input label={m.library_artist()} bind:value={artistName} required />
+				<Input label={m.library_year()} type="number" bind:value={year} />
 			</div>
 			<div class="flex items-center justify-between pt-2">
 				<Select
 					bind:value={status}
-					label="Status"
+					label={m.common_status()}
 					items={[
-						{ value: 'draft', label: 'Draft' },
-						{ value: 'published', label: 'Published' },
-						{ value: 'hidden', label: 'Hidden' }
+						{ value: 'draft', label: m.library_status_draft() },
+						{ value: 'published', label: m.library_status_published() },
+						{ value: 'hidden', label: m.library_status_hidden() }
 					]}
 				/>
-				<Button type="submit" loading={saving} disabled={!form.dirty}>Save changes</Button>
+				<Button type="submit" loading={saving} disabled={!form.dirty}
+					>{m.library_save_changes()}</Button
+				>
 			</div>
 		</form>
 
 		<section class="rounded-card border border-edge bg-surface/40 p-6">
 			<h2 class="mb-4 text-sm font-semibold text-muted">
-				Tracks
+				{m.library_tracks()}
 				<span class="ml-1 font-normal text-faint tnum">({data.tracks.length})</span>
 			</h2>
 			<ul class="divide-y divide-edge/50 rounded-input border border-edge/70">
@@ -169,14 +172,14 @@
 							<button
 								class="rounded-full p-1.5 text-success"
 								onclick={() => saveTrack(track.id)}
-								aria-label="Save name"
+								aria-label={m.library_save_name()}
 							>
 								<Check class="size-3.5" />
 							</button>
 							<button
 								class="rounded-full p-1.5 text-faint"
 								onclick={() => (editingTrack = null)}
-								aria-label="Cancel"
+								aria-label={m.common_cancel()}
 							>
 								<X class="size-3.5" />
 							</button>
@@ -189,21 +192,21 @@
 									editingTrack = track.id;
 									trackName = track.name;
 								}}
-								aria-label="Rename track"
+								aria-label={m.library_rename_track()}
 							>
 								<Pencil class="size-3" />
 							</button>
 							<button
 								class="rounded-full p-1.5 text-faint transition-colors hover:bg-danger/15 hover:text-danger"
 								onclick={() => removeTrack(track.id)}
-								aria-label="Delete track"
+								aria-label={m.library_delete_track()}
 							>
 								<Trash2 class="size-3" />
 							</button>
 						{/if}
 					</li>
 				{:else}
-					<li class="px-3 py-4 text-xs text-faint">No tracks - upload audio files.</li>
+					<li class="px-3 py-4 text-xs text-faint">{m.library_no_tracks()}</li>
 				{/each}
 			</ul>
 		</section>
@@ -216,18 +219,18 @@
 		/>
 
 		<div class="rounded-card border border-edge bg-surface/40 p-6">
-			<h2 class="mb-4 text-sm font-semibold text-muted">Cover</h2>
+			<h2 class="mb-4 text-sm font-semibold text-muted">{m.library_cover()}</h2>
 			<button
 				type="button"
 				class="group relative block size-36 overflow-hidden rounded-input border border-edge bg-surface-2
 					transition-colors hover:border-accent"
 				onclick={() => coverInput?.click()}
-				title="Upload cover"
+				title={m.library_upload_cover()}
 			>
 				{#if data.album.coverId}
 					<img
 						src="{artworkUrl(data.album.coverId)}?size=w342"
-						alt="Album cover"
+						alt={m.library_album_cover_alt()}
 						class="size-full object-cover"
 					/>
 				{/if}
@@ -241,13 +244,13 @@
 		</div>
 
 		<div class="rounded-card border border-danger/30 bg-danger/5 p-6">
-			<h2 class="mb-2 text-sm font-semibold text-danger">Danger zone</h2>
+			<h2 class="mb-2 text-sm font-semibold text-danger">{m.library_danger_zone()}</h2>
 			<p class="mb-4 text-xs text-faint">
-				Removes the album, its tracks and playlist entries. Files on disk are kept.
+				{m.library_album_danger_text()}
 			</p>
 			<Button variant="danger" size="sm" onclick={() => (confirmDelete = true)}>
 				<Trash2 class="size-3.5" />
-				Delete album
+				{m.library_delete_album()}
 			</Button>
 		</div>
 	</aside>
@@ -255,8 +258,8 @@
 
 <Confirm
 	bind:open={confirmDelete}
-	title="Delete “{data.album.name}”?"
-	message="The album and its tracks are removed from the catalog. Audio files on disk stay."
+	title={m.library_delete_named_title({ name: data.album.name })}
+	message={m.library_album_delete_message()}
 	onconfirm={removeAlbum}
 />
 

@@ -14,6 +14,7 @@
 	import Select from '$lib/components/ui/Select.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import Tabs from '$lib/components/ui/Tabs.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let tab = $state(page.url.searchParams.get('tab') ?? 'general');
 
@@ -95,7 +96,7 @@
 					homeForm.reset();
 				}
 			})
-			.catch(() => toast.error('Failed to load settings'));
+			.catch(() => toast.error(m.settings_load_failed()));
 
 		let refetch: ReturnType<typeof setTimeout> | undefined;
 		libraryApi
@@ -112,7 +113,7 @@
 					}, 3000);
 				}
 			})
-			.catch(() => toast.error('Failed to load settings'));
+			.catch(() => toast.error(m.settings_load_failed()));
 		return () => clearTimeout(refetch);
 	});
 
@@ -122,9 +123,9 @@
 		try {
 			await settingsApi.putSettings({ 'tmdb.api_key': tmdbKey });
 			tmdbForm.reset();
-			toast.success('TMDB settings saved');
+			toast.success(m.settings_tmdb_saved());
 		} catch {
-			toast.error('Failed to save settings');
+			toast.error(m.settings_save_failed());
 		} finally {
 			savingTmdb = false;
 		}
@@ -150,9 +151,9 @@
 				}
 			});
 			transcodeForm.reset();
-			toast.success('Transcoding settings saved - concurrency applies after a restart');
+			toast.success(m.settings_transcoding_saved());
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Failed to save settings');
+			toast.error(err instanceof Error ? err.message : m.settings_save_failed());
 		} finally {
 			savingTranscode = false;
 		}
@@ -166,9 +167,9 @@
 			await settingsApi.putSettings({ home: { featuredCount: count } });
 			featuredCount = String(count);
 			homeForm.reset();
-			toast.success('Home settings saved');
+			toast.success(m.settings_home_saved());
 		} catch {
-			toast.error('Failed to save settings');
+			toast.error(m.settings_save_failed());
 		} finally {
 			savingHome = false;
 		}
@@ -181,9 +182,9 @@
 			await settingsApi.putSettings({ features: { musicEnabled } });
 			features.musicEnabled = musicEnabled;
 			featuresForm.reset();
-			toast.success('Features saved');
+			toast.success(m.settings_features_saved());
 		} catch {
-			toast.error('Failed to save settings');
+			toast.error(m.settings_save_failed());
 		} finally {
 			savingFeatures = false;
 		}
@@ -198,9 +199,9 @@
 		try {
 			await settingsApi.putSettings({ appearance: { accent } });
 			accentForm.reset();
-			toast.success('Accent colour saved');
+			toast.success(m.settings_accent_saved());
 		} catch {
-			toast.error('Failed to save settings');
+			toast.error(m.settings_save_failed());
 		} finally {
 			savingAccent = false;
 		}
@@ -208,19 +209,19 @@
 </script>
 
 <svelte:head>
-	<title>Settings - Couchverse admin</title>
+	<title>{m.settings_page_title()}</title>
 </svelte:head>
 
-<h1 class="mb-6 text-2xl font-bold">Settings</h1>
+<h1 class="mb-6 text-2xl font-bold">{m.settings_heading()}</h1>
 
 <div class="mb-6">
 	<Tabs
 		bind:value={tab}
 		items={[
-			{ value: 'general', label: 'General' },
-			{ value: 'appearance', label: 'Appearance' },
-			{ value: 'transcoding', label: 'Transcoding' },
-			{ value: 'features', label: 'Features' }
+			{ value: 'general', label: m.settings_tab_general() },
+			{ value: 'appearance', label: m.settings_tab_appearance() },
+			{ value: 'transcoding', label: m.settings_tab_transcoding() },
+			{ value: 'features', label: m.settings_tab_features() }
 		]}
 	/>
 </div>
@@ -233,19 +234,20 @@
 					onsubmit={saveTmdb}
 					class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
 				>
-					<h2 class="text-sm font-semibold text-muted">Metadata</h2>
+					<h2 class="text-sm font-semibold text-muted">{m.settings_metadata_heading()}</h2>
 					<Input
-						label="TMDB API key"
+						label={m.settings_tmdb_api_key_label()}
 						bind:value={tmdbKey}
-						placeholder="paste your themoviedb.org API key"
+						placeholder={m.settings_tmdb_api_key_placeholder()}
 						autocomplete="off"
 					/>
 					<p class="text-xs leading-relaxed text-faint">
-						With a key set, the title editor can search TMDB and fill in posters, overviews and
-						genres automatically.
+						{m.settings_tmdb_api_key_hint()}
 					</p>
 					<div class="flex justify-end">
-						<Button type="submit" loading={savingTmdb} disabled={!tmdbForm.dirty}>Save</Button>
+						<Button type="submit" loading={savingTmdb} disabled={!tmdbForm.dirty}
+							>{m.common_save()}</Button
+						>
 					</div>
 				</form>
 
@@ -253,9 +255,9 @@
 					onsubmit={saveHome}
 					class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
 				>
-					<h2 class="text-sm font-semibold text-muted">Home page</h2>
+					<h2 class="text-sm font-semibold text-muted">{m.settings_home_heading()}</h2>
 					<Input
-						label="Featured titles in the hero carousel"
+						label={m.settings_home_featured_count_label()}
 						type="number"
 						min="1"
 						max="10"
@@ -263,10 +265,12 @@
 						class="w-28"
 					/>
 					<p class="text-xs leading-relaxed text-faint">
-						The most recently published titles cycle through the banner on the home page (1-10).
+						{m.settings_home_featured_count_hint()}
 					</p>
 					<div class="flex justify-end">
-						<Button type="submit" loading={savingHome} disabled={!homeForm.dirty}>Save</Button>
+						<Button type="submit" loading={savingHome} disabled={!homeForm.dirty}
+							>{m.common_save()}</Button
+						>
 					</div>
 				</form>
 
@@ -277,10 +281,9 @@
 				onsubmit={saveAccent}
 				class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
 			>
-				<h2 class="text-sm font-semibold text-muted">Accent colour</h2>
+				<h2 class="text-sm font-semibold text-muted">{m.settings_accent_heading()}</h2>
 				<p class="text-xs leading-relaxed text-faint">
-					Sets the highlight colour across the whole app - buttons, links, the player and admin.
-					Changes preview live; save to apply for everyone.
+					{m.settings_accent_hint()}
 				</p>
 
 				<div class="flex items-center gap-3">
@@ -288,9 +291,13 @@
 						type="color"
 						bind:value={accent}
 						class="size-11 cursor-pointer rounded-input border border-edge bg-transparent"
-						aria-label="Accent colour"
+						aria-label={m.settings_accent_heading()}
 					/>
-					<Input bind:value={accent} class="w-32 font-mono" aria-label="Accent hex" />
+					<Input
+						bind:value={accent}
+						class="w-32 font-mono"
+						aria-label={m.settings_accent_hex_label()}
+					/>
 				</div>
 
 				<div class="flex flex-wrap gap-2">
@@ -307,7 +314,9 @@
 				</div>
 
 				<div class="flex justify-end pt-1">
-					<Button type="submit" loading={savingAccent} disabled={!accentForm.dirty}>Save</Button>
+					<Button type="submit" loading={savingAccent} disabled={!accentForm.dirty}
+						>{m.common_save()}</Button
+					>
 				</div>
 			</form>
 		{:else if tab === 'transcoding'}
@@ -315,29 +324,29 @@
 				onsubmit={saveTranscode}
 				class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
 			>
-				<h2 class="text-sm font-semibold text-muted">Transcoding</h2>
+				<h2 class="text-sm font-semibold text-muted">{m.settings_tab_transcoding()}</h2>
 
 				<div>
-					<p class="mb-1.5 text-xs font-medium text-muted">Hardware acceleration</p>
+					<p class="mb-1.5 text-xs font-medium text-muted">{m.settings_hwaccel_label()}</p>
 					<Select
 						bind:value={hwAccel}
 						items={[
-							{ value: 'auto', label: 'Auto (best available)' },
-							{ value: 'none', label: 'Software (libx264)' },
+							{ value: 'auto', label: m.settings_hwaccel_auto() },
+							{ value: 'none', label: m.settings_hwaccel_software() },
 							...detectedEncoders.map((e) => ({ value: e, label: e }))
 						]}
 					/>
 					<p class="mt-1.5 text-[11px] text-faint">
-						Detected: {detecting
-							? 'detecting encoders…'
+						{m.settings_detected_label()}{' '}{detecting
+							? m.settings_detecting_encoders()
 							: detectedEncoders.length
 								? detectedEncoders.join(', ')
-								: 'none (software only)'}
+								: m.settings_detected_none()}
 					</p>
 				</div>
 
 				<div>
-					<p class="mb-1.5 text-xs font-medium text-muted">Quality ladder (full transcodes)</p>
+					<p class="mb-1.5 text-xs font-medium text-muted">{m.settings_quality_ladder_label()}</p>
 					<div class="flex gap-4">
 						{#each allRenditions as rendition (rendition)}
 							<label class="flex items-center gap-2 text-sm">
@@ -353,7 +362,7 @@
 
 				<div class="grid grid-cols-2 gap-4">
 					<div>
-						<p class="mb-1.5 text-xs font-medium text-muted">x264 preset</p>
+						<p class="mb-1.5 text-xs font-medium text-muted">{m.settings_x264_preset_label()}</p>
 						<Select
 							bind:value={preset}
 							items={['ultrafast', 'veryfast', 'fast', 'medium'].map((p) => ({
@@ -363,7 +372,7 @@
 						/>
 					</div>
 					<Input
-						label="Max concurrent jobs"
+						label={m.settings_max_concurrent_label()}
 						type="number"
 						min="1"
 						max="4"
@@ -375,9 +384,9 @@
 					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"
 				>
 					<span>
-						<span class="block text-sm">Auto-prepare unplayable files</span>
+						<span class="block text-sm">{m.settings_auto_prepare_label()}</span>
 						<span class="block text-[11px] text-faint">
-							Queue background transcodes for files browsers can't play, right after scanning.
+							{m.settings_auto_prepare_hint()}
 						</span>
 					</span>
 					<Switch bind:checked={autoPrepare} />
@@ -387,34 +396,32 @@
 					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"
 				>
 					<span>
-						<span class="block text-sm">Delete original after transcoding</span>
+						<span class="block text-sm">{m.settings_delete_original_label()}</span>
 						<span class="block text-[11px] text-faint">
-							Permanently removes the source file once all quality tiers finish. This is
-							irreversible - re-transcoding to other qualities won't be possible.
+							{m.settings_delete_original_hint()}
 						</span>
 					</span>
 					<Switch bind:checked={deleteSource} />
 				</label>
 
 				<div>
-					<p class="mb-1.5 text-xs font-medium text-muted">Instant play (on-the-fly transcoding)</p>
+					<p class="mb-1.5 text-xs font-medium text-muted">{m.settings_instant_play_label()}</p>
 					<Select
 						bind:value={jit}
 						items={[
-							{ value: 'auto', label: 'Auto (on with a hardware encoder)' },
-							{ value: 'on', label: 'Always on' },
-							{ value: 'off', label: 'Off' }
+							{ value: 'auto', label: m.settings_instant_play_auto() },
+							{ value: 'on', label: m.settings_instant_play_on() },
+							{ value: 'off', label: m.settings_instant_play_off() }
 						]}
 					/>
 					<p class="mt-1.5 text-[11px] text-faint">
-						Plays unprepared files immediately by transcoding live while you watch. Heavy without
-						hardware acceleration.
+						{m.settings_instant_play_hint()}
 					</p>
 				</div>
 
 				<div class="flex justify-end">
 					<Button type="submit" loading={savingTranscode} disabled={!transcodeForm.dirty}
-						>Save</Button
+						>{m.common_save()}</Button
 					>
 				</div>
 			</form>
@@ -423,22 +430,23 @@
 				onsubmit={saveFeatures}
 				class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
 			>
-				<h2 class="text-sm font-semibold text-muted">Features</h2>
+				<h2 class="text-sm font-semibold text-muted">{m.settings_tab_features()}</h2>
 
 				<label
 					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"
 				>
 					<span>
-						<span class="block text-sm">Music library</span>
+						<span class="block text-sm">{m.settings_music_library_label()}</span>
 						<span class="block text-[11px] text-faint">
-							When off, all music pages, the player bar and the music API endpoints are hidden.
+							{m.settings_music_library_hint()}
 						</span>
 					</span>
 					<Switch bind:checked={musicEnabled} />
 				</label>
 
 				<div class="flex justify-end">
-					<Button type="submit" loading={savingFeatures} disabled={!featuresForm.dirty}>Save</Button
+					<Button type="submit" loading={savingFeatures} disabled={!featuresForm.dirty}
+						>{m.common_save()}</Button
 					>
 				</div>
 			</form>

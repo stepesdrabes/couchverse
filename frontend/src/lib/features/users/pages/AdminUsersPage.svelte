@@ -13,6 +13,7 @@
 	import { session } from '$lib/features/auth/session.svelte';
 	import { formatYearDate } from '$lib/utils/format';
 	import { FormState } from '$lib/utils/form-state.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let users = $state<User[]>([]);
 
@@ -43,13 +44,13 @@
 		busy = true;
 		try {
 			await usersApi.createUser({ username: newUsername, password: newPassword, role: newRole });
-			toast.success(`Created account “${newUsername}”`);
+			toast.success(m.users_created_account({ username: newUsername }));
 			createOpen = false;
 			newUsername = newPassword = '';
 			newRole = 'member';
 			refresh();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Failed to create user');
+			toast.error(err instanceof Error ? err.message : m.users_create_failed());
 		} finally {
 			busy = false;
 		}
@@ -76,11 +77,11 @@
 				disabled: editDisabled,
 				...(editPassword ? { password: editPassword } : {})
 			});
-			toast.success('User updated');
+			toast.success(m.users_updated());
 			editOpen = false;
 			refresh();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Failed to update user');
+			toast.error(err instanceof Error ? err.message : m.users_update_failed());
 		} finally {
 			busy = false;
 		}
@@ -90,20 +91,20 @@
 		if (!deleting) return;
 		try {
 			await usersApi.deleteUser(deleting.id);
-			toast.success(`Deleted “${deleting.username}”`);
+			toast.success(m.users_deleted({ username: deleting.username }));
 			refresh();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Failed to delete user');
+			toast.error(err instanceof Error ? err.message : m.users_delete_failed());
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Users - Couchverse admin</title>
+	<title>{m.users_page_title()}</title>
 </svelte:head>
 
 <div class="mb-6 flex items-center gap-4">
-	<h1 class="text-2xl font-bold">Users</h1>
+	<h1 class="text-2xl font-bold">{m.users_heading()}</h1>
 	<span
 		class="rounded-full border border-edge bg-surface px-2.5 py-0.5 text-xs font-semibold text-muted tnum"
 	>
@@ -112,7 +113,7 @@
 	<div class="ml-auto">
 		<Button size="sm" onclick={() => (createOpen = true)}>
 			<Plus class="size-4" />
-			New user
+			{m.users_new_user()}
 		</Button>
 	</div>
 </div>
@@ -121,10 +122,10 @@
 	<table class="w-full text-left text-sm">
 		<thead>
 			<tr class="border-b border-edge text-[11px] tracking-wider text-faint uppercase">
-				<th class="px-4 py-3 font-semibold">User</th>
-				<th class="py-3 pr-4 font-semibold">Role</th>
-				<th class="py-3 pr-4 font-semibold">Status</th>
-				<th class="py-3 pr-4 font-semibold">Created</th>
+				<th class="px-4 py-3 font-semibold">{m.users_col_user()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.users_col_role()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.common_status()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.users_col_created()}</th>
 				<th class="w-32 py-3 pr-4"></th>
 			</tr>
 		</thead>
@@ -143,7 +144,7 @@
 								<span class="block font-semibold">
 									{user.displayName}
 									{#if user.id === session.user?.id}
-										<span class="ml-1 text-[10px] font-normal text-faint">(you)</span>
+										<span class="ml-1 text-[10px] font-normal text-faint">{m.users_you()}</span>
 									{/if}
 								</span>
 								<span class="block text-xs text-faint">@{user.username}</span>
@@ -154,20 +155,22 @@
 						{#if user.role === 'admin'}
 							<span class="inline-flex items-center gap-1 text-xs font-semibold text-accent">
 								<ShieldCheck class="size-3.5" />
-								Admin
+								{m.users_role_admin()}
 							</span>
 						{:else}
-							<span class="text-xs text-muted">Member</span>
+							<span class="text-xs text-muted">{m.users_role_member()}</span>
 						{/if}
 					</td>
 					<td class="py-3 pr-4">
 						<span class="text-xs {user.disabled ? 'text-danger' : 'text-success'}">
-							{user.disabled ? 'Disabled' : 'Active'}
+							{user.disabled ? m.users_status_disabled() : m.users_status_active()}
 						</span>
 					</td>
 					<td class="py-3 pr-4 text-xs text-muted tnum">{formatYearDate(user.createdAt)}</td>
 					<td class="py-3 pr-4 text-right">
-						<Button variant="ghost" size="sm" onclick={() => openEdit(user)}>Edit</Button>
+						<Button variant="ghost" size="sm" onclick={() => openEdit(user)}
+							>{m.common_edit()}</Button
+						>
 						{#if user.id !== session.user?.id}
 							<Button
 								variant="ghost"
@@ -177,7 +180,7 @@
 									confirmDelete = true;
 								}}
 							>
-								Delete
+								{m.common_delete()}
 							</Button>
 						{/if}
 					</td>
@@ -187,15 +190,11 @@
 	</table>
 </div>
 
-<Modal
-	bind:open={createOpen}
-	title="New user"
-	description="Create an account for someone in your household."
->
+<Modal bind:open={createOpen} title={m.users_new_user()} description={m.users_create_description()}>
 	<form onsubmit={create} class="space-y-4">
-		<Input label="Username" bind:value={newUsername} required autocomplete="off" />
+		<Input label={m.users_username_label()} bind:value={newUsername} required autocomplete="off" />
 		<Input
-			label="Password"
+			label={m.users_password_label()}
 			type="password"
 			bind:value={newPassword}
 			required
@@ -203,50 +202,50 @@
 		/>
 		<Select
 			bind:value={newRole}
-			label="Role"
+			label={m.users_col_role()}
 			items={[
-				{ value: 'member', label: 'Member' },
-				{ value: 'admin', label: 'Admin' }
+				{ value: 'member', label: m.users_role_member() },
+				{ value: 'admin', label: m.users_role_admin() }
 			]}
 		/>
 		<div class="flex justify-end pt-2">
 			<Button type="submit" loading={busy} disabled={!newUsername.trim() || !newPassword}>
-				Create user
+				{m.users_create_user()}
 			</Button>
 		</div>
 	</form>
 </Modal>
 
-<Modal bind:open={editOpen} title="Edit {editing?.username}">
+<Modal bind:open={editOpen} title={m.users_edit_title({ username: editing?.username ?? '' })}>
 	<form onsubmit={saveEdit} class="space-y-4">
-		<Input label="Display name" bind:value={editDisplayName} />
+		<Input label={m.users_display_name_label()} bind:value={editDisplayName} />
 		<Select
 			bind:value={editRole}
-			label="Role"
+			label={m.users_col_role()}
 			items={[
-				{ value: 'member', label: 'Member' },
-				{ value: 'admin', label: 'Admin' }
+				{ value: 'member', label: m.users_role_member() },
+				{ value: 'admin', label: m.users_role_admin() }
 			]}
 		/>
 		<Input
-			label="New password (leave empty to keep)"
+			label={m.users_new_password_label()}
 			type="password"
 			bind:value={editPassword}
 			autocomplete="new-password"
 		/>
 		<label class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5">
-			<span class="text-sm">Disabled</span>
+			<span class="text-sm">{m.users_status_disabled()}</span>
 			<Switch bind:checked={editDisabled} />
 		</label>
 		<div class="flex justify-end pt-2">
-			<Button type="submit" loading={busy} disabled={!editForm.dirty}>Save</Button>
+			<Button type="submit" loading={busy} disabled={!editForm.dirty}>{m.common_save()}</Button>
 		</div>
 	</form>
 </Modal>
 
 <Confirm
 	bind:open={confirmDelete}
-	title="Delete “{deleting?.username}”?"
-	message="Their watch progress, lists and playlists are removed permanently."
+	title={m.users_delete_confirm_title({ username: deleting?.username ?? '' })}
+	message={m.users_delete_confirm_message()}
 	onconfirm={remove}
 />

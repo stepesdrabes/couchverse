@@ -5,6 +5,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		open = $bindable(false),
@@ -32,11 +33,11 @@
 			picks = Object.fromEntries(seasons.map((s) => [s.seasonNumber, s.seasonNumber !== 0]));
 		} catch (err) {
 			if (err instanceof ApiError && err.code === 'no_tmdb_id') {
-				errorMsg = 'This title is not linked to TMDB yet - use “Fetch from TMDB” first.';
+				errorMsg = m.library_import_no_tmdb_id();
 			} else if (err instanceof ApiError && err.code === 'no_tmdb_key') {
-				errorMsg = 'No TMDB API key configured - add one in Settings.';
+				errorMsg = m.library_import_no_tmdb_key();
 			} else {
-				errorMsg = err instanceof Error ? err.message : 'Failed to load seasons';
+				errorMsg = err instanceof Error ? err.message : m.library_load_seasons_failed();
 			}
 		} finally {
 			loading = false;
@@ -53,19 +54,19 @@
 	}
 </script>
 
-<Modal bind:open title="Import episodes" description="Creates seasons and episodes from TMDB.">
+<Modal bind:open title={m.library_import_episodes()} description={m.library_import_episodes_desc()}>
 	{#if loading}
-		<p class="py-6 text-center text-sm text-faint">Loading seasons…</p>
+		<p class="py-6 text-center text-sm text-faint">{m.library_loading_seasons()}</p>
 	{:else if errorMsg}
 		<p class="py-6 text-center text-sm text-danger">{errorMsg}</p>
 	{:else if seasons.length === 0}
-		<p class="py-6 text-center text-sm text-faint">No seasons found on TMDB.</p>
+		<p class="py-6 text-center text-sm text-faint">{m.library_no_seasons_found()}</p>
 	{:else}
 		<label
 			class="flex cursor-pointer items-center gap-2.5 border-b border-edge/60 pb-3 text-sm font-medium"
 		>
 			<Checkbox bind:checked={allSeasons} />
-			All seasons
+			{m.library_all_seasons()}
 		</label>
 		<ul
 			class="mt-2 max-h-64 space-y-0.5 overflow-y-auto
@@ -79,9 +80,11 @@
 					>
 						<Checkbox bind:checked={picks[season.seasonNumber]} />
 						<span class="min-w-0 flex-1 truncate">
-							{season.name || `Season ${season.seasonNumber}`}
+							{season.name || m.library_season_number({ number: season.seasonNumber })}
 						</span>
-						<span class="shrink-0 text-xs text-faint tnum">{season.episodeCount} episodes</span>
+						<span class="shrink-0 text-xs text-faint tnum"
+							>{m.library_episode_count({ count: season.episodeCount })}</span
+						>
 					</label>
 				</li>
 			{/each}
@@ -89,7 +92,7 @@
 	{/if}
 
 	{#snippet footer()}
-		<Button variant="ghost" onclick={() => (open = false)}>Cancel</Button>
+		<Button variant="ghost" onclick={() => (open = false)}>{m.common_cancel()}</Button>
 		<Button
 			disabled={loading ||
 				errorMsg !== '' ||
@@ -97,7 +100,7 @@
 				(!allSeasons && selectedSeasons.length === 0)}
 			onclick={startImport}
 		>
-			Import
+			{m.library_import()}
 		</Button>
 	{/snippet}
 </Modal>

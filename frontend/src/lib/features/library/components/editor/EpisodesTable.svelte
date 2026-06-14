@@ -11,6 +11,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import EpisodeInfoModal from './EpisodeInfoModal.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		titleId,
@@ -44,10 +45,14 @@
 	async function addSeason() {
 		const nextNumber = seasons.length + 1;
 		try {
-			await libraryApi.createSeason(titleId, nextNumber, `Season ${nextNumber}`);
+			await libraryApi.createSeason(
+				titleId,
+				nextNumber,
+				m.library_season_number({ number: nextNumber })
+			);
 			invalidateAll();
 		} catch {
-			toast.error('Failed to add season');
+			toast.error(m.library_add_season_failed());
 		}
 	}
 
@@ -56,7 +61,7 @@
 			await libraryApi.deleteSeason(season.id);
 			invalidateAll();
 		} catch {
-			toast.error('Failed to delete season');
+			toast.error(m.library_delete_season_failed());
 		}
 	}
 
@@ -71,7 +76,7 @@
 			newEpisodeName[season.id] = '';
 			invalidateAll();
 		} catch {
-			toast.error('Failed to add episode');
+			toast.error(m.library_add_episode_failed());
 		}
 	}
 
@@ -80,7 +85,7 @@
 			await libraryApi.deleteEpisode(id);
 			invalidateAll();
 		} catch {
-			toast.error('Failed to delete episode');
+			toast.error(m.library_delete_episode_failed());
 		}
 	}
 
@@ -106,17 +111,17 @@
 <section class="rounded-card border border-edge bg-surface/40 p-6">
 	<div class="mb-4 flex items-center justify-between">
 		<div class="flex items-center gap-2.5">
-			<h2 class="text-sm font-semibold text-muted">Seasons & episodes</h2>
+			<h2 class="text-sm font-semibold text-muted">{m.library_seasons_episodes()}</h2>
 			{#if importing}
 				<span class="flex items-center gap-1.5 text-xs font-medium text-accent">
 					<Loader2 class="size-3.5 animate-spin" />
-					Importing from TMDB…
+					{m.library_importing_from_tmdb()}
 				</span>
 			{/if}
 		</div>
 		<Button variant="secondary" size="sm" onclick={addSeason}>
 			<Plus class="size-3.5" />
-			Add season
+			{m.library_add_season()}
 		</Button>
 	</div>
 
@@ -124,14 +129,14 @@
 		<div class="mb-5 last:mb-0">
 			<div class="mb-2 flex items-center justify-between">
 				<h3 class="text-sm font-semibold">
-					{season.name || `Season ${season.seasonNumber}`}
+					{season.name || m.library_season_number({ number: season.seasonNumber })}
 					<span class="ml-2 text-xs font-normal text-faint tnum">
-						{season.episodes.length} episodes
+						{m.library_episode_count({ count: season.episodes.length })}
 					</span>
 				</h3>
 				<button
 					class="rounded-full p-1.5 text-faint transition-colors hover:bg-danger/15 hover:text-danger"
-					title="Delete season"
+					title={m.library_delete_season()}
 					onclick={() => removeSeason(season)}
 				>
 					<Trash2 class="size-3.5" />
@@ -145,9 +150,9 @@
 						<span class="w-8 shrink-0 text-xs text-faint tnum">E{ep.episodeNumber}</span>
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">
-								<span class="truncate">{ep.name || 'Untitled'}</span>
+								<span class="truncate">{ep.name || m.common_untitled()}</span>
 								{#if file}
-									<span title="Has video file" class="shrink-0 text-success">
+									<span title={m.library_has_video_file()} class="shrink-0 text-success">
 										<Film class="size-3" />
 									</span>
 									{#each subtitlesByFile[file.id] ?? [] as sub (sub.id)}
@@ -173,21 +178,21 @@
 						</div>
 						<button
 							class="rounded-full p-1.5 text-faint transition-colors hover:bg-surface-2 hover:text-text"
-							title="Upload episode file"
+							title={m.library_upload_episode_file()}
 							onclick={() => fileInputs[ep.id]?.click()}
 						>
 							<UploadCloud class="size-3.5" />
 						</button>
 						<button
 							class="rounded-full p-1.5 text-faint transition-colors hover:bg-surface-2 hover:text-text"
-							title="Episode details"
+							title={m.library_episode_details()}
 							onclick={() => openInfo(ep)}
 						>
 							<Info class="size-3.5" />
 						</button>
 						<button
 							class="rounded-full p-1.5 text-faint transition-colors hover:bg-danger/15 hover:text-danger"
-							title="Delete episode"
+							title={m.library_delete_episode()}
 							onclick={() => removeEpisode(ep.id)}
 						>
 							<Trash2 class="size-3" />
@@ -206,14 +211,14 @@
 				<li class="flex items-center gap-2 px-3 py-2">
 					<input
 						bind:value={newEpisodeName[season.id]}
-						placeholder="New episode name…"
+						placeholder={m.library_new_episode_name()}
 						class="h-8 flex-1 rounded-lg border border-transparent bg-transparent px-2 text-sm
 							placeholder:text-faint focus:border-edge focus:outline-none"
 						onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), addEpisode(season))}
 					/>
 					<Button variant="ghost" size="sm" onclick={() => addEpisode(season)}>
 						<Plus class="size-3.5" />
-						Add
+						{m.common_add()}
 					</Button>
 				</li>
 			</ul>
@@ -226,7 +231,7 @@
 				{/each}
 			</div>
 		{:else}
-			<p class="text-xs text-faint">No seasons yet.</p>
+			<p class="text-xs text-faint">{m.library_no_seasons()}</p>
 		{/if}
 	{/each}
 </section>

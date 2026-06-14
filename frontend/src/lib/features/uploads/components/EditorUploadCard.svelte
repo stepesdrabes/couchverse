@@ -5,6 +5,7 @@
 	import type { Upload } from '$lib/features/uploads/uploader.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
 	import { formatBytes } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		kind,
@@ -28,7 +29,7 @@
 </script>
 
 <div class="rounded-card border border-edge bg-surface/40 p-6">
-	<h2 class="mb-3 text-sm font-semibold text-muted">Upload media</h2>
+	<h2 class="mb-3 text-sm font-semibold text-muted">{m.uploads_upload_media()}</h2>
 	<button
 		type="button"
 		class="flex w-full flex-col items-center gap-1.5 rounded-input border border-dashed px-4 py-6
@@ -47,7 +48,7 @@
 		onclick={() => fileInput?.click()}
 	>
 		<UploadCloud class="size-5 text-accent" />
-		<span class="text-xs font-semibold">Drop files or click</span>
+		<span class="text-xs font-semibold">{m.uploads_drop_files()}</span>
 		<span class="text-[11px] text-faint">{hint}</span>
 	</button>
 
@@ -68,7 +69,7 @@
 							<button
 								class="shrink-0 rounded-full p-0.5 text-faint hover:text-danger"
 								onclick={() => upload.abort().then(() => (mine = mine.filter((u) => u !== upload)))}
-								aria-label="Cancel upload"
+								aria-label={m.uploads_cancel()}
 							>
 								<X class="size-3.5" />
 							</button>

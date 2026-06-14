@@ -5,6 +5,7 @@
 	import type { Title } from '$lib/features/catalog/types';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		open = $bindable(false),
@@ -24,7 +25,7 @@
 		try {
 			results = await libraryApi.searchTmdb(query, title.kind);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'search failed';
+			error = err instanceof Error ? err.message : m.library_tmdb_search_failed();
 			results = [];
 		} finally {
 			searching = false;
@@ -43,7 +44,7 @@
 	}
 </script>
 
-<Modal bind:open title="Search TMDB" description="Pulls overview, year, genres and artwork.">
+<Modal bind:open title={m.library_search_tmdb()} description={m.library_tmdb_pull_description()}>
 	<form onsubmit={search} class="mb-4 flex gap-2">
 		<div class="relative flex-1">
 			<Search class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-faint" />
@@ -51,10 +52,10 @@
 				bind:value={query}
 				class="h-9 w-full rounded-full border border-edge bg-surface pr-4 pl-9 text-sm
 					placeholder:text-faint focus:border-accent focus:outline-none"
-				placeholder="Search by name…"
+				placeholder={m.library_search_by_name_placeholder()}
 			/>
 		</div>
-		<Button type="submit" size="sm" loading={searching}>Search</Button>
+		<Button type="submit" size="sm" loading={searching}>{m.common_search()}</Button>
 	</form>
 
 	{#if searching && results.length === 0}
@@ -64,7 +65,7 @@
 	{:else if error}
 		<p class="py-6 text-center text-sm text-danger">{error}</p>
 	{:else if results.length === 0}
-		<p class="py-6 text-center text-sm text-faint">No results.</p>
+		<p class="py-6 text-center text-sm text-faint">{m.library_no_results()}</p>
 	{:else}
 		<ul class="max-h-80 space-y-2 overflow-y-auto pr-1">
 			{#each results as result (result.tmdbId)}
@@ -87,7 +88,7 @@
 						<p class="mt-0.5 line-clamp-2 text-xs text-faint">{result.overview}</p>
 					</div>
 					<Button variant="secondary" size="sm" class="self-center" onclick={() => apply(result)}>
-						Apply
+						{m.library_apply()}
 					</Button>
 				</li>
 			{/each}

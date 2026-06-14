@@ -8,6 +8,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import StatusPill from '$lib/components/ui/StatusPill.svelte';
 	import { formatBytes, formatDate } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	let { query = '', sort = 'added' }: { query?: string; sort?: string } = $props();
 
@@ -23,7 +24,7 @@
 			items = res.items;
 			total = res.total;
 		} catch {
-			toast.error('Failed to load albums');
+			toast.error(m.library_albums_load_failed());
 		} finally {
 			loaded = true;
 		}
@@ -39,26 +40,26 @@
 		if (!pendingDelete) return;
 		try {
 			await libraryApi.deleteAlbum(pendingDelete.id);
-			toast.success(`Deleted “${pendingDelete.name}”`);
+			toast.success(m.library_deleted_named({ name: pendingDelete.name }));
 			refresh();
 		} catch {
-			toast.error('Failed to delete album');
+			toast.error(m.library_album_delete_failed());
 		}
 		pendingDelete = null;
 	}
 </script>
 
-<p class="mb-2 text-xs text-faint tnum">{total} album{total === 1 ? '' : 's'}</p>
+<p class="mb-2 text-xs text-faint tnum">{m.library_album_count({ count: total })}</p>
 <div class="overflow-hidden rounded-card border border-edge bg-surface/40">
 	<table class="w-full text-left text-sm">
 		<thead>
 			<tr class="border-b border-edge text-[11px] tracking-wider text-faint uppercase">
-				<th class="px-4 py-3 font-semibold">Album</th>
-				<th class="py-3 pr-4 font-semibold">Artist</th>
-				<th class="py-3 pr-4 font-semibold">Tracks</th>
-				<th class="py-3 pr-4 font-semibold">Size</th>
-				<th class="py-3 pr-4 font-semibold">Added</th>
-				<th class="py-3 pr-4 font-semibold">Status</th>
+				<th class="px-4 py-3 font-semibold">{m.library_album()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.library_artist()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.library_tracks()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.library_col_size()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.library_col_added()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.common_status()}</th>
 				<th class="w-24 py-3 pr-4"></th>
 			</tr>
 		</thead>
@@ -101,13 +102,13 @@
 							<a
 								href="/admin/music/{album.id}"
 								class="rounded-full p-2 text-muted transition-colors hover:bg-surface-2 hover:text-text"
-								title="Edit"
+								title={m.common_edit()}
 							>
 								<Pencil class="size-3.5" />
 							</a>
 							<button
 								class="rounded-full p-2 text-muted transition-colors hover:bg-danger/15 hover:text-danger"
-								title="Delete"
+								title={m.common_delete()}
 								onclick={() => {
 									pendingDelete = album;
 									confirmDelete = true;
@@ -123,16 +124,13 @@
 	</table>
 
 	{#if loaded && items.length === 0}
-		<EmptyState
-			title="No albums yet"
-			message="Upload tagged audio files or scan the music library."
-		/>
+		<EmptyState title={m.library_albums_empty_title()} message={m.library_albums_empty_message()} />
 	{/if}
 </div>
 
 <Confirm
 	bind:open={confirmDelete}
-	title="Delete “{pendingDelete?.name}”?"
-	message="The album and its tracks are removed from the catalog. Audio files on disk stay."
+	title={m.library_delete_named_title({ name: pendingDelete?.name ?? '' })}
+	message={m.library_album_delete_message()}
 	onconfirm={deleteOne}
 />

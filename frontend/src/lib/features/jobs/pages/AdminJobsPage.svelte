@@ -7,6 +7,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { formatYearDate } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	let libraries = $state<Library[]>([]);
 	let jobs = $state<Job[]>([]);
@@ -24,20 +25,20 @@
 	async function scan(lib: Library) {
 		try {
 			await jobsApi.scanLibrary(lib.id);
-			toast.success(`Scanning “${lib.name}”`);
+			toast.success(m.jobs_scanning_library({ name: lib.name }));
 			refresh();
 		} catch {
-			toast.error('Failed to start scan');
+			toast.error(m.jobs_scan_start_failed());
 		}
 	}
 
 	async function scanAll() {
 		try {
 			await jobsApi.scanAllLibraries();
-			toast.success('Scanning all libraries');
+			toast.success(m.jobs_scanning_all());
 			refresh();
 		} catch {
-			toast.error('Failed to start scans');
+			toast.error(m.jobs_scan_all_failed());
 		}
 	}
 
@@ -49,15 +50,24 @@
 		cancelled: 'text-faint'
 	};
 
+	const statusLabel: Record<Job['status'], () => string> = {
+		pending: m.jobs_status_pending,
+		running: m.jobs_status_running,
+		done: m.jobs_status_done,
+		failed: m.common_failed,
+		cancelled: m.jobs_status_cancelled
+	};
+
 	// subject comes from the backend; older payload shapes are the fallback
 	const jobSubject = (job: Job) => {
 		const subject = jobSubjectLabel(job);
 		if (subject) return subject;
 		if (job.type === 'scan_library') {
 			const lib = libraries.find((l) => l.id === job.payload.libraryId);
-			return lib ? `“${lib.name}”` : `library #${job.payload.libraryId}`;
+			return lib ? `“${lib.name}”` : m.jobs_library_fallback({ id: String(job.payload.libraryId) });
 		}
-		if (typeof job.payload.mediaFileId === 'string') return `file #${job.payload.mediaFileId}`;
+		if (typeof job.payload.mediaFileId === 'string')
+			return m.jobs_file_fallback({ id: job.payload.mediaFileId });
 		return null;
 	};
 
@@ -103,23 +113,23 @@
 		const order: Job['status'][] = ['running', 'pending', 'failed', 'cancelled', 'done'];
 		return order
 			.filter((s) => counts[s])
-			.map((s) => `${counts[s]} ${s}`)
+			.map((s) => m.jobs_status_count({ count: counts[s], status: statusLabel[s]() }))
 			.join(' · ');
 	};
 </script>
 
 <svelte:head>
-	<title>Jobs & Storage - Couchverse admin</title>
+	<title>{m.jobs_page_title()}</title>
 </svelte:head>
 
-<h1 class="mb-6 text-2xl font-bold">Jobs & Storage</h1>
+<h1 class="mb-6 text-2xl font-bold">{m.jobs_heading()}</h1>
 
 <section class="mb-8">
 	<div class="mb-3 flex items-center justify-between">
-		<h2 class="text-sm font-semibold text-muted">Libraries</h2>
+		<h2 class="text-sm font-semibold text-muted">{m.jobs_libraries()}</h2>
 		<Button variant="secondary" size="sm" onclick={scanAll}>
 			<RefreshCw class="size-3.5" />
-			Re-scan all
+			{m.jobs_rescan_all()}
 		</Button>
 	</div>
 	<div class="grid gap-3 lg:grid-cols-3">
@@ -132,21 +142,21 @@
 					</div>
 					<Button variant="ghost" size="sm" onclick={() => scan(lib)}>
 						<FolderSearch class="size-3.5" />
-						Scan
+						{m.jobs_scan()}
 					</Button>
 				</div>
 				<p class="mt-3 text-[11px] text-faint">
 					{lib.lastScannedAt
-						? `Last scanned ${formatYearDate(lib.lastScannedAt)}`
-						: 'Never scanned'}
+						? m.jobs_last_scanned({ date: formatYearDate(lib.lastScannedAt) })
+						: m.jobs_never_scanned()}
 				</p>
 			</div>
 		{/each}
 	</div>
 	<p class="mt-2 text-xs text-faint">
-		Drop files into a library folder (SMB/SFTP) and hit Scan - series like
-		<span class="font-mono">Show/Season 01/Show S01E01.mkv</span>, movies like
-		<span class="font-mono">Name (2024)/Name (2024).mkv</span>, music sorted by its tags.
+		{m.jobs_drop_hint_intro()}
+		<span class="font-mono">Show/Season 01/Show S01E01.mkv</span>{m.jobs_drop_hint_movies()}
+		<span class="font-mono">Name (2024)/Name (2024).mkv</span>{m.jobs_drop_hint_music()}
 	</p>
 </section>
 
@@ -156,7 +166,7 @@
 			<div class="flex items-center gap-2">
 				<span class="truncate text-muted">{jobAction(job)}</span>
 				{#if job.attempts > 1}
-					<span class="text-[11px] text-faint">attempt {job.attempts}</span>
+					<span class="text-[11px] text-faint">{m.jobs_attempt({ n: job.attempts })}</span>
 				{/if}
 			</div>
 			{#if job.lastError && (job.status === 'failed' || job.status === 'pending')}
@@ -166,7 +176,7 @@
 			{/if}
 		</div>
 		<span class="w-20 shrink-0 text-xs font-semibold capitalize {statusColor[job.status]}">
-			{job.status}
+			{statusLabel[job.status]()}
 		</span>
 		<div class="w-28 shrink-0">
 			{#if job.status === 'running' || job.status === 'pending'}
@@ -184,12 +194,12 @@
 			{#if job.status === 'failed' || job.status === 'cancelled'}
 				<Button variant="ghost" size="sm" onclick={() => jobsApi.retryJob(job.id).then(refresh)}>
 					<RotateCcw class="size-3.5" />
-					Retry
+					{m.common_retry()}
 				</Button>
 			{:else if job.status === 'pending' || job.status === 'running'}
 				<Button variant="ghost" size="sm" onclick={() => jobsApi.cancelJob(job.id).then(refresh)}>
 					<X class="size-3.5" />
-					Cancel
+					{m.common_cancel()}
 				</Button>
 			{/if}
 		</div>
@@ -197,20 +207,20 @@
 {/snippet}
 
 <section>
-	<h2 class="mb-3 text-sm font-semibold text-muted">Job queue</h2>
+	<h2 class="mb-3 text-sm font-semibold text-muted">{m.jobs_queue()}</h2>
 	<div class="overflow-hidden rounded-card border border-edge bg-surface/40">
 		{#if groups.length === 0}
-			<EmptyState title="No jobs yet" message="Library scans and file analysis show up here." />
+			<EmptyState title={m.jobs_empty_title()} message={m.jobs_empty_message()} />
 		{:else}
 			<ul class="divide-y divide-edge/50">
 				{#each groups as group (group.key)}
 					<li>
 						<div class="flex items-baseline justify-between gap-3 px-4 pt-3 pb-1">
 							<p class="min-w-0 truncate text-sm font-semibold" title={group.label ?? undefined}>
-								{group.label ?? 'System'}
+								{group.label ?? m.jobs_system()}
 							</p>
 							<span class="shrink-0 text-[11px] text-faint">
-								{#if group.jobs.length > 1}{group.jobs.length} jobs ·
+								{#if group.jobs.length > 1}{m.jobs_job_count({ count: group.jobs.length })} ·
 								{/if}{groupSummary(group)}
 							</span>
 						</div>

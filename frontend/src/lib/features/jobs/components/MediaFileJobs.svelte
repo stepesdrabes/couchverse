@@ -3,6 +3,7 @@
 	import * as jobsApi from '$lib/features/jobs/api';
 	import { jobAction } from '$lib/features/jobs/job-label';
 	import { formatYearDate } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	// `active` is a write-only bindable consumed by the parent
 	// eslint-disable-next-line no-useless-assignment
@@ -18,6 +19,14 @@
 		done: 'text-success',
 		failed: 'text-danger',
 		cancelled: 'text-faint'
+	};
+
+	const statusLabel: Record<Job['status'], () => string> = {
+		pending: m.jobs_status_pending,
+		running: m.jobs_status_running,
+		done: m.jobs_status_done,
+		failed: m.common_failed,
+		cancelled: m.jobs_status_cancelled
 	};
 
 	$effect(() => {
@@ -40,7 +49,7 @@
 </script>
 
 {#if loaded && jobs.length === 0}
-	<p class="text-xs text-faint">No jobs for this file yet.</p>
+	<p class="text-xs text-faint">{m.jobs_no_file_jobs()}</p>
 {:else if jobs.length > 0}
 	<ul class="space-y-1.5">
 		{#each jobs as job (job.id)}
@@ -48,7 +57,7 @@
 				<div class="flex items-center gap-2">
 					<span class="min-w-0 flex-1 truncate font-medium">{jobAction(job)}</span>
 					<span class="shrink-0 font-semibold capitalize {statusColor[job.status]}">
-						{job.status}
+						{statusLabel[job.status]()}
 					</span>
 					<span class="shrink-0 text-faint tnum">{formatYearDate(job.createdAt)}</span>
 				</div>

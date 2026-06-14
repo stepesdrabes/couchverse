@@ -7,6 +7,7 @@
 	import * as libraryApi from '$lib/features/library/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import StatusPill from '$lib/components/ui/StatusPill.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		title,
@@ -35,10 +36,10 @@
 		if (!file) return;
 		try {
 			await libraryApi.uploadArtwork('title', title.id, kind, file);
-			toast.success(`${kind} updated`);
+			toast.success(kind === 'poster' ? m.library_poster_updated() : m.library_backdrop_updated());
 			invalidateAll();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'upload failed');
+			toast.error(err instanceof Error ? err.message : m.library_upload_failed());
 		}
 	}
 
@@ -47,7 +48,7 @@
 			await libraryApi.deleteArtwork(art.id);
 			invalidateAll();
 		} catch {
-			toast.error('failed to delete artwork');
+			toast.error(m.library_delete_artwork_failed());
 		}
 	}
 </script>
@@ -74,7 +75,7 @@
 			onclick={() => backdropInput?.click()}
 		>
 			<ImagePlus class="size-3.5" />
-			{backdrop ? 'Replace backdrop' : 'Add backdrop'}
+			{backdrop ? m.library_replace_backdrop() : m.library_add_backdrop()}
 		</button>
 		{#if backdrop}
 			<button
@@ -82,7 +83,7 @@
 				class="rounded-full border border-edge/60 bg-bg/60 p-2 text-muted backdrop-blur
 					transition-colors hover:text-danger"
 				onclick={() => remove(backdrop)}
-				aria-label="Remove backdrop"
+				aria-label={m.library_remove_backdrop()}
 			>
 				<Trash2 class="size-3.5" />
 			</button>
@@ -95,7 +96,7 @@
 			class="mb-8 inline-flex items-center gap-1.5 text-xs font-medium text-faint transition-colors hover:text-text"
 		>
 			<ArrowLeft class="size-3.5" />
-			Library
+			{m.library_back_to_library()}
 		</a>
 
 		<div class="flex items-end gap-6">
@@ -115,7 +116,7 @@
 					class="absolute inset-0 flex items-center justify-center bg-black/55 opacity-0
 						transition-opacity group-hover/poster:opacity-100 focus-visible:opacity-100"
 					onclick={() => posterInput?.click()}
-					title={poster ? 'Replace poster' : 'Upload poster'}
+					title={poster ? m.library_replace_poster() : m.library_upload_poster()}
 				>
 					<ImagePlus class="size-5 text-white" />
 				</button>
@@ -125,7 +126,7 @@
 						class="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1.5 text-white/80 opacity-0
 							transition-opacity group-hover/poster:opacity-100 hover:text-danger"
 						onclick={() => remove(poster)}
-						aria-label="Remove poster"
+						aria-label={m.library_remove_poster()}
 					>
 						<Trash2 class="size-3" />
 					</button>
@@ -143,11 +144,11 @@
 				<div class="mt-5 flex flex-wrap items-center gap-2">
 					<Button variant="secondary" size="sm" disabled={busy} onclick={onFetchTmdb}>
 						<Sparkles class="size-3.5" />
-						Fetch from TMDB
+						{m.library_fetch_from_tmdb()}
 					</Button>
 					{#if title.kind === 'series'}
 						<!-- span carries the hint: the disabled button swallows pointer events -->
-						<span title={title.tmdbId ? undefined : 'Link the show via “Fetch from TMDB” first'}>
+						<span title={title.tmdbId ? undefined : m.library_link_tmdb_first()}>
 							<Button
 								variant="secondary"
 								size="sm"
@@ -155,13 +156,13 @@
 								onclick={onImportEpisodes}
 							>
 								<ListPlus class="size-3.5" />
-								Import episodes
+								{m.library_import_episodes()}
 							</Button>
 						</span>
 					{/if}
 					<Button variant="danger" size="sm" onclick={onDelete}>
 						<Trash2 class="size-3.5" />
-						Delete title
+						{m.library_delete_title()}
 					</Button>
 				</div>
 			</div>

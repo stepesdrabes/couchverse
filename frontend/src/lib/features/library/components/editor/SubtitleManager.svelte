@@ -5,6 +5,7 @@
 	import type { MediaFile } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { SubtitleInfo } from '$lib/features/library/api';
+	import * as m from '$lib/paraglide/messages';
 
 	let { mediaFile, subtitles }: { mediaFile: MediaFile; subtitles: SubtitleInfo[] } = $props();
 
@@ -16,10 +17,10 @@
 		if (!file) return;
 		try {
 			await libraryApi.uploadSubtitle(mediaFile.id, lang.trim() || 'und', file);
-			toast.success('Subtitle added');
+			toast.success(m.library_subtitle_added());
 			invalidateAll();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'upload failed');
+			toast.error(err instanceof Error ? err.message : m.library_upload_failed());
 		}
 	}
 
@@ -28,7 +29,7 @@
 			await libraryApi.deleteSubtitle(sub.id);
 			invalidateAll();
 		} catch {
-			toast.error('failed to delete subtitle');
+			toast.error(m.library_delete_subtitle_failed());
 		}
 	}
 </script>
@@ -36,7 +37,7 @@
 <div>
 	<div class="mb-2 flex items-center justify-between gap-2">
 		<label class="flex items-center gap-1.5 text-xs text-faint">
-			Lang
+			{m.library_lang()}
 			<input
 				bind:value={lang}
 				class="h-7 w-14 rounded-lg border border-edge bg-surface px-2 text-center text-xs
@@ -49,7 +50,7 @@
 			onclick={() => fileInput?.click()}
 		>
 			<Plus class="size-3" />
-			Add .srt/.vtt
+			{m.library_add_subtitle_file()}
 		</button>
 	</div>
 
@@ -70,7 +71,7 @@
 			{/each}
 		</ul>
 	{:else}
-		<p class="text-[11px] text-faint">No subtitles.</p>
+		<p class="text-[11px] text-faint">{m.library_no_subtitles()}</p>
 	{/if}
 </div>
 

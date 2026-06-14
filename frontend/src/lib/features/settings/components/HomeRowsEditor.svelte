@@ -10,6 +10,7 @@
 	import Select from '$lib/components/ui/Select.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { FormState } from '$lib/utils/form-state.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let rows = $state<HomeRowConfig[]>([]);
 	let genres = $state<Genre[]>([]);
@@ -25,11 +26,11 @@
 		listGenres().then((g) => (genres = g));
 	});
 
-	const kindLabel: Record<HomeRowConfig['kind'], string> = {
-		continue_watching: 'Continue watching',
-		recently_added: 'Recently added',
-		genre: 'Genre row',
-		recently_played_music: 'Recently played music'
+	const kindLabel: Record<HomeRowConfig['kind'], () => string> = {
+		continue_watching: () => m.settings_home_row_continue_watching(),
+		recently_added: () => m.settings_home_row_recently_added(),
+		genre: () => m.settings_home_row_genre(),
+		recently_played_music: () => m.settings_home_row_recently_played_music()
 	};
 
 	function move(index: number, dir: -1 | 1) {
@@ -42,7 +43,7 @@
 
 	function addGenreRow() {
 		if (genres.length === 0) {
-			toast.error('No genres yet - tag some titles first');
+			toast.error(m.settings_home_rows_no_genres());
 			return;
 		}
 		rows = [
@@ -67,9 +68,9 @@
 		try {
 			rows = await jobsApi.putHomeRows(rows);
 			form.reset();
-			toast.success('Home page rows saved');
+			toast.success(m.settings_home_rows_saved());
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Failed to save rows');
+			toast.error(err instanceof Error ? err.message : m.settings_home_rows_save_failed());
 		} finally {
 			saving = false;
 		}
@@ -78,10 +79,10 @@
 
 <div class="rounded-card border border-edge bg-surface/40 p-6">
 	<div class="mb-4 flex items-center justify-between">
-		<h2 class="text-sm font-semibold text-muted">Home page rows</h2>
+		<h2 class="text-sm font-semibold text-muted">{m.settings_home_rows_heading()}</h2>
 		<Button variant="secondary" size="sm" onclick={addGenreRow}>
 			<Plus class="size-3.5" />
-			Genre row
+			{m.settings_home_row_genre()}
 		</Button>
 	</div>
 
@@ -110,7 +111,7 @@
 							class="w-full rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-sm
 								focus:border-edge focus:outline-none"
 						/>
-						<p class="px-1 text-[10px] text-faint">{kindLabel[row.kind]}</p>
+						<p class="px-1 text-[10px] text-faint">{kindLabel[row.kind]()}</p>
 					{/if}
 				</div>
 				<span class="flex gap-0.5">
@@ -118,7 +119,7 @@
 						class="rounded-full p-1.5 text-faint hover:text-text disabled:opacity-30"
 						disabled={i === 0}
 						onclick={() => move(i, -1)}
-						aria-label="Move up"
+						aria-label={m.settings_home_rows_move_up()}
 					>
 						<ArrowUp class="size-3.5" />
 					</button>
@@ -126,7 +127,7 @@
 						class="rounded-full p-1.5 text-faint hover:text-text disabled:opacity-30"
 						disabled={i === rows.length - 1}
 						onclick={() => move(i, 1)}
-						aria-label="Move down"
+						aria-label={m.settings_home_rows_move_down()}
 					>
 						<ArrowDown class="size-3.5" />
 					</button>
@@ -134,7 +135,7 @@
 						<button
 							class="rounded-full p-1.5 text-faint hover:text-danger"
 							onclick={() => removeRow(i)}
-							aria-label="Remove row"
+							aria-label={m.settings_home_rows_remove_row()}
 						>
 							<Trash2 class="size-3.5" />
 						</button>
@@ -145,6 +146,8 @@
 	</ul>
 
 	<div class="mt-4 flex justify-end">
-		<Button onclick={save} loading={saving} disabled={!form.dirty}>Save rows</Button>
+		<Button onclick={save} loading={saving} disabled={!form.dirty}
+			>{m.settings_home_rows_save()}</Button
+		>
 	</div>
 </div>

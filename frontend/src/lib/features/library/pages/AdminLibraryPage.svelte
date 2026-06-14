@@ -19,6 +19,7 @@
 	import StatusPill from '$lib/components/ui/StatusPill.svelte';
 	import Tabs from '$lib/components/ui/Tabs.svelte';
 	import { formatBytes, formatDate, qualityLabel } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	let items = $state<LibraryRow[]>([]);
 	let total = $state(0);
@@ -41,10 +42,10 @@
 
 	const kindTabs = $derived(
 		[
-			{ value: '', label: 'All' },
-			{ value: 'series', label: 'Series' },
-			{ value: 'movie', label: 'Movies' },
-			{ value: 'music', label: 'Music' }
+			{ value: '', label: m.common_all() },
+			{ value: 'series', label: m.library_kind_series() },
+			{ value: 'movie', label: m.library_kind_movies() },
+			{ value: 'music', label: m.library_kind_music() }
 		].filter((t) => t.value !== 'music' || features.musicEnabled)
 	);
 
@@ -63,7 +64,7 @@
 				if (!items.some((i) => i.id === id)) selected.delete(id);
 			}
 		} catch {
-			toast.error('Failed to load library');
+			toast.error(m.library_load_failed());
 		} finally {
 			loading = false;
 		}
@@ -135,18 +136,18 @@
 
 	async function bulk(action: 'publish' | 'hide' | 'delete' | 'rescan') {
 		const labels = {
-			publish: 'published',
-			hide: 'hidden',
-			delete: 'deleted',
-			rescan: 'queued for re-scan'
+			publish: m.library_bulk_published({ count: selected.size }),
+			hide: m.library_bulk_hidden({ count: selected.size }),
+			delete: m.library_bulk_deleted({ count: selected.size }),
+			rescan: m.library_bulk_rescanned({ count: selected.size })
 		};
 		try {
 			await libraryApi.bulkTitles([...selected], action);
-			toast.success(`${selected.size} title${selected.size > 1 ? 's' : ''} ${labels[action]}`);
+			toast.success(labels[action]);
 			selected.clear();
 			refresh();
 		} catch {
-			toast.error('Bulk action failed');
+			toast.error(m.library_bulk_failed());
 		}
 	}
 
@@ -156,17 +157,17 @@
 			await libraryApi.updateTitle(row.id, { status: next });
 			refresh();
 		} catch {
-			toast.error('Failed to update status');
+			toast.error(m.library_status_update_failed());
 		}
 	}
 
 	async function deleteOne(row: LibraryRow) {
 		try {
 			await libraryApi.deleteTitle(row.id);
-			toast.success(`Deleted “${row.name}”`);
+			toast.success(m.library_deleted_named({ name: row.name }));
 			refresh();
 		} catch {
-			toast.error('Failed to delete');
+			toast.error(m.common_delete_failed());
 		}
 	}
 
@@ -175,20 +176,20 @@
 
 	const subtitle = (row: LibraryRow) =>
 		row.kind === 'series'
-			? `${row.seasonCount} season${row.seasonCount === 1 ? '' : 's'} · ${row.episodeCount} eps`
-			: 'Movie';
+			? m.library_series_subtitle({ seasons: row.seasonCount, episodes: row.episodeCount })
+			: m.library_kind_movie();
 </script>
 
 <svelte:head>
-	<title>Library - Couchverse admin</title>
+	<title>{m.library_page_title()}</title>
 </svelte:head>
 
 <div class="mb-6 flex items-center gap-4">
-	<h1 class="text-2xl font-bold">Library</h1>
+	<h1 class="text-2xl font-bold">{m.library_heading()}</h1>
 	<span
 		class="rounded-full border border-edge bg-surface px-2.5 py-0.5 text-xs font-semibold text-muted tnum"
 	>
-		{total} titles
+		{m.library_title_count({ count: total })}
 	</span>
 	<div class="ml-auto flex items-center gap-3">
 		<div class="relative">
@@ -196,7 +197,7 @@
 			<input
 				bind:value={query}
 				oninput={onSearchInput}
-				placeholder="Search library..."
+				placeholder={m.library_search_placeholder()}
 				class="h-9 w-64 rounded-full border border-edge bg-surface pr-4 pl-10 text-sm transition-colors
 					placeholder:text-faint focus:border-accent focus:outline-none"
 			/>
@@ -204,7 +205,7 @@
 		{#if !musicTab}
 			<Button size="sm" onclick={() => (createOpen = true)}>
 				<Plus class="size-4" />
-				New title
+				{m.library_new_title()}
 			</Button>
 		{/if}
 	</div>
@@ -215,24 +216,24 @@
 	{#if !musicTab}
 		<Select
 			bind:value={status}
-			label="Status"
+			label={m.common_status()}
 			items={[
-				{ value: '', label: 'Any' },
-				{ value: 'draft', label: 'Draft' },
-				{ value: 'processing', label: 'Processing' },
-				{ value: 'published', label: 'Published' },
-				{ value: 'hidden', label: 'Hidden' }
+				{ value: '', label: m.common_any() },
+				{ value: 'draft', label: m.library_status_draft() },
+				{ value: 'processing', label: m.library_status_processing() },
+				{ value: 'published', label: m.library_status_published() },
+				{ value: 'hidden', label: m.library_status_hidden() }
 			]}
 		/>
 	{/if}
 	<Select
 		bind:value={sort}
-		label="Sort"
+		label={m.library_sort_label()}
 		items={[
-			{ value: 'added', label: 'Recently added' },
-			{ value: 'name', label: 'Name' },
-			{ value: 'year', label: 'Year' },
-			{ value: 'size', label: 'Size' }
+			{ value: 'added', label: m.library_sort_recently_added() },
+			{ value: 'name', label: m.common_name() },
+			{ value: 'year', label: m.library_sort_year() },
+			{ value: 'size', label: m.library_sort_size() }
 		]}
 	/>
 </div>
@@ -250,12 +251,12 @@
 							onCheckedChange={toggleAll}
 						/>
 					</th>
-					<th class="py-3 pr-4 font-semibold">Title</th>
-					<th class="py-3 pr-4 font-semibold">Type</th>
-					<th class="py-3 pr-4 font-semibold">Quality</th>
-					<th class="py-3 pr-4 font-semibold">Size</th>
-					<th class="py-3 pr-4 font-semibold">Added</th>
-					<th class="py-3 pr-4 font-semibold">Status</th>
+					<th class="py-3 pr-4 font-semibold">{m.library_col_title()}</th>
+					<th class="py-3 pr-4 font-semibold">{m.library_col_type()}</th>
+					<th class="py-3 pr-4 font-semibold">{m.library_col_quality()}</th>
+					<th class="py-3 pr-4 font-semibold">{m.library_col_size()}</th>
+					<th class="py-3 pr-4 font-semibold">{m.library_col_added()}</th>
+					<th class="py-3 pr-4 font-semibold">{m.common_status()}</th>
 					<th class="w-28 py-3 pr-4"></th>
 				</tr>
 			</thead>
@@ -297,18 +298,18 @@
 									<span
 										class="inline-flex items-center rounded border border-amber-400/30 bg-amber-400/10
 											px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-amber-300 uppercase"
-										title="Not browser-playable and no HLS version queued - re-scan or use Files → Prepare HLS in the editor"
+										title={m.library_needs_prep_hint()}
 									>
-										needs prep
+										{m.library_needs_prep()}
 									</span>
 								{/if}
 								{#if !qualityLabel(row.maxHeight)}
-									<span class="text-xs text-faint">no files</span>
+									<span class="text-xs text-faint">{m.library_no_files()}</span>
 								{/if}
 								{#if transcodesByTitle.has(row.id)}
 									{@const active = transcodesByTitle.get(row.id)!}
 									{@const progress = Math.min(...active.map((t) => t.progress))}
-									<span class="flex items-center gap-1.5" title="Transcoding">
+									<span class="flex items-center gap-1.5" title={m.library_transcoding()}>
 										<span class="block h-1.5 w-20 overflow-hidden rounded-full bg-surface-2">
 											<span
 												class="block h-full rounded-full bg-accent transition-all duration-500"
@@ -316,7 +317,9 @@
 											></span>
 										</span>
 										<span class="text-[11px] text-muted tnum">
-											{Math.round(progress)}%{active.length > 1 ? ` · ${active.length} jobs` : ''}
+											{Math.round(progress)}%{active.length > 1
+												? m.library_transcode_jobs_suffix({ count: active.length })
+												: ''}
 										</span>
 									</span>
 								{/if}
@@ -337,13 +340,15 @@
 								<a
 									href="/admin/library/{row.id}"
 									class="rounded-full p-2 text-muted transition-colors hover:bg-surface-2 hover:text-text"
-									title="Edit"
+									title={m.common_edit()}
 								>
 									<Pencil class="size-3.5" />
 								</a>
 								<button
 									class="rounded-full p-2 text-muted transition-colors hover:bg-surface-2 hover:text-text"
-									title={row.status === 'published' ? 'Hide' : 'Publish'}
+									title={row.status === 'published'
+										? m.library_action_hide()
+										: m.library_action_publish()}
 									onclick={() => quickToggleVisibility(row)}
 								>
 									{#if row.status === 'published'}
@@ -354,7 +359,7 @@
 								</button>
 								<button
 									class="rounded-full p-2 text-muted transition-colors hover:bg-danger/15 hover:text-danger"
-									title="Delete"
+									title={m.common_delete()}
 									onclick={() => {
 										rowPendingDelete = row;
 										confirmRowDelete = true;
@@ -370,13 +375,10 @@
 		</table>
 
 		{#if !loading && items.length === 0}
-			<EmptyState
-				title="Nothing here yet"
-				message="Create a title or scan a media folder to fill the library."
-			>
+			<EmptyState title={m.library_empty_title()} message={m.library_empty_message()}>
 				<Button size="sm" onclick={() => (createOpen = true)}>
 					<Plus class="size-4" />
-					New title
+					{m.library_new_title()}
 				</Button>
 			</EmptyState>
 		{/if}
@@ -389,14 +391,21 @@
 		class="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-full
 			border border-edge bg-surface-2/95 px-2 py-1.5 shadow-2xl shadow-black/50 backdrop-blur"
 	>
-		<span class="px-3 text-xs font-semibold text-accent tnum">{selected.size} selected</span>
+		<span class="px-3 text-xs font-semibold text-accent tnum"
+			>{m.library_selected_count({ count: selected.size })}</span
+		>
 		<span class="h-5 w-px bg-edge"></span>
-		<Button variant="ghost" size="sm" onclick={() => bulk('publish')}>Publish</Button>
-		<Button variant="ghost" size="sm" onclick={() => bulk('hide')}>Hide</Button>
-		<Button variant="ghost" size="sm" onclick={() => bulk('rescan')}>Re-scan</Button>
+		<Button variant="ghost" size="sm" onclick={() => bulk('publish')}
+			>{m.library_action_publish()}</Button
+		>
+		<Button variant="ghost" size="sm" onclick={() => bulk('hide')}>{m.library_action_hide()}</Button
+		>
+		<Button variant="ghost" size="sm" onclick={() => bulk('rescan')}
+			>{m.library_action_rescan()}</Button
+		>
 		<Button variant="danger" size="sm" onclick={() => (confirmDelete = true)}>
 			<Trash2 class="size-3.5" />
-			Delete
+			{m.common_delete()}
 		</Button>
 	</div>
 {/if}
@@ -405,15 +414,15 @@
 
 <Confirm
 	bind:open={confirmDelete}
-	title="Delete {selected.size} title{selected.size > 1 ? 's' : ''}?"
-	message="This removes the titles and their metadata from the library. Media files on disk are not touched."
+	title={m.library_delete_confirm_title({ count: selected.size })}
+	message={m.library_delete_bulk_message()}
 	onconfirm={() => bulk('delete')}
 />
 
 <Confirm
 	bind:open={confirmRowDelete}
-	title="Delete “{rowPendingDelete?.name}”?"
-	message="This removes the title and its metadata from the library. Media files on disk are not touched."
+	title={m.library_delete_named_title({ name: rowPendingDelete?.name ?? '' })}
+	message={m.library_delete_one_message()}
 	onconfirm={() => {
 		if (rowPendingDelete) deleteOne(rowPendingDelete);
 		rowPendingDelete = null;

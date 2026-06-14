@@ -15,6 +15,7 @@
 	import Select from '$lib/components/ui/Select.svelte';
 	import Textarea from '$lib/components/ui/Textarea.svelte';
 	import { FormState } from '$lib/utils/form-state.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: Awaited<ReturnType<typeof libraryApi.getTitle>> } = $props();
 
@@ -63,23 +64,25 @@
 	// in-page loading indicator across both jobs.
 	async function runTmdb(tmdbId: number) {
 		jobActive = true;
-		const pending = toast.loading('Fetching metadata & artwork from TMDB…');
+		const pending = toast.loading(m.library_tmdb_fetching());
 		try {
 			const { jobId } = await libraryApi.applyTmdb(data.title.id, tmdbId);
 			const job = await waitForJob(jobId);
 			if (job?.status === 'failed') {
-				toast.error('TMDB fetch failed', { id: pending });
+				toast.error(m.library_tmdb_fetch_failed(), { id: pending });
 				return;
 			}
 			await invalidateAll(); // pull in the new poster/backdrop/metadata + tmdbId
 			if (data.title.kind === 'series') {
-				toast.loading('Importing episodes from TMDB…', { id: pending });
+				toast.loading(m.library_importing_episodes(), { id: pending });
 				await importEpisodeJob(pending);
 			} else {
-				toast.success('Metadata & artwork applied', { id: pending });
+				toast.success(m.library_tmdb_applied(), { id: pending });
 			}
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'failed to apply', { id: pending });
+			toast.error(err instanceof Error ? err.message : m.library_tmdb_apply_failed(), {
+				id: pending
+			});
 		} finally {
 			jobActive = false;
 		}
@@ -88,11 +91,11 @@
 	// Manual "Import episodes" path (re-import or pick specific seasons).
 	async function runImport(seasons?: number[]) {
 		jobActive = true;
-		const pending = toast.loading('Importing episodes from TMDB…');
+		const pending = toast.loading(m.library_importing_episodes());
 		try {
 			await importEpisodeJob(pending, seasons);
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'failed to import', { id: pending });
+			toast.error(err instanceof Error ? err.message : m.library_import_failed(), { id: pending });
 		} finally {
 			jobActive = false;
 		}
@@ -107,10 +110,10 @@
 		const job = await waitForJob(jobId);
 		await invalidateAll();
 		if (job?.status === 'failed') {
-			toast.error('Episode import failed', { id: toastId });
+			toast.error(m.library_episode_import_failed(), { id: toastId });
 			return;
 		}
-		toast.success('Episodes imported', { id: toastId });
+		toast.success(m.library_episodes_imported(), { id: toastId });
 		setTimeout(() => invalidateAll(), 4000);
 	}
 
@@ -131,10 +134,10 @@
 					.filter(Boolean)
 			});
 			form.reset();
-			toast.success('Saved');
+			toast.success(m.common_saved());
 			invalidateAll();
 		} catch {
-			toast.error('Failed to save');
+			toast.error(m.common_save_failed());
 		} finally {
 			saving = false;
 		}
@@ -143,16 +146,16 @@
 	async function deleteTitle() {
 		try {
 			await libraryApi.deleteTitle(data.title.id);
-			toast.success('Title deleted');
+			toast.success(m.library_title_deleted());
 			goto('/admin/library');
 		} catch {
-			toast.error('Failed to delete');
+			toast.error(m.common_delete_failed());
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>{data.title.name} - Couchverse admin</title>
+	<title>{m.library_editor_title({ name: data.title.name })}</title>
 </svelte:head>
 
 <EditorHero
@@ -166,28 +169,38 @@
 
 <div class="mx-auto max-w-7xl space-y-8 px-8 pb-12">
 	<form onsubmit={save} class="space-y-4 rounded-card border border-edge bg-surface/40 p-6">
-		<h2 class="text-sm font-semibold text-muted">Metadata</h2>
+		<h2 class="text-sm font-semibold text-muted">{m.library_metadata()}</h2>
 		<div class="grid gap-4 sm:grid-cols-2">
-			<Input label="Name" bind:value={name} required />
-			<Input label="Year" type="number" bind:value={year} />
-			<Input label="Content rating" bind:value={contentRating} placeholder="TV-14, PG-13…" />
+			<Input label={m.common_name()} bind:value={name} required />
+			<Input label={m.library_year()} type="number" bind:value={year} />
+			<Input
+				label={m.library_content_rating()}
+				bind:value={contentRating}
+				placeholder="TV-14, PG-13…"
+			/>
 			{#if data.title.kind === 'movie'}
-				<Input label="Runtime (minutes)" type="number" bind:value={runtime} />
+				<Input label={m.library_runtime_minutes()} type="number" bind:value={runtime} />
 			{/if}
 		</div>
-		<Textarea label="Overview" bind:value={overview} />
-		<Input label="Genres" bind:value={genres} placeholder="Sci-Fi, Drama" />
+		<Textarea label={m.library_overview()} bind:value={overview} />
+		<Input
+			label={m.library_genres()}
+			bind:value={genres}
+			placeholder={m.library_genres_placeholder()}
+		/>
 		<div class="flex items-center justify-between pt-2">
 			<Select
 				bind:value={status}
-				label="Status"
+				label={m.common_status()}
 				items={[
-					{ value: 'draft', label: 'Draft' },
-					{ value: 'published', label: 'Published' },
-					{ value: 'hidden', label: 'Hidden' }
+					{ value: 'draft', label: m.library_status_draft() },
+					{ value: 'published', label: m.library_status_published() },
+					{ value: 'hidden', label: m.library_status_hidden() }
 				]}
 			/>
-			<Button type="submit" loading={saving} disabled={!form.dirty}>Save changes</Button>
+			<Button type="submit" loading={saving} disabled={!form.dirty}
+				>{m.library_save_changes()}</Button
+			>
 		</div>
 	</form>
 
@@ -210,8 +223,8 @@
 
 <Confirm
 	bind:open={confirmDeleteTitle}
-	title="Delete “{data.title.name}”?"
-	message="This removes the title and all its seasons, episodes and metadata."
+	title={m.library_delete_title_confirm({ name: data.title.name })}
+	message={m.library_delete_title_message()}
 	onconfirm={deleteTitle}
 />
 

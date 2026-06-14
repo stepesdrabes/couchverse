@@ -27,6 +27,7 @@
 	import { jobAction, jobSubjectLabel } from '$lib/features/jobs/job-label';
 	import { formatBytes, formatDate, formatUptime } from '$lib/utils/format';
 	import { usageColor } from '$lib/utils/usage-color';
+	import * as m from '$lib/paraglide/messages';
 
 	let overview = $state<OverviewInfo | null>(null);
 	let storage = $state<StorageInfo | null>(null);
@@ -68,33 +69,54 @@
 		system && system.load1 >= 0 && system.cpuCores > 0 ? system.load1 / system.cpuCores : -1
 	);
 	const loadLabel = $derived(
-		loadPerCore < 0 ? '' : loadPerCore < 0.7 ? 'Healthy' : loadPerCore < 1 ? 'Busy' : 'Saturated'
+		loadPerCore < 0
+			? ''
+			: loadPerCore < 0.7
+				? m.admin_load_healthy()
+				: loadPerCore < 1
+					? m.admin_load_busy()
+					: m.admin_load_saturated()
 	);
 
 	const cards = $derived(
 		overview
 			? [
 					{
-						label: 'Movies',
+						label: m.nav_movies(),
 						value: overview.counts.movies,
 						icon: Clapperboard,
 						href: '/admin/library?type=movie'
 					},
 					{
-						label: 'Series',
+						label: m.nav_series(),
 						value: overview.counts.series,
 						icon: Tv,
 						href: '/admin/library?type=series'
 					},
 					{
-						label: 'Episodes',
+						label: m.admin_episodes(),
 						value: overview.counts.episodes,
 						icon: ListVideo,
 						href: '/admin/library?type=series'
 					},
-					{ label: 'Albums', value: overview.counts.albums, icon: Disc3, href: '/admin/jobs' },
-					{ label: 'Tracks', value: overview.counts.tracks, icon: Music, href: '/admin/jobs' },
-					{ label: 'Users', value: overview.counts.users, icon: Users, href: '/admin/users' }
+					{
+						label: m.admin_albums(),
+						value: overview.counts.albums,
+						icon: Disc3,
+						href: '/admin/jobs'
+					},
+					{
+						label: m.admin_tracks(),
+						value: overview.counts.tracks,
+						icon: Music,
+						href: '/admin/jobs'
+					},
+					{
+						label: m.admin_nav_users(),
+						value: overview.counts.users,
+						icon: Users,
+						href: '/admin/users'
+					}
 				]
 			: []
 	);
@@ -112,8 +134,8 @@
 		(analytics?.daily ?? []).map((d) => ({
 			label: formatDate(d.day),
 			segments: [
-				{ name: 'Video', value: d.videoSeconds, color: 'var(--color-accent)' },
-				{ name: 'Music', value: d.musicSeconds, color: MUSIC_COLOR }
+				{ name: m.admin_video(), value: d.videoSeconds, color: 'var(--color-accent)' },
+				{ name: m.nav_music(), value: d.musicSeconds, color: MUSIC_COLOR }
 			]
 		}))
 	);
@@ -127,10 +149,10 @@
 </script>
 
 <svelte:head>
-	<title>Overview - Couchverse admin</title>
+	<title>{m.admin_overview_title()}</title>
 </svelte:head>
 
-<h1 class="mb-6 text-2xl font-bold">Overview</h1>
+<h1 class="mb-6 text-2xl font-bold">{m.admin_nav_overview()}</h1>
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 	{#each cards as card, i (card.label)}
@@ -155,12 +177,13 @@
 
 {#if system}
 	<div class="mt-6" in:fly|global={{ y: 20, duration: 400 }}>
-		<h2 class="mb-3 text-sm font-semibold text-muted">System</h2>
+		<h2 class="mb-3 text-sm font-semibold text-muted">{m.admin_system()}</h2>
 		<div class="grid gap-4 lg:grid-cols-2">
 			<div class="rounded-card border border-edge bg-surface/40 p-5">
 				<div class="mb-3 flex items-start justify-between">
 					<span class="flex items-center gap-2 text-sm font-medium text-muted">
-						<Cpu class="size-4 text-accent" /> CPU
+						<Cpu class="size-4 text-accent" />
+						{m.admin_cpu()}
 					</span>
 					{#if system.cpuPercent >= 0}
 						<span
@@ -181,29 +204,31 @@
 					<div
 						class="mt-2 flex flex-wrap items-center justify-between gap-x-3 text-[11px] text-faint"
 					>
-						<span>{system.cpuCores} cores</span>
+						<span>{m.admin_cores({ count: system.cpuCores })}</span>
 						<span class="flex gap-3 tnum">
 							{#if system.app && system.app.cpuPercent >= 0}
-								<span>Go app {system.app.cpuPercent.toFixed(1)}%</span>
+								<span>{m.admin_go_app_percent({ percent: system.app.cpuPercent.toFixed(1) })}</span>
 							{/if}
 							{#if system.ffmpeg && system.ffmpeg.processes > 0}
 								<span>
-									Transcoding ({system.ffmpeg.processes} ffmpeg) {system.ffmpeg.cpuPercent.toFixed(
-										0
-									)}%
+									{m.admin_transcoding_cpu({
+										count: system.ffmpeg.processes,
+										percent: system.ffmpeg.cpuPercent.toFixed(0)
+									})}
 								</span>
 							{/if}
 						</span>
 					</div>
 				{:else}
-					<p class="py-6 text-xs text-faint">Host CPU stats are unavailable on this platform.</p>
+					<p class="py-6 text-xs text-faint">{m.admin_cpu_unavailable()}</p>
 				{/if}
 			</div>
 
 			<div class="rounded-card border border-edge bg-surface/40 p-5">
 				<div class="mb-3 flex items-start justify-between">
 					<span class="flex items-center gap-2 text-sm font-medium text-muted">
-						<MemoryStick class="size-4 text-accent" /> Memory
+						<MemoryStick class="size-4 text-accent" />
+						{m.admin_memory()}
 					</span>
 					{#if system.memTotal > 0}
 						<span
@@ -225,19 +250,24 @@
 						class="mt-2 flex flex-wrap items-center justify-between gap-x-3 text-[11px] text-faint"
 					>
 						<span class="tnum">
-							{formatBytes(system.memUsed)} of {formatBytes(system.memTotal)} used
+							{m.admin_memory_used({
+								used: formatBytes(system.memUsed),
+								total: formatBytes(system.memTotal)
+							})}
 						</span>
 						<span class="flex gap-3 tnum">
 							{#if system.app && system.app.memBytes > 0}
-								<span>Go app {formatBytes(system.app.memBytes)}</span>
+								<span>{m.admin_go_app_value({ value: formatBytes(system.app.memBytes) })}</span>
 							{/if}
 							{#if system.ffmpeg && system.ffmpeg.processes > 0}
-								<span>Transcoding {formatBytes(system.ffmpeg.memBytes)}</span>
+								<span
+									>{m.admin_transcoding_value({ value: formatBytes(system.ffmpeg.memBytes) })}</span
+								>
 							{/if}
 						</span>
 					</div>
 				{:else}
-					<p class="py-6 text-xs text-faint">Host memory stats are unavailable on this platform.</p>
+					<p class="py-6 text-xs text-faint">{m.admin_memory_unavailable()}</p>
 				{/if}
 			</div>
 		</div>
@@ -245,7 +275,8 @@
 		<dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
 			<div class="rounded-card border border-edge bg-surface/40 px-4 py-3">
 				<dt class="flex items-center gap-1.5 text-[11px] text-faint">
-					<Gauge class="size-3" /> Load (1m)
+					<Gauge class="size-3" />
+					{m.admin_load_1m()}
 				</dt>
 				{#if system.load1 >= 0}
 					<dd class="mt-1 flex items-baseline gap-2">
@@ -265,24 +296,27 @@
 						></div>
 					</div>
 				{:else}
-					<dd class="mt-1 text-lg font-bold text-faint">n/a</dd>
+					<dd class="mt-1 text-lg font-bold text-faint">{m.admin_not_available()}</dd>
 				{/if}
 			</div>
 			<div class="rounded-card border border-edge bg-surface/40 px-4 py-3">
 				<dt class="flex items-center gap-1.5 text-[11px] text-faint">
-					<Boxes class="size-3" /> Goroutines
+					<Boxes class="size-3" />
+					{m.admin_goroutines()}
 				</dt>
 				<dd class="mt-1 text-lg font-bold tnum">{system.goroutines}</dd>
 			</div>
 			<div class="rounded-card border border-edge bg-surface/40 px-4 py-3">
 				<dt class="flex items-center gap-1.5 text-[11px] text-faint">
-					<MemoryStick class="size-3" /> Go heap
+					<MemoryStick class="size-3" />
+					{m.admin_go_heap()}
 				</dt>
 				<dd class="mt-1 text-lg font-bold tnum">{formatBytes(system.goHeapBytes)}</dd>
 			</div>
 			<div class="rounded-card border border-edge bg-surface/40 px-4 py-3">
 				<dt class="flex items-center gap-1.5 text-[11px] text-faint">
-					<Timer class="size-3" /> Uptime
+					<Timer class="size-3" />
+					{m.admin_uptime()}
 				</dt>
 				<dd class="mt-1 text-lg font-bold tnum">{formatUptime(system.uptimeSeconds)}</dd>
 			</div>
@@ -292,35 +326,39 @@
 
 {#if analytics && watchTotal > 0}
 	<div class="mt-6" in:fly|global={{ y: 20, duration: 400 }}>
-		<h2 class="mb-3 text-sm font-semibold text-muted">Analytics - last {analytics.days} days</h2>
+		<h2 class="mb-3 text-sm font-semibold text-muted">
+			{m.admin_analytics_last_days({ days: analytics.days })}
+		</h2>
 		<div class="grid gap-6 lg:grid-cols-3">
 			<div class="rounded-card border border-edge bg-surface/40 p-6 lg:col-span-2">
 				<div class="mb-3 flex items-baseline justify-between">
-					<h3 class="text-sm font-semibold text-muted">Watch time</h3>
-					<span class="text-xs text-faint tnum">{formatUptime(watchTotal)} total</span>
+					<h3 class="text-sm font-semibold text-muted">{m.admin_watch_time()}</h3>
+					<span class="text-xs text-faint tnum"
+						>{m.admin_total_value({ value: formatUptime(watchTotal) })}</span
+					>
 				</div>
 				<BarChart bars={watchBars} format={formatUptime} class="h-36 w-full" />
 				<div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 text-[11px]">
 					<span class="flex items-center gap-4 text-muted">
 						<span class="flex items-center gap-1.5">
 							<span class="size-2 rounded-full bg-accent"></span>
-							Video
+							{m.admin_video()}
 						</span>
 						<span class="flex items-center gap-1.5">
 							<span class="size-2 rounded-full" style="background: {MUSIC_COLOR}"></span>
-							Music
+							{m.nav_music()}
 						</span>
 					</span>
 					<span class="text-faint tnum">
-						avg {avgActiveUsers.toFixed(1)} active user{avgActiveUsers === 1 ? '' : 's'}/day
+						{m.admin_avg_active_users({ count: avgActiveUsers.toFixed(1) })}
 					</span>
 				</div>
 			</div>
 
 			<div class="rounded-card border border-edge bg-surface/40 p-6">
-				<h3 class="mb-3 text-sm font-semibold text-muted">Top titles</h3>
+				<h3 class="mb-3 text-sm font-semibold text-muted">{m.admin_top_titles()}</h3>
 				{#if analytics.topTitles.length === 0}
-					<p class="text-xs text-faint">No watch time recorded yet.</p>
+					<p class="text-xs text-faint">{m.admin_no_watch_time()}</p>
 				{:else}
 					<ul class="space-y-2.5 text-xs">
 						{#each analytics.topTitles.slice(0, 6) as title (title.titleId)}
@@ -353,9 +391,12 @@
 	{#if storage && storage.diskTotal > 0}
 		<div class="rounded-card border border-edge bg-surface/40 p-6">
 			<div class="mb-3 flex items-baseline justify-between">
-				<h2 class="text-sm font-semibold text-muted">Storage</h2>
+				<h2 class="text-sm font-semibold text-muted">{m.admin_storage()}</h2>
 				<span class="text-xs text-faint tnum">
-					{formatBytes(storage.used)} of {formatBytes(storage.budget)} available
+					{m.admin_storage_available({
+						used: formatBytes(storage.used),
+						budget: formatBytes(storage.budget)
+					})}
 				</span>
 			</div>
 			<StorageBar {storage} class="mb-4 h-2" />
@@ -373,7 +414,7 @@
 				<li class="flex items-center justify-between border-t border-edge/50 pt-1.5">
 					<span class="flex items-center gap-2 text-muted">
 						<span class="size-2 rounded-full bg-surface-2 ring-1 ring-edge"></span>
-						Free
+						{m.admin_free()}
 					</span>
 					<span class="text-faint tnum">{formatBytes(storage.free)}</span>
 				</li>
@@ -384,13 +425,13 @@
 	{#if overview}
 		<div class="rounded-card border border-edge bg-surface/40 p-6">
 			<div class="mb-3 flex items-baseline justify-between">
-				<h2 class="text-sm font-semibold text-muted">Activity</h2>
+				<h2 class="text-sm font-semibold text-muted">{m.admin_activity()}</h2>
 				<a href="/admin/jobs" class="text-xs text-accent hover:underline">
-					{overview.pendingJobs} job{overview.pendingJobs === 1 ? '' : 's'} in queue
+					{m.admin_jobs_in_queue({ count: overview.pendingJobs })}
 				</a>
 			</div>
 			{#if overview.recentJobs.length === 0}
-				<p class="text-xs text-faint">No recent activity.</p>
+				<p class="text-xs text-faint">{m.admin_no_recent_activity()}</p>
 			{:else}
 				<ul class="space-y-2 text-xs">
 					{#each overview.recentJobs as job (job.id)}

@@ -10,6 +10,7 @@
 	import Input from '$lib/components/ui/Input.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Tabs from '$lib/components/ui/Tabs.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -36,7 +37,7 @@
 			if (err instanceof ApiError && err.status === 412) {
 				noTmdbKey = true;
 			} else {
-				toast.error(err instanceof Error ? err.message : 'TMDB search failed');
+				toast.error(err instanceof Error ? err.message : m.library_tmdb_search_failed());
 			}
 		} finally {
 			searching = false;
@@ -54,11 +55,11 @@
 				overview: result.overview
 			});
 			await libraryApi.applyTmdb(title.id, result.tmdbId);
-			toast.success(`Added “${result.name}” - fetching metadata & artwork`);
+			toast.success(m.library_added_fetching({ name: result.name }));
 			open = false;
 			goto(`/admin/library/${title.id}`);
 		} catch {
-			toast.error('Failed to create title');
+			toast.error(m.library_create_title_failed());
 		} finally {
 			adding = null;
 		}
@@ -76,20 +77,25 @@
 			open = false;
 			goto(`/admin/library/${title.id}`);
 		} catch {
-			toast.error('Failed to create title');
+			toast.error(m.library_create_title_failed());
 		} finally {
 			creating = false;
 		}
 	}
 </script>
 
-<Modal bind:open title="New title" description="Search TMDB or create one from scratch." size="lg">
+<Modal
+	bind:open
+	title={m.library_new_title()}
+	description={m.library_new_title_description()}
+	size="lg"
+>
 	<div class="mb-4">
 		<Tabs
 			bind:value={kind}
 			items={[
-				{ value: 'movie', label: 'Movie' },
-				{ value: 'series', label: 'Series' }
+				{ value: 'movie', label: m.library_kind_movie() },
+				{ value: 'series', label: m.library_kind_series() }
 			]}
 		/>
 	</div>
@@ -101,17 +107,17 @@
 				bind:value={query}
 				class="h-9 w-full rounded-full border border-edge bg-surface pr-4 pl-9 text-sm
 					placeholder:text-faint focus:border-accent focus:outline-none"
-				placeholder="Search TMDB…"
+				placeholder={m.library_search_tmdb_placeholder()}
 			/>
 		</div>
-		<Button type="submit" size="sm" loading={searching}>Search</Button>
+		<Button type="submit" size="sm" loading={searching}>{m.common_search()}</Button>
 	</form>
 
 	{#if noTmdbKey}
 		<p class="mt-3 rounded-input border border-edge bg-surface px-3 py-2 text-xs text-faint">
-			No TMDB API key configured - add one under
-			<a href="/admin/settings" class="text-accent hover:underline">Settings</a>
-			to search, or create the title manually below.
+			{m.library_no_tmdb_key_before()}
+			<a href="/admin/settings" class="text-accent hover:underline">{m.library_settings_link()}</a>
+			{m.library_no_tmdb_key_after()}
 		</p>
 	{:else if results.length > 0}
 		<ul class="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
@@ -142,7 +148,7 @@
 						onclick={() => addFromTmdb(result)}
 					>
 						<Plus class="size-3.5" />
-						Add
+						{m.common_add()}
 					</Button>
 				</li>
 			{/each}
@@ -151,12 +157,12 @@
 
 	<div class="mt-5 border-t border-edge/60 pt-4">
 		<p class="mb-3 text-[11px] font-semibold tracking-widest text-faint uppercase">
-			Or create manually
+			{m.library_or_create_manually()}
 		</p>
 		<form onsubmit={createManually} class="flex items-end gap-2">
-			<Input label="Name" bind:value={manualName} required class="flex-1" />
-			<Input label="Year" type="number" bind:value={manualYear} class="w-24" />
-			<Button type="submit" variant="secondary" loading={creating}>Create</Button>
+			<Input label={m.common_name()} bind:value={manualName} required class="flex-1" />
+			<Input label={m.library_year()} type="number" bind:value={manualYear} class="w-24" />
+			<Button type="submit" variant="secondary" loading={creating}>{m.common_create()}</Button>
 		</form>
 	</div>
 </Modal>
