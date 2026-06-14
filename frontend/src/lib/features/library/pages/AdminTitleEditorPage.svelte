@@ -311,6 +311,7 @@
 			mediaFiles={data.mediaFiles}
 			subtitlesByFile={data.subtitlesByFile ?? {}}
 			importing={jobActive}
+			languages={data.title.metadataLanguages ?? []}
 		/>
 	{:else}
 		<MovieFilesPanel

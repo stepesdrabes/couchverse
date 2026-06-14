@@ -18,13 +18,15 @@
 		seasons,
 		mediaFiles,
 		subtitlesByFile,
-		importing = false
+		importing = false,
+		languages = []
 	}: {
 		titleId: string;
 		seasons: Season[];
 		mediaFiles: MediaFile[];
 		subtitlesByFile: Record<string, SubtitleInfo[]>;
 		importing?: boolean;
+		languages?: string[];
 	} = $props();
 
 	const fileByEpisode = $derived(
@@ -242,4 +244,5 @@
 	episode={infoEpisode}
 	file={infoFile}
 	subtitles={infoFile ? (subtitlesByFile[infoFile.id] ?? []) : []}
+	{languages}
 />

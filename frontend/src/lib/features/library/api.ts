@@ -84,6 +84,15 @@ export const setTitleTranslation = (
 	patch: { name: string; overview: string }
 ) => api<void>(`/admin/titles/${id}/translations/${lang}`, { method: 'PATCH', body: patch });
 
+export const getEpisodeTranslations = (id: string) =>
+	api<Record<string, { name?: string; overview?: string }>>(`/admin/episodes/${id}/translations`);
+
+export const setEpisodeTranslation = (
+	id: string,
+	lang: string,
+	patch: { name: string; overview: string }
+) => api<void>(`/admin/episodes/${id}/translations/${lang}`, { method: 'PATCH', body: patch });
+
 export const updateTitle = (id: string, patch: TitlePatch) =>
 	api<Title>(`/admin/titles/${id}`, { method: 'PATCH', body: patch });
 

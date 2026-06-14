@@ -17,6 +17,7 @@
 	import Textarea from '$lib/components/ui/Textarea.svelte';
 	import { FormState } from '$lib/utils/form-state.svelte';
 	import { formatBytes, formatYearDate, qualityLabel } from '$lib/utils/format';
+	import { langLabel } from '$lib/i18n/content-langs';
 	import SubtitleManager from './SubtitleManager.svelte';
 	import * as m from '$lib/paraglide/messages';
 
@@ -25,13 +26,15 @@
 		titleId,
 		episode,
 		file,
-		subtitles
+		subtitles,
+		languages = []
 	}: {
 		open?: boolean;
 		titleId: string;
 		episode: Episode | null;
 		file: MediaFile | null;
 		subtitles: SubtitleInfo[];
+		languages?: string[];
 	} = $props();
 
 	let name = $state('');
@@ -43,6 +46,48 @@
 	let jobActive = $state(false);
 	const form = new FormState(() => ({ name, overview }));
 
+	// per-language editing: base language edits the plain columns, others edit the
+	// episode's translation (fetched on open, works for non-TMDB episodes too).
+	const baseLang = $derived(languages[0] ?? 'en');
+	const editLangs = $derived(languages.length ? languages : [baseLang]);
+	let editLang = $state('');
+	let translations = $state<Record<string, { name?: string; overview?: string }>>({});
+	let tName = $state('');
+	let tOverview = $state('');
+	let tLoadedName = $state('');
+	let tLoadedOverview = $state('');
+	const tDirty = $derived(tName !== tLoadedName || tOverview !== tLoadedOverview);
+
+	function pickLang(lang: string) {
+		editLang = lang;
+		if (lang !== baseLang) {
+			const tr = translations[lang] ?? {};
+			tName = tr.name ?? '';
+			tOverview = tr.overview ?? '';
+			tLoadedName = tName;
+			tLoadedOverview = tOverview;
+		}
+	}
+
+	async function saveTranslation() {
+		if (!episode) return;
+		saving = true;
+		try {
+			await libraryApi.setEpisodeTranslation(episode.id, editLang, {
+				name: tName,
+				overview: tOverview
+			});
+			translations = { ...translations, [editLang]: { name: tName, overview: tOverview } };
+			tLoadedName = tName;
+			tLoadedOverview = tOverview;
+			toast.success(m.library_episode_saved());
+		} catch {
+			toast.error(m.library_save_episode_failed());
+		} finally {
+			saving = false;
+		}
+	}
+
 	$effect(() => {
 		if (episode && episode.id !== loadedId) {
 			loadedId = episode.id;
@@ -50,6 +95,16 @@
 			overview = episode.overview;
 			upload = null;
 			form.reset();
+			editLang = baseLang;
+			translations = {};
+			tName = '';
+			tOverview = '';
+			tLoadedName = '';
+			tLoadedOverview = '';
+			libraryApi
+				.getEpisodeTranslations(episode.id)
+				.then((t) => (translations = t ?? {}))
+				.catch(() => {});
 		}
 	});
 
@@ -94,11 +149,41 @@
 	>
 		<div class="space-y-6">
 			<div class="space-y-4">
-				<Input label={m.common_name()} bind:value={name} />
-				<Textarea label={m.library_overview()} bind:value={overview} rows={4} />
-				<div class="flex justify-end">
-					<Button loading={saving} disabled={!form.dirty} onclick={save}>{m.common_save()}</Button>
-				</div>
+				{#if editLangs.length > 1}
+					<div class="flex flex-wrap gap-1">
+						{#each editLangs as lang (lang)}
+							<button
+								type="button"
+								onclick={() => pickLang(lang)}
+								class="rounded-full border px-2.5 py-1 text-xs transition-colors
+									{editLang === lang
+									? 'border-accent bg-accent/15 text-text'
+									: 'border-edge text-muted hover:border-faint'}"
+							>
+								{langLabel(lang)}
+							</button>
+						{/each}
+					</div>
+				{/if}
+				{#if editLang !== baseLang}
+					<Input label={m.common_name()} bind:value={tName} />
+					<Textarea label={m.library_overview()} bind:value={tOverview} rows={4} />
+					<p class="text-[11px] text-faint">
+						{m.library_translation_hint({ lang: langLabel(editLang) })}
+					</p>
+					<div class="flex justify-end">
+						<Button loading={saving} disabled={!tDirty} onclick={saveTranslation}
+							>{m.common_save()}</Button
+						>
+					</div>
+				{:else}
+					<Input label={m.common_name()} bind:value={name} />
+					<Textarea label={m.library_overview()} bind:value={overview} rows={4} />
+					<div class="flex justify-end">
+						<Button loading={saving} disabled={!form.dirty} onclick={save}>{m.common_save()}</Button
+						>
+					</div>
+				{/if}
 			</div>
 
 			{#if file}
