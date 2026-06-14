@@ -74,7 +74,15 @@ export const getTitle = (id: string) =>
 		mediaFiles: MediaFile[];
 		artwork: ArtworkRef[];
 		subtitlesByFile: Record<string, SubtitleInfo[]>;
+		translations?: Record<string, { name?: string; overview?: string; tagline?: string }>;
 	}>(`/admin/titles/${id}`);
+
+// save a manually-edited name/overview for one language (non-base translations)
+export const setTitleTranslation = (
+	id: string,
+	lang: string,
+	patch: { name: string; overview: string }
+) => api<void>(`/admin/titles/${id}/translations/${lang}`, { method: 'PATCH', body: patch });
 
 export const updateTitle = (id: string, patch: TitlePatch) =>
 	api<Title>(`/admin/titles/${id}`, { method: 'PATCH', body: patch });

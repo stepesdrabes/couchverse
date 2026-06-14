@@ -15,6 +15,7 @@
 	import Select from '$lib/components/ui/Select.svelte';
 	import Textarea from '$lib/components/ui/Textarea.svelte';
 	import LanguageChips from '$lib/features/library/components/LanguageChips.svelte';
+	import { langLabel } from '$lib/i18n/content-langs';
 	import { FormState } from '$lib/utils/form-state.svelte';
 	import * as m from '$lib/paraglide/messages';
 
@@ -29,6 +30,32 @@
 	let runtime = $state('');
 	let languages = $state<string[]>([]);
 	let saving = $state(false);
+
+	// per-language metadata editing: switch which language's name/overview shows.
+	// The base (first) language edits the plain columns; others edit translations.
+	const baseLang = $derived(data.title.metadataLanguages?.[0] ?? 'en');
+	const editLangs = $derived(
+		data.title.metadataLanguages?.length ? data.title.metadataLanguages : [baseLang]
+	);
+	let editLang = $state('');
+	let tName = $state('');
+	let tOverview = $state('');
+	let tLoadedName = $state('');
+	let tLoadedOverview = $state('');
+	const tDirty = $derived(tName !== tLoadedName || tOverview !== tLoadedOverview);
+
+	function loadTranslation(lang: string) {
+		const tr = (data.translations ?? {})[lang] ?? {};
+		tName = tr.name ?? '';
+		tOverview = tr.overview ?? '';
+		tLoadedName = tName;
+		tLoadedOverview = tOverview;
+	}
+	function pickLang(lang: string) {
+		editLang = lang;
+		if (lang !== baseLang) loadTranslation(lang);
+	}
+
 	const form = new FormState(() => ({
 		name,
 		year,
@@ -54,6 +81,9 @@
 			runtime = title.runtimeMinutes?.toString() ?? '';
 			languages = title.metadataLanguages ?? [];
 			form.reset();
+			const base = title.metadataLanguages?.[0] ?? 'en';
+			if (!editLang) editLang = base;
+			if (editLang !== base) loadTranslation(editLang);
 		});
 	});
 
@@ -121,8 +151,31 @@
 		setTimeout(() => invalidateAll(), 4000);
 	}
 
+	// save a non-base language's name/overview (works for non-TMDB titles too)
+	async function saveTranslation() {
+		saving = true;
+		try {
+			await libraryApi.setTitleTranslation(data.title.id, editLang, {
+				name: tName,
+				overview: tOverview
+			});
+			tLoadedName = tName;
+			tLoadedOverview = tOverview;
+			toast.success(m.common_saved());
+			await invalidateAll();
+		} catch {
+			toast.error(m.common_save_failed());
+		} finally {
+			saving = false;
+		}
+	}
+
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
+		if (editLang !== baseLang) {
+			await saveTranslation();
+			return;
+		}
 		saving = true;
 		// a newly-added content language has no TMDB text yet - re-fetch to pull it
 		const addedLang =
@@ -181,44 +234,74 @@
 
 <div class="mx-auto max-w-7xl space-y-8 px-8 pb-12">
 	<form onsubmit={save} class="space-y-4 rounded-card border border-edge bg-surface/40 p-6">
-		<h2 class="text-sm font-semibold text-muted">{m.library_metadata()}</h2>
-		<div class="grid gap-4 sm:grid-cols-2">
-			<Input label={m.common_name()} bind:value={name} required />
-			<Input label={m.library_year()} type="number" bind:value={year} />
-			<Input
-				label={m.library_content_rating()}
-				bind:value={contentRating}
-				placeholder="TV-14, PG-13…"
-			/>
-			{#if data.title.kind === 'movie'}
-				<Input label={m.library_runtime_minutes()} type="number" bind:value={runtime} />
+		<div class="flex flex-wrap items-center justify-between gap-2">
+			<h2 class="text-sm font-semibold text-muted">{m.library_metadata()}</h2>
+			{#if editLangs.length > 1}
+				<div class="flex flex-wrap gap-1">
+					{#each editLangs as lang (lang)}
+						<button
+							type="button"
+							onclick={() => pickLang(lang)}
+							class="rounded-full border px-2.5 py-1 text-xs transition-colors
+								{editLang === lang
+								? 'border-accent bg-accent/15 text-text'
+								: 'border-edge text-muted hover:border-faint'}"
+						>
+							{langLabel(lang)}
+						</button>
+					{/each}
+				</div>
 			{/if}
 		</div>
-		<Textarea label={m.library_overview()} bind:value={overview} />
-		<Input
-			label={m.library_genres()}
-			bind:value={genres}
-			placeholder={m.library_genres_placeholder()}
-		/>
-		<div>
-			<p class="mb-1.5 text-xs font-medium text-muted">{m.library_content_languages()}</p>
-			<LanguageChips bind:selected={languages} />
-			<p class="mt-1.5 text-[11px] text-faint">{m.library_content_languages_help()}</p>
-		</div>
-		<div class="flex items-center justify-between pt-2">
-			<Select
-				bind:value={status}
-				label={m.common_status()}
-				items={[
-					{ value: 'draft', label: m.library_status_draft() },
-					{ value: 'published', label: m.library_status_published() },
-					{ value: 'hidden', label: m.library_status_hidden() }
-				]}
+
+		{#if editLang !== baseLang}
+			<Input label={m.common_name()} bind:value={tName} />
+			<Textarea label={m.library_overview()} bind:value={tOverview} />
+			<p class="text-[11px] text-faint">
+				{m.library_translation_hint({ lang: langLabel(editLang) })}
+			</p>
+			<div class="flex justify-end pt-2">
+				<Button type="submit" loading={saving} disabled={!tDirty}>{m.library_save_changes()}</Button
+				>
+			</div>
+		{:else}
+			<div class="grid gap-4 sm:grid-cols-2">
+				<Input label={m.common_name()} bind:value={name} required />
+				<Input label={m.library_year()} type="number" bind:value={year} />
+				<Input
+					label={m.library_content_rating()}
+					bind:value={contentRating}
+					placeholder="TV-14, PG-13…"
+				/>
+				{#if data.title.kind === 'movie'}
+					<Input label={m.library_runtime_minutes()} type="number" bind:value={runtime} />
+				{/if}
+			</div>
+			<Textarea label={m.library_overview()} bind:value={overview} />
+			<Input
+				label={m.library_genres()}
+				bind:value={genres}
+				placeholder={m.library_genres_placeholder()}
 			/>
-			<Button type="submit" loading={saving} disabled={!form.dirty}
-				>{m.library_save_changes()}</Button
-			>
-		</div>
+			<div>
+				<p class="mb-1.5 text-xs font-medium text-muted">{m.library_content_languages()}</p>
+				<LanguageChips bind:selected={languages} />
+			</div>
+			<div class="flex items-center justify-between pt-2">
+				<Select
+					bind:value={status}
+					label={m.common_status()}
+					items={[
+						{ value: 'draft', label: m.library_status_draft() },
+						{ value: 'published', label: m.library_status_published() },
+						{ value: 'hidden', label: m.library_status_hidden() }
+					]}
+				/>
+				<Button type="submit" loading={saving} disabled={!form.dirty}
+					>{m.library_save_changes()}</Button
+				>
+			</div>
+		{/if}
 	</form>
 
 	{#if data.title.kind === 'series'}
