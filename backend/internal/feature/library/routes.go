@@ -25,6 +25,7 @@ func (m *Module) MountAdmin(r chi.Router) {
 	r.Delete("/libraries/{id}", m.libraries.Delete)
 	r.Post("/libraries/{id}/scan", m.libraries.Scan)
 	r.Post("/libraries/scan-all", m.libraries.ScanAll)
+	r.Patch("/media-files/{id}", m.libraries.SetMediaFileAudio)
 
 	r.Get("/uploads", m.uploads.List)
 	r.Post("/uploads", m.uploads.Create)

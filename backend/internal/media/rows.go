@@ -16,24 +16,29 @@ import (
 // live here so the feature import graph stays acyclic.
 
 type MediaFile struct {
-	ID              string          `json:"id"`
-	LibraryID       int64           `json:"libraryId"`
-	TitleID         *string         `json:"titleId"`
-	EpisodeID       *string         `json:"episodeId"`
-	TrackID         *string         `json:"trackId"`
-	Path            string          `json:"path"`
-	SizeBytes       int64           `json:"sizeBytes"`
-	Container       string          `json:"container"`
-	VideoCodec      string          `json:"videoCodec"`
-	AudioCodec      string          `json:"audioCodec"`
-	Width           int             `json:"width"`
-	Height          int             `json:"height"`
-	DurationSeconds float64         `json:"durationSeconds"`
-	Bitrate         int64           `json:"bitrate"`
-	Channels        int             `json:"channels"`
-	SampleRate      int             `json:"sampleRate"`
-	VideoRange      string          `json:"videoRange"`
-	DirectPlay      bool            `json:"directPlay"`
+	ID              string  `json:"id"`
+	LibraryID       int64   `json:"libraryId"`
+	TitleID         *string `json:"titleId"`
+	EpisodeID       *string `json:"episodeId"`
+	TrackID         *string `json:"trackId"`
+	Path            string  `json:"path"`
+	SizeBytes       int64   `json:"sizeBytes"`
+	Container       string  `json:"container"`
+	VideoCodec      string  `json:"videoCodec"`
+	AudioCodec      string  `json:"audioCodec"`
+	Width           int     `json:"width"`
+	Height          int     `json:"height"`
+	DurationSeconds float64 `json:"durationSeconds"`
+	Bitrate         int64   `json:"bitrate"`
+	Channels        int     `json:"channels"`
+	SampleRate      int     `json:"sampleRate"`
+	VideoRange      string  `json:"videoRange"`
+	DirectPlay      bool    `json:"directPlay"`
+	// AudioLang/AudioRole tag a file as an alternate-audio sibling (model B):
+	// a separate-language file linked to the same title/episode. Empty lang +
+	// role "primary" is a normal full file.
+	AudioLang       string          `json:"audioLang"`
+	AudioRole       string          `json:"audioRole"`
 	Probe           json.RawMessage `json:"-"`
 	FileMtime       *time.Time      `json:"fileMtime"`
 	ScannedAt       *time.Time      `json:"scannedAt"`
@@ -43,14 +48,15 @@ type MediaFile struct {
 
 const MediaFileCols = `id, library_id, title_id, episode_id, track_id, path, size_bytes, container,
 	video_codec, audio_codec, width, height, duration_seconds, bitrate, channels, sample_rate,
-	video_range, direct_play, probe, file_mtime, scanned_at, source_deleted_at, created_at`
+	video_range, direct_play, probe, file_mtime, scanned_at, source_deleted_at, created_at,
+	audio_lang, audio_role`
 
 func ScanMediaFile(row pgx.Row) (*MediaFile, error) {
 	var m MediaFile
 	err := row.Scan(&m.ID, &m.LibraryID, &m.TitleID, &m.EpisodeID, &m.TrackID, &m.Path, &m.SizeBytes,
 		&m.Container, &m.VideoCodec, &m.AudioCodec, &m.Width, &m.Height, &m.DurationSeconds,
 		&m.Bitrate, &m.Channels, &m.SampleRate, &m.VideoRange, &m.DirectPlay, &m.Probe,
-		&m.FileMtime, &m.ScannedAt, &m.SourceDeletedAt, &m.CreatedAt)
+		&m.FileMtime, &m.ScannedAt, &m.SourceDeletedAt, &m.CreatedAt, &m.AudioLang, &m.AudioRole)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}

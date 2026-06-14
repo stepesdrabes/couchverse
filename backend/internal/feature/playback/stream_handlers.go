@@ -158,6 +158,7 @@ type playbackInfo struct {
 	Display        playbackDisplay         `json:"display"`
 	NextEpisode    *catalog.EpisodeRef     `json:"nextEpisode"`
 	Subtitles      []subtitleTrack         `json:"subtitles"`
+	Audio          []audioTrack            `json:"audio,omitempty"`
 	Episodes       []catalog.SeriesEpisode `json:"episodes,omitempty"`
 	CurrentEpisode string                  `json:"currentEpisodeId,omitempty"`
 	HLSURL         string                  `json:"hlsUrl,omitempty"`
@@ -176,6 +177,47 @@ type subtitleTrack struct {
 	Label  string `json:"label"`
 	Forced bool   `json:"forced"`
 	URL    string `json:"url"`
+}
+
+// audioTrack is one selectable audio language. Source "file" (model B) is a
+// separate-language media file the player swaps to; "embedded" (model A) is an
+// in-stream HLS audio rendition.
+type audioTrack struct {
+	ID        string `json:"id"`
+	Lang      string `json:"lang"`
+	Label     string `json:"label"`
+	Default   bool   `json:"default"`
+	Source    string `json:"source"`
+	StreamURL string `json:"streamUrl,omitempty"`
+	HLSURL    string `json:"hlsUrl,omitempty"`
+}
+
+var audioLangNames = map[string]string{
+	"en": "English", "cs": "Čeština", "sk": "Slovenčina", "de": "Deutsch",
+	"es": "Español", "fr": "Français", "it": "Italiano", "pl": "Polski",
+	"ko": "한국어", "ja": "日本語", "ru": "Русский", "zh": "中文",
+}
+
+func audioLabel(lang string) string {
+	if lang == "" || lang == "und" {
+		return "Original"
+	}
+	if n, ok := audioLangNames[lang]; ok {
+		return n
+	}
+	return strings.ToUpper(lang)
+}
+
+// audioTrackFor builds a model-B track from a media file, pointing at its direct
+// stream when it direct-plays, or its HLS master otherwise.
+func audioTrackFor(mf *media.MediaFile, isDefault bool) audioTrack {
+	t := audioTrack{ID: mf.ID, Lang: mf.AudioLang, Label: audioLabel(mf.AudioLang), Default: isDefault, Source: "file"}
+	if mf.SourceDeletedAt == nil && mf.DirectPlay {
+		t.StreamURL = "/api/v1/stream/" + mf.ID
+	} else {
+		t.HLSURL = "/api/v1/stream/" + mf.ID + "/hls/master.m3u8"
+	}
+	return t
 }
 
 type playbackDisplay struct {
@@ -284,6 +326,15 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 			Forced: sub.Forced,
 			URL:    "/api/v1/subtitles/" + sub.ID + ".vtt",
 		})
+	}
+
+	// alternate-audio siblings (model B): a language switch in the player. Only
+	// populated when the title/episode has more than one audio file.
+	if siblings, serr := h.catalog.AudioSiblings(r.Context(), mf.TitleID, mf.EpisodeID, mf.ID); serr == nil && len(siblings) > 0 {
+		info.Audio = append(info.Audio, audioTrackFor(mf, true))
+		for i := range siblings {
+			info.Audio = append(info.Audio, audioTrackFor(&siblings[i], false))
+		}
 	}
 
 	// ready transcode variants power the player's quality menu and are offered

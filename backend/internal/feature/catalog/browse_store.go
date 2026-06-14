@@ -270,17 +270,41 @@ func (s *Store) Search(ctx context.Context, q string, limit int, includeMusic bo
 	return res, nil
 }
 
-// PrimaryMediaFileForTitle returns the playable file for a movie title.
+// PrimaryMediaFileForTitle returns the playable file for a movie title,
+// preferring the file tagged as the primary audio over alternate-audio siblings.
 func (s *Store) PrimaryMediaFileForTitle(ctx context.Context, titleID string) (*media.MediaFile, error) {
 	return media.ScanMediaFile(s.db.QueryRow(ctx,
 		`SELECT `+media.MediaFileCols+` FROM media_files
-		 WHERE title_id = $1 ORDER BY height DESC, id LIMIT 1`, titleID))
+		 WHERE title_id = $1 ORDER BY (audio_role = 'primary') DESC, height DESC, id LIMIT 1`, titleID))
 }
 
 func (s *Store) PrimaryMediaFileForEpisode(ctx context.Context, episodeID string) (*media.MediaFile, error) {
 	return media.ScanMediaFile(s.db.QueryRow(ctx,
 		`SELECT `+media.MediaFileCols+` FROM media_files
-		 WHERE episode_id = $1 ORDER BY height DESC, id LIMIT 1`, episodeID))
+		 WHERE episode_id = $1 ORDER BY (audio_role = 'primary') DESC, height DESC, id LIMIT 1`, episodeID))
+}
+
+// AudioSiblings returns the other media files attached to the same owner as the
+// given file - the alternate-audio (separate-language) siblings for model B.
+func (s *Store) AudioSiblings(ctx context.Context, titleID, episodeID *string, excludeID string) ([]media.MediaFile, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT `+media.MediaFileCols+` FROM media_files
+		 WHERE id <> $3
+			AND (($1::uuid IS NOT NULL AND title_id = $1) OR ($2::uuid IS NOT NULL AND episode_id = $2))
+		 ORDER BY audio_role, audio_lang, id`, titleID, episodeID, excludeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	files := []media.MediaFile{}
+	for rows.Next() {
+		m, err := media.ScanMediaFile(rows)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, *m)
+	}
+	return files, rows.Err()
 }
 
 type EpisodeRef struct {

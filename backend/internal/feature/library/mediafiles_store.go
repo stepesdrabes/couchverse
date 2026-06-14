@@ -63,6 +63,14 @@ func (s *Store) DeleteMediaFile(ctx context.Context, id string) error {
 	return err
 }
 
+// SetMediaFileAudio tags a file's audio language and role for model-B
+// multi-language audio ('primary' full file vs 'audio_alt' sibling).
+func (s *Store) SetMediaFileAudio(ctx context.Context, id, lang, role string) error {
+	_, err := s.db.Exec(ctx,
+		`UPDATE media_files SET audio_lang = $2, audio_role = $3 WHERE id = $1`, id, lang, role)
+	return err
+}
+
 // MarkSourceDeleted records that the original file was removed after
 // transcoding; playback must use HLS variants from now on.
 func (s *Store) MarkSourceDeleted(ctx context.Context, id string) error {

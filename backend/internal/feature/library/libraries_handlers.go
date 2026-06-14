@@ -84,6 +84,36 @@ func (h *AdminLibraries) Scan(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusAccepted, map[string]any{"jobId": jobID})
 }
 
+// SetMediaFileAudio tags a media file with an audio language and role so it can
+// act as an alternate-audio sibling (model B).
+func (h *AdminLibraries) SetMediaFileAudio(w http.ResponseWriter, r *http.Request) {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	var req struct {
+		AudioLang string `json:"audioLang"`
+		AudioRole string `json:"audioRole"`
+	}
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.BadRequest(w, "invalid request body")
+		return
+	}
+	if req.AudioRole == "" {
+		req.AudioRole = "primary"
+	}
+	if req.AudioRole != "primary" && req.AudioRole != "audio_alt" {
+		httpx.BadRequest(w, "audioRole must be primary or audio_alt")
+		return
+	}
+	if err := h.store.SetMediaFileAudio(r.Context(), id, req.AudioLang, req.AudioRole); err != nil {
+		httpx.StoreErr(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusNoContent, nil)
+}
+
 // ScanAll enqueues a scan for every library.
 func (h *AdminLibraries) ScanAll(w http.ResponseWriter, r *http.Request) {
 	libs, err := h.store.ListLibraries(r.Context())
