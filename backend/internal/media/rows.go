@@ -66,6 +66,18 @@ func ScanMediaFile(row pgx.Row) (*MediaFile, error) {
 	return &m, nil
 }
 
+// AudioStream is one audio track inside a media file (model A: embedded
+// multi-track). The library feature owns the audio_streams SQL; this shared row
+// type lets playback read it without a cyclic import.
+type AudioStream struct {
+	Index    int    `json:"index"`
+	Codec    string `json:"codec"`
+	Lang     string `json:"lang"`
+	Title    string `json:"title"`
+	Channels int    `json:"channels"`
+	Default  bool   `json:"default"`
+}
+
 type Subtitle struct {
 	ID          string    `json:"id"`
 	MediaFileID string    `json:"mediaFileId"`

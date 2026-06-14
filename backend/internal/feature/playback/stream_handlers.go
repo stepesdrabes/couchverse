@@ -337,6 +337,11 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// embedded multi-audio (model A): a file with >=2 audio tracks streams via the
+	// var_stream_map HLS remux so the player can switch audio language.
+	audioStreams, _ := h.library.AudioStreamsForFile(r.Context(), mf.ID)
+	multiAudio := len(audioStreams) >= 2
+
 	// ready transcode variants power the player's quality menu and are offered
 	// even when the source direct-plays, so users can pick a specific rendition
 	variants, verr := h.library.VariantsForMediaFile(r.Context(), mf.ID)
@@ -344,12 +349,16 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, verr)
 		return
 	}
-	ready, pending := false, false
+	ready, pending, multiAudioReady := false, false, false
 	for _, v := range variants {
 		switch v.Status {
 		case "ready":
 			ready = true
-			if v.Name != "source" { // the "source" remux isn't a distinct quality
+			switch v.Name {
+			case "multiaudio":
+				multiAudioReady = true
+			case "source": // the "source" remux isn't a distinct quality
+			default:
 				height := v.Height
 				if v.Mode == "copy" {
 					height = mf.Height
@@ -361,14 +370,49 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	hlsURL := "/api/v1/stream/" + mf.ID + "/hls/master.m3u8"
+	if multiAudio && multiAudioReady {
+		hlsURL = "/api/v1/stream/" + mf.ID + "/hls/multiaudio/master.m3u8"
+	}
 	if ready {
 		info.HLSURL = hlsURL
 	}
 
+	// embedded audio tracks for the player's language menu (model A)
+	if multiAudio && len(info.Audio) == 0 {
+		for _, a := range audioStreams {
+			label := a.Title
+			if label == "" || label == a.Lang {
+				label = audioLabel(a.Lang)
+			}
+			info.Audio = append(info.Audio, audioTrack{
+				ID:      fmt.Sprintf("embedded:%d", a.Index),
+				Lang:    a.Lang,
+				Label:   label,
+				Default: a.Default,
+				Source:  "embedded",
+			})
+		}
+		hasDef := false
+		for _, t := range info.Audio {
+			if t.Default {
+				hasDef = true
+			}
+		}
+		if !hasDef && len(info.Audio) > 0 {
+			info.Audio[0].Default = true
+		}
+	}
+
 	caps := strings.Split(r.URL.Query().Get("caps"), ",")
 	switch {
+	// embedded multi-audio must use the HLS remux so the player can switch audio,
+	// even when the source would otherwise direct-play
+	case multiAudio && multiAudioReady:
+		info.Mode = "hls"
+		info.StreamURL = hlsURL
+
 	// a cleaned-up source can't be served directly no matter what the caps say
-	case mf.SourceDeletedAt == nil &&
+	case mf.SourceDeletedAt == nil && !multiAudio &&
 		(mf.DirectPlay || media.DirectPlayWithCaps(mf.Container, mf.VideoCodec, mf.AudioCodec, caps)):
 		info.Mode = "direct"
 		info.StreamURL = "/api/v1/stream/" + mf.ID

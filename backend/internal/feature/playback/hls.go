@@ -26,6 +26,10 @@ type BuildSpec struct {
 	JIT            bool    // live session: timestamp offset, atomic segments, no VOD playlist
 	StartNumber    int     // first segment index (JIT restarts)
 	BackgroundNice bool
+	// MultiAudio remuxes copied video + every audio track into one HLS output
+	// with selectable audio (model A); AudioStreams lists the tracks to include.
+	MultiAudio   bool
+	AudioStreams []media.AudioStream
 }
 
 func BuildArgs(spec BuildSpec) []string {
@@ -33,7 +37,11 @@ func BuildArgs(spec BuildSpec) []string {
 	if spec.StartAt > 0 {
 		args = append(args, "-ss", fmt.Sprintf("%.3f", spec.StartAt))
 	}
-	args = append(args, "-i", spec.Input, "-map", "0:v:0")
+	args = append(args, "-i", spec.Input)
+	if spec.MultiAudio {
+		return buildMultiAudioArgs(spec, args)
+	}
+	args = append(args, "-map", "0:v:0")
 	if spec.HasAudio {
 		args = append(args, "-map", "0:a:0")
 	}
@@ -88,6 +96,45 @@ func BuildArgs(spec BuildSpec) []string {
 		"-hls_segment_filename", spec.OutDir+"/seg_%05d.ts",
 		"-progress", "pipe:1",
 		spec.OutDir+"/index.m3u8",
+	)
+	return args
+}
+
+// buildMultiAudioArgs remuxes copied h264 video with every audio track into one
+// HLS output that carries each audio language as a selectable rendition. ffmpeg
+// writes the master playlist (master.m3u8) and per-stream playlists (v%v.m3u8);
+// the player switches audio via the hls.js audioTrack API. Cheap on a Pi: the
+// video is copied, only the AAC audio is (re)encoded.
+func buildMultiAudioArgs(spec BuildSpec, args []string) []string {
+	args = append(args, "-map", "0:v:0")
+	hasDefault := false
+	for _, a := range spec.AudioStreams {
+		if a.Default {
+			hasDefault = true
+		}
+	}
+	var sm strings.Builder
+	sm.WriteString("v:0,agroup:aud")
+	for i, a := range spec.AudioStreams {
+		args = append(args, "-map", fmt.Sprintf("0:%d", a.Index))
+		lang := a.Lang
+		if lang == "" {
+			lang = "und"
+		}
+		fmt.Fprintf(&sm, " a:%d,agroup:aud,language:%s,name:audio%d", i, lang, i)
+		if a.Default || (!hasDefault && i == 0) {
+			sm.WriteString(",default:yes")
+		}
+	}
+	args = append(args,
+		"-c:v", "copy",
+		"-c:a", "aac", "-ac", "2",
+		"-var_stream_map", sm.String(),
+		"-master_pl_name", "master.m3u8",
+		"-f", "hls", "-hls_time", "4", "-hls_playlist_type", "vod",
+		"-hls_segment_filename", spec.OutDir+"/v%v_%05d.ts",
+		"-progress", "pipe:1",
+		spec.OutDir+"/v%v.m3u8",
 	)
 	return args
 }

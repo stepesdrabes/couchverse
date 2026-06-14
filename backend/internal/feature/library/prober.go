@@ -89,6 +89,11 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 	if err := p.Files.ApplyProbe(ctx, mf.ID, up); err != nil {
 		return err
 	}
+	if res.HasVideo {
+		if err := p.Files.ReplaceAudioStreams(ctx, mf.ID, res.AudioStreams); err != nil {
+			return err
+		}
+	}
 
 	if res.HasVideo && media.HasTextSubtitles(res) {
 		if _, err := p.Jobs.EnqueueJobOnce(ctx, "extract_subtitles",
@@ -99,7 +104,20 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 
 	// make non-browser-playable files streamable without admin intervention.
 	// Variant rows are created up front so the admin library shows "Processing".
-	if res.HasVideo && !up.DirectPlay {
+	// multi-audio h264 files always go through a single var_stream_map HLS remux
+	// (copied video + every audio language) so the player can switch audio -
+	// browsers can't switch the audio of a progressive file. Single-audio files
+	// keep the normal path: direct play, or a copy-remux + ladder when needed.
+	switch {
+	case res.HasVideo && res.VideoCodec == "h264" && len(res.AudioStreams) >= 2:
+		if _, err := p.Files.UpsertVariant(ctx, mf.ID, "multiaudio", res.Height, res.Bitrate, 0, "copy"); err != nil {
+			return err
+		}
+		if _, err := p.Jobs.EnqueueJobOnce(ctx, "transcode_hls",
+			map[string]any{"mediaFileId": mf.ID, "variant": "multiaudio"}, jobs.EnqueueOpts{}); err != nil {
+			return err
+		}
+	case res.HasVideo && !up.DirectPlay:
 		settings := media.LoadTranscodeSettings(ctx, p.Settings)
 		if res.VideoCodec == "h264" {
 			// h264 streams as-is via a cheap copy-remux (full source quality)...

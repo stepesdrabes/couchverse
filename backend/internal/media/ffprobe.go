@@ -20,6 +20,7 @@ type ProbeResult struct {
 	AudioCodec      string
 	Channels        int
 	SampleRate      int
+	AudioStreams    []AudioStream
 	SubtitleStreams []SubtitleStream
 	Raw             json.RawMessage
 }
@@ -50,6 +51,7 @@ type probeOutput struct {
 		Disposition   struct {
 			AttachedPic int `json:"attached_pic"`
 			Forced      int `json:"forced"`
+			Default     int `json:"default"`
 		} `json:"disposition"`
 		Tags struct {
 			Language string `json:"language"`
@@ -100,12 +102,17 @@ func Probe(ctx context.Context, ffprobePath, file string) (*ProbeResult, error) 
 				res.VideoRange = "hlg"
 			}
 		case "audio":
+			sr, _ := strconv.Atoi(s.SampleRate)
+			res.AudioStreams = append(res.AudioStreams, AudioStream{
+				Index: s.Index, Codec: s.CodecName, Lang: s.Tags.Language,
+				Title: s.Tags.Title, Channels: s.Channels, Default: s.Disposition.Default == 1,
+			})
 			if res.AudioCodec != "" {
 				continue
 			}
 			res.AudioCodec = s.CodecName
 			res.Channels = s.Channels
-			res.SampleRate, _ = strconv.Atoi(s.SampleRate)
+			res.SampleRate = sr
 		case "subtitle":
 			res.SubtitleStreams = append(res.SubtitleStreams, SubtitleStream{
 				Index:    s.Index,

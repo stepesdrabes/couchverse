@@ -57,11 +57,22 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 	}
 
 	var variant *library.TranscodeVariant
-	if p.Variant == "source" {
+	switch p.Variant {
+	case "multiaudio":
+		streams, serr := h.Files.AudioStreamsForFile(ctx, mf.ID)
+		if serr != nil {
+			return serr
+		}
+		spec.Mode = "copy"
+		spec.MultiAudio = true
+		spec.AudioStreams = streams
+		spec.Rendition = media.Rendition{Name: "multiaudio", Height: mf.Height}
+		variant, err = h.Files.UpsertVariant(ctx, mf.ID, "multiaudio", mf.Height, mf.Bitrate, 0, "copy")
+	case "source":
 		spec.Mode = "copy"
 		spec.Rendition = media.Rendition{Name: "source", Height: mf.Height, AudioBitrate: 192_000}
 		variant, err = h.Files.UpsertVariant(ctx, mf.ID, "source", mf.Height, mf.Bitrate, 192_000, "copy")
-	} else {
+	default:
 		r, ok := media.Renditions[p.Variant]
 		if !ok {
 			return fmt.Errorf("unknown rendition %q", p.Variant)
@@ -94,7 +105,11 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 		return err
 	}
 
-	rel := filepath.Join("cache", "hls", mf.ID, p.Variant, "index.m3u8")
+	playlist := "index.m3u8"
+	if p.Variant == "multiaudio" {
+		playlist = "master.m3u8"
+	}
+	rel := filepath.Join("cache", "hls", mf.ID, p.Variant, playlist)
 	if err := h.Files.SetVariantStatus(ctx, variant.ID, "ready", rel, media.DirSize(spec.OutDir)); err != nil {
 		return err
 	}
