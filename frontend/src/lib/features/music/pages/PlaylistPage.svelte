@@ -12,6 +12,7 @@
 	import { musicPlayer as player } from '$lib/features/music/player.svelte';
 	import { FormState } from '$lib/utils/form-state.svelte';
 	import { formatClock } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: Awaited<ReturnType<typeof musicApi.getPlaylist>> } = $props();
 
@@ -47,7 +48,7 @@
 				next.map((e) => e.entryId)
 			);
 		} catch {
-			toast.error('Failed to reorder');
+			toast.error(m.music_reorder_failed());
 			invalidateAll();
 		}
 	}
@@ -57,7 +58,7 @@
 		try {
 			await musicApi.removePlaylistEntry(data.playlist.id, entryId);
 		} catch {
-			toast.error('Failed to remove track');
+			toast.error(m.music_remove_track_failed());
 			invalidateAll();
 		}
 	}
@@ -69,7 +70,7 @@
 			renameOpen = false;
 			invalidateAll();
 		} catch {
-			toast.error('Failed to rename');
+			toast.error(m.music_rename_failed());
 		}
 	}
 
@@ -78,7 +79,7 @@
 			await musicApi.deletePlaylist(data.playlist.id);
 			goto('/music');
 		} catch {
-			toast.error('Failed to delete');
+			toast.error(m.music_delete_failed());
 		}
 	}
 
@@ -86,31 +87,31 @@
 </script>
 
 <svelte:head>
-	<title>{data.playlist.name} - Couchverse</title>
+	<title>{m.music_playlist_title({ name: data.playlist.name })}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-4xl px-6 pt-28 pb-16">
 	<div class="mb-8 flex items-end justify-between gap-4">
 		<div class="min-w-0">
-			<p class="eyebrow mb-2">Playlist</p>
+			<p class="eyebrow mb-2">{m.music_playlist()}</p>
 			<h1 class="truncate text-3xl font-extrabold tracking-tight sm:text-4xl">
 				{data.playlist.name}
 			</h1>
-			<p class="mt-2 text-sm text-faint tnum">{entries.length} tracks</p>
+			<p class="mt-2 text-sm text-faint tnum">{m.music_track_count({ count: entries.length })}</p>
 		</div>
 		<div class="flex shrink-0 gap-2">
 			<Button onclick={playAll} disabled={entries.length === 0}>
 				<Play class="size-4 fill-current" />
-				Play
+				{m.common_play()}
 			</Button>
-			<Button variant="ghost" size="md" onclick={openRename} aria-label="Rename">
+			<Button variant="ghost" size="md" onclick={openRename} aria-label={m.music_rename()}>
 				<Pencil class="size-4" />
 			</Button>
 			<Button
 				variant="ghost"
 				size="md"
 				onclick={() => (confirmDelete = true)}
-				aria-label="Delete playlist"
+				aria-label={m.music_delete_playlist()}
 			>
 				<Trash2 class="size-4" />
 			</Button>
@@ -118,7 +119,7 @@
 	</div>
 
 	{#if entries.length === 0}
-		<EmptyState title="Empty playlist" message="Add tracks from any album with the ⋮ menu.">
+		<EmptyState title={m.music_empty_playlist_title()} message={m.music_empty_playlist_message()}>
 			<ListMusic class="size-5 text-faint" />
 		</EmptyState>
 	{:else}
@@ -132,7 +133,7 @@
 					<button
 						class="w-6 text-left text-xs text-faint tnum"
 						onclick={() => player.playQueue(tracks, i)}
-						aria-label="Play from here"
+						aria-label={m.music_play_from_here()}
 					>
 						{i + 1}
 					</button>
@@ -152,7 +153,7 @@
 							class="rounded-full p-1.5 text-faint hover:text-text disabled:opacity-30"
 							disabled={i === 0}
 							onclick={() => move(i, -1)}
-							aria-label="Move up"
+							aria-label={m.music_move_up()}
 						>
 							<ArrowUp class="size-3.5" />
 						</button>
@@ -160,14 +161,14 @@
 							class="rounded-full p-1.5 text-faint hover:text-text disabled:opacity-30"
 							disabled={i === entries.length - 1}
 							onclick={() => move(i, 1)}
-							aria-label="Move down"
+							aria-label={m.music_move_down()}
 						>
 							<ArrowDown class="size-3.5" />
 						</button>
 						<button
 							class="rounded-full p-1.5 text-faint hover:text-danger"
 							onclick={() => removeEntry(entry.entryId)}
-							aria-label="Remove"
+							aria-label={m.common_remove()}
 						>
 							<X class="size-3.5" />
 						</button>
@@ -178,18 +179,18 @@
 	{/if}
 </div>
 
-<Modal bind:open={renameOpen} title="Rename playlist">
+<Modal bind:open={renameOpen} title={m.music_rename_playlist()}>
 	<form onsubmit={rename} class="space-y-4">
-		<Input label="Name" bind:value={newName} required />
+		<Input label={m.music_name_label()} bind:value={newName} required />
 		<div class="flex justify-end">
-			<Button type="submit" disabled={!renameForm.dirty}>Save</Button>
+			<Button type="submit" disabled={!renameForm.dirty}>{m.common_save()}</Button>
 		</div>
 	</form>
 </Modal>
 
 <Confirm
 	bind:open={confirmDelete}
-	title="Delete “{data.playlist.name}”?"
-	message="The playlist is removed for good. Tracks stay in the library."
+	title={m.music_delete_playlist_confirm_title({ name: data.playlist.name })}
+	message={m.music_delete_playlist_confirm_message()}
 	onconfirm={deletePlaylist}
 />

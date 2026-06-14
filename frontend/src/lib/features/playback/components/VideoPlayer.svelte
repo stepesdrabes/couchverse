@@ -38,6 +38,7 @@
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import { accentVars } from '$lib/theme';
 	import { formatClock } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		info,
@@ -385,8 +386,9 @@
 
 	const qualityOptions = $derived.by(() => {
 		const opts: { key: string; label: string }[] = [];
-		if (directUrl) opts.push({ key: 'direct', label: 'Original' });
-		if (switchHlsUrl && (info.variants?.length ?? 0) > 0) opts.push({ key: 'auto', label: 'Auto' });
+		if (directUrl) opts.push({ key: 'direct', label: m.player_quality_original() });
+		if (switchHlsUrl && (info.variants?.length ?? 0) > 0)
+			opts.push({ key: 'auto', label: m.player_quality_auto() });
 		for (const v of info.variants ?? []) opts.push({ key: v.name, label: `${v.height}p` });
 		return opts;
 	});
@@ -571,13 +573,13 @@
 			class="absolute inset-x-0 top-0 flex items-center gap-4 bg-gradient-to-b from-black/80
 				to-transparent p-5 pb-12"
 		>
-			<Tooltip label="Back to title" side="bottom" portalTo={wrapper}>
+			<Tooltip label={m.player_back_to_title()} side="bottom" portalTo={wrapper}>
 				{#snippet trigger(props)}
 					<button
 						{...props}
 						class="rounded-full p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
 						onclick={() => goto(`/title/${info.display.titleSlug}`)}
-						aria-label="Back"
+						aria-label={m.common_back()}
 					>
 						<ArrowLeft class="size-5" />
 					</button>
@@ -611,7 +613,7 @@
 				onpointerup={() => (scrubbing = false)}
 				onpointerleave={() => (hoverRatio = null)}
 				role="slider"
-				aria-label="Seek"
+				aria-label={m.player_seek()}
 				aria-valuemin={0}
 				aria-valuemax={duration}
 				aria-valuenow={currentTime}
@@ -656,9 +658,14 @@
 			</div>
 
 			<div class="flex items-center gap-3">
-				<Tooltip label={playing ? 'Pause' : 'Play'} portalTo={wrapper}>
+				<Tooltip label={playing ? m.common_pause() : m.common_play()} portalTo={wrapper}>
 					{#snippet trigger(props)}
-						<button {...props} class="player-btn" onclick={togglePlay} aria-label="Play/Pause">
+						<button
+							{...props}
+							class="player-btn"
+							onclick={togglePlay}
+							aria-label={m.player_play_pause()}
+						>
 							{#if playing}
 								<Pause class="size-5 fill-current" />
 							{:else}
@@ -667,25 +674,25 @@
 						</button>
 					{/snippet}
 				</Tooltip>
-				<Tooltip label="Back 10 seconds" portalTo={wrapper}>
+				<Tooltip label={m.player_back_10_seconds()} portalTo={wrapper}>
 					{#snippet trigger(props)}
 						<button
 							{...props}
 							class="player-btn"
 							onclick={() => skip(-10)}
-							aria-label="Back 10 seconds"
+							aria-label={m.player_back_10_seconds()}
 						>
 							<RotateCcw class="size-4.5" />
 						</button>
 					{/snippet}
 				</Tooltip>
-				<Tooltip label="Forward 10 seconds" portalTo={wrapper}>
+				<Tooltip label={m.player_forward_10_seconds()} portalTo={wrapper}>
 					{#snippet trigger(props)}
 						<button
 							{...props}
 							class="player-btn"
 							onclick={() => skip(10)}
-							aria-label="Forward 10 seconds"
+							aria-label={m.player_forward_10_seconds()}
 						>
 							<RotateCw class="size-4.5" />
 						</button>
@@ -693,13 +700,13 @@
 				</Tooltip>
 
 				<div class="group/vol flex items-center gap-2">
-					<Tooltip label={muted ? 'Unmute' : 'Mute'} portalTo={wrapper}>
+					<Tooltip label={muted ? m.player_unmute() : m.player_mute()} portalTo={wrapper}>
 						{#snippet trigger(props)}
 							<button
 								{...props}
 								class="player-btn"
 								onclick={() => (muted = !muted)}
-								aria-label="Mute"
+								aria-label={m.player_mute()}
 							>
 								{#if muted || volume === 0}
 									<VolumeX class="size-4.5" />
@@ -718,7 +725,7 @@
 						oninput={(e) => setVolume(Number(e.currentTarget.value))}
 						class="volume-slider w-0 opacity-0 transition-all duration-200
 							group-hover/vol:w-20 group-hover/vol:opacity-100"
-						aria-label="Volume"
+						aria-label={m.player_volume()}
 					/>
 				</div>
 
@@ -730,7 +737,11 @@
 
 				{#if episodesBySeason.length > 0}
 					<Popover.Root>
-						<Popover.Trigger class="player-btn" aria-label="Episodes" title="Episodes">
+						<Popover.Trigger
+							class="player-btn"
+							aria-label={m.player_episodes()}
+							title={m.player_episodes()}
+						>
 							<ListVideo class="size-5" />
 						</Popover.Trigger>
 						<Popover.Portal to={wrapper}>
@@ -742,7 +753,7 @@
 								<div
 									class="flex items-center justify-between gap-2 border-b border-edge/70 px-3 py-2.5"
 								>
-									<p class="text-xs font-semibold">Episodes</p>
+									<p class="text-xs font-semibold">{m.player_episodes()}</p>
 									{#if episodesBySeason.length > 1}
 										<div class="flex flex-wrap justify-end gap-1">
 											{#each episodesBySeason as [seasonNumber] (seasonNumber)}
@@ -774,7 +785,7 @@
 												<Artwork
 													artworkId={ep.thumbId ?? null}
 													v={ep.thumbVer}
-													name={ep.name || `Episode ${ep.episodeNumber}`}
+													name={ep.name || m.player_episode_number({ number: ep.episodeNumber })}
 												/>
 												<div
 													class="absolute inset-0 flex items-center justify-center bg-black/45 transition-opacity
@@ -793,14 +804,16 @@
 														>E{ep.episodeNumber}</span
 													>
 													{#if current}
-														<span class="text-[10px] font-semibold text-accent">Now playing</span>
+														<span class="text-[10px] font-semibold text-accent"
+															>{m.player_now_playing()}</span
+														>
 													{/if}
 												</div>
 												<p
 													class="mt-0.5 line-clamp-2 text-xs font-medium
 														{current ? 'text-text' : 'text-muted'} group-hover:text-accent"
 												>
-													{ep.name || `Episode ${ep.episodeNumber}`}
+													{ep.name || m.player_episode_number({ number: ep.episodeNumber })}
 												</p>
 											</div>
 										</button>
@@ -813,7 +826,11 @@
 
 				{#if qualityOptions.length > 1}
 					<Popover.Root>
-						<Popover.Trigger class="player-btn" aria-label="Quality" title="Quality">
+						<Popover.Trigger
+							class="player-btn"
+							aria-label={m.player_quality()}
+							title={m.player_quality()}
+						>
 							<Settings class="size-4.5" />
 						</Popover.Trigger>
 						<Popover.Portal to={wrapper}>
@@ -825,7 +842,7 @@
 								<p
 									class="px-3 py-1.5 text-[10px] font-semibold tracking-widest text-faint uppercase"
 								>
-									Quality
+									{m.player_quality()}
 								</p>
 								{#each qualityOptions as opt (opt.key)}
 									<button
@@ -846,8 +863,8 @@
 					<Popover.Root>
 						<Popover.Trigger
 							class="player-btn {activeSub !== null ? 'text-accent!' : ''}"
-							aria-label="Subtitles"
-							title="Subtitles"
+							aria-label={m.player_subtitles()}
+							title={m.player_subtitles()}
 						>
 							<Captions class="size-5" />
 						</Popover.Trigger>
@@ -860,14 +877,14 @@
 								<p
 									class="px-3 py-1.5 text-[10px] font-semibold tracking-widest text-faint uppercase"
 								>
-									Subtitles
+									{m.player_subtitles()}
 								</p>
 								<button
 									class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
 										{activeSub === null ? 'text-text' : 'text-muted'} hover:bg-surface"
 									onclick={() => selectSubtitle(null)}
 								>
-									Off
+									{m.player_subtitle_off()}
 									{#if activeSub === null}<Check class="size-3.5 text-accent" />{/if}
 								</button>
 								{#each info.subtitles as sub (sub.id)}
@@ -885,13 +902,14 @@
 									<p
 										class="flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold tracking-widest text-faint uppercase"
 									>
-										<Type class="size-3" /> Appearance
+										<Type class="size-3" />
+										{m.player_subtitle_appearance()}
 									</p>
 
 									<div class="space-y-2.5 px-3 py-1.5">
 										<label class="block">
 											<span class="mb-1 flex justify-between text-[11px] text-muted">
-												Size <span class="tnum">{subStyle.fontSizePct}%</span>
+												{m.player_subtitle_size()} <span class="tnum">{subStyle.fontSizePct}%</span>
 											</span>
 											<input
 												type="range"
@@ -902,13 +920,14 @@
 												oninput={(e) =>
 													updateSubStyle('fontSizePct', Number(e.currentTarget.value))}
 												class="volume-slider w-full"
-												aria-label="Subtitle size"
+												aria-label={m.player_subtitle_size()}
 											/>
 										</label>
 
 										<label class="block">
 											<span class="mb-1 flex justify-between text-[11px] text-muted">
-												Background <span class="tnum">{subStyle.backgroundOpacity}%</span>
+												{m.player_subtitle_background()}
+												<span class="tnum">{subStyle.backgroundOpacity}%</span>
 											</span>
 											<input
 												type="range"
@@ -919,12 +938,12 @@
 												oninput={(e) =>
 													updateSubStyle('backgroundOpacity', Number(e.currentTarget.value))}
 												class="volume-slider w-full"
-												aria-label="Subtitle background opacity"
+												aria-label={m.player_subtitle_background_opacity()}
 											/>
 										</label>
 
 										<div class="flex items-center justify-between">
-											<span class="text-[11px] text-muted">Font</span>
+											<span class="text-[11px] text-muted">{m.player_subtitle_font()}</span>
 											<div class="flex gap-1">
 												{#each ['sans', 'serif', 'rounded', 'mono'] as const as font (font)}
 													<button
@@ -941,7 +960,7 @@
 										</div>
 
 										<div class="flex items-center justify-between">
-											<span class="text-[11px] text-muted">Colour</span>
+											<span class="text-[11px] text-muted">{m.player_subtitle_colour()}</span>
 											<div class="flex items-center gap-1.5">
 												{#each ['#ffffff', '#ffe600', '#7cf0a0', '#69b4ff'] as swatch (swatch)}
 													<button
@@ -949,7 +968,7 @@
 															{subStyle.color.toLowerCase() === swatch ? 'border-text' : 'border-transparent'}"
 														style="background: {swatch}"
 														onclick={() => updateSubStyle('color', swatch)}
-														aria-label="Subtitle colour {swatch}"
+														aria-label={m.player_subtitle_colour_swatch({ colour: swatch })}
 													></button>
 												{/each}
 											</div>
@@ -962,13 +981,13 @@
 				{/if}
 
 				{#if pipSupported}
-					<Tooltip label="Picture in picture" portalTo={wrapper}>
+					<Tooltip label={m.player_picture_in_picture()} portalTo={wrapper}>
 						{#snippet trigger(props)}
 							<button
 								{...props}
 								class="player-btn {pipActive ? 'text-accent!' : ''}"
 								onclick={togglePip}
-								aria-label="Picture in picture"
+								aria-label={m.player_picture_in_picture()}
 							>
 								<PictureInPicture2 class="size-4.5" />
 							</button>
@@ -976,13 +995,16 @@
 					</Tooltip>
 				{/if}
 
-				<Tooltip label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'} portalTo={wrapper}>
+				<Tooltip
+					label={fullscreen ? m.player_exit_fullscreen() : m.player_fullscreen()}
+					portalTo={wrapper}
+				>
 					{#snippet trigger(props)}
 						<button
 							{...props}
 							class="player-btn"
 							onclick={toggleFullscreen}
-							aria-label="Fullscreen"
+							aria-label={m.player_fullscreen()}
 						>
 							{#if fullscreen}
 								<Minimize class="size-4.5" />
@@ -1002,7 +1024,7 @@
 			class="absolute right-6 bottom-24 w-72 rounded-card border border-edge bg-surface-2/95
 				p-4 shadow-2xl shadow-black/60 backdrop-blur"
 		>
-			<p class="eyebrow mb-1">Up next · {nextCountdown}s</p>
+			<p class="eyebrow mb-1">{m.player_up_next({ seconds: nextCountdown })}</p>
 			<p class="truncate text-sm font-semibold">
 				S{info.nextEpisode.seasonNumber} E{info.nextEpisode.episodeNumber}
 				{info.nextEpisode.name ? `· ${info.nextEpisode.name}` : ''}
@@ -1012,13 +1034,13 @@
 					class="h-8 flex-1 rounded-full bg-accent text-xs font-semibold text-white transition-colors hover:bg-accent-strong"
 					onclick={goNextEpisode}
 				>
-					Play now
+					{m.player_play_now()}
 				</button>
 				<button
 					class="h-8 rounded-full px-3 text-xs font-semibold text-muted transition-colors hover:bg-surface hover:text-text"
 					onclick={() => (nextCountdown = null)}
 				>
-					Cancel
+					{m.common_cancel()}
 				</button>
 			</div>
 		</div>

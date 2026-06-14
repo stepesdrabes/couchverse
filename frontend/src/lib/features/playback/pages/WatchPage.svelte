@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { ArrowLeft, Loader } from 'lucide-svelte';
 	import VideoPlayer from '$lib/features/playback/components/VideoPlayer.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		data
@@ -18,7 +19,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.info.display.title} - Couchverse</title>
+	<title>{m.player_page_title({ title: data.info.display.title })}</title>
 </svelte:head>
 
 {#if data.info.mode === 'direct' || data.info.mode === 'hls'}
@@ -33,10 +34,9 @@
 {:else if data.info.mode === 'preparing'}
 	<div class="flex min-h-dvh flex-col items-center justify-center gap-5 px-6 text-center">
 		<Loader class="size-7 animate-spin text-accent" />
-		<h1 class="text-xl font-bold">Preparing this video…</h1>
+		<h1 class="text-xl font-bold">{m.player_preparing_title()}</h1>
 		<p class="max-w-md text-sm text-muted">
-			The server is converting it into a streamable format. Playback starts automatically when it’s
-			ready.
+			{m.player_preparing_description()}
 		</p>
 		<div class="h-1.5 w-64 overflow-hidden rounded-full bg-surface-2">
 			<div
@@ -47,10 +47,9 @@
 	</div>
 {:else}
 	<div class="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
-		<h1 class="text-xl font-bold">This file needs transcoding</h1>
+		<h1 class="text-xl font-bold">{m.player_needs_transcoding_title()}</h1>
 		<p class="max-w-md text-sm text-muted">
-			The source format isn’t playable in a browser. An admin can prepare an HLS version from the
-			title editor (Files → Prepare HLS).
+			{m.player_needs_transcoding_description()}
 		</p>
 		<a
 			href="/title/{data.info.display.titleSlug}"
@@ -58,7 +57,7 @@
 				px-5 text-sm font-semibold transition-colors hover:border-faint hover:bg-surface-2"
 		>
 			<ArrowLeft class="size-4" />
-			Back to title
+			{m.player_back_to_title()}
 		</a>
 	</div>
 {/if}

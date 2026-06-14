@@ -7,6 +7,7 @@
 	import Input from '$lib/components/ui/Input.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import { FormState } from '$lib/utils/form-state.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let displayName = $state(session.user?.displayName ?? '');
 	let saving = $state(false);
@@ -20,9 +21,9 @@
 		try {
 			session.user = await authApi.updateProfile(displayName.trim());
 			form.reset();
-			toast.success('Profile saved');
+			toast.success(m.profile_saved());
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Failed to save profile');
+			toast.error(err instanceof Error ? err.message : m.profile_save_failed());
 		} finally {
 			saving = false;
 		}
@@ -33,9 +34,9 @@
 		if (!file) return;
 		try {
 			session.user = await authApi.uploadAvatar(file);
-			toast.success('Profile picture updated');
+			toast.success(m.profile_picture_updated());
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : 'Avatar upload failed');
+			toast.error(err instanceof Error ? err.message : m.profile_avatar_upload_failed());
 		}
 	}
 
@@ -43,17 +44,17 @@
 		try {
 			session.user = await authApi.deleteAvatar();
 		} catch {
-			toast.error('Failed to remove avatar');
+			toast.error(m.profile_avatar_remove_failed());
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Profile - Couchverse</title>
+	<title>{m.profile_page_title()}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-lg px-6 pt-28 pb-16">
-	<h1 class="mb-8 text-2xl font-bold">Your profile</h1>
+	<h1 class="mb-8 text-2xl font-bold">{m.profile_heading()}</h1>
 
 	<div class="rounded-card border border-edge bg-surface/40 p-6">
 		<div class="mb-6 flex items-center gap-5">
@@ -61,7 +62,7 @@
 				type="button"
 				class="group relative shrink-0 overflow-hidden rounded-2xl"
 				onclick={() => fileInput?.click()}
-				title="Change profile picture"
+				title={m.profile_change_picture()}
 			>
 				<UserAvatar
 					name={session.user?.displayName ?? '?'}
@@ -79,7 +80,9 @@
 			<div class="min-w-0">
 				<p class="truncate text-lg font-semibold">{session.user?.displayName}</p>
 				<p class="text-sm text-faint">
-					@{session.user?.username} · {session.user?.role === 'admin' ? 'Admin' : 'Member'}
+					@{session.user?.username} · {session.user?.role === 'admin'
+						? m.profile_role_admin()
+						: m.profile_role_member()}
 				</p>
 				{#if session.user?.avatarId}
 					<button
@@ -87,23 +90,22 @@
 						onclick={removeAvatar}
 					>
 						<Trash2 class="size-3" />
-						Remove picture
+						{m.profile_remove_picture()}
 					</button>
 				{/if}
 			</div>
 		</div>
 
 		<form onsubmit={save} class="space-y-4">
-			<Input label="Display name" bind:value={displayName} required maxlength={60} />
+			<Input label={m.profile_display_name()} bind:value={displayName} required maxlength={60} />
 			<div class="flex justify-end">
-				<Button type="submit" loading={saving} disabled={!form.dirty}>Save</Button>
+				<Button type="submit" loading={saving} disabled={!form.dirty}>{m.common_save()}</Button>
 			</div>
 		</form>
 	</div>
 
 	<p class="mt-4 text-xs text-faint">
-		Your name and picture show up in the top bar and on the admin's user list. Passwords are managed
-		by the server admin.
+		{m.profile_help_text()}
 	</p>
 </div>
 

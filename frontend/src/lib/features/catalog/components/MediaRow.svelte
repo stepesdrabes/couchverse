@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let { label, children }: { label: string; children: Snippet } = $props();
 
@@ -21,14 +22,14 @@
 			<button
 				class="rounded-full border border-edge bg-surface/80 p-1.5 text-muted transition-colors hover:text-text"
 				onclick={() => scrollBy(-1)}
-				aria-label="Scroll left"
+				aria-label={m.catalog_scroll_left()}
 			>
 				<ChevronLeft class="size-4" />
 			</button>
 			<button
 				class="rounded-full border border-edge bg-surface/80 p-1.5 text-muted transition-colors hover:text-text"
 				onclick={() => scrollBy(1)}
-				aria-label="Scroll right"
+				aria-label={m.catalog_scroll_right()}
 			>
 				<ChevronRight class="size-4" />
 			</button>

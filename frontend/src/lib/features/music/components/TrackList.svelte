@@ -6,6 +6,7 @@
 	import type { TrackItem } from '$lib/features/music/api';
 	import { musicPlayer as player } from '$lib/features/music/player.svelte';
 	import { formatClock } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	let { tracks, showAlbum = false }: { tracks: TrackItem[]; showAlbum?: boolean } = $props();
 
@@ -15,16 +16,16 @@
 		try {
 			const playlists = await musicApi.listPlaylists();
 			if (playlists.length === 0) {
-				const created = await musicApi.createPlaylist('My Playlist');
+				const created = await musicApi.createPlaylist(m.music_default_playlist_name());
 				await musicApi.addPlaylistTrack(created.id, track.id);
-				toast.success(`Added to “${created.name}”`);
+				toast.success(m.music_added_to_playlist({ name: created.name }));
 				return;
 			}
 			// add to the most recently updated playlist (quick action)
 			await musicApi.addPlaylistTrack(playlists[0].id, track.id);
-			toast.success(`Added to “${playlists[0].name}”`);
+			toast.success(m.music_added_to_playlist({ name: playlists[0].name }));
 		} catch {
-			toast.error('Failed to add to playlist');
+			toast.error(m.music_add_to_playlist_failed());
 		}
 	}
 </script>
@@ -39,7 +40,7 @@
 				class="flex w-7 items-center justify-center"
 				onclick={() => player.playQueue(tracks, i)}
 				disabled={track.mediaFileId === null}
-				aria-label="Play {track.name}"
+				aria-label={m.music_play_track({ name: track.name })}
 			>
 				{#if isPlaying(track)}
 					<AudioLines class="size-4 animate-pulse text-accent" />
@@ -64,7 +65,7 @@
 				<DropdownMenu.Trigger
 					class="rounded-full p-1.5 text-faint opacity-0 transition-opacity group-hover:opacity-100
 						hover:bg-surface hover:text-text data-[state=open]:opacity-100"
-					aria-label="Track actions"
+					aria-label={m.music_track_actions()}
 				>
 					<EllipsisVertical class="size-4" />
 				</DropdownMenu.Trigger>
@@ -80,7 +81,7 @@
 							onSelect={() => player.addToQueue(track)}
 						>
 							<Plus class="size-3.5" />
-							Add to queue
+							{m.music_add_to_queue()}
 						</DropdownMenu.Item>
 						<DropdownMenu.Item
 							class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-muted
@@ -88,7 +89,7 @@
 							onSelect={() => addToPlaylist(track)}
 						>
 							<ListPlus class="size-3.5" />
-							Add to playlist
+							{m.music_add_to_playlist()}
 						</DropdownMenu.Item>
 					</DropdownMenu.Content>
 				</DropdownMenu.Portal>

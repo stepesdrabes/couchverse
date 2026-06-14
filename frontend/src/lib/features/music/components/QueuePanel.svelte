@@ -3,6 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { musicPlayer as player } from '$lib/features/music/player.svelte';
 	import { formatClock } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 </script>
 
 {#if player.queueOpen}
@@ -11,11 +12,11 @@
 		class="fixed top-0 right-0 bottom-20 z-40 flex w-80 flex-col border-l border-edge bg-surface/95 backdrop-blur-md"
 	>
 		<div class="flex items-center justify-between border-b border-edge/60 px-5 py-4">
-			<h2 class="eyebrow">Queue</h2>
+			<h2 class="eyebrow">{m.music_queue()}</h2>
 			<button
 				class="rounded-full p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-text"
 				onclick={() => (player.queueOpen = false)}
-				aria-label="Close queue"
+				aria-label={m.music_close_queue()}
 			>
 				<X class="size-4" />
 			</button>
@@ -39,7 +40,7 @@
 						<button
 							class="rounded-full p-1 text-faint opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
 							onclick={() => player.removeFromQueue(i)}
-							aria-label="Remove from queue"
+							aria-label={m.music_remove_from_queue()}
 						>
 							<X class="size-3.5" />
 						</button>

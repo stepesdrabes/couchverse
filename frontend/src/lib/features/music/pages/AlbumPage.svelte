@@ -5,6 +5,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import { artworkUrl } from '$lib/features/catalog/api';
 	import { musicPlayer as player } from '$lib/features/music/player.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: Awaited<ReturnType<typeof getAlbum>> } = $props();
 
@@ -21,7 +22,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.album.name} - Couchverse</title>
+	<title>{m.music_album_title({ name: data.album.name })}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-4xl px-6 pt-28 pb-16">
@@ -41,23 +42,25 @@
 			{/if}
 		</div>
 		<div class="min-w-0 animate-slide-up">
-			<p class="eyebrow mb-2">Album</p>
+			<p class="eyebrow mb-2">{m.music_album()}</p>
 			<h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl">{data.album.name}</h1>
 			<p class="mt-2 text-sm text-muted">
 				<a href="/music/artists/{data.album.artistId}" class="font-semibold hover:text-accent">
 					{data.album.artistName}
 				</a>
 				{#if data.album.year}· {data.album.year}{/if}
-				· {data.tracks.length} tracks · {Math.round(totalSeconds / 60)} min
+				· {m.music_track_count({ count: data.tracks.length })} · {m.music_minute_count({
+					count: Math.round(totalSeconds / 60)
+				})}
 			</p>
 			<div class="mt-5 flex gap-2">
 				<Button onclick={playAll}>
 					<Play class="size-4 fill-current" />
-					Play
+					{m.common_play()}
 				</Button>
 				<Button variant="secondary" onclick={shufflePlay}>
 					<Shuffle class="size-4" />
-					Shuffle
+					{m.music_shuffle()}
 				</Button>
 			</div>
 		</div>

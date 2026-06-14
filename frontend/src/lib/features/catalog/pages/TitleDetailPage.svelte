@@ -11,6 +11,7 @@
 	import Select from '$lib/components/ui/Select.svelte';
 	import { accentVars } from '$lib/theme';
 	import { formatClock, formatRuntime, qualityLabel } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: Awaited<ReturnType<typeof catalog.getTitle>> } = $props();
 
@@ -68,7 +69,7 @@
 			else await catalog.addToList(data.title.id);
 			listed = !listed;
 		} catch {
-			toast.error('Failed to update My List');
+			toast.error(m.catalog_list_update_failed());
 		}
 	}
 
@@ -89,7 +90,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.title.name} - Couchverse</title>
+	<title>{m.catalog_title_page_title({ name: data.title.name })}</title>
 </svelte:head>
 
 <div class="relative" style={accentStyle}>
@@ -125,7 +126,7 @@
 				<div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted">
 					{#if data.title.year}<span>{data.title.year}</span>{/if}
 					{#if data.title.kind === 'series'}
-						<span>· {seasons.length} season{seasons.length === 1 ? '' : 's'}</span>
+						<span>· {m.catalog_season_count({ count: seasons.length })}</span>
 					{:else if data.title.runtimeMinutes}
 						<span>· {formatRuntime(data.title.runtimeMinutes)}</span>
 					{/if}
@@ -154,11 +155,11 @@
 					<Button size="lg" onclick={play} disabled={data.title.kind === 'series' && !nextUp}>
 						<Play class="size-4 fill-current" />
 						{#if movieResume}
-							Resume from {formatClock(movieResume)}
+							{m.catalog_resume_from({ time: formatClock(movieResume) })}
 						{:else if data.title.kind === 'series' && nextUp}
-							Play {nextUpLabel}
+							{m.catalog_play_episode({ label: nextUpLabel })}
 						{:else}
-							Play
+							{m.common_play()}
 						{/if}
 					</Button>
 					<Button variant="secondary" size="lg" onclick={toggleList}>
@@ -167,7 +168,7 @@
 						{:else}
 							<Plus class="size-4" />
 						{/if}
-						My List
+						{m.nav_my_list()}
 					</Button>
 				</div>
 			</div>
@@ -176,15 +177,15 @@
 		{#if data.title.kind === 'series' && seasons.length > 0}
 			<section class="mt-12">
 				<div class="mb-4 flex items-center justify-between">
-					<h2 class="eyebrow">Episodes</h2>
+					<h2 class="eyebrow">{m.catalog_episodes()}</h2>
 					{#if seasons.length > 1}
 						<Select
 							bind:value={seasonValue}
-							label="Season"
+							label={m.catalog_season()}
 							placeholder={String(currentSeason?.seasonNumber ?? 1)}
 							items={seasons.map((s) => ({
 								value: String(s.seasonNumber),
-								label: s.name || `Season ${s.seasonNumber}`
+								label: s.name || m.catalog_season_number({ number: s.seasonNumber })
 							}))}
 						/>
 					{/if}
@@ -208,7 +209,7 @@
 									<Artwork
 										artworkId={ep.thumbId ?? null}
 										v={ep.thumbVer}
-										name={ep.name || `Episode ${ep.episodeNumber}`}
+										name={ep.name || m.catalog_episode_number({ number: ep.episodeNumber })}
 									/>
 									{#if file}
 										<div
@@ -235,7 +236,7 @@
 											>{ep.episodeNumber}</span
 										>
 										<p class="truncate text-sm font-semibold group-hover:text-accent">
-											{ep.name || `Episode ${ep.episodeNumber}`}
+											{ep.name || m.catalog_episode_number({ number: ep.episodeNumber })}
 										</p>
 									</div>
 									{#if ep.overview}
@@ -251,7 +252,7 @@
 											{file.durationSeconds ? formatClock(file.durationSeconds) : ''}
 										</span>
 									{:else}
-										<span class="text-[11px] text-faint">no file</span>
+										<span class="text-[11px] text-faint">{m.catalog_no_file()}</span>
 									{/if}
 								</div>
 							</svelte:element>

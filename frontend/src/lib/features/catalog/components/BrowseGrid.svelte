@@ -5,6 +5,7 @@
 	import PosterCard from './PosterCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		heading,
@@ -40,28 +41,28 @@
 			{#if !genre}
 				<Select
 					bind:value={selectedGenre}
-					label="Genre"
-					placeholder="All"
+					label={m.catalog_filter_genre()}
+					placeholder={m.catalog_filter_all()}
 					items={[
-						{ value: '', label: 'All' },
+						{ value: '', label: m.catalog_filter_all() },
 						...genres.map((g) => ({ value: g.name, label: g.name }))
 					]}
 				/>
 			{/if}
 			<Select
 				bind:value={sort}
-				label="Sort"
+				label={m.catalog_sort_label()}
 				items={[
-					{ value: 'added', label: 'Recently added' },
-					{ value: 'name', label: 'Name' },
-					{ value: 'year', label: 'Year' }
+					{ value: 'added', label: m.catalog_sort_recently_added() },
+					{ value: 'name', label: m.catalog_sort_name() },
+					{ value: 'year', label: m.catalog_sort_year() }
 				]}
 			/>
 		</div>
 	</div>
 
 	{#if loaded && items.length === 0}
-		<EmptyState title="Nothing here yet" message="Published titles will show up in this view." />
+		<EmptyState title={m.catalog_browse_empty_title()} message={m.catalog_browse_empty_message()} />
 	{:else}
 		{#key items}
 			<div class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">

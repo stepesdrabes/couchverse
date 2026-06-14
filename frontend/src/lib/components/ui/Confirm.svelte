@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { AlertDialog } from 'bits-ui';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		open = $bindable(false),
 		title,
 		message,
-		confirmLabel = 'Delete',
+		confirmLabel = m.common_delete(),
 		onconfirm
 	}: {
 		open?: boolean;
@@ -31,7 +32,7 @@
 				<AlertDialog.Cancel
 					class="h-9 rounded-full px-4 text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-text"
 				>
-					Cancel
+					{m.common_cancel()}
 				</AlertDialog.Cancel>
 				<AlertDialog.Action
 					onclick={() => {

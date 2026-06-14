@@ -9,6 +9,7 @@
 	import AlbumCard from '$lib/features/music/components/AlbumCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: Awaited<ReturnType<typeof home>> } = $props();
 
@@ -20,7 +21,7 @@
 </script>
 
 <svelte:head>
-	<title>Home - Couchverse</title>
+	<title>{m.catalog_home_title()}</title>
 </svelte:head>
 
 {#if data.featured.length > 0}
@@ -48,8 +49,8 @@
 {:else}
 	<div class="flex min-h-dvh items-center justify-center">
 		<EmptyState
-			title="The library is empty"
-			message="Once the admin publishes movies or series, they show up here."
+			title={m.catalog_library_empty_title()}
+			message={m.catalog_library_empty_message()}
 		/>
 	</div>
 {/if}

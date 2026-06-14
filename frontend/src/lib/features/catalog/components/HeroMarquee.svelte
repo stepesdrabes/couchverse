@@ -8,6 +8,7 @@
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { accentVars } from '$lib/theme';
+	import * as m from '$lib/paraglide/messages';
 
 	let { items }: { items: FeaturedItem[] } = $props();
 
@@ -30,7 +31,7 @@
 
 	const active = $derived(items[index] ?? items[0]);
 	const listed = $derived(listedOverrides[active.id] ?? active.inList);
-	const eyebrow = $derived(['Featured', ...active.genres.slice(0, 2)].join(' · '));
+	const eyebrow = $derived([m.catalog_featured(), ...active.genres.slice(0, 2)].join(' · '));
 
 	// single ticking timer drives both the progress indicator and auto-advance,
 	// so they never drift apart
@@ -69,7 +70,7 @@
 			else await catalog.removeFromList(id);
 			listedOverrides = { ...listedOverrides, [id]: next };
 		} catch {
-			toast.error('Failed to update My List');
+			toast.error(m.catalog_my_list_update_failed());
 		}
 	}
 </script>
@@ -81,7 +82,7 @@
 	style={accentStyle}
 	role="region"
 	aria-roledescription="carousel"
-	aria-label="Featured titles"
+	aria-label={m.catalog_featured_titles()}
 	onpointerenter={() => (paused = true)}
 	onpointerleave={() => (paused = false)}
 >
@@ -152,7 +153,7 @@
 			>
 				<Button size="lg" onclick={play}>
 					<Play class="size-4 fill-current" />
-					Play
+					{m.common_play()}
 				</Button>
 				<Button variant="secondary" size="lg" onclick={toggleList}>
 					{#if listed}
@@ -160,7 +161,7 @@
 					{:else}
 						<Plus class="size-4" />
 					{/if}
-					My List
+					{m.nav_my_list()}
 				</Button>
 			</div>
 		</div>
@@ -174,7 +175,7 @@
 				type="button"
 				class="flex size-8 items-center justify-center rounded-full bg-black/40 text-white/80
 					backdrop-blur transition-colors hover:bg-black/60 hover:text-white"
-				aria-label="Previous featured"
+				aria-label={m.catalog_previous_featured()}
 				onclick={() => goTo(index - 1)}
 			>
 				<Play class="size-3.5 rotate-180 fill-current" />
@@ -185,7 +186,7 @@
 					<button
 						type="button"
 						class="group/seg flex h-6 items-center"
-						aria-label="Show featured {i + 1}: {item.name}"
+						aria-label={m.catalog_show_featured({ index: i + 1, name: item.name })}
 						aria-current={i === index}
 						onclick={() => goTo(i)}
 					>
@@ -206,7 +207,7 @@
 				type="button"
 				class="flex size-8 items-center justify-center rounded-full bg-black/40 text-white/80
 					backdrop-blur transition-colors hover:bg-black/60 hover:text-white"
-				aria-label="Next featured"
+				aria-label={m.catalog_next_featured()}
 				onclick={() => goTo(index + 1)}
 			>
 				<Play class="size-3.5 fill-current" />

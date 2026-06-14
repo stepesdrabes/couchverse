@@ -16,6 +16,7 @@
 	import { musicPlayer as player } from '$lib/features/music/player.svelte';
 	import QueuePanel from './QueuePanel.svelte';
 	import { formatClock } from '$lib/utils/format';
+	import * as m from '$lib/paraglide/messages';
 
 	function seekFromPointer(e: PointerEvent, el: HTMLElement) {
 		const rect = el.getBoundingClientRect();
@@ -65,17 +66,17 @@
 					<button
 						class="music-btn {player.shuffle ? 'text-accent!' : ''}"
 						onclick={() => player.toggleShuffle()}
-						aria-label="Shuffle"
+						aria-label={m.music_shuffle()}
 					>
 						<Shuffle class="size-4" />
 					</button>
-					<button class="music-btn" onclick={() => player.prev()} aria-label="Previous">
+					<button class="music-btn" onclick={() => player.prev()} aria-label={m.music_previous()}>
 						<SkipBack class="size-4.5 fill-current" />
 					</button>
 					<button
 						class="flex size-9 items-center justify-center rounded-full bg-text text-bg transition-transform hover:scale-105"
 						onclick={() => player.toggle()}
-						aria-label="Play/Pause"
+						aria-label={m.music_play_pause()}
 					>
 						{#if player.playing}
 							<Pause class="size-4.5 fill-current" />
@@ -83,13 +84,13 @@
 							<Play class="ml-0.5 size-4.5 fill-current" />
 						{/if}
 					</button>
-					<button class="music-btn" onclick={() => player.next()} aria-label="Next">
+					<button class="music-btn" onclick={() => player.next()} aria-label={m.music_next()}>
 						<SkipForward class="size-4.5 fill-current" />
 					</button>
 					<button
 						class="music-btn {player.repeat !== 'off' ? 'text-accent!' : ''}"
 						onclick={() => player.cycleRepeat()}
-						aria-label="Repeat"
+						aria-label={m.music_repeat()}
 					>
 						{#if player.repeat === 'one'}
 							<Repeat1 class="size-4" />
@@ -106,7 +107,7 @@
 						class="group/seek relative h-1 flex-1 cursor-pointer rounded-full bg-surface-2"
 						onpointerdown={(e) => seekFromPointer(e, e.currentTarget)}
 						role="slider"
-						aria-label="Seek"
+						aria-label={m.music_seek()}
 						aria-valuemin={0}
 						aria-valuemax={player.duration}
 						aria-valuenow={player.currentTime}
@@ -131,7 +132,7 @@
 				<button
 					class="music-btn {player.queueOpen ? 'text-accent!' : ''}"
 					onclick={() => (player.queueOpen = !player.queueOpen)}
-					aria-label="Queue"
+					aria-label={m.music_queue()}
 				>
 					<ListMusic class="size-4.5" />
 				</button>
@@ -139,7 +140,7 @@
 					<button
 						class="music-btn"
 						onclick={() => player.setVolume(player.muted ? 0.8 : 0)}
-						aria-label="Mute"
+						aria-label={m.music_mute()}
 					>
 						{#if player.muted || player.volume === 0}
 							<VolumeX class="size-4.5" />
@@ -155,7 +156,7 @@
 						value={player.volume}
 						oninput={(e) => player.setVolume(Number(e.currentTarget.value))}
 						class="w-20 accent-(--color-accent)"
-						aria-label="Volume"
+						aria-label={m.music_volume()}
 					/>
 				</div>
 			</div>

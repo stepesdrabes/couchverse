@@ -6,6 +6,7 @@
 	import PosterCard from '$lib/features/catalog/components/PosterCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let query = $state('');
 	let results = $state<SearchResults | null>(null);
@@ -50,7 +51,7 @@
 </script>
 
 <svelte:head>
-	<title>Search - Couchverse</title>
+	<title>{m.catalog_search_title()}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-[1700px] px-6 pt-24 pb-16 lg:px-12">
@@ -61,7 +62,7 @@
 			bind:value={query}
 			oninput={onInput}
 			autofocus
-			placeholder="Search movies, series, music…"
+			placeholder={m.catalog_search_placeholder()}
 			class="h-12 w-full rounded-full border border-edge bg-surface pr-12 pl-12 text-[15px]
 				transition-colors placeholder:text-faint focus:border-accent focus:outline-none"
 		/>
@@ -71,10 +72,13 @@
 	</div>
 
 	{#if empty}
-		<EmptyState title="No results" message={`Nothing in the library matches “${query}”.`} />
+		<EmptyState
+			title={m.catalog_search_empty_title()}
+			message={m.catalog_search_empty_message({ query })}
+		/>
 	{:else if results}
 		{#if results.titles.length > 0}
-			<h2 class="eyebrow mb-4">Movies & Series</h2>
+			<h2 class="eyebrow mb-4">{m.catalog_search_movies_series()}</h2>
 			{#key results}
 				<div
 					class="mb-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6"
@@ -89,7 +93,7 @@
 		{/if}
 
 		{#if musicHits.length > 0}
-			<h2 class="eyebrow mb-4">Music</h2>
+			<h2 class="eyebrow mb-4">{m.nav_music()}</h2>
 			<ul class="max-w-xl divide-y divide-edge/50 rounded-card border border-edge bg-surface/40">
 				{#each musicHits as hit (hit.name + hit.subtitle)}
 					<li>

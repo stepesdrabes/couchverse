@@ -3,6 +3,7 @@
 	import * as catalog from '$lib/features/catalog/api';
 	import type { Genre } from '$lib/features/catalog/types';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let genres = $state<Genre[]>([]);
 	let loaded = $state(false);
@@ -22,14 +23,14 @@
 </script>
 
 <svelte:head>
-	<title>Genres - Couchverse</title>
+	<title>{m.catalog_genres_title()}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-[1700px] px-6 pt-24 pb-16 lg:px-12">
-	<h1 class="mb-8 text-2xl font-bold">Genres</h1>
+	<h1 class="mb-8 text-2xl font-bold">{m.nav_genres()}</h1>
 
 	{#if loaded && genres.length === 0}
-		<EmptyState title="No genres yet" message="Genres appear as titles get tagged." />
+		<EmptyState title={m.catalog_genres_empty_title()} message={m.catalog_genres_empty_message()} />
 	{:else}
 		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 			{#each genres as genre, i (genre.id)}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { CardItem } from '$lib/features/catalog/types';
 	import Artwork from './Artwork.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let { item }: { item: CardItem } = $props();
 
@@ -28,6 +29,8 @@
 		{item.name}
 	</p>
 	<p class="text-xs text-faint">
-		{[item.kind === 'series' ? 'Series' : 'Movie', item.year].filter(Boolean).join(' · ')}
+		{[item.kind === 'series' ? m.catalog_kind_series() : m.catalog_kind_movie(), item.year]
+			.filter(Boolean)
+			.join(' · ')}
 	</p>
 </a>

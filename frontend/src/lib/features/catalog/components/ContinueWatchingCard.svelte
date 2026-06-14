@@ -2,6 +2,7 @@
 	import { Play } from 'lucide-svelte';
 	import type { ContinueItem } from '$lib/features/catalog/types';
 	import Artwork from './Artwork.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let { item }: { item: ContinueItem } = $props();
 
@@ -45,5 +46,5 @@
 	<p class="mt-2 truncate text-sm font-semibold transition-colors group-hover:text-accent">
 		{item.name}
 	</p>
-	<p class="truncate text-xs text-faint">{item.episodeLabel || 'Continue watching'}</p>
+	<p class="truncate text-xs text-faint">{item.episodeLabel || m.catalog_continue_watching()}</p>
 </a>

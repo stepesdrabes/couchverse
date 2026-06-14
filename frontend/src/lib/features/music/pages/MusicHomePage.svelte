@@ -10,6 +10,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { artworkUrl } from '$lib/features/catalog/api';
 	import * as musicApi from '$lib/features/music/api';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: Awaited<ReturnType<typeof musicApi.musicHome>> } = $props();
 
@@ -26,7 +27,7 @@
 			newName = '';
 			invalidateAll();
 		} catch {
-			toast.error('Failed to create playlist');
+			toast.error(m.music_create_playlist_failed());
 		} finally {
 			creating = false;
 		}
@@ -34,34 +35,31 @@
 </script>
 
 <svelte:head>
-	<title>Music - Couchverse</title>
+	<title>{m.music_home_title()}</title>
 </svelte:head>
 
 <div class="pt-24 pb-16">
 	<div class="mb-8 flex items-center justify-between px-6 lg:px-12">
-		<h1 class="text-2xl font-bold">Music</h1>
+		<h1 class="text-2xl font-bold">{m.nav_music()}</h1>
 		<Button variant="secondary" size="sm" onclick={() => (createOpen = true)}>
 			<Plus class="size-3.5" />
-			New playlist
+			{m.music_new_playlist()}
 		</Button>
 	</div>
 
 	{#if data.recentAlbums.length === 0}
-		<EmptyState
-			title="No music yet"
-			message="Drop tagged audio files into the music library and scan."
-		/>
+		<EmptyState title={m.music_empty_title()} message={m.music_empty_message()} />
 	{:else}
 		<div class="space-y-10">
 			{#if data.recentlyPlayed.length > 0}
-				<MediaRow label="Recently played">
+				<MediaRow label={m.music_recently_played()}>
 					{#each data.recentlyPlayed as album (album.id)}
 						<AlbumCard {album} />
 					{/each}
 				</MediaRow>
 			{/if}
 
-			<MediaRow label="Recently added">
+			<MediaRow label={m.music_recently_added()}>
 				{#each data.recentAlbums as album (album.id)}
 					<AlbumCard {album} />
 				{/each}
@@ -69,7 +67,7 @@
 
 			{#if data.playlists.length > 0}
 				<section class="px-6 lg:px-12">
-					<h2 class="eyebrow mb-3">Your playlists</h2>
+					<h2 class="eyebrow mb-3">{m.music_your_playlists()}</h2>
 					<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
 						{#each data.playlists as playlist (playlist.id)}
 							<a
@@ -91,7 +89,9 @@
 									<span class="block truncate text-sm font-semibold group-hover:text-accent">
 										{playlist.name}
 									</span>
-									<span class="text-xs text-faint tnum">{playlist.trackCount} tracks</span>
+									<span class="text-xs text-faint tnum"
+										>{m.music_track_count({ count: playlist.trackCount })}</span
+									>
 								</span>
 							</a>
 						{/each}
@@ -100,7 +100,7 @@
 			{/if}
 
 			<section class="px-6 lg:px-12">
-				<h2 class="eyebrow mb-3">Artists</h2>
+				<h2 class="eyebrow mb-3">{m.music_artists()}</h2>
 				<div class="flex flex-wrap gap-2">
 					{#each data.artists as artist (artist.id)}
 						<a
@@ -118,11 +118,16 @@
 	{/if}
 </div>
 
-<Modal bind:open={createOpen} title="New playlist">
+<Modal bind:open={createOpen} title={m.music_new_playlist()}>
 	<form onsubmit={createPlaylist} class="space-y-4">
-		<Input label="Name" bind:value={newName} required placeholder="Road trip" />
+		<Input
+			label={m.music_name_label()}
+			bind:value={newName}
+			required
+			placeholder={m.music_playlist_name_placeholder()}
+		/>
 		<div class="flex justify-end">
-			<Button type="submit" loading={creating}>Create</Button>
+			<Button type="submit" loading={creating}>{m.common_create()}</Button>
 		</div>
 	</form>
 </Modal>
