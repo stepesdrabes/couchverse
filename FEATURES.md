@@ -167,6 +167,35 @@ the track duration). Kernel-only imports - catalog and music call `RecordWatch`/
 - Frontend: charts on AdminDashboardPage (`features/admin`), api call in
   `features/jobs/api.ts` next to the other overview endpoints.
 
+## Internationalization & multi-language media (cross-cutting)
+
+**UI + metadata language (one "display language", Czech + English).** The frontend
+uses **Paraglide JS** as a compile-only i18n: messages in `frontend/messages/{en,cs}.json`,
+compiled to `src/lib/paraglide/` (gitignored, built by the Vite plugin and the `check`
+script). `lib/i18n/locale.svelte.ts` is the single source of truth (`currentLang`,
+`setDisplayLang`, `applySavedLang`); the header `LanguageSwitcher` persists the choice to
+`/me/preferences` and `setLocale` reloads. `lib/api/client.ts` appends `?lang=` to every
+request; the backend honours it only on public catalog reads. Per-title TMDB metadata is
+stored per language in `translations jsonb` columns on `titles/seasons/episodes/genres`
+with the base columns as the fallback; `titles.metadata_languages` is the per-title content
+set (chosen via `LanguageChips` in NewTitleModal/editor). `metadata/tmdb.go` takes a `lang`
+param and the fetch/import jobs loop over the title's languages. Resolution: `httpx.Lang`
++ `httpx.WithLang` (set by a `withLang` route wrapper on public reads) + `catalog.localize`
+overwrite name/overview at scan; admin reads and jobs leave it empty so they see base text.
+
+**Multi-language audio (two models, both supported).**
+- *Model B - separate file per language:* `media_files.audio_lang` + `audio_role`
+  (`primary`/`audio_alt`); `PrimaryMediaFileForTitle/ForEpisode` prefer the primary,
+  `AudioSiblings` returns the alternates. Tagged via `PATCH /admin/media-files/{id}`
+  (AudioLangControl in the editor). The player swaps the source file and re-seeks.
+- *Model A - one file, many embedded tracks:* ffprobe records all tracks into the
+  `audio_streams` table (prober `ReplaceAudioStreams`); a multi-audio h264 file is remuxed
+  to a single `multiaudio` HLS variant via ffmpeg `-var_stream_map` (copied video + AAC
+  audio renditions, master.m3u8) and is forced onto HLS. The player switches via hls.js
+  `audioTrack` (Safari: native `video.audioTracks`).
+- Both surface as `playbackInfo.audio` (source `file`|`embedded`); the player shows one
+  audio menu, selected independently of the display language (`localStorage cv.audioLang`).
+
 ## Backend dependency graph
 
 A feature may import another feature's `Store` or exported services, never its
