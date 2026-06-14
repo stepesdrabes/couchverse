@@ -43,7 +43,7 @@
 
 	<div class="relative mx-auto flex h-20 max-w-[1700px] items-center gap-6 px-6 lg:px-8">
 		<a href="/" class="flex items-center gap-2.5">
-			<LogoMark class="size-9 rounded-lg" />
+			<LogoMark class="size-10 rounded-lg" />
 			<span class="text-xl font-extrabold tracking-tight">
 				couch<span class="text-accent">verse</span>
 			</span>

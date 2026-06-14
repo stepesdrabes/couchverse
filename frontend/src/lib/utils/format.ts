@@ -49,6 +49,17 @@ export function formatUptime(totalSeconds: number): string {
 	return `${s}s`;
 }
 
+/** seconds remaining → "45s", "2m 30s", "1h 05m" (upload/job ETAs) */
+export function formatEta(totalSeconds: number): string {
+	if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return '-';
+	const s = Math.floor(totalSeconds);
+	if (s < 60) return `${s}s`;
+	const h = Math.floor(s / 3600);
+	const m = Math.floor((s % 3600) / 60);
+	if (h > 0) return `${h}h ${`${m}`.padStart(2, '0')}m`;
+	return `${m}m ${`${s % 60}`.padStart(2, '0')}s`;
+}
+
 /** media file height → quality badge label */
 export function qualityLabel(height: number): string | null {
 	if (height >= 2000) return '4K';

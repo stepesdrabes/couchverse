@@ -16,6 +16,7 @@ export class Upload {
 	readonly opts: UploadOpts;
 	sessionId = $state<string | null>(null);
 	offset = $state(0);
+	bytesPerSec = $state(0);
 	status = $state<UploadStatus>('queued');
 	error = $state('');
 
@@ -57,6 +58,8 @@ export class Upload {
 				this.offset = session.receivedBytes;
 			}
 
+			let lastTime = performance.now();
+			let lastOffset = this.offset;
 			while (this.offset < this.file.size) {
 				if (this.aborter.signal.aborted) return;
 				const chunk = this.file.slice(this.offset, this.offset + CHUNK_SIZE);
@@ -66,9 +69,20 @@ export class Upload {
 					chunk,
 					this.aborter.signal
 				);
+				// smooth the per-chunk rate (EMA) so the ETA doesn't jump around
+				const now = performance.now();
+				const dt = (now - lastTime) / 1000;
+				const dBytes = this.offset - lastOffset;
+				if (dt > 0 && dBytes > 0) {
+					const inst = dBytes / dt;
+					this.bytesPerSec = this.bytesPerSec > 0 ? this.bytesPerSec * 0.7 + inst * 0.3 : inst;
+				}
+				lastTime = now;
+				lastOffset = this.offset;
 			}
 
 			this.status = 'completing';
+			this.bytesPerSec = 0;
 			await uploadsApi.completeSession(this.sessionId, this.libraryKind, this.opts.assign);
 			this.status = 'done';
 			this.opts.onDone?.();
@@ -83,6 +97,7 @@ export class Upload {
 		if (this.status !== 'uploading') return;
 		this.aborter?.abort();
 		this.status = 'paused';
+		this.bytesPerSec = 0;
 	}
 
 	async abort() {

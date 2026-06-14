@@ -12,7 +12,7 @@
 	import { fly, slide } from 'svelte/transition';
 	import type { Upload } from '$lib/features/uploads/uploader.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
-	import { formatBytes } from '$lib/utils/format';
+	import { formatBytes, formatEta } from '$lib/utils/format';
 
 	// raise above the music bar when it is showing so the two never overlap
 	let { playerBarVisible = false }: { playerBarVisible?: boolean } = $props();
@@ -39,6 +39,20 @@
 		return Math.round((loaded / total) * 100);
 	});
 
+	// live transfer rate + ETA across everything still uploading
+	const aggregateSpeed = $derived(
+		uploads.filter((u) => u.status === 'uploading').reduce((sum, u) => sum + u.bytesPerSec, 0)
+	);
+	const remainingBytes = $derived.by(() => {
+		const total = uploads.reduce((sum, u) => sum + u.file.size, 0);
+		const loaded = uploads.reduce(
+			(sum, u) => sum + (u.status === 'done' ? u.file.size : u.offset),
+			0
+		);
+		return Math.max(0, total - loaded);
+	});
+	const etaSeconds = $derived(aggregateSpeed > 0 ? remainingBytes / aggregateSpeed : null);
+
 	const header = $derived.by(() => {
 		if (activeCount > 0) {
 			return `Uploading ${Math.min(doneCount + 1, uploads.length)} of ${uploads.length} · ${aggregatePct}%`;
@@ -61,13 +75,21 @@
 {#if uploads.length > 0}
 	<div
 		transition:fly={{ y: 24, duration: 250 }}
-		class="fixed right-4 z-40 w-80 overflow-hidden rounded-card border border-edge bg-surface-2/95
+		class="fixed right-4 z-40 w-96 overflow-hidden rounded-card border border-edge bg-surface-2/95
 			shadow-2xl shadow-black/50 backdrop-blur"
 		style="bottom: {playerBarVisible ? '6rem' : '1rem'}"
 	>
-		<div class="flex items-center gap-2 px-3 py-2.5">
-			<UploadCloud class="size-4 shrink-0 {activeCount > 0 ? 'text-accent' : 'text-muted'}" />
-			<span class="min-w-0 flex-1 truncate text-xs font-semibold">{header}</span>
+		<div class="flex items-center gap-2.5 px-3.5 py-3">
+			<UploadCloud class="size-5 shrink-0 {activeCount > 0 ? 'text-accent' : 'text-muted'}" />
+			<div class="min-w-0 flex-1">
+				<p class="truncate text-sm font-semibold">{header}</p>
+				{#if activeCount > 0 && aggregateSpeed > 0}
+					<p class="truncate text-[11px] text-faint tnum">
+						{formatBytes(aggregateSpeed)}/s{#if etaSeconds !== null}
+							· {formatEta(etaSeconds)} left{/if}
+					</p>
+				{/if}
+			</div>
 			{#if doneCount > 0 || errorCount > 0}
 				<button
 					class="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-faint transition-colors hover:text-text"
@@ -77,7 +99,7 @@
 				</button>
 			{/if}
 			<button
-				class="shrink-0 rounded-full p-1 text-faint transition-colors hover:bg-surface hover:text-text"
+				class="shrink-0 rounded-full p-1.5 text-faint transition-colors hover:bg-surface hover:text-text"
 				onclick={() => (collapsed = !collapsed)}
 				aria-label={collapsed ? 'Expand uploads' : 'Collapse uploads'}
 			>
@@ -86,7 +108,7 @@
 		</div>
 
 		{#if activeCount > 0}
-			<div class="h-0.5 bg-surface">
+			<div class="h-1 bg-surface">
 				<div
 					class="h-full bg-accent transition-all duration-300"
 					style="width: {aggregatePct}%"
@@ -100,9 +122,10 @@
 				class="max-h-72 space-y-0.5 overflow-y-auto border-t border-edge/60 p-2 scrollbar-none"
 			>
 				{#each uploads as upload (upload)}
-					<li class="rounded-lg px-2 py-1.5 hover:bg-surface/60">
+					<li class="rounded-lg px-2.5 py-2 hover:bg-surface/60">
 						<div class="flex items-center gap-2">
-							<span class="min-w-0 flex-1 truncate text-xs font-medium">{upload.file.name}</span>
+							<span class="min-w-0 flex-1 truncate text-[13px] font-medium">{upload.file.name}</span
+							>
 							{#if upload.status === 'done'}
 								<CircleCheck class="size-4 shrink-0 text-success" />
 								<button
@@ -145,15 +168,17 @@
 						{#if upload.status === 'error'}
 							<p class="mt-0.5 text-[11px] text-danger">{upload.error}</p>
 						{:else if upload.status !== 'done'}
-							<div class="mt-1.5 flex items-center gap-2">
-								<div class="h-1 flex-1 overflow-hidden rounded-full bg-surface">
+							<div class="mt-2 flex items-center gap-2">
+								<div class="h-1.5 flex-1 overflow-hidden rounded-full bg-surface">
 									<div
 										class="h-full rounded-full bg-accent transition-all duration-300"
 										style="width: {upload.progress * 100}%"
 									></div>
 								</div>
-								<span class="shrink-0 text-[10px] text-faint tnum">
-									{formatBytes(upload.offset)} / {formatBytes(upload.file.size)}
+								<span class="shrink-0 text-[11px] text-faint tnum">
+									{Math.round(upload.progress * 100)}% · {formatBytes(upload.offset)} / {formatBytes(
+										upload.file.size
+									)}
 								</span>
 							</div>
 						{/if}

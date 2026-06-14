@@ -6,6 +6,7 @@
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
+	import LogoMark from '$lib/components/ui/LogoMark.svelte';
 	import { session } from '$lib/features/auth/session.svelte';
 
 	let username = $state('');
@@ -37,7 +38,8 @@
 	<GlowBackdrop />
 
 	<div class="relative w-full max-w-sm animate-slide-up">
-		<div class="mb-8 text-center">
+		<div class="mb-8 flex flex-col items-center text-center">
+			<LogoMark class="mb-5 size-16 rounded-2xl shadow-xl shadow-accent/25" />
 			<h1 class="text-3xl font-extrabold tracking-tight">
 				couch<span class="text-accent">verse</span>
 			</h1>
