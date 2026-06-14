@@ -56,7 +56,13 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 		return err
 	}
 
-	details, err := client.Details(ctx, title.Kind, p.TmdbID)
+	langs := title.MetadataLanguages
+	if len(langs) == 0 {
+		langs = []string{""} // legacy titles: base/English only
+	}
+	base := langs[0]
+
+	details, err := client.Details(ctx, title.Kind, p.TmdbID, base)
 	if err != nil {
 		return err
 	}
@@ -90,6 +96,20 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 			year = &details.Year
 		}
 		_, _ = j.Catalog.RegenerateTitleSlug(ctx, title.ID, details.Name, year)
+	}
+
+	// other configured languages fill the translations JSONB; base columns stay
+	for _, lang := range langs[1:] {
+		if lang == "" || lang == base {
+			continue
+		}
+		tr, terr := client.Details(ctx, title.Kind, p.TmdbID, lang)
+		if terr != nil {
+			return terr
+		}
+		if err := j.Catalog.SetTitleTranslation(ctx, title.ID, lang, tr.Name, tr.Overview, tr.Tagline); err != nil {
+			return err
+		}
 	}
 	report(50)
 

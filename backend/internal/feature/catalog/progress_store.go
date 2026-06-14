@@ -59,7 +59,8 @@ func (s *Store) ContinueWatching(ctx context.Context, userID int64, limit int) (
 			COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop'), 0),
 			COALESCE((SELECT a.accent FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop'), ''),
 			e.id, se.season_number, e.episode_number, e.name,
-			wp.position_seconds, wp.duration_seconds, wp.updated_at
+			wp.position_seconds, wp.duration_seconds, wp.updated_at,
+			t.translations, e.translations
 		FROM watch_progress wp
 		LEFT JOIN episodes e ON e.id = wp.episode_id
 		LEFT JOIN seasons se ON se.id = e.season_id
@@ -78,18 +79,22 @@ func (s *Store) ContinueWatching(ctx context.Context, userID int64, limit int) (
 		var epID *string
 		var seasonNum, epNum *int
 		var epName *string
+		var ttr, etr []byte
 		if err := rows.Scan(&it.TitleID, &it.Slug, &it.Kind, &it.Name, &it.Year,
 			&it.PosterID, &it.PosterVer, &it.PosterAccent, &it.BackdropID, &it.BackdropVer, &it.BackdropAccent,
-			&epID, &seasonNum, &epNum, &epName, &it.Position, &it.Duration, &it.UpdatedAt); err != nil {
+			&epID, &seasonNum, &epNum, &epName, &it.Position, &it.Duration, &it.UpdatedAt, &ttr, &etr); err != nil {
 			return nil, err
 		}
+		localize(ctx, ttr, &it.Name, nil)
 		if epID != nil {
 			it.EpisodeID = epID
 			it.PlaybackKind = "episode"
 			it.PlaybackID = *epID
 			label := ""
 			if seasonNum != nil && epNum != nil {
-				label = formatEpisodeLabel(*seasonNum, *epNum, deref(epName))
+				epn := deref(epName)
+				localize(ctx, etr, &epn, nil)
+				label = formatEpisodeLabel(*seasonNum, *epNum, epn)
 			}
 			it.EpisodeLabel = label
 		} else {

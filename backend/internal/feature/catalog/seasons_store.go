@@ -59,7 +59,7 @@ func scanEpisode(row pgx.Row) (*Episode, error) {
 // SeasonsWithEpisodes returns a title's seasons with episodes, ordered.
 func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Season, error) {
 	rows, err := s.db.Query(ctx,
-		`SELECT id, title_id, season_number, name, overview
+		`SELECT id, title_id, season_number, name, overview, translations
 		 FROM seasons WHERE title_id = $1 ORDER BY season_number`, titleID)
 	if err != nil {
 		return nil, err
@@ -69,12 +69,15 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 	seasons := []Season{}
 	byID := map[string]int{}
 	for rows.Next() {
-		se, err := scanSeason(rows)
-		if err != nil {
+		var se Season
+		var tr []byte
+		if err := rows.Scan(&se.ID, &se.TitleID, &se.SeasonNumber, &se.Name, &se.Overview, &tr); err != nil {
 			return nil, err
 		}
+		se.Episodes = []Episode{}
+		localize(ctx, tr, &se.Name, &se.Overview)
 		byID[se.ID] = len(seasons)
-		seasons = append(seasons, *se)
+		seasons = append(seasons, se)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -88,7 +91,8 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 			(SELECT a.id FROM artwork a
 			 WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb'),
 			COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a
-			 WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb'), 0)
+			 WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb'), 0),
+			e.translations
 		 FROM episodes e JOIN seasons se ON se.id = e.season_id
 		 WHERE se.title_id = $1 ORDER BY e.episode_number`, titleID)
 	if err != nil {
@@ -97,10 +101,12 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 	defer erows.Close()
 	for erows.Next() {
 		var e Episode
+		var tr []byte
 		if err := erows.Scan(&e.ID, &e.SeasonID, &e.EpisodeNumber, &e.Name, &e.Overview,
-			&e.AirDate, &e.RuntimeMinutes, &e.ThumbID, &e.ThumbVer); err != nil {
+			&e.AirDate, &e.RuntimeMinutes, &e.ThumbID, &e.ThumbVer, &tr); err != nil {
 			return nil, err
 		}
+		localize(ctx, tr, &e.Name, &e.Overview)
 		if i, ok := byID[e.SeasonID]; ok {
 			seasons[i].Episodes = append(seasons[i].Episodes, e)
 		}
@@ -233,4 +239,24 @@ func (s *Store) DeleteEpisode(ctx context.Context, id string) error {
 		return db.ErrNotFound
 	}
 	return nil
+}
+
+// SetSeasonTranslation merges one language's TMDB text into a season's
+// translations JSONB, leaving the base columns as the fallback.
+func (s *Store) SetSeasonTranslation(ctx context.Context, seasonID, lang, name, overview string) error {
+	_, err := s.db.Exec(ctx,
+		`UPDATE seasons SET translations = translations || jsonb_build_object($2::text,
+			jsonb_build_object('name', $3::text, 'overview', $4::text))
+		 WHERE id = $1`, seasonID, lang, name, overview)
+	return err
+}
+
+// SetEpisodeTranslation merges one language's TMDB text into an episode's
+// translations JSONB, leaving the base columns as the fallback.
+func (s *Store) SetEpisodeTranslation(ctx context.Context, episodeID, lang, name, overview string) error {
+	_, err := s.db.Exec(ctx,
+		`UPDATE episodes SET translations = translations || jsonb_build_object($2::text,
+			jsonb_build_object('name', $3::text, 'overview', $4::text))
+		 WHERE id = $1`, episodeID, lang, name, overview)
+	return err
 }

@@ -1,12 +1,30 @@
 package httpx
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
+
+type langCtxKey struct{}
+
+// Lang reads the display-language query param (?lang=), "" when absent.
+func Lang(r *http.Request) string { return r.URL.Query().Get("lang") }
+
+// WithLang stores the display language on the context so stores can resolve
+// translated catalog text. Empty (admin reads, background jobs) means base text.
+func WithLang(ctx context.Context, lang string) context.Context {
+	return context.WithValue(ctx, langCtxKey{}, lang)
+}
+
+// LangFrom returns the display language set by WithLang, "" when unset.
+func LangFrom(ctx context.Context) string {
+	lang, _ := ctx.Value(langCtxKey{}).(string)
+	return lang
+}
 
 // ID parses a chi URL parameter as int64, returning 0 when missing/invalid.
 func ID(r *http.Request, name string) int64 {

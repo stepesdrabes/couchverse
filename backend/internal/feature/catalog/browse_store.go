@@ -48,7 +48,8 @@ type HomeRow struct {
 const cardSelect = `
 	SELECT t.id, t.slug, t.kind, t.name, t.year,
 		poster.id, COALESCE(poster.ver, 0), COALESCE(poster.accent, ''),
-		backdrop.id, COALESCE(backdrop.ver, 0), COALESCE(backdrop.accent, '')
+		backdrop.id, COALESCE(backdrop.ver, 0), COALESCE(backdrop.accent, ''),
+		t.translations
 	FROM titles t
 	LEFT JOIN LATERAL (
 		SELECT a.id, extract(epoch FROM a.created_at)::bigint AS ver, a.accent FROM artwork a
@@ -69,11 +70,13 @@ func (s *Store) scanCards(ctx context.Context, query string, args ...any) ([]Car
 	items := []CardItem{}
 	for rows.Next() {
 		var c CardItem
+		var tr []byte
 		if err := rows.Scan(&c.TitleID, &c.Slug, &c.Kind, &c.Name, &c.Year,
 			&c.PosterID, &c.PosterVer, &c.PosterAccent,
-			&c.BackdropID, &c.BackdropVer, &c.BackdropAccent); err != nil {
+			&c.BackdropID, &c.BackdropVer, &c.BackdropAccent, &tr); err != nil {
 			return nil, err
 		}
+		localize(ctx, tr, &c.Name, nil)
 		items = append(items, c)
 	}
 	return items, rows.Err()
@@ -104,7 +107,7 @@ func (s *Store) FeaturedTitles(ctx context.Context, limit int) ([]Title, error) 
 
 	titles := []Title{}
 	for rows.Next() {
-		t, err := scanTitle(rows)
+		t, err := scanTitle(ctx, rows)
 		if err != nil {
 			return nil, err
 		}
@@ -292,16 +295,19 @@ type EpisodeRef struct {
 
 func (s *Store) EpisodeRef(ctx context.Context, episodeID string) (*EpisodeRef, error) {
 	var ref EpisodeRef
+	var etr, ttr []byte
 	err := s.db.QueryRow(ctx,
-		`SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name, t.slug
+		`SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name, t.slug, e.translations, t.translations
 		 FROM episodes e
 		 JOIN seasons se ON se.id = e.season_id
 		 JOIN titles t ON t.id = se.title_id
 		 WHERE e.id = $1`, episodeID).
-		Scan(&ref.EpisodeID, &ref.SeasonNumber, &ref.EpisodeNumber, &ref.Name, &ref.TitleID, &ref.TitleName, &ref.TitleSlug)
+		Scan(&ref.EpisodeID, &ref.SeasonNumber, &ref.EpisodeNumber, &ref.Name, &ref.TitleID, &ref.TitleName, &ref.TitleSlug, &etr, &ttr)
 	if err != nil {
 		return nil, err
 	}
+	localize(ctx, etr, &ref.Name, nil)
+	localize(ctx, ttr, &ref.TitleName, nil)
 	return &ref, nil
 }
 
@@ -320,7 +326,8 @@ func (s *Store) PlayableEpisodes(ctx context.Context, titleID string) ([]SeriesE
 	rows, err := s.db.Query(ctx,
 		`SELECT e.id, se.season_number, e.episode_number, e.name,
 			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb'),
-			COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb'), 0)
+			COALESCE((SELECT extract(epoch FROM a.created_at)::bigint FROM artwork a WHERE a.owner_kind = 'episode' AND a.owner_id = e.id::text AND a.kind = 'thumb'), 0),
+			e.translations
 		 FROM episodes e
 		 JOIN seasons se ON se.id = e.season_id
 		 WHERE se.title_id = $1
@@ -333,9 +340,11 @@ func (s *Store) PlayableEpisodes(ctx context.Context, titleID string) ([]SeriesE
 	out := []SeriesEpisode{}
 	for rows.Next() {
 		var e SeriesEpisode
-		if err := rows.Scan(&e.EpisodeID, &e.SeasonNumber, &e.EpisodeNumber, &e.Name, &e.ThumbID, &e.ThumbVer); err != nil {
+		var tr []byte
+		if err := rows.Scan(&e.EpisodeID, &e.SeasonNumber, &e.EpisodeNumber, &e.Name, &e.ThumbID, &e.ThumbVer, &tr); err != nil {
 			return nil, err
 		}
+		localize(ctx, tr, &e.Name, nil)
 		out = append(out, e)
 	}
 	return out, rows.Err()
@@ -344,13 +353,14 @@ func (s *Store) PlayableEpisodes(ctx context.Context, titleID string) ([]SeriesE
 // NextEpisode finds the episode that follows (same season, then next season).
 func (s *Store) NextEpisode(ctx context.Context, episodeID string) (*EpisodeRef, error) {
 	var ref EpisodeRef
+	var etr, ttr []byte
 	err := s.db.QueryRow(ctx,
 		`WITH cur AS (
 			SELECT e.id, e.episode_number, se.season_number, se.title_id
 			FROM episodes e JOIN seasons se ON se.id = e.season_id
 			WHERE e.id = $1
 		)
-		SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name, t.slug
+		SELECT e.id, se.season_number, e.episode_number, e.name, t.id, t.name, t.slug, e.translations, t.translations
 		FROM episodes e
 		JOIN seasons se ON se.id = e.season_id
 		JOIN titles t ON t.id = se.title_id, cur
@@ -358,10 +368,12 @@ func (s *Store) NextEpisode(ctx context.Context, episodeID string) (*EpisodeRef,
 			AND (se.season_number, e.episode_number) > (cur.season_number, cur.episode_number)
 		ORDER BY se.season_number, e.episode_number
 		LIMIT 1`, episodeID).
-		Scan(&ref.EpisodeID, &ref.SeasonNumber, &ref.EpisodeNumber, &ref.Name, &ref.TitleID, &ref.TitleName, &ref.TitleSlug)
+		Scan(&ref.EpisodeID, &ref.SeasonNumber, &ref.EpisodeNumber, &ref.Name, &ref.TitleID, &ref.TitleName, &ref.TitleSlug, &etr, &ttr)
 	if err != nil {
 		return nil, nil // no next episode is not an error
 	}
+	localize(ctx, etr, &ref.Name, nil)
+	localize(ctx, ttr, &ref.TitleName, nil)
 	return &ref, nil
 }
 

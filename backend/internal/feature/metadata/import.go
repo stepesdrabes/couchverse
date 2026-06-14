@@ -47,7 +47,13 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 		return fmt.Errorf("title %s is not a TMDB-linked series", title.ID)
 	}
 
-	all, err := client.SeriesSeasons(ctx, *title.TmdbID)
+	langs := title.MetadataLanguages
+	if len(langs) == 0 {
+		langs = []string{""} // legacy series: base/English only
+	}
+	base := langs[0]
+
+	all, err := client.SeriesSeasons(ctx, *title.TmdbID, base)
 	if err != nil {
 		return err
 	}
@@ -83,12 +89,15 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 	}
 
 	created := 0
+	seasonIDs := map[int]string{}     // season number -> id (from the base pass)
+	episodeIDs := map[[2]int]string{} // (season, episode) -> id
 	for i, season := range wanted {
 		seasonID, err := j.Catalog.ImportSeasonMeta(ctx, title.ID, season.SeasonNumber, season.Name, season.Overview)
 		if err != nil {
 			return err
 		}
-		episodes, err := client.SeasonEpisodes(ctx, *title.TmdbID, season.SeasonNumber)
+		seasonIDs[season.SeasonNumber] = seasonID
+		episodes, err := client.SeasonEpisodes(ctx, *title.TmdbID, season.SeasonNumber, base)
 		if err != nil {
 			return err
 		}
@@ -110,9 +119,50 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 			if inserted {
 				created++
 			}
+			episodeIDs[[2]int{season.SeasonNumber, ep.EpisodeNumber}] = episodeID
 			j.importStill(ctx, client, episodeID, ep.StillPath)
 		}
 		report((i + 1) * 100 / len(wanted))
+	}
+
+	// translation passes: fill season/episode translations for the other
+	// configured languages, matched to the base pass by number.
+	for _, lang := range langs[1:] {
+		if lang == "" || lang == base {
+			continue
+		}
+		tseasons, terr := client.SeriesSeasons(ctx, *title.TmdbID, lang)
+		if terr != nil {
+			return terr
+		}
+		byNum := map[int]SeasonInfo{}
+		for _, ts := range tseasons {
+			byNum[ts.SeasonNumber] = ts
+		}
+		for _, season := range wanted {
+			sid, ok := seasonIDs[season.SeasonNumber]
+			if !ok {
+				continue
+			}
+			if ts, ok := byNum[season.SeasonNumber]; ok {
+				if err := j.Catalog.SetSeasonTranslation(ctx, sid, lang, ts.Name, ts.Overview); err != nil {
+					return err
+				}
+			}
+			teps, eerr := client.SeasonEpisodes(ctx, *title.TmdbID, season.SeasonNumber, lang)
+			if eerr != nil {
+				return eerr
+			}
+			for _, ep := range teps {
+				eid, ok := episodeIDs[[2]int{season.SeasonNumber, ep.EpisodeNumber}]
+				if !ok {
+					continue
+				}
+				if err := j.Catalog.SetEpisodeTranslation(ctx, eid, lang, ep.Name, ep.Overview); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	slog.Info("tmdb episode import finished",
 		"titleId", title.ID, "seasons", len(wanted), "episodesCreated", created)

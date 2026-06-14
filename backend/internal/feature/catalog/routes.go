@@ -1,12 +1,15 @@
 package catalog
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 
 	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/music"
+	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
 )
 
@@ -25,17 +28,26 @@ func NewModule(st *Store, set *settings.Store, art *artwork.Service, mus *music.
 	}
 }
 
+// withLang stores the ?lang= display language on the request context so the
+// catalog stores localize names/overviews. Admin and background-job paths leave
+// it unset, so they always see the base (default-language) text.
+func withLang(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		h(w, r.WithContext(httpx.WithLang(r.Context(), httpx.Lang(r))))
+	}
+}
+
 func (m *Module) MountUser(r chi.Router) {
-	r.Get("/genres", m.handlers.Genres)
-	r.Get("/home", m.handlers.Home)
-	r.Get("/titles", m.handlers.Browse)
-	r.Get("/titles/{slug}", m.handlers.Title)
-	r.Get("/search", m.handlers.Search)
+	r.Get("/genres", withLang(m.handlers.Genres))
+	r.Get("/home", withLang(m.handlers.Home))
+	r.Get("/titles", withLang(m.handlers.Browse))
+	r.Get("/titles/{slug}", withLang(m.handlers.Title))
+	r.Get("/search", withLang(m.handlers.Search))
 
 	r.Put("/progress", m.progress.Put)
 	r.Post("/progress", m.progress.Put) // sendBeacon can only POST
-	r.Get("/me/continue-watching", m.progress.ContinueWatching)
-	r.Get("/me/watchlist", m.progress.WatchlistGet)
+	r.Get("/me/continue-watching", withLang(m.progress.ContinueWatching))
+	r.Get("/me/watchlist", withLang(m.progress.WatchlistGet))
 	r.Put("/me/watchlist/{titleId}", m.progress.WatchlistPut)
 	r.Delete("/me/watchlist/{titleId}", m.progress.WatchlistDelete)
 }

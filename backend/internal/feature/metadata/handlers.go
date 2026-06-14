@@ -34,7 +34,7 @@ func (h *AdminMetadata) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, err := New(key).Search(r.Context(), kind, q)
+	results, err := New(key).Search(r.Context(), kind, q, httpx.Lang(r))
 	if err != nil {
 		httpx.Error(w, http.StatusBadGateway, "tmdb_error", err.Error())
 		return
@@ -53,7 +53,7 @@ func (h *AdminMetadata) Seasons(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusPreconditionFailed, "no_tmdb_key", err.Error())
 		return
 	}
-	seasons, err := New(key).SeriesSeasons(r.Context(), *title.TmdbID)
+	seasons, err := New(key).SeriesSeasons(r.Context(), *title.TmdbID, httpx.Lang(r))
 	if err != nil {
 		httpx.Error(w, http.StatusBadGateway, "tmdb_error", err.Error())
 		return

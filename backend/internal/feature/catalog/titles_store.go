@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -15,30 +16,33 @@ import (
 )
 
 type Title struct {
-	ID             string     `json:"id"`
-	Slug           string     `json:"slug"`
-	Kind           string     `json:"kind"`
-	Name           string     `json:"name"`
-	SortName       string     `json:"sortName"`
-	Overview       string     `json:"overview"`
-	Year           *int       `json:"year"`
-	ReleaseDate    *time.Time `json:"releaseDate"`
-	ContentRating  string     `json:"contentRating"`
-	RuntimeMinutes *int       `json:"runtimeMinutes"`
-	Status         string     `json:"status"`
-	TmdbID         *int       `json:"tmdbId"`
-	AddedAt        time.Time  `json:"addedAt"`
-	UpdatedAt      time.Time  `json:"updatedAt"`
-	Genres         []string   `json:"genres"`
+	ID                string          `json:"id"`
+	Slug              string          `json:"slug"`
+	Kind              string          `json:"kind"`
+	Name              string          `json:"name"`
+	SortName          string          `json:"sortName"`
+	Overview          string          `json:"overview"`
+	Year              *int            `json:"year"`
+	ReleaseDate       *time.Time      `json:"releaseDate"`
+	ContentRating     string          `json:"contentRating"`
+	RuntimeMinutes    *int            `json:"runtimeMinutes"`
+	Status            string          `json:"status"`
+	TmdbID            *int            `json:"tmdbId"`
+	AddedAt           time.Time       `json:"addedAt"`
+	UpdatedAt         time.Time       `json:"updatedAt"`
+	Genres            []string        `json:"genres"`
+	MetadataLanguages []string        `json:"metadataLanguages"`
+	Translations      json.RawMessage `json:"-"`
 }
 
 const titleCols = `id, slug, kind, name, sort_name, overview, year, release_date, content_rating,
-	runtime_minutes, status, tmdb_id, added_at, updated_at`
+	runtime_minutes, status, tmdb_id, added_at, updated_at, translations, metadata_languages`
 
-func scanTitle(row pgx.Row) (*Title, error) {
+func scanTitle(ctx context.Context, row pgx.Row) (*Title, error) {
 	var t Title
 	err := row.Scan(&t.ID, &t.Slug, &t.Kind, &t.Name, &t.SortName, &t.Overview, &t.Year, &t.ReleaseDate,
-		&t.ContentRating, &t.RuntimeMinutes, &t.Status, &t.TmdbID, &t.AddedAt, &t.UpdatedAt)
+		&t.ContentRating, &t.RuntimeMinutes, &t.Status, &t.TmdbID, &t.AddedAt, &t.UpdatedAt,
+		&t.Translations, &t.MetadataLanguages)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -46,11 +50,15 @@ func scanTitle(row pgx.Row) (*Title, error) {
 		return nil, err
 	}
 	t.Genres = []string{}
+	if t.MetadataLanguages == nil {
+		t.MetadataLanguages = []string{}
+	}
+	localize(ctx, t.Translations, &t.Name, &t.Overview)
 	return &t, nil
 }
 
 func (s *Store) TitleByID(ctx context.Context, id string) (*Title, error) {
-	t, err := scanTitle(s.db.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE id = $1`, id))
+	t, err := scanTitle(ctx, s.db.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE id = $1`, id))
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +69,7 @@ func (s *Store) TitleByID(ctx context.Context, id string) (*Title, error) {
 }
 
 func (s *Store) TitleBySlug(ctx context.Context, slug string) (*Title, error) {
-	t, err := scanTitle(s.db.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE slug = $1`, slug))
+	t, err := scanTitle(ctx, s.db.QueryRow(ctx, `SELECT `+titleCols+` FROM titles WHERE slug = $1`, slug))
 	if err != nil {
 		return nil, err
 	}
@@ -125,27 +133,32 @@ func isUniqueViolation(err error) bool {
 }
 
 type TitleInput struct {
-	Kind           string   `json:"kind"`
-	Name           string   `json:"name"`
-	Overview       string   `json:"overview"`
-	Year           *int     `json:"year"`
-	ContentRating  string   `json:"contentRating"`
-	RuntimeMinutes *int     `json:"runtimeMinutes"`
-	Genres         []string `json:"genres"`
+	Kind              string   `json:"kind"`
+	Name              string   `json:"name"`
+	Overview          string   `json:"overview"`
+	Year              *int     `json:"year"`
+	ContentRating     string   `json:"contentRating"`
+	RuntimeMinutes    *int     `json:"runtimeMinutes"`
+	Genres            []string `json:"genres"`
+	MetadataLanguages []string `json:"metadataLanguages"`
 }
 
 func (s *Store) CreateTitle(ctx context.Context, in TitleInput) (*Title, error) {
+	langs := in.MetadataLanguages
+	if langs == nil {
+		langs = []string{}
+	}
 	var t *Title
 	for attempt := 0; ; attempt++ {
 		sl, err := s.uniqueSlug(ctx, slug.Make(in.Name, in.Year))
 		if err != nil {
 			return nil, err
 		}
-		t, err = scanTitle(s.db.QueryRow(ctx,
-			`INSERT INTO titles (kind, name, slug, sort_name, overview, year, content_rating, runtime_minutes)
-			 VALUES ($1, $2, $3, $2, $4, $5, $6, $7)
+		t, err = scanTitle(ctx, s.db.QueryRow(ctx,
+			`INSERT INTO titles (kind, name, slug, sort_name, overview, year, content_rating, runtime_minutes, metadata_languages)
+			 VALUES ($1, $2, $3, $2, $4, $5, $6, $7, $8)
 			 RETURNING `+titleCols,
-			in.Kind, in.Name, sl, in.Overview, in.Year, in.ContentRating, in.RuntimeMinutes))
+			in.Kind, in.Name, sl, in.Overview, in.Year, in.ContentRating, in.RuntimeMinutes, langs))
 		if err == nil {
 			break
 		}
@@ -164,19 +177,24 @@ func (s *Store) CreateTitle(ctx context.Context, in TitleInput) (*Title, error) 
 }
 
 type TitleUpdate struct {
-	Name           *string   `json:"name"`
-	SortName       *string   `json:"sortName"`
-	Overview       *string   `json:"overview"`
-	Year           *int      `json:"year"`
-	ContentRating  *string   `json:"contentRating"`
-	RuntimeMinutes *int      `json:"runtimeMinutes"`
-	Status         *string   `json:"status"`
-	TmdbID         *int      `json:"tmdbId"`
-	Genres         *[]string `json:"genres"`
+	Name              *string   `json:"name"`
+	SortName          *string   `json:"sortName"`
+	Overview          *string   `json:"overview"`
+	Year              *int      `json:"year"`
+	ContentRating     *string   `json:"contentRating"`
+	RuntimeMinutes    *int      `json:"runtimeMinutes"`
+	Status            *string   `json:"status"`
+	TmdbID            *int      `json:"tmdbId"`
+	Genres            *[]string `json:"genres"`
+	MetadataLanguages *[]string `json:"metadataLanguages"`
 }
 
 func (s *Store) UpdateTitle(ctx context.Context, id string, up TitleUpdate) (*Title, error) {
-	t, err := scanTitle(s.db.QueryRow(ctx,
+	var mlangs any
+	if up.MetadataLanguages != nil {
+		mlangs = *up.MetadataLanguages
+	}
+	t, err := scanTitle(ctx, s.db.QueryRow(ctx,
 		`UPDATE titles SET
 			name = COALESCE($2, name),
 			sort_name = COALESCE($3, sort_name),
@@ -186,11 +204,12 @@ func (s *Store) UpdateTitle(ctx context.Context, id string, up TitleUpdate) (*Ti
 			runtime_minutes = COALESCE($7, runtime_minutes),
 			status = COALESCE($8, status),
 			tmdb_id = COALESCE($9, tmdb_id),
+			metadata_languages = COALESCE($10, metadata_languages),
 			updated_at = now()
 		 WHERE id = $1
 		 RETURNING `+titleCols,
 		id, up.Name, up.SortName, up.Overview, up.Year, up.ContentRating,
-		up.RuntimeMinutes, up.Status, up.TmdbID))
+		up.RuntimeMinutes, up.Status, up.TmdbID, mlangs))
 	if err != nil {
 		return nil, err
 	}
@@ -203,6 +222,17 @@ func (s *Store) UpdateTitle(ctx context.Context, id string, up TitleUpdate) (*Ti
 		return nil, err
 	}
 	return t, nil
+}
+
+// SetTitleTranslation merges one language's TMDB text into the title's
+// translations JSONB, leaving the base (default-language) columns untouched.
+func (s *Store) SetTitleTranslation(ctx context.Context, id, lang, name, overview, tagline string) error {
+	_, err := s.db.Exec(ctx,
+		`UPDATE titles SET translations = translations || jsonb_build_object($2::text,
+			jsonb_build_object('name', $3::text, 'overview', $4::text, 'tagline', $5::text)),
+			updated_at = now()
+		 WHERE id = $1`, id, lang, name, overview, tagline)
+	return err
 }
 
 // RegenerateTitleSlug rebuilds the slug from name+year, keeping it unique.
@@ -315,7 +345,7 @@ func (s *Store) ListGenres(ctx context.Context) ([]Genre, error) {
 // FindOrCreateTitle matches scanner-discovered files to existing titles by
 // case-insensitive name (and year when known), creating a draft otherwise.
 func (s *Store) FindOrCreateTitle(ctx context.Context, kind, name string, year *int) (*Title, error) {
-	t, err := scanTitle(s.db.QueryRow(ctx,
+	t, err := scanTitle(ctx, s.db.QueryRow(ctx,
 		`SELECT `+titleCols+` FROM titles
 		 WHERE kind = $1 AND lower(name) = lower($2)
 			AND ($3::int IS NULL OR year IS NULL OR year = $3)
@@ -335,7 +365,7 @@ func (s *Store) FindOrCreateTitle(ctx context.Context, kind, name string, year *
 		if slugErr != nil {
 			return nil, slugErr
 		}
-		t, err = scanTitle(s.db.QueryRow(ctx,
+		t, err = scanTitle(ctx, s.db.QueryRow(ctx,
 			`INSERT INTO titles (kind, name, slug, sort_name, year) VALUES ($1, $2, $3, $2, $4)
 			 RETURNING `+titleCols, kind, name, sl, year))
 		if err == nil {

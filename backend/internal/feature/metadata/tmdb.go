@@ -39,12 +39,23 @@ type SearchResult struct {
 type Details struct {
 	Name           string
 	Overview       string
+	Tagline        string
 	Year           int
 	ReleaseDate    string
 	RuntimeMinutes int
 	Genres         []string
 	PosterPath     string
 	BackdropPath   string
+}
+
+// langValues builds TMDB query params with the language set when provided.
+// An empty lang omits it, preserving TMDB's default (English) behaviour.
+func langValues(lang string) url.Values {
+	v := url.Values{}
+	if lang != "" {
+		v.Set("language", lang)
+	}
+	return v
 }
 
 func (c *Client) get(ctx context.Context, path string, params url.Values, out any) error {
@@ -68,7 +79,7 @@ func (c *Client) get(ctx context.Context, path string, params url.Values, out an
 }
 
 // Search queries movies or TV shows. kind is "movie" or "series".
-func (c *Client) Search(ctx context.Context, kind, query string) ([]SearchResult, error) {
+func (c *Client) Search(ctx context.Context, kind, query, lang string) ([]SearchResult, error) {
 	endpoint := "/search/movie"
 	if kind == "series" {
 		endpoint = "/search/tv"
@@ -85,7 +96,9 @@ func (c *Client) Search(ctx context.Context, kind, query string) ([]SearchResult
 			PosterPath   string `json:"poster_path"`
 		} `json:"results"`
 	}
-	if err := c.get(ctx, endpoint, url.Values{"query": {query}}, &raw); err != nil {
+	params := langValues(lang)
+	params.Set("query", query)
+	if err := c.get(ctx, endpoint, params, &raw); err != nil {
 		return nil, err
 	}
 
@@ -112,7 +125,7 @@ func (c *Client) Search(ctx context.Context, kind, query string) ([]SearchResult
 	return results, nil
 }
 
-func (c *Client) Details(ctx context.Context, kind string, tmdbID int) (*Details, error) {
+func (c *Client) Details(ctx context.Context, kind string, tmdbID int, lang string) (*Details, error) {
 	endpoint := fmt.Sprintf("/movie/%d", tmdbID)
 	if kind == "series" {
 		endpoint = fmt.Sprintf("/tv/%d", tmdbID)
@@ -122,6 +135,7 @@ func (c *Client) Details(ctx context.Context, kind string, tmdbID int) (*Details
 		Title        string `json:"title"`
 		Name         string `json:"name"`
 		Overview     string `json:"overview"`
+		Tagline      string `json:"tagline"`
 		ReleaseDate  string `json:"release_date"`
 		FirstAirDate string `json:"first_air_date"`
 		Runtime      int    `json:"runtime"`
@@ -131,13 +145,14 @@ func (c *Client) Details(ctx context.Context, kind string, tmdbID int) (*Details
 		PosterPath   string `json:"poster_path"`
 		BackdropPath string `json:"backdrop_path"`
 	}
-	if err := c.get(ctx, endpoint, url.Values{}, &raw); err != nil {
+	if err := c.get(ctx, endpoint, langValues(lang), &raw); err != nil {
 		return nil, err
 	}
 
 	d := &Details{
 		Name:           raw.Title,
 		Overview:       raw.Overview,
+		Tagline:        raw.Tagline,
 		ReleaseDate:    raw.ReleaseDate,
 		RuntimeMinutes: raw.Runtime,
 		PosterPath:     raw.PosterPath,
@@ -173,7 +188,7 @@ type EpisodeInfo struct {
 }
 
 // SeriesSeasons lists a show's seasons (including specials/season 0).
-func (c *Client) SeriesSeasons(ctx context.Context, tmdbID int) ([]SeasonInfo, error) {
+func (c *Client) SeriesSeasons(ctx context.Context, tmdbID int, lang string) ([]SeasonInfo, error) {
 	var raw struct {
 		Seasons []struct {
 			SeasonNumber int    `json:"season_number"`
@@ -182,7 +197,7 @@ func (c *Client) SeriesSeasons(ctx context.Context, tmdbID int) ([]SeasonInfo, e
 			EpisodeCount int    `json:"episode_count"`
 		} `json:"seasons"`
 	}
-	if err := c.get(ctx, fmt.Sprintf("/tv/%d", tmdbID), url.Values{}, &raw); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/tv/%d", tmdbID), langValues(lang), &raw); err != nil {
 		return nil, err
 	}
 	seasons := []SeasonInfo{}
@@ -193,7 +208,7 @@ func (c *Client) SeriesSeasons(ctx context.Context, tmdbID int) ([]SeasonInfo, e
 }
 
 // SeasonEpisodes lists the episodes of one season.
-func (c *Client) SeasonEpisodes(ctx context.Context, tmdbID, season int) ([]EpisodeInfo, error) {
+func (c *Client) SeasonEpisodes(ctx context.Context, tmdbID, season int, lang string) ([]EpisodeInfo, error) {
 	var raw struct {
 		Episodes []struct {
 			EpisodeNumber int    `json:"episode_number"`
@@ -204,7 +219,7 @@ func (c *Client) SeasonEpisodes(ctx context.Context, tmdbID, season int) ([]Epis
 			StillPath     string `json:"still_path"`
 		} `json:"episodes"`
 	}
-	if err := c.get(ctx, fmt.Sprintf("/tv/%d/season/%d", tmdbID, season), url.Values{}, &raw); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/tv/%d/season/%d", tmdbID, season), langValues(lang), &raw); err != nil {
 		return nil, err
 	}
 	episodes := []EpisodeInfo{}
