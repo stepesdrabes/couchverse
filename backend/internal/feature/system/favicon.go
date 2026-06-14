@@ -14,8 +14,10 @@ var logoSVG string
 // the single logo path (viewBox 0 0 1046 745), extracted once at startup
 var logoPath = regexp.MustCompile(`(?s)\sd="([^"]*)"`).FindStringSubmatch(logoSVG)[1]
 
-// logo transform to centre the 1046x745 mark in a 100x100 favicon with padding
-const logoTransform = "translate(18 27.21) scale(0.061185)"
+// logo transform to centre the 1046x745 mark in a 100x100 favicon with padding.
+// for scale s the centring translate is ((100-1046*s)/2, (100-745*s)/2); this
+// scale fills ~80% of the icon (~10px padding) so the mark reads bigger.
+const logoTransform = "translate(10 21.5) scale(0.0765)"
 
 // Favicon renders the app icon: a rounded square in the accent colour with the
 // logo centred in the contrast colour. Public so the tab icon matches the theme.
