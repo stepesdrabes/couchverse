@@ -9,6 +9,7 @@
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
 	import MediaFileJobs from '$lib/features/jobs/components/MediaFileJobs.svelte';
 	import FileVariants from '$lib/features/library/components/FileVariants.svelte';
+	import AudioLangControl from './AudioLangControl.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -134,6 +135,7 @@
 						{/if}
 					</p>
 					<FileVariants {file} />
+					<AudioLangControl {file} />
 				</section>
 
 				<section>

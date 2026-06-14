@@ -81,6 +81,13 @@ export const updateTitle = (id: string, patch: TitlePatch) =>
 
 export const deleteTitle = (id: string) => api<void>(`/admin/titles/${id}`, { method: 'DELETE' });
 
+// tag a media file's audio language / role (model-B multi-language audio)
+export const setMediaFileAudio = (
+	id: string,
+	audioLang: string,
+	audioRole: 'primary' | 'audio_alt'
+) => api<void>(`/admin/media-files/${id}`, { method: 'PATCH', body: { audioLang, audioRole } });
+
 export const bulkTitles = (
 	ids: string[],
 	action: 'publish' | 'hide' | 'draft' | 'delete' | 'rescan'

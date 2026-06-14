@@ -6,6 +6,7 @@
 		ArrowLeft,
 		Captions,
 		Check,
+		Languages,
 		ListVideo,
 		Maximize,
 		Minimize,
@@ -23,7 +24,7 @@
 	import { fade, fly, scale } from 'svelte/transition';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import { musicPlayer } from '$lib/features/music/player.svelte';
-	import type { PlaybackInfo, SeriesEpisode } from '$lib/features/playback/api';
+	import type { AudioTrack, PlaybackInfo, SeriesEpisode } from '$lib/features/playback/api';
 	import {
 		beaconProgress,
 		frameUrl,
@@ -423,6 +424,30 @@
 		} else {
 			videoSrc = undefined;
 			attachHls(switchHlsUrl!, key === 'auto' ? null : key);
+		}
+	}
+
+	const audioTracks = $derived(info.audio ?? []);
+	let activeAudioId = $state<string | null>(info.audio?.find((a) => a.default)?.id ?? null);
+
+	// model-B audio switch: swap the whole source to the chosen-language file and
+	// re-seek (browsers can't switch the audio of a progressive file, so each
+	// language is its own direct-play file).
+	function selectAudio(track: AudioTrack) {
+		if (track.id === activeAudioId || !video) return;
+		activeAudioId = track.id;
+		if (track.lang) localStorage.setItem('cv.audioLang', track.lang);
+		else localStorage.removeItem('cv.audioLang');
+		pendingResume = { at: video.currentTime, play: !video.paused };
+		hls?.destroy();
+		hls = null;
+		if (track.streamUrl) {
+			quality = 'direct';
+			videoSrc = track.streamUrl;
+		} else if (track.hlsUrl) {
+			quality = 'auto';
+			videoSrc = undefined;
+			attachHls(track.hlsUrl, null);
 		}
 	}
 
@@ -852,6 +877,41 @@
 									>
 										{opt.label}
 										{#if quality === opt.key}<Check class="size-3.5 text-accent" />{/if}
+									</button>
+								{/each}
+							</Popover.Content>
+						</Popover.Portal>
+					</Popover.Root>
+				{/if}
+
+				{#if audioTracks.length > 1}
+					<Popover.Root>
+						<Popover.Trigger
+							class="player-btn"
+							aria-label={m.player_audio()}
+							title={m.player_audio()}
+						>
+							<Languages class="size-5" />
+						</Popover.Trigger>
+						<Popover.Portal to={wrapper}>
+							<Popover.Content
+								side="top"
+								sideOffset={10}
+								class="z-50 w-44 animate-pop-in rounded-card border border-edge bg-surface-2/95 p-1 shadow-xl backdrop-blur"
+							>
+								<p
+									class="px-3 py-1.5 text-[10px] font-semibold tracking-widest text-faint uppercase"
+								>
+									{m.player_audio()}
+								</p>
+								{#each audioTracks as track (track.id)}
+									<button
+										class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
+											{activeAudioId === track.id ? 'text-text' : 'text-muted'} hover:bg-surface"
+										onclick={() => selectAudio(track)}
+									>
+										{track.label}
+										{#if activeAudioId === track.id}<Check class="size-3.5 text-accent" />{/if}
 									</button>
 								{/each}
 							</Popover.Content>

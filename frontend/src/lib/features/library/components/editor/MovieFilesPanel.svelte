@@ -11,6 +11,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import { formatBytes, qualityLabel } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
+	import AudioLangControl from './AudioLangControl.svelte';
 	import SubtitlesModal from './SubtitlesModal.svelte';
 
 	let {
@@ -124,6 +125,7 @@
 							{m.library_subtitles()}
 						</button>
 					</div>
+					<AudioLangControl {file} />
 					<FileVariants {file} />
 					<div class="mt-3">
 						<p class="mb-1 text-[11px] font-medium text-faint">{m.library_jobs()}</p>

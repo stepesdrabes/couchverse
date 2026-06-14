@@ -151,6 +151,8 @@ export interface MediaFile {
 	sampleRate: number;
 	videoRange: 'sdr' | 'hdr10' | 'hlg' | 'dv';
 	directPlay: boolean;
+	audioLang: string;
+	audioRole: string;
 	fileMtime: string | null;
 	scannedAt: string | null;
 	createdAt: string;

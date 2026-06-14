@@ -20,6 +20,16 @@ export interface SubtitleTrack {
 	url: string;
 }
 
+export interface AudioTrack {
+	id: string;
+	lang: string;
+	label: string;
+	default: boolean;
+	source: 'file' | 'embedded';
+	streamUrl?: string;
+	hlsUrl?: string;
+}
+
 export interface PlaybackInfo {
 	mode: 'direct' | 'hls' | 'jit' | 'preparing' | 'unsupported';
 	mediaFileId: string;
@@ -37,6 +47,7 @@ export interface PlaybackInfo {
 	};
 	nextEpisode: EpisodeRef | null;
 	subtitles: SubtitleTrack[];
+	audio?: AudioTrack[];
 	episodes?: SeriesEpisode[];
 	currentEpisodeId?: string;
 	hlsUrl?: string;
