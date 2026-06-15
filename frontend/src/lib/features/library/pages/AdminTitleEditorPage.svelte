@@ -9,6 +9,7 @@
 	import EpisodesTable from '$lib/features/library/components/editor/EpisodesTable.svelte';
 	import ImportEpisodesModal from '$lib/features/library/components/editor/ImportEpisodesModal.svelte';
 	import MovieFilesPanel from '$lib/features/library/components/editor/MovieFilesPanel.svelte';
+	import StorageChart from '$lib/features/library/components/editor/StorageChart.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Confirm from '$lib/components/ui/Confirm.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -370,6 +371,8 @@
 			subtitlesByFile={data.subtitlesByFile ?? {}}
 		/>
 	{/if}
+
+	<StorageChart titleId={data.title.id} kind={data.title.kind} />
 </div>
 
 <Confirm

@@ -104,6 +104,15 @@ export const deleteTitle = (id: string) => api<void>(`/admin/titles/${id}`, { me
 export const removeContentLanguage = (id: string, lang: string) =>
 	api<void>(`/admin/titles/${id}/languages/${lang}`, { method: 'DELETE' });
 
+// per-title disk-usage breakdown for the editor chart
+export interface TitleStorage {
+	items: { label: string; sourceBytes: number; transcodedBytes: number }[];
+	sourceBytes: number;
+	transcodedBytes: number;
+}
+
+export const getTitleStorage = (id: string) => api<TitleStorage>(`/admin/titles/${id}/storage`);
+
 // tag a media file's audio language / role (model-B multi-language audio)
 export const setMediaFileAudio = (
 	id: string,
