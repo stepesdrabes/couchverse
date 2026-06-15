@@ -33,32 +33,9 @@ func scanLibrary(row pgx.Row) (*Library, error) {
 
 const libraryCols = `id, name, kind, path, managed, last_scanned_at`
 
-func (s *Store) ListLibraries(ctx context.Context) ([]Library, error) {
-	rows, err := s.db.Query(ctx, `SELECT `+libraryCols+` FROM libraries ORDER BY id`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	libs := []Library{}
-	for rows.Next() {
-		l, err := scanLibrary(rows)
-		if err != nil {
-			return nil, err
-		}
-		libs = append(libs, *l)
-	}
-	return libs, rows.Err()
-}
-
 func (s *Store) LibraryByID(ctx context.Context, id int64) (*Library, error) {
 	return scanLibrary(s.db.QueryRow(ctx,
 		`SELECT `+libraryCols+` FROM libraries WHERE id = $1`, id))
-}
-
-func (s *Store) CreateLibrary(ctx context.Context, name, kind, path string, managed bool) (*Library, error) {
-	return scanLibrary(s.db.QueryRow(ctx,
-		`INSERT INTO libraries (name, kind, path, managed) VALUES ($1, $2, $3, $4)
-		 RETURNING `+libraryCols, name, kind, path, managed))
 }
 
 // EnsureLibrary creates the library if its path is not registered yet.
@@ -66,22 +43,6 @@ func (s *Store) EnsureLibrary(ctx context.Context, name, kind, path string, mana
 	_, err := s.db.Exec(ctx,
 		`INSERT INTO libraries (name, kind, path, managed) VALUES ($1, $2, $3, $4)
 		 ON CONFLICT (path) DO NOTHING`, name, kind, path, managed)
-	return err
-}
-
-func (s *Store) DeleteLibrary(ctx context.Context, id int64) error {
-	tag, err := s.db.Exec(ctx, `DELETE FROM libraries WHERE id = $1`, id)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return db.ErrNotFound
-	}
-	return nil
-}
-
-func (s *Store) TouchLibraryScanned(ctx context.Context, id int64) error {
-	_, err := s.db.Exec(ctx, `UPDATE libraries SET last_scanned_at = now() WHERE id = $1`, id)
 	return err
 }
 

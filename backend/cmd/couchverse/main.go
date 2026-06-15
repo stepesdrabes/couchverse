@@ -117,7 +117,6 @@ func run() error {
 	}
 
 	runner := jobs.NewRunner(jobsStore, workers)
-	runner.Register("scan_library", 1, (&library.Scanner{Files: libraryStore, Jobs: jobsStore}).Handle)
 	runner.Register("probe", 2, (&library.Prober{Files: libraryStore, Catalog: catalogStore, Settings: set, Jobs: jobsStore, Artwork: artworkService.Store, Music: musicStore, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&metadata.FetchJob{Catalog: catalogStore, Settings: set, Artwork: artworkService}).Handle)

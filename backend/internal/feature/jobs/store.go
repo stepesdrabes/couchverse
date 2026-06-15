@@ -41,7 +41,7 @@ type Job struct {
 
 // JobSubject names the content a job works on, resolved from the payload's
 // mediaFileId/titleId for the admin UI. Nil when the job has no subject
-// (scan_library, cleanup) or the referenced rows are gone.
+// (e.g. cleanup) or the referenced rows are gone.
 type JobSubject struct {
 	MediaFileID   *string `json:"mediaFileId,omitempty"`
 	TitleID       *string `json:"titleId,omitempty"`
