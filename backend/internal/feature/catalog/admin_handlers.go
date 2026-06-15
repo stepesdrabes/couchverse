@@ -159,6 +159,28 @@ func (h *AdminHandlers) SetTranslation(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
+// Storage returns a per-title disk-usage breakdown for the editor chart: one
+// entry per episode (series) or per media file (movie), split into source and
+// transcoded bytes, plus totals.
+func (h *AdminHandlers) Storage(w http.ResponseWriter, r *http.Request) {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	t, err := h.store.TitleByID(r.Context(), id)
+	if err != nil {
+		httpx.StoreErr(w, err)
+		return
+	}
+	breakdown, err := h.store.TitleStorage(r.Context(), id, t.Kind)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, breakdown)
+}
+
 // DeleteLanguage removes one content language from a title: its translations
 // across the title and all seasons/episodes, plus the code itself (promoting the
 // next language to base when the removed one was the base). The matching audio

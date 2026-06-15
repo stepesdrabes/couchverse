@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -627,4 +628,81 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 		items = append(items, r)
 	}
 	return items, total, rows.Err()
+}
+
+// StorageSegment is one bar of a title's storage breakdown: an episode (series)
+// or a media file (movie), split into source and ready-transcode bytes.
+type StorageSegment struct {
+	Label           string `json:"label"`
+	SourceBytes     int64  `json:"sourceBytes"`
+	TranscodedBytes int64  `json:"transcodedBytes"`
+}
+
+// TitleStorageBreakdown is where a title's disk usage goes, plus the totals.
+type TitleStorageBreakdown struct {
+	Items           []StorageSegment `json:"items"`
+	SourceBytes     int64            `json:"sourceBytes"`
+	TranscodedBytes int64            `json:"transcodedBytes"`
+}
+
+// TitleStorage breaks a title's disk usage down per episode (series) or per media
+// file (movie), each split into source size and ready-transcode size. Transcoded
+// bytes use a per-file subquery so a file's multiple variants never fan out and
+// double-count its source (same shape as ListLibrary). Rows with nothing on disk
+// are skipped.
+func (s *Store) TitleStorage(ctx context.Context, titleID, kind string) (*TitleStorageBreakdown, error) {
+	out := &TitleStorageBreakdown{Items: []StorageSegment{}}
+
+	var rows pgx.Rows
+	var err error
+	if kind == "series" {
+		rows, err = s.db.Query(ctx, `
+			SELECT s.season_number, e.episode_number,
+				COALESCE(sum(mf.size_bytes), 0) AS source_bytes,
+				COALESCE(sum((SELECT COALESCE(sum(tv.size_bytes), 0) FROM transcode_variants tv
+					WHERE tv.media_file_id = mf.id AND tv.status = 'ready')), 0) AS transcoded_bytes
+			FROM episodes e
+			JOIN seasons s ON s.id = e.season_id
+			LEFT JOIN media_files mf ON mf.episode_id = e.id
+			WHERE s.title_id = $1
+			GROUP BY e.id, s.season_number, e.episode_number
+			ORDER BY s.season_number, e.episode_number`, titleID)
+	} else {
+		rows, err = s.db.Query(ctx, `
+			SELECT mf.path,
+				mf.size_bytes AS source_bytes,
+				(SELECT COALESCE(sum(tv.size_bytes), 0) FROM transcode_variants tv
+					WHERE tv.media_file_id = mf.id AND tv.status = 'ready') AS transcoded_bytes
+			FROM media_files mf
+			WHERE mf.title_id = $1
+			ORDER BY mf.audio_role, mf.created_at`, titleID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var seg StorageSegment
+		if kind == "series" {
+			var season, episode int
+			if err := rows.Scan(&season, &episode, &seg.SourceBytes, &seg.TranscodedBytes); err != nil {
+				return nil, err
+			}
+			seg.Label = fmt.Sprintf("S%dE%d", season, episode)
+		} else {
+			var path string
+			if err := rows.Scan(&path, &seg.SourceBytes, &seg.TranscodedBytes); err != nil {
+				return nil, err
+			}
+			seg.Label = filepath.Base(path)
+		}
+		if seg.SourceBytes == 0 && seg.TranscodedBytes == 0 {
+			continue
+		}
+		out.Items = append(out.Items, seg)
+		out.SourceBytes += seg.SourceBytes
+		out.TranscodedBytes += seg.TranscodedBytes
+	}
+	return out, rows.Err()
 }

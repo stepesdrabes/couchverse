@@ -57,6 +57,7 @@ func (m *Module) MountAdmin(r chi.Router) {
 	r.Post("/titles", m.admin.Create)
 	r.Post("/titles/bulk", m.admin.Bulk)
 	r.Get("/titles/{id}", m.admin.Get)
+	r.Get("/titles/{id}/storage", m.admin.Storage)
 	r.Patch("/titles/{id}", m.admin.Update)
 	r.Patch("/titles/{id}/translations/{lang}", m.admin.SetTranslation)
 	r.Delete("/titles/{id}/languages/{lang}", m.admin.DeleteLanguage)
