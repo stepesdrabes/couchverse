@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -152,6 +153,29 @@ func (h *AdminHandlers) SetTranslation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.SetTitleTranslationText(r.Context(), id, lang, req.Name, req.Overview); err != nil {
+		httpx.StoreErr(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusNoContent, nil)
+}
+
+// DeleteLanguage removes one content language from a title: its translations
+// across the title and all seasons/episodes, plus the code itself (promoting the
+// next language to base when the removed one was the base). The matching audio
+// files and subtitles are deleted by the client through their own endpoints;
+// this owns only the catalog (title/season/episode) side.
+func (h *AdminHandlers) DeleteLanguage(w http.ResponseWriter, r *http.Request) {
+	id := httpx.UUID(r, "id")
+	lang := chi.URLParam(r, "lang")
+	if id == "" || len(lang) < 2 || len(lang) > 5 {
+		httpx.NotFound(w)
+		return
+	}
+	if err := h.store.RemoveContentLanguage(r.Context(), id, lang); err != nil {
+		if errors.Is(err, ErrLastLanguage) {
+			httpx.BadRequest(w, err.Error())
+			return
+		}
 		httpx.StoreErr(w, err)
 		return
 	}

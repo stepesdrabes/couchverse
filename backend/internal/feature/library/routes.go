@@ -14,7 +14,7 @@ type Module struct {
 
 func NewModule(st *Store, jb *jobs.Store, manager *Manager) *Module {
 	return &Module{
-		libraries: NewAdminLibraries(st, jb),
+		libraries: NewAdminLibraries(st, jb, manager.DataDir),
 		uploads:   NewAdminUploads(st, manager),
 	}
 }
@@ -26,6 +26,7 @@ func (m *Module) MountAdmin(r chi.Router) {
 	r.Post("/libraries/{id}/scan", m.libraries.Scan)
 	r.Post("/libraries/scan-all", m.libraries.ScanAll)
 	r.Patch("/media-files/{id}", m.libraries.SetMediaFileAudio)
+	r.Delete("/media-files/{id}", m.libraries.DeleteMediaFile)
 
 	r.Get("/uploads", m.uploads.List)
 	r.Post("/uploads", m.uploads.Create)

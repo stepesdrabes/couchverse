@@ -251,6 +251,97 @@ func (s *Store) SetTitleTranslationText(ctx context.Context, id, lang, name, ove
 	return err
 }
 
+// ErrLastLanguage is returned when removing a title's only content language;
+// a title must keep at least one.
+var ErrLastLanguage = errors.New("cannot remove the last content language")
+
+// RemoveContentLanguage drops one content language from a title: it deletes the
+// language's translations from the title and every season/episode and removes it
+// from metadata_languages. When the removed language was the base (first) one,
+// the next language is promoted into the base columns so the title keeps a
+// coherent default. The matching audio files and subtitles on disk are removed by
+// the client through their own endpoints; this owns only the catalog side.
+func (s *Store) RemoveContentLanguage(ctx context.Context, titleID, lang string) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var langs []string
+	err = tx.QueryRow(ctx,
+		`SELECT metadata_languages FROM titles WHERE id = $1 FOR UPDATE`, titleID).Scan(&langs)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	member := false
+	for _, l := range langs {
+		if l == lang {
+			member = true
+			break
+		}
+	}
+	if !member {
+		return db.ErrNotFound
+	}
+	if len(langs) <= 1 {
+		return ErrLastLanguage
+	}
+
+	if langs[0] == lang {
+		// removing the base language: promote the next one into the base columns,
+		// then drop both subtrees (the base never had its own translation entry).
+		promote := langs[1]
+		if _, err := tx.Exec(ctx,
+			`UPDATE titles SET
+				name = COALESCE(NULLIF(translations->$2->>'name', ''), name),
+				overview = COALESCE(translations->$2->>'overview', overview),
+				translations = translations - $2 - $3,
+				metadata_languages = array_remove(metadata_languages, $3),
+				updated_at = now()
+			 WHERE id = $1`, titleID, promote, lang); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE seasons SET
+				name = COALESCE(NULLIF(translations->$2->>'name', ''), name),
+				overview = COALESCE(translations->$2->>'overview', overview),
+				translations = translations - $2 - $3
+			 WHERE title_id = $1`, titleID, promote, lang); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE episodes e SET
+				name = COALESCE(NULLIF(e.translations->$2->>'name', ''), e.name),
+				overview = COALESCE(e.translations->$2->>'overview', e.overview),
+				translations = e.translations - $2 - $3
+			 FROM seasons s WHERE e.season_id = s.id AND s.title_id = $1`, titleID, promote, lang); err != nil {
+			return err
+		}
+	} else {
+		if _, err := tx.Exec(ctx,
+			`UPDATE titles SET translations = translations - $2,
+				metadata_languages = array_remove(metadata_languages, $2), updated_at = now()
+			 WHERE id = $1`, titleID, lang); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE seasons SET translations = translations - $2 WHERE title_id = $1`, titleID, lang); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE episodes e SET translations = e.translations - $2
+			 FROM seasons s WHERE e.season_id = s.id AND s.title_id = $1`, titleID, lang); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
 // RegenerateTitleSlug rebuilds the slug from name+year, keeping it unique.
 func (s *Store) RegenerateTitleSlug(ctx context.Context, id string, name string, year *int) (string, error) {
 	sl, err := s.uniqueSlug(ctx, slug.Make(name, year))
