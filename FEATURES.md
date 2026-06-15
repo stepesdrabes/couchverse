@@ -101,14 +101,16 @@ engine (ffmpeg HLS encode, hardware encoder detection/probing) and transcode adm
   variant sizes are measured into `transcode_variants.size_bytes` when a job finishes.
 
 ### library
-Media ingestion: library folders on disk, the scan -> probe pipeline (filename parsing
+Media ingestion via resumable chunked uploads -> the probe pipeline (filename parsing
 to draft titles/episodes, audio tags to artists/albums/tracks, direct-play detection,
-auto-prepare of HLS variants), resumable chunked uploads, and ownership of the
-`media_files` + `transcode_variants` SQL that playback reads.
-- Endpoints (admin): `/admin/libraries...` (+ `/scan`, `/scan-all`),
-  `/admin/media-files/{id}` (`PATCH` audio lang/role; `DELETE` hard-deletes the file plus
-  its source, HLS/frame caches and subtitle files on disk), `/admin/uploads...`.
-- Job handlers: `scan_library`, `probe`.
+auto-prepare of HLS variants), the managed libraries uploads land in, and ownership of the
+`media_files` + `transcode_variants` SQL that playback reads. (There is no folder-scan
+ingestion - everything comes in through the browser; the `libraries` rows are managed
+upload targets, auto-created on first boot.)
+- Endpoints (admin): `/admin/media-files/{id}` (`PATCH` audio lang/role; `DELETE`
+  hard-deletes the file plus its source, HLS/frame caches and subtitle files on disk),
+  `/admin/uploads...`.
+- Job handler: `probe`.
 - Frontend: `features/library` (AdminLibraryPage, AdminTitleEditorPage, AdminAlbumPage,
   editor components incl. EditorHero with hover poster/backdrop editing, EpisodesTable with
   client-side filters, StorageChart, NewTitleModal, TmdbSearchModal, FileVariants,

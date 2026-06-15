@@ -28,8 +28,7 @@ home server.
 - Admin panel: library table with quality badges and bulk actions, user management,
   job queue, storage meters and a per-title disk-usage chart, a filterable season/episode
   editor, home-page row editor
-- Two ways in: resumable chunked uploads (pause/resume survives disconnects) or
-  drop files onto the disk and hit *Scan* (Jellyfin-style)
+- Media comes in through resumable chunked uploads (pause/resume survives disconnects)
 - Filename parsing (`Show/Season 01/Show S01E01.mkv`, `Movie (2024).mkv`) and
   music tags (ID3/FLAC/MP4) build the catalog automatically
 - TMDB integration: search & apply metadata + artwork with one click
@@ -59,8 +58,7 @@ Open `http://<host>:8080`, sign in with the admin credentials from `.env`.
 
 By default media + app data live in a **Docker named volume** - zero setup, no
 permission issues, everything goes in through browser uploads. If you want your
-media on a real disk folder (so you can also drop files over SMB/SFTP and
-re-scan), set in `.env`:
+media + app data on a real disk folder, set in `.env`:
 
 ```sh
 MEDIA_ROOT=/mnt/usbdisk/couchverse   # the folder on your disk
@@ -73,7 +71,7 @@ otherwise writes (uploads, transcodes, artwork) fail with permission denied.
 Layout inside `MEDIA_ROOT`:
 
 ```
-media/movies/   media/series/   media/music/   ← drop files here, then Scan
+media/movies/   media/series/   media/music/   ← uploads are stored here
 artwork/  subtitles/  cache/                   ← managed by the app
 ```
 
@@ -85,8 +83,8 @@ Add users under **Admin → Users** (no public signup). Set a TMDB API key under
 - Put `MEDIA_ROOT` **and** the Postgres volume on the external SSD/USB disk - never
   the SD card (write wear, fsync latency). Bind `pgdata` to a disk path in
   `docker-compose.yml` if your root filesystem is an SD card.
-- Share `data/media` over SMB/SFTP and use **Jobs & Storage → Scan** after dropping
-  files - uploads through the browser work too.
+- Media is added through the browser (resumable chunked uploads), so there is no need
+  to expose the media folder over SMB/SFTP.
 - Keep the transcode ladder at 720p and 1 concurrent job (the defaults). On a Pi 4
   start the stack with the hardware-encoder overlay so transcodes use the
   `h264_v4l2m2m` video encoder (~3x realtime) instead of software libx264, which is
