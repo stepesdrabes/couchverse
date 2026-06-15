@@ -57,7 +57,9 @@ page (featured title, admin-curated rows, continue watching), browse with filter
 full-text search, per-user watch progress and My List (watchlist). Admin side: the
 library table, title/season/episode CRUD and bulk actions.
 - Endpoints: `/home`, `/titles`, `/titles/{slug}`, `/search`, `/genres`, `/progress`,
-  `/me/continue-watching`, `/me/watchlist...`; admin `/admin/library`, `/admin/titles...`,
+  `/me/continue-watching`, `/me/watchlist...`; admin `/admin/library`, `/admin/titles...`
+  (incl. `DELETE /admin/titles/{id}/languages/{lang}` to drop a content language and
+  `GET /admin/titles/{id}/storage` for the per-title disk-usage breakdown),
   `/admin/seasons/{id}...`, `/admin/episodes/{id}`.
 - Frontend pages: HomePage, MoviesPage, SeriesPage, GenresPage, GenrePage, MyListPage,
   SearchPage, TitleDetailPage; components HeroMarquee, MediaRow, PosterCard, TitleCard,
@@ -103,11 +105,14 @@ Media ingestion: library folders on disk, the scan -> probe pipeline (filename p
 to draft titles/episodes, audio tags to artists/albums/tracks, direct-play detection,
 auto-prepare of HLS variants), resumable chunked uploads, and ownership of the
 `media_files` + `transcode_variants` SQL that playback reads.
-- Endpoints (admin): `/admin/libraries...` (+ `/scan`, `/scan-all`), `/admin/uploads...`.
+- Endpoints (admin): `/admin/libraries...` (+ `/scan`, `/scan-all`),
+  `/admin/media-files/{id}` (`PATCH` audio lang/role; `DELETE` hard-deletes the file plus
+  its source, HLS/frame caches and subtitle files on disk), `/admin/uploads...`.
 - Job handlers: `scan_library`, `probe`.
 - Frontend: `features/library` (AdminLibraryPage, AdminTitleEditorPage, AdminAlbumPage,
-  editor components incl. EditorHero with hover poster/backdrop editing, NewTitleModal,
-  TmdbSearchModal, FileVariants, AdminMusicTable), `features/uploads` (upload queue
+  editor components incl. EditorHero with hover poster/backdrop editing, EpisodesTable with
+  client-side filters, StorageChart, NewTitleModal, TmdbSearchModal, FileVariants,
+  LanguageChips + AddLanguageModal, AdminMusicTable), `features/uploads` (upload queue
   store, AdminUploadsPage, EditorUploadCard).
 
 ### metadata
@@ -173,15 +178,23 @@ the track duration). Kernel-only imports - catalog and music call `RecordWatch`/
 uses **Paraglide JS** as a compile-only i18n: messages in `frontend/messages/{en,cs}.json`,
 compiled to `src/lib/paraglide/` (gitignored, built by the Vite plugin and the `check`
 script). `lib/i18n/locale.svelte.ts` is the single source of truth (`currentLang`,
-`setDisplayLang`, `applySavedLang`); the header `LanguageSwitcher` persists the choice to
-`/me/preferences` and `setLocale` reloads. `lib/api/client.ts` appends `?lang=` to every
-request; the backend honours it only on public catalog reads. Per-title TMDB metadata is
-stored per language in `translations jsonb` columns on `titles/seasons/episodes/genres`
-with the base columns as the fallback; `titles.metadata_languages` is the per-title content
-set (chosen via `LanguageChips` in NewTitleModal/editor). `metadata/tmdb.go` takes a `lang`
-param and the fetch/import jobs loop over the title's languages. Resolution: `httpx.Lang`
-+ `httpx.WithLang` (set by a `withLang` route wrapper on public reads) + `catalog.localize`
-overwrite name/overview at scan; admin reads and jobs leave it empty so they see base text.
+`setDisplayLang`, `applySavedLang`); the header `LanguageSwitcher` (a flag dropdown built on
+bits-ui, flags from the bundled `flag-icons` via `lib/components/ui/Flag.svelte` +
+`lib/i18n/flags.ts`) persists the choice to `/me/preferences` and `setLocale` reloads.
+`lib/api/client.ts` appends `?lang=` to every request; the backend honours it only on public
+catalog reads. Per-title TMDB metadata is stored per language in `translations jsonb` columns
+on `titles/seasons/episodes/genres` with the base columns as the fallback;
+`titles.metadata_languages` is the per-title content set (chosen via `LanguageChips` +
+`AddLanguageModal`, which search the bundled `ALL_LANG_CODES` ISO 639-1 list in
+`lib/i18n/content-langs.ts`). `metadata/tmdb.go` takes a `lang` param and the fetch/import
+jobs loop over the title's languages. Removing a content language
+(`DELETE /admin/titles/{id}/languages/{lang}`) is destructive: catalog drops that language's
+translations across the title/seasons/episodes and promotes the next language into the base
+columns when the base one is removed (the last language cannot be removed), and the editor
+also deletes that language's alternate-audio files and subtitles from disk via their own
+endpoints. Resolution: `httpx.Lang` + `httpx.WithLang` (set by a `withLang` route wrapper on
+public reads) + `catalog.localize` overwrite name/overview at scan; admin reads and jobs
+leave it empty so they see base text.
 
 **Multi-language audio (two models, both supported).**
 - *Model B - separate file per language:* `media_files.audio_lang` + `audio_role`

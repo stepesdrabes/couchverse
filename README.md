@@ -26,12 +26,16 @@ home server.
 
 **Library management**
 - Admin panel: library table with quality badges and bulk actions, user management,
-  job queue, storage meters, home-page row editor
+  job queue, storage meters and a per-title disk-usage chart, a filterable season/episode
+  editor, home-page row editor
 - Two ways in: resumable chunked uploads (pause/resume survives disconnects) or
   drop files onto the disk and hit *Scan* (Jellyfin-style)
 - Filename parsing (`Show/Season 01/Show S01E01.mkv`, `Movie (2024).mkv`) and
   music tags (ID3/FLAC/MP4) build the catalog automatically
 - TMDB integration: search & apply metadata + artwork with one click
+- English & Czech interface (flag switcher) and per-title content languages: translate
+  title/episode metadata per language, add languages from a searchable picker, or remove a
+  language to purge its translations and files
 
 **Playback pipeline** (scales with your hardware)
 1. **Direct play** - browser-compatible files stream straight from disk (zero CPU)

@@ -96,7 +96,15 @@ Full design in `FEATURES.md`; the conventions to follow:
   language in the title editor / episode modal (`PATCH /admin/titles/{id}/translations/{lang}`,
   `.../episodes/{id}/translations/{lang}`); TMDB fetch loops over the title's languages.
   Genres keep their English `name` as the URL/filter identity - only the label is translated
-  (`genreLabel`). Content-language list lives in `lib/i18n/content-langs.ts`.
+  (`genreLabel`). Content-language list lives in `lib/i18n/content-langs.ts` (`CONTENT_LANGS`
+  endonyms + the bundled `ALL_LANG_CODES` ISO 639-1 set + `searchLangs` for the
+  `AddLanguageModal`); language flags use the bundled `flag-icons` via
+  `lib/components/ui/Flag.svelte` + `lib/i18n/flags.ts` (`langToCountry`, e.g. en->gb, cs->cz).
+  Removing a content language is destructive and cross-feature: catalog's
+  `DELETE /admin/titles/{id}/languages/{lang}` drops its translations and promotes the next
+  language to base (the last one is protected), and the editor also hard-deletes that
+  language's alternate-audio files (`DELETE /admin/media-files/{id}` - source + caches +
+  subtitles on disk) and subtitle tracks, behind a warning modal.
 - **Multi-language audio** (chosen in the player, independent of the display language): model B
   is a separate file per language (`media_files.audio_lang`/`audio_role`, tagged via
   `PATCH /admin/media-files/{id}`; the player swaps source + re-seeks); model A is one file
