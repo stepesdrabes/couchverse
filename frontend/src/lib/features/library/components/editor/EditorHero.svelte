@@ -93,7 +93,7 @@
 	<div class="relative mx-auto max-w-7xl px-8 pt-6 pb-8">
 		<a
 			href="/admin/library"
-			class="mb-8 inline-flex items-center gap-1.5 text-xs font-medium text-faint transition-colors hover:text-text"
+			class="mb-8 inline-flex items-center gap-1.5 text-xs font-medium text-muted transition-colors hover:text-text"
 		>
 			<ArrowLeft class="size-3.5" />
 			{m.library_back_to_library()}

@@ -355,6 +355,8 @@
 		</div>
 	</form>
 
+	<StorageChart titleId={data.title.id} kind={data.title.kind} />
+
 	{#if data.title.kind === 'series'}
 		<EpisodesTable
 			titleId={data.title.id}
@@ -371,8 +373,6 @@
 			subtitlesByFile={data.subtitlesByFile ?? {}}
 		/>
 	{/if}
-
-	<StorageChart titleId={data.title.id} kind={data.title.kind} />
 </div>
 
 <Confirm
