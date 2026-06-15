@@ -1,19 +1,16 @@
 <script lang="ts">
-	import { FolderSearch, RefreshCw, RotateCcw, X } from 'lucide-svelte';
-	import { toast } from 'svelte-sonner';
+	import { RotateCcw, X } from 'lucide-svelte';
 	import * as jobsApi from '$lib/features/jobs/api';
-	import type { Job, Library } from '$lib/features/jobs/api';
+	import type { Job } from '$lib/features/jobs/api';
 	import { jobAction, jobSubjectLabel } from '$lib/features/jobs/job-label';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import { formatYearDate } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
 
-	let libraries = $state<Library[]>([]);
 	let jobs = $state<Job[]>([]);
 
 	async function refresh() {
-		[libraries, jobs] = await Promise.all([jobsApi.listLibraries(), jobsApi.listJobs()]);
+		jobs = await jobsApi.listJobs();
 	}
 
 	$effect(() => {
@@ -21,26 +18,6 @@
 		const t = setInterval(refresh, 3000);
 		return () => clearInterval(t);
 	});
-
-	async function scan(lib: Library) {
-		try {
-			await jobsApi.scanLibrary(lib.id);
-			toast.success(m.jobs_scanning_library({ name: lib.name }));
-			refresh();
-		} catch {
-			toast.error(m.jobs_scan_start_failed());
-		}
-	}
-
-	async function scanAll() {
-		try {
-			await jobsApi.scanAllLibraries();
-			toast.success(m.jobs_scanning_all());
-			refresh();
-		} catch {
-			toast.error(m.jobs_scan_all_failed());
-		}
-	}
 
 	const statusColor: Record<Job['status'], string> = {
 		pending: 'text-muted',
@@ -62,10 +39,6 @@
 	const jobSubject = (job: Job) => {
 		const subject = jobSubjectLabel(job);
 		if (subject) return subject;
-		if (job.type === 'scan_library') {
-			const lib = libraries.find((l) => l.id === job.payload.libraryId);
-			return lib ? `“${lib.name}”` : m.jobs_library_fallback({ id: String(job.payload.libraryId) });
-		}
 		if (typeof job.payload.mediaFileId === 'string')
 			return m.jobs_file_fallback({ id: job.payload.mediaFileId });
 		return null;
@@ -77,8 +50,6 @@
 		const s = job.subject;
 		if (s?.mediaFileId) return `mf:${s.mediaFileId}`;
 		if (s?.titleId) return `title:${s.titleId}`;
-		const lib = job.payload.libraryId;
-		if (lib !== undefined && lib !== null) return `lib:${lib}`;
 		return `job:${job.id}`;
 	};
 
@@ -123,42 +94,6 @@
 </svelte:head>
 
 <h1 class="mb-6 text-2xl font-bold">{m.jobs_heading()}</h1>
-
-<section class="mb-8">
-	<div class="mb-3 flex items-center justify-between">
-		<h2 class="text-sm font-semibold text-muted">{m.jobs_libraries()}</h2>
-		<Button variant="secondary" size="sm" onclick={scanAll}>
-			<RefreshCw class="size-3.5" />
-			{m.jobs_rescan_all()}
-		</Button>
-	</div>
-	<div class="grid gap-3 lg:grid-cols-3">
-		{#each libraries as lib (lib.id)}
-			<div class="rounded-card border border-edge bg-surface/40 p-4">
-				<div class="flex items-start justify-between gap-2">
-					<div class="min-w-0">
-						<p class="font-semibold">{lib.name}</p>
-						<p class="mt-0.5 truncate text-xs text-faint" title={lib.path}>{lib.path}</p>
-					</div>
-					<Button variant="ghost" size="sm" onclick={() => scan(lib)}>
-						<FolderSearch class="size-3.5" />
-						{m.jobs_scan()}
-					</Button>
-				</div>
-				<p class="mt-3 text-[11px] text-faint">
-					{lib.lastScannedAt
-						? m.jobs_last_scanned({ date: formatYearDate(lib.lastScannedAt) })
-						: m.jobs_never_scanned()}
-				</p>
-			</div>
-		{/each}
-	</div>
-	<p class="mt-2 text-xs text-faint">
-		{m.jobs_drop_hint_intro()}
-		<span class="font-mono">Show/Season 01/Show S01E01.mkv</span>{m.jobs_drop_hint_movies()}
-		<span class="font-mono">Name (2024)/Name (2024).mkv</span>{m.jobs_drop_hint_music()}
-	</p>
-</section>
 
 {#snippet jobRow(job: Job)}
 	<div class="flex items-center gap-3 px-4 py-2.5 text-sm">

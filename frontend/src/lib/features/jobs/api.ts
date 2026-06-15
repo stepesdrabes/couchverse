@@ -1,14 +1,5 @@
-// Media libraries on disk, scans and the background job queue.
+// The background job queue plus the admin overview, storage and analytics reads.
 import { api, qs } from '$lib/api/client';
-
-export interface Library {
-	id: number;
-	name: string;
-	kind: 'movies' | 'series' | 'music';
-	path: string;
-	managed: boolean;
-	lastScannedAt: string | null;
-}
 
 export interface Job {
 	id: number;
@@ -39,20 +30,6 @@ export interface JobSubject {
 	trackName?: string;
 	variant?: string;
 }
-
-export const listLibraries = () => api<Library[]>('/admin/libraries');
-
-export const createLibrary = (input: { name: string; kind: string; path: string }) =>
-	api<Library>('/admin/libraries', { method: 'POST', body: input });
-
-export const deleteLibrary = (id: number) =>
-	api<void>(`/admin/libraries/${id}`, { method: 'DELETE' });
-
-export const scanLibrary = (id: number) =>
-	api<{ jobId: number }>(`/admin/libraries/${id}/scan`, { method: 'POST' });
-
-export const scanAllLibraries = () =>
-	api<{ libraries: number }>('/admin/libraries/scan-all', { method: 'POST' });
 
 export const listJobs = (filter: { status?: string; limit?: number; mediaFileId?: string } = {}) =>
 	api<Job[]>(

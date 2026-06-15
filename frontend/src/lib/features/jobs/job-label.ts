@@ -2,7 +2,6 @@ import type { Job } from './api';
 import * as m from '$lib/paraglide/messages';
 
 const actionByType: Record<string, () => string> = {
-	scan_library: m.jobs_action_scan_library,
 	probe: m.jobs_action_probe,
 	transcode_hls: m.jobs_action_transcode,
 	extract_subtitles: m.jobs_action_extract_subtitles,
@@ -13,7 +12,7 @@ const actionByType: Record<string, () => string> = {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** "Transcode 1080p", "Analyze", "Scan library" */
+/** "Transcode 1080p", "Analyze", "Cleanup" */
 export function jobAction(job: Job): string {
 	const base = actionByType[job.type]?.() ?? job.type.replaceAll('_', ' ');
 	const variant = job.subject?.variant;

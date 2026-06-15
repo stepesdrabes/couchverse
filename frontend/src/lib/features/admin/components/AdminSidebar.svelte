@@ -3,6 +3,7 @@
 	import { ArrowLeft, Database, LayoutDashboard, Library, Settings, Users } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { session } from '$lib/features/auth/session.svelte';
+	import LanguageSwitcher from '$lib/components/layout/LanguageSwitcher.svelte';
 	import LogoMark from '$lib/components/ui/LogoMark.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import StorageMeter from './StorageMeter.svelte';
@@ -13,7 +14,7 @@
 		{ href: '/admin', label: m.admin_nav_overview(), icon: LayoutDashboard },
 		{ href: '/admin/library', label: m.admin_nav_library(), icon: Library },
 		{ href: '/admin/users', label: m.admin_nav_users(), icon: Users },
-		{ href: '/admin/jobs', label: m.admin_nav_jobs_storage(), icon: Database },
+		{ href: '/admin/jobs', label: m.admin_nav_jobs(), icon: Database },
 		{ href: '/admin/settings', label: m.admin_nav_settings(), icon: Settings }
 	]);
 
@@ -59,6 +60,7 @@
 	</nav>
 
 	<div class="space-y-3 p-4">
+		<LanguageSwitcher />
 		<StorageMeter />
 		<SystemMeter />
 		<a
