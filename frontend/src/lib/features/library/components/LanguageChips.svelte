@@ -1,68 +1,60 @@
 <script lang="ts">
-	import { Check, Plus } from 'lucide-svelte';
-	import { CONTENT_LANGS, langLabel } from '$lib/i18n/content-langs';
+	import { Plus, X } from 'lucide-svelte';
+	import Flag from '$lib/components/ui/Flag.svelte';
+	import { langLabel } from '$lib/i18n/content-langs';
+	import AddLanguageModal from './AddLanguageModal.svelte';
 	import * as m from '$lib/paraglide/messages';
 
-	// content-language picker: the common languages as toggle chips, plus any
-	// custom ISO code the admin types. Selected custom codes show as chips too.
-	let { selected = $bindable<string[]>([]) }: { selected?: string[] } = $props();
+	// content-language picker: the selected languages as removable chips plus an
+	// "Add language" button opening a searchable modal. A parent can intercept
+	// removals via onremove (the title editor purges translations + files); without
+	// it, removal just updates the bound selection (e.g. when creating a title).
+	let {
+		selected = $bindable<string[]>([]),
+		onremove
+	}: { selected?: string[]; onremove?: (code: string) => void } = $props();
 
-	let adding = $state(false);
-	let custom = $state('');
+	let addOpen = $state(false);
 
-	const codes = $derived([
-		...CONTENT_LANGS.map((l) => l.code),
-		...selected.filter((c) => !CONTENT_LANGS.some((l) => l.code === c))
-	]);
-
-	function toggle(code: string) {
-		selected = selected.includes(code) ? selected.filter((c) => c !== code) : [...selected, code];
+	function remove(code: string) {
+		if (selected.length <= 1) return; // a title needs at least one content language
+		if (onremove) onremove(code);
+		else selected = selected.filter((c) => c !== code);
 	}
-	function addCustom() {
-		const code = custom.trim().toLowerCase();
-		if (code && !selected.includes(code)) selected = [...selected, code];
-		custom = '';
-		adding = false;
+	function add(code: string) {
+		if (!selected.includes(code)) selected = [...selected, code];
 	}
 </script>
 
 <div class="flex flex-wrap items-center gap-1.5">
-	{#each codes as code (code)}
-		<button
-			type="button"
-			onclick={() => toggle(code)}
-			class="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors
-				{selected.includes(code)
-				? 'border-accent bg-accent/15 text-text'
-				: 'border-edge text-muted hover:border-faint'}"
+	{#each selected as code (code)}
+		<span
+			class="flex items-center gap-1.5 rounded-full border border-edge bg-surface py-1 pr-1.5 pl-2.5
+				text-xs text-text"
 		>
-			{#if selected.includes(code)}<Check class="size-3" />{/if}
+			<Flag {code} />
 			{langLabel(code)}
-		</button>
+			{#if selected.length > 1}
+				<button
+					type="button"
+					onclick={() => remove(code)}
+					class="rounded-full p-0.5 text-faint transition-colors hover:bg-danger/15 hover:text-danger"
+					title={m.library_remove_language()}
+				>
+					<X class="size-3" />
+				</button>
+			{/if}
+		</span>
 	{/each}
-	{#if adding}
-		<input
-			bind:value={custom}
-			placeholder={m.library_language_code_placeholder()}
-			class="h-7 w-28 rounded-full border border-accent bg-surface px-2.5 text-xs text-text
-				placeholder:text-faint focus:outline-none"
-			onkeydown={(e) => {
-				if (e.key === 'Enter') {
-					e.preventDefault();
-					addCustom();
-				}
-			}}
-			onblur={addCustom}
-		/>
-	{:else}
-		<button
-			type="button"
-			onclick={() => (adding = true)}
-			class="flex items-center gap-1 rounded-full border border-dashed border-edge px-2.5 py-1
-				text-xs text-muted transition-colors hover:border-faint hover:text-text"
-		>
-			<Plus class="size-3" />
-			{m.library_add_language()}
-		</button>
-	{/if}
+	<button
+		type="button"
+		onclick={() => (addOpen = true)}
+		class="flex items-center gap-1 rounded-full border border-dashed border-edge px-2.5 py-1
+			text-xs text-muted transition-colors hover:border-faint hover:text-text"
+	>
+		<Plus class="size-3" />
+		{m.library_add_language()}
+	</button>
 </div>
+
+<AddLanguageModal bind:open={addOpen} {selected} onpick={add} />

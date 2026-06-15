@@ -26,7 +26,7 @@
 	let manualYear = $state('');
 	let creating = $state(false);
 
-	let languages = $state<string[]>(['en']);
+	let languages = $state<string[]>(['en', 'cs']);
 
 	async function search(e?: SubmitEvent) {
 		e?.preventDefault();
