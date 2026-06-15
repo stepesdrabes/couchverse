@@ -16,6 +16,7 @@
 	import Confirm from '$lib/components/ui/Confirm.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import StatusPill from '$lib/components/ui/StatusPill.svelte';
 	import Tabs from '$lib/components/ui/Tabs.svelte';
 	import { formatBytes, formatDate, qualityLabel } from '$lib/utils/format';
@@ -261,6 +262,28 @@
 				</tr>
 			</thead>
 			<tbody>
+				{#if loading && items.length === 0}
+					{#each [0, 1, 2, 3, 4, 5] as i (i)}
+						<tr class="border-b border-edge/50">
+							<td class="px-4 py-3"><Skeleton class="size-4 rounded" /></td>
+							<td class="py-3 pr-4">
+								<div class="flex items-center gap-3">
+									<Skeleton class="h-10 w-16 rounded-md" />
+									<div class="space-y-1.5">
+										<Skeleton class="h-3.5 w-40" />
+										<Skeleton class="h-3 w-24" />
+									</div>
+								</div>
+							</td>
+							<td class="py-3 pr-4"><Skeleton class="h-4 w-12" /></td>
+							<td class="py-3 pr-4"><Skeleton class="h-4 w-10" /></td>
+							<td class="py-3 pr-4"><Skeleton class="h-4 w-16" /></td>
+							<td class="py-3 pr-4"><Skeleton class="h-4 w-12" /></td>
+							<td class="py-3 pr-4"><Skeleton class="h-5 w-16 rounded-full" /></td>
+							<td class="py-3 pr-4"></td>
+						</tr>
+					{/each}
+				{/if}
 				{#each items as row (row.id)}
 					<tr
 						class="border-b border-edge/50 transition-colors last:border-0
