@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { Film, Info, Loader2, Plus, Trash2, UploadCloud } from 'lucide-svelte';
+	import { Film, Info, Loader2, Plus, Search, Trash2, UploadCloud } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import type { Episode, MediaFile, Season } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
@@ -9,7 +9,9 @@
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import Tabs from '$lib/components/ui/Tabs.svelte';
 	import EpisodeInfoModal from './EpisodeInfoModal.svelte';
 	import * as m from '$lib/paraglide/messages';
 
@@ -31,6 +33,46 @@
 
 	const fileByEpisode = $derived(
 		new Map(mediaFiles.filter((f) => f.episodeId).map((f) => [f.episodeId as string, f]))
+	);
+
+	// client-side episode filters (data is already loaded)
+	let nameQuery = $state('');
+	let fileFilter = $state('all'); // all | with | without
+	let subFilter = $state('all'); // all | with | without
+
+	const fileTabs = $derived([
+		{ value: 'all', label: m.common_all() },
+		{ value: 'with', label: m.library_filter_with_file() },
+		{ value: 'without', label: m.library_filter_without_file() }
+	]);
+	const subItems = $derived([
+		{ value: 'all', label: m.common_all() },
+		{ value: 'with', label: m.library_filter_with_subs() },
+		{ value: 'without', label: m.library_filter_without_subs() }
+	]);
+
+	const filtersActive = $derived(
+		nameQuery.trim() !== '' || fileFilter !== 'all' || subFilter !== 'all'
+	);
+	const hasAnyEpisode = $derived(seasons.some((s) => s.episodes.length > 0));
+
+	function episodeMatches(ep: Episode): boolean {
+		const file = fileByEpisode.get(ep.id);
+		if (fileFilter === 'with' && !file) return false;
+		if (fileFilter === 'without' && file) return false;
+		const hasSubs = !!file && (subtitlesByFile[file.id] ?? []).length > 0;
+		if (subFilter === 'with' && !hasSubs) return false;
+		if (subFilter === 'without' && hasSubs) return false;
+		const q = nameQuery.trim().toLowerCase();
+		if (q && !`${ep.name} e${ep.episodeNumber}`.toLowerCase().includes(q)) return false;
+		return true;
+	}
+
+	// seasons with their matching episodes; empty seasons drop out while filtering
+	const filteredSeasons = $derived(
+		seasons
+			.map((season) => ({ season, episodes: season.episodes.filter(episodeMatches) }))
+			.filter((g) => !filtersActive || g.episodes.length > 0)
 	);
 
 	let newEpisodeName = $state<Record<string, string>>({});
@@ -127,7 +169,23 @@
 		</Button>
 	</div>
 
-	{#each seasons as season (season.id)}
+	{#if hasAnyEpisode}
+		<div class="mb-4 flex flex-wrap items-center gap-3">
+			<div class="relative">
+				<Search class="absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-faint" />
+				<input
+					bind:value={nameQuery}
+					placeholder={m.library_filter_episode_name()}
+					class="h-9 w-48 rounded-full border border-edge bg-surface pr-3 pl-8 text-xs text-text
+						placeholder:text-faint focus:border-accent focus:outline-none"
+				/>
+			</div>
+			<Tabs bind:value={fileFilter} items={fileTabs} />
+			<Select bind:value={subFilter} label={m.library_filter_subtitles()} items={subItems} />
+		</div>
+	{/if}
+
+	{#each filteredSeasons as { season, episodes } (season.id)}
 		<div class="mb-5 last:mb-0">
 			<div class="mb-2 flex items-center justify-between">
 				<h3 class="text-sm font-semibold">
@@ -145,7 +203,7 @@
 				</button>
 			</div>
 			<ul class="divide-y divide-edge/50 rounded-input border border-edge/70">
-				{#each season.episodes as ep (ep.id)}
+				{#each episodes as ep (ep.id)}
 					{@const file = fileByEpisode.get(ep.id)}
 					{@const upload = uploads[ep.id]}
 					<li class="flex items-center gap-3 px-3 py-2 text-sm">
@@ -226,14 +284,18 @@
 			</ul>
 		</div>
 	{:else}
-		{#if importing}
-			<div class="space-y-2">
-				{#each [0, 1, 2] as i (i)}
-					<Skeleton class="h-12 w-full" />
-				{/each}
-			</div>
+		{#if seasons.length === 0}
+			{#if importing}
+				<div class="space-y-2">
+					{#each [0, 1, 2] as i (i)}
+						<Skeleton class="h-12 w-full" />
+					{/each}
+				</div>
+			{:else}
+				<p class="text-xs text-faint">{m.library_no_seasons()}</p>
+			{/if}
 		{:else}
-			<p class="text-xs text-faint">{m.library_no_seasons()}</p>
+			<p class="text-xs text-faint">{m.library_no_episodes_match()}</p>
 		{/if}
 	{/each}
 </section>
