@@ -12,6 +12,10 @@
 	} from '$lib/i18n/locale.svelte';
 	import * as m from '$lib/paraglide/messages';
 
+	// `class` lets a host stretch the trigger (e.g. w-full in the admin sidebar);
+	// the header leaves it content-sized.
+	let { class: cls = '' }: { class?: string } = $props();
+
 	const active = currentLang();
 
 	async function choose(next: DisplayLang) {
@@ -27,12 +31,14 @@
 
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger
-		class="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-surface px-3
-			text-xs font-medium text-text transition-colors hover:border-faint"
+		class="inline-flex h-9 items-center justify-between gap-2 rounded-full border border-edge
+			bg-surface px-3 text-xs font-medium text-text transition-colors hover:border-faint {cls}"
 		aria-label={m.language_label()}
 	>
-		<Flag code={active} />
-		{displayLangLabel(active)}
+		<span class="flex items-center gap-2">
+			<Flag code={active} />
+			{displayLangLabel(active)}
+		</span>
 		<ChevronDown class="size-3.5 text-muted" />
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Portal>

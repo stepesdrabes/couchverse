@@ -60,7 +60,7 @@
 	</nav>
 
 	<div class="space-y-3 p-4">
-		<LanguageSwitcher />
+		<LanguageSwitcher class="w-full" />
 		<StorageMeter />
 		<SystemMeter />
 		<a
