@@ -17,6 +17,7 @@
 	import LanguageChips from '$lib/features/library/components/LanguageChips.svelte';
 	import { langLabel } from '$lib/i18n/content-langs';
 	import { FormState } from '$lib/utils/form-state.svelte';
+	import { formatBytes } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: Awaited<ReturnType<typeof libraryApi.getTitle>> } = $props();
@@ -202,6 +203,54 @@
 		}
 	}
 
+	// removing a content language is destructive: it deletes the language's
+	// translations and its on-disk files (alternate-audio + subtitles). A
+	// freshly-added, unsaved language has nothing stored, so it just drops from
+	// the selection without a backend call.
+	let removeOpen = $state(false);
+	let removeLang = $state('');
+
+	const removeAltFiles = $derived(
+		removeLang
+			? data.mediaFiles.filter((f) => f.audioRole === 'audio_alt' && f.audioLang === removeLang)
+			: []
+	);
+	const removeSubs = $derived(
+		removeLang
+			? Object.values(data.subtitlesByFile ?? {})
+					.flat()
+					.filter((s) => s.lang === removeLang)
+			: []
+	);
+	const removeBytes = $derived(removeAltFiles.reduce((n, f) => n + f.sizeBytes, 0));
+
+	function requestRemoveLang(code: string) {
+		if (!(data.title.metadataLanguages ?? []).includes(code)) {
+			languages = languages.filter((c) => c !== code);
+			return;
+		}
+		removeLang = code;
+		removeOpen = true;
+	}
+
+	async function confirmRemoveLang() {
+		const code = removeLang;
+		if (!code) return;
+		try {
+			for (const s of removeSubs) await libraryApi.deleteSubtitle(s.id);
+			for (const f of removeAltFiles) await libraryApi.deleteMediaFile(f.id);
+			await libraryApi.removeContentLanguage(data.title.id, code);
+			languages = languages.filter((c) => c !== code);
+			if (editLang === code) editLang = languages[0] ?? 'en';
+			toast.success(m.library_language_removed());
+			await invalidateAll();
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : m.common_delete_failed());
+		} finally {
+			removeLang = '';
+		}
+	}
+
 	async function deleteTitle() {
 		try {
 			await libraryApi.deleteTitle(data.title.id);
@@ -250,7 +299,7 @@
 			/>
 			<div>
 				<p class="mb-1.5 text-xs font-medium text-muted">{m.library_content_languages()}</p>
-				<LanguageChips bind:selected={languages} />
+				<LanguageChips bind:selected={languages} onremove={requestRemoveLang} />
 			</div>
 		</div>
 
@@ -328,6 +377,19 @@
 	title={m.library_delete_title_confirm({ name: data.title.name })}
 	message={m.library_delete_title_message()}
 	onconfirm={deleteTitle}
+/>
+
+<Confirm
+	bind:open={removeOpen}
+	title={m.library_remove_language_confirm({ lang: langLabel(removeLang) })}
+	message={m.library_remove_language_message({
+		lang: langLabel(removeLang),
+		files: removeAltFiles.length,
+		size: formatBytes(removeBytes),
+		subs: removeSubs.length
+	})}
+	confirmLabel={m.library_remove_language()}
+	onconfirm={confirmRemoveLang}
 />
 
 <TmdbSearchModal bind:open={tmdbOpen} title={data.title} onApply={runTmdb} />

@@ -98,12 +98,22 @@ export const updateTitle = (id: string, patch: TitlePatch) =>
 
 export const deleteTitle = (id: string) => api<void>(`/admin/titles/${id}`, { method: 'DELETE' });
 
+// remove a content language from a title: drops its translations across the
+// title/seasons/episodes and the code from metadataLanguages (promoting the next
+// language to base when the base one is removed). 400 on the last language.
+export const removeContentLanguage = (id: string, lang: string) =>
+	api<void>(`/admin/titles/${id}/languages/${lang}`, { method: 'DELETE' });
+
 // tag a media file's audio language / role (model-B multi-language audio)
 export const setMediaFileAudio = (
 	id: string,
 	audioLang: string,
 	audioRole: 'primary' | 'audio_alt'
 ) => api<void>(`/admin/media-files/${id}`, { method: 'PATCH', body: { audioLang, audioRole } });
+
+// hard-delete a media file: its source, caches and subtitles on disk plus the row
+export const deleteMediaFile = (id: string) =>
+	api<void>(`/admin/media-files/${id}`, { method: 'DELETE' });
 
 export const bulkTitles = (
 	ids: string[],
