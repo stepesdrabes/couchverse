@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../app.css';
+	import 'flag-icons/css/flag-icons.min.css';
 	import { onNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Toaster } from 'svelte-sonner';
