@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { fade, fly } from 'svelte/transition';
+	import { onMount } from 'svelte';
+	import { backOut } from 'svelte/easing';
+	import { fade, fly, slide } from 'svelte/transition';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import { couch } from '$lib/features/couch/couch.svelte';
@@ -16,15 +18,24 @@
 	);
 
 	const reactionsFor = (pid: string) => couch.reactions.filter((r) => r.participantId === pid);
+
+	// suppress the per-seat intros on first paint so launch is just the bar fly;
+	// later joins then animate (middle slides in, avatar pops down)
+	let ready = $state(false);
+	onMount(() => {
+		ready = true;
+	});
+	const seatIn = $derived(ready ? { y: -28, duration: 350, easing: backOut } : { duration: 0 });
+	const sectionIn = $derived(ready ? { axis: 'x' as const, duration: 350 } : { duration: 0 });
 </script>
 
 <div class="relative inline-flex text-accent">
 	<!-- seated avatars overlaid on the cushions -->
 	<div
-		class="absolute inset-x-0 top-1/2 z-10 flex -translate-y-[60%] items-end justify-center gap-1.5 px-4"
+		class="absolute inset-x-0 top-1/2 z-10 flex -translate-y-[60%] items-end justify-center gap-3 px-5"
 	>
 		{#each couch.participants as p (p.id)}
-			<div class="relative" data-couch-seat={p.id}>
+			<div class="relative" data-couch-seat={p.id} in:fly={seatIn} out:fade={{ duration: 150 }}>
 				<Tooltip label={p.displayName}>
 					{#snippet trigger(props)}
 						<span {...props} class="block">
@@ -64,7 +75,9 @@
 	<div class="flex items-end {height}">
 		<CouchLeft class="h-full w-auto" />
 		{#each middles as i (i)}
-			<CouchMiddle class="h-full w-auto" />
+			<div class="flex h-full" transition:slide={sectionIn}>
+				<CouchMiddle class="h-full w-auto" />
+			</div>
 		{/each}
 		<CouchRight class="h-full w-auto" />
 	</div>

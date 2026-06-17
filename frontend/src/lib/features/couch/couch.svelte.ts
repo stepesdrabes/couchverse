@@ -30,6 +30,7 @@ class Couch {
 	playerInfo = $state<PlaybackInfo | null>(null); // follower's current media payload
 	jitSessionId = $state<string | null>(null); // follower's own instant-play session, if any
 	mediaKey = $state(0); // bumped on media switch to re-key the follower's player
+	playerControlsVisible = $state(false); // player chrome state, so the couch bar can dodge it
 
 	private locallyPaused = false;
 	private hostMedia: MediaRef = { kind: '' };
@@ -74,6 +75,9 @@ class Couch {
 	get shareLink() {
 		return this.token ? `${location.origin}/couch/${this.token}` : '';
 	}
+	get shareCode() {
+		return this.token ?? '';
+	}
 	get count() {
 		return this.participants.length;
 	}
@@ -92,8 +96,12 @@ class Couch {
 		this.connect();
 	}
 
-	/** Followers hydrate from the loader's join snapshot + resolved payload. */
-	joinFromSnapshot(snap: Snapshot, player: PlaybackInfo | null, jitSessionId: string | null) {
+	/** A follower joins on an explicit user gesture (the "Start watching" button),
+	 * which is what lets the video autoplay. Joins, resolves the payload and
+	 * connects in one go. */
+	async joinByToken(token: string) {
+		const snap = await couchApi.joinCouch(token);
+		const { player, jitSessionId } = await couchApi.resolveCouchPlayer(token);
 		this.hydrate(snap);
 		this.playerInfo = player;
 		this.jitSessionId = jitSessionId;
@@ -142,7 +150,10 @@ class Couch {
 	// --- player seams (called by VideoPlayer) ---
 	bindVideo(el: HTMLVideoElement | undefined) {
 		this.video = el;
-		if (el && this.isFollower) this.resync('hard');
+		if (!el || !this.isFollower) return;
+		// jump to the live position as soon as the element can seek
+		if (el.readyState >= 1) this.resync('hard');
+		else el.addEventListener('loadedmetadata', () => this.resync('hard'), { once: true });
 	}
 	onPlayStateChange(playing: boolean, positionSeconds: number) {
 		if (this.isHost) this.sendHostState(playing, positionSeconds);
@@ -301,18 +312,25 @@ class Couch {
 	private resync(mode: 'soft' | 'hard') {
 		const v = this.video;
 		const s = this.hostState;
-		if (!v || !s || !this.isFollower) return;
-		if (!this.locallyPaused && !this.hostAway) {
-			if (s.playing && v.paused) v.play().catch(() => {});
-			else if (!s.playing && !v.paused) v.pause();
+		if (!v || !s || !this.isFollower || this.locallyPaused) return;
+
+		// match the host's play/pause first
+		if (this.hostAway || !s.playing) {
+			if (!v.paused) v.pause();
+			return; // nothing to drift-correct while stopped
 		}
+		if (v.paused) v.play().catch(() => {}); // stays blocked until the user gesture (pre-join screen)
+
+		if (v.readyState < 1) return; // can't seek before metadata
+		// for soft (steady-state) correction, don't fight a seeking/buffering element -
+		// repeatedly seeking a not-ready video is what caused the jumping. A hard
+		// resync (join/reconnect/unpause) still snaps to the live position.
+		if (mode === 'soft' && (v.seeking || v.readyState < 3)) return;
+
 		const expected = this.expectedPosition;
+		if (!Number.isFinite(expected) || expected < 0) return;
 		const drift = Math.abs(v.currentTime - expected);
-		if (
-			(mode === 'hard' || drift > DRIFT_THRESHOLD) &&
-			Number.isFinite(expected) &&
-			expected >= 0
-		) {
+		if (mode === 'hard' || drift > DRIFT_THRESHOLD) {
 			v.currentTime = expected;
 			if (drift > DRIFT_THRESHOLD) this.flashResync();
 		}

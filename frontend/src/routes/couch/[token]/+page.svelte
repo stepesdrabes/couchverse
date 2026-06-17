@@ -5,4 +5,4 @@
 	let { data }: PageProps = $props();
 </script>
 
-<CouchPlayerPage snapshot={data.snapshot} player={data.player} jitSessionId={data.jitSessionId} />
+<CouchPlayerPage token={data.token} info={data.info} />

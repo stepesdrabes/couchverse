@@ -74,6 +74,10 @@
 				{/if}
 			{:else}
 				<p class="eyebrow mb-1.5 px-1">{m.couch_share_label()}</p>
+				<div class="mb-2 rounded-input border border-edge bg-surface py-2 text-center">
+					<span class="text-2xl font-bold tracking-[0.3em] text-accent tnum">{couch.shareCode}</span
+					>
+				</div>
 				<div class="flex gap-1.5">
 					<input
 						readonly

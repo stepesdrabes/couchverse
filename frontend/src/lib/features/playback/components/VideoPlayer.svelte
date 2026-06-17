@@ -525,6 +525,11 @@
 		return () => couch.bindVideo(undefined);
 	});
 
+	// let the couch bar dodge the player controls while they are on screen
+	$effect(() => {
+		couch.playerControlsVisible = controlsVisible;
+	});
+
 	onMount(() => {
 		poke();
 		musicPlayer.pause(); // never play video and music together
@@ -557,6 +562,7 @@
 			clearTimeout(hideTimer);
 			clearInterval(keepaliveTimer);
 			hls?.destroy();
+			couch.playerControlsVisible = false;
 			if (currentTime > 5 && !couch.isFollower) beaconProgress(progressBody());
 		};
 	});

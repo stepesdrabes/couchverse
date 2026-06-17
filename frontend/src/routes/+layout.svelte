@@ -27,6 +27,19 @@
 	// the upload dock hides over the player too, but the unload guard below stays
 	const showUploadDock = $derived(!onWatch && !onCouch && !onAuth);
 
+	// where the bottom-right corner stack sits: on the immersive player it rises
+	// above the controls while they're on screen so the couch bar never covers them
+	const immersive = $derived(onWatch || onCouch);
+	const stackBottom = $derived(
+		immersive
+			? couch.playerControlsVisible
+				? '5.5rem'
+				: '1rem'
+			: musicBarVisible
+				? '5.75rem'
+				: '1rem'
+	);
+
 	// warn before closing/reloading the tab while an upload could be lost. Lives
 	// in the always-mounted root layout so it holds even on the /watch player.
 	$effect(() => {
@@ -78,7 +91,7 @@
 {#if showUploadDock || couch.active}
 	<div
 		class="fixed right-4 z-40 flex flex-col items-end gap-3"
-		style="bottom: {musicBarVisible ? '5.75rem' : '1rem'}"
+		style="bottom: {stackBottom}; transition: bottom 0.25s ease;"
 	>
 		{#if showUploadDock}
 			<UploadDock />

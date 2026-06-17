@@ -12,6 +12,25 @@ export interface CouchPlaybackResp {
 	player: PlaybackInfo | null; // null while the host is choosing
 }
 
+export interface CouchInfo {
+	shareCode: string;
+	hostName: string;
+	hostAvatarId: string | null;
+	hostSeed: string;
+	playing: boolean;
+	participants: number;
+	display: {
+		title: string;
+		subtitle: string;
+		backdropId: string | null;
+		backdropAccent: string;
+	} | null;
+}
+
+/** Preview a session for the pre-join screen, without joining. Public. */
+export const getCouchInfo = (token: string) =>
+	api<CouchInfo>(`/couch/${token}/info`, { skipAuthRedirect: true });
+
 /** Host creates (or reclaims) a session for the title/episode they're watching. */
 export const createCouch = (kind: PlaybackKind, id: string) =>
 	api<Snapshot>('/couch', { method: 'POST', body: { kind, id } });

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { backOut } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import Couch from './Couch.svelte';
 	import CouchPopover from './CouchPopover.svelte';
@@ -6,7 +7,7 @@
 </script>
 
 <!-- positioning is owned by the root layout's corner stack -->
-<div class="flex items-end gap-2" transition:fly={{ y: 20, duration: 250 }}>
+<div class="flex items-end gap-2" transition:fly={{ y: 90, duration: 450, easing: backOut }}>
 	<CouchPopover triggerClass="block drop-shadow-lg transition-transform hover:scale-[1.03]">
 		{#snippet trigger()}
 			<Couch height="h-16" avatar="size-8" />
