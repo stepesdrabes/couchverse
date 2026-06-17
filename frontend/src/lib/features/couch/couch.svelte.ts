@@ -10,6 +10,17 @@ const HEARTBEAT_MS = 2000; // host re-broadcasts its play-state at this cadence
 const MAX_BACKOFF_MS = 8000;
 const REACTION_TTL_MS = 2200; // matches the rise-and-grow animation before cleanup
 const RESYNC_NOTE_MS = 2500;
+const RECENT_EMOJI_KEY = 'cv.couchRecentEmojis';
+const RECENT_EMOJI_MAX = 3;
+
+function loadRecentEmojis(): string[] {
+	try {
+		const raw = localStorage.getItem(RECENT_EMOJI_KEY);
+		return raw ? (JSON.parse(raw) as string[]).slice(0, RECENT_EMOJI_MAX) : [];
+	} catch {
+		return [];
+	}
+}
 
 /**
  * Single source of truth for a live couch session, mirroring the music player's
@@ -31,6 +42,12 @@ class Couch {
 	jitSessionId = $state<string | null>(null); // follower's own instant-play session, if any
 	mediaKey = $state(0); // bumped on media switch to re-key the follower's player
 	playerControlsVisible = $state(false); // player chrome state, so the couch bar can dodge it
+	playerMounts = $state(0); // >0 while a VideoPlayer is on screen (it hosts the couch bar)
+	recentEmojis = $state<string[]>(loadRecentEmojis()); // last few sent, for quick re-send
+
+	get playerMounted() {
+		return this.playerMounts > 0;
+	}
 
 	private locallyPaused = false;
 	private hostMedia: MediaRef = { kind: '' };
@@ -191,6 +208,15 @@ class Couch {
 
 	sendEmoji(emoji: string) {
 		this.sendRaw({ type: 'emoji', data: { emoji } });
+		this.recentEmojis = [emoji, ...this.recentEmojis.filter((e) => e !== emoji)].slice(
+			0,
+			RECENT_EMOJI_MAX
+		);
+		try {
+			localStorage.setItem(RECENT_EMOJI_KEY, JSON.stringify(this.recentEmojis));
+		} catch {
+			// storage unavailable
+		}
 	}
 
 	// --- WebSocket ---

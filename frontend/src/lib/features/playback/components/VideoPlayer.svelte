@@ -40,6 +40,7 @@
 	import { accentVars } from '$lib/theme';
 	import { formatClock } from '$lib/utils/format';
 	import { couch } from '$lib/features/couch/couch.svelte';
+	import CouchBar from '$lib/features/couch/components/CouchBar.svelte';
 	import CouchButton from '$lib/features/couch/components/CouchButton.svelte';
 	import HostAwayOverlay from '$lib/features/couch/components/HostAwayOverlay.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -532,6 +533,7 @@
 
 	onMount(() => {
 		poke();
+		couch.playerMounts++; // the on-screen player hosts the couch bar (so it survives fullscreen)
 		musicPlayer.pause(); // never play video and music together
 		if (info.mode === 'hls' && initialHlsUrl) attachHls(initialHlsUrl, null);
 
@@ -563,6 +565,7 @@
 			clearInterval(keepaliveTimer);
 			hls?.destroy();
 			couch.playerControlsVisible = false;
+			couch.playerMounts--;
 			if (currentTime > 5 && !couch.isFollower) beaconProgress(progressBody());
 		};
 	});
@@ -653,6 +656,18 @@
 					<span class="text-sm font-semibold tnum">{skipAmount}s</span>
 				</div>
 			{/key}
+		</div>
+	{/if}
+
+	<!-- the couch bar lives inside the player wrapper so it is part of the
+		fullscreen subtree (a fixed root-layout element would vanish in fullscreen),
+		and it rises above the controls while they're shown -->
+	{#if couch.active}
+		<div
+			class="absolute right-4 z-30"
+			style="bottom: {controlsVisible ? '5.5rem' : '1rem'}; transition: bottom 0.25s ease;"
+		>
+			<CouchBar portalTo={wrapper} showEmoji={controlsVisible} />
 		</div>
 	{/if}
 

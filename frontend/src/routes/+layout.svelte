@@ -27,18 +27,11 @@
 	// the upload dock hides over the player too, but the unload guard below stays
 	const showUploadDock = $derived(!onWatch && !onCouch && !onAuth);
 
-	// where the bottom-right corner stack sits: on the immersive player it rises
-	// above the controls while they're on screen so the couch bar never covers them
-	const immersive = $derived(onWatch || onCouch);
-	const stackBottom = $derived(
-		immersive
-			? couch.playerControlsVisible
-				? '5.5rem'
-				: '1rem'
-			: musicBarVisible
-				? '5.75rem'
-				: '1rem'
-	);
+	// the on-screen video player hosts the couch bar itself (so it survives
+	// fullscreen); the layout only shows it when no player is mounted
+	const showCouchBar = $derived(couch.active && !couch.playerMounted);
+	// the stack clears the music bar only when a track is actually on screen
+	const stackBottom = $derived(musicBarVisible ? '5.75rem' : '1rem');
 
 	// warn before closing/reloading the tab while an upload could be lost. Lives
 	// in the always-mounted root layout so it holds even on the /watch player.
@@ -88,7 +81,7 @@
 <!-- bottom-right corner stack: upload dock on top, couch bar at the very bottom.
 	The whole stack clears the music bar only when a track is actually playing, so
 	with no couch session and no music it sits at the bottom. -->
-{#if showUploadDock || couch.active}
+{#if showUploadDock || showCouchBar}
 	<div
 		class="fixed right-4 z-40 flex flex-col items-end gap-3"
 		style="bottom: {stackBottom}; transition: bottom 0.25s ease;"
@@ -96,7 +89,7 @@
 		{#if showUploadDock}
 			<UploadDock />
 		{/if}
-		{#if couch.active}
+		{#if showCouchBar}
 			<CouchBar />
 		{/if}
 	</div>
