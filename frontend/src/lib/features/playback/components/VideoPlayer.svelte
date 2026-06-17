@@ -39,6 +39,9 @@
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import { accentVars } from '$lib/theme';
 	import { formatClock } from '$lib/utils/format';
+	import { couch } from '$lib/features/couch/couch.svelte';
+	import CouchButton from '$lib/features/couch/components/CouchButton.svelte';
+	import HostAwayOverlay from '$lib/features/couch/components/HostAwayOverlay.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -202,6 +205,9 @@
 	};
 
 	function report() {
+		// followers never post progress: anonymous can't, and logged-in followers
+		// must not pollute their own watch-time/analytics with a synced session
+		if (couch.isFollower) return;
 		if (currentTime < 5) return;
 		lastReported = currentTime;
 		reportProgress(progressBody()).catch(() => {});
@@ -217,6 +223,15 @@
 
 	function togglePlay() {
 		if (!video) return;
+		// a follower's pause/unpause is local: unpausing resyncs to the host
+		if (couch.isFollower) {
+			if (video.paused) couch.onLocalUnpause();
+			else {
+				couch.markLocalPause();
+				video.pause();
+			}
+			return;
+		}
 		if (video.paused) video.play();
 		else video.pause();
 	}
@@ -240,9 +255,10 @@
 	}
 
 	function skip(seconds: number) {
-		if (!video) return;
+		if (!video || couch.followerLocked) return; // followers have no timeline control
 		video.currentTime = Math.min(Math.max(0, video.currentTime + seconds), duration);
 		showSkip(seconds);
+		couch.onSeek(video.currentTime);
 	}
 
 	function setVolume(v: number) {
@@ -280,8 +296,15 @@
 		currentTime = video.currentTime;
 		if (currentTime - lastReported >= 10) report();
 
-		// auto-next countdown in the last 20 seconds
-		if (info.nextEpisode && remaining <= 20 && remaining > 0 && nextCountdown === null) {
+		// auto-next countdown in the last 20 seconds (a follower's episode changes
+		// only when the host switches, never via local autoplay)
+		if (
+			info.nextEpisode &&
+			!couch.isFollower &&
+			remaining <= 20 &&
+			remaining > 0 &&
+			nextCountdown === null
+		) {
 			nextCountdown = Math.ceil(remaining);
 		}
 		if (nextCountdown !== null) {
@@ -299,22 +322,28 @@
 	}
 
 	function goNextEpisode() {
-		if (!info.nextEpisode) return;
+		if (!info.nextEpisode || couch.isFollower) return;
 		report();
 		goto(`/watch/episode/${info.nextEpisode.episodeId}`, { invalidateAll: true });
 	}
 
 	function onEnded() {
 		cueHtml = '';
+		// a follower stays put at the end; the host's next-media choice drives it
+		if (couch.isFollower) return;
 		report();
 		if (info.nextEpisode) goNextEpisode();
 		else goto(`/title/${info.display.titleSlug}`);
 	}
 
 	function seekTo(event: PointerEvent, track: HTMLElement) {
+		if (couch.followerLocked) return; // host-only timeline
 		const rect = track.getBoundingClientRect();
 		const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-		if (video) video.currentTime = ratio * duration;
+		if (video) {
+			video.currentTime = ratio * duration;
+			couch.onSeek(video.currentTime);
+		}
 	}
 
 	let scrubbing = $state(false);
@@ -489,6 +518,13 @@
 		}
 	}
 
+	// hand the media element to the couch store so it can drive a follower's sync
+	// (seek to the host position) and read a host's position for broadcasts
+	$effect(() => {
+		couch.bindVideo(video);
+		return () => couch.bindVideo(undefined);
+	});
+
 	onMount(() => {
 		poke();
 		musicPlayer.pause(); // never play video and music together
@@ -501,7 +537,7 @@
 		}
 
 		const onVisibility = () => {
-			if (document.visibilityState === 'hidden' && currentTime > 5) {
+			if (document.visibilityState === 'hidden' && currentTime > 5 && !couch.isFollower) {
 				beaconProgress(progressBody());
 			}
 		};
@@ -521,7 +557,7 @@
 			clearTimeout(hideTimer);
 			clearInterval(keepaliveTimer);
 			hls?.destroy();
-			if (currentTime > 5) beaconProgress(progressBody());
+			if (currentTime > 5 && !couch.isFollower) beaconProgress(progressBody());
 		};
 	});
 </script>
@@ -547,11 +583,13 @@
 		onplay={() => {
 			playing = true;
 			hasPlayed = true;
+			couch.onPlayStateChange(true, video?.currentTime ?? 0); // host broadcasts; follower no-op
 		}}
 		onpause={() => {
 			playing = false;
 			report();
 			poke();
+			couch.onPlayStateChange(false, video?.currentTime ?? 0);
 		}}
 		ontimeupdate={onTimeUpdate}
 		onprogress={onProgress}
@@ -612,6 +650,29 @@
 		</div>
 	{/if}
 
+	<!-- couch follower states: host away/choosing, host paused, transient resync -->
+	{#if couch.waiting}
+		<HostAwayOverlay />
+	{/if}
+	{#if couch.hostPaused}
+		<div
+			transition:fade={{ duration: 150 }}
+			class="pointer-events-none absolute top-6 left-1/2 z-30 -translate-x-1/2 rounded-full
+				bg-black/70 px-4 py-1.5 text-sm font-medium text-white backdrop-blur"
+		>
+			{m.couch_host_paused()}
+		</div>
+	{/if}
+	{#if couch.resyncVisible}
+		<div
+			transition:fade={{ duration: 150 }}
+			class="pointer-events-none absolute top-6 left-1/2 z-30 -translate-x-1/2 rounded-full
+				bg-accent/90 px-4 py-1.5 text-sm font-medium text-[var(--color-on-accent)]"
+		>
+			{m.couch_resynced()}
+		</div>
+	{/if}
+
 	{#if controlsVisible}
 		<!-- top bar -->
 		<div
@@ -619,18 +680,20 @@
 			class="absolute inset-x-0 top-0 flex items-center gap-4 bg-gradient-to-b from-black/80
 				to-transparent p-5 pb-12"
 		>
-			<Tooltip label={m.player_back_to_title()} side="bottom" portalTo={wrapper}>
-				{#snippet trigger(props)}
-					<button
-						{...props}
-						class="rounded-full p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-						onclick={() => goto(`/title/${info.display.titleSlug}`)}
-						aria-label={m.common_back()}
-					>
-						<ArrowLeft class="size-5" />
-					</button>
-				{/snippet}
-			</Tooltip>
+			{#if !couch.isFollower}
+				<Tooltip label={m.player_back_to_title()} side="bottom" portalTo={wrapper}>
+					{#snippet trigger(props)}
+						<button
+							{...props}
+							class="rounded-full p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+							onclick={() => goto(`/title/${info.display.titleSlug}`)}
+							aria-label={m.common_back()}
+						>
+							<ArrowLeft class="size-5" />
+						</button>
+					{/snippet}
+				</Tooltip>
+			{/if}
 			<div class="min-w-0">
 				<p class="truncate font-semibold text-white">{info.display.title}</p>
 				{#if info.display.subtitle}
@@ -644,9 +707,12 @@
 			transition:fade={{ duration: 200 }}
 			class="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 to-transparent px-5 pt-16 pb-5"
 		>
-			<!-- seek bar -->
+			<!-- seek bar (followers have no timeline control) -->
 			<div
-				class="group/seek relative mb-4 h-1 w-full cursor-pointer rounded-full bg-white/20"
+				class="group/seek relative mb-4 h-1 w-full rounded-full bg-white/20"
+				class:cursor-pointer={!couch.followerLocked}
+				class:pointer-events-none={couch.followerLocked}
+				class:opacity-70={couch.followerLocked}
 				onpointerdown={(e) => {
 					scrubbing = true;
 					seekTo(e, e.currentTarget);
@@ -720,30 +786,32 @@
 						</button>
 					{/snippet}
 				</Tooltip>
-				<Tooltip label={m.player_back_10_seconds()} portalTo={wrapper}>
-					{#snippet trigger(props)}
-						<button
-							{...props}
-							class="player-btn"
-							onclick={() => skip(-10)}
-							aria-label={m.player_back_10_seconds()}
-						>
-							<RotateCcw class="size-4.5" />
-						</button>
-					{/snippet}
-				</Tooltip>
-				<Tooltip label={m.player_forward_10_seconds()} portalTo={wrapper}>
-					{#snippet trigger(props)}
-						<button
-							{...props}
-							class="player-btn"
-							onclick={() => skip(10)}
-							aria-label={m.player_forward_10_seconds()}
-						>
-							<RotateCw class="size-4.5" />
-						</button>
-					{/snippet}
-				</Tooltip>
+				{#if !couch.followerLocked}
+					<Tooltip label={m.player_back_10_seconds()} portalTo={wrapper}>
+						{#snippet trigger(props)}
+							<button
+								{...props}
+								class="player-btn"
+								onclick={() => skip(-10)}
+								aria-label={m.player_back_10_seconds()}
+							>
+								<RotateCcw class="size-4.5" />
+							</button>
+						{/snippet}
+					</Tooltip>
+					<Tooltip label={m.player_forward_10_seconds()} portalTo={wrapper}>
+						{#snippet trigger(props)}
+							<button
+								{...props}
+								class="player-btn"
+								onclick={() => skip(10)}
+								aria-label={m.player_forward_10_seconds()}
+							>
+								<RotateCw class="size-4.5" />
+							</button>
+						{/snippet}
+					</Tooltip>
+				{/if}
 
 				<div class="group/vol flex items-center gap-2">
 					<Tooltip label={muted ? m.player_unmute() : m.player_mute()} portalTo={wrapper}>
@@ -781,7 +849,13 @@
 
 				<div class="flex-1"></div>
 
-				{#if episodesBySeason.length > 0}
+				<CouchButton
+					kind={titleId ? 'movie' : 'episode'}
+					id={titleId ?? episodeId ?? ''}
+					portalTo={wrapper}
+				/>
+
+				{#if episodesBySeason.length > 0 && !couch.isFollower}
 					<Popover.Root>
 						<Popover.Trigger
 							class="player-btn"

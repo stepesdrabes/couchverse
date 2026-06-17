@@ -43,8 +43,9 @@
 	}));
 
 	let musicEnabled = $state(true);
+	let couchEnabled = $state(true);
 	let savingFeatures = $state(false);
-	const featuresForm = new FormState(() => ({ musicEnabled }));
+	const featuresForm = new FormState(() => ({ musicEnabled, couchEnabled }));
 
 	let featuredCount = $state('3');
 	let savingHome = $state(false);
@@ -81,8 +82,11 @@
 					tmdbForm.reset();
 				}
 				if (!featuresForm.dirty) {
-					const flags = s.features as { musicEnabled?: boolean } | undefined;
+					const flags = s.features as
+						| { musicEnabled?: boolean; couchEnabled?: boolean }
+						| undefined;
 					musicEnabled = flags?.musicEnabled ?? true;
+					couchEnabled = flags?.couchEnabled ?? true;
 					featuresForm.reset();
 				}
 				if (!accentForm.dirty) {
@@ -179,8 +183,9 @@
 		e.preventDefault();
 		savingFeatures = true;
 		try {
-			await settingsApi.putSettings({ features: { musicEnabled } });
+			await settingsApi.putSettings({ features: { musicEnabled, couchEnabled } });
 			features.musicEnabled = musicEnabled;
+			features.couchEnabled = couchEnabled;
 			featuresForm.reset();
 			toast.success(m.settings_features_saved());
 		} catch {
@@ -442,6 +447,18 @@
 						</span>
 					</span>
 					<Switch bind:checked={musicEnabled} />
+				</label>
+
+				<label
+					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"
+				>
+					<span>
+						<span class="block text-sm">{m.settings_couch_sessions_label()}</span>
+						<span class="block text-[11px] text-faint">
+							{m.settings_couch_sessions_hint()}
+						</span>
+					</span>
+					<Switch bind:checked={couchEnabled} />
 				</label>
 
 				<div class="flex justify-end">

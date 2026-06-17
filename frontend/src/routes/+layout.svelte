@@ -1,9 +1,11 @@
 <script lang="ts">
 	import '../app.css';
 	import 'flag-icons/css/flag-icons.min.css';
-	import { onNavigate } from '$app/navigation';
+	import { afterNavigate, onNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Toaster } from 'svelte-sonner';
+	import { couch } from '$lib/features/couch/couch.svelte';
+	import CouchBar from '$lib/features/couch/components/CouchBar.svelte';
 	import PlayerBar from '$lib/features/music/components/PlayerBar.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
 	import UploadDock from '$lib/features/uploads/components/UploadDock.svelte';
@@ -13,11 +15,13 @@
 
 	const onWatch = $derived(page.route.id?.includes('/watch/') ?? false);
 	const onAuth = $derived(page.route.id?.includes('(auth)') ?? false);
+	// the couch player is fully immersive, like /watch
+	const onCouch = $derived(page.route.id?.includes('/couch/') ?? false);
 
 	// the music bar yields to the video player and the login screen
-	const showPlayerBar = $derived(!onWatch && !onAuth && features.musicEnabled);
+	const showPlayerBar = $derived(!onWatch && !onCouch && !onAuth && features.musicEnabled);
 	// the upload dock hides over the player too, but the unload guard below stays
-	const showUploadDock = $derived(!onWatch && !onAuth);
+	const showUploadDock = $derived(!onWatch && !onCouch && !onAuth);
 
 	// warn before closing/reloading the tab while an upload could be lost. Lives
 	// in the always-mounted root layout so it holds even on the /watch player.
@@ -29,6 +33,17 @@
 		};
 		window.addEventListener('beforeunload', onBeforeUnload);
 		return () => window.removeEventListener('beforeunload', onBeforeUnload);
+	});
+
+	// while hosting a couch, keep the session's media in step with the host's
+	// navigation: switching episode/title propagates, leaving the player -> "choosing"
+	afterNavigate(() => {
+		if (!couch.isHost) return;
+		if (page.route.id?.includes('/watch/')) {
+			couch.setHostMedia(page.params.kind ?? '', page.params.id ?? '');
+		} else {
+			couch.setHostMedia('', '');
+		}
 	});
 
 	// soft cross-fade between pages via the View Transitions API
@@ -55,6 +70,10 @@
 
 {#if showUploadDock}
 	<UploadDock playerBarVisible={showPlayerBar} />
+{/if}
+
+{#if couch.active}
+	<CouchBar />
 {/if}
 
 <Toaster

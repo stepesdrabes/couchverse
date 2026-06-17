@@ -4,6 +4,7 @@
 	import { LogOut, Search, Shield, UserRound } from 'lucide-svelte';
 	import { session } from '$lib/features/auth/session.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
+	import CouchButton from '$lib/features/couch/components/CouchButton.svelte';
 	import LogoMark from '$lib/components/ui/LogoMark.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import LanguageSwitcher from '$lib/components/layout/LanguageSwitcher.svelte';
@@ -76,6 +77,10 @@
 			>
 				<Search class="size-5" />
 			</a>
+
+			<CouchButton
+				triggerClass="rounded-full p-2.5 text-text/90 transition-colors hover:bg-surface-2 hover:text-text"
+			/>
 
 			<LanguageSwitcher />
 

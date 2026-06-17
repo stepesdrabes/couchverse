@@ -9,6 +9,7 @@ export const putSettings = (patch: Settings) =>
 
 export interface FeatureFlags {
 	musicEnabled: boolean;
+	couchEnabled: boolean;
 }
 
 export const getFeatures = () => api<FeatureFlags>('/features');
