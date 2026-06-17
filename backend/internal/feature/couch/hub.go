@@ -9,9 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/auth"
-	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/flags"
 	"couchverse/internal/media"
@@ -24,7 +22,9 @@ import (
 
 const (
 	defaultMaxParticipants = 20
+	defaultHostGrace       = 60 * time.Second
 	roomIdleTTL            = 30 * time.Minute
+	followerGrace          = 2 * time.Minute
 )
 
 var (
@@ -32,21 +32,34 @@ var (
 	errNotLive  = errors.New("couch: session is no longer live")
 )
 
-// Deps are the collaborators the Hub needs. Catalog resolves the current
-// media; Playback builds a follower's player payload; Analytics records the
-// separate on-couch watch-time stat; Settings backs the couchEnabled flag.
+// MediaResolver resolves the current media to its playable file set (satisfied
+// by *catalog.Store). PlaybackBuilder builds a follower's player payload
+// (satisfied by *playback.Stream). Narrow interfaces keep the Hub testable.
+type MediaResolver interface {
+	PrimaryMediaFileForTitle(ctx context.Context, titleID string) (*media.MediaFile, error)
+	PrimaryMediaFileForEpisode(ctx context.Context, episodeID string) (*media.MediaFile, error)
+	AudioSiblings(ctx context.Context, titleID, episodeID *string, excludeID string) ([]media.MediaFile, error)
+}
+
+type PlaybackBuilder interface {
+	BuildPlayback(ctx context.Context, kind, id string, userID *int64, caps []string) (*playback.PlaybackInfo, error)
+}
+
+// Deps are the collaborators the Hub needs. Settings backs the couchEnabled flag.
 type Deps struct {
-	Catalog   *catalog.Store
-	Playback  *playback.Stream
-	Analytics *analytics.Store
-	Settings  *settings.Store
-	Secure    bool
+	Media    MediaResolver
+	Playback PlaybackBuilder
+	Settings *settings.Store
+	Secure   bool
 }
 
 type Hub struct {
 	deps            Deps
 	secure          bool
+	appCtx          context.Context
+	epoch           time.Time
 	maxParticipants int
+	hostGrace       time.Duration
 
 	mu      sync.RWMutex
 	rooms   map[string]*room           // sessionID  -> room
@@ -64,7 +77,10 @@ func NewHub(appCtx context.Context, deps Deps) *Hub {
 	h := &Hub{
 		deps:            deps,
 		secure:          deps.Secure,
+		appCtx:          appCtx,
+		epoch:           time.Now(),
 		maxParticipants: defaultMaxParticipants,
+		hostGrace:       defaultHostGrace,
 		rooms:           map[string]*room{},
 		byShare:         map[string]*room{},
 		byHost:          map[int64]*room{},
@@ -73,6 +89,10 @@ func NewHub(appCtx context.Context, deps Deps) *Hub {
 	go h.reapLoop(appCtx)
 	return h
 }
+
+// nowMs is a monotonic millisecond clock anchored at process start. Relayed
+// verbatim so all clients share one timeline and sidestep wall-clock skew.
+func (h *Hub) nowMs() int64 { return time.Since(h.epoch).Milliseconds() }
 
 // mediaRef identifies what the host is watching. An empty Kind means the host
 // is on the browse screen ("choosing what to watch").
@@ -102,6 +122,7 @@ type hostState struct {
 }
 
 type room struct {
+	hub        *Hub
 	sessionID  string
 	shareToken string
 	hostUserID int64
@@ -111,7 +132,9 @@ type room struct {
 	lastActive      time.Time
 	state           hostState
 	participants    map[string]*participant
+	conns           map[*conn]struct{}
 	allowedMediaIDs map[string]struct{}
+	graceTimer      *time.Timer
 }
 
 func (rm *room) hostParticipantLocked() *participant {
@@ -121,6 +144,20 @@ func (rm *room) hostParticipantLocked() *participant {
 		}
 	}
 	return nil
+}
+
+func (rm *room) hostConnsLocked() int {
+	if p := rm.hostParticipantLocked(); p != nil {
+		return p.connCount
+	}
+	return 0
+}
+
+func (rm *room) isHostParticipant(pid string) bool {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	p := rm.participants[pid]
+	return p != nil && p.IsHost
 }
 
 // resolveAllowed returns the media file ids a follower may stream for ref: the
@@ -134,9 +171,9 @@ func (h *Hub) resolveAllowed(ctx context.Context, ref mediaRef) (map[string]stru
 	)
 	switch ref.Kind {
 	case "movie":
-		primary, err = h.deps.Catalog.PrimaryMediaFileForTitle(ctx, ref.TitleID)
+		primary, err = h.deps.Media.PrimaryMediaFileForTitle(ctx, ref.TitleID)
 	case "episode":
-		primary, err = h.deps.Catalog.PrimaryMediaFileForEpisode(ctx, ref.EpisodeID)
+		primary, err = h.deps.Media.PrimaryMediaFileForEpisode(ctx, ref.EpisodeID)
 	default:
 		return set, nil
 	}
@@ -144,7 +181,7 @@ func (h *Hub) resolveAllowed(ctx context.Context, ref mediaRef) (map[string]stru
 		return nil, err
 	}
 	set[primary.ID] = struct{}{}
-	if sibs, serr := h.deps.Catalog.AudioSiblings(ctx, primary.TitleID, primary.EpisodeID, primary.ID); serr == nil {
+	if sibs, serr := h.deps.Media.AudioSiblings(ctx, primary.TitleID, primary.EpisodeID, primary.ID); serr == nil {
 		for i := range sibs {
 			set[sibs[i].ID] = struct{}{}
 		}
@@ -154,7 +191,7 @@ func (h *Hub) resolveAllowed(ctx context.Context, ref mediaRef) (map[string]stru
 
 // createOrReclaim starts a session for the host, or returns and refreshes the
 // host's existing live session (a refresh / second tab reclaims, never spawns a
-// duplicate). The DB resolution happens before the lock.
+// duplicate). DB resolution happens before the lock.
 func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef) (*room, *participant, string, error) {
 	allowed, err := h.resolveAllowed(ctx, ref)
 	if err != nil {
@@ -180,6 +217,7 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef
 
 	host := newParticipant(user, true)
 	rm := &room{
+		hub:             h,
 		sessionID:       uuid.NewString(),
 		shareToken:      randToken(24),
 		hostUserID:      user.ID,
@@ -187,6 +225,7 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef
 		lastActive:      time.Now(),
 		state:           hostState{Media: ref},
 		participants:    map[string]*participant{host.ID: host},
+		conns:           map[*conn]struct{}{},
 		allowedMediaIDs: allowed,
 	}
 	token := h.issueTokenLocked(rm, host)
@@ -212,38 +251,44 @@ func (h *Hub) issueTokenLocked(rm *room, p *participant) string {
 // host opening their own share link reclaims the host seat.
 func (h *Hub) join(rm *room, user *auth.User) (*participant, string, string, error) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
-
 	rm.mu.Lock()
 	if !rm.live {
 		rm.mu.Unlock()
+		h.mu.Unlock()
 		return nil, "", "", errNotLive
 	}
 	if user != nil && user.ID == rm.hostUserID {
 		host := rm.hostParticipantLocked()
 		rm.lastActive = time.Now()
 		rm.mu.Unlock()
-		return host, h.issueTokenLocked(rm, host), "host", nil
+		token := h.issueTokenLocked(rm, host)
+		h.mu.Unlock()
+		return host, token, "host", nil
 	}
 	if len(rm.participants) >= h.maxParticipants {
 		rm.mu.Unlock()
+		h.mu.Unlock()
 		return nil, "", "", errRoomFull
 	}
 	p := newParticipant(user, false)
 	rm.participants[p.ID] = p
 	rm.lastActive = time.Now()
 	rm.mu.Unlock()
-	return p, h.issueTokenLocked(rm, p), "follower", nil
+	token := h.issueTokenLocked(rm, p)
+	h.mu.Unlock()
+
+	rm.broadcastParticipants()
+	return p, token, "follower", nil
 }
 
 // leaveByToken removes the participant identified by a cookie token. If the
 // host leaves or the room empties, the session ends.
 func (h *Hub) leaveByToken(rawToken string) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	hash := hashToken(rawToken)
 	ref := h.byToken[hash]
 	if ref == nil {
+		h.mu.Unlock()
 		return
 	}
 	delete(h.byToken, hash)
@@ -254,8 +299,14 @@ func (h *Hub) leaveByToken(rawToken string) {
 	delete(rm.participants, ref.pid)
 	empty := len(rm.participants) == 0
 	rm.mu.Unlock()
+	ended := false
 	if isHost || empty {
-		h.endRoomLocked(rm)
+		h.endRoomLocked(rm, "host_left")
+		ended = true
+	}
+	h.mu.Unlock()
+	if !ended {
+		rm.broadcastParticipants()
 	}
 }
 
@@ -268,27 +319,62 @@ func (h *Hub) endByHostToken(rawToken string) bool {
 		return false
 	}
 	rm := ref.room
-	rm.mu.Lock()
-	p := rm.participants[ref.pid]
-	isHost := p != nil && p.IsHost
-	rm.mu.Unlock()
-	if !isHost {
+	if !rm.isHostParticipant(ref.pid) {
 		return false
 	}
-	h.endRoomLocked(rm)
+	h.endRoomLocked(rm, "host_ended")
 	return true
 }
 
-// endRoomLocked marks a room dead and purges it from every index. Caller holds
-// h.mu. Every cookie that mapped to it now dangles, so the stream guard denies.
-func (h *Hub) endRoomLocked(rm *room) {
+// expireHost ends a session whose host has not reconnected within the grace
+// window. Invoked from the grace timer goroutine.
+func (h *Hub) expireHost(rm *room) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	rm.mu.Lock()
+	stillGone := rm.live && rm.hostConnsLocked() == 0
+	rm.mu.Unlock()
+	if stillGone {
+		h.endRoomLocked(rm, "host_timeout")
+	}
+}
+
+// startHostGrace arms (or re-arms) the timer that ends the session if the host
+// does not reconnect.
+func (h *Hub) startHostGrace(rm *room) {
+	rm.mu.Lock()
+	if rm.graceTimer != nil {
+		rm.graceTimer.Stop()
+	}
+	rm.graceTimer = time.AfterFunc(h.hostGrace, func() { h.expireHost(rm) })
+	rm.mu.Unlock()
+}
+
+// endRoomLocked marks a room dead, notifies + closes its connections, and purges
+// it from every index. Caller holds h.mu. Every cookie that mapped to it now
+// dangles, so the stream guard denies.
+func (h *Hub) endRoomLocked(rm *room, reason string) {
 	rm.mu.Lock()
 	if !rm.live {
 		rm.mu.Unlock()
 		return
 	}
 	rm.live = false
+	if rm.graceTimer != nil {
+		rm.graceTimer.Stop()
+		rm.graceTimer = nil
+	}
+	conns := make([]*conn, 0, len(rm.conns))
+	for c := range rm.conns {
+		conns = append(conns, c)
+	}
 	rm.mu.Unlock()
+
+	frame := mustEnvelope(msgSessionEnded, sessionEndedData{Reason: reason})
+	for _, c := range conns {
+		c.enqueue(frame)
+		c.beginClose()
+	}
 
 	delete(h.rooms, rm.sessionID)
 	delete(h.byShare, rm.shareToken)
@@ -316,8 +402,14 @@ func (h *Hub) AllowsAnon(r *http.Request, mediaFileID string) bool {
 	if err != nil || c.Value == "" {
 		return false
 	}
+	return h.allows(c.Value, mediaFileID)
+}
+
+// allows is the cookie-token core of AllowsAnon (no flag/cookie parsing), kept
+// separate so the authorization rule can be unit-tested without an HTTP request.
+func (h *Hub) allows(rawToken, mediaFileID string) bool {
 	h.mu.RLock()
-	ref := h.byToken[hashToken(c.Value)]
+	ref := h.byToken[hashToken(rawToken)]
 	h.mu.RUnlock()
 	if ref == nil {
 		return false
@@ -357,14 +449,8 @@ func (h *Hub) Shutdown() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for _, rm := range h.rooms {
-		rm.mu.Lock()
-		rm.live = false
-		rm.mu.Unlock()
+		h.endRoomLocked(rm, "server_shutdown")
 	}
-	h.rooms = map[string]*room{}
-	h.byShare = map[string]*room{}
-	h.byHost = map[int64]*room{}
-	h.byToken = map[string]*participantRef{}
 }
 
 func (h *Hub) reapLoop(ctx context.Context) {
@@ -381,21 +467,41 @@ func (h *Hub) reapLoop(ctx context.Context) {
 	}
 }
 
+// reapIdle ends abandoned sessions and prunes followers whose connections have
+// been gone past the grace window (e.g. a closed tab that never sent /leave).
 func (h *Hub) reapIdle() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for _, rm := range h.rooms {
 		rm.mu.Lock()
 		idle := time.Since(rm.lastActive)
+		var removed []string
+		for pid, p := range rm.participants {
+			if !p.IsHost && p.connCount == 0 && !p.disconnectedAt.IsZero() && time.Since(p.disconnectedAt) > followerGrace {
+				delete(rm.participants, pid)
+				removed = append(removed, pid)
+			}
+		}
 		rm.mu.Unlock()
+
+		if len(removed) > 0 {
+			for hash, ref := range h.byToken {
+				for _, pid := range removed {
+					if ref.room == rm && ref.pid == pid {
+						delete(h.byToken, hash)
+					}
+				}
+			}
+			rm.broadcastParticipants()
+		}
 		if idle > roomIdleTTL {
-			h.endRoomLocked(rm)
+			h.endRoomLocked(rm, "idle")
 		}
 	}
 }
 
-// snapshot is the session state returned by create/join (and, in the WS layer,
-// the initial hello). Participant unexported fields are not serialized.
+// snapshot is the session state returned by create/join. Participant unexported
+// fields are not serialized.
 type snapshot struct {
 	SessionID       string        `json:"sessionId"`
 	ShareToken      string        `json:"shareToken"`

@@ -2,6 +2,7 @@ package couch
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -10,7 +11,7 @@ import (
 	"couchverse/internal/settings"
 )
 
-// Module mounts the couch HTTP routes. The WebSocket route is added in ws.go.
+// Module mounts the couch HTTP + WebSocket routes.
 type Module struct {
 	hub      *Hub
 	handlers *Handlers
@@ -18,7 +19,11 @@ type Module struct {
 }
 
 func NewModule(hub *Hub, set *settings.Store) *Module {
-	return &Module{hub: hub, handlers: &Handlers{hub: hub}, settings: set}
+	return &Module{
+		hub:      hub,
+		handlers: &Handlers{hub: hub, joinRate: newRateLimiter(10, time.Minute)},
+		settings: set,
+	}
 }
 
 // MountUser registers the public couch routes (anonymous followers must reach
@@ -32,6 +37,7 @@ func (m *Module) MountUser(r chi.Router) {
 		c.Post("/couch/{token}/leave", m.handlers.Leave)
 		c.Post("/couch/{token}/end", m.handlers.End)
 		c.Get("/couch/{token}/playback", withLang(m.handlers.Playback))
+		c.Get("/couch/{token}/ws", m.handlers.WS)
 	})
 }
 

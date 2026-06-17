@@ -14,7 +14,8 @@ import (
 )
 
 type Handlers struct {
-	hub *Hub
+	hub      *Hub
+	joinRate *rateLimiter
 }
 
 // Create starts (or reclaims) a couch session for the logged-in host watching a
@@ -59,6 +60,10 @@ func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 // Join adds the caller (logged-in or anonymous) to a session via its share token
 // and sets their couch cookie.
 func (h *Handlers) Join(w http.ResponseWriter, r *http.Request) {
+	if !h.joinRate.allow(r.RemoteAddr) {
+		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many join attempts, slow down")
+		return
+	}
 	rm := h.hub.roomByShare(chi.URLParam(r, "token"))
 	if rm == nil {
 		httpx.Error(w, http.StatusNotFound, "no_session", "this couch session does not exist or has ended")

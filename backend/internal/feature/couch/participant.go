@@ -3,6 +3,7 @@ package couch
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -21,8 +22,10 @@ type participant struct {
 	IsHost      bool    `json:"isHost"`
 	IsAnonymous bool    `json:"isAnonymous"`
 
-	tokenHash string // hex SHA-256 of the current cookie token
-	userID    int64  // 0 when anonymous
+	tokenHash      string    // hex SHA-256 of the current cookie token
+	userID         int64     // 0 when anonymous
+	connCount      int       // live WebSocket connections (multi-tab)
+	disconnectedAt time.Time // when connCount last fell to 0 (for follower reaping)
 }
 
 // newParticipant builds a participant from an optional logged-in user. A nil
