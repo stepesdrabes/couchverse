@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { backOut } from 'svelte/easing';
-	import { fade, fly, slide } from 'svelte/transition';
+	import { Pause } from 'lucide-svelte';
+	import { backOut, cubicOut } from 'svelte/easing';
+	import { fade, fly, scale } from 'svelte/transition';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import { couch } from '$lib/features/couch/couch.svelte';
@@ -9,6 +10,7 @@
 	import CouchMiddle from './icons/CouchMiddle.svelte';
 	import CouchRight from './icons/CouchRight.svelte';
 	import Remote from './icons/Remote.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let { height = 'h-20', avatar = 'size-9' }: { height?: string; avatar?: string } = $props();
 
@@ -26,6 +28,19 @@
 		ready = true;
 	});
 	const seatIn = $derived(ready ? { y: -28, duration: 350, easing: backOut } : { duration: 0 });
+
+	// width-only grow used for couch sections: Svelte's slide also animates height
+	// (which warped the couch), this touches width + margin only.
+	function growX(node: Element, { duration = 350 }: { duration?: number } = {}) {
+		const style = getComputedStyle(node);
+		const width = parseFloat(style.width) || 0;
+		const ml = parseFloat(style.marginLeft) || 0;
+		return {
+			duration,
+			easing: cubicOut,
+			css: (t: number) => `overflow: hidden; width: ${t * width}px; margin-left: ${t * ml}px;`
+		};
+	}
 </script>
 
 <div class="relative inline-flex text-accent" in:fly={{ y: -28, duration: 350, easing: backOut }}>
@@ -42,27 +57,40 @@
 								name={p.displayName}
 								avatarId={p.avatarId ?? null}
 								seed={p.seed}
-								class="{avatar} rounded-lg text-[10px] ring-2 ring-black/40"
+								class="{avatar} rounded-lg text-[10px] ring-2 ring-black/40 transition-[filter,transform]
+									duration-300 {p.paused ? 'scale-90 grayscale' : 'scale-100 grayscale-0'}"
 							/>
 						</span>
 					{/snippet}
 				</Tooltip>
+
 				{#if p.isHost}
+					<Tooltip label={m.couch_has_remote({ name: p.displayName })} side="top">
+						{#snippet trigger(props)}
+							<span
+								{...props}
+								class="absolute -top-3 -right-2.5 flex size-5 rotate-12 items-center justify-center
+									rounded-full bg-black/70 text-white shadow"
+							>
+								<Remote class="size-3" />
+							</span>
+						{/snippet}
+					</Tooltip>
+				{/if}
+
+				{#if p.paused}
 					<span
-						class="absolute -top-2.5 -right-2 flex size-4 rotate-12 items-center justify-center
-							rounded-full bg-black/70 text-white shadow"
-						title="Host"
+						transition:scale={{ duration: 200, start: 0.4 }}
+						class="absolute -top-3 left-1/2 flex size-5 -translate-x-1/2 items-center justify-center
+							rounded-full bg-black/75 text-white shadow"
 					>
-						<Remote class="size-2.5" />
+						<Pause class="size-3 fill-current" />
 					</span>
 				{/if}
-				<!-- reactions fly up from the sender's seat -->
+
+				<!-- reactions rise up from the sender's seat, growing as they fade -->
 				{#each reactionsFor(p.id) as r (r.id)}
-					<span
-						class="pointer-events-none absolute -top-1 left-1/2 z-20 -translate-x-1/2 text-xl"
-						in:fly={{ y: -40, duration: 1200 }}
-						out:fade={{ duration: 250 }}
-					>
+					<span class="couch-reaction pointer-events-none absolute -top-1 left-1/2 z-20 text-xl">
 						{r.emoji}
 					</span>
 				{/each}
@@ -70,14 +98,37 @@
 		{/each}
 	</div>
 
-	<!-- the assembled couch frame -->
+	<!-- the assembled couch frame (sections overlap 1px to avoid sub-pixel seams) -->
 	<div class="flex items-end {height}">
 		<CouchLeft class="h-full w-auto" />
 		{#each middles as i (i)}
-			<div class="flex h-full" transition:slide={{ axis: 'x' as const, duration: 350 }}>
+			<div class="-ml-px flex h-full" transition:growX={{ duration: ready ? 350 : 0 }}>
 				<CouchMiddle class="h-full w-auto" />
 			</div>
 		{/each}
-		<CouchRight class="h-full w-auto" />
+		<CouchRight class="-ml-px h-full w-auto" />
 	</div>
 </div>
+
+<style>
+	.couch-reaction {
+		transform: translate(-50%, 0) scale(0.5);
+		animation: couch-reaction-rise 2s cubic-bezier(0.25, 0.6, 0.3, 1) forwards;
+	}
+	@keyframes couch-reaction-rise {
+		0% {
+			transform: translate(-50%, 6px) scale(0.5);
+			opacity: 0;
+		}
+		15% {
+			opacity: 1;
+		}
+		70% {
+			opacity: 1;
+		}
+		100% {
+			transform: translate(-50%, -95px) scale(1.7);
+			opacity: 0;
+		}
+	}
+</style>

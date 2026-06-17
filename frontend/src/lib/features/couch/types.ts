@@ -15,6 +15,7 @@ export interface Participant {
 	seed?: string;
 	isHost: boolean;
 	isAnonymous: boolean;
+	paused?: boolean; // follower paused their own playback locally
 }
 
 /** Authoritative play-state relayed from the host (server-stamped). */

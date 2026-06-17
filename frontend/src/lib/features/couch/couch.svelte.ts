@@ -8,7 +8,7 @@ import type { CouchRole, HostState, MediaRef, Participant, Reaction, Snapshot } 
 const DRIFT_THRESHOLD = 3; // seconds before a follower hard-seeks back into sync
 const HEARTBEAT_MS = 2000; // host re-broadcasts its play-state at this cadence
 const MAX_BACKOFF_MS = 8000;
-const REACTION_TTL_MS = 1600; // matches the fly-up animation before cleanup
+const REACTION_TTL_MS = 2200; // matches the rise-and-grow animation before cleanup
 const RESYNC_NOTE_MS = 2500;
 
 /**
@@ -166,13 +166,19 @@ class Couch {
 		if (this.isHost) this.sendHostState(!this.video?.paused, positionSeconds);
 	}
 	markLocalPause() {
-		if (this.isFollower) this.locallyPaused = true;
+		if (this.isFollower) this.setLocalPaused(true);
 	}
 	onLocalUnpause() {
 		if (this.isFollower) {
-			this.locallyPaused = false;
+			this.setLocalPaused(false);
 			this.resync('hard');
 		}
+	}
+
+	private setLocalPaused(paused: boolean) {
+		if (this.locallyPaused === paused) return;
+		this.locallyPaused = paused;
+		this.sendRaw({ type: 'paused', data: { paused } }); // shows on everyone's couch
 	}
 
 	/** The root layout calls this after every navigation so a host switching
@@ -285,6 +291,7 @@ class Couch {
 
 	private async refreshPlayer() {
 		if (!this.token || this.isHost) return;
+		this.setLocalPaused(false); // a fresh title starts unpaused
 		try {
 			const { player, jitSessionId } = await couchApi.resolveCouchPlayer(this.token);
 			this.playerInfo = player;
