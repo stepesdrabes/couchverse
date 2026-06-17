@@ -26,10 +26,9 @@
 		ready = true;
 	});
 	const seatIn = $derived(ready ? { y: -28, duration: 350, easing: backOut } : { duration: 0 });
-	const sectionIn = $derived(ready ? { axis: 'x' as const, duration: 350 } : { duration: 0 });
 </script>
 
-<div class="relative inline-flex text-accent">
+<div class="relative inline-flex text-accent" in:fly={{ y: -28, duration: 350, easing: backOut }}>
 	<!-- seated avatars overlaid on the cushions -->
 	<div
 		class="absolute inset-x-0 top-1/2 z-10 flex -translate-y-[60%] items-end justify-center gap-6 px-5"
@@ -75,7 +74,7 @@
 	<div class="flex items-end {height}">
 		<CouchLeft class="h-full w-auto" />
 		{#each middles as i (i)}
-			<div class="flex h-full" transition:slide={sectionIn}>
+			<div class="flex h-full" transition:slide={{ axis: 'x' as const, duration: 350 }}>
 				<CouchMiddle class="h-full w-auto" />
 			</div>
 		{/each}
