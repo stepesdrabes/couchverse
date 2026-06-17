@@ -387,6 +387,43 @@
 	</div>
 {/if}
 
+{#if analytics && analytics.totals.couchSeconds > 0}
+	<div class="mt-6" in:fly|global={{ y: 20, duration: 400 }}>
+		<div class="rounded-card border border-edge bg-surface/40 p-6">
+			<div class="mb-1 flex items-baseline justify-between">
+				<h2 class="text-sm font-semibold text-muted">{m.admin_couch_watch_time()}</h2>
+				<span class="text-xs text-faint tnum">
+					{m.admin_total_value({ value: formatUptime(analytics.totals.couchSeconds) })}
+				</span>
+			</div>
+			<p class="mb-3 text-[11px] text-faint">{m.admin_couch_watch_hint()}</p>
+			{#if analytics.topCouchTitles.length > 0}
+				<ul class="grid gap-x-8 gap-y-2.5 text-xs sm:grid-cols-2">
+					{#each analytics.topCouchTitles.slice(0, 6) as title (title.titleId)}
+						<li>
+							<div class="flex items-baseline justify-between gap-3">
+								<a
+									href="/title/{title.slug}"
+									class="truncate font-medium transition-colors hover:text-accent"
+								>
+									{title.name}
+								</a>
+								<span class="shrink-0 text-faint tnum">{formatUptime(title.seconds)}</span>
+							</div>
+							<div class="mt-1 h-1 overflow-hidden rounded-full bg-surface-2">
+								<div
+									class="h-full rounded-full bg-accent"
+									style="width: {(title.seconds / analytics.topCouchTitles[0].seconds) * 100}%"
+								></div>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	</div>
+{/if}
+
 <div class="mt-6 grid gap-6 lg:grid-cols-2" in:fly|global={{ y: 20, duration: 400, delay: 80 }}>
 	{#if storage && storage.diskTotal > 0}
 		<div class="rounded-card border border-edge bg-surface/40 p-6">

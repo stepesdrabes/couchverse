@@ -6,6 +6,8 @@
 	"admin_avg_active_users": "průměrně {count} aktivních uživatelů/den",
 	"admin_back_to_app": "Zpět do aplikace",
 	"admin_cores": "{count} jader",
+	"admin_couch_watch_hint": "Čas, který diváci stráví společným sledováním na gauči, podle titulu - sledováno odděleně od běžného času sledování.",
+	"admin_couch_watch_time": "Čas sledování na gauči",
 	"admin_cpu": "CPU",
 	"admin_cpu_unavailable": "Statistiky CPU hostitele nejsou na této platformě dostupné.",
 	"admin_episodes": "Epizody",

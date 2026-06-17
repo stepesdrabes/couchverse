@@ -25,6 +25,7 @@ const (
 	defaultHostGrace       = 60 * time.Second
 	roomIdleTTL            = 30 * time.Minute
 	followerGrace          = 2 * time.Minute
+	couchWatchInterval     = 20 * time.Second // accrual cadence for on-couch watch-time
 )
 
 var (
@@ -45,12 +46,19 @@ type PlaybackBuilder interface {
 	BuildPlayback(ctx context.Context, kind, id string, userID *int64, caps []string) (*playback.PlaybackInfo, error)
 }
 
+// CouchWatchRecorder persists the separate on-couch watch-time stat (satisfied
+// by *analytics.Store). Best-effort; nil disables accrual (e.g. in tests).
+type CouchWatchRecorder interface {
+	RecordCouchWatch(ctx context.Context, titleID string, seconds int) error
+}
+
 // Deps are the collaborators the Hub needs. Settings backs the couchEnabled flag.
 type Deps struct {
-	Media    MediaResolver
-	Playback PlaybackBuilder
-	Settings *settings.Store
-	Secure   bool
+	Media     MediaResolver
+	Playback  PlaybackBuilder
+	Analytics CouchWatchRecorder
+	Settings  *settings.Store
+	Secure    bool
 }
 
 type Hub struct {
@@ -87,7 +95,55 @@ func NewHub(appCtx context.Context, deps Deps) *Hub {
 		byToken:         map[string]*participantRef{},
 	}
 	go h.reapLoop(appCtx)
+	if deps.Analytics != nil {
+		go h.accrualLoop(appCtx)
+	}
 	return h
+}
+
+// accrualLoop periodically tallies follower watch-time per title (the separate
+// on-couch stat). Best-effort: a failed record is dropped, never blocks a room.
+func (h *Hub) accrualLoop(ctx context.Context) {
+	t := time.NewTicker(couchWatchInterval)
+	defer t.Stop()
+	secs := int(couchWatchInterval.Seconds())
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			h.accrueWatch(ctx, secs)
+		}
+	}
+}
+
+func (h *Hub) accrueWatch(ctx context.Context, intervalSecs int) {
+	type entry struct {
+		titleID string
+		seconds int
+	}
+	var entries []entry
+	h.mu.RLock()
+	for _, rm := range h.rooms {
+		rm.mu.Lock()
+		if rm.live && rm.state.Playing && !rm.state.Away && rm.titleID != "" {
+			followers := 0
+			for _, p := range rm.participants {
+				if !p.IsHost && p.connCount > 0 {
+					followers++
+				}
+			}
+			if followers > 0 {
+				entries = append(entries, entry{rm.titleID, intervalSecs * followers})
+			}
+		}
+		rm.mu.Unlock()
+	}
+	h.mu.RUnlock()
+
+	for _, e := range entries {
+		_ = h.deps.Analytics.RecordCouchWatch(ctx, e.titleID, e.seconds)
+	}
 }
 
 // nowMs is a monotonic millisecond clock anchored at process start. Relayed
@@ -131,6 +187,7 @@ type room struct {
 	live            bool
 	lastActive      time.Time
 	state           hostState
+	titleID         string // series/movie title id of the current media (for watch-time)
 	participants    map[string]*participant
 	conns           map[*conn]struct{}
 	allowedMediaIDs map[string]struct{}
@@ -160,10 +217,11 @@ func (rm *room) isHostParticipant(pid string) bool {
 	return p != nil && p.IsHost
 }
 
-// resolveAllowed returns the media file ids a follower may stream for ref: the
-// primary playable file plus its model-B audio siblings (so switching audio
-// language stays authorized). Empty ref => empty set (host is choosing).
-func (h *Hub) resolveAllowed(ctx context.Context, ref mediaRef) (map[string]struct{}, error) {
+// resolveAllowed returns the media file ids a follower may stream for ref (the
+// primary playable file plus its model-B audio siblings, so switching audio
+// language stays authorized) and the title id the media belongs to (for the
+// on-couch watch-time stat). Empty ref => empty set (host is choosing).
+func (h *Hub) resolveAllowed(ctx context.Context, ref mediaRef) (map[string]struct{}, string, error) {
 	set := map[string]struct{}{}
 	var (
 		primary *media.MediaFile
@@ -175,10 +233,10 @@ func (h *Hub) resolveAllowed(ctx context.Context, ref mediaRef) (map[string]stru
 	case "episode":
 		primary, err = h.deps.Media.PrimaryMediaFileForEpisode(ctx, ref.EpisodeID)
 	default:
-		return set, nil
+		return set, "", nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	set[primary.ID] = struct{}{}
 	if sibs, serr := h.deps.Media.AudioSiblings(ctx, primary.TitleID, primary.EpisodeID, primary.ID); serr == nil {
@@ -186,14 +244,18 @@ func (h *Hub) resolveAllowed(ctx context.Context, ref mediaRef) (map[string]stru
 			set[sibs[i].ID] = struct{}{}
 		}
 	}
-	return set, nil
+	titleID := ""
+	if primary.TitleID != nil {
+		titleID = *primary.TitleID
+	}
+	return set, titleID, nil
 }
 
 // createOrReclaim starts a session for the host, or returns and refreshes the
 // host's existing live session (a refresh / second tab reclaims, never spawns a
 // duplicate). DB resolution happens before the lock.
 func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef) (*room, *participant, string, error) {
-	allowed, err := h.resolveAllowed(ctx, ref)
+	allowed, titleID, err := h.resolveAllowed(ctx, ref)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -206,6 +268,7 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef
 		if rm.live {
 			rm.state.Media = ref
 			rm.allowedMediaIDs = allowed
+			rm.titleID = titleID
 			rm.lastActive = time.Now()
 			host := rm.hostParticipantLocked()
 			rm.mu.Unlock()
@@ -224,6 +287,7 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef
 		live:            true,
 		lastActive:      time.Now(),
 		state:           hostState{Media: ref},
+		titleID:         titleID,
 		participants:    map[string]*participant{host.ID: host},
 		conns:           map[*conn]struct{}{},
 		allowedMediaIDs: allowed,

@@ -6,6 +6,8 @@
 	"admin_avg_active_users": "avg {count} active users/day",
 	"admin_back_to_app": "Back to app",
 	"admin_cores": "{count} cores",
+	"admin_couch_watch_hint": "Time followers spend watching together in couch sessions, per title - tracked separately from normal watch-time.",
+	"admin_couch_watch_time": "On Couch watch-time",
 	"admin_cpu": "CPU",
 	"admin_cpu_unavailable": "Host CPU stats are unavailable on this platform.",
 	"admin_episodes": "Episodes",

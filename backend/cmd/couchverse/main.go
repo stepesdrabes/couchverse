@@ -110,10 +110,11 @@ func run() error {
 	// hub reuses its BuildPlayback to assemble follower payloads
 	playbackStream := playback.NewStream(subtitleService.Subs, catalogStore, libraryStore, set, jobsStore, cfg.DataDir, sessionManager, cfg.FFmpegPath)
 	couchHub := couch.NewHub(ctx, couch.Deps{
-		Media:    catalogStore,
-		Playback: playbackStream,
-		Settings: set,
-		Secure:   cfg.CookieSecure,
+		Media:     catalogStore,
+		Playback:  playbackStream,
+		Analytics: analyticsStore,
+		Settings:  set,
+		Secure:    cfg.CookieSecure,
 	})
 	defer couchHub.Shutdown()
 

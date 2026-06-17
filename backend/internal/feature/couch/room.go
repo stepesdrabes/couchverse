@@ -163,14 +163,16 @@ func (rm *room) currentMedia() mediaRef {
 	return rm.state.Media
 }
 
-// recomputeAllowed refreshes the stream-authorization set after a media switch.
+// recomputeAllowed refreshes the stream-authorization set and the watch-time
+// title after a media switch.
 func (rm *room) recomputeAllowed() {
-	allowed, err := rm.hub.resolveAllowed(rm.hub.appCtx, rm.currentMedia())
+	allowed, titleID, err := rm.hub.resolveAllowed(rm.hub.appCtx, rm.currentMedia())
 	if err != nil {
 		return
 	}
 	rm.mu.Lock()
 	rm.allowedMediaIDs = allowed
+	rm.titleID = titleID
 	rm.mu.Unlock()
 }
 

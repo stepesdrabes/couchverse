@@ -36,6 +36,23 @@ func (s *Store) RecordWatch(ctx context.Context, userID int64, titleID, episodeI
 	return err
 }
 
+// RecordCouchWatch adds aggregate follower-seconds spent watching a title in a
+// couch session. This is the separate "On Couch watch-time" stat: it is scoped
+// per title (no user dimension), never counts toward normal watch-time, and is
+// called best-effort by the couch hub.
+func (s *Store) RecordCouchWatch(ctx context.Context, titleID string, seconds int) error {
+	if seconds <= 0 || titleID == "" {
+		return nil
+	}
+	_, err := s.db.Exec(ctx,
+		`INSERT INTO couch_watch_time_daily (day, title_id, seconds)
+		 VALUES (current_date, $1, $2)
+		 ON CONFLICT (day, title_id)
+		 DO UPDATE SET seconds = couch_watch_time_daily.seconds + EXCLUDED.seconds`,
+		titleID, seconds)
+	return err
+}
+
 // RecordListen counts a scrobble as the track's duration of listening time.
 // Skipped tracks over-count slightly - fine for an admin chart.
 func (s *Store) RecordListen(ctx context.Context, userID int64, trackID string) error {
@@ -53,12 +70,14 @@ type Day struct {
 	Day          string `json:"day"` // YYYY-MM-DD
 	VideoSeconds int64  `json:"videoSeconds"`
 	MusicSeconds int64  `json:"musicSeconds"`
+	CouchSeconds int64  `json:"couchSeconds"`
 	ActiveUsers  int    `json:"activeUsers"`
 }
 
 type Totals struct {
 	VideoSeconds int64 `json:"videoSeconds"`
 	MusicSeconds int64 `json:"musicSeconds"`
+	CouchSeconds int64 `json:"couchSeconds"`
 	ActiveUsers  int   `json:"activeUsers"`
 }
 
@@ -77,21 +96,23 @@ type TopUser struct {
 }
 
 type Overview struct {
-	Days      int        `json:"days"`
-	Daily     []Day      `json:"daily"`
-	Totals    Totals     `json:"totals"`
-	TopTitles []TopTitle `json:"topTitles"`
-	TopUsers  []TopUser  `json:"topUsers"`
+	Days           int        `json:"days"`
+	Daily          []Day      `json:"daily"`
+	Totals         Totals     `json:"totals"`
+	TopTitles      []TopTitle `json:"topTitles"`
+	TopCouchTitles []TopTitle `json:"topCouchTitles"`
+	TopUsers       []TopUser  `json:"topUsers"`
 }
 
 func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
-	out := &Overview{Days: days, Daily: []Day{}, TopTitles: []TopTitle{}, TopUsers: []TopUser{}}
+	out := &Overview{Days: days, Daily: []Day{}, TopTitles: []TopTitle{}, TopCouchTitles: []TopTitle{}, TopUsers: []TopUser{}}
 
 	rows, err := s.db.Query(ctx,
 		`SELECT d::date,
 			COALESCE(sum(w.seconds) FILTER (WHERE w.kind = 'video'), 0),
 			COALESCE(sum(w.seconds) FILTER (WHERE w.kind = 'music'), 0),
-			count(DISTINCT w.user_id)
+			count(DISTINCT w.user_id),
+			COALESCE((SELECT sum(c.seconds) FROM couch_watch_time_daily c WHERE c.day = d::date), 0)
 		 FROM generate_series(current_date - ($1::int - 1), current_date, interval '1 day') d
 		 LEFT JOIN watch_time_daily w ON w.day = d::date
 		 GROUP BY d ORDER BY d`, days)
@@ -102,7 +123,7 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 	for rows.Next() {
 		var d Day
 		var day time.Time
-		if err := rows.Scan(&day, &d.VideoSeconds, &d.MusicSeconds, &d.ActiveUsers); err != nil {
+		if err := rows.Scan(&day, &d.VideoSeconds, &d.MusicSeconds, &d.ActiveUsers, &d.CouchSeconds); err != nil {
 			return nil, err
 		}
 		d.Day = day.Format("2006-01-02")
@@ -119,6 +140,13 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 		 FROM watch_time_daily WHERE day >= current_date - ($1::int - 1)`, days).
 		Scan(&out.Totals.VideoSeconds, &out.Totals.MusicSeconds, &out.Totals.ActiveUsers)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := s.db.QueryRow(ctx,
+		`SELECT COALESCE(sum(seconds), 0) FROM couch_watch_time_daily
+		 WHERE day >= current_date - ($1::int - 1)`, days).
+		Scan(&out.Totals.CouchSeconds); err != nil {
 		return nil, err
 	}
 
@@ -140,6 +168,27 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 		out.TopTitles = append(out.TopTitles, t)
 	}
 	if err := titles.Err(); err != nil {
+		return nil, err
+	}
+
+	couchTitles, err := s.db.Query(ctx,
+		`SELECT t.id, t.slug, t.name, t.kind, sum(c.seconds) AS secs
+		 FROM couch_watch_time_daily c
+		 JOIN titles t ON t.id = c.title_id
+		 WHERE c.day >= current_date - ($1::int - 1)
+		 GROUP BY t.id ORDER BY secs DESC LIMIT 10`, days)
+	if err != nil {
+		return nil, err
+	}
+	defer couchTitles.Close()
+	for couchTitles.Next() {
+		var t TopTitle
+		if err := couchTitles.Scan(&t.TitleID, &t.Slug, &t.Name, &t.Kind, &t.Seconds); err != nil {
+			return nil, err
+		}
+		out.TopCouchTitles = append(out.TopCouchTitles, t)
+	}
+	if err := couchTitles.Err(); err != nil {
 		return nil, err
 	}
 

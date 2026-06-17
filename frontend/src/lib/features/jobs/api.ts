@@ -128,14 +128,24 @@ export interface AnalyticsDay {
 	day: string; // YYYY-MM-DD
 	videoSeconds: number;
 	musicSeconds: number;
+	couchSeconds: number;
 	activeUsers: number;
+}
+
+export interface AnalyticsTopTitle {
+	titleId: string;
+	slug: string;
+	name: string;
+	kind: string;
+	seconds: number;
 }
 
 export interface AnalyticsInfo {
 	days: number;
 	daily: AnalyticsDay[];
-	totals: { videoSeconds: number; musicSeconds: number; activeUsers: number };
-	topTitles: { titleId: string; slug: string; name: string; kind: string; seconds: number }[];
+	totals: { videoSeconds: number; musicSeconds: number; couchSeconds: number; activeUsers: number };
+	topTitles: AnalyticsTopTitle[];
+	topCouchTitles: AnalyticsTopTitle[];
 	topUsers: { userId: number; displayName: string; seconds: number }[];
 }
 
