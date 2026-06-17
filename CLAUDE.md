@@ -23,7 +23,7 @@ Feature inventory + per-feature docs (endpoints, tables, dependency graph) live 
 A feature owns its HTTP handlers, domain logic and SQL together.
 
 - Backend features live in `backend/internal/feature/<name>/` (analytics, artwork, auth,
-  catalog, jobs, library, metadata, music, playback, subtitles, system). Each is one Go
+  catalog, couch, jobs, library, metadata, music, playback, subtitles, system). Each is one Go
   package with:
   - a per-feature `Store` struct over the shared pgx pool (`NewStore(pool)`) - SQL stays
     inside the feature;
@@ -37,8 +37,18 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     `db.ErrNotFound` is the missing-row sentinel (aliased as `httpx.ErrNotFound`;
     `httpx.StoreErr` maps it to 404). Shared `MediaFile`/`Subtitle`/`AudioStream` row types +
     ffprobe/compat/namer/tags + transcode ladder policy live in `internal/media`.
-- Frontend features live in `frontend/src/lib/features/<name>/` (admin, auth, catalog, jobs,
-  library, music, playback, preferences, settings, uploads, users). Each keeps its types,
+  - **Couch sessions** (synced watch parties) keep all session/participant state in-memory in
+    a Hub (a server restart ends every session); the only persisted artifact is the per-title
+    on-couch watch-time in `analytics`. The feature is gated by the admin `couchEnabled` flag
+    (mirror `musicEnabled`/`flags.RequireCouch`). **Anonymous viewers stream the host's current
+    media via a scoped httpOnly couch cookie** (mirrors the auth session cookie). Because
+    `playback` owns the stream routes and must not import `couch`, the anonymous-stream guard is
+    inverted into the composition root: `internal/server`'s `requireAuthOrCouch` allows a request
+    if it is logged-in **or** the Hub's `AllowsAnon(r, mediaFileID)` accepts it (live session,
+    current media only). Reuse `playback.BuildPlayback` (no auth context) to build follower
+    payloads. WebSockets use `github.com/coder/websocket`.
+- Frontend features live in `frontend/src/lib/features/<name>/` (admin, auth, catalog, couch,
+  jobs, library, music, playback, preferences, settings, uploads, users). Each keeps its types,
   API calls (`api.ts`), rune state (`*.svelte.ts`), `components/` and `pages/` together.
   - **Routes are thin shells**: every `src/routes/**/+page.svelte` only imports its
     `XxxPage.svelte` from the owning feature and passes `data` (typed via `PageProps`).

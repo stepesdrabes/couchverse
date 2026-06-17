@@ -24,7 +24,8 @@ that render a `XxxPage.svelte` component from the owning feature.
 | artwork | `internal/feature/artwork` | (via `catalog/api.artworkUrl`) | `artwork` |
 | jobs | `internal/feature/jobs` | `features/jobs` | `jobs` |
 | system | `internal/feature/system` | `features/settings`, `features/admin` | `settings`, `home_rows` |
-| analytics | `internal/feature/analytics` | (charts in `features/admin`) | `watch_time_daily` |
+| analytics | `internal/feature/analytics` | (charts in `features/admin`) | `watch_time_daily`, `couch_watch_time_daily` |
+| couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
 
 Shared kernel (backend): `internal/config` (env), `internal/db` (pool, migrations,
 `ErrNotFound`), `internal/httpx` (JSON responses, param helpers), `internal/media`
@@ -168,11 +169,52 @@ Watch/listen time measurement behind the admin overview charts. One daily rollup
 table (`watch_time_daily`), upserted on every video progress beacon (the player sends
 an actually-played `watchedSeconds` delta) and on every music scrobble (counted as
 the track duration). Kernel-only imports - catalog and music call `RecordWatch`/
-`RecordListen` on its Store, best effort (analytics never fails a beacon).
+`RecordListen` on its Store, best effort (analytics never fails a beacon). The
+separate **on-couch watch-time** stat lives here too: `RecordCouchWatch(titleId,
+seconds)` upserts the `couch_watch_time_daily` per-title rollup (no user
+dimension, so anonymous followers count), called best-effort by the couch hub.
 - Endpoints (admin): `/admin/analytics/overview?days=N` - dense daily series
-  (video/music seconds, active users), totals, top titles, top users.
-- Frontend: charts on AdminDashboardPage (`features/admin`), api call in
-  `features/jobs/api.ts` next to the other overview endpoints.
+  (video/music/couch seconds, active users), totals, top titles, top couch
+  titles, top users.
+- Frontend: charts + an "On Couch watch-time" card on AdminDashboardPage
+  (`features/admin`), api call in `features/jobs/api.ts` next to the other
+  overview endpoints.
+
+### couch
+Spotify-jam-style synced watch parties. A logged-in host watching a movie/episode
+starts a session and shares an unguessable link `/couch/{token}`; friends join
+**logged-in or fully anonymous** and land in the existing player in follower mode,
+synced to the host (host controls play/pause/seek/episode; followers have no
+timeline control, manage their own audio/subtitles, send emoji). All session and
+participant state is **in-memory** - a server restart ends every session; the only
+persisted artifact is the on-couch watch-time stat (in analytics). Gated by the
+admin `couchEnabled` flag (default on, mirrors `musicEnabled`).
+- Backend (`internal/feature/couch`): an in-process **Hub** (session registry +
+  rooms), a scoped httpOnly **couch cookie** (mirrors the auth session cookie), the
+  HTTP handlers and the WS endpoint, on `github.com/coder/websocket`.
+- Endpoints: `POST /couch` (create/reclaim, host must be logged in),
+  `POST /couch/{token}/join` (public, anon OK), `POST /couch/{token}/leave`,
+  `POST /couch/{token}/end` (host only), `GET /couch/{token}/playback` (follower
+  payload for the current media, couch-cookie authorized), `GET /couch/{token}/ws`
+  (the sync socket; same-origin enforced).
+- WS protocol: host broadcasts authoritative `{media, playing, positionSeconds,
+  serverTimestamp, seq}` (server-stamped) + emoji; followers extrapolate position
+  from the last update + local elapsed and hard-seek past ~3s drift. Host identity
+  is tied to the user (multi-tab reclaim, 60s reconnect grace).
+- **Stream authorization (cross-feature):** anonymous followers must reach only the
+  host's current media. `playback` owns the stream routes and must not import
+  `couch`, so the guard lives in the composition root: `internal/server`'s
+  `requireAuthOrCouch` admits logged-in users unchanged, else asks the Hub's
+  `AllowsAnon(r, mediaFileID)` (a valid couch cookie whose live session currently
+  allows that file). `playback.BuildPlayback` was extracted so couch builds the
+  follower payload without an auth context.
+- Frontend (`features/couch`): a singleton rune store (WebSocket + follower sync +
+  host broadcast, mirroring the music player), a public `/couch/[token]` route that
+  joins anonymous viewers without tripping the 401 redirect, the assembled
+  accent-recoloured `Couch` (seated avatars + host remote), a management popover and
+  couch buttons in the player control bar + TopNav, and a bundled (no-CDN) emoji
+  picker. `VideoPlayer` composes follower/host modes via the store at its seams; it
+  is not forked.
 
 ## Internationalization & multi-language media (cross-cutting)
 
@@ -222,6 +264,7 @@ artwork <- auth <- music <- catalog <- metadata
    ^        ^       ^         ^
    +--------+-------+---- library <- subtitles <- playback        system
 analytics <- music, catalog (leaf: imports kernel only)
+couch -> {playback, catalog, auth, analytics, flags}  (top of the DAG; nothing imports couch)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
 ```
@@ -233,6 +276,10 @@ Notes that keep it acyclic:
   time); the transcode ladder/settings policy lives in the `media` kernel.
 - `home_rows` is touched by two features (catalog reads, system edits) - SQL-only
   overlap, intentional.
+- `couch` is the only importer of nothing-else: it imports `playback` (to reuse
+  `BuildPlayback`), `catalog`, `auth`, `analytics` and `flags`, but nothing imports
+  it. The anonymous-stream guard is inverted into `internal/server` so `playback`
+  never depends on `couch`.
 
 ## Adding a feature (recipe)
 

@@ -18,6 +18,9 @@ home server.
 - Custom video player: subtitles (side-car VTT), quality menu, picture-in-picture,
   keyboard shortcuts, hover tooltips, and a seek bar with time + frame preview
 - Subtitle support: upload `.srt`/`.vtt` or automatic extraction of embedded text subs
+- **Couch sessions** - synced watch parties: share a link and friends watch in sync
+  (even without an account), with a playful couch of avatars and emoji reactions; the
+  host drives playback and everyone follows
 
 **Music**
 - Spotify-style persistent bottom player that survives navigation
