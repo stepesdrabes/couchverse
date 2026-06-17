@@ -41,6 +41,21 @@ func randToken(n int) string {
 	return base64.RawURLEncoding.EncodeToString(raw)
 }
 
+// randDigits returns an n-digit numeric code (the human-shareable join code).
+// Unlike the participant token it is short and brute-forceable, so joins are
+// rate-limited and a guessed code only grants the same access a leaked link does.
+func randDigits(n int) string {
+	raw := make([]byte, n)
+	if _, err := rand.Read(raw); err != nil {
+		panic("couch: crypto/rand failed: " + err.Error())
+	}
+	b := make([]byte, n)
+	for i, v := range raw {
+		b[i] = '0' + (v % 10)
+	}
+	return string(b)
+}
+
 func setCouchCookie(w http.ResponseWriter, token string, secure bool) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     CouchCookie,

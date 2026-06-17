@@ -33,6 +33,7 @@ func (m *Module) MountUser(r chi.Router) {
 	r.Group(func(c chi.Router) {
 		c.Use(flags.RequireCouch(m.settings))
 		c.Post("/couch", m.handlers.Create)
+		c.Get("/couch/{token}/info", withLang(m.handlers.Info))
 		c.Post("/couch/{token}/join", m.handlers.Join)
 		c.Post("/couch/{token}/leave", m.handlers.Leave)
 		c.Post("/couch/{token}/end", m.handlers.End)

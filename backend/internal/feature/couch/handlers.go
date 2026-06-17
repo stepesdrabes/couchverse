@@ -57,6 +57,28 @@ func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, rm.snapshotFor(host.ID, "host"))
 }
 
+// Info previews a session (host, what's playing, participant count) without
+// joining, for the pre-join "Start watching" screen. Public.
+func (h *Handlers) Info(w http.ResponseWriter, r *http.Request) {
+	rm := h.hub.roomByShare(chi.URLParam(r, "token"))
+	if rm == nil {
+		httpx.Error(w, http.StatusNotFound, "no_session", "this couch session does not exist or has ended")
+		return
+	}
+	info, ref := rm.infoPreview()
+	if ref.Kind != "" {
+		if pi, err := h.hub.deps.Playback.BuildPlayback(r.Context(), ref.Kind, ref.playbackID(), nil, nil); err == nil {
+			info.Display = &couchInfoDisplay{
+				Title:          pi.Display.Title,
+				Subtitle:       pi.Display.Subtitle,
+				BackdropID:     pi.Display.BackdropID,
+				BackdropAccent: pi.Display.BackdropAccent,
+			}
+		}
+	}
+	httpx.JSON(w, http.StatusOK, info)
+}
+
 // Join adds the caller (logged-in or anonymous) to a session via its share token
 // and sets their couch cookie.
 func (h *Handlers) Join(w http.ResponseWriter, r *http.Request) {

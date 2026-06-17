@@ -282,7 +282,7 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef
 	rm := &room{
 		hub:             h,
 		sessionID:       uuid.NewString(),
-		shareToken:      randToken(24),
+		shareToken:      h.freeShareCodeLocked(),
 		hostUserID:      user.ID,
 		live:            true,
 		lastActive:      time.Now(),
@@ -297,6 +297,18 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef
 	h.byShare[rm.shareToken] = rm
 	h.byHost[user.ID] = rm
 	return rm, host, token, nil
+}
+
+// freeShareCodeLocked returns a 6-digit code not currently in use. Caller holds
+// h.mu. Collisions are near-impossible with the handful of live sessions a
+// self-hosted instance has, so a simple retry loop suffices.
+func (h *Hub) freeShareCodeLocked() string {
+	for {
+		code := randDigits(6)
+		if _, exists := h.byShare[code]; !exists {
+			return code
+		}
+	}
 }
 
 // issueTokenLocked mints a fresh cookie token for a participant, replacing any
@@ -574,6 +586,40 @@ type snapshot struct {
 	IsAnonymous     bool          `json:"isAnonymous"`
 	State           hostState     `json:"state"`
 	Participants    []participant `json:"participants"`
+}
+
+// couchInfo previews a session for the pre-join screen (no participant created).
+type couchInfo struct {
+	ShareCode    string            `json:"shareCode"`
+	HostName     string            `json:"hostName"`
+	HostAvatarID *string           `json:"hostAvatarId"`
+	HostSeed     string            `json:"hostSeed"`
+	Playing      bool              `json:"playing"`
+	Participants int               `json:"participants"`
+	Display      *couchInfoDisplay `json:"display"` // nil while the host is choosing
+}
+
+type couchInfoDisplay struct {
+	Title          string  `json:"title"`
+	Subtitle       string  `json:"subtitle"`
+	BackdropID     *string `json:"backdropId"`
+	BackdropAccent string  `json:"backdropAccent"`
+}
+
+func (rm *room) infoPreview() (couchInfo, mediaRef) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	ci := couchInfo{
+		ShareCode:    rm.shareToken,
+		Playing:      rm.state.Playing,
+		Participants: len(rm.participants),
+	}
+	if host := rm.hostParticipantLocked(); host != nil {
+		ci.HostName = host.DisplayName
+		ci.HostAvatarID = host.AvatarID
+		ci.HostSeed = host.Seed
+	}
+	return ci, rm.state.Media
 }
 
 func (rm *room) snapshotFor(pid, role string) snapshot {
