@@ -21,6 +21,7 @@ type participant struct {
 	Seed        string  `json:"seed,omitempty"` // identicon seed (username, or a random seed for anon)
 	IsHost      bool    `json:"isHost"`
 	IsAnonymous bool    `json:"isAnonymous"`
+	Paused      bool    `json:"paused"` // follower paused their own playback locally
 
 	tokenHash      string    // hex SHA-256 of the current cookie token
 	userID         int64     // 0 when anonymous

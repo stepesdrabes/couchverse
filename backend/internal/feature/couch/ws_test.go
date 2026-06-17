@@ -117,3 +117,48 @@ func TestWSHostStateAndEmojiFanout(t *testing.T) {
 		t.Fatalf("emoji = %+v, want 🎉 from %s", ed, hostP.ID)
 	}
 }
+
+// A follower's local pause is relayed to everyone (so it can be shown on the couch).
+func TestWSPausedBroadcast(t *testing.T) {
+	fm := &fakeMedia{files: map[string]*media.MediaFile{"title:t1": {ID: "mf1", TitleID: ptr("t1")}}}
+	h := newTestHub(t, fm)
+	hand := &Handlers{hub: h, joinRate: newRateLimiter(1000, time.Minute)}
+
+	r := chi.NewRouter()
+	r.Get("/api/v1/couch/{token}/ws", hand.WS)
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+
+	rm, _, hostToken, _ := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t1"})
+	follower, followerToken, _, _ := h.join(rm, nil)
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/couch/" + rm.shareToken + "/ws"
+
+	hc := dialWS(t, wsURL, hostToken)
+	defer hc.Close(websocket.StatusNormalClosure, "")
+	waitForType(t, hc, msgHello)
+	fc := dialWS(t, wsURL, followerToken)
+	defer fc.Close(websocket.StatusNormalClosure, "")
+	waitForType(t, fc, msgHello)
+
+	if err := wsjson.Write(context.Background(), fc, Envelope{Type: msgPaused, Data: mustJSON(pausedCmd{Paused: true})}); err != nil {
+		t.Fatalf("paused write: %v", err)
+	}
+
+	env := waitForType(t, hc, msgParticipants)
+	var pd participantsData
+	if err := json.Unmarshal(env.Data, &pd); err != nil {
+		t.Fatalf("unmarshal participants: %v", err)
+	}
+	found := false
+	for _, p := range pd.Participants {
+		if p.ID == follower.ID {
+			found = true
+			if !p.Paused {
+				t.Fatal("follower should be marked paused after pausing locally")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("follower missing from the participants broadcast")
+	}
+}

@@ -18,6 +18,7 @@ const (
 	msgHostAway     = "host_away"     // host lost all connections; grace countdown started
 	msgHostReturned = "host_returned" // host reconnected within grace
 	msgEmoji        = "emoji"         // relayed reaction
+	msgPaused       = "paused"        // a follower paused/unpaused locally (client->server)
 	msgSessionEnded = "session_ended" // terminal
 
 	// client -> server (host_state and emoji reuse the strings above)
@@ -64,6 +65,10 @@ type hostStateCmd struct {
 
 type emojiCmd struct {
 	Emoji string `json:"emoji"`
+}
+
+type pausedCmd struct {
+	Paused bool `json:"paused"`
 }
 
 // mustEnvelope marshals a typed payload into a wire frame. Marshalling failures

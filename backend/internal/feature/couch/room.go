@@ -213,6 +213,22 @@ func (rm *room) onClientMessage(c *conn, env Envelope) {
 		}
 		c.emojiLast = time.Now()
 		rm.broadcast(msgEmoji, emojiData{FromParticipantID: c.pid, Emoji: emoji})
+
+	case msgPaused:
+		var cmd pausedCmd
+		if json.Unmarshal(env.Data, &cmd) != nil {
+			return
+		}
+		changed := false
+		rm.mu.Lock()
+		if p := rm.participants[c.pid]; p != nil && p.Paused != cmd.Paused {
+			p.Paused = cmd.Paused
+			changed = true
+		}
+		rm.mu.Unlock()
+		if changed {
+			rm.broadcastParticipants()
+		}
 	}
 }
 
