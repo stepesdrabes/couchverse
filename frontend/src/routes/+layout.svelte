@@ -6,6 +6,7 @@
 	import { Toaster } from 'svelte-sonner';
 	import { couch } from '$lib/features/couch/couch.svelte';
 	import CouchBar from '$lib/features/couch/components/CouchBar.svelte';
+	import { musicPlayer } from '$lib/features/music/player.svelte';
 	import PlayerBar from '$lib/features/music/components/PlayerBar.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
 	import UploadDock from '$lib/features/uploads/components/UploadDock.svelte';
@@ -20,6 +21,9 @@
 
 	// the music bar yields to the video player and the login screen
 	const showPlayerBar = $derived(!onWatch && !onCouch && !onAuth && features.musicEnabled);
+	// the full-width music bar is only actually on screen when a track is loaded;
+	// the corner stack clears it only then (otherwise it sits at the bottom)
+	const musicBarVisible = $derived(showPlayerBar && !!musicPlayer.current);
 	// the upload dock hides over the player too, but the unload guard below stays
 	const showUploadDock = $derived(!onWatch && !onCouch && !onAuth);
 
@@ -68,12 +72,21 @@
 	<PlayerBar />
 {/if}
 
-{#if showUploadDock}
-	<UploadDock playerBarVisible={showPlayerBar} />
-{/if}
-
-{#if couch.active}
-	<CouchBar />
+<!-- bottom-right corner stack: upload dock on top, couch bar at the very bottom.
+	The whole stack clears the music bar only when a track is actually playing, so
+	with no couch session and no music it sits at the bottom. -->
+{#if showUploadDock || couch.active}
+	<div
+		class="fixed right-4 z-40 flex flex-col items-end gap-3"
+		style="bottom: {musicBarVisible ? '5.75rem' : '1rem'}"
+	>
+		{#if showUploadDock}
+			<UploadDock />
+		{/if}
+		{#if couch.active}
+			<CouchBar />
+		{/if}
+	</div>
 {/if}
 
 <Toaster

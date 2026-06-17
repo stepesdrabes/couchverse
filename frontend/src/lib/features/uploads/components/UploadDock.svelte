@@ -15,9 +15,8 @@
 	import { formatBytes, formatEta } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
 
-	// raise above the music bar when it is showing so the two never overlap
-	let { playerBarVisible = false }: { playerBarVisible?: boolean } = $props();
-
+	// positioning (bottom offset, stacking vs the music + couch bars) is owned by
+	// the root layout's corner stack, so this is just the card
 	let collapsed = $state(false);
 
 	const uploads = $derived(uploadQueue.uploads);
@@ -82,9 +81,8 @@
 {#if uploads.length > 0}
 	<div
 		transition:fly={{ y: 24, duration: 250 }}
-		class="fixed right-4 z-40 w-96 overflow-hidden rounded-card border border-edge bg-surface-2/95
+		class="w-96 max-w-[calc(100vw-2rem)] overflow-hidden rounded-card border border-edge bg-surface-2/95
 			shadow-2xl shadow-black/50 backdrop-blur"
-		style="bottom: {playerBarVisible ? '6rem' : '1rem'}"
 	>
 		<div class="flex items-center gap-2.5 px-3.5 py-3">
 			<UploadCloud class="size-5 shrink-0 {activeCount > 0 ? 'text-accent' : 'text-muted'}" />
