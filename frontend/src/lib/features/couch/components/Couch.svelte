@@ -32,7 +32,7 @@
 <div class="relative inline-flex text-accent">
 	<!-- seated avatars overlaid on the cushions -->
 	<div
-		class="absolute inset-x-0 top-1/2 z-10 flex -translate-y-[60%] items-end justify-center gap-3 px-5"
+		class="absolute inset-x-0 top-1/2 z-10 flex -translate-y-[60%] items-end justify-center gap-6 px-5"
 	>
 		{#each couch.participants as p (p.id)}
 			<div class="relative" data-couch-seat={p.id} in:fly={seatIn} out:fade={{ duration: 150 }}>

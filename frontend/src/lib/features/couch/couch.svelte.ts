@@ -121,18 +121,22 @@ class Couch {
 		this.hostAway = snap.state.away;
 	}
 
-	async leave() {
-		const token = this.token;
+	/** The user explicitly leaves: disconnect and route them out of the locked
+	 * player - anonymous viewers to login, logged-in followers back to the app. */
+	leave() {
 		const wasAnon = this.isAnonymous;
+		if (!this.disconnect()) return;
+		goto(wasAnon ? '/login' : '/');
+	}
+
+	/** Disconnect without routing (used on unmount, where navigation is already
+	 * happening). Returns false if there was no live session. */
+	disconnect(): boolean {
+		const token = this.token;
+		if (!token) return false;
 		this.teardown();
-		if (token) {
-			try {
-				await couchApi.leaveCouch(token);
-			} catch {
-				// best effort
-			}
-		}
-		if (wasAnon) goto('/login');
+		couchApi.leaveCouch(token).catch(() => {});
+		return true;
 	}
 
 	async end() {

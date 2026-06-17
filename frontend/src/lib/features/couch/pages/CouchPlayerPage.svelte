@@ -13,7 +13,7 @@
 	let joining = $state(false);
 	let joinError = $state(false);
 
-	onMount(() => () => couch.leave());
+	onMount(() => () => couch.disconnect());
 
 	// the join happens on this click so the browser allows autoplay
 	async function start() {
