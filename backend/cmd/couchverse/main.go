@@ -18,6 +18,7 @@ import (
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/catalog"
+	"couchverse/internal/feature/couch"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/metadata"
@@ -105,6 +106,18 @@ func run() error {
 	}
 	defer sessionManager.StopAll()
 
+	// one shared stream resolver: the playback module serves it and the couch
+	// hub reuses its BuildPlayback to assemble follower payloads
+	playbackStream := playback.NewStream(subtitleService.Subs, catalogStore, libraryStore, set, jobsStore, cfg.DataDir, sessionManager, cfg.FFmpegPath)
+	couchHub := couch.NewHub(ctx, couch.Deps{
+		Catalog:   catalogStore,
+		Playback:  playbackStream,
+		Analytics: analyticsStore,
+		Settings:  set,
+		Secure:    cfg.CookieSecure,
+	})
+	defer couchHub.Shutdown()
+
 	go playback.DetectEncoders(cfg.FFmpegPath)
 
 	// transcodes can occupy their full concurrency budget and still leave
@@ -133,7 +146,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, pool, set, authStore, catalogStore, jobsStore, musicStore, libraryStore, systemStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager, analyticsStore).Handler(),
+		Handler:           server.New(cfg, pool, set, authStore, catalogStore, jobsStore, musicStore, libraryStore, systemStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager, playbackStream, analyticsStore, couchHub).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

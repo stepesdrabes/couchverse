@@ -17,6 +17,7 @@ import (
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/catalog"
+	"couchverse/internal/feature/couch"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/metadata"
@@ -44,11 +45,13 @@ type Server struct {
 	subtitles *subtitles.Service
 	transcode *playback.JobHandler
 	sessions  *playback.SessionManager
+	stream    *playback.Stream
 	analytics *analytics.Store
+	couch     *couch.Hub
 }
 
-func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, sys *system.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager, an *analytics.Store) *Server {
-	return &Server{cfg: cfg, pool: pool, system: sys, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions, analytics: an}
+func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, sys *system.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager, stream *playback.Stream, an *analytics.Store, couchHub *couch.Hub) *Server {
+	return &Server{cfg: cfg, pool: pool, system: sys, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions, stream: stream, analytics: an, couch: couchHub}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -59,10 +62,11 @@ func (s *Server) Handler() http.Handler {
 	adminJobs := jobs.NewAdminJobs(s.jobs)
 	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.music, s.jobs, s.analytics)
 	playbackModule := playback.NewModule(
-		playback.NewStream(s.subtitles.Subs, s.catalog, s.library, s.settings, s.jobs, s.cfg.DataDir, s.sessions, s.cfg.FFmpegPath),
+		s.stream,
 		playback.NewAdminTranscode(s.library, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath),
 	)
 	musicModule := music.NewModule(s.music, s.settings, s.artwork, s.analytics)
+	couchModule := couch.NewModule(s.couch, s.settings)
 	analyticsModule := analytics.NewModule(s.analytics)
 	artworkAPI := artwork.NewHandlers(s.artwork)
 	subtitlesAPI := subtitles.NewSubtitles(s.subtitles.Subs, s.library, s.subtitles)
@@ -87,13 +91,16 @@ func (s *Server) Handler() http.Handler {
 		authModule.MountPublic(v1)
 		systemModule.MountPublic(v1)
 
+		// couch session routes are public so anonymous followers can join; each
+		// handler enforces its own auth and the group self-gates on couchEnabled
+		couchModule.MountUser(v1)
+
 		// authenticated routes
 		v1.Group(func(p chi.Router) {
 			p.Use(auth.RequireAuth)
 			authModule.MountUser(p)
 			catalogModule.MountUser(p)
 
-			playbackModule.MountUser(p)
 			artworkAPI.MountUser(p)
 			subtitlesAPI.MountUser(p)
 
@@ -102,6 +109,13 @@ func (s *Server) Handler() http.Handler {
 			// music routes (incl. track playlists) gate themselves on the feature toggle
 			musicModule.MountUser(p)
 
+		})
+
+		// stream + playback routes: logged-in, or an anonymous couch follower
+		// limited to the host's current media (the couch stream-auth guard)
+		v1.Group(func(p chi.Router) {
+			p.Use(s.requireAuthOrCouch)
+			playbackModule.MountUser(p)
 		})
 
 		// admin routes

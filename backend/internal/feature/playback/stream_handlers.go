@@ -2,6 +2,7 @@ package playback
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -149,7 +150,9 @@ func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, filepath.Base(mf.Path), info.ModTime(), f)
 }
 
-type playbackInfo struct {
+// PlaybackInfo is the player payload. It is built by BuildPlayback and reused
+// by the couch feature to assemble a follower's player without an auth context.
+type PlaybackInfo struct {
 	Mode           string                  `json:"mode"` // direct | unsupported (hls/jit arrive with transcoding)
 	MediaFileID    string                  `json:"mediaFileId"`
 	StreamURL      string                  `json:"streamUrl,omitempty"`
@@ -230,52 +233,76 @@ type playbackDisplay struct {
 	BackdropAccent string  `json:"backdropAccent,omitempty"`
 }
 
+var (
+	errNoMedia = errors.New("playback: title or episode has no media file")
+	errBadKind = errors.New("playback: kind must be movie or episode")
+)
+
 // Playback resolves what to play for a movie title or an episode.
 func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFrom(r.Context())
-	kind := chi.URLParam(r, "kind")
-	id := httpx.UUID(r, "id")
+	var uid *int64
+	if user != nil {
+		uid = &user.ID
+	}
+	caps := strings.Split(r.URL.Query().Get("caps"), ",")
+	info, err := h.BuildPlayback(r.Context(), chi.URLParam(r, "kind"), httpx.UUID(r, "id"), uid, caps)
+	switch {
+	case err == nil:
+		httpx.JSON(w, http.StatusOK, info)
+	case errors.Is(err, errBadKind):
+		httpx.BadRequest(w, "kind must be movie or episode")
+	case errors.Is(err, errNoMedia):
+		httpx.Error(w, http.StatusNotFound, "no_media", "this title has no media file yet")
+	default:
+		httpx.StoreErr(w, err)
+	}
+}
+
+// BuildPlayback assembles the player payload for a movie title or an episode.
+// When userID is non-nil the viewer's saved resume position is included; couch
+// followers pass nil (they sync to the host, not their own progress). It reads
+// no auth and writes no response, so the couch feature reuses it to build a
+// follower's payload without the viewer being logged in. caps is the client's
+// container/codec capability list (used for the direct-play decision).
+func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int64, caps []string) (*PlaybackInfo, error) {
 	if id == "" {
-		httpx.NotFound(w)
-		return
+		return nil, httpx.ErrNotFound
 	}
 
 	var (
 		mf   *media.MediaFile
 		err  error
-		info playbackInfo
+		info PlaybackInfo
 	)
 
 	switch kind {
 	case "movie":
-		title, terr := h.catalog.TitleByID(r.Context(), id)
+		title, terr := h.catalog.TitleByID(ctx, id)
 		if terr != nil {
-			httpx.StoreErr(w, terr)
-			return
+			return nil, terr
 		}
-		mf, err = h.catalog.PrimaryMediaFileForTitle(r.Context(), id)
+		mf, err = h.catalog.PrimaryMediaFileForTitle(ctx, id)
 		if err != nil {
-			httpx.Error(w, http.StatusNotFound, "no_media", "this title has no media file yet")
-			return
+			return nil, errNoMedia
 		}
 		info.Display = playbackDisplay{Title: title.Name, TitleID: title.ID, TitleSlug: title.Slug}
-		pos, _, perr := h.catalog.ProgressFor(r.Context(), user.ID, &id, nil)
-		if perr != nil {
-			httpx.Internal(w, perr)
-			return
+		if userID != nil {
+			pos, _, perr := h.catalog.ProgressFor(ctx, *userID, &id, nil)
+			if perr != nil {
+				return nil, perr
+			}
+			info.ResumePosition = pos
 		}
-		info.ResumePosition = pos
 
 	case "episode":
-		ref, rerr := h.catalog.EpisodeRef(r.Context(), id)
+		ref, rerr := h.catalog.EpisodeRef(ctx, id)
 		if rerr != nil {
-			httpx.NotFound(w)
-			return
+			return nil, httpx.ErrNotFound
 		}
-		mf, err = h.catalog.PrimaryMediaFileForEpisode(r.Context(), id)
+		mf, err = h.catalog.PrimaryMediaFileForEpisode(ctx, id)
 		if err != nil {
-			httpx.Error(w, http.StatusNotFound, "no_media", "this episode has no media file yet")
-			return
+			return nil, errNoMedia
 		}
 		info.Display = playbackDisplay{
 			Title:     ref.TitleName,
@@ -283,27 +310,27 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 			TitleID:   ref.TitleID,
 			TitleSlug: ref.TitleSlug,
 		}
-		pos, _, perr := h.catalog.ProgressFor(r.Context(), user.ID, nil, &id)
-		if perr != nil {
-			httpx.Internal(w, perr)
-			return
+		if userID != nil {
+			pos, _, perr := h.catalog.ProgressFor(ctx, *userID, nil, &id)
+			if perr != nil {
+				return nil, perr
+			}
+			info.ResumePosition = pos
 		}
-		info.ResumePosition = pos
-		if next, nerr := h.catalog.NextEpisode(r.Context(), id); nerr == nil {
+		if next, nerr := h.catalog.NextEpisode(ctx, id); nerr == nil {
 			info.NextEpisode = next
 		}
-		if eps, eerr := h.catalog.PlayableEpisodes(r.Context(), ref.TitleID); eerr == nil {
+		if eps, eerr := h.catalog.PlayableEpisodes(ctx, ref.TitleID); eerr == nil {
 			info.Episodes = eps
 			info.CurrentEpisode = id
 		}
 
 	default:
-		httpx.BadRequest(w, "kind must be movie or episode")
-		return
+		return nil, errBadKind
 	}
 
 	// banner accent for the player (best effort)
-	if bid, bver, accent, berr := h.catalog.TitleBackdrop(r.Context(), info.Display.TitleID); berr == nil {
+	if bid, bver, accent, berr := h.catalog.TitleBackdrop(ctx, info.Display.TitleID); berr == nil {
 		info.Display.BackdropID = bid
 		info.Display.BackdropVer = bver
 		info.Display.BackdropAccent = accent
@@ -312,10 +339,9 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 	info.MediaFileID = mf.ID
 	info.Duration = mf.DurationSeconds
 
-	subs, err := h.subs.SubtitlesForMediaFile(r.Context(), mf.ID)
+	subs, err := h.subs.SubtitlesForMediaFile(ctx, mf.ID)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
 	info.Subtitles = []subtitleTrack{}
 	for _, sub := range subs {
@@ -330,7 +356,7 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 
 	// alternate-audio siblings (model B): a language switch in the player. Only
 	// populated when the title/episode has more than one audio file.
-	if siblings, serr := h.catalog.AudioSiblings(r.Context(), mf.TitleID, mf.EpisodeID, mf.ID); serr == nil && len(siblings) > 0 {
+	if siblings, serr := h.catalog.AudioSiblings(ctx, mf.TitleID, mf.EpisodeID, mf.ID); serr == nil && len(siblings) > 0 {
 		info.Audio = append(info.Audio, audioTrackFor(mf, true))
 		for i := range siblings {
 			info.Audio = append(info.Audio, audioTrackFor(&siblings[i], false))
@@ -339,15 +365,14 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 
 	// embedded multi-audio (model A): a file with >=2 audio tracks streams via the
 	// var_stream_map HLS remux so the player can switch audio language.
-	audioStreams, _ := h.library.AudioStreamsForFile(r.Context(), mf.ID)
+	audioStreams, _ := h.library.AudioStreamsForFile(ctx, mf.ID)
 	multiAudio := len(audioStreams) >= 2
 
 	// ready transcode variants power the player's quality menu and are offered
 	// even when the source direct-plays, so users can pick a specific rendition
-	variants, verr := h.library.VariantsForMediaFile(r.Context(), mf.ID)
+	variants, verr := h.library.VariantsForMediaFile(ctx, mf.ID)
 	if verr != nil {
-		httpx.Internal(w, verr)
-		return
+		return nil, verr
 	}
 	ready, pending, multiAudioReady := false, false, false
 	for _, v := range variants {
@@ -403,7 +428,6 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	caps := strings.Split(r.URL.Query().Get("caps"), ",")
 	switch {
 	// embedded multi-audio must use the HLS remux so the player can switch audio,
 	// even when the source would otherwise direct-play
@@ -422,17 +446,17 @@ func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
 		info.StreamURL = hlsURL
 	case pending:
 		info.Mode = "preparing"
-		if progress, perr := h.jobs.TranscodeProgress(r.Context(), mf.ID); perr == nil {
+		if progress, perr := h.jobs.TranscodeProgress(ctx, mf.ID); perr == nil {
 			info.JobProgress = progress
 		}
-	case mf.SourceDeletedAt == nil && h.jitAllowed(r.Context()):
+	case mf.SourceDeletedAt == nil && h.jitAllowed(ctx):
 		// the client opens a JIT session via POST /stream/{id}/sessions
 		info.Mode = "jit"
 	default:
 		info.Mode = "unsupported"
 	}
 
-	httpx.JSON(w, http.StatusOK, info)
+	return &info, nil
 }
 
 // HLSMaster generates the master playlist from ready variants.
