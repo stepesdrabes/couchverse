@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fade, fly } from 'svelte/transition';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import { couch } from '$lib/features/couch/couch.svelte';
@@ -13,6 +14,8 @@
 	const middles = $derived(
 		Array.from({ length: Math.max(0, couch.participants.length - 1) }, (_, i) => i)
 	);
+
+	const reactionsFor = (pid: string) => couch.reactions.filter((r) => r.participantId === pid);
 </script>
 
 <div class="relative inline-flex text-accent">
@@ -43,6 +46,16 @@
 						<Remote class="size-2.5" />
 					</span>
 				{/if}
+				<!-- reactions fly up from the sender's seat -->
+				{#each reactionsFor(p.id) as r (r.id)}
+					<span
+						class="pointer-events-none absolute -top-1 left-1/2 z-20 -translate-x-1/2 text-xl"
+						in:fly={{ y: -40, duration: 1200 }}
+						out:fade={{ duration: 250 }}
+					>
+						{r.emoji}
+					</span>
+				{/each}
 			</div>
 		{/each}
 	</div>

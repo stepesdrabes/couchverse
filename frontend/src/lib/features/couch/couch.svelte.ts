@@ -8,7 +8,7 @@ import type { CouchRole, HostState, MediaRef, Participant, Reaction, Snapshot } 
 const DRIFT_THRESHOLD = 3; // seconds before a follower hard-seeks back into sync
 const HEARTBEAT_MS = 2000; // host re-broadcasts its play-state at this cadence
 const MAX_BACKOFF_MS = 8000;
-const REACTION_TTL_MS = 4000;
+const REACTION_TTL_MS = 1600; // matches the fly-up animation before cleanup
 const RESYNC_NOTE_MS = 2500;
 
 /**
