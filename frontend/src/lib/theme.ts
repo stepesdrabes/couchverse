@@ -52,6 +52,9 @@ export function applyAccent(accent: string) {
 	// soft tint over the dark background - low-alpha accent
 	root.setProperty('--color-accent-soft', `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.16)`);
 	root.setProperty('--color-on-accent', readableTextOn(accent));
+	// the site accent, never overridden by a scoped accent (e.g. the player's
+	// banner accent), so app-wide chrome like the couch can keep the site colour
+	root.setProperty('--color-site-accent', toHex(...rgb));
 }
 
 /**

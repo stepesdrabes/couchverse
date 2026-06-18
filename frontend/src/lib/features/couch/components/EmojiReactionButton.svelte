@@ -18,8 +18,10 @@
 <div class="group relative flex flex-col items-center">
 	<!-- recently-used emojis slide up on hover for quick re-sending (same width) -->
 	{#if couch.recentEmojis.length > 0}
+		<!-- pb (not mb) keeps the gap part of the hover region so moving onto the
+			menu doesn't drop the hover and hide it before a click lands -->
 		<div
-			class="pointer-events-none absolute bottom-full mb-2 flex w-full translate-y-2 flex-col gap-1.5
+			class="pointer-events-none absolute bottom-full flex w-full translate-y-2 flex-col gap-1.5 pb-2
 				opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:translate-y-0
 				group-hover:opacity-100"
 		>

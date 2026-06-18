@@ -43,7 +43,13 @@
 	}
 </script>
 
-<div class="relative inline-flex text-accent" in:fly={{ y: -28, duration: 350, easing: backOut }}>
+<!-- the couch keeps the site accent, not a player-scoped one (--color-accent gets
+	overridden inside the video player by the banner accent) -->
+<div
+	class="relative inline-flex"
+	style="color: var(--color-site-accent, var(--color-accent))"
+	in:fly={{ y: -28, duration: 350, easing: backOut }}
+>
 	<!-- seated avatars overlaid on the cushions -->
 	<div
 		class="absolute inset-x-0 top-1/2 z-10 flex -translate-y-[60%] items-end justify-center gap-6 px-5"
@@ -102,8 +108,12 @@
 	<div class="flex items-end {height}">
 		<CouchLeft class="h-full w-auto" />
 		{#each middles as i (i)}
-			<div class="-ml-px flex h-full" transition:growX={{ duration: ready ? 350 : 0 }}>
-				<CouchMiddle class="h-full w-auto" />
+			<div
+				class="-ml-px h-full shrink-0 overflow-hidden"
+				transition:growX={{ duration: ready ? 350 : 0 }}
+			>
+				<!-- shrink-0 + natural width so the section is clipped (couch widens) not squished -->
+				<CouchMiddle class="block h-full w-auto max-w-none shrink-0" />
 			</div>
 		{/each}
 		<CouchRight class="-ml-px h-full w-auto" />

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { backOut } from 'svelte/easing';
-	import { fly, scale } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 	import Couch from './Couch.svelte';
 	import CouchPopover from './CouchPopover.svelte';
 	import EmojiReactionButton from './EmojiReactionButton.svelte';
@@ -21,13 +21,17 @@
 			<Couch height="h-16" avatar="size-8" />
 		{/snippet}
 	</CouchPopover>
-	{#if showEmoji}
-		<div transition:scale={{ duration: 200, start: 0.7 }}>
-			<EmojiReactionButton
-				{portalTo}
-				triggerClass="flex size-11 items-center justify-center rounded-full border border-edge
-					bg-surface-2/90 text-text shadow-lg backdrop-blur transition-colors hover:bg-surface-2 hover:text-accent"
-			/>
-		</div>
-	{/if}
+	<!-- the slot is always present so the couch doesn't shift when the emoji button
+		hides (undisturbed watching); only its contents fade out -->
+	<div
+		class="shrink-0 transition-opacity duration-200 {showEmoji
+			? ''
+			: 'pointer-events-none opacity-0'}"
+	>
+		<EmojiReactionButton
+			{portalTo}
+			triggerClass="flex size-11 items-center justify-center rounded-full border border-edge
+				bg-surface-2/90 text-text shadow-lg backdrop-blur transition-colors hover:bg-surface-2 hover:text-accent"
+		/>
+	</div>
 </div>
