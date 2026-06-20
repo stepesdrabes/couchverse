@@ -167,6 +167,8 @@ type PlaybackInfo struct {
 	HLSURL         string                  `json:"hlsUrl,omitempty"`
 	Variants       []qualityVariant        `json:"variants,omitempty"`
 	JobProgress    int                     `json:"jobProgress,omitempty"`
+	// series opt-in for shuffle playback (drives the player's shuffle toggle)
+	AllowRandomPlayback bool `json:"allowRandomPlayback"`
 }
 
 type qualityVariant struct {
@@ -287,6 +289,7 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 			return nil, errNoMedia
 		}
 		info.Display = playbackDisplay{Title: title.Name, TitleID: title.ID, TitleSlug: title.Slug}
+		info.AllowRandomPlayback = title.AllowRandomPlayback
 		if userID != nil {
 			pos, _, perr := h.catalog.ProgressFor(ctx, *userID, &id, nil)
 			if perr != nil {
@@ -309,6 +312,10 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 			Subtitle:  formatEpisodeSubtitle(ref),
 			TitleID:   ref.TitleID,
 			TitleSlug: ref.TitleSlug,
+		}
+		// the shuffle flag lives on the title; only the episode ref is loaded above
+		if t, terr := h.catalog.TitleByID(ctx, ref.TitleID); terr == nil {
+			info.AllowRandomPlayback = t.AllowRandomPlayback
 		}
 		if userID != nil {
 			pos, _, perr := h.catalog.ProgressFor(ctx, *userID, nil, &id)

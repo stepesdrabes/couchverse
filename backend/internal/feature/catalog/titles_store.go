@@ -18,34 +18,35 @@ import (
 )
 
 type Title struct {
-	ID                string          `json:"id"`
-	Slug              string          `json:"slug"`
-	Kind              string          `json:"kind"`
-	Name              string          `json:"name"`
-	SortName          string          `json:"sortName"`
-	Overview          string          `json:"overview"`
-	Year              *int            `json:"year"`
-	ReleaseDate       *time.Time      `json:"releaseDate"`
-	ContentRating     string          `json:"contentRating"`
-	RuntimeMinutes    *int            `json:"runtimeMinutes"`
-	Status            string          `json:"status"`
-	TmdbID            *int            `json:"tmdbId"`
-	AddedAt           time.Time       `json:"addedAt"`
-	UpdatedAt         time.Time       `json:"updatedAt"`
-	Genres            []string        `json:"genres"`
-	GenreLabels       []string        `json:"genreLabels"`
-	MetadataLanguages []string        `json:"metadataLanguages"`
-	Translations      json.RawMessage `json:"-"`
+	ID                  string          `json:"id"`
+	Slug                string          `json:"slug"`
+	Kind                string          `json:"kind"`
+	Name                string          `json:"name"`
+	SortName            string          `json:"sortName"`
+	Overview            string          `json:"overview"`
+	Year                *int            `json:"year"`
+	ReleaseDate         *time.Time      `json:"releaseDate"`
+	ContentRating       string          `json:"contentRating"`
+	RuntimeMinutes      *int            `json:"runtimeMinutes"`
+	Status              string          `json:"status"`
+	TmdbID              *int            `json:"tmdbId"`
+	AddedAt             time.Time       `json:"addedAt"`
+	UpdatedAt           time.Time       `json:"updatedAt"`
+	Genres              []string        `json:"genres"`
+	GenreLabels         []string        `json:"genreLabels"`
+	MetadataLanguages   []string        `json:"metadataLanguages"`
+	AllowRandomPlayback bool            `json:"allowRandomPlayback"`
+	Translations        json.RawMessage `json:"-"`
 }
 
 const titleCols = `id, slug, kind, name, sort_name, overview, year, release_date, content_rating,
-	runtime_minutes, status, tmdb_id, added_at, updated_at, translations, metadata_languages`
+	runtime_minutes, status, tmdb_id, added_at, updated_at, translations, metadata_languages, allow_random_playback`
 
 func scanTitle(ctx context.Context, row pgx.Row) (*Title, error) {
 	var t Title
 	err := row.Scan(&t.ID, &t.Slug, &t.Kind, &t.Name, &t.SortName, &t.Overview, &t.Year, &t.ReleaseDate,
 		&t.ContentRating, &t.RuntimeMinutes, &t.Status, &t.TmdbID, &t.AddedAt, &t.UpdatedAt,
-		&t.Translations, &t.MetadataLanguages)
+		&t.Translations, &t.MetadataLanguages, &t.AllowRandomPlayback)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -183,16 +184,17 @@ func (s *Store) CreateTitle(ctx context.Context, in TitleInput) (*Title, error) 
 }
 
 type TitleUpdate struct {
-	Name              *string   `json:"name"`
-	SortName          *string   `json:"sortName"`
-	Overview          *string   `json:"overview"`
-	Year              *int      `json:"year"`
-	ContentRating     *string   `json:"contentRating"`
-	RuntimeMinutes    *int      `json:"runtimeMinutes"`
-	Status            *string   `json:"status"`
-	TmdbID            *int      `json:"tmdbId"`
-	Genres            *[]string `json:"genres"`
-	MetadataLanguages *[]string `json:"metadataLanguages"`
+	Name                *string   `json:"name"`
+	SortName            *string   `json:"sortName"`
+	Overview            *string   `json:"overview"`
+	Year                *int      `json:"year"`
+	ContentRating       *string   `json:"contentRating"`
+	RuntimeMinutes      *int      `json:"runtimeMinutes"`
+	Status              *string   `json:"status"`
+	TmdbID              *int      `json:"tmdbId"`
+	Genres              *[]string `json:"genres"`
+	MetadataLanguages   *[]string `json:"metadataLanguages"`
+	AllowRandomPlayback *bool     `json:"allowRandomPlayback"`
 }
 
 func (s *Store) UpdateTitle(ctx context.Context, id string, up TitleUpdate) (*Title, error) {
@@ -211,11 +213,12 @@ func (s *Store) UpdateTitle(ctx context.Context, id string, up TitleUpdate) (*Ti
 			status = COALESCE($8, status),
 			tmdb_id = COALESCE($9, tmdb_id),
 			metadata_languages = COALESCE($10, metadata_languages),
+			allow_random_playback = COALESCE($11, allow_random_playback),
 			updated_at = now()
 		 WHERE id = $1
 		 RETURNING `+titleCols,
 		id, up.Name, up.SortName, up.Overview, up.Year, up.ContentRating,
-		up.RuntimeMinutes, up.Status, up.TmdbID, mlangs))
+		up.RuntimeMinutes, up.Status, up.TmdbID, mlangs, up.AllowRandomPlayback))
 	if err != nil {
 		return nil, err
 	}
