@@ -14,6 +14,7 @@
 	import Confirm from '$lib/components/ui/Confirm.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
 	import Textarea from '$lib/components/ui/Textarea.svelte';
 	import LanguageChips from '$lib/features/library/components/LanguageChips.svelte';
 	import { langLabel } from '$lib/i18n/content-langs';
@@ -31,6 +32,7 @@
 	let genres = $state('');
 	let runtime = $state('');
 	let languages = $state<string[]>([]);
+	let allowRandom = $state(false);
 	let saving = $state(false);
 
 	// per-language metadata editing: switch which language's name/overview shows.
@@ -66,7 +68,8 @@
 		status,
 		genres,
 		runtime,
-		languages: languages.join('|')
+		languages: languages.join('|'),
+		allowRandom
 	}));
 
 	const saveDirty = $derived(form.dirty || (editLang !== baseLang && tDirty));
@@ -84,6 +87,7 @@
 			genres = title.genres.join(', ');
 			runtime = title.runtimeMinutes?.toString() ?? '';
 			languages = title.metadataLanguages ?? [];
+			allowRandom = title.allowRandomPlayback ?? false;
 			form.reset();
 			const base = title.metadataLanguages?.[0] ?? 'en';
 			if (!editLang) editLang = base;
@@ -176,6 +180,7 @@
 					.filter(Boolean),
 				metadataLanguages: languages
 			};
+			if (data.title.kind === 'series') patch.allowRandomPlayback = allowRandom;
 			// title + description are language-specific: the base language edits the
 			// plain columns, other languages edit their translation
 			if (editLang === baseLang) {
@@ -302,6 +307,15 @@
 				<p class="mb-1.5 text-xs font-medium text-muted">{m.library_content_languages()}</p>
 				<LanguageChips bind:selected={languages} onremove={requestRemoveLang} />
 			</div>
+			{#if data.title.kind === 'series'}
+				<div class="flex items-center justify-between gap-4">
+					<div>
+						<p class="text-sm font-medium">{m.library_allow_random()}</p>
+						<p class="text-xs text-faint">{m.library_allow_random_hint()}</p>
+					</div>
+					<Switch bind:checked={allowRandom} />
+				</div>
+			{/if}
 		</div>
 
 		<!-- per-language: title + description for the selected language -->

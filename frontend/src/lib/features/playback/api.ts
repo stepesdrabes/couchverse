@@ -53,6 +53,7 @@ export interface PlaybackInfo {
 	hlsUrl?: string;
 	variants?: QualityVariant[];
 	jobProgress?: number;
+	allowRandomPlayback?: boolean;
 }
 
 export interface QualityVariant {

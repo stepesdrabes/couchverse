@@ -16,6 +16,7 @@
 		RotateCcw,
 		RotateCw,
 		Settings,
+		Shuffle,
 		Type,
 		Volume2,
 		VolumeX
@@ -24,7 +25,12 @@
 	import { fade, fly, scale } from 'svelte/transition';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import { musicPlayer } from '$lib/features/music/player.svelte';
-	import type { AudioTrack, PlaybackInfo, SeriesEpisode } from '$lib/features/playback/api';
+	import type {
+		AudioTrack,
+		EpisodeRef,
+		PlaybackInfo,
+		SeriesEpisode
+	} from '$lib/features/playback/api';
 	import {
 		beaconProgress,
 		frameUrl,
@@ -36,6 +42,7 @@
 		SUBTITLE_FONTS,
 		type SubtitleSettings
 	} from '$lib/features/preferences/preferences.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import { accentVars } from '$lib/theme';
 	import { formatClock } from '$lib/utils/format';
@@ -62,6 +69,7 @@
 
 	let playing = $state(false);
 	let hasPlayed = $state(false); // suppress the pause indicator before autoplay starts
+	let buffering = $state(false); // media is stalled waiting for data
 	let currentTime = $state(0);
 	let duration = $state(info.durationSeconds || 0);
 	let buffered = $state<{ start: number; end: number }[]>([]);
@@ -183,14 +191,34 @@
 			episodesBySeason[0]?.[0] ??
 			null
 	);
-	let pickedSeason = $state<number | null>(null);
-	const activeSeason = $derived(pickedSeason ?? currentSeasonNumber);
+	// the season dropdown follows the playing season until the user picks one
+	let seasonValue = $state('');
+	const activeSeason = $derived(seasonValue ? Number(seasonValue) : currentSeasonNumber);
 	const seasonEpisodes = $derived(episodesBySeason.find(([n]) => n === activeSeason)?.[1] ?? []);
 
 	function openEpisode(episodeId: string) {
 		if (episodeId === info.currentEpisodeId) return;
 		report();
 		goto(`/watch/episode/${episodeId}`, { invalidateAll: true });
+	}
+
+	// shuffle: when enabled on a flagged series, auto-next jumps to a random episode.
+	// The choice persists globally (like volume) but only acts on flagged multi-episode series.
+	let shuffle = $state(localStorage.getItem('cv.shuffle') === '1');
+	const canShuffle = $derived(!!info.allowRandomPlayback && (info.episodes?.length ?? 0) > 1);
+	function toggleShuffle() {
+		shuffle = !shuffle;
+		localStorage.setItem('cv.shuffle', shuffle ? '1' : '0');
+	}
+	// the decided upcoming episode, held in state so the up-next card and the actual
+	// jump agree (picking inside a derived would re-randomise on every render)
+	let nextTarget = $state<SeriesEpisode | EpisodeRef | null>(null);
+	function pickNextTarget(): SeriesEpisode | EpisodeRef | null {
+		if (shuffle && canShuffle) {
+			const pool = (info.episodes ?? []).filter((e) => e.episodeId !== info.currentEpisodeId);
+			if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
+		}
+		return info.nextEpisode;
 	}
 
 	const remaining = $derived(duration - currentTime);
@@ -298,14 +326,17 @@
 		if (currentTime - lastReported >= 10) report();
 
 		// auto-next countdown in the last 20 seconds (a follower's episode changes
-		// only when the host switches, never via local autoplay)
+		// only when the host switches, never via local autoplay). Shuffle also
+		// advances past the last episode; the target is decided once here.
+		const hasNext = info.nextEpisode || (shuffle && canShuffle);
 		if (
-			info.nextEpisode &&
+			hasNext &&
 			!couch.isFollower &&
 			remaining <= 20 &&
 			remaining > 0 &&
 			nextCountdown === null
 		) {
+			nextTarget = pickNextTarget();
 			nextCountdown = Math.ceil(remaining);
 		}
 		if (nextCountdown !== null) {
@@ -323,17 +354,21 @@
 	}
 
 	function goNextEpisode() {
-		if (!info.nextEpisode || couch.isFollower) return;
+		if (couch.isFollower) return;
+		const target = nextTarget ?? pickNextTarget();
+		if (!target) return;
 		report();
-		goto(`/watch/episode/${info.nextEpisode.episodeId}`, { invalidateAll: true });
+		goto(`/watch/episode/${target.episodeId}`, { invalidateAll: true });
 	}
 
 	function onEnded() {
 		cueHtml = '';
+		buffering = false;
 		// a follower stays put at the end; the host's next-media choice drives it
 		if (couch.isFollower) return;
+		const target = nextTarget ?? pickNextTarget();
 		report();
-		if (info.nextEpisode) goNextEpisode();
+		if (target) goto(`/watch/episode/${target.episodeId}`, { invalidateAll: true });
 		else goto(`/title/${info.display.titleSlug}`);
 	}
 
@@ -596,10 +631,15 @@
 		}}
 		onpause={() => {
 			playing = false;
+			buffering = false;
 			report();
 			poke();
 			couch.onPlayStateChange(false, video?.currentTime ?? 0);
 		}}
+		onwaiting={() => (buffering = true)}
+		onstalled={() => (buffering = true)}
+		onplaying={() => (buffering = false)}
+		oncanplay={() => (buffering = false)}
 		ontimeupdate={onTimeUpdate}
 		onprogress={onProgress}
 		ondurationchange={() => (duration = video?.duration || info.durationSeconds)}
@@ -622,7 +662,7 @@
 	{/if}
 
 	<!-- centre pause indicator (clicks pass through to the video) -->
-	{#if !playing && hasPlayed}
+	{#if !playing && hasPlayed && !buffering}
 		<div
 			transition:scale={{ duration: 220, start: 0.6 }}
 			class="pointer-events-none absolute inset-0 flex items-center justify-center"
@@ -632,6 +672,37 @@
 					shadow-xl shadow-black/40 backdrop-blur-sm"
 			>
 				<Play class="size-9 translate-x-0.5 fill-current" />
+			</span>
+		</div>
+	{/if}
+
+	<!-- buffering spinner while the media stalls for data -->
+	{#if buffering && !couch.waiting}
+		<div
+			transition:fade={{ duration: 150 }}
+			class="pointer-events-none absolute inset-0 flex items-center justify-center"
+		>
+			<span
+				class="flex size-16 items-center justify-center rounded-full bg-black/45 text-white
+					shadow-xl shadow-black/40 backdrop-blur-sm"
+			>
+				<svg class="size-9 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+					<circle
+						class="opacity-20"
+						cx="12"
+						cy="12"
+						r="10"
+						stroke="currentColor"
+						stroke-width="2.5"
+					/>
+					<path
+						class="opacity-90"
+						d="M22 12a10 10 0 0 1-10 10"
+						stroke="var(--color-accent)"
+						stroke-width="2.5"
+						stroke-linecap="round"
+					/>
+				</svg>
 			</span>
 		</div>
 	{/if}
@@ -876,6 +947,21 @@
 					portalTo={wrapper}
 				/>
 
+				{#if canShuffle && !couch.isFollower}
+					<Tooltip label={m.player_shuffle()} portalTo={wrapper}>
+						{#snippet trigger(props)}
+							<button
+								{...props}
+								class="player-btn {shuffle ? 'text-accent' : ''}"
+								onclick={toggleShuffle}
+								aria-label={m.player_shuffle()}
+							>
+								<Shuffle class="size-5" />
+							</button>
+						{/snippet}
+					</Tooltip>
+				{/if}
+
 				{#if episodesBySeason.length > 0 && !couch.isFollower}
 					<Popover.Root>
 						<Popover.Trigger
@@ -896,19 +982,18 @@
 								>
 									<p class="text-xs font-semibold">{m.player_episodes()}</p>
 									{#if episodesBySeason.length > 1}
-										<div class="flex flex-wrap justify-end gap-1">
-											{#each episodesBySeason as [seasonNumber] (seasonNumber)}
-												<button
-													class="rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors
-														{seasonNumber === activeSeason
-														? 'bg-accent text-[var(--color-on-accent)]'
-														: 'bg-surface text-muted hover:text-text'}"
-													onclick={() => (pickedSeason = seasonNumber)}
-												>
-													S{seasonNumber}
-												</button>
-											{/each}
-										</div>
+										<Select
+											bind:value={seasonValue}
+											label={m.catalog_season()}
+											placeholder={currentSeasonNumber !== null
+												? m.catalog_season_number({ number: currentSeasonNumber })
+												: ''}
+											items={episodesBySeason.map(([n]) => ({
+												value: String(n),
+												label: m.catalog_season_number({ number: n })
+											}))}
+											portalTo={wrapper}
+										/>
 									{/if}
 								</div>
 								<div class="space-y-1 overflow-y-auto p-2 scrollbar-none">
@@ -1194,16 +1279,19 @@
 		</div>
 	{/if}
 
-	{#if info.nextEpisode && nextCountdown !== null && nextCountdown > 0}
+	{#if nextTarget && nextCountdown !== null && nextCountdown > 0}
 		<div
 			transition:fly={{ y: 24, duration: 250 }}
 			class="absolute right-6 bottom-24 w-72 rounded-card border border-edge bg-surface-2/95
 				p-4 shadow-2xl shadow-black/60 backdrop-blur"
 		>
-			<p class="eyebrow mb-1">{m.player_up_next({ seconds: nextCountdown })}</p>
+			<p class="eyebrow mb-1 flex items-center gap-1.5">
+				{#if shuffle && canShuffle}<Shuffle class="size-3" />{/if}
+				{m.player_up_next({ seconds: nextCountdown })}
+			</p>
 			<p class="truncate text-sm font-semibold">
-				S{info.nextEpisode.seasonNumber} E{info.nextEpisode.episodeNumber}
-				{info.nextEpisode.name ? `· ${info.nextEpisode.name}` : ''}
+				S{nextTarget.seasonNumber} E{nextTarget.episodeNumber}
+				{nextTarget.name ? `· ${nextTarget.name}` : ''}
 			</p>
 			<div class="mt-3 flex gap-2">
 				<button

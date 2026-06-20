@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Check, Play, Plus } from 'lucide-svelte';
+	import { Check, Play, Plus, Shuffle } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import * as catalog from '$lib/features/catalog/api';
@@ -41,6 +41,9 @@
 		seasons.find((s) => String(s.seasonNumber) === seasonValue) ?? seasons[0]
 	);
 
+	// every playable episode across seasons, for the shuffle/random pick
+	const allEpisodes = $derived(seasons.flatMap((s) => s.episodes));
+
 	const movieResume = $derived(
 		data.title.kind === 'movie' && (data.progress?.positionSeconds ?? 0) > 10
 			? data.progress!.positionSeconds
@@ -61,6 +64,13 @@
 	function play() {
 		if (data.title.kind === 'movie') goto(`/watch/movie/${data.title.id}`);
 		else if (nextUp) goto(`/watch/episode/${nextUp.id}`);
+	}
+
+	function playRandom() {
+		if (!allEpisodes.length) return;
+		localStorage.setItem('cv.shuffle', '1'); // keep playing randomly in the player
+		const ep = allEpisodes[Math.floor(Math.random() * allEpisodes.length)];
+		goto(`/watch/episode/${ep.id}`);
 	}
 
 	async function toggleList() {
@@ -170,6 +180,12 @@
 						{/if}
 						{m.nav_my_list()}
 					</Button>
+					{#if data.title.kind === 'series' && data.title.allowRandomPlayback && allEpisodes.length > 0}
+						<Button variant="secondary" size="lg" onclick={playRandom}>
+							<Shuffle class="size-4" />
+							{m.catalog_random_episode()}
+						</Button>
+					{/if}
 				</div>
 			</div>
 		</div>

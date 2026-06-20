@@ -21,6 +21,7 @@ export interface Title {
 	genres: string[];
 	genreLabels: string[];
 	metadataLanguages: string[];
+	allowRandomPlayback: boolean;
 }
 
 export interface Season {

@@ -62,6 +62,7 @@ export type TitlePatch = Partial<{
 	tmdbId: number | null;
 	genres: string[];
 	metadataLanguages: string[];
+	allowRandomPlayback: boolean;
 }>;
 
 export const createTitle = (input: TitleInput) =>

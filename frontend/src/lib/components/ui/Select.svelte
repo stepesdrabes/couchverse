@@ -13,6 +13,7 @@
 		label = '',
 		placeholder = 'Any',
 		class: cls = '',
+		portalTo = undefined,
 		onchange
 	}: {
 		items: Item[];
@@ -20,6 +21,7 @@
 		label?: string;
 		placeholder?: string;
 		class?: string;
+		portalTo?: string | HTMLElement;
 		onchange?: (value: string) => void;
 	} = $props();
 
@@ -35,7 +37,7 @@
 		{selected}
 		<ChevronDown class="size-3.5 text-muted" />
 	</Select.Trigger>
-	<Select.Portal>
+	<Select.Portal to={portalTo}>
 		<Select.Content
 			sideOffset={6}
 			class="z-50 max-h-72 min-w-[var(--bits-select-anchor-width)] animate-pop-in overflow-y-auto
