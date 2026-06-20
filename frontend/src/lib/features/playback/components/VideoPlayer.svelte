@@ -1351,7 +1351,6 @@
 	:global(.player-btn.shuffle-on),
 	:global(.player-btn.shuffle-on:hover) {
 		color: var(--color-accent);
-		background-color: var(--color-accent-soft);
 	}
 
 	.volume-slider {
