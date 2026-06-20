@@ -15,6 +15,44 @@
 	const form = new FormState(() => ({ displayName }));
 	form.reset();
 
+	let currentPassword = $state('');
+	let newPassword = $state('');
+	let confirmPassword = $state('');
+	let changingPassword = $state(false);
+	const MIN_PASSWORD = 8;
+	const passwordError = $derived(
+		newPassword.length > 0 && newPassword.length < MIN_PASSWORD
+			? m.profile_password_too_short({ count: MIN_PASSWORD })
+			: ''
+	);
+	const confirmError = $derived(
+		confirmPassword.length > 0 && newPassword !== confirmPassword
+			? m.profile_password_mismatch()
+			: ''
+	);
+	const canSubmitPassword = $derived(
+		currentPassword.length > 0 &&
+			newPassword.length >= MIN_PASSWORD &&
+			newPassword === confirmPassword
+	);
+
+	async function submitPassword(e: SubmitEvent) {
+		e.preventDefault();
+		if (!canSubmitPassword) return;
+		changingPassword = true;
+		try {
+			await authApi.changePassword(currentPassword, newPassword);
+			currentPassword = '';
+			newPassword = '';
+			confirmPassword = '';
+			toast.success(m.profile_password_changed());
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : m.profile_password_change_failed());
+		} finally {
+			changingPassword = false;
+		}
+	}
+
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
 		saving = true;
@@ -100,6 +138,40 @@
 			<Input label={m.profile_display_name()} bind:value={displayName} required maxlength={60} />
 			<div class="flex justify-end">
 				<Button type="submit" loading={saving} disabled={!form.dirty}>{m.common_save()}</Button>
+			</div>
+		</form>
+	</div>
+
+	<div class="mt-6 rounded-card border border-edge bg-surface/40 p-6">
+		<h2 class="mb-4 text-sm font-semibold text-muted">{m.profile_password_heading()}</h2>
+		<form onsubmit={submitPassword} class="space-y-4">
+			<Input
+				label={m.profile_current_password()}
+				type="password"
+				autocomplete="current-password"
+				bind:value={currentPassword}
+				required
+			/>
+			<Input
+				label={m.profile_new_password()}
+				type="password"
+				autocomplete="new-password"
+				bind:value={newPassword}
+				error={passwordError}
+				required
+			/>
+			<Input
+				label={m.profile_confirm_password()}
+				type="password"
+				autocomplete="new-password"
+				bind:value={confirmPassword}
+				error={confirmError}
+				required
+			/>
+			<div class="flex justify-end">
+				<Button type="submit" loading={changingPassword} disabled={!canSubmitPassword}>
+					{m.profile_password_heading()}
+				</Button>
 			</div>
 		</form>
 	</div>
