@@ -640,6 +640,9 @@
 		onstalled={() => (buffering = true)}
 		onplaying={() => (buffering = false)}
 		oncanplay={() => (buffering = false)}
+		onseeking={() => {
+			if (video) currentTime = video.currentTime;
+		}}
 		ontimeupdate={onTimeUpdate}
 		onprogress={onProgress}
 		ondurationchange={() => (duration = video?.duration || info.durationSeconds)}
@@ -952,7 +955,7 @@
 						{#snippet trigger(props)}
 							<button
 								{...props}
-								class="player-btn {shuffle ? 'text-accent' : ''}"
+								class="player-btn {shuffle ? 'shuffle-on' : ''}"
 								onclick={toggleShuffle}
 								aria-label={m.player_shuffle()}
 							>
@@ -1343,6 +1346,12 @@
 			background-color: rgb(255 255 255 / 0.1);
 			color: white;
 		}
+	}
+
+	:global(.player-btn.shuffle-on),
+	:global(.player-btn.shuffle-on:hover) {
+		color: var(--color-accent);
+		background-color: var(--color-accent-soft);
 	}
 
 	.volume-slider {
