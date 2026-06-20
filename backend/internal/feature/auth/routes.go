@@ -31,6 +31,7 @@ func (m *Module) MountPublic(r chi.Router) {
 func (m *Module) MountUser(r chi.Router) {
 	r.Get("/auth/me", m.handlers.Me)
 	r.Patch("/me/profile", m.profile.Update)
+	r.Patch("/me/password", m.profile.ChangePassword)
 	r.Get("/me/preferences", m.profile.Preferences)
 	r.Put("/me/preferences", m.profile.UpdatePreferences)
 	r.Post("/me/avatar", m.profile.SetAvatar)

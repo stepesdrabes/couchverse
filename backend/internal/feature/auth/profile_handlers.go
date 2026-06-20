@@ -36,6 +36,39 @@ func (h *Profile) Update(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, user)
 }
 
+// ChangePassword lets a signed-in user set a new password after re-entering the
+// current one. The session is kept (no forced re-login).
+func (h *Profile) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.BadRequest(w, "invalid request body")
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		httpx.BadRequest(w, "password must be at least 8 characters")
+		return
+	}
+	self := UserFrom(r.Context())
+	ok, err := VerifyPassword(req.CurrentPassword, self.PasswordHash)
+	if err != nil || !ok {
+		httpx.Error(w, http.StatusBadRequest, "invalid_password", "current password is incorrect")
+		return
+	}
+	hash, err := HashPassword(req.NewPassword)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	if _, err := h.store.UpdateUser(r.Context(), self.ID, UserUpdate{PasswordHash: &hash}); err != nil {
+		httpx.StoreErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // Preferences returns the caller's settings blob (subtitle styling, etc.).
 func (h *Profile) Preferences(w http.ResponseWriter, r *http.Request) {
 	prefs, err := h.store.UserPreferences(r.Context(), UserFrom(r.Context()).ID)
