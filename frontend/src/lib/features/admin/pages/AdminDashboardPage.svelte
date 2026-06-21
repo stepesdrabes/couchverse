@@ -4,18 +4,24 @@
 		Clapperboard,
 		Cpu,
 		Disc3,
+		Film,
 		Gauge,
 		ListVideo,
 		MemoryStick,
+		MonitorPlay,
 		Music,
+		Sofa,
+		Sparkles,
 		Timer,
 		Tv,
-		Users
+		Users,
+		Zap
 	} from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import * as jobsApi from '$lib/features/jobs/api';
 	import type {
 		AnalyticsInfo,
+		LiveStats,
 		OverviewInfo,
 		StorageInfo,
 		SystemStats
@@ -23,6 +29,7 @@
 	import BarChart from '$lib/features/admin/components/BarChart.svelte';
 	import Sparkline from '$lib/features/admin/components/Sparkline.svelte';
 	import StorageBar from '$lib/features/admin/components/StorageBar.svelte';
+	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import { categoryStyle } from '$lib/features/admin/components/storageColors';
 	import { jobAction, jobSubjectLabel } from '$lib/features/jobs/job-label';
 	import { formatBytes, formatDate, formatUptime } from '$lib/utils/format';
@@ -33,6 +40,7 @@
 	let storage = $state<StorageInfo | null>(null);
 	let system = $state<SystemStats | null>(null);
 	let analytics = $state<AnalyticsInfo | null>(null);
+	let live = $state<LiveStats | null>(null);
 	let cpuHistory = $state<number[]>([]);
 	let memHistory = $state<number[]>([]);
 
@@ -44,8 +52,9 @@
 		async function pollSystem() {
 			if (document.visibilityState === 'hidden') return;
 			try {
-				const s = await jobsApi.getSystem();
+				const [s, l] = await Promise.all([jobsApi.getSystem(), jobsApi.getLive()]);
 				system = s;
+				live = l;
 				if (s.cpuPercent >= 0) {
 					cpuHistory = [...cpuHistory, s.cpuPercent].slice(-40);
 				}
@@ -146,6 +155,41 @@
 		if (!analytics || analytics.daily.length === 0) return 0;
 		return analytics.daily.reduce((sum, d) => sum + d.activeUsers, 0) / analytics.daily.length;
 	});
+
+	const lib = $derived(overview?.library ?? null);
+	const contentHours = $derived(lib ? Math.round(lib.totalRuntimeSeconds / 3600) : 0);
+	const QUALITY = [
+		{ key: 'uhd', label: '4K', color: 'var(--color-accent)' },
+		{ key: 'fhd', label: '1080p', color: '#38bdf8' },
+		{ key: 'hd', label: '720p', color: '#f5b14c' },
+		{ key: 'sd', label: 'SD', color: '#5b6072' }
+	] as const;
+	const qualityBars = $derived(
+		lib
+			? QUALITY.map((q) => ({
+					key: q.key,
+					label: q.label,
+					color: q.color,
+					count: lib.quality[q.key]
+				}))
+			: []
+	);
+	const qualityTotal = $derived(qualityBars.reduce((sum, q) => sum + q.count, 0));
+
+	const liveCards = $derived(
+		live
+			? [
+					{ label: m.admin_streaming_now(), value: live.streams, icon: MonitorPlay, sub: '' },
+					{
+						label: m.admin_on_couch(),
+						value: live.couchSessions,
+						icon: Sofa,
+						sub: live.couchViewers > 0 ? m.admin_couch_watching({ count: live.couchViewers }) : ''
+					},
+					{ label: m.admin_instant_play(), value: live.transcodes, icon: Zap, sub: '' }
+				]
+			: []
+	);
 </script>
 
 <svelte:head>
@@ -174,6 +218,47 @@
 		</a>
 	{/each}
 </div>
+
+{#if live}
+	<div class="mt-6" in:fly|global={{ y: 20, duration: 400 }}>
+		<h2 class="mb-3 text-sm font-semibold text-muted">{m.admin_live()}</h2>
+		<div class="grid gap-4 sm:grid-cols-3">
+			{#each liveCards as c (c.label)}
+				<div
+					class="flex items-center gap-4 rounded-card border bg-surface/40 p-5 transition-colors
+						{c.value > 0 ? 'border-accent/50' : 'border-edge'}"
+				>
+					<span
+						class="relative flex size-12 shrink-0 items-center justify-center rounded-xl
+							{c.value > 0 ? 'bg-accent-soft' : 'bg-surface-2'}"
+					>
+						<c.icon class="size-5 {c.value > 0 ? 'text-accent' : 'text-faint'}" />
+						{#if c.value > 0}
+							<span class="absolute -top-0.5 -right-0.5 flex size-2.5">
+								<span class="absolute inline-flex size-full animate-ping rounded-full bg-accent/70"
+								></span>
+								<span class="relative inline-flex size-2.5 rounded-full bg-accent"></span>
+							</span>
+						{/if}
+					</span>
+					<span class="min-w-0">
+						<span
+							class="block text-3xl font-extrabold tracking-tight tnum {c.value > 0
+								? ''
+								: 'text-faint'}"
+						>
+							{c.value}
+						</span>
+						<span class="block text-xs font-medium text-muted">{c.label}</span>
+						{#if c.sub}
+							<span class="block text-[11px] text-faint tnum">{c.sub}</span>
+						{/if}
+					</span>
+				</div>
+			{/each}
+		</div>
+	</div>
+{/if}
 
 {#if system}
 	<div class="mt-6" in:fly|global={{ y: 20, duration: 400 }}>
@@ -324,6 +409,63 @@
 	</div>
 {/if}
 
+{#if lib}
+	<div
+		class="mt-6 rounded-card border border-edge bg-surface/40 p-6"
+		in:fly|global={{ y: 20, duration: 400 }}
+	>
+		<h2 class="mb-4 text-sm font-semibold text-muted">{m.admin_library()}</h2>
+		<div class="grid gap-6 sm:grid-cols-2">
+			<div class="flex gap-8">
+				<div>
+					<div class="flex items-center gap-1.5 text-[11px] text-faint">
+						<Film class="size-3" />
+						{m.admin_content_runtime()}
+					</div>
+					<p class="mt-1 text-3xl font-extrabold tracking-tight tnum">
+						{contentHours}<span class="ml-1 text-base font-semibold text-muted">h</span>
+					</p>
+				</div>
+				<div>
+					<div class="flex items-center gap-1.5 text-[11px] text-faint">
+						<Sparkles class="size-3" />
+						{m.admin_added_recently()}
+					</div>
+					<p class="mt-1 text-3xl font-extrabold tracking-tight tnum">{lib.addedLast30Days}</p>
+				</div>
+			</div>
+			{#if qualityTotal > 0}
+				<div>
+					<div class="mb-2 flex items-center justify-between text-[11px] text-faint">
+						<span>{m.admin_quality_mix()}</span>
+						{#if lib.hdr > 0}
+							<span class="rounded bg-accent-soft px-1.5 py-0.5 font-semibold text-accent">
+								{m.admin_hdr({ count: lib.hdr })}
+							</span>
+						{/if}
+					</div>
+					<div class="flex h-2 overflow-hidden rounded-full bg-surface-2">
+						{#each qualityBars as q (q.key)}
+							{#if q.count > 0}
+								<div style="width: {(q.count / qualityTotal) * 100}%; background: {q.color}"></div>
+							{/if}
+						{/each}
+					</div>
+					<ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+						{#each qualityBars as q (q.key)}
+							<li class="flex items-center gap-1.5 text-muted">
+								<span class="size-2 rounded-full" style="background: {q.color}"></span>
+								{q.label}
+								<span class="text-faint tnum">{q.count}</span>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+		</div>
+	</div>
+{/if}
+
 {#if analytics && watchTotal > 0}
 	<div class="mt-6" in:fly|global={{ y: 20, duration: 400 }}>
 		<h2 class="mb-3 text-sm font-semibold text-muted">
@@ -387,40 +529,62 @@
 	</div>
 {/if}
 
-{#if analytics && analytics.totals.couchSeconds > 0}
-	<div class="mt-6" in:fly|global={{ y: 20, duration: 400 }}>
-		<div class="rounded-card border border-edge bg-surface/40 p-6">
-			<div class="mb-1 flex items-baseline justify-between">
-				<h2 class="text-sm font-semibold text-muted">{m.admin_couch_watch_time()}</h2>
-				<span class="text-xs text-faint tnum">
-					{m.admin_total_value({ value: formatUptime(analytics.totals.couchSeconds) })}
-				</span>
-			</div>
-			<p class="mb-3 text-[11px] text-faint">{m.admin_couch_watch_hint()}</p>
-			{#if analytics.topCouchTitles.length > 0}
-				<ul class="grid gap-x-8 gap-y-2.5 text-xs sm:grid-cols-2">
-					{#each analytics.topCouchTitles.slice(0, 6) as title (title.titleId)}
-						<li>
-							<div class="flex items-baseline justify-between gap-3">
-								<a
-									href="/title/{title.slug}"
-									class="truncate font-medium transition-colors hover:text-accent"
-								>
-									{title.name}
-								</a>
-								<span class="shrink-0 text-faint tnum">{formatUptime(title.seconds)}</span>
-							</div>
-							<div class="mt-1 h-1 overflow-hidden rounded-full bg-surface-2">
-								<div
-									class="h-full rounded-full bg-accent"
-									style="width: {(title.seconds / analytics.topCouchTitles[0].seconds) * 100}%"
-								></div>
-							</div>
+{#if analytics && (analytics.topUsers.length > 0 || analytics.totals.couchSeconds > 0)}
+	<div class="mt-6 grid gap-6 lg:grid-cols-2" in:fly|global={{ y: 20, duration: 400 }}>
+		{#if analytics.topUsers.length > 0}
+			<div class="rounded-card border border-edge bg-surface/40 p-6">
+				<h2 class="mb-3 text-sm font-semibold text-muted">{m.admin_top_viewers()}</h2>
+				<ul class="space-y-2.5 text-xs">
+					{#each analytics.topUsers.slice(0, 6) as u, i (u.userId)}
+						<li class="flex items-center gap-3">
+							<span class="w-4 shrink-0 text-center font-semibold text-faint tnum">{i + 1}</span>
+							<UserAvatar
+								name={u.displayName}
+								avatarId={u.avatarId}
+								seed={u.userId}
+								class="size-7 rounded-lg text-[10px]"
+							/>
+							<span class="min-w-0 flex-1 truncate font-medium">{u.displayName}</span>
+							<span class="shrink-0 text-faint tnum">{formatUptime(u.seconds)}</span>
 						</li>
 					{/each}
 				</ul>
-			{/if}
-		</div>
+			</div>
+		{/if}
+		{#if analytics.totals.couchSeconds > 0}
+			<div class="rounded-card border border-edge bg-surface/40 p-6">
+				<div class="mb-1 flex items-baseline justify-between">
+					<h2 class="text-sm font-semibold text-muted">{m.admin_couch_watch_time()}</h2>
+					<span class="text-xs text-faint tnum">
+						{m.admin_total_value({ value: formatUptime(analytics.totals.couchSeconds) })}
+					</span>
+				</div>
+				<p class="mb-3 text-[11px] text-faint">{m.admin_couch_watch_hint()}</p>
+				{#if analytics.topCouchTitles.length > 0}
+					<ul class="space-y-2.5 text-xs">
+						{#each analytics.topCouchTitles.slice(0, 6) as title (title.titleId)}
+							<li>
+								<div class="flex items-baseline justify-between gap-3">
+									<a
+										href="/title/{title.slug}"
+										class="truncate font-medium transition-colors hover:text-accent"
+									>
+										{title.name}
+									</a>
+									<span class="shrink-0 text-faint tnum">{formatUptime(title.seconds)}</span>
+								</div>
+								<div class="mt-1 h-1 overflow-hidden rounded-full bg-surface-2">
+									<div
+										class="h-full rounded-full bg-accent"
+										style="width: {(title.seconds / analytics.topCouchTitles[0].seconds) * 100}%"
+									></div>
+								</div>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		{/if}
 	</div>
 {/if}
 

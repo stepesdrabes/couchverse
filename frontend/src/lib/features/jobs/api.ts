@@ -93,6 +93,13 @@ export interface StorageInfo {
 
 export const getStorage = () => api<StorageInfo>('/admin/storage');
 
+export interface LibraryInsights {
+	totalRuntimeSeconds: number;
+	quality: { uhd: number; fhd: number; hd: number; sd: number };
+	hdr: number;
+	addedLast30Days: number;
+}
+
 export interface OverviewInfo {
 	counts: {
 		movies: number;
@@ -102,11 +109,22 @@ export interface OverviewInfo {
 		tracks: number;
 		users: number;
 	};
+	library: LibraryInsights;
 	pendingJobs: number;
 	recentJobs: Job[];
 }
 
 export const getOverview = () => api<OverviewInfo>('/admin/overview');
+
+// live presence, polled alongside system stats
+export interface LiveStats {
+	streams: number;
+	couchSessions: number;
+	couchViewers: number;
+	transcodes: number;
+}
+
+export const getLive = () => api<LiveStats>('/admin/live');
 
 export interface SystemStats {
 	cpuPercent: number; // -1 when unavailable (non-Linux host)
@@ -146,7 +164,7 @@ export interface AnalyticsInfo {
 	totals: { videoSeconds: number; musicSeconds: number; couchSeconds: number; activeUsers: number };
 	topTitles: AnalyticsTopTitle[];
 	topCouchTitles: AnalyticsTopTitle[];
-	topUsers: { userId: number; displayName: string; seconds: number }[];
+	topUsers: { userId: number; displayName: string; avatarId: string | null; seconds: number }[];
 }
 
 export const getAnalytics = (days = 30) =>
