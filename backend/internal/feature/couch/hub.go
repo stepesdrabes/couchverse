@@ -146,6 +146,27 @@ func (h *Hub) accrueWatch(ctx context.Context, intervalSecs int) {
 	}
 }
 
+// LivePresence reports how many couch sessions are live right now and how many
+// people are connected to them (host + followers with an open socket, anonymous
+// included). Feeds the admin dashboard's live stats.
+func (h *Hub) LivePresence() (sessions, viewers int) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, rm := range h.rooms {
+		rm.mu.Lock()
+		if rm.live {
+			sessions++
+			for _, p := range rm.participants {
+				if p.connCount > 0 {
+					viewers++
+				}
+			}
+		}
+		rm.mu.Unlock()
+	}
+	return sessions, viewers
+}
+
 // nowMs is a monotonic millisecond clock anchored at process start. Relayed
 // verbatim so all clients share one timeline and sidestep wall-clock skew.
 func (h *Hub) nowMs() int64 { return time.Since(h.epoch).Milliseconds() }

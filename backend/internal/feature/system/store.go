@@ -73,6 +73,56 @@ func (s *Store) Overview(ctx context.Context) (*OverviewCounts, error) {
 	return &c, err
 }
 
+type LibraryStats struct {
+	TotalRuntimeSeconds int64 `json:"totalRuntimeSeconds"`
+	Quality             struct {
+		UHD int `json:"uhd"`
+		FHD int `json:"fhd"`
+		HD  int `json:"hd"`
+		SD  int `json:"sd"`
+	} `json:"quality"`
+	HDR             int `json:"hdr"`
+	AddedLast30Days int `json:"addedLast30Days"`
+}
+
+// LibraryStats summarises the video library: total runtime, a resolution
+// breakdown, HDR count and how many titles were added in the last 30 days.
+func (s *Store) LibraryStats(ctx context.Context) (*LibraryStats, error) {
+	var ls LibraryStats
+	err := s.db.QueryRow(ctx, `
+		SELECT
+			COALESCE(sum(mf.duration_seconds), 0)::bigint,
+			count(*) FILTER (WHERE mf.height >= 2160),
+			count(*) FILTER (WHERE mf.height >= 1080 AND mf.height < 2160),
+			count(*) FILTER (WHERE mf.height >= 720 AND mf.height < 1080),
+			count(*) FILTER (WHERE mf.height > 0 AND mf.height < 720),
+			count(*) FILTER (WHERE mf.video_range <> 'sdr')
+		FROM media_files mf
+		JOIN libraries l ON l.id = mf.library_id
+		WHERE l.kind IN ('movies', 'series')`).
+		Scan(&ls.TotalRuntimeSeconds, &ls.Quality.UHD, &ls.Quality.FHD, &ls.Quality.HD, &ls.Quality.SD, &ls.HDR)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.db.QueryRow(ctx,
+		`SELECT count(*) FROM titles WHERE added_at > now() - interval '30 days'`).
+		Scan(&ls.AddedLast30Days); err != nil {
+		return nil, err
+	}
+	return &ls, nil
+}
+
+// ActiveStreamCount counts players that beaconed progress in the last 60s - a
+// proxy for "currently streaming". Couch followers/anonymous don't write
+// progress, so they are counted separately via the couch hub.
+func (s *Store) ActiveStreamCount(ctx context.Context) (int, error) {
+	var n int
+	err := s.db.QueryRow(ctx,
+		`SELECT count(*) FROM watch_progress WHERE updated_at > now() - interval '60 seconds'`).
+		Scan(&n)
+	return n, err
+}
+
 type HomeRowConfig struct {
 	ID       int64  `json:"id"`
 	Position int    `json:"position"`

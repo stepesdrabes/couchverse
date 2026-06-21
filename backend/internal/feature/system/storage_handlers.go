@@ -87,8 +87,14 @@ func (h *AdminStorage) Overview(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
+	library, err := h.store.LibraryStats(r.Context())
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"counts":      counts,
+		"library":     library,
 		"pendingJobs": pending,
 		"recentJobs":  recent,
 	})

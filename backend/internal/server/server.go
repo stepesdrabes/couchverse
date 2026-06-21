@@ -57,7 +57,7 @@ func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.St
 func (s *Server) Handler() http.Handler {
 	sessions := auth.NewMiddleware(s.auth)
 	authModule := auth.NewModule(s.auth, s.cfg, s.artwork)
-	systemModule := system.NewModule(s.system, s.settings, s.jobs, s.cfg.DataDir)
+	systemModule := system.NewModule(s.system, s.settings, s.jobs, s.cfg.DataDir, s.couch, s.sessions)
 	libraryModule := library.NewModule(s.library, s.uploads)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
 	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.music, s.jobs, s.analytics)

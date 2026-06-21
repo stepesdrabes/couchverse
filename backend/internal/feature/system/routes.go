@@ -17,15 +17,17 @@ type Module struct {
 	settings *AdminSettings
 	storage  *AdminStorage
 	stats    *SysStats
+	live     *Live
 	flags    *settings.Store
 }
 
-func NewModule(st *Store, set *settings.Store, jb *jobs.Store, dataDir string) *Module {
+func NewModule(st *Store, set *settings.Store, jb *jobs.Store, dataDir string, couch CouchPresence, transcodes TranscodePresence) *Module {
 	return &Module{
 		theme:    NewTheme(set),
 		settings: NewAdminSettings(set),
 		storage:  NewAdminStorage(st, jb, dataDir),
 		stats:    NewSysStats(),
+		live:     NewLive(st, couch, transcodes),
 		flags:    set,
 	}
 }
@@ -52,6 +54,7 @@ func (m *Module) MountAdmin(r chi.Router) {
 	r.Get("/storage", m.storage.Get)
 	r.Get("/overview", m.storage.Overview)
 	r.Get("/system", m.stats.Get)
+	r.Get("/live", m.live.Get)
 	r.Get("/home-rows", m.storage.HomeRowsGet)
 	r.Put("/home-rows", m.storage.HomeRowsPut)
 }

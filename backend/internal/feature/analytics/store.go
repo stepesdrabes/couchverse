@@ -90,9 +90,10 @@ type TopTitle struct {
 }
 
 type TopUser struct {
-	UserID      int64  `json:"userId"`
-	DisplayName string `json:"displayName"`
-	Seconds     int64  `json:"seconds"`
+	UserID      int64   `json:"userId"`
+	DisplayName string  `json:"displayName"`
+	AvatarID    *string `json:"avatarId"`
+	Seconds     int64   `json:"seconds"`
 }
 
 type Overview struct {
@@ -193,18 +194,19 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 	}
 
 	users, err := s.db.Query(ctx,
-		`SELECT u.id, u.display_name, sum(w.seconds) AS secs
+		`SELECT u.id, u.display_name, av.id, sum(w.seconds) AS secs
 		 FROM watch_time_daily w
 		 JOIN users u ON u.id = w.user_id
+		 LEFT JOIN artwork av ON av.owner_kind = 'user' AND av.owner_id = u.id::text AND av.kind = 'avatar'
 		 WHERE w.day >= current_date - ($1::int - 1)
-		 GROUP BY u.id ORDER BY secs DESC LIMIT 10`, days)
+		 GROUP BY u.id, av.id ORDER BY secs DESC LIMIT 10`, days)
 	if err != nil {
 		return nil, err
 	}
 	defer users.Close()
 	for users.Next() {
 		var u TopUser
-		if err := users.Scan(&u.UserID, &u.DisplayName, &u.Seconds); err != nil {
+		if err := users.Scan(&u.UserID, &u.DisplayName, &u.AvatarID, &u.Seconds); err != nil {
 			return nil, err
 		}
 		out.TopUsers = append(out.TopUsers, u)

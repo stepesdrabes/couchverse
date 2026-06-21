@@ -151,6 +151,14 @@ func (m *SessionManager) Get(id string) *Session {
 	return m.sessions[id]
 }
 
+// ActiveCount returns the number of live JIT (instant-play) sessions, for the
+// admin dashboard's live stats.
+func (m *SessionManager) ActiveCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.sessions)
+}
+
 func (m *SessionManager) Touch(id string) bool {
 	s := m.Get(id)
 	if s == nil {
