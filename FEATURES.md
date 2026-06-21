@@ -154,13 +154,21 @@ cancellation, and the in-process worker runner. Other features register handlers
 ### system
 Server-level concerns: the public accent theme endpoint, admin settings KV editing
 (with transcode-settings validation), the feature-flags endpoint, storage stats,
-catalog overview counts, live host metrics (CPU/RAM/disk, platform-specific, with
-per-process attribution to the Go app and ffmpeg children via /proc) and the
-home-rows editor.
+catalog overview counts + library insights (total video runtime, resolution/HDR mix,
+titles added in the last 30 days), live host metrics (CPU/RAM/disk, platform-specific,
+with per-process attribution to the Go app and ffmpeg children via /proc), a
+live-presence endpoint and the home-rows editor.
 - Endpoints: `/theme` (public), `/features`; admin `/admin/settings`, `/admin/storage`
   (categories movies/series/music/transcodes/cache - transcodes is the SQL sum of
   ready variant sizes, cache covers images/uploads/JIT session scratch),
-  `/admin/overview`, `/admin/system`, `/admin/home-rows`.
+  `/admin/overview` (counts + `library` insights), `/admin/system`, `/admin/live`,
+  `/admin/home-rows`.
+- **`/admin/live`** (polled every 3s by the dashboard) reports current streams
+  (distinct `watch_progress` rows beaconed in the last 60s), live couch sessions +
+  people on them, and active instant-play transcodes. It reads in-memory state through
+  small interfaces (`CouchPresence`/`TranscodePresence`) satisfied by `couch.Hub` /
+  `playback.SessionManager` and wired at the composition root, so `system` imports
+  neither package.
 - Frontend: `features/settings` (AdminSettingsPage, HomeRowsEditor, feature-flags store),
   `features/admin` (AdminDashboardPage, AdminSidebar, meters/sparkline/BarChart widgets).
 
@@ -175,10 +183,10 @@ seconds)` upserts the `couch_watch_time_daily` per-title rollup (no user
 dimension, so anonymous followers count), called best-effort by the couch hub.
 - Endpoints (admin): `/admin/analytics/overview?days=N` - dense daily series
   (video/music/couch seconds, active users), totals, top titles, top couch
-  titles, top users.
-- Frontend: charts + an "On Couch watch-time" card on AdminDashboardPage
-  (`features/admin`), api call in `features/jobs/api.ts` next to the other
-  overview endpoints.
+  titles, top users (each with `avatarId` for the dashboard leaderboard).
+- Frontend: charts + "Top viewers" and "On Couch watch-time" cards on
+  AdminDashboardPage (`features/admin`), api call in `features/jobs/api.ts` next to
+  the other overview endpoints.
 
 ### couch
 Spotify-jam-style synced watch parties. A logged-in host watching a movie/episode
@@ -191,7 +199,8 @@ persisted artifact is the on-couch watch-time stat (in analytics). Gated by the
 admin `couchEnabled` flag (default on, mirrors `musicEnabled`).
 - Backend (`internal/feature/couch`): an in-process **Hub** (session registry +
   rooms), a scoped httpOnly **couch cookie** (mirrors the auth session cookie), the
-  HTTP handlers and the WS endpoint, on `github.com/coder/websocket`.
+  HTTP handlers and the WS endpoint, on `github.com/coder/websocket`. `Hub.LivePresence()`
+  exposes live session/viewer counts to the admin dashboard's `/admin/live`.
 - Endpoints: `POST /couch` (create/reclaim, host must be logged in),
   `POST /couch/{token}/join` (public, anon OK), `POST /couch/{token}/leave`,
   `POST /couch/{token}/end` (host only), `GET /couch/{token}/playback` (follower
