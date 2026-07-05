@@ -8,6 +8,7 @@
 	import CouchBar from '$lib/features/couch/components/CouchBar.svelte';
 	import { musicPlayer } from '$lib/features/music/player.svelte';
 	import PlayerBar from '$lib/features/music/components/PlayerBar.svelte';
+	import NavProgress from '$lib/components/layout/NavProgress.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
 	import UploadDock from '$lib/features/uploads/components/UploadDock.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
@@ -71,6 +72,8 @@
 <svelte:head>
 	<title>Couchverse</title>
 </svelte:head>
+
+<NavProgress />
 
 {@render children()}
 

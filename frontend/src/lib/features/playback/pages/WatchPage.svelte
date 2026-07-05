@@ -1,37 +1,91 @@
 <script lang="ts">
 	import type { PlaybackInfo, PlaybackKind } from '$lib/features/playback/api';
-	import { invalidateAll } from '$app/navigation';
-	import { ArrowLeft, Loader } from 'lucide-svelte';
+	import { invalidate } from '$app/navigation';
+	import { ArrowLeft, House, Loader } from 'lucide-svelte';
 	import VideoPlayer from '$lib/features/playback/components/VideoPlayer.svelte';
 	import * as m from '$lib/paraglide/messages';
 
+	type Resolved = { info: PlaybackInfo; jitSessionId: string | null };
+
 	let {
 		data
-	}: { data: { info: PlaybackInfo; kind: PlaybackKind; id: string; jitSessionId: string | null } } =
-		$props();
+	}: {
+		data: { kind: PlaybackKind; id: string; playback: Promise<Resolved> };
+	} = $props();
 
-	// while transcoding, poll until the stream becomes playable
+	// Resolve the streamed playback into local state instead of {#await}, so a
+	// transcode-poll re-fetch (same media) updates in place without flashing the
+	// loader; only a genuine media change (new id) clears back to the loader.
+	let resolved = $state<Resolved | null>(null);
+	let failed = $state(false);
+	let shownId = '';
+
 	$effect(() => {
-		if (data.info.mode !== 'preparing') return;
-		const t = setInterval(() => invalidateAll(), 3000);
+		const { id, playback } = data;
+		if (id !== shownId) {
+			resolved = null;
+			failed = false;
+			shownId = id;
+		}
+		let live = true;
+		playback.then(
+			(p) => {
+				if (live) {
+					resolved = p;
+					failed = false;
+				}
+			},
+			() => {
+				if (live && !resolved) failed = true;
+			}
+		);
+		return () => {
+			live = false;
+		};
+	});
+
+	const info = $derived(resolved?.info ?? null);
+	const preparing = $derived(info?.mode === 'preparing');
+
+	// while transcoding, poll until the stream becomes playable. Targeted invalidate
+	// re-runs only this load, not the layout's session/features/preferences fetch.
+	$effect(() => {
+		if (!preparing) return;
+		const t = setInterval(() => invalidate('app:playback'), 3000);
 		return () => clearInterval(t);
 	});
 </script>
 
 <svelte:head>
-	<title>{m.player_page_title({ title: data.info.display.title })}</title>
+	<title>{info ? m.player_page_title({ title: info.display.title }) : 'Couchverse'}</title>
 </svelte:head>
 
-{#if data.info.mode === 'direct' || data.info.mode === 'hls'}
+{#if failed}
+	<div class="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
+		<h1 class="text-xl font-bold">{m.error_not_found()}</h1>
+		<a
+			href="/"
+			class="inline-flex h-10 items-center gap-2 rounded-full border border-edge bg-surface/60
+				px-5 text-sm font-semibold transition-colors hover:border-faint hover:bg-surface-2"
+		>
+			<House class="size-4" />
+			{m.error_go_home()}
+		</a>
+	</div>
+{:else if !resolved || !info}
+	<div class="flex min-h-dvh items-center justify-center">
+		<Loader class="size-7 animate-spin text-accent" />
+	</div>
+{:else if info.mode === 'direct' || info.mode === 'hls'}
 	{#key data.id}
 		<VideoPlayer
-			info={data.info}
+			{info}
 			titleId={data.kind === 'movie' ? data.id : null}
 			episodeId={data.kind === 'episode' ? data.id : null}
-			jitSessionId={data.jitSessionId}
+			jitSessionId={resolved.jitSessionId}
 		/>
 	{/key}
-{:else if data.info.mode === 'preparing'}
+{:else if info.mode === 'preparing'}
 	<div class="flex min-h-dvh flex-col items-center justify-center gap-5 px-6 text-center">
 		<Loader class="size-7 animate-spin text-accent" />
 		<h1 class="text-xl font-bold">{m.player_preparing_title()}</h1>
@@ -41,7 +95,7 @@
 		<div class="h-1.5 w-64 overflow-hidden rounded-full bg-surface-2">
 			<div
 				class="h-full rounded-full bg-accent transition-all duration-700"
-				style="width: {data.info.jobProgress ?? 0}%"
+				style="width: {info.jobProgress ?? 0}%"
 			></div>
 		</div>
 	</div>
@@ -52,7 +106,7 @@
 			{m.player_needs_transcoding_description()}
 		</p>
 		<a
-			href="/title/{data.info.display.titleSlug}"
+			href="/title/{info.display.titleSlug}"
 			class="inline-flex h-10 items-center gap-2 rounded-full border border-edge bg-surface/60
 				px-5 text-sm font-semibold transition-colors hover:border-faint hover:bg-surface-2"
 		>

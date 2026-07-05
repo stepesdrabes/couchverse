@@ -1,14 +1,10 @@
-import { error } from '@sveltejs/kit';
-import { ApiError } from '$lib/api/client';
 import * as musicApi from '$lib/features/music/api';
+import { artistCache } from '$lib/features/music/cache.svelte';
 
-export async function load({ params }) {
-	try {
-		return await musicApi.getArtist(params.id);
-	} catch (err) {
-		if (err instanceof ApiError && err.status === 404) {
-			error(404, 'Artist not found');
-		}
-		throw err;
-	}
+// Non-blocking: paints from cache at once; a cold 404 shows notFound in the page.
+export function load({ params }) {
+	return {
+		id: params.id,
+		fresh: artistCache.revalidate(params.id, () => musicApi.getArtist(params.id))
+	};
 }

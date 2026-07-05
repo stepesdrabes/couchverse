@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import AdminAlbumPage from '$lib/features/library/pages/AdminAlbumPage.svelte';
+	import AdminAlbumEditor from '$lib/features/library/pages/AdminAlbumEditor.svelte';
 
 	let { data }: PageProps = $props();
 </script>
 
-<AdminAlbumPage {data} />
+<AdminAlbumEditor {data} />

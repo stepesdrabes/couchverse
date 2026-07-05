@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import AdminTitleEditorPage from '$lib/features/library/pages/AdminTitleEditorPage.svelte';
+	import AdminTitleEditor from '$lib/features/library/pages/AdminTitleEditor.svelte';
 
 	let { data }: PageProps = $props();
 </script>
 
-<AdminTitleEditorPage {data} />
+<AdminTitleEditor {data} />

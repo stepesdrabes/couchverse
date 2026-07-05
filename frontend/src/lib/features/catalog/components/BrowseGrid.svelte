@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import * as catalog from '$lib/features/catalog/api';
-	import type { CardItem, Genre } from '$lib/features/catalog/types';
+	import { browseCache } from '$lib/features/catalog/cache.svelte';
+	import type { Genre } from '$lib/features/catalog/types';
 	import PosterCard from './PosterCard.svelte';
+	import PosterGridSkeleton from './PosterGridSkeleton.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -13,24 +15,29 @@
 		genre = ''
 	}: { heading: string; kind?: string; genre?: string } = $props();
 
-	let items = $state<CardItem[]>([]);
 	let genres = $state<Genre[]>([]);
 	let selectedGenre = $state(genre);
 	let sort = $state('added');
-	let loaded = $state(false);
+
+	// cached results paint instantly on revisit/filter-change; a cold key shows the
+	// skeleton grid until its fetch lands, then updates in place
+	const browseKey = $derived(`${kind}|${selectedGenre}|${sort}`);
+	const items = $derived(browseCache.get(browseKey));
+	let failed = $state(false);
 
 	$effect(() => {
 		catalog.listGenres().then((g) => (genres = g));
 	});
 
 	$effect(() => {
+		const key = browseKey;
+		failed = false;
 		catalog
 			.browse({ kind, genre: selectedGenre, sort })
-			.then((res) => {
-				items = res.items;
-				loaded = true;
-			})
-			.catch(() => (loaded = true));
+			.then((res) => browseCache.set(key, res.items))
+			.catch(() => {
+				if (browseCache.get(key) === undefined) failed = true;
+			});
 	});
 </script>
 
@@ -61,7 +68,9 @@
 		</div>
 	</div>
 
-	{#if loaded && items.length === 0}
+	{#if items === undefined && !failed}
+		<PosterGridSkeleton />
+	{:else if !items || items.length === 0}
 		<EmptyState title={m.catalog_browse_empty_title()} message={m.catalog_browse_empty_message()} />
 	{:else}
 		{#key items}

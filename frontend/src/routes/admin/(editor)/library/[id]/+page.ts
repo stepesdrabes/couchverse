@@ -1,14 +1,7 @@
-import { error } from '@sveltejs/kit';
 import * as libraryApi from '$lib/features/library/api';
-import { ApiError } from '$lib/api/client';
 
-export async function load({ params }) {
-	try {
-		return await libraryApi.getTitle(params.id);
-	} catch (err) {
-		if (err instanceof ApiError && err.status === 404) {
-			error(404, 'Title not found');
-		}
-		throw err;
-	}
+// Non-blocking: the editor swaps in immediately behind a skeleton; a save's
+// invalidateAll revalidates in place (StreamedView keeps the last value, no flash).
+export function load({ params }) {
+	return { id: params.id, fresh: libraryApi.getTitle(params.id) };
 }

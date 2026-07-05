@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, preloadData } from '$app/navigation';
 	import { Popover } from 'bits-ui';
 	import type Hls from 'hls.js';
 	import {
@@ -199,7 +199,7 @@
 	function openEpisode(episodeId: string) {
 		if (episodeId === info.currentEpisodeId) return;
 		report();
-		goto(`/watch/episode/${episodeId}`, { invalidateAll: true });
+		goto(`/watch/episode/${episodeId}`);
 	}
 
 	// shuffle: when enabled on a flagged series, auto-next jumps to a random episode.
@@ -358,7 +358,7 @@
 		const target = nextTarget ?? pickNextTarget();
 		if (!target) return;
 		report();
-		goto(`/watch/episode/${target.episodeId}`, { invalidateAll: true });
+		goto(`/watch/episode/${target.episodeId}`);
 	}
 
 	function onEnded() {
@@ -368,7 +368,7 @@
 		if (couch.isFollower) return;
 		const target = nextTarget ?? pickNextTarget();
 		report();
-		if (target) goto(`/watch/episode/${target.episodeId}`, { invalidateAll: true });
+		if (target) goto(`/watch/episode/${target.episodeId}`);
 		else goto(`/title/${info.display.titleSlug}`);
 	}
 
@@ -571,6 +571,10 @@
 		couch.playerMounts++; // the on-screen player hosts the couch bar (so it survives fullscreen)
 		musicPlayer.pause(); // never play video and music together
 		if (info.mode === 'hls' && initialHlsUrl) attachHls(initialHlsUrl, null);
+
+		// warm the likely "back to title" destination so the Pi has it ready on click
+		// (safe: the title read has no side effects - unlike the JIT-spawning watch load)
+		if (!couch.isFollower) preloadData(`/title/${info.display.titleSlug}`).catch(() => {});
 
 		// JIT sessions are reaped server-side without this heartbeat
 		let keepaliveTimer: ReturnType<typeof setInterval> | undefined;

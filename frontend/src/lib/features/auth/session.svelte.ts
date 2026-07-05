@@ -1,5 +1,6 @@
 import { goto } from '$app/navigation';
 import { onUnauthorized } from '$lib/api/client';
+import { resetAllCaches } from '$lib/api/cache.svelte';
 import { features } from '$lib/features/settings/features.svelte';
 import { preferences } from '$lib/features/preferences/preferences.svelte';
 import * as authApi from './api';
@@ -31,6 +32,7 @@ class Session {
 			await authApi.logout();
 		} finally {
 			this.user = null;
+			resetAllCaches();
 			goto('/login');
 		}
 	}
@@ -40,6 +42,7 @@ export const session = new Session();
 
 onUnauthorized(() => {
 	session.user = null;
+	resetAllCaches();
 	const here = location.pathname + location.search;
 	goto(`/login?next=${encodeURIComponent(here)}`);
 });

@@ -21,6 +21,7 @@
 
 <a
 	href="/watch/{item.playbackKind}/{item.playbackId}"
+	data-sveltekit-preload-data="tap"
 	class="group w-48 shrink-0 snap-start sm:w-56"
 	style={cardAccent}
 >

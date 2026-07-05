@@ -3,10 +3,13 @@
 	import * as catalog from '$lib/features/catalog/api';
 	import type { Genre } from '$lib/features/catalog/types';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	let genres = $state<Genre[]>([]);
 	let loaded = $state(false);
+
+	const tiles = [...Array(10).keys()];
 
 	$effect(() => {
 		catalog
@@ -29,7 +32,13 @@
 <div class="mx-auto max-w-[1700px] px-6 pt-24 pb-16 lg:px-12">
 	<h1 class="mb-8 text-2xl font-bold">{m.nav_genres()}</h1>
 
-	{#if loaded && genres.length === 0}
+	{#if !loaded}
+		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+			{#each tiles as tile (tile)}
+				<Skeleton class="h-28 rounded-card" />
+			{/each}
+		</div>
+	{:else if genres.length === 0}
 		<EmptyState title={m.catalog_genres_empty_title()} message={m.catalog_genres_empty_message()} />
 	{:else}
 		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

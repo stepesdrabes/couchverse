@@ -1,14 +1,12 @@
-import { error } from '@sveltejs/kit';
 import * as catalog from '$lib/features/catalog/api';
-import { ApiError } from '$lib/api/client';
+import { titleCache } from '$lib/features/catalog/cache.svelte';
 
-export async function load({ params }) {
-	try {
-		return await catalog.getTitle(params.slug);
-	} catch (err) {
-		if (err instanceof ApiError && err.status === 404) {
-			error(404, 'Title not found');
-		}
-		throw err;
-	}
+// Non-blocking: navigation swaps in immediately. The page paints cached data at
+// once (or a skeleton on a cold visit); this revalidation fills in behind it and
+// the 404 case is handled in the component from the rejected `fresh` promise.
+export function load({ params }) {
+	return {
+		slug: params.slug,
+		fresh: titleCache.revalidate(params.slug, () => catalog.getTitle(params.slug))
+	};
 }
