@@ -54,8 +54,10 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     `XxxPage.svelte` from the owning feature and passes `data` (typed via `PageProps`).
     Page/markup code never lives in `src/routes/`. Loaders (`+page.ts`/`+layout.ts`) stay
     in routes/ (SvelteKit requirement) and delegate to feature `api.ts`.
-  - `lib/components/` keeps only domain-free shared UI: `ui/` (bits-ui primitives) and
-    `layout/` (TopNav, GlowBackdrop, LanguageSwitcher). Domain components live in their feature.
+  - `lib/components/` keeps only domain-free shared UI: `ui/` (bits-ui primitives),
+    `layout/` (TopNav, GlowBackdrop, LanguageSwitcher, NavProgress), and the optimistic
+    page shells `{CachedView,StreamedView,NotFound}.svelte`. Domain components live in
+    their feature.
   - Shared catalog entities live in `features/catalog/types.ts`. The bare fetch wrapper
     stays in `src/lib/api/client.ts`. Never hand-write URLs in components.
   - Forms that edit existing data track dirtiness with `FormState`
@@ -67,6 +69,16 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     `--color-accent[-strong|-soft]` globally, `accentVars(hex)` returns a scoped `style`
     string; both include a contrast-aware `--color-on-accent` (use
     `text-[var(--color-on-accent)]` on `bg-accent`). Tooltips use `ui/Tooltip.svelte`.
+  - **Optimistic navigation** (client-only SPA; must feel snappy on a Pi): data pages never
+    block the swap. `+page.ts` returns the cache key + an un-awaited `fresh` promise; the
+    feature's `XxxPage.svelte` is a thin `CachedView` wrapper (cached `content` -> else
+    `skeleton` -> else `notFound`) with the body moved to `XxxContent.svelte`. SWR cache is
+    `lib/api/cache.svelte.ts` (`createSwrCache`, cleared on logout via `resetAllCaches`);
+    instances in `features/<name>/cache.svelte.ts`. Skeletons reuse `ui/Skeleton.svelte`.
+    `StreamedView` is the uncached keep-last-value variant (admin editors: no skeleton flash
+    on an `invalidateAll` save). `preloadData` only for side-effect-free routes - never
+    `/watch/...` (starts a JIT transcode); watch links use `data-sveltekit-preload-data="tap"`.
+    Prefer targeted `invalidate` over `invalidateAll`. Full design in FEATURES.md.
 
 ## Stack
 

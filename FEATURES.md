@@ -35,8 +35,10 @@ shared `MediaFile`/`Subtitle` row types), `internal/settings` (settings KV store
 (composition root: middleware, feature mounts, SPA fallback).
 
 Shared frontend: `lib/api/client.ts` (fetch wrapper - never hand-write URLs in
-components), `lib/components/ui/` (bits-ui primitives), `lib/components/layout/`
-(TopNav, GlowBackdrop), `lib/theme.ts` (accent), `lib/utils/`.
+components) and `lib/api/cache.svelte.ts` (SWR cache), `lib/components/ui/` (bits-ui
+primitives), `lib/components/layout/` (TopNav, GlowBackdrop, NavProgress),
+`lib/components/{CachedView,StreamedView,NotFound}.svelte` (optimistic page shells),
+`lib/theme.ts` (accent), `lib/utils/`. See "Optimistic navigation & caching".
 
 ## Features
 
@@ -261,6 +263,44 @@ leave it empty so they see base text.
   `audioTrack` (Safari: native `video.audioTracks`).
 - Both surface as `playbackInfo.audio` (source `file`|`embedded`); the player shows one
   audio menu, selected independently of the display language (`localStorage cv.audioLang`).
+
+## Optimistic navigation & caching (cross-cutting)
+
+The frontend is a client-only SPA (`ssr = false`), so every route's `load` runs in the
+browser and used to block the page swap on a network round-trip - visibly slow on a
+Raspberry Pi. Data pages are now **optimistic**: navigation swaps in at once and data
+fills in behind a cached value or a skeleton.
+
+- **SWR cache** (`lib/api/cache.svelte.ts`): a reactive stale-while-revalidate store over
+  `svelte/reactivity` `SvelteMap`. `createSwrCache<T>()` registers an instance (LRU-capped);
+  `get(key)` is a reactive read, `revalidate(key, fetcher)` fetches + stores, and
+  `resetAllCaches()` (called by `session` on logout/401) drops everything. Per-feature
+  instances live in `features/<name>/cache.svelte.ts` (`titleCache`, `homeCache`,
+  `browseCache`; `musicHomeCache`/`albumCache`/`artistCache`/`playlistCache`).
+- **Page pattern**: a page's `+page.ts` is non-blocking - it returns the cache key plus the
+  un-awaited `fresh` revalidation promise. The route shell still renders `XxxPage.svelte`,
+  now a thin wrapper around **`CachedView`** (`lib/components/`) which derives the cached
+  value and renders one of three snippets: `content` (cached value paints instantly and
+  updates silently when revalidation lands - stale beats blank), `skeleton` (cold visit),
+  or `notFound`. The old page body moved verbatim into `XxxContent.svelte`. Skeletons reuse
+  `ui/Skeleton.svelte` + `animate-shimmer` and mirror each real layout. Applies to home,
+  title, browse (movies/series/genres/my-list), and all music pages.
+- **`StreamedView`** (`lib/components/`): the same three states but promise-backed and
+  **uncached** - it keeps the last resolved value during a same-`key` revalidation
+  (`invalidateAll` after a save) so it never flashes the skeleton mid-edit. Used by the
+  admin editors (which must stay fresh per visit). The `watch` page uses the same
+  keep-last-value shape inline, since it also drives the transcode-preparing poll.
+- **`NavProgress`** (`lib/components/layout/`): a thin accent bar driven by `navigating`
+  (`$app/state`), mounted once in the root layout with a `view-transition-name` opt-out -
+  instant click feedback for any navigation the skeletons do not already cover.
+- **Preload rule**: `preloadData` is only ever called for **side-effect-free** routes (the
+  player warms `/title/{slug}` on mount so "back" is instant). A `/watch/...` load starts a
+  JIT transcode, so watch routes are **never** data-preloaded - links to them use
+  `data-sveltekit-preload-data="tap"` (not the global `hover`), so merely hovering an
+  episode row or continue-watching card cannot spawn a transcode on the Pi. In-player
+  episode navigation dropped `invalidateAll` (the `[id]` change already re-runs the watch
+  load; the layout's session/features/preferences fetch stays put), and the transcode poll
+  uses a targeted `invalidate('app:playback')`.
 
 ## Backend dependency graph
 
