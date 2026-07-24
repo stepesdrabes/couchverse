@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
@@ -14,9 +15,10 @@ import (
 )
 
 // cleanupHandler is the hourly housekeeping job: expired upload sessions,
-// stale finished jobs, expired auth sessions and orphaned HLS caches.
+// stale finished jobs, expired auth sessions, orphaned HLS caches and aged-out
+// hour buckets.
 // It reschedules itself at the end of every run.
-func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, uploads *library.Manager, dataDir string) func(context.Context, *jobs.Job, func(int)) error {
+func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, an *analytics.Store, uploads *library.Manager, dataDir string) func(context.Context, *jobs.Job, func(int)) error {
 	return func(ctx context.Context, _ *jobs.Job, _ func(int)) error {
 		if n, err := uploads.Reap(ctx); err != nil {
 			return err
@@ -34,6 +36,13 @@ func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, uploads 
 			return err
 		} else if n > 0 {
 			slog.Info("cleanup: deleted expired sessions", "count", n)
+		}
+
+		// the profile clock only ever reads the last year of hour buckets
+		if n, err := an.PruneHourly(ctx, 400); err != nil {
+			return err
+		} else if n > 0 {
+			slog.Info("cleanup: pruned hour buckets", "count", n)
 		}
 
 		if err := removeOrphanedCache(ctx, lib, dataDir); err != nil {

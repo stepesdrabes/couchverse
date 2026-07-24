@@ -18,17 +18,27 @@ func NewProfile(st *Store, art *artwork.Service) *Profile {
 	return &Profile{store: st, artwork: art}
 }
 
-// Update lets users change their own display name.
+// MaxBioLength bounds the public-profile bio. Markdown is stored as authored and
+// rendered client-side with raw HTML disabled.
+const MaxBioLength = 2000
+
+// Update lets users change their own display name and bio. Bio is a pointer so
+// clearing it ("") is distinguishable from not touching it.
 func (h *Profile) Update(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		DisplayName string `json:"displayName"`
+		DisplayName string  `json:"displayName"`
+		Bio         *string `json:"bio"`
 	}
 	if err := httpx.Decode(r, &req); err != nil || req.DisplayName == "" {
 		httpx.BadRequest(w, "displayName is required")
 		return
 	}
+	if req.Bio != nil && len(*req.Bio) > MaxBioLength {
+		httpx.BadRequest(w, "bio is too long")
+		return
+	}
 	user, err := h.store.UpdateUser(r.Context(), UserFrom(r.Context()).ID,
-		UserUpdate{DisplayName: &req.DisplayName})
+		UserUpdate{DisplayName: &req.DisplayName, Bio: req.Bio})
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
@@ -101,6 +111,27 @@ func (h *Profile) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 
 // SetAvatar accepts a multipart image and stores it as the user's avatar.
 func (h *Profile) SetAvatar(w http.ResponseWriter, r *http.Request) {
+	h.setImage(w, r, "avatar")
+}
+
+// DeleteAvatar removes the user's profile picture.
+func (h *Profile) DeleteAvatar(w http.ResponseWriter, r *http.Request) {
+	h.deleteImage(w, r, func(u *User) *string { return u.AvatarID })
+}
+
+// SetBanner accepts a multipart image and stores it as the profile banner. It is
+// an ordinary artwork row, so it gets the same resizing, caching and accent
+// extraction as posters do - the profile hero is tinted from it.
+func (h *Profile) SetBanner(w http.ResponseWriter, r *http.Request) {
+	h.setImage(w, r, "banner")
+}
+
+// DeleteBanner removes the profile banner.
+func (h *Profile) DeleteBanner(w http.ResponseWriter, r *http.Request) {
+	h.deleteImage(w, r, func(u *User) *string { return u.BannerID })
+}
+
+func (h *Profile) setImage(w http.ResponseWriter, r *http.Request, kind string) {
 	self := UserFrom(r.Context())
 	if err := r.ParseMultipartForm(16 << 20); err != nil {
 		httpx.BadRequest(w, "invalid multipart form")
@@ -113,28 +144,27 @@ func (h *Profile) SetAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	if _, err := h.artwork.Save(r.Context(), "user", strconv.FormatInt(self.ID, 10), "avatar", header.Filename, file); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "avatar_failed", err.Error())
+	owner := strconv.FormatInt(self.ID, 10)
+	if _, err := h.artwork.Save(r.Context(), "user", owner, kind, header.Filename, file); err != nil {
+		httpx.Error(w, http.StatusBadRequest, kind+"_failed", err.Error())
 		return
 	}
-	user, err := h.store.UserByID(r.Context(), self.ID)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusOK, user)
+	h.respondSelf(w, r, self.ID)
 }
 
-// DeleteAvatar removes the user's profile picture.
-func (h *Profile) DeleteAvatar(w http.ResponseWriter, r *http.Request) {
+func (h *Profile) deleteImage(w http.ResponseWriter, r *http.Request, pick func(*User) *string) {
 	self := UserFrom(r.Context())
-	if self.AvatarID != nil {
-		if err := h.artwork.Delete(r.Context(), *self.AvatarID); err != nil {
+	if id := pick(self); id != nil {
+		if err := h.artwork.Delete(r.Context(), *id); err != nil {
 			httpx.StoreErr(w, err)
 			return
 		}
 	}
-	user, err := h.store.UserByID(r.Context(), self.ID)
+	h.respondSelf(w, r, self.ID)
+}
+
+func (h *Profile) respondSelf(w http.ResponseWriter, r *http.Request, id int64) {
+	user, err := h.store.UserByID(r.Context(), id)
 	if err != nil {
 		httpx.Internal(w, err)
 		return

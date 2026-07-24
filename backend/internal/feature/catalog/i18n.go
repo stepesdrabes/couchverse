@@ -7,11 +7,13 @@ import (
 	"couchverse/internal/httpx"
 )
 
-// localize overwrites name/overview with the translation for the request's
+// Localize overwrites name/overview with the translation for the request's
 // display language (httpx.LangFrom). It is a no-op when no language is set
 // (admin reads, background jobs) or the translation is absent - the base
 // columns are the fallback. Pass nil for a field that has no translation.
-func localize(ctx context.Context, translations []byte, name, overview *string) {
+// Exported so features that render catalog text without owning it (ranks'
+// public profiles) do not have to restate the translations jsonb shape.
+func Localize(ctx context.Context, translations []byte, name, overview *string) {
 	lang := httpx.LangFrom(ctx)
 	if lang == "" || len(translations) == 0 {
 		return
@@ -67,9 +69,9 @@ var genreCS = map[string]string{
 	"War & Politics":     "Válečný a politický",
 }
 
-// genreLabel returns the genre's display label for the language, falling back to
+// GenreLabel returns the genre's display label for the language, falling back to
 // the English name (which stays the stable identity used in URLs and filters).
-func genreLabel(name, lang string) string {
+func GenreLabel(name, lang string) string {
 	if lang == "cs" {
 		if t, ok := genreCS[name]; ok {
 			return t

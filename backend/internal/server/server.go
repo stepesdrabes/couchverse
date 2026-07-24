@@ -23,6 +23,7 @@ import (
 	"couchverse/internal/feature/metadata"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/feature/playback"
+	"couchverse/internal/feature/ranks"
 	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/feature/system"
 	"couchverse/internal/httpx"
@@ -47,11 +48,12 @@ type Server struct {
 	sessions  *playback.SessionManager
 	stream    *playback.Stream
 	analytics *analytics.Store
+	ranks     *ranks.Store
 	couch     *couch.Hub
 }
 
-func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, sys *system.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager, stream *playback.Stream, an *analytics.Store, couchHub *couch.Hub) *Server {
-	return &Server{cfg: cfg, pool: pool, system: sys, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions, stream: stream, analytics: an, couch: couchHub}
+func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, sys *system.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager, stream *playback.Stream, an *analytics.Store, rk *ranks.Store, couchHub *couch.Hub) *Server {
+	return &Server{cfg: cfg, pool: pool, system: sys, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions, stream: stream, analytics: an, ranks: rk, couch: couchHub}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -68,6 +70,7 @@ func (s *Server) Handler() http.Handler {
 	musicModule := music.NewModule(s.music, s.settings, s.artwork, s.analytics)
 	couchModule := couch.NewModule(s.couch, s.settings)
 	analyticsModule := analytics.NewModule(s.analytics)
+	ranksModule := ranks.NewModule(s.ranks, s.settings)
 	artworkAPI := artwork.NewHandlers(s.artwork)
 	subtitlesAPI := subtitles.NewSubtitles(s.subtitles.Subs, s.library, s.subtitles)
 	metadataAPI := metadata.NewAdminMetadata(s.catalog, s.settings, s.jobs)
@@ -109,6 +112,8 @@ func (s *Server) Handler() http.Handler {
 			// music routes (incl. track playlists) gate themselves on the feature toggle
 			musicModule.MountUser(p)
 
+			// profiles + leaderboard gate themselves on the rankings toggle
+			ranksModule.MountUser(p)
 		})
 
 		// stream + playback routes: logged-in, or an anonymous couch follower
@@ -135,6 +140,8 @@ func (s *Server) Handler() http.Handler {
 			adminJobs.MountAdmin(adm)
 
 			analyticsModule.MountAdmin(adm)
+
+			ranksModule.MountAdmin(adm)
 
 			metadataAPI.MountAdmin(adm)
 

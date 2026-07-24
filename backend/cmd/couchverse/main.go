@@ -24,6 +24,7 @@ import (
 	"couchverse/internal/feature/metadata"
 	"couchverse/internal/feature/music"
 	"couchverse/internal/feature/playback"
+	"couchverse/internal/feature/ranks"
 	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/feature/system"
 	"couchverse/internal/media"
@@ -90,6 +91,7 @@ func run() error {
 	musicStore := music.NewStore(pool)
 	libraryStore := library.NewStore(pool)
 	analyticsStore := analytics.NewStore(pool)
+	ranksStore := ranks.NewStore(pool)
 	if err := auth.Bootstrap(ctx, authStore, cfg); err != nil {
 		return err
 	}
@@ -113,6 +115,7 @@ func run() error {
 		Media:     catalogStore,
 		Playback:  playbackStream,
 		Analytics: analyticsStore,
+		Stats:     ranksStore,
 		Settings:  set,
 		Secure:    cfg.CookieSecure,
 	})
@@ -135,7 +138,7 @@ func run() error {
 	runner.Register("fetch_metadata", 2, (&metadata.FetchJob{Catalog: catalogStore, Settings: set, Artwork: artworkService}).Handle)
 	runner.Register("import_episodes", 1, (&metadata.ImportEpisodesJob{Catalog: catalogStore, Settings: set, Artwork: artworkService}).Handle)
 	runner.Register("transcode_hls", transcodeSlots, transcodeHandler.Handle)
-	runner.Register("cleanup", 1, cleanupHandler(libraryStore, authStore, jobsStore, uploadManager, cfg.DataDir))
+	runner.Register("cleanup", 1, cleanupHandler(libraryStore, authStore, jobsStore, analyticsStore, uploadManager, cfg.DataDir))
 	if _, err := jobsStore.EnqueueJobOnce(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{}); err != nil {
 		return err
 	}
@@ -146,7 +149,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, pool, set, authStore, catalogStore, jobsStore, musicStore, libraryStore, systemStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager, playbackStream, analyticsStore, couchHub).Handler(),
+		Handler:           server.New(cfg, pool, set, authStore, catalogStore, jobsStore, musicStore, libraryStore, systemStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager, playbackStream, analyticsStore, ranksStore, couchHub).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

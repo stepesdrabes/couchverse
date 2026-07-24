@@ -76,7 +76,7 @@ func (s *Store) scanCards(ctx context.Context, query string, args ...any) ([]Car
 			&c.BackdropID, &c.BackdropVer, &c.BackdropAccent, &tr); err != nil {
 			return nil, err
 		}
-		localize(ctx, tr, &c.Name, nil)
+		Localize(ctx, tr, &c.Name, nil)
 		items = append(items, c)
 	}
 	return items, rows.Err()
@@ -330,8 +330,8 @@ func (s *Store) EpisodeRef(ctx context.Context, episodeID string) (*EpisodeRef, 
 	if err != nil {
 		return nil, err
 	}
-	localize(ctx, etr, &ref.Name, nil)
-	localize(ctx, ttr, &ref.TitleName, nil)
+	Localize(ctx, etr, &ref.Name, nil)
+	Localize(ctx, ttr, &ref.TitleName, nil)
 	return &ref, nil
 }
 
@@ -368,7 +368,7 @@ func (s *Store) PlayableEpisodes(ctx context.Context, titleID string) ([]SeriesE
 		if err := rows.Scan(&e.EpisodeID, &e.SeasonNumber, &e.EpisodeNumber, &e.Name, &e.ThumbID, &e.ThumbVer, &tr); err != nil {
 			return nil, err
 		}
-		localize(ctx, tr, &e.Name, nil)
+		Localize(ctx, tr, &e.Name, nil)
 		out = append(out, e)
 	}
 	return out, rows.Err()
@@ -396,8 +396,8 @@ func (s *Store) NextEpisode(ctx context.Context, episodeID string) (*EpisodeRef,
 	if err != nil {
 		return nil, nil // no next episode is not an error
 	}
-	localize(ctx, etr, &ref.Name, nil)
-	localize(ctx, ttr, &ref.TitleName, nil)
+	Localize(ctx, etr, &ref.Name, nil)
+	Localize(ctx, ttr, &ref.TitleName, nil)
 	return &ref, nil
 }
 

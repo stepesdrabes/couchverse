@@ -26,6 +26,7 @@ type participant struct {
 	tokenHash      string    // hex SHA-256 of the current cookie token
 	userID         int64     // 0 when anonymous
 	connCount      int       // live WebSocket connections (multi-tab)
+	emojiCount     int       // reactions sent since the last stats flush
 	disconnectedAt time.Time // when connCount last fell to 0 (for follower reaping)
 }
 

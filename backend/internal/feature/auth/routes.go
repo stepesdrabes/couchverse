@@ -36,6 +36,8 @@ func (m *Module) MountUser(r chi.Router) {
 	r.Put("/me/preferences", m.profile.UpdatePreferences)
 	r.Post("/me/avatar", m.profile.SetAvatar)
 	r.Delete("/me/avatar", m.profile.DeleteAvatar)
+	r.Post("/me/banner", m.profile.SetBanner)
+	r.Delete("/me/banner", m.profile.DeleteBanner)
 }
 
 func (m *Module) MountAdmin(r chi.Router) {

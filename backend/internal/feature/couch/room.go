@@ -212,6 +212,11 @@ func (rm *room) onClientMessage(c *conn, env Envelope) {
 			return
 		}
 		c.emojiLast = time.Now()
+		rm.mu.Lock()
+		if p := rm.participants[c.pid]; p != nil {
+			p.emojiCount++ // flushed to the reaction counter by the hub's accrual tick
+		}
+		rm.mu.Unlock()
 		rm.broadcast(msgEmoji, emojiData{FromParticipantID: c.pid, Emoji: emoji})
 
 	case msgPaused:
