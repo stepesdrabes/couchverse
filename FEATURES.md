@@ -14,7 +14,7 @@ that render a `XxxPage.svelte` component from the owning feature.
 
 | Feature | Backend package | Frontend module(s) | DB tables |
 |---|---|---|---|
-| auth | `internal/feature/auth` | `features/auth`, `features/users`, `features/preferences` | `users`, `sessions` |
+| auth | `internal/feature/auth` | `features/auth`, `features/users`, `features/preferences` | `users` (incl. `bio`), `sessions` |
 | catalog | `internal/feature/catalog` | `features/catalog` | `titles`, `seasons`, `episodes`, `genres`, `title_genres`, `watch_progress`, `watchlist` |
 | music | `internal/feature/music` | `features/music` | `artists`, `albums`, `tracks`, `album_genres`, `play_history`, `playlists`, `playlist_tracks` |
 | playback | `internal/feature/playback` | `features/playback` | (reads `media_files`, `transcode_variants`) |
@@ -24,8 +24,9 @@ that render a `XxxPage.svelte` component from the owning feature.
 | artwork | `internal/feature/artwork` | (via `catalog/api.artworkUrl`) | `artwork` |
 | jobs | `internal/feature/jobs` | `features/jobs` | `jobs` |
 | system | `internal/feature/system` | `features/settings`, `features/admin` | `settings`, `home_rows` |
-| analytics | `internal/feature/analytics` | (charts in `features/admin`) | `watch_time_daily`, `couch_watch_time_daily` |
+| analytics | `internal/feature/analytics` | (charts in `features/admin`) | `watch_time_daily`, `watch_time_hourly`, `couch_watch_time_daily` |
 | couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
+| ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters` |
 
 Shared kernel (backend): `internal/config` (env), `internal/db` (pool, migrations,
 `ErrNotFound`), `internal/httpx` (JSON responses, param helpers), `internal/media`
@@ -44,15 +45,30 @@ primitives), `lib/components/layout/` (TopNav, GlowBackdrop, NavProgress),
 
 ### auth
 Login/logout with cookie sessions (CSRF origin check, login rate limiting), the
-`/auth/me` identity endpoint, user profiles (display name, avatar), per-user
-preferences (subtitle appearance), and the admin user CRUD. Bootstraps the master
-admin account on a fresh database.
+`/auth/me` identity endpoint, user profiles (display name, avatar, banner, markdown
+bio), per-user preferences (subtitle appearance), and the admin user CRUD. Bootstraps
+the master admin account on a fresh database.
 - Backend: `Module` mounts public (`POST /auth/login|logout`), user (`/auth/me`,
-  `/me/profile`, `/me/preferences`, `/me/avatar`) and admin (`/admin/users...`) routes.
-  Session middleware (`Load`, `RequireAuth`, `RequireAdmin`, `UserFrom`) lives here and
-  is used by the server for every authenticated route group.
-- Frontend: `features/auth` (session singleton + 401 handler, LoginPage, ProfilePage),
-  `features/users` (AdminUsersPage), `features/preferences` (subtitle settings store).
+  `/me/profile`, `/me/preferences`, `/me/avatar`, `/me/banner`) and admin
+  (`/admin/users...`) routes. Session middleware (`Load`, `RequireAuth`,
+  `RequireAdmin`, `UserFrom`) lives here and is used by the server for every
+  authenticated route group.
+- The **banner** is an ordinary `artwork` row (`owner_kind='user'`, `kind='banner'`),
+  so it inherits resizing, caching and accent extraction; the profile hero tints
+  itself from `artwork.accent` and only falls back to the rank tier colour when there
+  is no banner. Avatar and banner share one `setImage`/`deleteImage` pair.
+- The **bio** is markdown in `users.bio` (2000 chars), stored as authored and rendered
+  client-side by `lib/components/ui/Markdown.svelte`. The security boundary is
+  `lib/utils/markdown.ts`: one shared markdown-it instance with `html: false`, so raw
+  HTML is escaped rather than parsed and no separate sanitizer is needed; markdown-it
+  also rejects unsafe link protocols, images are disabled and every link gets
+  `rel="nofollow noopener noreferrer"`.
+- Frontend: `features/auth` (session singleton + 401 handler, LoginPage, ProfilePage +
+  the Edit-profile and Change-password modals), `features/users` (AdminUsersPage),
+  `features/preferences` (subtitle settings store). `/profile` renders the *same*
+  `ProfileContent` as `/u/you` with owner affordances, reading the same cache entry -
+  there is no separate account page and no tabs. With rankings off it falls back to
+  `AccountOnlyProfile`.
 
 ### catalog
 The watchable catalog: movies and series with seasons/episodes and genres, the home
@@ -178,7 +194,12 @@ live-presence endpoint and the home-rows editor.
 Watch/listen time measurement behind the admin overview charts. One daily rollup
 table (`watch_time_daily`), upserted on every video progress beacon (the player sends
 an actually-played `watchedSeconds` delta) and on every music scrobble (counted as
-the track duration). Kernel-only imports - catalog and music call `RecordWatch`/
+the track duration). A second **hour-of-day rollup** (`watch_time_hourly`, at most 48
+rows per user per day) is written from *inside* the same `RecordWatch`/`RecordListen`
+calls, so no caller changed; it is bucketed with `AT TIME ZONE` in the app's local
+zone (Postgres runs UTC) so "night" means night, feeds the profile clock and the
+night-owl/early-bird achievements, and is pruned past 400 days by the hourly
+`cleanup` job. Kernel-only imports - catalog and music call `RecordWatch`/
 `RecordListen` on its Store, best effort (analytics never fails a beacon). The
 separate **on-couch watch-time** stat lives here too: `RecordCouchWatch(titleId,
 seconds)` upserts the `couch_watch_time_daily` per-title rollup (no user
@@ -226,6 +247,89 @@ admin `couchEnabled` flag (default on, mirrors `musicEnabled`).
   couch buttons in the player control bar + TopNav, and a bundled (no-CDN) emoji
   picker. `VideoPlayer` composes follower/host modes via the store at its seams; it
   is not forked.
+
+### ranks
+Player progression: XP, rank tiers, achievements, public profiles and the global
+leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
+`musicEnabled`/`couchEnabled`).
+- **XP** defaults to `2/min` video + `1/min` music + `100` per finished movie + `20`
+  per finished episode + `50`/`25` per couch session hosted/joined + the achievement
+  rewards (bronze 50, silver 150, gold 400, platinum 1000). Music is worth half of
+  video because a background playlist should not outrank a movie night; couch pays
+  per session because on-couch watch-time has no user dimension. XP counts all
+  recorded activity **regardless of flags** - turning music off must never demote
+  anyone. Every term is one explainable line of the profile's XP breakdown.
+- **Every rate and threshold is admin-tunable** (`ranks.Config` in the `ranks`
+  settings key, defaults in `DefaultConfig`, edited on `/admin/ranks`). `Config` is
+  threaded through `ComputeXP`/`TierFor`/`ProgressFor` rather than read globally, so
+  the pure functions stay testable. `Validate` rejects negative rates and a ladder
+  that does not start at 0 or does not strictly ascend. Because XP is always derived,
+  a saved change re-levels everyone on their next read - nothing is recomputed or
+  migrated.
+- **Tiers** (10, couch-themed, `ranks.defaultTiers`): rookie 0, remote 500, snack 1500,
+  binger 3500, popcorn 7000, marathoner 13000, sage 23000, cinephile 40000,
+  master 70000, legend 120000. Codes, levels and colours are fixed identity (persisted
+  in payloads, translated on the frontend); only the thresholds are configurable.
+- **Achievements** (34) are a pure rules table in `achievements.go`: each is a
+  `Target` plus a `Value(Snapshot)`, scored against one `Snapshot` that a single
+  batch of SQL fills, so the whole catalogue is unit-testable without a database.
+  `Evaluate` runs **two passes** - non-meta rules first, then the meta rules against
+  the resulting count - so the badge that rewards ten badges unlocks in the same
+  call as the tenth. Rules gated on `music`/`couch` are **absent** (not locked) when
+  their flag is off, so no unreachable card is ever shown; already-earned hidden
+  ones still count toward XP so totals cannot drift. A test asserts meta targets stay
+  reachable on a flag-disabled install.
+- **Evaluation is pull-based**: `POST /me/achievements/check` is the *only* writer of
+  `user_achievements`, so **no SQL is added to the 10s progress beacon or the
+  scrobble** and catalog/music need no changes at all. It is throttled per user to
+  one run per 30s (a mutex-guarded map on the module, bounded by the account count),
+  and a throttled call returns `rank: null` so the client keeps the rank it has
+  rather than painting a zero. `INSERT ... ON CONFLICT DO NOTHING RETURNING` yields
+  exactly the rows actually inserted, so two tabs racing produce one celebration
+  between them with no read-then-write window. The client calls it on app load, every
+  5 minutes of playback and on playback end.
+- **Privacy**: the `publicProfile` boolean in the existing `users.preferences` jsonb
+  (absent means public), written through `PUT /me/preferences` - **zero new write
+  surface**. Reads filter with `preferences -> 'publicProfile' IS DISTINCT FROM
+  'false'::jsonb`, not a `::boolean` cast, which would throw and take the whole
+  leaderboard down if any client ever wrote a non-boolean there. An opted-out member
+  is a **404, not a 403** (admins included), so "private" is indistinguishable from
+  "no such member"; the owner always sees their own.
+- Endpoints (all `RequireAuth` + `flags.RequireRankings`): `GET /me/stats` (the only
+  progression fetch on app load - it feeds the nav ring *and* the profile page from
+  one SWR entry), `GET /users/{username}/profile`, `GET /leaderboard?period=`,
+  `POST /me/achievements/check`. The leaderboard returns **every metric per row**
+  (xp, watch, music, achievements) unsorted, so the client's metric switcher sorts in
+  place with no refetch and `period` is the only cache key; XP is lifetime whatever
+  the period, since completions carry no date.
+- Admin (`/admin/ranks`, `PUT /admin/ranks/config`) is deliberately **not**
+  flag-gated: an admin has to be able to inspect and retune progression in order to
+  turn it back on. The overview reports level distribution, achievement rarity
+  (rarest first, flag-hidden badges marked), per-member standing including opted-out
+  members, and the effective config.
+- **Cross-feature:** couch reports the per-user counters nothing else can see
+  (`couch_hosted`/`couch_joined`/`couch_party_max`/`couch_emoji`) through the narrow
+  `CouchStatsRecorder` interface satisfied by `*ranks.Store`, wired at the
+  composition root exactly like `CouchWatchRecorder`. Emoji and party size ride the
+  hub's existing 20s accrual tick rather than the socket read path, where a DB round
+  trip would stall reads and reaction spam would be unbounded. Counters keep accruing
+  even when `rankingsEnabled` is off, so re-enabling does not present an empty
+  history. `ranks` imports `catalog` only for the exported `Localize`/`GenreLabel`
+  helpers, so profile title names and the favourite-genre label read in the visitor's
+  language without restating the translations shape.
+- Frontend (`features/ranks`): `/u/[username]` (hero accented from the member's banner
+  via `accentVars`, falling back to the tier colour; markdown bio; 8 stat tiles; a
+  53x7 activity heatmap scrolled to today; a 24-slice "when you watch" clock; the XP
+  breakdown; most-watched; the achievement grid) and `/leaderboard` (2-1-3 podium in
+  1-2-3 DOM order, table, sticky "you are #N"). `/profile` renders the same content
+  with edit affordances off the same cache entry. `/admin/ranks` holds the admin
+  stats and the XP settings form. The nav avatar gains a rank ring + level chip that
+  pulse on level-up. Unlock celebrations use `svelte-sonner` off-player and a bespoke
+  overlay **mounted inside the player wrapper** on `/watch` - the root Toaster is a
+  fixed root-layout element and would vanish in fullscreen, the same trap `CouchBar`
+  documents. Both celebration paths drain the queue in a deferred callback rather
+  than inside the effect flush: creating a toast writes sonner's own reactive state,
+  and doing that mid-flush corrupts its height bookkeeping.
 
 ## Internationalization & multi-language media (cross-cutting)
 
@@ -313,6 +417,7 @@ artwork <- auth <- music <- catalog <- metadata
    ^        ^       ^         ^
    +--------+-------+---- library <- subtitles <- playback        system
 analytics <- music, catalog (leaf: imports kernel only)
+ranks -> {auth, catalog}  (near-leaf; nothing imports ranks)
 couch -> {playback, catalog, auth, analytics, flags}  (top of the DAG; nothing imports couch)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
@@ -329,6 +434,13 @@ Notes that keep it acyclic:
   `BuildPlayback`), `catalog`, `auth`, `analytics` and `flags`, but nothing imports
   it. The anonymous-stream guard is inverted into `internal/server` so `playback`
   never depends on `couch`.
+- `ranks` reads a dozen other features' tables but imports only `auth` (for
+  `UserFrom`) and `catalog` (for the exported `Localize`/`GenreLabel`); everything
+  else is a SQL join. **Nothing imports `ranks`**, which is what makes the couch
+  counters safe: `couch` declares the `CouchStatsRecorder` interface itself and
+  `main.go` hands it `*ranks.Store`. For the same reason the nav rank badge reads
+  `GET /me/stats` and is deliberately **not** added to `/auth/me` - that would need
+  `auth -> ranks`, and `ranks -> auth` already exists.
 
 ## Adding a feature (recipe)
 

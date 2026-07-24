@@ -48,6 +48,9 @@
 	import { formatClock } from '$lib/utils/format';
 	import { couch } from '$lib/features/couch/couch.svelte';
 	import CouchBar from '$lib/features/couch/components/CouchBar.svelte';
+	import AchievementOverlay from '$lib/features/ranks/components/AchievementOverlay.svelte';
+	import { rank } from '$lib/features/ranks/rank.svelte';
+	import { features } from '$lib/features/settings/features.svelte';
 	import CouchButton from '$lib/features/couch/components/CouchButton.svelte';
 	import HostAwayOverlay from '$lib/features/couch/components/HostAwayOverlay.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -240,6 +243,10 @@
 		if (currentTime < 5) return;
 		lastReported = currentTime;
 		reportProgress(progressBody()).catch(() => {});
+		// piggybacks the beacon's cadence but self-throttles to one call every few
+		// minutes, so an achievement can land mid-film without adding work to the
+		// 10s progress path
+		if (features.rankingsEnabled) rank.check();
 	}
 
 	function poke() {
@@ -368,6 +375,9 @@
 		if (couch.isFollower) return;
 		const target = nextTarget ?? pickNextTarget();
 		report();
+		// finishing something is the most likely moment to have earned a badge,
+		// so this one bypasses the client-side throttle
+		if (features.rankingsEnabled) rank.check(true);
 		if (target) goto(`/watch/episode/${target.episodeId}`);
 		else goto(`/title/${info.display.titleSlug}`);
 	}
@@ -747,6 +757,12 @@
 		>
 			<CouchBar portalTo={wrapper} showEmoji={controlsVisible} />
 		</div>
+	{/if}
+
+	<!-- same reasoning as the couch bar: the celebration has to be inside the
+		fullscreen subtree, so it cannot ride the root layout's toaster -->
+	{#if features.rankingsEnabled}
+		<AchievementOverlay />
 	{/if}
 
 	<!-- couch follower states: host away/choosing, host paused, transient resync -->

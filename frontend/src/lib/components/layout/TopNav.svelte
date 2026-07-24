@@ -1,13 +1,18 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { DropdownMenu } from 'bits-ui';
-	import { LogOut, Search, Shield, UserRound } from 'lucide-svelte';
+	import { LogOut, Search, Shield, Trophy, UserRound } from 'lucide-svelte';
 	import { session } from '$lib/features/auth/session.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
+	import { rank } from '$lib/features/ranks/rank.svelte';
+	import RankRing from '$lib/features/ranks/components/RankRing.svelte';
+	import { rankColor } from '$lib/features/ranks/tiers';
+	import { tierName } from '$lib/features/ranks/labels';
 	import CouchButton from '$lib/features/couch/components/CouchButton.svelte';
 	import LogoMark from '$lib/components/ui/LogoMark.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import LanguageSwitcher from '$lib/components/layout/LanguageSwitcher.svelte';
+	import { readableTextOn } from '$lib/theme';
 	import * as m from '$lib/paraglide/messages';
 
 	const items = $derived(
@@ -23,6 +28,14 @@
 
 	let scrollY = $state(0);
 	const scrolled = $derived(scrollY > 24);
+
+	// A brand-new account has no ring at all, so the badge never reads as an
+	// empty broken gauge on a fresh install.
+	const showRank = $derived(features.rankingsEnabled && (rank.summary?.xp ?? 0) > 0);
+	const tier = $derived(rank.summary?.tier);
+	const myProfileHref = $derived(
+		session.user ? `/u/${encodeURIComponent(session.user.username)}` : ''
+	);
 
 	const isActive = (href: string) =>
 		href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
@@ -78,6 +91,16 @@
 				<Search class="size-5" />
 			</a>
 
+			{#if features.rankingsEnabled}
+				<a
+					href="/leaderboard"
+					class="rounded-full p-2.5 text-text/90 transition-colors hover:bg-surface-2 hover:text-text"
+					title={m.nav_leaderboard()}
+				>
+					<Trophy class="size-5" />
+				</a>
+			{/if}
+
 			<CouchButton
 				triggerClass="rounded-full p-2.5 text-text/90 transition-colors hover:bg-surface-2 hover:text-text"
 			/>
@@ -85,16 +108,42 @@
 			<LanguageSwitcher />
 
 			<DropdownMenu.Root>
+				<!-- no overflow-hidden here: it would clip the rank ring, and
+				     UserAvatar already clips its own image -->
 				<DropdownMenu.Trigger
-					class="overflow-hidden rounded-lg transition-transform hover:scale-105"
+					class="relative flex size-12 shrink-0 items-center justify-center rounded-full
+						transition-transform hover:scale-105"
 					aria-label={m.nav_account_menu()}
 				>
+					{#if showRank && tier}
+						<RankRing
+							class="absolute inset-0"
+							tier={tier.code}
+							percent={rank.summary!.percent}
+							size={48}
+							stroke={3}
+							pulse={rank.levelUps}
+							label={m.rank_level({ level: tier.level })}
+						/>
+					{/if}
 					<UserAvatar
 						name={session.user?.displayName ?? '?'}
 						avatarId={session.user?.avatarId}
 						seed={session.user?.username}
 						class="size-9 rounded-lg text-xs"
 					/>
+					{#if showRank && tier}
+						<span
+							class="pointer-events-none absolute -right-0.5 -bottom-0.5 flex h-4 min-w-4
+								items-center justify-center rounded-full px-1 text-[10px] font-bold ring-2
+								ring-bg tnum"
+							style="background: {rankColor(tier.code)}; color: {readableTextOn(
+								rankColor(tier.code)
+							)}"
+						>
+							{tier.level}
+						</span>
+					{/if}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Portal>
 					<DropdownMenu.Content
@@ -105,6 +154,11 @@
 						<div class="border-b border-edge/60 px-3 py-2.5">
 							<p class="truncate text-sm font-semibold">{session.user?.displayName}</p>
 							<p class="text-[11px] text-faint">@{session.user?.username}</p>
+							{#if showRank && tier}
+								<p class="mt-1 text-[11px] font-semibold" style="color: {rankColor(tier.code)}">
+									{m.rank_level({ level: tier.level })} · {tierName(tier.code)}
+								</p>
+							{/if}
 						</div>
 						<div class="md:hidden">
 							{#each items as item (item.href)}
@@ -130,6 +184,19 @@
 								</a>
 							{/snippet}
 						</DropdownMenu.Item>
+						{#if features.rankingsEnabled && myProfileHref}
+							<DropdownMenu.Item
+								class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted
+									outline-none data-highlighted:bg-surface data-highlighted:text-text"
+							>
+								{#snippet child({ props })}
+									<a {...props} href={myProfileHref}>
+										<Trophy class="size-4" />
+										{m.nav_public_profile()}
+									</a>
+								{/snippet}
+							</DropdownMenu.Item>
+						{/if}
 						{#if session.isAdmin}
 							<DropdownMenu.Item
 								class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted

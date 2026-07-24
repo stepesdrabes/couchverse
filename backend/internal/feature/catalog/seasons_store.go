@@ -76,7 +76,7 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 			return nil, err
 		}
 		se.Episodes = []Episode{}
-		localize(ctx, tr, &se.Name, &se.Overview)
+		Localize(ctx, tr, &se.Name, &se.Overview)
 		byID[se.ID] = len(seasons)
 		seasons = append(seasons, se)
 	}
@@ -107,7 +107,7 @@ func (s *Store) SeasonsWithEpisodes(ctx context.Context, titleID string) ([]Seas
 			&e.AirDate, &e.RuntimeMinutes, &e.ThumbID, &e.ThumbVer, &tr); err != nil {
 			return nil, err
 		}
-		localize(ctx, tr, &e.Name, &e.Overview)
+		Localize(ctx, tr, &e.Name, &e.Overview)
 		if i, ok := byID[e.SeasonID]; ok {
 			seasons[i].Episodes = append(seasons[i].Episodes, e)
 		}

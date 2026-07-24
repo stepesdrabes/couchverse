@@ -85,7 +85,7 @@ func (s *Store) ContinueWatching(ctx context.Context, userID int64, limit int) (
 			&epID, &seasonNum, &epNum, &epName, &it.Position, &it.Duration, &it.UpdatedAt, &ttr, &etr); err != nil {
 			return nil, err
 		}
-		localize(ctx, ttr, &it.Name, nil)
+		Localize(ctx, ttr, &it.Name, nil)
 		if epID != nil {
 			it.EpisodeID = epID
 			it.PlaybackKind = "episode"
@@ -93,7 +93,7 @@ func (s *Store) ContinueWatching(ctx context.Context, userID int64, limit int) (
 			label := ""
 			if seasonNum != nil && epNum != nil {
 				epn := deref(epName)
-				localize(ctx, etr, &epn, nil)
+				Localize(ctx, etr, &epn, nil)
 				label = formatEpisodeLabel(*seasonNum, *epNum, epn)
 			}
 			it.EpisodeLabel = label

@@ -63,7 +63,7 @@ func TestWSHostStateAndEmojiFanout(t *testing.T) {
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
-	rm, hostP, hostToken, err := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t1"})
+	rm, hostP, hostToken, _, err := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t1"})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestWSPausedBroadcast(t *testing.T) {
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
-	rm, _, hostToken, _ := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t1"})
+	rm, _, hostToken, _, _ := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t1"})
 	follower, followerToken, _, _ := h.join(rm, nil)
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/couch/" + rm.shareToken + "/ws"
 

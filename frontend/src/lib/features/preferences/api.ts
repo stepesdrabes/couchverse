@@ -10,6 +10,8 @@ export interface SubtitleSettings {
 export interface Preferences {
 	subtitles?: Partial<SubtitleSettings>;
 	language?: string;
+	/** appear on public profiles and leaderboards; absent means yes */
+	publicProfile?: boolean;
 	[key: string]: unknown;
 }
 

@@ -52,11 +52,23 @@ type CouchWatchRecorder interface {
 	RecordCouchWatch(ctx context.Context, titleID string, seconds int) error
 }
 
+// CouchStatsRecorder persists the per-user couch counters nothing else can see:
+// sessions live only in this hub's memory and the on-couch watch-time stat has
+// no user dimension. Satisfied by *ranks.Store, injected at the composition root
+// so couch never imports ranks. Best-effort; nil disables the counters.
+type CouchStatsRecorder interface {
+	RecordCouchHosted(ctx context.Context, userID int64) error
+	RecordCouchJoined(ctx context.Context, userID int64) error
+	RecordCouchEmoji(ctx context.Context, userID int64, count int) error
+	RecordCouchPartySize(ctx context.Context, userID int64, size int) error
+}
+
 // Deps are the collaborators the Hub needs. Settings backs the couchEnabled flag.
 type Deps struct {
 	Media     MediaResolver
 	Playback  PlaybackBuilder
 	Analytics CouchWatchRecorder
+	Stats     CouchStatsRecorder
 	Settings  *settings.Store
 	Secure    bool
 }
@@ -95,14 +107,15 @@ func NewHub(appCtx context.Context, deps Deps) *Hub {
 		byToken:         map[string]*participantRef{},
 	}
 	go h.reapLoop(appCtx)
-	if deps.Analytics != nil {
+	if deps.Analytics != nil || deps.Stats != nil {
 		go h.accrualLoop(appCtx)
 	}
 	return h
 }
 
 // accrualLoop periodically tallies follower watch-time per title (the separate
-// on-couch stat). Best-effort: a failed record is dropped, never blocks a room.
+// on-couch stat) and flushes the per-user counters. Best-effort: a failed record
+// is dropped, never blocks a room.
 func (h *Hub) accrualLoop(ctx context.Context) {
 	t := time.NewTicker(couchWatchInterval)
 	defer t.Stop()
@@ -112,37 +125,72 @@ func (h *Hub) accrualLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			h.accrueWatch(ctx, secs)
+			h.accrue(ctx, secs)
 		}
 	}
 }
 
-func (h *Hub) accrueWatch(ctx context.Context, intervalSecs int) {
+// accrue snapshots every live room under the locks, then does its I/O outside
+// them. Emoji and party size ride this ticker rather than the socket read path,
+// where a database round trip would stall reads and reaction spam would spawn an
+// unbounded number of goroutines.
+func (h *Hub) accrue(ctx context.Context, intervalSecs int) {
 	type entry struct {
-		titleID string
-		seconds int
+		titleID    string
+		seconds    int
+		hostUserID int64
+		partySize  int
 	}
 	var entries []entry
+	// emoji credits the sender, so anonymous reactions (userID 0) are dropped
+	emoji := map[int64]int{}
 	h.mu.RLock()
 	for _, rm := range h.rooms {
+		e := entry{hostUserID: rm.hostUserID}
 		rm.mu.Lock()
-		if rm.live && rm.state.Playing && !rm.state.Away && rm.titleID != "" {
+		if rm.live {
+			connected := 0
 			followers := 0
 			for _, p := range rm.participants {
-				if !p.IsHost && p.connCount > 0 {
-					followers++
+				if p.connCount > 0 {
+					connected++
+					if !p.IsHost {
+						followers++
+					}
+				}
+				if p.emojiCount > 0 {
+					if p.userID != 0 {
+						emoji[p.userID] += p.emojiCount
+					}
+					p.emojiCount = 0
 				}
 			}
-			if followers > 0 {
-				entries = append(entries, entry{rm.titleID, intervalSecs * followers})
+			if connected > rm.partyMax {
+				rm.partyMax = connected
+				e.partySize = connected
+			}
+			if rm.state.Playing && !rm.state.Away && rm.titleID != "" && followers > 0 {
+				e.titleID = rm.titleID
+				e.seconds = intervalSecs * followers
 			}
 		}
 		rm.mu.Unlock()
+		entries = append(entries, e)
 	}
 	h.mu.RUnlock()
 
 	for _, e := range entries {
-		_ = h.deps.Analytics.RecordCouchWatch(ctx, e.titleID, e.seconds)
+		if h.deps.Analytics != nil && e.seconds > 0 {
+			_ = h.deps.Analytics.RecordCouchWatch(ctx, e.titleID, e.seconds)
+		}
+		if h.deps.Stats != nil && e.partySize > 0 {
+			_ = h.deps.Stats.RecordCouchPartySize(ctx, e.hostUserID, e.partySize)
+		}
+	}
+	if h.deps.Stats != nil {
+		for userID, count := range emoji {
+			_ = h.deps.Stats.RecordCouchEmoji(ctx, userID, count)
+		}
 	}
 }
 
@@ -209,6 +257,7 @@ type room struct {
 	lastActive      time.Time
 	state           hostState
 	titleID         string // series/movie title id of the current media (for watch-time)
+	partyMax        int    // most people connected at once (for the host's biggest-couch stat)
 	participants    map[string]*participant
 	conns           map[*conn]struct{}
 	allowedMediaIDs map[string]struct{}
@@ -274,11 +323,12 @@ func (h *Hub) resolveAllowed(ctx context.Context, ref mediaRef) (map[string]stru
 
 // createOrReclaim starts a session for the host, or returns and refreshes the
 // host's existing live session (a refresh / second tab reclaims, never spawns a
-// duplicate). DB resolution happens before the lock.
-func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef) (*room, *participant, string, error) {
+// duplicate). DB resolution happens before the lock. created is false on a
+// reclaim, so the caller only counts genuinely new sessions.
+func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef) (rm *room, host *participant, token string, created bool, err error) {
 	allowed, titleID, err := h.resolveAllowed(ctx, ref)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, "", false, err
 	}
 
 	h.mu.Lock()
@@ -294,13 +344,13 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef
 			host := rm.hostParticipantLocked()
 			rm.mu.Unlock()
 			token := h.issueTokenLocked(rm, host)
-			return rm, host, token, nil
+			return rm, host, token, false, nil
 		}
 		rm.mu.Unlock()
 	}
 
-	host := newParticipant(user, true)
-	rm := &room{
+	host = newParticipant(user, true)
+	rm = &room{
 		hub:             h,
 		sessionID:       uuid.NewString(),
 		shareToken:      h.freeShareCodeLocked(),
@@ -313,11 +363,11 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef
 		conns:           map[*conn]struct{}{},
 		allowedMediaIDs: allowed,
 	}
-	token := h.issueTokenLocked(rm, host)
+	token = h.issueTokenLocked(rm, host)
 	h.rooms[rm.sessionID] = rm
 	h.byShare[rm.shareToken] = rm
 	h.byHost[user.ID] = rm
-	return rm, host, token, nil
+	return rm, host, token, true, nil
 }
 
 // freeShareCodeLocked returns a 6-digit code not currently in use. Caller holds

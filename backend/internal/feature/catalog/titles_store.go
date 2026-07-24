@@ -58,7 +58,7 @@ func scanTitle(ctx context.Context, row pgx.Row) (*Title, error) {
 	if t.MetadataLanguages == nil {
 		t.MetadataLanguages = []string{}
 	}
-	localize(ctx, t.Translations, &t.Name, &t.Overview)
+	Localize(ctx, t.Translations, &t.Name, &t.Overview)
 	return &t, nil
 }
 
@@ -99,7 +99,7 @@ func (s *Store) loadTitleGenres(ctx context.Context, t *Title) error {
 			return err
 		}
 		t.Genres = append(t.Genres, name)
-		t.GenreLabels = append(t.GenreLabels, genreLabel(name, lang))
+		t.GenreLabels = append(t.GenreLabels, GenreLabel(name, lang))
 	}
 	return rows.Err()
 }
@@ -450,7 +450,7 @@ func (s *Store) ListGenres(ctx context.Context) ([]Genre, error) {
 		if err := rows.Scan(&g.ID, &g.Name); err != nil {
 			return nil, err
 		}
-		g.Label = genreLabel(g.Name, lang)
+		g.Label = GenreLabel(g.Name, lang)
 		genres = append(genres, g)
 	}
 	return genres, rows.Err()

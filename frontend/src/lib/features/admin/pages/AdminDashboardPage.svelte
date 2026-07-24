@@ -21,6 +21,7 @@
 	import * as jobsApi from '$lib/features/jobs/api';
 	import type {
 		AnalyticsInfo,
+		AnalyticsTopTitle,
 		LiveStats,
 		OverviewInfo,
 		StorageInfo,
@@ -29,6 +30,8 @@
 	import BarChart from '$lib/features/admin/components/BarChart.svelte';
 	import Sparkline from '$lib/features/admin/components/Sparkline.svelte';
 	import StorageBar from '$lib/features/admin/components/StorageBar.svelte';
+	import RankedList from '$lib/components/ui/RankedList.svelte';
+	import StatTile from '$lib/components/ui/StatTile.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import { categoryStyle } from '$lib/features/admin/components/storageColors';
 	import { jobAction, jobSubjectLabel } from '$lib/features/jobs/job-label';
@@ -176,6 +179,15 @@
 	);
 	const qualityTotal = $derived(qualityBars.reduce((sum, q) => sum + q.count, 0));
 
+	const rankedTitles = (titles: AnalyticsTopTitle[]) =>
+		titles.slice(0, 6).map((t) => ({
+			key: t.titleId,
+			label: t.name,
+			href: `/title/${t.slug}`,
+			value: t.seconds,
+			display: formatUptime(t.seconds)
+		}));
+
 	const liveCards = $derived(
 		live
 			? [
@@ -200,22 +212,9 @@
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 	{#each cards as card, i (card.label)}
-		<a
-			in:fly|global={{ y: 16, duration: 350, delay: Math.min(i * 55, 300) }}
-			href={card.href}
-			class="group flex items-center gap-4 rounded-card border border-edge bg-surface/40 p-6
-				transition-colors hover:border-accent/50 hover:bg-surface/70"
-		>
-			<span class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent-soft">
-				<card.icon class="size-5 text-accent" />
-			</span>
-			<span class="min-w-0">
-				<span class="block text-3xl font-extrabold tracking-tight tnum">{card.value}</span>
-				<span class="block text-xs font-medium text-muted transition-colors group-hover:text-text">
-					{card.label}
-				</span>
-			</span>
-		</a>
+		<div in:fly|global={{ y: 16, duration: 350, delay: Math.min(i * 55, 300) }}>
+			<StatTile icon={card.icon} value={card.value} label={card.label} href={card.href} />
+		</div>
 	{/each}
 </div>
 
@@ -224,37 +223,7 @@
 		<h2 class="mb-3 text-sm font-semibold text-muted">{m.admin_live()}</h2>
 		<div class="grid gap-4 sm:grid-cols-3">
 			{#each liveCards as c (c.label)}
-				<div
-					class="flex items-center gap-4 rounded-card border bg-surface/40 p-5 transition-colors
-						{c.value > 0 ? 'border-accent/50' : 'border-edge'}"
-				>
-					<span
-						class="relative flex size-12 shrink-0 items-center justify-center rounded-xl
-							{c.value > 0 ? 'bg-accent-soft' : 'bg-surface-2'}"
-					>
-						<c.icon class="size-5 {c.value > 0 ? 'text-accent' : 'text-faint'}" />
-						{#if c.value > 0}
-							<span class="absolute -top-0.5 -right-0.5 flex size-2.5">
-								<span class="absolute inline-flex size-full animate-ping rounded-full bg-accent/70"
-								></span>
-								<span class="relative inline-flex size-2.5 rounded-full bg-accent"></span>
-							</span>
-						{/if}
-					</span>
-					<span class="min-w-0">
-						<span
-							class="block text-3xl font-extrabold tracking-tight tnum {c.value > 0
-								? ''
-								: 'text-faint'}"
-						>
-							{c.value}
-						</span>
-						<span class="block text-xs font-medium text-muted">{c.label}</span>
-						{#if c.sub}
-							<span class="block text-[11px] text-faint tnum">{c.sub}</span>
-						{/if}
-					</span>
-				</div>
+				<StatTile icon={c.icon} value={c.value} label={c.label} sub={c.sub} live />
 			{/each}
 		</div>
 	</div>
@@ -502,27 +471,7 @@
 				{#if analytics.topTitles.length === 0}
 					<p class="text-xs text-faint">{m.admin_no_watch_time()}</p>
 				{:else}
-					<ul class="space-y-2.5 text-xs">
-						{#each analytics.topTitles.slice(0, 6) as title (title.titleId)}
-							<li>
-								<div class="flex items-baseline justify-between gap-3">
-									<a
-										href="/title/{title.slug}"
-										class="truncate font-medium transition-colors hover:text-accent"
-									>
-										{title.name}
-									</a>
-									<span class="shrink-0 text-faint tnum">{formatUptime(title.seconds)}</span>
-								</div>
-								<div class="mt-1 h-1 overflow-hidden rounded-full bg-surface-2">
-									<div
-										class="h-full rounded-full bg-accent"
-										style="width: {(title.seconds / analytics.topTitles[0].seconds) * 100}%"
-									></div>
-								</div>
-							</li>
-						{/each}
-					</ul>
+					<RankedList items={rankedTitles(analytics.topTitles)} />
 				{/if}
 			</div>
 		</div>
@@ -561,27 +510,7 @@
 				</div>
 				<p class="mb-3 text-[11px] text-faint">{m.admin_couch_watch_hint()}</p>
 				{#if analytics.topCouchTitles.length > 0}
-					<ul class="space-y-2.5 text-xs">
-						{#each analytics.topCouchTitles.slice(0, 6) as title (title.titleId)}
-							<li>
-								<div class="flex items-baseline justify-between gap-3">
-									<a
-										href="/title/{title.slug}"
-										class="truncate font-medium transition-colors hover:text-accent"
-									>
-										{title.name}
-									</a>
-									<span class="shrink-0 text-faint tnum">{formatUptime(title.seconds)}</span>
-								</div>
-								<div class="mt-1 h-1 overflow-hidden rounded-full bg-surface-2">
-									<div
-										class="h-full rounded-full bg-accent"
-										style="width: {(title.seconds / analytics.topCouchTitles[0].seconds) * 100}%"
-									></div>
-								</div>
-							</li>
-						{/each}
-					</ul>
+					<RankedList items={rankedTitles(analytics.topCouchTitles)} />
 				{/if}
 			</div>
 		{/if}

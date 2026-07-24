@@ -2,6 +2,7 @@ package couch
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -48,10 +49,16 @@ func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "missing media id")
 		return
 	}
-	rm, host, token, err := h.hub.createOrReclaim(r.Context(), user, ref)
+	rm, host, token, created, err := h.hub.createOrReclaim(r.Context(), user, ref)
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
+	}
+	if created && h.hub.deps.Stats != nil {
+		// best effort - the counter must never fail hosting a session
+		if err := h.hub.deps.Stats.RecordCouchHosted(r.Context(), user.ID); err != nil {
+			slog.Warn("record couch hosted", "err", err)
+		}
 	}
 	setCouchCookie(w, token, h.hub.secure)
 	httpx.JSON(w, http.StatusCreated, rm.snapshotFor(host.ID, "host"))
@@ -91,7 +98,8 @@ func (h *Handlers) Join(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "no_session", "this couch session does not exist or has ended")
 		return
 	}
-	p, token, role, err := h.hub.join(rm, auth.UserFrom(r.Context()))
+	user := auth.UserFrom(r.Context())
+	p, token, role, err := h.hub.join(rm, user)
 	if err != nil {
 		switch {
 		case errors.Is(err, errRoomFull):
@@ -102,6 +110,12 @@ func (h *Handlers) Join(w http.ResponseWriter, r *http.Request) {
 			httpx.Internal(w, err)
 		}
 		return
+	}
+	// only a logged-in follower counts; the host reclaiming their own link does not
+	if user != nil && role == "follower" && h.hub.deps.Stats != nil {
+		if err := h.hub.deps.Stats.RecordCouchJoined(r.Context(), user.ID); err != nil {
+			slog.Warn("record couch joined", "err", err)
+		}
 	}
 	setCouchCookie(w, token, h.hub.secure)
 	httpx.JSON(w, http.StatusOK, rm.snapshotFor(p.ID, role))

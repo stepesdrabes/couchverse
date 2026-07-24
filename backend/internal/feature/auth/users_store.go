@@ -30,17 +30,22 @@ type User struct {
 	Role         string    `json:"role"`
 	Disabled     bool      `json:"disabled"`
 	AvatarID     *string   `json:"avatarId"`
+	BannerID     *string   `json:"bannerId"`
+	Bio          string    `json:"bio"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
 const userSelect = `
-	SELECT u.id, u.username, u.display_name, u.password_hash, u.role, u.disabled, av.id, u.created_at
+	SELECT u.id, u.username, u.display_name, u.password_hash, u.role, u.disabled,
+	       av.id, bn.id, u.bio, u.created_at
 	FROM users u
-	LEFT JOIN artwork av ON av.owner_kind = 'user' AND av.owner_id = u.id::text AND av.kind = 'avatar'`
+	LEFT JOIN artwork av ON av.owner_kind = 'user' AND av.owner_id = u.id::text AND av.kind = 'avatar'
+	LEFT JOIN artwork bn ON bn.owner_kind = 'user' AND bn.owner_id = u.id::text AND bn.kind = 'banner'`
 
 func scanUser(row pgx.Row) (*User, error) {
 	var u User
-	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Role, &u.Disabled, &u.AvatarID, &u.CreatedAt)
+	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Role, &u.Disabled,
+		&u.AvatarID, &u.BannerID, &u.Bio, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -100,6 +105,7 @@ type UserUpdate struct {
 	Role         *string
 	Disabled     *bool
 	PasswordHash *string
+	Bio          *string
 }
 
 func (s *Store) UpdateUser(ctx context.Context, id int64, up UserUpdate) (*User, error) {
@@ -108,9 +114,10 @@ func (s *Store) UpdateUser(ctx context.Context, id int64, up UserUpdate) (*User,
 			display_name = COALESCE($2, display_name),
 			role = COALESCE($3, role),
 			disabled = COALESCE($4, disabled),
-			password_hash = COALESCE($5, password_hash)
+			password_hash = COALESCE($5, password_hash),
+			bio = COALESCE($6, bio)
 		 WHERE id = $1`,
-		id, up.DisplayName, up.Role, up.Disabled, up.PasswordHash)
+		id, up.DisplayName, up.Role, up.Disabled, up.PasswordHash, up.Bio)
 	if err != nil {
 		return nil, err
 	}

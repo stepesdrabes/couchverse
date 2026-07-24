@@ -18,6 +18,33 @@ func NewStore(db *pgxpool.Pool) *Store {
 	return &Store{db: db}
 }
 
+// tzName is the zone the hour buckets are cut in, so "night" means night rather
+// than whatever UTC happens to be. Go reports the placeholder "Local" when TZ is
+// unset, which Postgres rejects.
+func tzName() string {
+	if n := time.Local.String(); n != "" && n != "Local" {
+		return n
+	}
+	return "UTC"
+}
+
+// recordHour keeps the hour-of-day rollup behind the profile clock and the
+// night-owl achievements. It rides along inside the existing Record* calls so
+// no caller changes and the beacon keeps a single round trip per stat.
+func (s *Store) recordHour(ctx context.Context, userID int64, kind string, seconds int) error {
+	if seconds <= 0 {
+		return nil
+	}
+	_, err := s.db.Exec(ctx,
+		`INSERT INTO watch_time_hourly (day, hour, user_id, kind, seconds)
+		 VALUES ((now() AT TIME ZONE $1)::date,
+			extract(hour FROM now() AT TIME ZONE $1)::smallint, $2, $3, $4)
+		 ON CONFLICT (day, hour, user_id, kind)
+		 DO UPDATE SET seconds = watch_time_hourly.seconds + EXCLUDED.seconds`,
+		tzName(), userID, kind, seconds)
+	return err
+}
+
 // RecordWatch adds actually-played seconds for a movie (titleID) or an
 // episode (episodeID, resolved to its title in SQL).
 func (s *Store) RecordWatch(ctx context.Context, userID int64, titleID, episodeID *string, seconds int) error {
@@ -33,7 +60,10 @@ func (s *Store) RecordWatch(ctx context.Context, userID int64, titleID, episodeI
 		 ON CONFLICT (day, user_id, kind, title_id)
 		 DO UPDATE SET seconds = watch_time_daily.seconds + EXCLUDED.seconds`,
 		userID, titleID, episodeID, seconds)
-	return err
+	if err != nil {
+		return err
+	}
+	return s.recordHour(ctx, userID, "video", seconds)
 }
 
 // RecordCouchWatch adds aggregate follower-seconds spent watching a title in a
@@ -63,7 +93,29 @@ func (s *Store) RecordListen(ctx context.Context, userID int64, trackID string) 
 		 ON CONFLICT (day, user_id, kind, title_id)
 		 DO UPDATE SET seconds = watch_time_daily.seconds + EXCLUDED.seconds`,
 		userID, trackID)
+	if err != nil {
+		return err
+	}
+	// the duration lives in SQL rather than in Go here, so the hour bucket reads
+	// it again instead of taking a seconds argument like recordHour does
+	_, err = s.db.Exec(ctx,
+		`INSERT INTO watch_time_hourly (day, hour, user_id, kind, seconds)
+		 SELECT (now() AT TIME ZONE $1)::date,
+			extract(hour FROM now() AT TIME ZONE $1)::smallint, $2, 'music', t.duration_seconds
+		 FROM tracks t WHERE t.id = $3 AND t.duration_seconds > 0
+		 ON CONFLICT (day, hour, user_id, kind)
+		 DO UPDATE SET seconds = watch_time_hourly.seconds + EXCLUDED.seconds`,
+		tzName(), userID, trackID)
 	return err
+}
+
+// PruneHourly drops hour buckets past the profile clock's window. The daily
+// rollup is kept forever (it is one row per user per day and the admin charts
+// read it), but the hourly one is 48x denser and only ever read for the last year.
+func (s *Store) PruneHourly(ctx context.Context, keepDays int) (int64, error) {
+	tag, err := s.db.Exec(ctx,
+		`DELETE FROM watch_time_hourly WHERE day < current_date - $1::int`, keepDays)
+	return tag.RowsAffected(), err
 }
 
 type Day struct {
