@@ -3,17 +3,20 @@
 	import type { Snippet } from 'svelte';
 
 	let {
-		label,
+		label = '',
 		side = 'top',
 		portalTo = undefined,
-		trigger
+		trigger,
+		content = undefined
 	}: {
-		label: string;
+		label?: string;
 		side?: 'top' | 'bottom' | 'left' | 'right';
 		// render the tooltip inside this element (e.g. the fullscreen wrapper)
 		portalTo?: HTMLElement | undefined;
 		// receives the trigger props to spread onto your own element
 		trigger: Snippet<[Record<string, unknown>]>;
+		// richer body than a single line; overrides label when present
+		content?: Snippet;
 	} = $props();
 </script>
 
@@ -31,7 +34,11 @@
 				class="z-50 animate-pop-in rounded-md border border-edge bg-surface-2 px-2 py-1 text-xs
 					font-medium text-text shadow-lg shadow-black/40"
 			>
-				{label}
+				{#if content}
+					{@render content()}
+				{:else}
+					{label}
+				{/if}
 			</Tooltip.Content>
 		</Tooltip.Portal>
 	</Tooltip.Root>

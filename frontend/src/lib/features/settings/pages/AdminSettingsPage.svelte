@@ -44,8 +44,9 @@
 
 	let musicEnabled = $state(true);
 	let couchEnabled = $state(true);
+	let rankingsEnabled = $state(true);
 	let savingFeatures = $state(false);
-	const featuresForm = new FormState(() => ({ musicEnabled, couchEnabled }));
+	const featuresForm = new FormState(() => ({ musicEnabled, couchEnabled, rankingsEnabled }));
 
 	let featuredCount = $state('3');
 	let savingHome = $state(false);
@@ -83,10 +84,11 @@
 				}
 				if (!featuresForm.dirty) {
 					const flags = s.features as
-						| { musicEnabled?: boolean; couchEnabled?: boolean }
+						| { musicEnabled?: boolean; couchEnabled?: boolean; rankingsEnabled?: boolean }
 						| undefined;
 					musicEnabled = flags?.musicEnabled ?? true;
 					couchEnabled = flags?.couchEnabled ?? true;
+					rankingsEnabled = flags?.rankingsEnabled ?? true;
 					featuresForm.reset();
 				}
 				if (!accentForm.dirty) {
@@ -183,9 +185,10 @@
 		e.preventDefault();
 		savingFeatures = true;
 		try {
-			await settingsApi.putSettings({ features: { musicEnabled, couchEnabled } });
+			await settingsApi.putSettings({ features: { musicEnabled, couchEnabled, rankingsEnabled } });
 			features.musicEnabled = musicEnabled;
 			features.couchEnabled = couchEnabled;
+			features.rankingsEnabled = rankingsEnabled;
 			featuresForm.reset();
 			toast.success(m.settings_features_saved());
 		} catch {
@@ -459,6 +462,18 @@
 						</span>
 					</span>
 					<Switch bind:checked={couchEnabled} />
+				</label>
+
+				<label
+					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"
+				>
+					<span>
+						<span class="block text-sm">{m.settings_rankings_label()}</span>
+						<span class="block text-[11px] text-faint">
+							{m.settings_rankings_hint()}
+						</span>
+					</span>
+					<Switch bind:checked={rankingsEnabled} />
 				</label>
 
 				<div class="flex justify-end">

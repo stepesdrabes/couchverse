@@ -6,10 +6,14 @@
 		label: string;
 	}
 
-	let { items, value = $bindable('') }: { items: Item[]; value?: string } = $props();
+	let {
+		items,
+		value = $bindable(''),
+		onchange
+	}: { items: Item[]; value?: string; onchange?: (value: string) => void } = $props();
 </script>
 
-<Tabs.Root bind:value>
+<Tabs.Root bind:value onValueChange={(v) => onchange?.(v)}>
 	<Tabs.List class="inline-flex items-center gap-1 rounded-full border border-edge bg-surface p-1">
 		{#each items as item (item.value)}
 			<Tabs.Trigger

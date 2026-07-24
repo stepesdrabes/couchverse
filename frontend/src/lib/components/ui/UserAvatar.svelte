@@ -20,7 +20,12 @@
 
 {#if avatarId}
 	<span class="flex items-center justify-center overflow-hidden {cls}">
-		<img src="{artworkUrl(avatarId)}?size=w342" alt={name} class="size-full object-cover" />
+		<img
+			src="{artworkUrl(avatarId)}?size=w342"
+			alt={name}
+			loading="lazy"
+			class="size-full object-cover"
+		/>
 	</span>
 {:else}
 	<span class="identicon flex items-center justify-center overflow-hidden bg-surface-2 {cls}">
