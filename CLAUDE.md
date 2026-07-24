@@ -23,8 +23,8 @@ Feature inventory + per-feature docs (endpoints, tables, dependency graph) live 
 A feature owns its HTTP handlers, domain logic and SQL together.
 
 - Backend features live in `backend/internal/feature/<name>/` (analytics, artwork, auth,
-  catalog, couch, jobs, library, metadata, music, playback, subtitles, system). Each is one Go
-  package with:
+  catalog, couch, jobs, library, metadata, music, playback, ranks, subtitles, system). Each is
+  one Go package with:
   - a per-feature `Store` struct over the shared pgx pool (`NewStore(pool)`) - SQL stays
     inside the feature;
   - handler files plus `routes.go` exposing `Mount*` methods (or a `Module`) that register
@@ -47,17 +47,36 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     if it is logged-in **or** the Hub's `AllowsAnon(r, mediaFileID)` accepts it (live session,
     current media only). Reuse `playback.BuildPlayback` (no auth context) to build follower
     payloads. WebSockets use `github.com/coder/websocket`.
+  - **Ranks** (XP, achievements, public profiles, leaderboards) is a near-leaf: it imports only
+    `auth` and `catalog`'s `Localize`/`GenreLabel`, reaching every other table by SQL join, and
+    **nothing imports it**. That is what lets `couch` report per-user counters through its own
+    `CouchStatsRecorder` interface (satisfied by `*ranks.Store`, wired in `main.go`, mirroring
+    `CouchWatchRecorder`). Do **not** put rank on `/auth/me` - `ranks -> auth` already exists, so
+    that would be a cycle; the nav badge reads `GET /me/stats`. Evaluation is **pull-based**:
+    `POST /me/achievements/check` is the only writer of `user_achievements` and is throttled per
+    user, so no SQL is added to the 10s progress beacon. Achievement rules are a pure table
+    scored against one `Snapshot` (unit-tested without a database); gated rules are absent, not
+    locked, when their feature flag is off. Gated by the admin `rankingsEnabled` flag, except
+    `/admin/ranks`, which stays reachable so an admin can retune progression while it is off.
+    XP rates and tier thresholds are admin-editable (`ranks.Config` in the `ranks` settings
+    key) and threaded through the pure functions as an argument rather than read globally.
+  - **User-authored markdown** (profile bios) renders through `lib/utils/markdown.ts` - one
+    shared markdown-it instance with `html: false`. That is the security boundary: raw HTML is
+    escaped rather than parsed, so the `{@html}` in `ui/Markdown.svelte` can only emit tags
+    markdown-it generated itself. Never enable `html`, and never render user markdown any
+    other way.
 - Frontend features live in `frontend/src/lib/features/<name>/` (admin, auth, catalog, couch,
-  jobs, library, music, playback, preferences, settings, uploads, users). Each keeps its types,
-  API calls (`api.ts`), rune state (`*.svelte.ts`), `components/` and `pages/` together.
+  jobs, library, music, playback, preferences, ranks, settings, uploads, users). Each keeps its
+  types, API calls (`api.ts`), rune state (`*.svelte.ts`), `components/` and `pages/` together.
   - **Routes are thin shells**: every `src/routes/**/+page.svelte` only imports its
     `XxxPage.svelte` from the owning feature and passes `data` (typed via `PageProps`).
     Page/markup code never lives in `src/routes/`. Loaders (`+page.ts`/`+layout.ts`) stay
     in routes/ (SvelteKit requirement) and delegate to feature `api.ts`.
-  - `lib/components/` keeps only domain-free shared UI: `ui/` (bits-ui primitives),
-    `layout/` (TopNav, GlowBackdrop, LanguageSwitcher, NavProgress), and the optimistic
-    page shells `{CachedView,StreamedView,NotFound}.svelte`. Domain components live in
-    their feature.
+  - `lib/components/` keeps only domain-free shared UI: `ui/` (bits-ui primitives plus the
+    shared widgets `StatTile`/`SegmentBar`/`RankedList`, extracted from the admin dashboard
+    once a second feature needed them), `layout/` (TopNav, GlowBackdrop, LanguageSwitcher,
+    NavProgress), and the optimistic page shells `{CachedView,StreamedView,NotFound}.svelte`.
+    Domain components live in their feature.
   - Shared catalog entities live in `features/catalog/types.ts`. The bare fetch wrapper
     stays in `src/lib/api/client.ts`. Never hand-write URLs in components.
   - Forms that edit existing data track dirtiness with `FormState`

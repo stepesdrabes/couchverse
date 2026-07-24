@@ -21,6 +21,13 @@ home server.
 - **Couch sessions** - synced watch parties: share a link and friends watch in sync
   (even without an account), with a playful couch of avatars and emoji reactions; the
   host drives playback and everyone follows
+- **Ranks & achievements** - watching and listening earn XP and rank tiers (Couch
+  Rookie to Couch Legend), 34 achievements pop as you unlock them, and every member
+  gets a public profile with their own banner, a markdown bio, a year-long activity
+  heatmap, a "when you watch" clock and their most-watched titles. Global leaderboards
+  for XP, watch time, listening and achievements, with a one-switch opt-out per
+  person; admins get a Ranks page with level distribution, achievement rarity and
+  editable XP rates
 
 **Music**
 - Spotify-style persistent bottom player that survives navigation
@@ -30,7 +37,8 @@ home server.
 **Library management**
 - Admin panel: library table with quality badges and bulk actions, user management,
   job queue, storage meters and a per-title disk-usage chart, a filterable season/episode
-  editor, home-page row editor
+  editor, home-page row editor, and a Ranks page (level distribution, achievement
+  rarity, per-member standing, editable XP rates and rank thresholds)
 - Media comes in through resumable chunked uploads (pause/resume survives disconnects)
 - Filename parsing (`Show/Season 01/Show S01E01.mkv`, `Movie (2024).mkv`) and
   music tags (ID3/FLAC/MP4) build the catalog automatically
