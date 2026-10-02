@@ -678,6 +678,10 @@
 	"library_load_failed": "Failed to load library",
 	"library_load_seasons_failed": "Failed to load seasons",
 	"library_loading_seasons": "Loading seasons…",
+	"library_logo_any_language": "Any language",
+	"library_logo_updated": "Logo updated",
+	"library_logos": "Logos",
+	"library_logos_hint": "Transparent PNG wordmarks shown over the backdrop in place of the name, one per content language. Fetch from TMDB fills them in.",
 	"library_metadata": "Metadata",
 	"library_needs_prep": "needs prep",
 	"library_needs_prep_hint": "Not browser-playable and no HLS version queued - re-scan or use Files → Prepare HLS in the editor",
@@ -687,6 +691,7 @@
 	"library_no_episodes_match": "No episodes match your filters.",
 	"library_no_files": "no files",
 	"library_no_languages_found": "No languages found.",
+	"library_no_logo": "No logo",
 	"library_no_media_files": "No media files yet - upload one or scan a library folder.",
 	"library_no_results": "No results.",
 	"library_no_seasons": "No seasons yet.",
@@ -721,7 +726,7 @@
 			}
 		}
 	],
-	"library_remove_language_message": "Removing {lang} permanently deletes its translations for this title and all its seasons and episodes, plus {files} ({size}) and {subs} from disk. This cannot be undone.",
+	"library_remove_language_message": "Removing {lang} permanently deletes its translations for this title and all its seasons and episodes, its logo, plus {files} ({size}) and {subs} from disk. This cannot be undone.",
 	"library_remove_language_subs": [
 		{
 			"declarations": [
@@ -737,8 +742,10 @@
 			}
 		}
 	],
+	"library_remove_logo": "Remove logo",
 	"library_remove_poster": "Remove poster",
 	"library_replace_backdrop": "Replace backdrop",
+	"library_replace_logo": "Replace logo",
 	"library_replace_poster": "Replace poster",
 	"library_runtime_minutes": "Runtime (minutes)",
 	"library_save_changes": "Save changes",
@@ -810,6 +817,7 @@
 	"library_upload_episode_file": "Upload episode file",
 	"library_upload_failed": "upload failed",
 	"library_upload_file": "Upload file",
+	"library_upload_logo": "Upload logo",
 	"library_upload_poster": "Upload poster",
 	"library_upload_replacement_file": "Upload replacement file",
 	"library_year": "Year",

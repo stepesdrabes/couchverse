@@ -696,6 +696,10 @@
 	"library_load_failed": "Načtení knihovny se nezdařilo",
 	"library_load_seasons_failed": "Nepodařilo se načíst sezóny",
 	"library_loading_seasons": "Načítání sezón…",
+	"library_logo_any_language": "Libovolný jazyk",
+	"library_logo_updated": "Logo bylo aktualizováno",
+	"library_logos": "Loga",
+	"library_logos_hint": "Průhledná loga ve formátu PNG, která se zobrazují přes pozadí místo názvu, jedno pro každý jazyk obsahu. Načtení z TMDB je doplní.",
 	"library_metadata": "Metadata",
 	"library_needs_prep": "nutná příprava",
 	"library_needs_prep_hint": "Nepřehratelné v prohlížeči a není zařazena žádná HLS verze - znovu naskenujte nebo použijte Soubory → Připravit HLS v editoru",
@@ -705,6 +709,7 @@
 	"library_no_episodes_match": "Žádné epizody neodpovídají filtrům.",
 	"library_no_files": "žádné soubory",
 	"library_no_languages_found": "Žádné jazyky nenalezeny.",
+	"library_no_logo": "Bez loga",
 	"library_no_media_files": "Zatím žádné mediální soubory - nahrajte nějaký nebo prohledejte složku knihovny.",
 	"library_no_results": "Žádné výsledky.",
 	"library_no_seasons": "Zatím žádné řady.",
@@ -740,7 +745,7 @@
 			}
 		}
 	],
-	"library_remove_language_message": "Odebráním jazyka {lang} se trvale smažou jeho překlady pro tento titul a všechny jeho řady a epizody a také {files} ({size}) a {subs} z disku. Tuto akci nelze vrátit zpět.",
+	"library_remove_language_message": "Odebráním jazyka {lang} se trvale smažou jeho překlady pro tento titul a všechny jeho řady a epizody, jeho logo a také {files} ({size}) a {subs} z disku. Tuto akci nelze vrátit zpět.",
 	"library_remove_language_subs": [
 		{
 			"declarations": [
@@ -757,8 +762,10 @@
 			}
 		}
 	],
+	"library_remove_logo": "Odebrat logo",
 	"library_remove_poster": "Odebrat plakát",
 	"library_replace_backdrop": "Nahradit pozadí",
+	"library_replace_logo": "Nahradit logo",
 	"library_replace_poster": "Nahradit plakát",
 	"library_runtime_minutes": "Délka (minuty)",
 	"library_save_changes": "Uložit změny",
@@ -832,6 +839,7 @@
 	"library_upload_episode_file": "Nahrát soubor epizody",
 	"library_upload_failed": "nahrávání se nezdařilo",
 	"library_upload_file": "Nahrát soubor",
+	"library_upload_logo": "Nahrát logo",
 	"library_upload_poster": "Nahrát plakát",
 	"library_upload_replacement_file": "Nahrát náhradní soubor",
 	"library_year": "Rok",

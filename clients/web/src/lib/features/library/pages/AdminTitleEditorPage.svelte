@@ -9,6 +9,7 @@
 	import EditorHero from '$lib/features/library/components/editor/EditorHero.svelte';
 	import EpisodesTable from '$lib/features/library/components/editor/EpisodesTable.svelte';
 	import ImportEpisodesModal from '$lib/features/library/components/editor/ImportEpisodesModal.svelte';
+	import LogosPanel from '$lib/features/library/components/editor/LogosPanel.svelte';
 	import MovieFilesPanel from '$lib/features/library/components/editor/MovieFilesPanel.svelte';
 	import StorageChart from '$lib/features/library/components/editor/StorageChart.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -371,6 +372,12 @@
 			>
 		</div>
 	</form>
+
+	<LogosPanel
+		titleId={data.title.id}
+		languages={data.title.metadataLanguages ?? []}
+		artwork={data.artwork}
+	/>
 
 	<StorageChart titleId={data.title.id} kind={data.title.kind} />
 
