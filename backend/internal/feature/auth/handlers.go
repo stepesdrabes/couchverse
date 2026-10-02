@@ -2,7 +2,6 @@ package auth
 
 import (
 	"errors"
-	"net"
 	"net/http"
 	"time"
 
@@ -40,11 +39,8 @@ func (a *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "username and password are required")
 		return
 	}
-	ip := r.RemoteAddr
-	if host, _, err := net.SplitHostPort(ip); err == nil {
-		ip = host
-	}
-	if !a.limiter.allow(ip + "|" + req.Username) {
+	// RemoteAddr is the bare client IP (server.clientIP resolves trusted proxies)
+	if !a.limiter.allow(r.RemoteAddr + "|" + req.Username) {
 		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many attempts, try again in a minute")
 		return
 	}

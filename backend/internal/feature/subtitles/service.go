@@ -25,10 +25,6 @@ type Service struct {
 	FFmpegPath string
 }
 
-func (s *Service) dir(mediaFileID string) string {
-	return filepath.Join(s.DataDir, "subtitles", mediaFileID)
-}
-
 func (s *Service) Path(sub *media.Subtitle) string {
 	return filepath.Join(s.DataDir, sub.Path)
 }

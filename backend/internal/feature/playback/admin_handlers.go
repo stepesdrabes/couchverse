@@ -92,7 +92,7 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 		rendition = rendition.CappedAt(mf.Bitrate)
 		mode := "transcode"
 		height := rendition.Height
-		var vbr, abr int64 = rendition.VideoBitrate, rendition.AudioBitrate
+		vbr, abr := rendition.VideoBitrate, rendition.AudioBitrate
 		if name == "source" {
 			mode, height, vbr, abr = "copy", mf.Height, mf.Bitrate, 192_000
 		}

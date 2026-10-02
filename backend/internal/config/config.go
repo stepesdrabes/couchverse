@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -16,6 +18,8 @@ type Config struct {
 	JobWorkers    int
 	FFmpegPath    string
 	FFprobePath   string
+	// TrustedProxies are the reverse proxies whose X-Forwarded-For is believed.
+	TrustedProxies []netip.Prefix
 }
 
 func Load() (Config, error) {
@@ -30,6 +34,11 @@ func Load() (Config, error) {
 		FFmpegPath:    envStr("FFMPEG_PATH", "ffmpeg"),
 		FFprobePath:   envStr("FFPROBE_PATH", "ffprobe"),
 	}
+	proxies, err := parsePrefixes(os.Getenv("TRUSTED_PROXIES"))
+	if err != nil {
+		return cfg, fmt.Errorf("TRUSTED_PROXIES: %w", err)
+	}
+	cfg.TrustedProxies = proxies
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("DATABASE_URL is required")
 	}
@@ -65,4 +74,30 @@ func envBool(key string, def bool) bool {
 		return def
 	}
 	return b
+}
+
+// parsePrefixes reads a comma-separated list of CIDRs or bare addresses.
+func parsePrefixes(v string) ([]netip.Prefix, error) {
+	var out []netip.Prefix
+	for _, item := range strings.Split(v, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if strings.Contains(item, "/") {
+			p, err := netip.ParsePrefix(item)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, p.Masked())
+			continue
+		}
+		a, err := netip.ParseAddr(item)
+		if err != nil {
+			return nil, err
+		}
+		a = a.Unmap()
+		out = append(out, netip.PrefixFrom(a, a.BitLen()))
+	}
+	return out, nil
 }

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -112,7 +113,7 @@ func (c *Client) Search(ctx context.Context, kind, query, lang string) ([]Search
 		}
 		res := SearchResult{TmdbID: r.ID, Name: name, Overview: r.Overview}
 		if len(date) >= 4 {
-			fmt.Sscanf(date[:4], "%d", &res.Year)
+			res.Year, _ = strconv.Atoi(date[:4])
 		}
 		if r.PosterPath != "" {
 			res.PosterURL = imageBase + "/w185" + r.PosterPath
@@ -163,7 +164,7 @@ func (c *Client) Details(ctx context.Context, kind string, tmdbID int, lang stri
 		d.ReleaseDate = raw.FirstAirDate
 	}
 	if len(d.ReleaseDate) >= 4 {
-		fmt.Sscanf(d.ReleaseDate[:4], "%d", &d.Year)
+		d.Year, _ = strconv.Atoi(d.ReleaseDate[:4])
 	}
 	for _, g := range raw.Genres {
 		d.Genres = append(d.Genres, g.Name)

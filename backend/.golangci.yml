@@ -1,0 +1,16 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      # rollback after commit, closing a dead socket and writing to a gone client
+      # have no useful recovery
+      exclude-functions:
+        - (github.com/jackc/pgx/v5.Tx).Rollback
+        - (*github.com/coder/websocket.Conn).CloseNow
+        - (net/http.ResponseWriter).Write
+        - io.WriteString
+  exclusions:
+    presets:
+      # unchecked Close/Remove errors on cleanup paths are intentional
+      - std-error-handling

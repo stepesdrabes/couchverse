@@ -12,6 +12,8 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       COOKIE_SECURE: "false" # set to true behind a TLS reverse proxy
+      # comma-separated IPs/CIDRs of reverse proxies whose X-Forwarded-For is trusted
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       JOB_WORKERS: "2"
     volumes:
       # default: Docker-managed named volume (no permission issues, but media
