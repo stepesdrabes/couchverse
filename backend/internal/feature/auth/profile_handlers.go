@@ -8,16 +8,18 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/feature/artwork"
+	"couchverse/internal/grant"
 	"couchverse/internal/httpx"
 )
 
 type Profile struct {
 	store   *Store
 	artwork *artwork.Service
+	grants  *grant.Signer
 }
 
-func NewProfile(st *Store, art *artwork.Service) *Profile {
-	return &Profile{store: st, artwork: art}
+func NewProfile(st *Store, art *artwork.Service, grants *grant.Signer) *Profile {
+	return &Profile{store: st, artwork: art, grants: grants}
 }
 
 // ProfileUpdate is what users may change about themselves. Bio is a pointer so
@@ -146,4 +148,12 @@ func (h *Profile) reload(ctx context.Context, id int64) (*userOutput, error) {
 		return nil, err
 	}
 	return &userOutput{Body: user}, nil
+}
+
+type artworkGrantOutput struct{ Body artwork.ArtworkGrant }
+
+// ArtworkGrant issues a grant for system components that fetch artwork without
+// the session (tvOS Top Shelf, AirPlay receivers).
+func (p *Profile) ArtworkGrant(ctx context.Context, _ *struct{}) (*artworkGrantOutput, error) {
+	return &artworkGrantOutput{Body: artwork.IssueGrant(p.grants, UserFrom(ctx).ID)}, nil
 }

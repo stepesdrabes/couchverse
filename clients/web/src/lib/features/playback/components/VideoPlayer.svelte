@@ -32,8 +32,9 @@
 	} from '$lib/features/playback/api';
 	import {
 		beaconProgress,
-		frameUrl,
+		frameAt,
 		jitKeepalive,
+		stopJitSession,
 		reportProgress
 	} from '$lib/features/playback/api';
 	import {
@@ -410,7 +411,7 @@
 	const hoverTime = $derived(hoverRatio !== null ? hoverRatio * duration : 0);
 	// bucket to 5s so the preview reuses cached frames while scrubbing
 	const previewSrc = $derived(
-		hoverRatio !== null ? frameUrl(info.mediaFileId, Math.floor(hoverTime / 5) * 5) : ''
+		hoverRatio !== null ? frameAt(info, Math.floor(hoverTime / 5) * 5) : ''
 	);
 
 	function onSeekHover(event: PointerEvent, track: HTMLElement) {
@@ -673,11 +674,20 @@
 		// (safe: the title read has no side effects - unlike the JIT-spawning watch load)
 		if (!couch.isFollower) preloadData(`/title/${info.display.titleSlug}`).catch(() => {});
 
-		// JIT sessions are reaped server-side without this heartbeat
+		// JIT sessions are reaped server-side without this heartbeat; leaving the
+		// player (or the page) stops the transcode right away instead
+		const jit = jitSessionId ? { grant: info.grant, session: jitSessionId } : null;
 		let keepaliveTimer: ReturnType<typeof setInterval> | undefined;
-		if (jitSessionId) {
-			keepaliveTimer = setInterval(() => jitKeepalive(jitSessionId!).catch(() => {}), 15000);
+		if (jit) {
+			keepaliveTimer = setInterval(
+				() => jitKeepalive(jit.grant, jit.session).catch(() => {}),
+				15000
+			);
 		}
+		const stopJit = () => {
+			if (jit) stopJitSession(jit.grant, jit.session);
+		};
+		window.addEventListener('pagehide', stopJit);
 
 		const onVisibility = () => {
 			if (document.visibilityState === 'hidden' && currentTime > 5 && !couch.isFollower) {
@@ -699,6 +709,8 @@
 			detachCueListener();
 			clearTimeout(hideTimer);
 			clearInterval(keepaliveTimer);
+			window.removeEventListener('pagehide', stopJit);
+			stopJit();
 			hls?.destroy();
 			couch.playerControlsVisible = false;
 			couch.playerMounts--;

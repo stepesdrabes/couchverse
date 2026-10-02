@@ -36,6 +36,8 @@ export interface Snapshot {
 	isAnonymous: boolean;
 	state: HostState;
 	participants: Participant[];
+	/** lets a guest without an account load artwork */
+	artworkGrant: string;
 }
 
 export interface Reaction {

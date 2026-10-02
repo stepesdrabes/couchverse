@@ -7,6 +7,7 @@ import (
 
 	"couchverse/internal/config"
 	"couchverse/internal/feature/artwork"
+	"couchverse/internal/grant"
 	"couchverse/internal/httpx"
 )
 
@@ -17,10 +18,10 @@ type Module struct {
 	admin    *AdminUsers
 }
 
-func NewModule(st *Store, cfg config.Config, art *artwork.Service) *Module {
+func NewModule(st *Store, cfg config.Config, art *artwork.Service, grants *grant.Signer) *Module {
 	return &Module{
 		handlers: NewHandlers(st, cfg),
-		profile:  NewProfile(st, art),
+		profile:  NewProfile(st, art, grants),
 		admin:    NewAdminUsers(st),
 	}
 }
@@ -50,6 +51,7 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.User, tag.NoContent("approvePairing", http.MethodPost, "/me/pairings/{code}/approve"), m.profile.ApprovePairing)
 	huma.Register(rt.User, tag.NoContent("denyPairing", http.MethodPost, "/me/pairings/{code}/deny"), m.profile.DenyPairing)
 	huma.Register(rt.User, tag.Created("createConnectCode", http.MethodPost, "/me/connect-codes"), m.profile.CreateConnectCode)
+	huma.Register(rt.User, tag.Op("getArtworkGrant", http.MethodGet, "/me/artwork-grant"), m.profile.ArtworkGrant)
 
 	huma.Register(rt.Admin, tag.Op("adminListUsers", http.MethodGet, "/users"), m.admin.List)
 	huma.Register(rt.Admin, tag.Created("adminCreateUser", http.MethodPost, "/users"), m.admin.Create)

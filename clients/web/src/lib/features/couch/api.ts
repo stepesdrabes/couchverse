@@ -1,4 +1,5 @@
 import { api } from '$lib/api/client';
+import { useArtworkGrant } from '$lib/features/catalog/api';
 import {
 	clientCaps,
 	createJitSession,
@@ -26,11 +27,15 @@ export interface CouchInfo {
 		backdropId: string | null;
 		backdropAccent: string;
 	};
+	artworkGrant: string;
 }
 
 /** Preview a session for the pre-join screen, without joining. Public. */
-export const getCouchInfo = (token: string) =>
-	api<CouchInfo>(`/couch/${token}/info`, { skipAuthRedirect: true });
+export async function getCouchInfo(token: string) {
+	const info = await api<CouchInfo>(`/couch/${token}/info`, { skipAuthRedirect: true });
+	useArtworkGrant(info.artworkGrant);
+	return info;
+}
 
 /** Host creates (or reclaims) a session for the title/episode they're watching. */
 export const createCouch = (kind: PlaybackKind, id: string) =>
@@ -38,8 +43,14 @@ export const createCouch = (kind: PlaybackKind, id: string) =>
 
 /** Anyone (logged-in or anonymous) joins via the share token. skipAuthRedirect
  * keeps an anonymous viewer from being bounced to the login screen. */
-export const joinCouch = (token: string) =>
-	api<Snapshot>(`/couch/${token}/join`, { method: 'POST', skipAuthRedirect: true });
+export async function joinCouch(token: string) {
+	const snap = await api<Snapshot>(`/couch/${token}/join`, {
+		method: 'POST',
+		skipAuthRedirect: true
+	});
+	useArtworkGrant(snap.artworkGrant);
+	return snap;
+}
 
 /** The follower player payload for the session's current media (couch-authorized). */
 export const getCouchPlayback = (token: string) =>
@@ -48,8 +59,8 @@ export const getCouchPlayback = (token: string) =>
 	});
 
 /** Fetch the follower's current media payload and, when it needs on-demand
- * transcoding, open a per-viewer JIT session (anonymous followers are allowed to
- * because the couch cookie authorizes the host's current media). */
+ * transcoding, open a per-viewer JIT session (the payload's media grant, bound to
+ * this follower, authorizes it even without an account). */
 export async function resolveCouchPlayer(
 	token: string
 ): Promise<{ player: PlaybackInfo | null; jitSessionId: string | null }> {
@@ -57,7 +68,7 @@ export async function resolveCouchPlayer(
 	let player = resp.player ?? null;
 	let jitSessionId: string | null = null;
 	if (player && player.mode === 'jit') {
-		const session = await createJitSession(player.mediaFileId, 0);
+		const session = await createJitSession(player.grant, 0);
 		player = { ...player, mode: 'hls', streamUrl: session.playlistUrl };
 		jitSessionId = session.sessionId;
 	}

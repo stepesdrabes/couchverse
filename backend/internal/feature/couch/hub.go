@@ -3,7 +3,6 @@ package couch
 import (
 	"context"
 	"errors"
-	"net/http"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/flags"
+	"couchverse/internal/grant"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
 )
@@ -43,7 +43,7 @@ type MediaResolver interface {
 }
 
 type PlaybackBuilder interface {
-	BuildPlayback(ctx context.Context, kind, id string, userID *int64, caps []string) (*playback.PlaybackInfo, error)
+	BuildPlayback(ctx context.Context, kind, id string, viewer playback.Viewer, caps []string) (*playback.PlaybackInfo, error)
 }
 
 // CouchWatchRecorder persists the separate on-couch watch-time stat (satisfied
@@ -71,6 +71,8 @@ type Deps struct {
 	Stats     CouchStatsRecorder
 	Settings  *settings.Store
 	Secure    bool
+	// Grants signs the artwork grants guests load avatars and backdrops with.
+	Grants *grant.Signer
 }
 
 type Hub struct {
@@ -515,40 +517,38 @@ func (h *Hub) endRoomLocked(rm *room, reason string) {
 	}
 }
 
-// AllowsAnon reports whether an anonymous request may stream mediaFileID: it
-// must carry a valid couch cookie whose live session currently allows that file.
-// Satisfies the stream-authorization port consumed by internal/server.
-func (h *Hub) AllowsAnon(r *http.Request, mediaFileID string) bool {
-	if mediaFileID == "" {
+// AllowsMedia reports whether a follower's couch-bound media grant still holds:
+// couch is enabled and the participant is still on a live session whose host
+// plays mediaFileID (or one of its alternate-audio files). internal/server asks
+// this for every request carrying such a grant, so leaving, a media switch or
+// the session's end revokes access at once.
+func (h *Hub) AllowsMedia(ctx context.Context, participantID, mediaFileID string) bool {
+	if !flags.Load(ctx, h.deps.Settings).CouchEnabled {
 		return false
 	}
-	if !flags.Load(r.Context(), h.deps.Settings).CouchEnabled {
-		return false
-	}
-	c, err := r.Cookie(CouchCookie)
-	if err != nil || c.Value == "" {
-		return false
-	}
-	return h.allows(c.Value, mediaFileID)
+	return h.allows(participantID, mediaFileID)
 }
 
-// allows is the cookie-token core of AllowsAnon (no flag/cookie parsing), kept
-// separate so the authorization rule can be unit-tested without an HTTP request.
-func (h *Hub) allows(rawToken, mediaFileID string) bool {
+// allows is AllowsMedia without the flag lookup, so the rule is unit-testable.
+func (h *Hub) allows(participantID, mediaFileID string) bool {
+	// snapshot first: never hold the hub lock while taking a room lock
 	h.mu.RLock()
-	ref := h.byToken[hashToken(rawToken)]
+	rooms := make([]*room, 0, len(h.rooms))
+	for _, rm := range h.rooms {
+		rooms = append(rooms, rm)
+	}
 	h.mu.RUnlock()
-	if ref == nil {
-		return false
+	for _, rm := range rooms {
+		rm.mu.Lock()
+		if _, seated := rm.participants[participantID]; seated {
+			_, playing := rm.allowedMediaIDs[mediaFileID]
+			live := rm.live
+			rm.mu.Unlock()
+			return live && playing
+		}
+		rm.mu.Unlock()
 	}
-	rm := ref.room
-	rm.mu.Lock()
-	defer rm.mu.Unlock()
-	if !rm.live {
-		return false
-	}
-	_, ok := rm.allowedMediaIDs[mediaFileID]
-	return ok
+	return false
 }
 
 // lookup resolves a cookie token to its room + participant id.
@@ -637,6 +637,7 @@ type CouchSession struct {
 	IsAnonymous     bool               `json:"isAnonymous"`
 	State           CouchHostState     `json:"state"`
 	Participants    []CouchParticipant `json:"participants"`
+	ArtworkGrant    string             `json:"artworkGrant" doc:"Lets a guest without an account load artwork: append it to artwork URLs as ?g=."`
 }
 
 // CouchInfo previews a session for the pre-join screen (no participant created).
@@ -648,6 +649,7 @@ type CouchInfo struct {
 	Playing      bool              `json:"playing"`
 	Participants int               `json:"participants"`
 	Display      *CouchInfoDisplay `json:"display,omitempty" doc:"What is playing; absent while the host is choosing."`
+	ArtworkGrant string            `json:"artworkGrant" doc:"Lets a visitor without an account load the host's avatar and the backdrop: append it to artwork URLs as ?g=."`
 }
 
 type CouchInfoDisplay struct {

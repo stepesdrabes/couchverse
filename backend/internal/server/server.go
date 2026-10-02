@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"errors"
+	"github.com/google/uuid"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -26,6 +28,7 @@ import (
 	"couchverse/internal/feature/ranks"
 	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/feature/system"
+	"couchverse/internal/grant"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
 	"couchverse/web"
@@ -51,6 +54,7 @@ type Deps struct {
 	Analytics *analytics.Store
 	Ranks     *ranks.Store
 	Couch     *couch.Hub
+	Grants    *grant.Signer
 }
 
 type Server struct {
@@ -117,13 +121,24 @@ func (s *Server) register(v1 chi.Router) huma.API {
 	admin.UseMiddleware(httpx.Guard(api, auth.Admin))
 	admin.UseSimpleModifier(signedIn)
 
-	stream := huma.NewGroup(api)
-	stream.UseMiddleware(s.authOrCouch(api))
-	stream.UseSimpleModifier(signedIn)
+	media := huma.NewGroup(api, "/media/{grant}")
+	media.UseMiddleware(s.mediaGrant(api))
+	media.UseSimpleModifier(func(op *huma.Operation) {
+		op.Parameters = append([]*huma.Param{{
+			Name:        "grant",
+			In:          "path",
+			Required:    true,
+			Description: "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+			Schema:      &huma.Schema{Type: huma.TypeString, Pattern: "^[A-Za-z0-9_-]+$"},
+		}}, op.Parameters...)
+	})
 
-	rt := httpx.Routes{Public: api, User: user, Admin: admin, Stream: stream}
+	artworkGroup := huma.NewGroup(api)
+	artworkGroup.UseMiddleware(s.artworkAccess(api))
 
-	auth.NewModule(s.Auth, s.Config, s.Artwork).Register(rt)
+	rt := httpx.Routes{Public: api, User: user, Admin: admin, Media: media, Artwork: artworkGroup}
+
+	auth.NewModule(s.Auth, s.Config, s.Artwork, s.Grants).Register(rt)
 	system.NewModule(s.System, s.Settings, s.Jobs, s.Config.DataDir, s.Couch, s.Sessions).Register(rt)
 	catalog.NewModule(s.Catalog, s.Settings, s.Artwork, s.Jobs, s.Analytics).Register(rt)
 	playback.NewModule(s.Stream, playback.NewAdminTranscode(s.Library, s.Settings, s.Jobs, s.Transcode, s.Config.FFmpegPath)).Register(rt)
@@ -136,6 +151,43 @@ func (s *Server) register(v1 chi.Router) huma.API {
 	jobs.NewAdminJobs(s.Jobs).Register(rt)
 	analytics.NewModule(s.Analytics).Register(rt)
 	return api
+}
+
+// mediaGrant admits a request whose path carries a valid media grant and puts the
+// grant on the context; the media file it names is the only one the request can
+// reach. A couch follower's grant also needs the follower to still be on a couch
+// playing that file; the check lives here because playback must not import
+// couch.
+func (s *Server) mediaGrant(api huma.API) func(huma.Context, func(huma.Context)) {
+	return func(ctx huma.Context, next func(huma.Context)) {
+		g, err := s.Grants.Verify(ctx.Param("grant"))
+		switch {
+		case errors.Is(err, grant.ErrExpired):
+			httpx.Reject(api, ctx, httpx.Fail(http.StatusForbidden, "grant_expired", "the media grant expired; fetch the playback payload again"))
+		case err != nil || g.Scope != grant.Media:
+			httpx.Reject(api, ctx, httpx.Fail(http.StatusForbidden, "invalid_grant", "the media grant is not valid"))
+		case g.Couch != uuid.Nil && (s.Couch == nil || !s.Couch.AllowsMedia(ctx.Context(), g.Couch.String(), g.Resource.String())):
+			httpx.Reject(api, ctx, httpx.Fail(http.StatusForbidden, "grant_revoked", "the couch session moved on; fetch the follower payload again"))
+		default:
+			next(huma.WithContext(ctx, grant.WithGrant(ctx.Context(), g)))
+		}
+	}
+}
+
+// artworkAccess admits a signed-in request or one carrying a valid artwork grant
+// in ?g=, for images fetched outside the session.
+func (s *Server) artworkAccess(api huma.API) func(huma.Context, func(huma.Context)) {
+	return func(ctx huma.Context, next func(huma.Context)) {
+		if auth.UserFrom(ctx.Context()) != nil {
+			next(ctx)
+			return
+		}
+		if g, err := s.Grants.Verify(ctx.Query("g")); err == nil && g.Scope == grant.Artwork {
+			next(ctx)
+			return
+		}
+		httpx.Reject(api, ctx, httpx.Fail(http.StatusUnauthorized, "unauthorized", "authentication required"))
+	}
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {

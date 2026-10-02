@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"couchverse/internal/db"
 )
@@ -99,4 +100,14 @@ func Decode(r *http.Request, v any) error {
 	dec := json.NewDecoder(http.MaxBytesReader(nil, r.Body, 1<<20))
 	dec.DisallowUnknownFields()
 	return dec.Decode(v)
+}
+
+// ServeFile serves path like http.ServeFile, but a missing file gets the API's
+// JSON 404 (file_missing) rather than a plain-text page.
+func ServeFile(w http.ResponseWriter, r *http.Request, path string) {
+	if info, err := os.Stat(path); err != nil || info.IsDir() {
+		Error(w, http.StatusNotFound, "file_missing", "the file is missing on disk")
+		return
+	}
+	http.ServeFile(w, r, path)
 }

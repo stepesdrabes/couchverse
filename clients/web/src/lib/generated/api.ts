@@ -171,6 +171,12 @@ export interface Artwork {
 	width: number;
 }
 
+export interface ArtworkGrant {
+	/** Seconds until the grant expires. */
+	expiresIn: number;
+	grant: string;
+}
+
 export type ArtworkKind = 'poster' | 'backdrop' | 'thumb' | 'avatar' | 'banner';
 
 export type ArtworkOwnerKind = 'title' | 'season' | 'episode' | 'user';
@@ -274,6 +280,8 @@ export interface CouchHostState {
 }
 
 export interface CouchInfo {
+	/** Lets a visitor without an account load the host's avatar and the backdrop: append it to artwork URLs as ?g=. */
+	artworkGrant: string;
 	/** What is playing; absent while the host is choosing. */
 	display?: CouchInfoDisplay;
 	hostAvatarId: string | null;
@@ -321,6 +329,8 @@ export interface CouchPlayback {
 }
 
 export interface CouchSession {
+	/** Lets a guest without an account load artwork: append it to artwork URLs as ?g=. */
+	artworkGrant: string;
 	isAnonymous: boolean;
 	myParticipantId: string;
 	participants: CouchParticipant[];
@@ -803,6 +813,10 @@ export interface PlaybackInfo {
 	durationSeconds: number;
 	/** The series' playable episodes, for the in-player switcher. */
 	episodes?: SeriesEpisode[];
+	/** A still for the seek-bar preview; append ?t=<seconds>. */
+	frameUrl: string;
+	/** The media grant every URL in this payload carries; it expires, so fetch the payload again on grant_expired. */
+	grant: string;
 	/** HLS master of the ready transcodes, offered even when the source direct-plays. */
 	hlsUrl?: string;
 	/** Transcode progress in percent while mode is preparing. */
@@ -1725,9 +1739,9 @@ export const createConnectCode = () =>
 export const createCouch = (body: CouchStart) =>
 	api<CouchSession>(`/couch`, { method: 'POST', body });
 
-/** `POST /stream/{id}/sessions` */
-export const createStreamSession = (id: string, body: StreamSessionStart) =>
-	api<StreamSession>(`/stream/${encodeURIComponent(id)}/sessions`, { method: 'POST', body });
+/** `POST /media/{grant}/jit` */
+export const createStreamSession = (grant: string, body: StreamSessionStart) =>
+	api<StreamSession>(`/media/${encodeURIComponent(grant)}/jit`, { method: 'POST', body });
 
 /** `DELETE /me/avatar` */
 export const deleteAvatar = () =>
@@ -1750,10 +1764,16 @@ export interface GetArtworkQuery {
 	size?: GetArtworkSize;
 	/** Version token (the artwork's createdAt); a versioned URL is cached as immutable. */
 	v?: string;
+	/** An artwork grant, for a request without the session (a system image fetch, an anonymous couch guest). */
+	g?: string;
 }
 
 /** Get an artwork image (`GET /artwork/{id}`) */
-export const getArtworkPath = (id: string, query: GetArtworkQuery = {}) => `/artwork/${encodeURIComponent(id)}${qs({ size: query.size, v: query.v })}`;
+export const getArtworkPath = (id: string, query: GetArtworkQuery = {}) => `/artwork/${encodeURIComponent(id)}${qs({ size: query.size, v: query.v, g: query.g })}`;
+
+/** `GET /me/artwork-grant` */
+export const getArtworkGrant = () =>
+	api<ArtworkGrant>(`/me/artwork-grant`);
 
 /** `GET /couch/{token}/info` */
 export const getCouchInfo = (token: string) =>
@@ -1772,11 +1792,11 @@ export const getCouchPlayback = (token: string, query: GetCouchPlaybackQuery = {
 export const getFeatures = () =>
 	api<FeatureFlags>(`/features`);
 
-/** Get an HLS playlist or segment of a prepared variant (`GET /stream/{id}/hls/{variant}/{file}`) */
-export const getHlsFilePath = (id: string, variant: string, file: string) => `/stream/${encodeURIComponent(id)}/hls/${encodeURIComponent(variant)}/${encodeURIComponent(file)}`;
+/** Get an HLS playlist or segment of a prepared variant (`GET /media/{grant}/hls/{variant}/{file}`) */
+export const getHlsFilePath = (grant: string, variant: string, file: string) => `/media/${encodeURIComponent(grant)}/hls/${encodeURIComponent(variant)}/${encodeURIComponent(file)}`;
 
-/** Get the HLS master playlist of a media file's ready variants (`GET /stream/{id}/hls/master.m3u8`) */
-export const getHlsMasterPath = (id: string) => `/stream/${encodeURIComponent(id)}/hls/master.m3u8`;
+/** Get the HLS master playlist of a media file's ready variants (`GET /media/{grant}/hls/master.m3u8`) */
+export const getHlsMasterPath = (grant: string) => `/media/${encodeURIComponent(grant)}/hls/master.m3u8`;
 
 /** `GET /home` */
 export const getHome = () =>
@@ -1828,14 +1848,14 @@ export interface GetStreamFrameQuery {
 	t?: number;
 }
 
-/** Get a seek-preview still from a video (`GET /stream/{id}/frame`) */
-export const getStreamFramePath = (id: string, query: GetStreamFrameQuery = {}) => `/stream/${encodeURIComponent(id)}/frame${qs({ t: query.t })}`;
+/** Get a seek-preview still from a video (`GET /media/{grant}/frame`) */
+export const getStreamFramePath = (grant: string, query: GetStreamFrameQuery = {}) => `/media/${encodeURIComponent(grant)}/frame${qs({ t: query.t })}`;
 
-/** Get a JIT session's playlist or segment (`GET /stream/sessions/{sid}/{file}`) */
-export const getStreamSessionFilePath = (sid: string, file: string) => `/stream/sessions/${encodeURIComponent(sid)}/${encodeURIComponent(file)}`;
+/** Get a JIT session's playlist or segment (`GET /media/{grant}/jit/{sid}/{file}`) */
+export const getStreamSessionFilePath = (grant: string, sid: string, file: string) => `/media/${encodeURIComponent(grant)}/jit/${encodeURIComponent(sid)}/${encodeURIComponent(file)}`;
 
-/** Get a subtitle track (`GET /subtitles/{id}.vtt`) */
-export const getSubtitlePath = (id: string) => `/subtitles/${encodeURIComponent(id)}.vtt`;
+/** Get a subtitle track (`GET /media/{grant}/subtitles/{id}.vtt`) */
+export const getSubtitlePath = (grant: string, id: string) => `/media/${encodeURIComponent(grant)}/subtitles/${encodeURIComponent(id)}.vtt`;
 
 /** `GET /theme` */
 export const getTheme = () =>
@@ -1849,9 +1869,9 @@ export const getTitle = (slug: string) =>
 export const joinCouch = (token: string) =>
 	api<CouchSession>(`/couch/${encodeURIComponent(token)}/join`, { method: 'POST' });
 
-/** `POST /stream/sessions/{sid}/keepalive` */
-export const keepStreamSessionAlive = (sid: string) =>
-	api<void>(`/stream/sessions/${encodeURIComponent(sid)}/keepalive`, { method: 'POST' });
+/** `POST /media/{grant}/jit/{sid}/keepalive` */
+export const keepStreamSessionAlive = (grant: string, sid: string) =>
+	api<void>(`/media/${encodeURIComponent(grant)}/jit/${encodeURIComponent(sid)}/keepalive`, { method: 'POST' });
 
 /** `POST /couch/{token}/leave` */
 export const leaveCouch = (token: string) =>
@@ -1917,8 +1937,12 @@ export const signInDevice = (body: DeviceSignIn) =>
 export const startPairing = (body: DeviceInfo) =>
 	api<Pairing>(`/auth/pairings`, { method: 'POST', body });
 
-/** Stream a media file for direct play (`GET /stream/{id}`) */
-export const streamMediaFilePath = (id: string) => `/stream/${encodeURIComponent(id)}`;
+/** `DELETE /media/{grant}/jit/{sid}` */
+export const stopStreamSession = (grant: string, sid: string) =>
+	api<void>(`/media/${encodeURIComponent(grant)}/jit/${encodeURIComponent(sid)}`, { method: 'DELETE' });
+
+/** Stream a media file for direct play (`GET /media/{grant}/stream`) */
+export const streamMediaFilePath = (grant: string) => `/media/${encodeURIComponent(grant)}/stream`;
 
 /** `PUT /me/preferences` */
 export const updatePreferences = (body: Preferences) =>

@@ -618,6 +618,24 @@
         ],
         "type": "object"
       },
+      "ArtworkGrant": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresIn": {
+            "description": "Seconds until the grant expires.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "grant": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant",
+          "expiresIn"
+        ],
+        "type": "object"
+      },
       "BrowsePage": {
         "additionalProperties": false,
         "properties": {
@@ -966,6 +984,10 @@
       "CouchInfo": {
         "additionalProperties": false,
         "properties": {
+          "artworkGrant": {
+            "description": "Lets a visitor without an account load the host's avatar and the backdrop: append it to artwork URLs as ?g=.",
+            "type": "string"
+          },
           "display": {
             "$ref": "#/components/schemas/CouchInfoDisplay",
             "description": "What is playing; absent while the host is choosing."
@@ -1000,7 +1022,8 @@
           "hostAvatarId",
           "hostSeed",
           "playing",
-          "participants"
+          "participants",
+          "artworkGrant"
         ],
         "type": "object"
       },
@@ -1110,6 +1133,10 @@
       "CouchSession": {
         "additionalProperties": false,
         "properties": {
+          "artworkGrant": {
+            "description": "Lets a guest without an account load artwork: append it to artwork URLs as ?g=.",
+            "type": "string"
+          },
           "isAnonymous": {
             "type": "boolean"
           },
@@ -1147,7 +1174,8 @@
           "role",
           "isAnonymous",
           "state",
-          "participants"
+          "participants",
+          "artworkGrant"
         ],
         "type": "object"
       },
@@ -2835,6 +2863,14 @@
             },
             "type": "array"
           },
+          "frameUrl": {
+            "description": "A still for the seek-bar preview; append ?t=\u003cseconds\u003e.",
+            "type": "string"
+          },
+          "grant": {
+            "description": "The media grant every URL in this payload carries; it expires, so fetch the payload again on grant_expired.",
+            "type": "string"
+          },
           "hlsUrl": {
             "description": "HLS master of the ready transcodes, offered even when the source direct-plays.",
             "type": "string"
@@ -2888,6 +2924,8 @@
         "required": [
           "mode",
           "mediaFileId",
+          "grant",
+          "frameUrl",
           "durationSeconds",
           "resumePosition",
           "display",
@@ -7818,6 +7856,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "An artwork grant, for a request without the session (a system image fetch, an anonymous couch guest).",
+            "in": "query",
+            "name": "g",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7861,14 +7907,6 @@
             "description": "Error"
           }
         },
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerDevice": []
-          }
-        ],
         "summary": "Get an artwork image",
         "tags": [
           "artwork"
@@ -8751,6 +8789,44 @@
         ]
       }
     },
+    "/me/artwork-grant": {
+      "get": {
+        "operationId": "getArtworkGrant",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtworkGrant"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/me/avatar": {
       "delete": {
         "operationId": "deleteAvatar",
@@ -9622,6 +9698,615 @@
         ]
       }
     },
+    "/media/{grant}/frame": {
+      "get": {
+        "description": "A 240px-wide JPEG of the source video, cached per 5-second bucket. 404 codes: not_found (no video source on disk), frame_failed.",
+        "operationId": "getStreamFrame",
+        "parameters": [
+          {
+            "description": "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Position in seconds, rounded down to its 5-second bucket and clamped to the duration.",
+            "in": "query",
+            "name": "t",
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The frame."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a seek-preview still from a video",
+        "tags": [
+          "playback"
+        ]
+      }
+    },
+    "/media/{grant}/hls/master.m3u8": {
+      "get": {
+        "description": "404 when no variant is ready.",
+        "operationId": "getHlsMaster",
+        "parameters": [
+          {
+            "description": "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The master playlist."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the HLS master playlist of a media file's ready variants",
+        "tags": [
+          "playback"
+        ]
+      }
+    },
+    "/media/{grant}/hls/{variant}/{file}": {
+      "get": {
+        "description": "Serves the transcode cache: a variant's index.m3u8 and its MPEG-TS segments, and the multiaudio variant's own master.m3u8. 400 for names outside the allowed characters.",
+        "operationId": "getHlsFile",
+        "parameters": [
+          {
+            "description": "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Rendition name (e.g. 720p), source or multiaudio.",
+            "in": "path",
+            "name": "variant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Playlist or segment file name.",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp2t": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "A playlist or a segment."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get an HLS playlist or segment of a prepared variant",
+        "tags": [
+          "playback"
+        ]
+      }
+    },
+    "/media/{grant}/jit": {
+      "post": {
+        "operationId": "createStreamSession",
+        "parameters": [
+          {
+            "description": "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StreamSessionStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamSession"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "playback"
+        ]
+      }
+    },
+    "/media/{grant}/jit/{sid}": {
+      "delete": {
+        "operationId": "stopStreamSession",
+        "parameters": [
+          {
+            "description": "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{24}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "playback"
+        ]
+      }
+    },
+    "/media/{grant}/jit/{sid}/keepalive": {
+      "post": {
+        "operationId": "keepStreamSessionAlive",
+        "parameters": [
+          {
+            "description": "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{24}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "playback"
+        ]
+      }
+    },
+    "/media/{grant}/jit/{sid}/{file}": {
+      "get": {
+        "description": "index.m3u8 lists the whole duration up front; a segment request waits until it is encoded, restarting the encoder on a far seek. 400 for a malformed session id; 404 codes: not_found (no such session), segment_unavailable.",
+        "operationId": "getStreamSessionFile",
+        "parameters": [
+          {
+            "description": "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Session id from createStreamSession.",
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{24}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "index.m3u8 or a segment name.",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "pattern": "^(index\\.m3u8|seg_\\d{5}\\.ts)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp2t": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The playlist or a segment."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a JIT session's playlist or segment",
+        "tags": [
+          "playback"
+        ]
+      }
+    },
+    "/media/{grant}/stream": {
+      "get": {
+        "description": "Serves the source file with HTTP range support: a Range header answers 206 with that byte range. 404 codes: not_found, source_deleted (the source was removed after transcoding), file_missing.",
+        "operationId": "streamMediaFile",
+        "parameters": [
+          {
+            "description": "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Byte range to read, e.g. bytes=0-1048575.",
+            "in": "header",
+            "name": "Range",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/flac": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/ogg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/wav": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/x-matroska": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The whole file."
+          },
+          "206": {
+            "content": {
+              "audio/flac": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/ogg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/wav": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/x-matroska": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The requested byte range."
+          },
+          "416": {
+            "description": "The range lies outside the file."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Stream a media file for direct play",
+        "tags": [
+          "playback"
+        ]
+      }
+    },
+    "/media/{grant}/subtitles/{id}.vtt": {
+      "get": {
+        "description": "The track as a WebVTT side-car file for the player; only tracks of the granted media file.",
+        "operationId": "getSubtitle",
+        "parameters": [
+          {
+            "description": "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/vtt": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The WebVTT file"
+          },
+          "304": {
+            "description": "Not modified since If-Modified-Since"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a subtitle track",
+        "tags": [
+          "subtitles"
+        ]
+      }
+    },
     "/playback/{kind}/{id}": {
       "get": {
         "operationId": "getPlayback",
@@ -9869,604 +10554,6 @@
         },
         "tags": [
           "system"
-        ]
-      }
-    },
-    "/stream/sessions/{sid}/keepalive": {
-      "post": {
-        "operationId": "keepStreamSessionAlive",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "sid",
-            "required": true,
-            "schema": {
-              "pattern": "^[a-f0-9]{24}$",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerDevice": []
-          }
-        ],
-        "tags": [
-          "playback"
-        ]
-      }
-    },
-    "/stream/sessions/{sid}/{file}": {
-      "get": {
-        "description": "index.m3u8 lists the whole duration up front; a segment request waits until it is encoded, restarting the encoder on a far seek. 400 for a malformed session id; 404 codes: not_found (no such session), segment_unavailable.",
-        "operationId": "getStreamSessionFile",
-        "parameters": [
-          {
-            "description": "Session id from createStreamSession.",
-            "in": "path",
-            "name": "sid",
-            "required": true,
-            "schema": {
-              "pattern": "^[a-f0-9]{24}$",
-              "type": "string"
-            }
-          },
-          {
-            "description": "index.m3u8 or a segment name.",
-            "in": "path",
-            "name": "file",
-            "required": true,
-            "schema": {
-              "pattern": "^(index\\.m3u8|seg_\\d{5}\\.ts)$",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/vnd.apple.mpegurl": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "video/mp2t": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "The playlist or a segment."
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerDevice": []
-          }
-        ],
-        "summary": "Get a JIT session's playlist or segment",
-        "tags": [
-          "playback"
-        ]
-      }
-    },
-    "/stream/{id}": {
-      "get": {
-        "description": "Serves the source file with HTTP range support: a Range header answers 206 with that byte range. 404 codes: not_found, source_deleted (the source was removed after transcoding), file_missing.",
-        "operationId": "streamMediaFile",
-        "parameters": [
-          {
-            "description": "Media file id.",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Byte range to read, e.g. bytes=0-1048575.",
-            "in": "header",
-            "name": "Range",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "audio/flac": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "audio/mp4": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "audio/mpeg": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "audio/ogg": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "audio/wav": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "video/mp4": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "video/webm": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "video/x-matroska": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "The whole file."
-          },
-          "206": {
-            "content": {
-              "audio/flac": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "audio/mp4": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "audio/mpeg": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "audio/ogg": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "audio/wav": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "video/mp4": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "video/webm": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "video/x-matroska": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "The requested byte range."
-          },
-          "416": {
-            "description": "The range lies outside the file."
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerDevice": []
-          }
-        ],
-        "summary": "Stream a media file for direct play",
-        "tags": [
-          "playback"
-        ]
-      }
-    },
-    "/stream/{id}/frame": {
-      "get": {
-        "description": "A 240px-wide JPEG of the source video, cached per 5-second bucket. 404 codes: not_found (no video source on disk), frame_failed.",
-        "operationId": "getStreamFrame",
-        "parameters": [
-          {
-            "description": "Media file id.",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Position in seconds, rounded down to its 5-second bucket and clamped to the duration.",
-            "in": "query",
-            "name": "t",
-            "schema": {
-              "default": 0,
-              "minimum": 0,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "image/jpeg": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "The frame."
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerDevice": []
-          }
-        ],
-        "summary": "Get a seek-preview still from a video",
-        "tags": [
-          "playback"
-        ]
-      }
-    },
-    "/stream/{id}/hls/master.m3u8": {
-      "get": {
-        "description": "404 when no variant is ready.",
-        "operationId": "getHlsMaster",
-        "parameters": [
-          {
-            "description": "Media file id.",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/vnd.apple.mpegurl": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "The master playlist."
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerDevice": []
-          }
-        ],
-        "summary": "Get the HLS master playlist of a media file's ready variants",
-        "tags": [
-          "playback"
-        ]
-      }
-    },
-    "/stream/{id}/hls/{variant}/{file}": {
-      "get": {
-        "description": "Serves the transcode cache: a variant's index.m3u8 and its MPEG-TS segments, and the multiaudio variant's own master.m3u8. 400 for names outside the allowed characters.",
-        "operationId": "getHlsFile",
-        "parameters": [
-          {
-            "description": "Media file id.",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Rendition name (e.g. 720p), source or multiaudio.",
-            "in": "path",
-            "name": "variant",
-            "required": true,
-            "schema": {
-              "pattern": "^[A-Za-z0-9_.-]+$",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Playlist or segment file name.",
-            "in": "path",
-            "name": "file",
-            "required": true,
-            "schema": {
-              "pattern": "^[A-Za-z0-9_.-]+$",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/vnd.apple.mpegurl": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              },
-              "video/mp2t": {
-                "schema": {
-                  "contentMediaType": "application/octet-stream",
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "A playlist or a segment."
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerDevice": []
-          }
-        ],
-        "summary": "Get an HLS playlist or segment of a prepared variant",
-        "tags": [
-          "playback"
-        ]
-      }
-    },
-    "/stream/{id}/sessions": {
-      "post": {
-        "operationId": "createStreamSession",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StreamSessionStart"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StreamSession"
-                }
-              }
-            },
-            "description": "Created"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerDevice": []
-          }
-        ],
-        "tags": [
-          "playback"
-        ]
-      }
-    },
-    "/subtitles/{id}.vtt": {
-      "get": {
-        "description": "The track as a WebVTT side-car file for the player.",
-        "operationId": "getSubtitle",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "text/vtt": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "The WebVTT file"
-          },
-          "304": {
-            "description": "Not modified since If-Modified-Since"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerDevice": []
-          }
-        ],
-        "summary": "Get a subtitle track",
-        "tags": [
-          "subtitles"
         ]
       }
     },

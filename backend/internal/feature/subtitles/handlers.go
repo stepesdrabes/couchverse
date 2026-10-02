@@ -7,6 +7,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/feature/library"
+	"couchverse/internal/grant"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 )
@@ -33,9 +34,13 @@ func (h *Subtitles) Serve(w http.ResponseWriter, r *http.Request) {
 		httpx.StoreErr(w, err)
 		return
 	}
+	if g, _ := grant.From(r.Context()); sub.MediaFileID != g.Resource.String() {
+		httpx.NotFound(w)
+		return
+	}
 	w.Header().Set("Content-Type", "text/vtt; charset=utf-8")
 	w.Header().Set("Cache-Control", "private, max-age=86400")
-	http.ServeFile(w, r, h.service.Path(sub))
+	httpx.ServeFile(w, r, h.service.Path(sub))
 }
 
 type uploadForm struct {

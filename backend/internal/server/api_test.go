@@ -47,6 +47,7 @@ const (
 	hdrFileID      = "00000000-0000-4000-8000-000000000503"
 	ladderFileID   = "00000000-0000-4000-8000-000000000504"
 	thumbArtID     = "00000000-0000-4000-8000-000000000404"
+	moviePosterID  = "00000000-0000-4000-8000-000000000401"
 	movieSubID     = "00000000-0000-4000-8000-000000000701"
 	failedRungID   = "00000000-0000-4000-8000-000000000802"
 	readyRungID    = "00000000-0000-4000-8000-000000000801"
@@ -247,18 +248,31 @@ func apiCases() []apiCase {
 		}, status: 400},
 		{op: "adminGetAnalytics", as: "admin", method: "GET", path: "/admin/analytics/overview?days=7", status: 200},
 
+		{op: "getArtworkGrant", as: "nora", method: "GET", path: "/me/artwork-grant", status: 200, save: map[string]string{"artGrant": "grant"}},
+		{op: "getArtwork", method: "GET", path: "/artwork/" + moviePosterID, status: 401},
+		{op: "getArtwork", method: "GET", path: "/artwork/" + moviePosterID + "?g={{artGrant}}", status: 404},
+		{op: "getArtwork", method: "GET", path: "/artwork/" + moviePosterID + "?g={{movieGrant}}", status: 401},
+
 		{op: "adminListUsers", as: "admin", method: "GET", path: "/admin/users", status: 200},
 		{op: "adminCreateUser", as: "admin", method: "POST", path: "/admin/users", body: map[string]any{"username": "zed", "password": "secret"}, status: 201},
 		{op: "adminCreateUser", as: "admin", method: "POST", path: "/admin/users", body: map[string]any{"username": "zed", "password": "secret"}, status: 409},
 		{op: "adminUpdateUser", as: "admin", method: "PATCH", path: "/admin/users/3", body: map[string]any{"displayName": "Piet P", "role": "member"}, status: 200},
 		{op: "adminDeleteUser", as: "admin", method: "DELETE", path: "/admin/users/4", status: 204},
 
-		{op: "getPlayback", as: "nora", method: "GET", path: "/playback/movie/" + movieID + "?caps=hevc,av1&lang=cs", status: 200},
-		{op: "getPlayback", as: "nora", method: "GET", path: "/playback/episode/" + hdrFileEpisode, status: 200},
+		{op: "getPlayback", as: "nora", method: "GET", path: "/playback/movie/" + movieID + "?caps=hevc,av1&lang=cs", status: 200, save: map[string]string{"movieGrant": "grant"}},
+		{op: "getPlayback", as: "nora", method: "GET", path: "/playback/episode/" + hdrFileEpisode, status: 200, save: map[string]string{"hdrGrant": "grant"}},
+		{op: "getPlayback", method: "GET", path: "/playback/movie/" + movieID, status: 401},
+		// a grant reaches its own file (missing on disk here) and nothing else
+		{op: "streamMediaFile", method: "GET", path: "/media/{{movieGrant}}/stream", status: 404},
+		{op: "streamMediaFile", method: "GET", path: "/media/not-a-grant/stream", status: 403},
+		{op: "getHlsMaster", method: "GET", path: "/media/{{hdrGrant}}/hls/master.m3u8", status: 404},
+		{op: "getSubtitle", method: "GET", path: "/media/{{movieGrant}}/subtitles/" + movieSubID + ".vtt", status: 404},
+		{op: "getSubtitle", method: "GET", path: "/media/{{hdrGrant}}/subtitles/" + movieSubID + ".vtt", status: 404},
 		{op: "getPlayback", as: "nora", method: "GET", path: "/playback/trailer/" + movieID, status: 404},
 		// no hardware encoder in tests, so instant play is off
-		{op: "createStreamSession", as: "nora", method: "POST", path: "/stream/" + hdrFileID + "/sessions", body: map[string]any{"startAt": 30}, status: 412},
-		{op: "keepStreamSessionAlive", as: "nora", method: "POST", path: "/stream/sessions/abcdef0123456789/keepalive", status: 404},
+		{op: "createStreamSession", method: "POST", path: "/media/{{hdrGrant}}/jit", body: map[string]any{"startAt": 30}, status: 412},
+		{op: "keepStreamSessionAlive", method: "POST", path: "/media/{{hdrGrant}}/jit/abcdef0123456789abcdef01/keepalive", status: 404},
+		{op: "stopStreamSession", method: "DELETE", path: "/media/{{hdrGrant}}/jit/abcdef0123456789abcdef01", status: 404},
 		{op: "adminGetTranscodeInfo", as: "admin", method: "GET", path: "/admin/transcode/info", status: 200},
 		{op: "adminListActiveTranscodes", as: "admin", method: "GET", path: "/admin/transcode/active", status: 200},
 		{op: "adminListVariants", as: "admin", method: "GET", path: "/admin/media-files/" + ladderFileID + "/variants", status: 200},
@@ -279,8 +293,11 @@ func apiCases() []apiCase {
 		{op: "createCouch", method: "POST", path: "/couch", body: map[string]any{"kind": "movie", "id": movieID}, status: 401},
 		{op: "getCouchInfo", as: "guest", method: "GET", path: "/couch/{{couch}}/info?lang=cs", status: 200},
 		{op: "joinCouch", as: "guest", method: "POST", path: "/couch/{{couch}}/join", status: 200},
-		{op: "getCouchPlayback", as: "guest", method: "GET", path: "/couch/{{couch}}/playback", status: 200},
+		{op: "getCouchPlayback", as: "guest", method: "GET", path: "/couch/{{couch}}/playback", status: 200, save: map[string]string{"guestGrant": "player.grant"}},
+		{op: "streamMediaFile", method: "GET", path: "/media/{{guestGrant}}/stream", status: 404},
 		{op: "leaveCouch", as: "guest", method: "POST", path: "/couch/{{couch}}/leave", status: 204},
+		// leaving the couch revokes the guest's grant at once
+		{op: "streamMediaFile", method: "GET", path: "/media/{{guestGrant}}/stream", status: 403},
 		{op: "endCouch", as: "admin", method: "POST", path: "/couch/{{couch}}/end", status: 403},
 		{op: "endCouch", as: "nora", method: "POST", path: "/couch/{{couch}}/end", status: 204},
 

@@ -11,7 +11,7 @@ import (
 const tag httpx.Tag = "subtitles"
 
 func (h *Subtitles) Register(rt httpx.Routes) {
-	httpx.Raw(rt.User, serveOp(rt.User), h.Serve)
+	httpx.Raw(rt.Media, serveOp(rt.Media), h.Serve)
 
 	huma.Register(rt.Admin, tag.Op("adminListSubtitles", http.MethodGet, "/media-files/{id}/subtitles"), h.ListForMediaFile)
 	huma.Register(rt.Admin, tag.Created("adminUploadSubtitle", http.MethodPost, "/media-files/{id}/subtitles"), h.Upload)
@@ -23,7 +23,7 @@ func (h *Subtitles) Register(rt httpx.Routes) {
 func serveOp(api huma.API) huma.Operation {
 	op := tag.Op("getSubtitle", http.MethodGet, "/subtitles/{id}.vtt")
 	op.Summary = "Get a subtitle track"
-	op.Description = "The track as a WebVTT side-car file for the player."
+	op.Description = "The track as a WebVTT side-car file for the player; only tracks of the granted media file."
 	op.Parameters = []*huma.Param{
 		{Name: "id", In: "path", Required: true, Schema: &huma.Schema{Type: huma.TypeString, Format: "uuid"}},
 	}

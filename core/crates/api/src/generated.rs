@@ -571,6 +571,14 @@ pub mod types {
         pub width: i64,
     }
 
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ArtworkGrant {
+        /// Seconds until the grant expires.
+        pub expires_in: i64,
+        pub grant: String,
+    }
+
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum ArtworkKind {
         #[serde(rename = "poster")]
@@ -916,6 +924,8 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct CouchInfo {
+        /// Lets a visitor without an account load the host's avatar and the backdrop: append it to artwork URLs as ?g=.
+        pub artwork_grant: String,
         /// What is playing; absent while the host is choosing.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub display: Option<CouchInfoDisplay>,
@@ -1007,6 +1017,8 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct CouchSession {
+        /// Lets a guest without an account load artwork: append it to artwork URLs as ?g=.
+        pub artwork_grant: String,
         pub is_anonymous: bool,
         pub my_participant_id: String,
         pub participants: Vec<CouchParticipant>,
@@ -2310,6 +2322,10 @@ pub mod types {
         /// The series' playable episodes, for the in-player switcher.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub episodes: Option<Vec<SeriesEpisode>>,
+        /// A still for the seek-bar preview; append ?t=<seconds>.
+        pub frame_url: String,
+        /// The media grant every URL in this payload carries; it expires, so fetch the payload again on grant_expired.
+        pub grant: String,
         /// HLS master of the ready transcodes, offered even when the source direct-plays.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub hls_url: Option<String>,
@@ -4336,12 +4352,12 @@ pub mod ops {
         ))
     }
 
-    /// `POST /stream/{id}/sessions`
-    pub fn create_stream_session(id: &str, body: &StreamSessionStart) -> Call<StreamSession> {
+    /// `POST /media/{grant}/jit`
+    pub fn create_stream_session(grant: &str, body: &StreamSessionStart) -> Call<StreamSession> {
         let q = Vec::new();
         build::json(build::request(
             Method::Post,
-            format!("/stream/{}/sessions", build::segment(id)),
+            format!("/media/{}/jit", build::segment(grant)),
             q,
             Some(body),
         ))
@@ -4398,6 +4414,8 @@ pub mod ops {
         pub size: Option<GetArtworkSize>,
         /// Version token (the artwork's createdAt); a versioned URL is cached as immutable.
         pub v: Option<String>,
+        /// An artwork grant, for a request without the session (a system image fetch, an anonymous couch guest).
+        pub g: Option<String>,
     }
 
     /// Get an artwork image
@@ -4407,12 +4425,24 @@ pub mod ops {
         let mut q = Vec::new();
         build::push(&mut q, "size", query.size.as_ref());
         build::push(&mut q, "v", query.v.as_ref());
+        build::push(&mut q, "g", query.g.as_ref());
         build::request(
             Method::Get,
             format!("/artwork/{}", build::segment(id)),
             q,
             None::<&()>,
         )
+    }
+
+    /// `GET /me/artwork-grant`
+    pub fn get_artwork_grant() -> Call<ArtworkGrant> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Get,
+            "/me/artwork-grant".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 
     /// Query parameters of [`get_couch_info`].
@@ -4469,14 +4499,14 @@ pub mod ops {
 
     /// Get an HLS playlist or segment of a prepared variant
     ///
-    /// `GET /stream/{id}/hls/{variant}/{file}`
-    pub fn get_hls_file(id: &str, variant: &str, file: &str) -> Request {
+    /// `GET /media/{grant}/hls/{variant}/{file}`
+    pub fn get_hls_file(grant: &str, variant: &str, file: &str) -> Request {
         let q = Vec::new();
         build::request(
             Method::Get,
             format!(
-                "/stream/{}/hls/{}/{}",
-                build::segment(id),
+                "/media/{}/hls/{}/{}",
+                build::segment(grant),
                 build::segment(variant),
                 build::segment(file)
             ),
@@ -4487,12 +4517,12 @@ pub mod ops {
 
     /// Get the HLS master playlist of a media file's ready variants
     ///
-    /// `GET /stream/{id}/hls/master.m3u8`
-    pub fn get_hls_master(id: &str) -> Request {
+    /// `GET /media/{grant}/hls/master.m3u8`
+    pub fn get_hls_master(grant: &str) -> Request {
         let q = Vec::new();
         build::request(
             Method::Get,
-            format!("/stream/{}/hls/master.m3u8", build::segment(id)),
+            format!("/media/{}/hls/master.m3u8", build::segment(grant)),
             q,
             None::<&()>,
         )
@@ -4656,13 +4686,13 @@ pub mod ops {
 
     /// Get a seek-preview still from a video
     ///
-    /// `GET /stream/{id}/frame`
-    pub fn get_stream_frame(id: &str, query: &GetStreamFrameQuery) -> Request {
+    /// `GET /media/{grant}/frame`
+    pub fn get_stream_frame(grant: &str, query: &GetStreamFrameQuery) -> Request {
         let mut q = Vec::new();
         build::push(&mut q, "t", query.t.as_ref());
         build::request(
             Method::Get,
-            format!("/stream/{}/frame", build::segment(id)),
+            format!("/media/{}/frame", build::segment(grant)),
             q,
             None::<&()>,
         )
@@ -4670,13 +4700,14 @@ pub mod ops {
 
     /// Get a JIT session's playlist or segment
     ///
-    /// `GET /stream/sessions/{sid}/{file}`
-    pub fn get_stream_session_file(sid: &str, file: &str) -> Request {
+    /// `GET /media/{grant}/jit/{sid}/{file}`
+    pub fn get_stream_session_file(grant: &str, sid: &str, file: &str) -> Request {
         let q = Vec::new();
         build::request(
             Method::Get,
             format!(
-                "/stream/sessions/{}/{}",
+                "/media/{}/jit/{}/{}",
+                build::segment(grant),
                 build::segment(sid),
                 build::segment(file)
             ),
@@ -4687,12 +4718,16 @@ pub mod ops {
 
     /// Get a subtitle track
     ///
-    /// `GET /subtitles/{id}.vtt`
-    pub fn get_subtitle(id: &str) -> Request {
+    /// `GET /media/{grant}/subtitles/{id}.vtt`
+    pub fn get_subtitle(grant: &str, id: &str) -> Request {
         let q = Vec::new();
         build::request(
             Method::Get,
-            format!("/subtitles/{}.vtt", build::segment(id)),
+            format!(
+                "/media/{}/subtitles/{}.vtt",
+                build::segment(grant),
+                build::segment(id)
+            ),
             q,
             None::<&()>,
         )
@@ -4739,12 +4774,16 @@ pub mod ops {
         ))
     }
 
-    /// `POST /stream/sessions/{sid}/keepalive`
-    pub fn keep_stream_session_alive(sid: &str) -> Call<NoContent> {
+    /// `POST /media/{grant}/jit/{sid}/keepalive`
+    pub fn keep_stream_session_alive(grant: &str, sid: &str) -> Call<NoContent> {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Post,
-            format!("/stream/sessions/{}/keepalive", build::segment(sid)),
+            format!(
+                "/media/{}/jit/{}/keepalive",
+                build::segment(grant),
+                build::segment(sid)
+            ),
             q,
             None::<&()>,
         ))
@@ -4949,14 +4988,29 @@ pub mod ops {
         ))
     }
 
+    /// `DELETE /media/{grant}/jit/{sid}`
+    pub fn stop_stream_session(grant: &str, sid: &str) -> Call<NoContent> {
+        let q = Vec::new();
+        build::no_content(build::request(
+            Method::Delete,
+            format!(
+                "/media/{}/jit/{}",
+                build::segment(grant),
+                build::segment(sid)
+            ),
+            q,
+            None::<&()>,
+        ))
+    }
+
     /// Stream a media file for direct play
     ///
-    /// `GET /stream/{id}`
-    pub fn stream_media_file(id: &str) -> Request {
+    /// `GET /media/{grant}/stream`
+    pub fn stream_media_file(grant: &str) -> Request {
         let q = Vec::new();
         build::request(
             Method::Get,
-            format!("/stream/{}", build::segment(id)),
+            format!("/media/{}/stream", build::segment(grant)),
             q,
             None::<&()>,
         )

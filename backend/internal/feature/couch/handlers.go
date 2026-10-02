@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/httpx"
@@ -63,10 +64,18 @@ func (h *Handlers) Create(ctx context.Context, in *createCouchInput) (*couchSess
 			slog.Warn("record couch hosted", "err", err)
 		}
 	}
-	return &couchSessionOutput{
-		SetCookie: couchCookie(token, h.hub.secure),
-		Body:      rm.snapshotFor(host.ID, "host"),
-	}, nil
+	session := rm.snapshotFor(host.ID, "host")
+	session.ArtworkGrant = h.artworkGrant(user)
+	return &couchSessionOutput{SetCookie: couchCookie(token, h.hub.secure), Body: session}, nil
+}
+
+// artworkGrant lets a guest without an account load the couch's artwork.
+func (h *Handlers) artworkGrant(user *auth.User) string {
+	var subject int64
+	if user != nil {
+		subject = user.ID
+	}
+	return artwork.IssueGrant(h.hub.deps.Grants, subject).Grant
 }
 
 type shareInput struct {
@@ -88,7 +97,7 @@ func (h *Handlers) Info(ctx context.Context, in *shareInput) (*couchInfoOutput, 
 	}
 	info, ref := rm.infoPreview()
 	if ref.Kind != "" {
-		if pi, err := h.hub.deps.Playback.BuildPlayback(ctx, ref.Kind, ref.playbackID(), nil, nil); err == nil {
+		if pi, err := h.hub.deps.Playback.BuildPlayback(ctx, ref.Kind, ref.playbackID(), playback.Viewer{}, nil); err == nil {
 			info.Display = &CouchInfoDisplay{
 				Title:          pi.Display.Title,
 				Subtitle:       pi.Display.Subtitle,
@@ -97,6 +106,7 @@ func (h *Handlers) Info(ctx context.Context, in *shareInput) (*couchInfoOutput, 
 			}
 		}
 	}
+	info.ArtworkGrant = h.artworkGrant(auth.UserFrom(ctx))
 	return &couchInfoOutput{Body: info}, nil
 }
 
@@ -138,10 +148,9 @@ func (h *Handlers) Join(ctx context.Context, in *joinCouchInput) (*couchSessionO
 			slog.Warn("record couch joined", "err", err)
 		}
 	}
-	return &couchSessionOutput{
-		SetCookie: couchCookie(token, h.hub.secure),
-		Body:      rm.snapshotFor(p.ID, role),
-	}, nil
+	session := rm.snapshotFor(p.ID, role)
+	session.ArtworkGrant = h.artworkGrant(user)
+	return &couchSessionOutput{SetCookie: couchCookie(token, h.hub.secure), Body: session}, nil
 }
 
 // participantInput identifies the caller by their couch cookie; the share
@@ -191,9 +200,9 @@ func errNoCouchSession() error {
 
 // Playback returns the follower player payload for the session's current media,
 // authorized by the couch cookie. This is how a follower (incl. anonymous) gets
-// its stream URLs without ever calling the auth-only /playback endpoint.
+// its media grants, bound to the session, without the auth-only /playback.
 func (h *Handlers) Playback(ctx context.Context, in *couchPlaybackInput) (*couchPlaybackOutput, error) {
-	rm, _, ok := h.hub.lookup(in.Cookie)
+	rm, pid, ok := h.hub.lookup(in.Cookie)
 	if !ok {
 		return nil, errNoCouchSession()
 	}
@@ -202,12 +211,16 @@ func (h *Handlers) Playback(ctx context.Context, in *couchPlaybackInput) (*couch
 	live := rm.live
 	rm.lastActive = time.Now()
 	rm.mu.Unlock()
+	viewer := playback.Viewer{Couch: pid}
+	if user := auth.UserFrom(ctx); user != nil {
+		viewer.UserID = user.ID
+	}
 	if !live {
 		return nil, httpx.Fail(http.StatusGone, "session_ended", "this couch session has ended")
 	}
 	resp := CouchPlayback{Media: ref}
 	if ref.Kind != "" {
-		info, err := h.hub.deps.Playback.BuildPlayback(ctx, ref.Kind, ref.playbackID(), nil, in.Caps)
+		info, err := h.hub.deps.Playback.BuildPlayback(ctx, ref.Kind, ref.playbackID(), viewer, in.Caps)
 		if err != nil {
 			return nil, err
 		}

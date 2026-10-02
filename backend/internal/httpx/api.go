@@ -119,12 +119,18 @@ func Localized(op huma.Operation) huma.Operation {
 func Guard(api huma.API, check func(context.Context) error) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		if err := check(ctx.Context()); err != nil {
-			se := newError(http.StatusInternalServerError, "guard", err)
-			_ = huma.WriteErr(api, ctx, se.GetStatus(), se.Error(), se)
+			Reject(api, ctx, err)
 			return
 		}
 		next(ctx)
 	}
+}
+
+// Reject answers a request from middleware with err as the API would from a
+// handler: an APIError as is, anything else as a logged 500.
+func Reject(api huma.API, ctx huma.Context, err error) {
+	se := newError(http.StatusInternalServerError, "middleware", err)
+	_ = huma.WriteErr(api, ctx, se.GetStatus(), se.Error(), se)
 }
 
 // Raw registers a route served by a plain handler (byte streams, WebSockets,
@@ -147,9 +153,11 @@ type Routes struct {
 	Public huma.API // anyone, including anonymous couch followers
 	User   huma.API // a signed-in user
 	Admin  huma.API // an admin; paths are prefixed with /admin
-	// Stream admits a signed-in user or an anonymous couch follower of exactly
-	// the media the request targets (the guard lives in the composition root).
-	Stream huma.API
+	// Media serves one media file to whoever holds its grant (grant.From):
+	// paths are prefixed with /media/{grant}
+	Media huma.API
+	// Artwork admits a signed-in user or the holder of an artwork grant (?g=)
+	Artwork huma.API
 }
 
 // Tag is a feature's OpenAPI tag; its methods describe the feature's operations.

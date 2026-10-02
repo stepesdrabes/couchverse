@@ -29,6 +29,13 @@ export const addToList = (titleId: string) =>
 export const removeFromList = (titleId: string) =>
 	api<void>(`/me/watchlist/${titleId}`, { method: 'DELETE' });
 
+// A couch guest without an account has no session cookie; the couch hands out
+// an artwork grant that every artwork URL then carries.
+let artworkGrant: string | null = null;
+export const useArtworkGrant = (grant: string) => {
+	artworkGrant = grant;
+};
+
 /**
  * Build an artwork URL. Pass `v` (the artwork's version token) to opt into
  * immutable browser caching - it busts automatically when the art is replaced.
@@ -38,6 +45,7 @@ export const artworkUrl = (id: string, v?: number | string | null, size?: string
 	const params = new URLSearchParams();
 	if (size) params.set('size', size);
 	if (v) params.set('v', String(v));
+	if (artworkGrant) params.set('g', artworkGrant);
 	const query = params.toString();
 	return `/api/v1/artwork/${id}${query ? `?${query}` : ''}`;
 };

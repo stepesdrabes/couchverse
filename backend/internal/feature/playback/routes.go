@@ -22,20 +22,22 @@ func NewModule(stream *Stream, admin *AdminTranscode) *Module {
 const tag httpx.Tag = "playback"
 
 func (m *Module) Register(rt httpx.Routes) {
-	stream := rt.Stream
-	huma.Register(stream, httpx.Localized(tag.Op("getPlayback", http.MethodGet, "/playback/{kind}/{id}")), m.stream.Playback)
+	huma.Register(rt.User, httpx.Localized(tag.Op("getPlayback", http.MethodGet, "/playback/{kind}/{id}")), m.stream.Playback)
 
-	session := tag.Created("createStreamSession", http.MethodPost, "/stream/{id}/sessions")
-	session.Middlewares = huma.Middlewares{httpx.Guard(stream, m.stream.requireJIT)}
-	huma.Register(stream, session, m.stream.CreateSession)
-	huma.Register(stream, tag.NoContent("keepStreamSessionAlive", http.MethodPost, "/stream/sessions/{sid}/keepalive"), m.stream.SessionKeepalive)
+	// everything below plays one media file, authorized by the grant in its path
+	media := rt.Media
+	session := tag.Created("createStreamSession", http.MethodPost, "/jit")
+	session.Middlewares = huma.Middlewares{httpx.Guard(media, m.stream.requireJIT)}
+	huma.Register(media, session, m.stream.CreateSession)
+	huma.Register(media, tag.NoContent("keepStreamSessionAlive", http.MethodPost, "/jit/{sid}/keepalive"), m.stream.SessionKeepalive)
+	huma.Register(media, tag.NoContent("stopStreamSession", http.MethodDelete, "/jit/{sid}"), m.stream.StopSession)
 
-	apiErr := httpx.ErrorResponse(stream)
-	httpx.Raw(stream, streamMediaFileOp(apiErr), m.stream.Serve)
-	httpx.Raw(stream, streamFrameOp(apiErr), m.stream.Frame)
-	httpx.Raw(stream, hlsMasterOp(apiErr), m.stream.HLSMaster)
-	httpx.Raw(stream, hlsFileOp(apiErr), m.stream.HLSFile)
-	httpx.Raw(stream, sessionFileOp(apiErr), m.stream.SessionFile)
+	apiErr := httpx.ErrorResponse(media)
+	httpx.Raw(media, streamMediaFileOp(apiErr), m.stream.Serve)
+	httpx.Raw(media, streamFrameOp(apiErr), m.stream.Frame)
+	httpx.Raw(media, hlsMasterOp(apiErr), m.stream.HLSMaster)
+	httpx.Raw(media, hlsFileOp(apiErr), m.stream.HLSFile)
+	httpx.Raw(media, sessionFileOp(apiErr), m.stream.SessionFile)
 
 	huma.Register(rt.Admin, tag.Op("adminGetTranscodeInfo", http.MethodGet, "/transcode/info"), m.admin.Info)
 	huma.Register(rt.Admin, tag.Op("adminListActiveTranscodes", http.MethodGet, "/transcode/active"), m.admin.Active)
@@ -63,10 +65,6 @@ func pathParam(name, doc string, schema *huma.Schema) *huma.Param {
 	return &huma.Param{Name: name, In: "path", Required: true, Description: doc, Schema: schema}
 }
 
-func mediaFileParam() *huma.Param {
-	return pathParam("id", "Media file id.", &huma.Schema{Type: huma.TypeString, Format: "uuid"})
-}
-
 func response(desc string, schema *huma.Schema, types ...string) *huma.Response {
 	r := &huma.Response{Description: desc, Content: map[string]*huma.MediaType{}}
 	for _, t := range types {
@@ -84,11 +82,11 @@ func streamMediaFileOp(apiErr *huma.Response) huma.Operation {
 	}
 	slices.Sort(types)
 
-	op := tag.Op("streamMediaFile", http.MethodGet, "/stream/{id}")
+	op := tag.Op("streamMediaFile", http.MethodGet, "/stream")
 	op.Summary = "Stream a media file for direct play"
 	op.Description = "Serves the source file with HTTP range support: a Range header answers 206 with that byte range. " +
 		"404 codes: not_found, source_deleted (the source was removed after transcoding), file_missing."
-	op.Parameters = []*huma.Param{mediaFileParam(),
+	op.Parameters = []*huma.Param{
 		{Name: "Range", In: "header", Description: "Byte range to read, e.g. bytes=0-1048575.", Schema: textSchema}}
 	op.Responses = map[string]*huma.Response{
 		"200":     response("The whole file.", binarySchema, types...),
@@ -101,11 +99,11 @@ func streamMediaFileOp(apiErr *huma.Response) huma.Operation {
 
 func streamFrameOp(apiErr *huma.Response) huma.Operation {
 	zero := 0.0
-	op := tag.Op("getStreamFrame", http.MethodGet, "/stream/{id}/frame")
+	op := tag.Op("getStreamFrame", http.MethodGet, "/frame")
 	op.Summary = "Get a seek-preview still from a video"
 	op.Description = "A 240px-wide JPEG of the source video, cached per 5-second bucket. " +
 		"404 codes: not_found (no video source on disk), frame_failed."
-	op.Parameters = []*huma.Param{mediaFileParam(), {
+	op.Parameters = []*huma.Param{{
 		Name: "t", In: "query",
 		Description: "Position in seconds, rounded down to its 5-second bucket and clamped to the duration.",
 		Schema:      &huma.Schema{Type: huma.TypeInteger, Minimum: &zero, Default: 0},
@@ -118,10 +116,9 @@ func streamFrameOp(apiErr *huma.Response) huma.Operation {
 }
 
 func hlsMasterOp(apiErr *huma.Response) huma.Operation {
-	op := tag.Op("getHlsMaster", http.MethodGet, "/stream/{id}/hls/master.m3u8")
+	op := tag.Op("getHlsMaster", http.MethodGet, "/hls/master.m3u8")
 	op.Summary = "Get the HLS master playlist of a media file's ready variants"
 	op.Description = "404 when no variant is ready."
-	op.Parameters = []*huma.Param{mediaFileParam()}
 	op.Responses = map[string]*huma.Response{
 		"200":     response("The master playlist.", textSchema, playlistType),
 		"default": apiErr,
@@ -130,12 +127,11 @@ func hlsMasterOp(apiErr *huma.Response) huma.Operation {
 }
 
 func hlsFileOp(apiErr *huma.Response) huma.Operation {
-	op := tag.Op("getHlsFile", http.MethodGet, "/stream/{id}/hls/{variant}/{file}")
+	op := tag.Op("getHlsFile", http.MethodGet, "/hls/{variant}/{file}")
 	op.Summary = "Get an HLS playlist or segment of a prepared variant"
 	op.Description = "Serves the transcode cache: a variant's index.m3u8 and its MPEG-TS segments, " +
 		"and the multiaudio variant's own master.m3u8. 400 for names outside the allowed characters."
 	op.Parameters = []*huma.Param{
-		mediaFileParam(),
 		pathParam("variant", "Rendition name (e.g. 720p), source or multiaudio.", hlsNameSchema),
 		pathParam("file", "Playlist or segment file name.", hlsNameSchema),
 	}
@@ -147,7 +143,7 @@ func hlsFileOp(apiErr *huma.Response) huma.Operation {
 }
 
 func sessionFileOp(apiErr *huma.Response) huma.Operation {
-	op := tag.Op("getStreamSessionFile", http.MethodGet, "/stream/sessions/{sid}/{file}")
+	op := tag.Op("getStreamSessionFile", http.MethodGet, "/jit/{sid}/{file}")
 	op.Summary = "Get a JIT session's playlist or segment"
 	op.Description = "index.m3u8 lists the whole duration up front; a segment request waits until it is " +
 		"encoded, restarting the encoder on a far seek. 400 for a malformed session id; " +

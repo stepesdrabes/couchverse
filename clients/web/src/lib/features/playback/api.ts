@@ -33,7 +33,11 @@ export interface AudioTrack {
 export interface PlaybackInfo {
 	mode: 'direct' | 'hls' | 'jit' | 'preparing' | 'unsupported';
 	mediaFileId: string;
+	/** media grant every URL here carries; renew by fetching the payload again */
+	grant: string;
 	streamUrl?: string;
+	/** seek-preview still; append ?t=<seconds> (see frameAt) */
+	frameUrl: string;
 	durationSeconds: number;
 	resumePosition: number;
 	display: {
@@ -75,8 +79,8 @@ export const getPlayback = (kind: PlaybackKind, id: string) =>
 	api<PlaybackInfo>(`/playback/${kind}/${id}?caps=${clientCaps().join(',')}`);
 
 /** seek-preview still from the source video at `seconds` */
-export const frameUrl = (mediaFileId: string, seconds: number) =>
-	`/api/v1/stream/${mediaFileId}/frame?t=${Math.max(0, Math.floor(seconds))}`;
+export const frameAt = (info: PlaybackInfo, seconds: number) =>
+	`${info.frameUrl}?t=${Math.max(0, Math.floor(seconds))}`;
 
 /** codecs this browser can direct-play beyond the h264 baseline */
 export function clientCaps(): string[] {
@@ -110,12 +114,24 @@ export function beaconProgress(report: ProgressReport) {
 
 export const continueWatching = () => api<ContinueItem[]>('/me/continue-watching');
 
-// JIT ("instant play") sessions
-export const createJitSession = (mediaFileId: string, startAt: number) =>
-	api<{ sessionId: string; playlistUrl: string }>(`/stream/${mediaFileId}/sessions`, {
+// JIT ("instant play") sessions, authorized by the payload's media grant
+export const createJitSession = (grant: string, startAt: number) =>
+	api<{ sessionId: string; playlistUrl: string }>(`/media/${grant}/jit`, {
 		method: 'POST',
-		body: { startAt }
+		body: { startAt },
+		skipAuthRedirect: true
 	});
 
-export const jitKeepalive = (sessionId: string) =>
-	api<void>(`/stream/sessions/${sessionId}/keepalive`, { method: 'POST' });
+export const jitKeepalive = (grant: string, sessionId: string) =>
+	api<void>(`/media/${grant}/jit/${sessionId}/keepalive`, {
+		method: 'POST',
+		skipAuthRedirect: true
+	});
+
+/** end the transcode as the player goes away; keepalive lets it outlive the page */
+export function stopJitSession(grant: string, sessionId: string) {
+	void fetch(`/api/v1/media/${grant}/jit/${sessionId}`, {
+		method: 'DELETE',
+		keepalive: true
+	}).catch(() => {});
+}

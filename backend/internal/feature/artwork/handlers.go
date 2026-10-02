@@ -6,6 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"couchverse/internal/grant"
 	"couchverse/internal/httpx"
 )
 
@@ -20,7 +21,7 @@ func NewHandlers(service *Service) *Handlers {
 const tag httpx.Tag = "artwork"
 
 func (h *Handlers) Register(rt httpx.Routes) {
-	httpx.Raw(rt.User, serveOp(rt.User), h.Serve)
+	httpx.Raw(rt.Artwork, serveOp(rt.Artwork), h.Serve)
 
 	huma.Register(rt.Admin, tag.Created("adminUploadArtwork", http.MethodPost, "/artwork"), h.Upload)
 	huma.Register(rt.Admin, tag.NoContent("adminDeleteArtwork", http.MethodDelete, "/artwork/{id}"), h.Delete)
@@ -38,6 +39,8 @@ func serveOp(api huma.API) huma.Operation {
 			Schema: &huma.Schema{Type: huma.TypeString, Enum: []any{"w342", "w780"}}},
 		{Name: "v", In: "query", Description: "Version token (the artwork's createdAt); a versioned URL is cached as immutable.",
 			Schema: &huma.Schema{Type: huma.TypeString}},
+		{Name: "g", In: "query", Description: "An artwork grant, for a request without the session (a system image fetch, an anonymous couch guest).",
+			Schema: &huma.Schema{Type: huma.TypeString}},
 	}
 	image := &huma.MediaType{Schema: &huma.Schema{Type: huma.TypeString, Format: "binary"}}
 	op.Responses = map[string]*huma.Response{
@@ -48,6 +51,21 @@ func serveOp(api huma.API) huma.Operation {
 		"default": httpx.ErrorResponse(api),
 	}
 	return op
+}
+
+// ArtworkGrant lets a system component fetch artwork without the app's session
+// (tvOS Top Shelf, AirPlay receivers): append it to an artwork URL as ?g=.
+type ArtworkGrant struct {
+	Grant     string `json:"grant"`
+	ExpiresIn int    `json:"expiresIn" doc:"Seconds until the grant expires."`
+}
+
+// IssueGrant signs an artwork grant to subject (0 for an anonymous couch guest).
+func IssueGrant(grants *grant.Signer, subject int64) ArtworkGrant {
+	return ArtworkGrant{
+		Grant:     grants.Issue(grant.Grant{Scope: grant.Artwork, Subject: subject}, grant.ArtworkTTL),
+		ExpiresIn: int(grant.ArtworkTTL.Seconds()),
+	}
 }
 
 // Serve returns the artwork image, resized on first request when ?size= is given.
@@ -76,7 +94,7 @@ func (h *Handlers) Serve(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Set("Cache-Control", "private, no-cache")
 	}
-	http.ServeFile(w, r, path)
+	httpx.ServeFile(w, r, path)
 }
 
 type uploadForm struct {

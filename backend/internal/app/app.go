@@ -23,6 +23,7 @@ import (
 	"couchverse/internal/feature/ranks"
 	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/feature/system"
+	"couchverse/internal/grant"
 	"couchverse/internal/media"
 	"couchverse/internal/server"
 	"couchverse/internal/settings"
@@ -54,6 +55,12 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 		return nil, err
 	}
 
+	secret, err := grant.LoadSecret(ctx, set)
+	if err != nil {
+		return nil, err
+	}
+	grants := grant.NewSigner(secret)
+
 	artworkService := &artwork.Service{Store: artwork.NewStore(pool), DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	subtitleService := &subtitles.Service{Subs: subtitles.NewStore(pool), Files: libraryStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	sessionManager := &playback.SessionManager{
@@ -61,7 +68,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 	}
 	// one shared stream resolver: the playback module serves it and the couch
 	// hub reuses its BuildPlayback to assemble follower payloads
-	stream := playback.NewStream(subtitleService.Subs, catalogStore, libraryStore, set, jobsStore, cfg.DataDir, sessionManager, cfg.FFmpegPath)
+	stream := playback.NewStream(subtitleService.Subs, catalogStore, libraryStore, set, jobsStore, cfg.DataDir, sessionManager, cfg.FFmpegPath, grants)
 
 	hubCtx, stop := context.WithCancel(context.Background())
 	couchHub := couch.NewHub(hubCtx, couch.Deps{
@@ -71,6 +78,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 		Stats:     ranksStore,
 		Settings:  set,
 		Secure:    cfg.CookieSecure,
+		Grants:    grants,
 	})
 
 	a := &App{
@@ -92,6 +100,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 			Analytics: analyticsStore,
 			Ranks:     ranksStore,
 			Couch:     couchHub,
+			Grants:    grants,
 		},
 		stop: stop,
 	}

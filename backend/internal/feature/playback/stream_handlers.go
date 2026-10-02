@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/go-chi/chi/v5"
 
 	"couchverse/internal/feature/auth"
@@ -20,6 +22,7 @@ import (
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/subtitles"
+	"couchverse/internal/grant"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
@@ -34,10 +37,48 @@ type Stream struct {
 	dataDir  string
 	sessions *SessionManager
 	ffmpeg   string
+	grants   *grant.Signer
 }
 
-func NewStream(subs *subtitles.Store, cat *catalog.Store, lib *library.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *SessionManager, ffmpegPath string) *Stream {
-	return &Stream{subs: subs, catalog: cat, library: lib, settings: set, jobs: jb, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath}
+func NewStream(subs *subtitles.Store, cat *catalog.Store, lib *library.Store, set *settings.Store, jb *jobs.Store, dataDir string, sessions *SessionManager, ffmpegPath string, grants *grant.Signer) *Stream {
+	return &Stream{subs: subs, catalog: cat, library: lib, settings: set, jobs: jb, dataDir: dataDir, sessions: sessions, ffmpeg: ffmpegPath, grants: grants}
+}
+
+// MediaPath is the URL of a route under a media grant: /api/v1/media/{grant}/<rest>.
+func MediaPath(g, rest string) string {
+	return "/api/v1/media/" + g + "/" + rest
+}
+
+// grantedFile is the media file the request's grant names (checked by the media
+// group's middleware).
+func grantedFile(ctx context.Context) string {
+	g, _ := grant.From(ctx)
+	return g.Resource.String()
+}
+
+// Viewer is who a playback payload is built for.
+type Viewer struct {
+	// UserID is the signed-in viewer, 0 for an anonymous couch guest; it gets
+	// the saved resume position.
+	UserID int64
+	// Couch is the couch participant id of a follower, "" otherwise; it binds
+	// the follower's grants to their place on the couch.
+	Couch string
+}
+
+// mediaGrant signs a grant for one media file to the viewer.
+func (h *Stream) mediaGrant(mediaFileID string, v Viewer) string {
+	g := grant.Grant{Scope: grant.Media, Subject: v.UserID}
+	var err error
+	if g.Resource, err = uuid.Parse(mediaFileID); err != nil {
+		return ""
+	}
+	if v.Couch != "" {
+		if g.Couch, err = uuid.Parse(v.Couch); err != nil {
+			return ""
+		}
+	}
+	return h.grants.Issue(g, grant.MediaTTL)
 }
 
 var contentTypes = map[string]string{
@@ -57,12 +98,7 @@ var contentTypes = map[string]string{
 // down for the player's seek-bar preview. Requests are bucketed to a few
 // seconds and cached so scrubbing reuses extracted frames.
 func (h *Stream) Frame(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	mf, err := h.library.MediaFileByID(r.Context(), id)
+	mf, err := h.library.MediaFileByID(r.Context(), grantedFile(r.Context()))
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
@@ -106,17 +142,12 @@ func (h *Stream) Frame(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Cache-Control", "public, max-age=86400")
-	http.ServeFile(w, r, cached)
+	httpx.ServeFile(w, r, cached)
 }
 
 // Serve streams a media file with HTTP range support (direct play).
 func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	mf, err := h.library.MediaFileByID(r.Context(), id)
+	mf, err := h.library.MediaFileByID(r.Context(), grantedFile(r.Context()))
 	if err != nil {
 		httpx.StoreErr(w, err)
 		return
@@ -155,7 +186,9 @@ func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
 type PlaybackInfo struct {
 	Mode           string                  `json:"mode" enum:"direct,hls,preparing,jit,unsupported" doc:"How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession; unsupported cannot play."`
 	MediaFileID    string                  `json:"mediaFileId"`
+	Grant          string                  `json:"grant" doc:"The media grant every URL in this payload carries; it expires, so fetch the payload again on grant_expired."`
 	StreamURL      string                  `json:"streamUrl,omitempty" doc:"The source file (mode direct) or the HLS master (mode hls) to load."`
+	FrameURL       string                  `json:"frameUrl" doc:"A still for the seek-bar preview; append ?t=<seconds>."`
 	Duration       float64                 `json:"durationSeconds"`
 	ResumePosition int                     `json:"resumePosition" doc:"Saved position in seconds; 0 for couch followers, who sync to the host."`
 	Display        PlaybackDisplay         `json:"display"`
@@ -215,13 +248,14 @@ func audioLabel(lang string) string {
 }
 
 // audioTrackFor builds a model-B track from a media file, pointing at its direct
-// stream when it direct-plays, or its HLS master otherwise.
-func audioTrackFor(mf *media.MediaFile, isDefault bool) PlaybackAudioTrack {
+// stream when it direct-plays, or its HLS master otherwise. Each file needs its
+// own grant.
+func audioTrackFor(mf *media.MediaFile, g string, isDefault bool) PlaybackAudioTrack {
 	t := PlaybackAudioTrack{ID: mf.ID, Lang: mf.AudioLang, Label: audioLabel(mf.AudioLang), Default: isDefault, Source: "file"}
 	if mf.SourceDeletedAt == nil && mf.DirectPlay {
-		t.StreamURL = "/api/v1/stream/" + mf.ID
+		t.StreamURL = MediaPath(g, "stream")
 	} else {
-		t.HLSURL = "/api/v1/stream/" + mf.ID + "/hls/master.m3u8"
+		t.HLSURL = MediaPath(g, "hls/master.m3u8")
 	}
 	return t
 }
@@ -252,11 +286,7 @@ type playbackOutput struct{ Body *PlaybackInfo }
 
 // Playback resolves what to play for a movie title or an episode.
 func (h *Stream) Playback(ctx context.Context, in *playbackInput) (*playbackOutput, error) {
-	var uid *int64
-	if user := auth.UserFrom(ctx); user != nil {
-		uid = &user.ID
-	}
-	info, err := h.BuildPlayback(ctx, in.Kind, in.ID, uid, in.Caps)
+	info, err := h.BuildPlayback(ctx, in.Kind, in.ID, Viewer{UserID: auth.UserFrom(ctx).ID}, in.Caps)
 	if errors.Is(err, errNoMedia) {
 		return nil, httpx.Fail(http.StatusNotFound, "no_media", "this title has no media file yet")
 	}
@@ -266,13 +296,18 @@ func (h *Stream) Playback(ctx context.Context, in *playbackInput) (*playbackOutp
 	return &playbackOutput{Body: info}, nil
 }
 
-// BuildPlayback assembles the player payload for a movie title or an episode.
-// When userID is non-nil the viewer's saved resume position is included; couch
-// followers pass nil (they sync to the host, not their own progress). It reads
-// no auth and writes no response, so the couch feature reuses it to build a
-// follower's payload without the viewer being logged in. caps is the client's
-// container/codec capability list (used for the direct-play decision).
-func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int64, caps []string) (*PlaybackInfo, error) {
+// BuildPlayback assembles the player payload for a movie title or an episode,
+// with media grants issued to the viewer. A viewer outside a couch gets their
+// saved resume position; followers sync to the host instead. It reads no auth
+// and writes no response, so the couch feature reuses it to build a follower's
+// payload. caps is the client's container/codec capability list (used for the
+// direct-play decision).
+func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, viewer Viewer, caps []string) (*PlaybackInfo, error) {
+	// resume positions are personal; a couch plays wherever the host is
+	userID := viewer.UserID
+	if viewer.Couch != "" {
+		userID = 0
+	}
 	if id == "" {
 		return nil, httpx.ErrNotFound
 	}
@@ -295,8 +330,8 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 		}
 		info.Display = PlaybackDisplay{Title: title.Name, TitleID: title.ID, TitleSlug: title.Slug}
 		info.AllowRandomPlayback = title.AllowRandomPlayback
-		if userID != nil {
-			pos, _, perr := h.catalog.ProgressFor(ctx, *userID, &id, nil)
+		if userID != 0 {
+			pos, _, perr := h.catalog.ProgressFor(ctx, userID, &id, nil)
 			if perr != nil {
 				return nil, perr
 			}
@@ -322,8 +357,8 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 		if t, terr := h.catalog.TitleByID(ctx, ref.TitleID); terr == nil {
 			info.AllowRandomPlayback = t.AllowRandomPlayback
 		}
-		if userID != nil {
-			pos, _, perr := h.catalog.ProgressFor(ctx, *userID, nil, &id)
+		if userID != 0 {
+			pos, _, perr := h.catalog.ProgressFor(ctx, userID, nil, &id)
 			if perr != nil {
 				return nil, perr
 			}
@@ -350,6 +385,9 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 
 	info.MediaFileID = mf.ID
 	info.Duration = mf.DurationSeconds
+	g := h.mediaGrant(mf.ID, viewer)
+	info.Grant = g
+	info.FrameURL = MediaPath(g, "frame")
 
 	subs, err := h.subs.SubtitlesForMediaFile(ctx, mf.ID)
 	if err != nil {
@@ -362,16 +400,16 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 			Lang:   sub.Lang,
 			Label:  sub.Label,
 			Forced: sub.Forced,
-			URL:    "/api/v1/subtitles/" + sub.ID + ".vtt",
+			URL:    MediaPath(g, "subtitles/"+sub.ID+".vtt"),
 		})
 	}
 
 	// alternate-audio siblings (model B): a language switch in the player. Only
 	// populated when the title/episode has more than one audio file.
 	if siblings, serr := h.catalog.AudioSiblings(ctx, mf.TitleID, mf.EpisodeID, mf.ID); serr == nil && len(siblings) > 0 {
-		info.Audio = append(info.Audio, audioTrackFor(mf, true))
+		info.Audio = append(info.Audio, audioTrackFor(mf, g, true))
 		for i := range siblings {
-			info.Audio = append(info.Audio, audioTrackFor(&siblings[i], false))
+			info.Audio = append(info.Audio, audioTrackFor(&siblings[i], h.mediaGrant(siblings[i].ID, viewer), false))
 		}
 	}
 
@@ -406,9 +444,9 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 			pending = true
 		}
 	}
-	hlsURL := "/api/v1/stream/" + mf.ID + "/hls/master.m3u8"
+	hlsURL := MediaPath(g, "hls/master.m3u8")
 	if multiAudio && multiAudioReady {
-		hlsURL = "/api/v1/stream/" + mf.ID + "/hls/multiaudio/master.m3u8"
+		hlsURL = MediaPath(g, "hls/multiaudio/master.m3u8")
 	}
 	if ready {
 		info.HLSURL = hlsURL
@@ -451,7 +489,7 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 	case mf.SourceDeletedAt == nil && !multiAudio &&
 		(mf.DirectPlay || media.DirectPlayWithCaps(mf.Container, mf.VideoCodec, mf.AudioCodec, caps)):
 		info.Mode = "direct"
-		info.StreamURL = "/api/v1/stream/" + mf.ID
+		info.StreamURL = MediaPath(g, "stream")
 
 	case ready:
 		info.Mode = "hls"
@@ -462,7 +500,7 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 			info.JobProgress = progress
 		}
 	case mf.SourceDeletedAt == nil && h.jitAllowed(ctx):
-		// the client opens a JIT session via POST /stream/{id}/sessions
+		// the client opens a JIT session with createStreamSession
 		info.Mode = "jit"
 	default:
 		info.Mode = "unsupported"
@@ -473,11 +511,7 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 
 // HLSMaster generates the master playlist from ready variants.
 func (h *Stream) HLSMaster(w http.ResponseWriter, r *http.Request) {
-	mediaFileID := httpx.UUID(r, "id")
-	if mediaFileID == "" {
-		httpx.NotFound(w)
-		return
-	}
+	mediaFileID := grantedFile(r.Context())
 	mf, err := h.library.MediaFileByID(r.Context(), mediaFileID)
 	if err != nil {
 		httpx.StoreErr(w, err)
@@ -545,7 +579,6 @@ type StreamSessionStart struct {
 }
 
 type createStreamSessionInput struct {
-	ID   string `path:"id" format:"uuid"`
 	Body StreamSessionStart
 }
 
@@ -558,18 +591,21 @@ type StreamSession struct {
 
 type streamSessionOutput struct{ Body StreamSession }
 
-// CreateSession opens a JIT transcode session.
+// CreateSession opens a JIT transcode session for the granted media file.
 func (h *Stream) CreateSession(ctx context.Context, in *createStreamSessionInput) (*streamSessionOutput, error) {
-	if mf, merr := h.library.MediaFileByID(ctx, in.ID); merr == nil && mf.SourceDeletedAt != nil {
+	g, _ := grant.From(ctx)
+	mediaFileID := g.Resource.String()
+	if mf, merr := h.library.MediaFileByID(ctx, mediaFileID); merr == nil && mf.SourceDeletedAt != nil {
 		return nil, httpx.Fail(http.StatusNotFound, "source_deleted", "the original file was removed after transcoding")
 	}
-	session, err := h.sessions.Create(ctx, context.Background(), in.ID, max(0, in.Body.StartAt))
+	session, err := h.sessions.Create(ctx, context.Background(), mediaFileID, max(0, in.Body.StartAt))
 	if err != nil {
 		return nil, httpx.Fail(http.StatusServiceUnavailable, "session_failed", err.Error())
 	}
 	return &streamSessionOutput{Body: StreamSession{
-		SessionID:   session.ID,
-		PlaylistURL: "/api/v1/stream/sessions/" + session.ID + "/index.m3u8",
+		SessionID: session.ID,
+		// the grant in the path lets relative segment URIs inherit it
+		PlaylistURL: MediaPath(h.grants.Sign(g), "jit/"+session.ID+"/index.m3u8"),
 	}}, nil
 }
 
@@ -577,10 +613,30 @@ type sessionInput struct {
 	SID string `path:"sid" pattern:"^[a-f0-9]{24}$"`
 }
 
-func (h *Stream) SessionKeepalive(_ context.Context, in *sessionInput) (*struct{}, error) {
-	if !h.sessions.Touch(in.SID) {
+// grantedSession finds a JIT session of the granted media file; a grant for one
+// file never reaches another file's session.
+func (h *Stream) grantedSession(ctx context.Context, sid string) *Session {
+	session := h.sessions.Get(sid)
+	if session == nil || session.MediaFileID != grantedFile(ctx) {
+		return nil
+	}
+	return session
+}
+
+func (h *Stream) SessionKeepalive(ctx context.Context, in *sessionInput) (*struct{}, error) {
+	if h.grantedSession(ctx, in.SID) == nil || !h.sessions.Touch(in.SID) {
 		return nil, httpx.NotFoundError()
 	}
+	return nil, nil
+}
+
+// StopSession ends a JIT session as soon as the player leaves, instead of
+// holding the transcoder until the idle reaper notices.
+func (h *Stream) StopSession(ctx context.Context, in *sessionInput) (*struct{}, error) {
+	if h.grantedSession(ctx, in.SID) == nil {
+		return nil, httpx.NotFoundError()
+	}
+	h.sessions.Stop(in.SID)
 	return nil, nil
 }
 
@@ -593,7 +649,7 @@ func (h *Stream) SessionFile(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "invalid session id")
 		return
 	}
-	session := h.sessions.Get(sid)
+	session := h.grantedSession(r.Context(), sid)
 	if session == nil {
 		httpx.NotFound(w)
 		return
@@ -611,19 +667,16 @@ func (h *Stream) SessionFile(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "segment_unavailable", err.Error())
 		return
 	}
+	w.Header().Set("Content-Type", hlsContentType(file))
 	w.Header().Set("Cache-Control", "private, max-age=60")
-	http.ServeFile(w, r, path)
+	httpx.ServeFile(w, r, path)
 }
 
 var hlsFileRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 
 // HLSFile serves variant playlists and segments from the HLS cache.
 func (h *Stream) HLSFile(w http.ResponseWriter, r *http.Request) {
-	mediaFileID := httpx.UUID(r, "id")
-	if mediaFileID == "" {
-		httpx.NotFound(w)
-		return
-	}
+	mediaFileID := grantedFile(r.Context())
 	variant := chi.URLParam(r, "variant")
 	file := chi.URLParam(r, "file")
 	if !hlsFileRe.MatchString(variant) || !hlsFileRe.MatchString(file) {
@@ -631,11 +684,31 @@ func (h *Stream) HLSFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := filepath.Join(h.dataDir, "cache", "hls", mediaFileID, variant, file)
-	if strings.HasSuffix(file, ".m3u8") {
-		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+	if ct := hlsContentType(file); ct != "" {
+		w.Header().Set("Content-Type", ct)
 	}
 	w.Header().Set("Cache-Control", "private, max-age=3600")
-	http.ServeFile(w, r, path)
+	httpx.ServeFile(w, r, path)
+}
+
+// hlsContentType names HLS files explicitly: Go's extension table lacks .m4s
+// and maps .ts to TypeScript on some systems, which strict players reject.
+func hlsContentType(file string) string {
+	switch filepath.Ext(file) {
+	case ".m3u8":
+		return "application/vnd.apple.mpegurl"
+	case ".ts":
+		return "video/mp2t"
+	case ".m4s":
+		return "video/iso.segment"
+	case ".mp4":
+		return "video/mp4"
+	case ".vtt", ".webvtt":
+		return "text/vtt"
+	case ".aac":
+		return "audio/aac"
+	}
+	return ""
 }
 
 func formatEpisodeSubtitle(ref *catalog.EpisodeRef) string {

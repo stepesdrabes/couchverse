@@ -200,6 +200,15 @@ func (m *SessionManager) reapLoop(ctx context.Context) {
 	}
 }
 
+// Stop ends one session and removes its scratch files.
+func (m *SessionManager) Stop(id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if s := m.sessions[id]; s != nil {
+		m.removeLocked(s)
+	}
+}
+
 func (m *SessionManager) StopAll() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
