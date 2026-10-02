@@ -34,3 +34,13 @@ export const login = (username: string, password: string) =>
 	});
 
 export const logout = () => api<void>('/auth/logout', { method: 'POST' });
+
+export {
+	approvePairing,
+	createConnectCode,
+	denyPairing,
+	getPairingRequest,
+	listDevices,
+	revokeDevice
+} from '$lib/generated/api';
+export type { Device, DevicePlatform, PairingRequest } from '$lib/generated/api';

@@ -15,6 +15,10 @@
 	let error = $state('');
 	let busy = $state(false);
 
+	const next = $derived(page.url.searchParams.get('next') ?? '/');
+	// someone who scanned a device's sign-in QR lands here first; say why
+	const pairing = $derived(next.startsWith('/pair'));
+
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
 		if (busy) return;
@@ -22,7 +26,7 @@
 		error = '';
 		try {
 			await session.login(username, password);
-			goto(page.url.searchParams.get('next') ?? '/');
+			goto(next);
 		} catch (err) {
 			error = err instanceof ApiError ? err.message : m.login_error_generic();
 		} finally {
@@ -44,7 +48,9 @@
 			<h1 class="text-3xl font-extrabold tracking-tight">
 				couch<span class="text-accent">verse</span>
 			</h1>
-			<p class="mt-2 text-sm text-muted">{m.login_subtitle()}</p>
+			<p class="mt-2 text-sm text-muted">
+				{pairing ? m.login_subtitle_pair() : m.login_subtitle()}
+			</p>
 		</div>
 
 		<form
