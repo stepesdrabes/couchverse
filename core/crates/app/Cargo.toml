@@ -1,0 +1,18 @@
+[package]
+name = "couchverse-core"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "The shared Couchverse client core: a sans-I/O state machine behind a JSON message bridge."
+
+[dependencies]
+couchverse-api.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+typeshare.workspace = true
+pulldown-cmark.workspace = true
+linkify.workspace = true
+
+[lints]
+workspace = true

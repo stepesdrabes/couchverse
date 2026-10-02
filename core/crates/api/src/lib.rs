@@ -52,11 +52,8 @@ impl Request {
         if self.query.is_empty() {
             return self.path.clone();
         }
-        let query: Vec<String> = self
-            .query
-            .iter()
-            .map(|(k, v)| format!("{}={}", encode(k), encode(v)))
-            .collect();
+        let query: Vec<String> =
+            self.query.iter().map(|(k, v)| format!("{}={}", encode(k), encode(v))).collect();
         format!("{}?{}", self.path, query.join("&"))
     }
 }
@@ -82,11 +79,21 @@ impl<T> Call<T> {
     }
 }
 
+impl<T> Clone for Call<T> {
+    fn clone(&self) -> Self {
+        Self { request: self.request.clone(), decode: self.decode, _response: PhantomData }
+    }
+}
+
+impl<T> PartialEq for Call<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.request == other.request
+    }
+}
+
 impl<T> fmt::Debug for Call<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Call")
-            .field("request", &self.request)
-            .finish_non_exhaustive()
+        f.debug_struct("Call").field("request", &self.request).finish_non_exhaustive()
     }
 }
 
@@ -109,16 +116,10 @@ impl ApiError {
 
     fn from_response(status: u16, body: &str) -> Self {
         match serde_json::from_str::<types::ApiError>(body) {
-            Ok(envelope) => ApiError {
-                status,
-                code: envelope.error.code,
-                message: envelope.error.message,
-            },
-            Err(_) => ApiError {
-                status,
-                code: format!("http_{status}"),
-                message: String::new(),
-            },
+            Ok(envelope) => {
+                ApiError { status, code: envelope.error.code, message: envelope.error.message }
+            }
+            Err(_) => ApiError { status, code: format!("http_{status}"), message: String::new() },
         }
     }
 }
@@ -138,19 +139,11 @@ mod build {
     use serde::de::DeserializeOwned;
 
     pub(crate) fn json<T: DeserializeOwned>(request: Request) -> Call<T> {
-        Call {
-            request,
-            decode: |body| serde_json::from_str(body),
-            _response: PhantomData,
-        }
+        Call { request, decode: |body| serde_json::from_str(body), _response: PhantomData }
     }
 
     pub(crate) fn no_content(request: Request) -> Call<NoContent> {
-        Call {
-            request,
-            decode: |_| Ok(NoContent),
-            _response: PhantomData,
-        }
+        Call { request, decode: |_| Ok(NoContent), _response: PhantomData }
     }
 
     pub(crate) fn request(
@@ -174,11 +167,7 @@ mod build {
 
     /// A list query parameter as one comma-separated value.
     pub(crate) fn csv<T: ToString>(items: &[T]) -> String {
-        items
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join(",")
+        items.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
     }
 
     /// Adds `name=value` when the optional parameter is set.
@@ -221,24 +210,15 @@ mod tests {
             query: vec![("q".into(), "glass harbor & co".into())],
             body: None,
         };
-        assert_eq!(
-            request.path_and_query(),
-            "/search?q=glass%20harbor%20%26%20co"
-        );
+        assert_eq!(request.path_and_query(), "/search?q=glass%20harbor%20%26%20co");
     }
 
     #[test]
     fn error_envelopes_become_api_errors() {
-        let call = build::no_content(build::request(
-            Method::Delete,
-            "/x".into(),
-            vec![],
-            None::<&()>,
-        ));
-        let err = call.parse(
-            404,
-            r#"{"error":{"code":"not_found","message":"resource not found"}}"#,
-        );
+        let call =
+            build::no_content(build::request(Method::Delete, "/x".into(), vec![], None::<&()>));
+        let err =
+            call.parse(404, r#"{"error":{"code":"not_found","message":"resource not found"}}"#);
         assert_eq!(
             err,
             Err(ApiError {
@@ -251,23 +231,13 @@ mod tests {
 
     #[test]
     fn responses_without_an_envelope_get_a_status_code() {
-        let call = build::no_content(build::request(
-            Method::Get,
-            "/x".into(),
-            vec![],
-            None::<&()>,
-        ));
+        let call = build::no_content(build::request(Method::Get, "/x".into(), vec![], None::<&()>));
         assert_eq!(call.parse(502, "<html>").unwrap_err().code, "http_502");
     }
 
     #[test]
     fn no_content_ignores_the_body() {
-        let call = build::no_content(build::request(
-            Method::Put,
-            "/x".into(),
-            vec![],
-            None::<&()>,
-        ));
+        let call = build::no_content(build::request(Method::Put, "/x".into(), vec![], None::<&()>));
         assert_eq!(call.parse(204, ""), Ok(NoContent));
     }
 }
