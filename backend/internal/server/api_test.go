@@ -5,7 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -55,7 +58,27 @@ type apiCase struct {
 	method string
 	path   string
 	body   any
+	// upload sends the body as multipart/form-data with this file in a "file" part
+	upload *upload
 	status int
+}
+
+type upload struct {
+	name    string
+	content []byte
+}
+
+// pngImage is a small valid image for the avatar, banner and artwork uploads.
+func pngImage() []byte {
+	img := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	for i := range img.Pix {
+		img.Pix[i] = byte(i * 7)
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
 }
 
 // TestAPIConformance drives every typed operation against a seeded database and
@@ -157,6 +180,45 @@ func apiCases() []apiCase {
 		{op: "adminDeleteEpisode", as: "admin", method: "DELETE", path: "/admin/episodes/" + episode2ID, status: 204},
 		{op: "adminDeleteSeason", as: "admin", method: "DELETE", path: "/admin/seasons/" + season2ID, status: 204},
 		{op: "adminDeleteTitle", as: "admin", method: "DELETE", path: "/admin/titles/" + draftID, status: 204},
+
+		{op: "getPreferences", as: "nora", method: "GET", path: "/me/preferences", status: 200},
+		{op: "updatePreferences", as: "nora", method: "PUT", path: "/me/preferences", body: map[string]any{"publicProfile": true, "language": "cs", "subtitles": map[string]any{"fontSizePct": 120, "color": "#ffe600", "fontFamily": "serif", "backgroundOpacity": 40}}, status: 200},
+		{op: "updatePreferences", as: "nora", method: "PUT", path: "/me/preferences", body: map[string]any{"subtitles": map[string]any{"fontSizePct": 900}}, status: 400},
+		{op: "updateProfile", as: "nora", method: "PATCH", path: "/me/profile", body: map[string]any{"displayName": "Nora B", "bio": "Hi **there**"}, status: 200},
+		{op: "uploadAvatar", as: "nora", method: "POST", path: "/me/avatar", upload: &upload{"avatar.png", pngImage()}, status: 200},
+		{op: "uploadBanner", as: "nora", method: "POST", path: "/me/banner", upload: &upload{"banner.png", pngImage()}, status: 200},
+		{op: "deleteBanner", as: "nora", method: "DELETE", path: "/me/banner", status: 200},
+		{op: "deleteAvatar", as: "nora", method: "DELETE", path: "/me/avatar", status: 200},
+
+		{op: "getMyStats", as: "nora", method: "GET", path: "/me/stats?lang=cs", status: 200},
+		{op: "checkAchievements", as: "nora", method: "POST", path: "/me/achievements/check", status: 200},
+		// throttled: answers rank null so the client keeps what it has
+		{op: "checkAchievements", as: "nora", method: "POST", path: "/me/achievements/check", status: 200},
+		{op: "getProfile", as: "admin", method: "GET", path: "/users/" + memberName + "/profile?lang=cs", status: 200},
+		{op: "getProfile", as: "admin", method: "GET", path: "/users/" + privateMember + "/profile", status: 404},
+		{op: "getLeaderboard", as: "nora", method: "GET", path: "/leaderboard?period=all", status: 200},
+		{op: "getLeaderboard", as: "nora", method: "GET", path: "/leaderboard?period=week", status: 200},
+		{op: "getLeaderboard", as: "nora", method: "GET", path: "/leaderboard?period=bogus", status: 400},
+		{op: "adminGetRanks", as: "admin", method: "GET", path: "/admin/ranks", status: 200},
+		{op: "adminUpdateRanksConfig", as: "admin", method: "PUT", path: "/admin/ranks/config", body: map[string]any{
+			"rates": map[string]int{"videoMinute": 2, "movie": 100, "episode": 20, "couchHost": 50, "couchJoin": 25, "bronze": 50, "silver": 150, "gold": 400, "platinum": 1000},
+			"tiers": []int{0, 500, 1500, 3500, 7000, 13000, 23000, 40000, 70000, 120000},
+		}, status: 200},
+		{op: "adminUpdateRanksConfig", as: "admin", method: "PUT", path: "/admin/ranks/config", body: map[string]any{
+			"rates": map[string]int{"videoMinute": 2, "movie": 100, "episode": 20, "couchHost": 50, "couchJoin": 25, "bronze": 50, "silver": 150, "gold": 400, "platinum": 1000},
+			"tiers": []int{5, 500, 1500, 3500, 7000, 13000, 23000, 40000, 70000, 120000},
+		}, status: 400},
+		{op: "adminGetAnalytics", as: "admin", method: "GET", path: "/admin/analytics/overview?days=7", status: 200},
+
+		{op: "adminListUsers", as: "admin", method: "GET", path: "/admin/users", status: 200},
+		{op: "adminCreateUser", as: "admin", method: "POST", path: "/admin/users", body: map[string]any{"username": "zed", "password": "secret"}, status: 201},
+		{op: "adminCreateUser", as: "admin", method: "POST", path: "/admin/users", body: map[string]any{"username": "zed", "password": "secret"}, status: 409},
+		{op: "adminUpdateUser", as: "admin", method: "PATCH", path: "/admin/users/3", body: map[string]any{"displayName": "Piet P", "role": "member"}, status: 200},
+		{op: "adminDeleteUser", as: "admin", method: "DELETE", path: "/admin/users/4", status: 204},
+
+		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "wrong", "newPassword": "long enough"}, status: 400},
+		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "admin", "newPassword": "long enough"}, status: 204},
+		{op: "logout", as: "admin", method: "POST", path: "/auth/logout", status: 204},
 	}
 }
 
@@ -301,25 +363,40 @@ func newTestEnv(t *testing.T) *testEnv {
 }
 
 func (e *testEnv) do(t *testing.T, c apiCase) (int, []byte, string) {
-	return e.request(t, e.clients[c.as], c.method, c.path, c.body)
+	if c.upload == nil {
+		return e.request(t, e.clients[c.as], c.method, c.path, c.body)
+	}
+	var buf bytes.Buffer
+	form := multipart.NewWriter(&buf)
+	part, err := form.CreateFormFile("file", c.upload.name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = part.Write(c.upload.content)
+	_ = form.Close()
+	return e.send(t, e.clients[c.as], c.method, c.path, &buf, form.FormDataContentType())
 }
 
 func (e *testEnv) request(t *testing.T, client *http.Client, method, path string, body any) (int, []byte, string) {
 	t.Helper()
-	var reader io.Reader
-	if body != nil {
-		raw, err := json.Marshal(body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		reader = bytes.NewReader(raw)
+	if body == nil {
+		return e.send(t, client, method, path, nil, "")
 	}
-	req, err := http.NewRequest(method, e.srv.URL+"/api/v1"+path, reader)
+	raw, err := json.Marshal(body)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+	return e.send(t, client, method, path, bytes.NewReader(raw), "application/json")
+}
+
+func (e *testEnv) send(t *testing.T, client *http.Client, method, path string, body io.Reader, contentType string) (int, []byte, string) {
+	t.Helper()
+	req, err := http.NewRequest(method, e.srv.URL+"/api/v1"+path, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 	res, err := client.Do(req)
 	if err != nil {

@@ -36,10 +36,7 @@ type NewUser struct {
 
 type createUserInput struct{ Body NewUser }
 
-type userCreatedOutput struct {
-	Status int
-	Body   *User
-}
+type userCreatedOutput struct{ Body *User }
 
 func (h *AdminUsers) Create(ctx context.Context, in *createUserInput) (*userCreatedOutput, error) {
 	req := in.Body
@@ -57,7 +54,7 @@ func (h *AdminUsers) Create(ctx context.Context, in *createUserInput) (*userCrea
 	if err != nil {
 		return nil, err
 	}
-	return &userCreatedOutput{Status: http.StatusCreated, Body: user}, nil
+	return &userCreatedOutput{Body: user}, nil
 }
 
 // AdminUserUpdate is a partial update: absent fields keep their value.

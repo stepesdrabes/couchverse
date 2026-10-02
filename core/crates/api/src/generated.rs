@@ -5,6 +5,183 @@ pub mod types {
     use serde::{Deserialize, Serialize};
     use std::collections::BTreeMap;
 
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AchievementCheck {
+        pub rank: CheckedRank,
+        pub throttled: bool,
+        pub unlocked: Vec<AchievementProgress>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AchievementProgress {
+        pub category: AchievementProgressCategory,
+        /// Stable achievement code (the catalogue only grows).
+        pub code: String,
+        pub percent: i64,
+        pub target: i64,
+        pub tier: AchievementProgressTier,
+        pub unlocked: bool,
+        /// When a check first recorded the unlock; null until then.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub unlocked_at: Option<String>,
+        /// Progress towards target, capped at it.
+        pub value: i64,
+        /// XP the badge awards.
+        pub xp: i64,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum AchievementProgressCategory {
+        #[serde(rename = "watching")]
+        Watching,
+        #[serde(rename = "streaks")]
+        Streaks,
+        #[serde(rename = "explorer")]
+        Explorer,
+        #[serde(rename = "couch")]
+        Couch,
+        #[serde(rename = "meta")]
+        Meta,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl AchievementProgressCategory {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                AchievementProgressCategory::Watching => "watching",
+                AchievementProgressCategory::Streaks => "streaks",
+                AchievementProgressCategory::Explorer => "explorer",
+                AchievementProgressCategory::Couch => "couch",
+                AchievementProgressCategory::Meta => "meta",
+                AchievementProgressCategory::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for AchievementProgressCategory {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum AchievementProgressTier {
+        #[serde(rename = "bronze")]
+        Bronze,
+        #[serde(rename = "silver")]
+        Silver,
+        #[serde(rename = "gold")]
+        Gold,
+        #[serde(rename = "platinum")]
+        Platinum,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl AchievementProgressTier {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                AchievementProgressTier::Bronze => "bronze",
+                AchievementProgressTier::Silver => "silver",
+                AchievementProgressTier::Gold => "gold",
+                AchievementProgressTier::Platinum => "platinum",
+                AchievementProgressTier::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for AchievementProgressTier {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AchievementStat {
+        pub category: AchievementStatCategory,
+        pub code: String,
+        /// Gated off by a feature flag right now.
+        pub hidden: bool,
+        pub tier: AchievementStatTier,
+        /// How many members hold it.
+        pub unlocked: i64,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum AchievementStatCategory {
+        #[serde(rename = "watching")]
+        Watching,
+        #[serde(rename = "streaks")]
+        Streaks,
+        #[serde(rename = "explorer")]
+        Explorer,
+        #[serde(rename = "couch")]
+        Couch,
+        #[serde(rename = "meta")]
+        Meta,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl AchievementStatCategory {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                AchievementStatCategory::Watching => "watching",
+                AchievementStatCategory::Streaks => "streaks",
+                AchievementStatCategory::Explorer => "explorer",
+                AchievementStatCategory::Couch => "couch",
+                AchievementStatCategory::Meta => "meta",
+                AchievementStatCategory::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for AchievementStatCategory {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum AchievementStatTier {
+        #[serde(rename = "bronze")]
+        Bronze,
+        #[serde(rename = "silver")]
+        Silver,
+        #[serde(rename = "gold")]
+        Gold,
+        #[serde(rename = "platinum")]
+        Platinum,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl AchievementStatTier {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                AchievementStatTier::Bronze => "bronze",
+                AchievementStatTier::Silver => "silver",
+                AchievementStatTier::Gold => "gold",
+                AchievementStatTier::Platinum => "platinum",
+                AchievementStatTier::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for AchievementStatTier {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum AdminListLibrarySort {
         #[serde(rename = "added")]
@@ -107,6 +284,124 @@ pub mod types {
         pub subtitles_by_file: BTreeMap<String, Vec<Subtitle>>,
         pub title: Title,
         pub translations: BTreeMap<String, Translation>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AdminUserUpdate {
+        /// Disabling an account also signs it out everywhere.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub disabled: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub display_name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub password: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub role: Option<AdminUserUpdateRole>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum AdminUserUpdateRole {
+        #[serde(rename = "admin")]
+        Admin,
+        #[serde(rename = "member")]
+        Member,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl AdminUserUpdateRole {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                AdminUserUpdateRole::Admin => "admin",
+                AdminUserUpdateRole::Member => "member",
+                AdminUserUpdateRole::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for AdminUserUpdateRole {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AnalyticsDay {
+        pub active_users: i64,
+        /// Seconds followers watched on a couch.
+        pub couch_seconds: i64,
+        pub day: String,
+        pub video_seconds: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AnalyticsOverview {
+        pub daily: Vec<AnalyticsDay>,
+        pub days: i64,
+        pub top_couch_titles: Vec<AnalyticsTopTitle>,
+        pub top_titles: Vec<AnalyticsTopTitle>,
+        pub top_users: Vec<AnalyticsTopUser>,
+        pub totals: AnalyticsTotals,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AnalyticsTopTitle {
+        pub kind: AnalyticsTopTitleKind,
+        pub name: String,
+        pub seconds: i64,
+        pub slug: String,
+        pub title_id: String,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum AnalyticsTopTitleKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "series")]
+        Series,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl AnalyticsTopTitleKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                AnalyticsTopTitleKind::Movie => "movie",
+                AnalyticsTopTitleKind::Series => "series",
+                AnalyticsTopTitleKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for AnalyticsTopTitleKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AnalyticsTopUser {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub avatar_id: Option<String>,
+        pub display_name: String,
+        pub seconds: i64,
+        pub user_id: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AnalyticsTotals {
+        pub active_users: i64,
+        /// Seconds followers watched on a couch.
+        pub couch_seconds: i64,
+        pub video_seconds: i64,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -265,6 +560,20 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct CheckedRank {
+        /// XP earned inside the current tier.
+        pub into_tier: i64,
+        pub next: NextRankTier,
+        /// Progress through the current tier; 100 at the top tier.
+        pub percent: i64,
+        pub tier: RankTier,
+        /// XP between this tier and the next; 0 at the top tier.
+        pub tier_span: i64,
+        pub xp: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct ContinueItem {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub backdrop_accent: Option<String>,
@@ -292,6 +601,13 @@ pub mod types {
         pub updated_at: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub year: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Credentials {
+        pub password: String,
+        pub username: String,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -394,6 +710,36 @@ pub mod types {
         pub name: String,
     }
 
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum GetLeaderboardPeriod {
+        #[serde(rename = "all")]
+        All,
+        #[serde(rename = "week")]
+        Week,
+        #[serde(rename = "month")]
+        Month,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl GetLeaderboardPeriod {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                GetLeaderboardPeriod::All => "all",
+                GetLeaderboardPeriod::Week => "week",
+                GetLeaderboardPeriod::Month => "month",
+                GetLeaderboardPeriod::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for GetLeaderboardPeriod {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Home {
@@ -435,6 +781,117 @@ pub mod types {
     }
 
     impl std::fmt::Display for HomeRowKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Leaderboard {
+        /// The caller opted out, so is missing from rows.
+        pub hidden: bool,
+        /// The caller's own row, listed or not.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub me: Option<LeaderboardRow>,
+        pub period: LeaderboardPeriod,
+        pub rows: Vec<LeaderboardRow>,
+        pub total: i64,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum LeaderboardPeriod {
+        #[serde(rename = "all")]
+        All,
+        #[serde(rename = "week")]
+        Week,
+        #[serde(rename = "month")]
+        Month,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl LeaderboardPeriod {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                LeaderboardPeriod::All => "all",
+                LeaderboardPeriod::Week => "week",
+                LeaderboardPeriod::Month => "month",
+                LeaderboardPeriod::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for LeaderboardPeriod {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct LeaderboardRow {
+        /// Achievements unlocked within the period.
+        pub achievements: i64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub avatar_id: Option<String>,
+        pub display_name: String,
+        pub is_self: bool,
+        pub level: i64,
+        pub tier_code: LeaderboardRowTierCode,
+        pub username: String,
+        /// Watch time within the period.
+        pub watch_seconds: i64,
+        pub xp: i64,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum LeaderboardRowTierCode {
+        #[serde(rename = "rookie")]
+        Rookie,
+        #[serde(rename = "remote")]
+        Remote,
+        #[serde(rename = "snack")]
+        Snack,
+        #[serde(rename = "binger")]
+        Binger,
+        #[serde(rename = "popcorn")]
+        Popcorn,
+        #[serde(rename = "marathoner")]
+        Marathoner,
+        #[serde(rename = "sage")]
+        Sage,
+        #[serde(rename = "cinephile")]
+        Cinephile,
+        #[serde(rename = "master")]
+        Master,
+        #[serde(rename = "legend")]
+        Legend,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl LeaderboardRowTierCode {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                LeaderboardRowTierCode::Rookie => "rookie",
+                LeaderboardRowTierCode::Remote => "remote",
+                LeaderboardRowTierCode::Snack => "snack",
+                LeaderboardRowTierCode::Binger => "binger",
+                LeaderboardRowTierCode::Popcorn => "popcorn",
+                LeaderboardRowTierCode::Marathoner => "marathoner",
+                LeaderboardRowTierCode::Sage => "sage",
+                LeaderboardRowTierCode::Cinephile => "cinephile",
+                LeaderboardRowTierCode::Master => "master",
+                LeaderboardRowTierCode::Legend => "legend",
+                LeaderboardRowTierCode::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for LeaderboardRowTierCode {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -507,6 +964,291 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct MemberRank {
+        pub achievements: i64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub avatar_id: Option<String>,
+        pub couch_hosted: i64,
+        pub display_name: String,
+        pub level: i64,
+        pub public: bool,
+        pub tier_code: MemberRankTierCode,
+        pub user_id: i64,
+        pub username: String,
+        pub watch_seconds: i64,
+        pub xp: i64,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum MemberRankTierCode {
+        #[serde(rename = "rookie")]
+        Rookie,
+        #[serde(rename = "remote")]
+        Remote,
+        #[serde(rename = "snack")]
+        Snack,
+        #[serde(rename = "binger")]
+        Binger,
+        #[serde(rename = "popcorn")]
+        Popcorn,
+        #[serde(rename = "marathoner")]
+        Marathoner,
+        #[serde(rename = "sage")]
+        Sage,
+        #[serde(rename = "cinephile")]
+        Cinephile,
+        #[serde(rename = "master")]
+        Master,
+        #[serde(rename = "legend")]
+        Legend,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl MemberRankTierCode {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                MemberRankTierCode::Rookie => "rookie",
+                MemberRankTierCode::Remote => "remote",
+                MemberRankTierCode::Snack => "snack",
+                MemberRankTierCode::Binger => "binger",
+                MemberRankTierCode::Popcorn => "popcorn",
+                MemberRankTierCode::Marathoner => "marathoner",
+                MemberRankTierCode::Sage => "sage",
+                MemberRankTierCode::Cinephile => "cinephile",
+                MemberRankTierCode::Master => "master",
+                MemberRankTierCode::Legend => "legend",
+                MemberRankTierCode::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for MemberRankTierCode {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct NewUser {
+        /// Defaults to the username.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub display_name: Option<String>,
+        pub password: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub role: Option<NewUserRole>,
+        pub username: String,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum NewUserRole {
+        #[serde(rename = "admin")]
+        Admin,
+        #[serde(rename = "member")]
+        Member,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl NewUserRole {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                NewUserRole::Admin => "admin",
+                NewUserRole::Member => "member",
+                NewUserRole::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for NewUserRole {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct NextRankTier {
+        pub code: NextRankTierCode,
+        pub colour: String,
+        pub level: i64,
+        pub min_xp: i64,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum NextRankTierCode {
+        #[serde(rename = "rookie")]
+        Rookie,
+        #[serde(rename = "remote")]
+        Remote,
+        #[serde(rename = "snack")]
+        Snack,
+        #[serde(rename = "binger")]
+        Binger,
+        #[serde(rename = "popcorn")]
+        Popcorn,
+        #[serde(rename = "marathoner")]
+        Marathoner,
+        #[serde(rename = "sage")]
+        Sage,
+        #[serde(rename = "cinephile")]
+        Cinephile,
+        #[serde(rename = "master")]
+        Master,
+        #[serde(rename = "legend")]
+        Legend,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl NextRankTierCode {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                NextRankTierCode::Rookie => "rookie",
+                NextRankTierCode::Remote => "remote",
+                NextRankTierCode::Snack => "snack",
+                NextRankTierCode::Binger => "binger",
+                NextRankTierCode::Popcorn => "popcorn",
+                NextRankTierCode::Marathoner => "marathoner",
+                NextRankTierCode::Sage => "sage",
+                NextRankTierCode::Cinephile => "cinephile",
+                NextRankTierCode::Master => "master",
+                NextRankTierCode::Legend => "legend",
+                NextRankTierCode::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for NextRankTierCode {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct PasswordChange {
+        pub current_password: String,
+        pub new_password: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Preferences {
+        /// Saved display language (ISO 639-1), restored on sign-in.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub language: Option<String>,
+        /// Appear on public profiles and leaderboards; absent means yes.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub public_profile: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub subtitles: Option<SubtitlePreferences>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ProfileActivity {
+        /// Watch seconds per day, oldest first, ending today.
+        pub days: Vec<i64>,
+        /// Day of days[0].
+        pub from: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ProfileHourBucket {
+        pub hour: i64,
+        pub video_seconds: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ProfileTopTitle {
+        pub kind: ProfileTopTitleKind,
+        pub name: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub poster_id: Option<String>,
+        pub seconds: i64,
+        pub slug: String,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum ProfileTopTitleKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "series")]
+        Series,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl ProfileTopTitleKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                ProfileTopTitleKind::Movie => "movie",
+                ProfileTopTitleKind::Series => "series",
+                ProfileTopTitleKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for ProfileTopTitleKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ProfileTotals {
+        pub active_days: i64,
+        pub best_day_minutes: i64,
+        pub biggest_couch: i64,
+        pub couch_hosted: i64,
+        pub couch_joined: i64,
+        pub current_streak: i64,
+        pub distinct_genres: i64,
+        pub distinct_titles: i64,
+        pub emoji_sent: i64,
+        pub episodes_completed: i64,
+        pub longest_streak: i64,
+        pub movies_completed: i64,
+        pub series_completed: i64,
+        pub video_seconds: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ProfileUpdate {
+        /// Markdown; absent keeps the current bio.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub bio: Option<String>,
+        pub display_name: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ProfileUser {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub avatar_id: Option<String>,
+        /// Hex colour extracted from the banner; empty when there is none.
+        pub banner_accent: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub banner_id: Option<String>,
+        /// Markdown, rendered with raw HTML disabled.
+        pub bio: String,
+        pub display_name: String,
+        pub member_since: String,
+        pub username: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct ProgressReport {
         pub duration_seconds: i64,
         /// Set for an episode; exactly one of titleId and episodeId.
@@ -519,6 +1261,124 @@ pub mod types {
         /// Seconds actually played since the previous report (feeds analytics).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub watched_seconds: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct RankConfig {
+        pub rates: RankRates,
+        /// XP each tier starts at, rookie first; starts at 0 and strictly ascends.
+        pub tiers: Vec<i64>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct RankProgress {
+        /// XP earned inside the current tier.
+        pub into_tier: i64,
+        pub next: NextRankTier,
+        /// Progress through the current tier; 100 at the top tier.
+        pub percent: i64,
+        pub tier: RankTier,
+        /// XP between this tier and the next; 0 at the top tier.
+        pub tier_span: i64,
+        pub xp: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct RankRates {
+        /// XP per bronze achievement.
+        pub bronze: i64,
+        /// XP per couch session hosted.
+        pub couch_host: i64,
+        /// XP per couch session joined.
+        pub couch_join: i64,
+        /// XP per completed episode.
+        pub episode: i64,
+        /// XP per gold achievement.
+        pub gold: i64,
+        /// XP per completed movie.
+        pub movie: i64,
+        /// XP per platinum achievement.
+        pub platinum: i64,
+        /// XP per silver achievement.
+        pub silver: i64,
+        /// XP per minute of video watched.
+        pub video_minute: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct RankTier {
+        pub code: RankTierCode,
+        pub colour: String,
+        pub level: i64,
+        pub min_xp: i64,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum RankTierCode {
+        #[serde(rename = "rookie")]
+        Rookie,
+        #[serde(rename = "remote")]
+        Remote,
+        #[serde(rename = "snack")]
+        Snack,
+        #[serde(rename = "binger")]
+        Binger,
+        #[serde(rename = "popcorn")]
+        Popcorn,
+        #[serde(rename = "marathoner")]
+        Marathoner,
+        #[serde(rename = "sage")]
+        Sage,
+        #[serde(rename = "cinephile")]
+        Cinephile,
+        #[serde(rename = "master")]
+        Master,
+        #[serde(rename = "legend")]
+        Legend,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl RankTierCode {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                RankTierCode::Rookie => "rookie",
+                RankTierCode::Remote => "remote",
+                RankTierCode::Snack => "snack",
+                RankTierCode::Binger => "binger",
+                RankTierCode::Popcorn => "popcorn",
+                RankTierCode::Marathoner => "marathoner",
+                RankTierCode::Sage => "sage",
+                RankTierCode::Cinephile => "cinephile",
+                RankTierCode::Master => "master",
+                RankTierCode::Legend => "legend",
+                RankTierCode::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for RankTierCode {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct RanksOverview {
+        pub achievements: Vec<AchievementStat>,
+        pub average_level: f64,
+        pub config: RankConfig,
+        pub members: i64,
+        pub rows: Vec<MemberRank>,
+        pub tiers: Vec<TierBucket>,
+        pub total_unlocks: i64,
+        pub total_xp: i64,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -564,6 +1424,116 @@ pub mod types {
         pub lang: String,
         pub media_file_id: String,
         pub source: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SubtitlePreferences {
+        /// Opacity of the box behind the text, in percent.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub background_opacity: Option<i64>,
+        /// Text colour as #rrggbb.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub color: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub font_family: Option<SubtitlePreferencesFontFamily>,
+        /// Text size as a percentage of the default.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub font_size_pct: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum SubtitlePreferencesFontFamily {
+        #[serde(rename = "sans")]
+        Sans,
+        #[serde(rename = "serif")]
+        Serif,
+        #[serde(rename = "mono")]
+        Mono,
+        #[serde(rename = "rounded")]
+        Rounded,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl SubtitlePreferencesFontFamily {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                SubtitlePreferencesFontFamily::Sans => "sans",
+                SubtitlePreferencesFontFamily::Serif => "serif",
+                SubtitlePreferencesFontFamily::Mono => "mono",
+                SubtitlePreferencesFontFamily::Rounded => "rounded",
+                SubtitlePreferencesFontFamily::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for SubtitlePreferencesFontFamily {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct TierBucket {
+        pub code: TierBucketCode,
+        pub colour: String,
+        pub level: i64,
+        pub members: i64,
+        pub min_xp: i64,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum TierBucketCode {
+        #[serde(rename = "rookie")]
+        Rookie,
+        #[serde(rename = "remote")]
+        Remote,
+        #[serde(rename = "snack")]
+        Snack,
+        #[serde(rename = "binger")]
+        Binger,
+        #[serde(rename = "popcorn")]
+        Popcorn,
+        #[serde(rename = "marathoner")]
+        Marathoner,
+        #[serde(rename = "sage")]
+        Sage,
+        #[serde(rename = "cinephile")]
+        Cinephile,
+        #[serde(rename = "master")]
+        Master,
+        #[serde(rename = "legend")]
+        Legend,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl TierBucketCode {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                TierBucketCode::Rookie => "rookie",
+                TierBucketCode::Remote => "remote",
+                TierBucketCode::Snack => "snack",
+                TierBucketCode::Binger => "binger",
+                TierBucketCode::Popcorn => "popcorn",
+                TierBucketCode::Marathoner => "marathoner",
+                TierBucketCode::Sage => "sage",
+                TierBucketCode::Cinephile => "cinephile",
+                TierBucketCode::Master => "master",
+                TierBucketCode::Legend => "legend",
+                TierBucketCode::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for TierBucketCode {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -726,6 +1696,130 @@ pub mod types {
         pub name: String,
         pub overview: String,
     }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct User {
+        /// Artwork id of the profile picture.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub avatar_id: Option<String>,
+        /// Artwork id of the profile banner.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub banner_id: Option<String>,
+        /// Markdown, rendered with raw HTML disabled.
+        pub bio: String,
+        pub created_at: String,
+        pub disabled: bool,
+        pub display_name: String,
+        pub id: i64,
+        pub role: UserRole,
+        pub username: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct UserProfile {
+        pub achievements: Vec<AchievementProgress>,
+        pub achievements_won: i64,
+        pub activity: ProfileActivity,
+        /// Most watched genre's label in the display language; empty when none.
+        pub favourite_genre: String,
+        /// Watch time by hour of day, always 24 entries.
+        pub hours: Vec<ProfileHourBucket>,
+        pub is_self: bool,
+        /// Whether the member appears on public profiles and leaderboards.
+        pub public: bool,
+        pub rank: RankProgress,
+        /// Newest unlocked achievements first.
+        pub recent_unlocks: Vec<AchievementProgress>,
+        pub top_titles: Vec<ProfileTopTitle>,
+        pub totals: ProfileTotals,
+        pub user: ProfileUser,
+        pub xp: XpResult,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum UserRole {
+        #[serde(rename = "admin")]
+        Admin,
+        #[serde(rename = "member")]
+        Member,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl UserRole {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                UserRole::Admin => "admin",
+                UserRole::Member => "member",
+                UserRole::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for UserRole {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct XpResult {
+        pub sources: Vec<XpSource>,
+        pub total: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct XpSource {
+        pub key: XpSourceKey,
+        /// XP per unit; 0 for achievements, whose reward varies by tier.
+        pub rate: i64,
+        pub units: i64,
+        pub xp: i64,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum XpSourceKey {
+        #[serde(rename = "video")]
+        Video,
+        #[serde(rename = "movies")]
+        Movies,
+        #[serde(rename = "episodes")]
+        Episodes,
+        #[serde(rename = "couchHosted")]
+        CouchHosted,
+        #[serde(rename = "couchJoined")]
+        CouchJoined,
+        #[serde(rename = "achievements")]
+        Achievements,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl XpSourceKey {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                XpSourceKey::Video => "video",
+                XpSourceKey::Movies => "movies",
+                XpSourceKey::Episodes => "episodes",
+                XpSourceKey::CouchHosted => "couchHosted",
+                XpSourceKey::CouchJoined => "couchJoined",
+                XpSourceKey::Achievements => "achievements",
+                XpSourceKey::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for XpSourceKey {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
 }
 
 pub mod ops {
@@ -851,9 +1945,14 @@ pub mod ops {
     }
 
     /// `POST /admin/users`
-    pub fn admin_create_user() -> Request {
+    pub fn admin_create_user(body: &NewUser) -> Call<User> {
         let q = Vec::new();
-        build::request(Method::Post, "/admin/users".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Post,
+            "/admin/users".to_string(),
+            q,
+            Some(body),
+        ))
     }
 
     /// `DELETE /admin/artwork/{id}`
@@ -938,14 +2037,14 @@ pub mod ops {
     }
 
     /// `DELETE /admin/users/{id}`
-    pub fn admin_delete_user() -> Request {
+    pub fn admin_delete_user(id: i64) -> Call<NoContent> {
         let q = Vec::new();
-        build::request(
+        build::no_content(build::request(
             Method::Delete,
-            "/admin/users/{id}".to_string(),
+            format!("/admin/users/{}", build::segment(&id.to_string())),
             q,
             None::<&()>,
-        )
+        ))
     }
 
     /// `DELETE /admin/transcode-variants/{id}`
@@ -970,15 +2069,23 @@ pub mod ops {
         )
     }
 
+    /// Query parameters of [`admin_get_analytics`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct AdminGetAnalyticsQuery {
+        /// Window in days ending today, clamped to 1..365.
+        pub days: Option<i64>,
+    }
+
     /// `GET /admin/analytics/overview`
-    pub fn admin_get_analytics() -> Request {
-        let q = Vec::new();
-        build::request(
+    pub fn admin_get_analytics(query: &AdminGetAnalyticsQuery) -> Call<AnalyticsOverview> {
+        let mut q = Vec::new();
+        build::push(&mut q, "days", query.days.as_ref());
+        build::json(build::request(
             Method::Get,
             "/admin/analytics/overview".to_string(),
             q,
             None::<&()>,
-        )
+        ))
     }
 
     /// `GET /admin/episodes/{id}/translations`
@@ -1011,9 +2118,14 @@ pub mod ops {
     }
 
     /// `GET /admin/ranks`
-    pub fn admin_get_ranks() -> Request {
+    pub fn admin_get_ranks() -> Call<RanksOverview> {
         let q = Vec::new();
-        build::request(Method::Get, "/admin/ranks".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Get,
+            "/admin/ranks".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 
     /// `GET /admin/settings`
@@ -1163,9 +2275,14 @@ pub mod ops {
     }
 
     /// `GET /admin/users`
-    pub fn admin_list_users() -> Request {
+    pub fn admin_list_users() -> Call<Vec<User>> {
         let q = Vec::new();
-        build::request(Method::Get, "/admin/users".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Get,
+            "/admin/users".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 
     /// `GET /admin/media-files/{id}/variants`
@@ -1268,14 +2385,14 @@ pub mod ops {
     }
 
     /// `PUT /admin/ranks/config`
-    pub fn admin_update_ranks_config() -> Request {
+    pub fn admin_update_ranks_config(body: &RankConfig) -> Call<RankConfig> {
         let q = Vec::new();
-        build::request(
+        build::json(build::request(
             Method::Put,
             "/admin/ranks/config".to_string(),
             q,
-            None::<&()>,
-        )
+            Some(body),
+        ))
     }
 
     /// `PUT /admin/settings`
@@ -1296,14 +2413,14 @@ pub mod ops {
     }
 
     /// `PATCH /admin/users/{id}`
-    pub fn admin_update_user() -> Request {
+    pub fn admin_update_user(id: i64, body: &AdminUserUpdate) -> Call<User> {
         let q = Vec::new();
-        build::request(
+        build::json(build::request(
             Method::Patch,
-            "/admin/users/{id}".to_string(),
+            format!("/admin/users/{}", build::segment(&id.to_string())),
             q,
-            None::<&()>,
-        )
+            Some(body),
+        ))
     }
 
     /// `POST /admin/artwork`
@@ -1357,20 +2474,25 @@ pub mod ops {
     }
 
     /// `PATCH /me/password`
-    pub fn change_password() -> Request {
+    pub fn change_password(body: &PasswordChange) -> Call<NoContent> {
         let q = Vec::new();
-        build::request(Method::Patch, "/me/password".to_string(), q, None::<&()>)
+        build::no_content(build::request(
+            Method::Patch,
+            "/me/password".to_string(),
+            q,
+            Some(body),
+        ))
     }
 
     /// `POST /me/achievements/check`
-    pub fn check_achievements() -> Request {
+    pub fn check_achievements() -> Call<AchievementCheck> {
         let q = Vec::new();
-        build::request(
+        build::json(build::request(
             Method::Post,
             "/me/achievements/check".to_string(),
             q,
             None::<&()>,
-        )
+        ))
     }
 
     /// `GET /couch/{token}/ws`
@@ -1397,15 +2519,25 @@ pub mod ops {
     }
 
     /// `DELETE /me/avatar`
-    pub fn delete_avatar() -> Request {
+    pub fn delete_avatar() -> Call<User> {
         let q = Vec::new();
-        build::request(Method::Delete, "/me/avatar".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Delete,
+            "/me/avatar".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 
     /// `DELETE /me/banner`
-    pub fn delete_banner() -> Request {
+    pub fn delete_banner() -> Call<User> {
         let q = Vec::new();
-        build::request(Method::Delete, "/me/banner".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Delete,
+            "/me/banner".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 
     /// `POST /couch/{token}/end`
@@ -1494,22 +2626,52 @@ pub mod ops {
         ))
     }
 
+    /// Query parameters of [`get_leaderboard`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct GetLeaderboardQuery {
+        pub period: Option<GetLeaderboardPeriod>,
+    }
+
     /// `GET /leaderboard`
-    pub fn get_leaderboard() -> Request {
-        let q = Vec::new();
-        build::request(Method::Get, "/leaderboard".to_string(), q, None::<&()>)
+    pub fn get_leaderboard(query: &GetLeaderboardQuery) -> Call<Leaderboard> {
+        let mut q = Vec::new();
+        build::push(&mut q, "period", query.period.as_ref());
+        build::json(build::request(
+            Method::Get,
+            "/leaderboard".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 
     /// `GET /auth/me`
-    pub fn get_me() -> Request {
+    pub fn get_me() -> Call<User> {
         let q = Vec::new();
-        build::request(Method::Get, "/auth/me".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Get,
+            "/auth/me".to_string(),
+            q,
+            None::<&()>,
+        ))
+    }
+
+    /// Query parameters of [`get_my_stats`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct GetMyStatsQuery {
+        /// Display language (ISO 639-1). Empty serves the base text.
+        pub lang: Option<String>,
     }
 
     /// `GET /me/stats`
-    pub fn get_my_stats() -> Request {
-        let q = Vec::new();
-        build::request(Method::Get, "/me/stats".to_string(), q, None::<&()>)
+    pub fn get_my_stats(query: &GetMyStatsQuery) -> Call<UserProfile> {
+        let mut q = Vec::new();
+        build::push(&mut q, "lang", query.lang.as_ref());
+        build::json(build::request(
+            Method::Get,
+            "/me/stats".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 
     /// `GET /playback/{kind}/{id}`
@@ -1524,20 +2686,33 @@ pub mod ops {
     }
 
     /// `GET /me/preferences`
-    pub fn get_preferences() -> Request {
+    pub fn get_preferences() -> Call<Preferences> {
         let q = Vec::new();
-        build::request(Method::Get, "/me/preferences".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Get,
+            "/me/preferences".to_string(),
+            q,
+            None::<&()>,
+        ))
+    }
+
+    /// Query parameters of [`get_profile`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct GetProfileQuery {
+        /// Display language (ISO 639-1). Empty serves the base text.
+        pub lang: Option<String>,
     }
 
     /// `GET /users/{username}/profile`
-    pub fn get_profile() -> Request {
-        let q = Vec::new();
-        build::request(
+    pub fn get_profile(username: &str, query: &GetProfileQuery) -> Call<UserProfile> {
+        let mut q = Vec::new();
+        build::push(&mut q, "lang", query.lang.as_ref());
+        build::json(build::request(
             Method::Get,
-            "/users/{username}/profile".to_string(),
+            format!("/users/{}/profile", build::segment(username)),
             q,
             None::<&()>,
-        )
+        ))
     }
 
     /// `GET /stream/{id}/frame`
@@ -1689,15 +2864,25 @@ pub mod ops {
     }
 
     /// `POST /auth/login`
-    pub fn login() -> Request {
+    pub fn login(body: &Credentials) -> Call<User> {
         let q = Vec::new();
-        build::request(Method::Post, "/auth/login".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Post,
+            "/auth/login".to_string(),
+            q,
+            Some(body),
+        ))
     }
 
     /// `POST /auth/logout`
-    pub fn logout() -> Request {
+    pub fn logout() -> Call<NoContent> {
         let q = Vec::new();
-        build::request(Method::Post, "/auth/logout".to_string(), q, None::<&()>)
+        build::no_content(build::request(
+            Method::Post,
+            "/auth/logout".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 
     /// `DELETE /me/watchlist/{titleId}`
@@ -1761,26 +2946,46 @@ pub mod ops {
     }
 
     /// `PUT /me/preferences`
-    pub fn update_preferences() -> Request {
+    pub fn update_preferences(body: &Preferences) -> Call<Preferences> {
         let q = Vec::new();
-        build::request(Method::Put, "/me/preferences".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Put,
+            "/me/preferences".to_string(),
+            q,
+            Some(body),
+        ))
     }
 
     /// `PATCH /me/profile`
-    pub fn update_profile() -> Request {
+    pub fn update_profile(body: &ProfileUpdate) -> Call<User> {
         let q = Vec::new();
-        build::request(Method::Patch, "/me/profile".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Patch,
+            "/me/profile".to_string(),
+            q,
+            Some(body),
+        ))
     }
 
     /// `POST /me/avatar`
-    pub fn upload_avatar() -> Request {
+    pub fn upload_avatar() -> Call<User> {
         let q = Vec::new();
-        build::request(Method::Post, "/me/avatar".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Post,
+            "/me/avatar".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 
     /// `POST /me/banner`
-    pub fn upload_banner() -> Request {
+    pub fn upload_banner() -> Call<User> {
         let q = Vec::new();
-        build::request(Method::Post, "/me/banner".to_string(), q, None::<&()>)
+        build::json(build::request(
+            Method::Post,
+            "/me/banner".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 }

@@ -61,7 +61,7 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     scored against one `Snapshot` (unit-tested without a database); gated rules are absent, not
     locked, when their feature flag is off. Gated by the admin `rankingsEnabled` flag, except
     `/admin/ranks`, which stays reachable so an admin can retune progression while it is off.
-    XP rates and tier thresholds are admin-editable (`ranks.Config` in the `ranks` settings
+    XP rates and tier thresholds are admin-editable (`ranks.RankConfig` in the `ranks` settings
     key) and threaded through the pure functions as an argument rather than read globally.
   - **User-authored markdown** (profile bios) renders through `lib/utils/markdown.ts` - one
     shared markdown-it instance with `html: false`. That is the security boundary: raw HTML is

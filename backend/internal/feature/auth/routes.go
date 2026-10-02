@@ -42,7 +42,7 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.User, tag.Op("deleteBanner", http.MethodDelete, "/me/banner"), m.profile.DeleteBanner)
 
 	huma.Register(rt.Admin, tag.Op("adminListUsers", http.MethodGet, "/users"), m.admin.List)
-	huma.Register(rt.Admin, tag.Op("adminCreateUser", http.MethodPost, "/users"), m.admin.Create)
+	huma.Register(rt.Admin, tag.Created("adminCreateUser", http.MethodPost, "/users"), m.admin.Create)
 	huma.Register(rt.Admin, tag.Op("adminUpdateUser", http.MethodPatch, "/users/{id}"), m.admin.Update)
 	huma.Register(rt.Admin, tag.NoContent("adminDeleteUser", http.MethodDelete, "/users/{id}"), m.admin.Delete)
 }
