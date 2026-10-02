@@ -297,6 +297,17 @@ func apiCases() []apiCase {
 		{op: "adminDeleteArtwork", as: "admin", method: "DELETE", path: "/admin/artwork/" + thumbArtID, status: 204},
 		{op: "adminDeleteArtwork", as: "admin", method: "DELETE", path: "/admin/artwork/" + thumbArtID, status: 404},
 
+		{op: "adminListSubtitles", as: "admin", method: "GET", path: "/admin/media-files/" + movieFileID + "/subtitles", status: 200},
+		{op: "adminUploadSubtitle", as: "admin", method: "POST", path: "/admin/media-files/" + movieFileID + "/subtitles",
+			upload: &upload{"commentary.vtt", []byte("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello\n")},
+			fields: map[string]string{"lang": "de", "label": "Deutsch"}, status: 201},
+		{op: "adminUploadSubtitle", as: "admin", method: "POST", path: "/admin/media-files/" + movieFileID + "/subtitles",
+			upload: &upload{"commentary.txt", []byte("hello")}, status: 400},
+		{op: "adminUploadSubtitle", as: "admin", method: "POST", path: "/admin/media-files/" + unknownID + "/subtitles",
+			upload: &upload{"commentary.vtt", []byte("WEBVTT\n")}, status: 404},
+		{op: "adminDeleteSubtitle", as: "admin", method: "DELETE", path: "/admin/subtitles/" + movieSubID, status: 204},
+		{op: "adminDeleteSubtitle", as: "admin", method: "DELETE", path: "/admin/subtitles/" + movieSubID, status: 404},
+
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "wrong", "newPassword": "long enough"}, status: 400},
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "admin", "newPassword": "long enough"}, status: 204},
 		{op: "logout", as: "admin", method: "POST", path: "/auth/logout", status: 204},

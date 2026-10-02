@@ -2,17 +2,40 @@ package subtitles
 
 import (
 	"net/http"
+	"reflect"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/httpx"
 )
 
-func (h *Subtitles) Register(rt httpx.Routes) {
-	tags := []string{"subtitles"}
-	httpx.Raw(rt.User, huma.Operation{OperationID: "getSubtitle", Method: http.MethodGet, Path: "/subtitles/{id}.vtt", Tags: tags}, h.Serve)
+const tag httpx.Tag = "subtitles"
 
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminListSubtitles", Method: http.MethodGet, Path: "/media-files/{id}/subtitles", Tags: tags}, h.ListForMediaFile)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUploadSubtitle", Method: http.MethodPost, Path: "/media-files/{id}/subtitles", Tags: tags}, h.Upload)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminDeleteSubtitle", Method: http.MethodDelete, Path: "/subtitles/{id}", Tags: tags}, h.Delete)
+func (h *Subtitles) Register(rt httpx.Routes) {
+	httpx.Raw(rt.User, serveOp(rt.User), h.Serve)
+
+	huma.Register(rt.Admin, tag.Op("adminListSubtitles", http.MethodGet, "/media-files/{id}/subtitles"), h.ListForMediaFile)
+	huma.Register(rt.Admin, tag.Created("adminUploadSubtitle", http.MethodPost, "/media-files/{id}/subtitles"), h.Upload)
+	huma.Register(rt.Admin, tag.NoContent("adminDeleteSubtitle", http.MethodDelete, "/subtitles/{id}"), h.Delete)
+}
+
+// serveOp documents the WebVTT route, which stays a plain handler because it
+// answers with the file itself rather than JSON.
+func serveOp(api huma.API) huma.Operation {
+	op := tag.Op("getSubtitle", http.MethodGet, "/subtitles/{id}.vtt")
+	op.Summary = "Get a subtitle track"
+	op.Description = "The track as a WebVTT side-car file for the player."
+	op.Parameters = []*huma.Param{
+		{Name: "id", In: "path", Required: true, Schema: &huma.Schema{Type: huma.TypeString, Format: "uuid"}},
+	}
+	op.Responses = map[string]*huma.Response{
+		"200": {Description: "The WebVTT file", Content: map[string]*huma.MediaType{
+			"text/vtt": {Schema: &huma.Schema{Type: huma.TypeString}},
+		}},
+		"304": {Description: "Not modified since If-Modified-Since"},
+		"default": {Description: "Error", Content: map[string]*huma.MediaType{
+			"application/json": {Schema: api.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[httpx.APIError](), true, "")},
+		}},
+	}
+	return op
 }
