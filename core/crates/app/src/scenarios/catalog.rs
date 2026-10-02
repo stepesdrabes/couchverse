@@ -440,3 +440,18 @@ fn the_web_builds_origin_relative_urls_without_grants() {
     let home: HomeView = shell.view(&Surface::Home);
     assert_eq!(home.featured[0].backdrop.as_ref().expect("backdrop").url, "/api/v1/artwork/b1?v=5");
 }
+
+#[test]
+fn a_my_list_change_survives_a_language_switch_while_in_flight() {
+    let mut shell = signed_in();
+    let surface = Surface::Title("glass-harbor".into());
+    open(&mut shell, surface.clone());
+    shell.respond("GET", &format!("{API}/titles/glass-harbor?lang=en"), 200, title_payload());
+    shell.send(Event::WatchlistChanged(WatchlistChange { title_id: "t1".into(), listed: true }));
+    shell.send(Event::DisplayLanguageChanged(LanguageChoice { code: "cs".into() }));
+
+    shell.fail("PUT", &format!("{API}/me/watchlist/t1"), HttpFailureKind::Offline);
+    assert_eq!(shell.view::<NoticesView>(&Surface::Notices).notices[0].code, "watchlist_failed");
+    shell.respond("GET", &format!("{API}/titles/glass-harbor?lang=cs"), 200, title_payload());
+    assert!(!shell.view::<TitleView>(&surface).detail.expect("detail").in_list, "rolled back");
+}

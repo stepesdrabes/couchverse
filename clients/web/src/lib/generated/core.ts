@@ -32,6 +32,22 @@ export interface AccountsView {
 	active?: string;
 }
 
+/** An achievement; `code` is localized by the shell (`achievement_<code>_name` and `_desc`). */
+export interface AchievementCard {
+	code: string;
+	/** `watching`, `streaks`, `explorer`, `couch` or `meta`. */
+	category: string;
+	/** `bronze`, `silver`, `gold` or `platinum`. */
+	tier: string;
+	unlocked: boolean;
+	unlockedAt?: string;
+	value: number;
+	target: number;
+	/** From 0 to 100. */
+	percent: number;
+	xp: number;
+}
+
 /**
  * Where a view model's data stands. `Stale` keeps the previous content while a refresh runs,
  * so a screen never blanks out (stale beats blank).
@@ -127,6 +143,11 @@ export interface BrowseView {
 	problem?: Problem;
 }
 
+export interface CheckRequest {
+	/** Check even inside the throttle window (the end of a title). */
+	force?: boolean;
+}
+
 export enum PlayKind {
 	Movie = "movie",
 	Episode = "episode",
@@ -218,7 +239,9 @@ export type Effect =
 	/** Read, write or delete non-secret state (servers, accounts, warm-start data). */
 	| { type: "store", content: StoreRequest }
 	/** These view models changed; re-read them with `view`. Fire-and-forget. */
-	| { type: "render", content: RenderRequest };
+	| { type: "render", content: RenderRequest }
+	/** Upload a file the shell holds as a multipart form; resolves like `Http`. */
+	| { type: "upload", content: UploadRequest };
 
 /**
  * Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -298,6 +321,20 @@ export interface HeadingBlock {
 	inlines: Inline[];
 }
 
+export interface HeatDay {
+	seconds: number;
+	/** 0 (nothing watched) to 4 (among the viewer's busiest days). */
+	level: number;
+}
+
+export interface Heatmap {
+	/** The date of `days[0]` (`YYYY-MM-DD`); the run ends today. */
+	from: string;
+	days: HeatDay[];
+	totalSeconds: number;
+	activeDays: number;
+}
+
 export enum HomeRowKind {
 	ContinueWatching = "continueWatching",
 	RecentlyAdded = "recentlyAdded",
@@ -351,9 +388,73 @@ export interface HttpResponse {
 	body: string;
 }
 
+export enum ImageSlot {
+	Avatar = "avatar",
+	Banner = "banner",
+}
+
+export interface ImageChoice {
+	slot: ImageSlot;
+	/** The shell's handle for the picked file; the upload effect hands it back. */
+	file: string;
+}
+
+export interface ImageSlotRef {
+	slot: ImageSlot;
+}
+
 export interface LanguageChoice {
 	/** ISO 639-1, one of the supported display languages. */
 	code: string;
+}
+
+export interface LeaderRow {
+	/** 1-based, by the board's metric. */
+	position: number;
+	username: string;
+	displayName: string;
+	avatar?: Image;
+	level: number;
+	tierCode: string;
+	/** The board's metric for this member. */
+	value: number;
+	xp: number;
+	watchSeconds: number;
+	achievements: number;
+	isSelf: boolean;
+}
+
+export enum Period {
+	All = "all",
+	Month = "month",
+	Week = "week",
+}
+
+/** What a leaderboard ranks by; one payload carries every metric, so switching costs nothing. */
+export enum Metric {
+	Xp = "xp",
+	Watch = "watch",
+	Achievements = "achievements",
+}
+
+export interface LeaderboardKey {
+	period: Period;
+	metric: Metric;
+}
+
+export interface LeaderboardView {
+	key: LeaderboardKey;
+	status: LoadStatus;
+	rows: LeaderRow[];
+	/** The viewer's place on this board, when listed. */
+	myPosition?: number;
+	/** The top three earned something, so a podium makes sense. */
+	podium: boolean;
+	/** Nobody has anything on this metric yet. */
+	allZero: boolean;
+	/** The viewer opted out of leaderboards, so is missing from the rows. */
+	hidden: boolean;
+	problem?: Problem;
 }
 
 export interface Link {
@@ -429,7 +530,18 @@ export type Event =
 	/** The search field changed; the core waits for a pause in typing before searching. */
 	| { type: "searchChanged", content: SearchText }
 	| { type: "watchlistChanged", content: WatchlistChange }
-	| { type: "noticeDismissed", content: NoticeRef };
+	| { type: "noticeDismissed", content: NoticeRef }
+	/** Something that may have earned an achievement happened (playback finished a title). */
+	| { type: "achievementsCheckRequested", content: CheckRequest }
+	/** The celebration on screen was seen. */
+	| { type: "celebrationDismissed", content?: undefined }
+	/** The viewer's profile appears on public pages and leaderboards, or not. */
+	| { type: "profileVisibilityChanged", content: PublicChoice }
+	| { type: "profileEditSubmitted", content: ProfileEdit }
+	| { type: "passwordChangeSubmitted", content: PasswordForm }
+	/** The user picked an image; the core asks the shell to upload it. */
+	| { type: "imageChosen", content: ImageChoice }
+	| { type: "imageRemoved", content: ImageSlotRef };
 
 /** Something that happened in the shell: a user intent or a lifecycle change. */
 export interface Message {
@@ -493,6 +605,12 @@ export interface PairingView {
 	state: PairingState;
 }
 
+export interface PasswordForm {
+	current: string;
+	/** At least 8 characters. */
+	new: string;
+}
+
 export interface PasswordSignIn {
 	serverId: string;
 	username: string;
@@ -505,6 +623,122 @@ export interface PlayAction {
 	resumeSeconds?: number;
 	/** The episode the button plays, for its label. */
 	episode?: EpisodeNumber;
+}
+
+/** A rank tier; `code` is localized by the shell (`rank_tier_<code>`). */
+export interface Tier {
+	code: string;
+	level: number;
+	/** `#rrggbb`. */
+	colour: string;
+	minXp: number;
+}
+
+export interface RankBadge {
+	tier: Tier;
+	/** The tier after this one; the same as `tier` at the top. */
+	next: Tier;
+	xp: number;
+	/** Progress through the current tier, from 0 to 100. */
+	percent: number;
+}
+
+export interface XpLine {
+	/** What earned it; localized by the shell (`rank_xp_source_<key>`). */
+	key: string;
+	units: number;
+	rate: number;
+	xp: number;
+}
+
+export interface ProfileTotals {
+	watchSeconds: number;
+	moviesCompleted: number;
+	episodesCompleted: number;
+	seriesCompleted: number;
+	distinctTitles: number;
+	distinctGenres: number;
+	activeDays: number;
+	currentStreak: number;
+	longestStreak: number;
+	bestDayMinutes: number;
+	couchHosted: number;
+	couchJoined: number;
+	biggestCouch: number;
+	emojiSent: number;
+}
+
+export interface TopTitle {
+	slug: string;
+	name: string;
+	kind: TitleKind;
+	seconds: number;
+	poster?: Image;
+}
+
+export interface ProfileDetail {
+	username: string;
+	displayName: string;
+	bio: MarkdownDoc;
+	avatar?: Image;
+	banner?: Image;
+	memberSince: string;
+	isSelf: boolean;
+	public: boolean;
+	rank: RankBadge;
+	xpTotal: number;
+	xpSources: XpLine[];
+	achievements: AchievementCard[];
+	achievementsWon: number;
+	recentUnlocks: AchievementCard[];
+	totals: ProfileTotals;
+	topTitles: TopTitle[];
+	/** Empty when nothing has been watched. */
+	favouriteGenre: string;
+	/** Watch seconds per hour of the day, 24 entries. */
+	hours: number[];
+	heatmap: Heatmap;
+}
+
+export interface ProfileEdit {
+	displayName: string;
+	/** Markdown, at most 2000 characters. */
+	bio: string;
+}
+
+/** Where one save stands: `loading` while it runs, `loaded` once it succeeded. */
+export interface SaveState {
+	status: LoadStatus;
+	problem?: Problem;
+}
+
+export interface ProfileEditorView {
+	details: SaveState;
+	password: SaveState;
+	avatar: SaveState;
+	banner: SaveState;
+}
+
+export interface ProfileView {
+	username: string;
+	status: LoadStatus;
+	profile?: ProfileDetail;
+	problem?: Problem;
+}
+
+export interface PublicChoice {
+	public: boolean;
+}
+
+export interface RankView {
+	/** Absent until the first check, or with rankings off. */
+	rank?: RankBadge;
+	/** Bumped on every genuine level-up, so a badge can pulse once per change. */
+	levelUps: number;
+	/** The unlock to celebrate now; dismissing it shows the next. */
+	celebration?: AchievementCard;
+	/** How many more are queued behind it. */
+	queued: number;
 }
 
 /** A screen, panel or piece of state a shell renders from a view model. */
@@ -534,7 +768,14 @@ export type Surface =
 	| { type: "myList", content?: undefined }
 	| { type: "search", content?: undefined }
 	/** Transient notices for a toast or banner. */
-	| { type: "notices", content?: undefined };
+	| { type: "notices", content?: undefined }
+	/** The viewer's rank badge and the achievement celebrations. */
+	| { type: "rank", content?: undefined }
+	/** A member's profile; the content is the username. */
+	| { type: "profile", content: string }
+	| { type: "leaderboard", content: LeaderboardKey }
+	/** The viewer's profile, password and image saves. */
+	| { type: "profileEditor", content?: undefined };
 
 export interface RenderRequest {
 	surfaces: Surface[];
@@ -709,6 +950,18 @@ export interface TitleView {
 	status: LoadStatus;
 	detail?: TitleDetailView;
 	problem?: Problem;
+}
+
+export interface UploadRequest {
+	/** The request without a body; the shell sends the form as its body. */
+	request: HttpRequest;
+	/** The handle the shell gave the core for the picked file. */
+	file: string;
+	/**
+	 * The form part the file goes in, with the file's own name (servers type images by its
+	 * extension).
+	 */
+	field: string;
 }
 
 export interface UserCode {

@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
 
-use crate::modules::{accounts, catalog, notices, servers, session};
+use crate::modules::{accounts, catalog, notices, profile, ranks, servers, session};
 
 /// Effect ids and monotonic milliseconds: typeshare maps the name to a 53-bit-safe integer in
 /// every language.
@@ -124,6 +124,17 @@ pub enum Event {
     SearchChanged(catalog::SearchText),
     WatchlistChanged(catalog::WatchlistChange),
     NoticeDismissed(notices::NoticeRef),
+    /// Something that may have earned an achievement happened (playback finished a title).
+    AchievementsCheckRequested(ranks::CheckRequest),
+    /// The celebration on screen was seen.
+    CelebrationDismissed,
+    /// The viewer's profile appears on public pages and leaderboards, or not.
+    ProfileVisibilityChanged(ranks::PublicChoice),
+    ProfileEditSubmitted(profile::ProfileEdit),
+    PasswordChangeSubmitted(profile::PasswordForm),
+    /// The user picked an image; the core asks the shell to upload it.
+    ImageChosen(profile::ImageChoice),
+    ImageRemoved(profile::ImageSlotRef),
 }
 
 /// A screen, panel or piece of state a shell renders from a view model.
@@ -157,6 +168,13 @@ pub enum Surface {
     Search,
     /// Transient notices for a toast or banner.
     Notices,
+    /// The viewer's rank badge and the achievement celebrations.
+    Rank,
+    /// A member's profile; the content is the username.
+    Profile(String),
+    Leaderboard(ranks::LeaderboardKey),
+    /// The viewer's profile, password and image saves.
+    ProfileEditor,
 }
 
 /// Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -184,6 +202,8 @@ pub enum Effect {
     Store(StoreRequest),
     /// These view models changed; re-read them with `view`. Fire-and-forget.
     Render(RenderRequest),
+    /// Upload a file the shell holds as a multipart form; resolves like `Http`.
+    Upload(UploadRequest),
 }
 
 #[typeshare]
@@ -203,6 +223,19 @@ pub struct HttpRequest {
     pub headers: Vec<HttpHeader>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UploadRequest {
+    /// The request without a body; the shell sends the form as its body.
+    pub request: HttpRequest,
+    /// The handle the shell gave the core for the picked file.
+    pub file: String,
+    /// The form part the file goes in, with the file's own name (servers type images by its
+    /// extension).
+    pub field: String,
 }
 
 #[typeshare]

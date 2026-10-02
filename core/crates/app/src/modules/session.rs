@@ -93,6 +93,8 @@ pub enum SessionChange {
     None,
     /// The signed-in user is known (and fresh, for the account's card).
     Ready(User),
+    /// The server said which optional features are on.
+    Features,
     /// The server rejected the active account's credentials.
     Unauthorized(String),
 }
@@ -127,6 +129,25 @@ impl Session {
 
     pub fn account_id(&self) -> Option<&str> {
         self.view.account_id.as_deref()
+    }
+
+    pub fn username(&self) -> Option<&str> {
+        self.view.user.as_ref().map(|u| u.username.as_str())
+    }
+
+    /// Whether the server has rankings on (assumed until it says otherwise).
+    pub fn rankings(&self) -> bool {
+        self.view.features.rankings
+    }
+
+    /// The signed-in user changed their profile.
+    pub fn user_updated(&mut self, ctx: &mut Ctx, user: &User) {
+        if let Some(current) = self.view.user.as_mut() {
+            current.display_name.clone_from(&user.display_name);
+            current.avatar_id.clone_from(&user.avatar_id);
+            current.banner_id.clone_from(&user.banner_id);
+            ctx.render(Surface::Session);
+        }
     }
 
     pub fn language(&self) -> &str {
@@ -255,8 +276,10 @@ impl Session {
                 if let Ok(flags) = decode(&call, output) {
                     self.view.features =
                         Features { couch: flags.couch_enabled, rankings: flags.rankings_enabled };
+                    SessionChange::Features
+                } else {
+                    SessionChange::None
                 }
-                SessionChange::None
             }
             SessionCall::Preferences(call) => {
                 if let Ok(prefs) = decode(&call, output) {

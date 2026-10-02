@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use crate::core::Pending;
 use crate::messages::{
     Effect, EffectRef, EffectRequest, HttpRequest, RenderRequest, StoreOp, StoreRequest, Surface,
-    TimerRequest, U53,
+    TimerRequest, U53, UploadRequest,
 };
 
 /// Effects issued so far in this call and the continuations still waiting for outputs.
@@ -81,6 +81,18 @@ impl<'a> Ctx<'a> {
 
     pub fn http(&mut self, request: HttpRequest, pending: Pending) -> U53 {
         self.registry.issue(Effect::Http(request), Some(pending), false)
+    }
+
+    /// Asks the shell to upload the file behind `file` in the form part `field`.
+    pub fn upload(
+        &mut self,
+        request: HttpRequest,
+        file: &str,
+        field: &str,
+        pending: Pending,
+    ) -> U53 {
+        let upload = UploadRequest { request, file: file.to_string(), field: field.to_string() };
+        self.registry.issue(Effect::Upload(upload), Some(pending), false)
     }
 
     pub fn after(&mut self, ms: U53, pending: Pending) -> U53 {

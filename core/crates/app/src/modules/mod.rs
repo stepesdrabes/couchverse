@@ -5,6 +5,8 @@ pub mod catalog;
 pub mod images;
 pub mod markdown;
 pub mod notices;
+pub mod profile;
+pub mod ranks;
 pub mod servers;
 pub mod session;
 pub mod theme;

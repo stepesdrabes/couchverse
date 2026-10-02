@@ -16,6 +16,8 @@ use crate::modules::catalog::{self, Catalog, CatalogChange, CatalogPending, Env}
 use crate::modules::images::Images;
 use crate::modules::markdown;
 use crate::modules::notices::Notices;
+use crate::modules::profile::{Profile, ProfileChange, ProfilePending};
+use crate::modules::ranks::{self, Ranks, RanksChange, RanksPending};
 use crate::modules::servers::{Servers, ServersPending};
 use crate::modules::session::{Session, SessionChange, SessionPending};
 use crate::modules::theme;
@@ -27,6 +29,8 @@ pub enum Pending {
     Accounts(AccountsPending),
     Session(SessionPending),
     Catalog(CatalogPending),
+    Ranks(RanksPending),
+    Profile(ProfilePending),
 }
 
 /// Where the app is, so a shell knows which root screen to show.
@@ -71,6 +75,8 @@ struct Model {
     accounts: Accounts,
     session: Session,
     catalog: Catalog,
+    ranks: Ranks,
+    profile: Profile,
     notices: Notices,
     phase: AppPhase,
     /// Persisted reads still outstanding at start-up; the phase is decided when they land.
@@ -86,6 +92,8 @@ impl Core {
             accounts: Accounts::default(),
             session,
             catalog: Catalog::default(),
+            ranks: Ranks::default(),
+            profile: Profile::default(),
             notices: Notices::default(),
             phase: AppPhase::Starting,
             boot_reads: 0,
@@ -125,6 +133,14 @@ fn env(session: &Session) -> Option<Env<'_>> {
     session.endpoint().map(|endpoint| Env { endpoint, language: session.language() })
 }
 
+fn ranks_env(session: &Session) -> Option<ranks::Env<'_>> {
+    session.endpoint().map(|endpoint| ranks::Env {
+        endpoint,
+        language: session.language(),
+        username: session.username(),
+    })
+}
+
 impl Model {
     fn send(&mut self, ctx: &mut Ctx, event: Event) {
         match event {
@@ -143,6 +159,7 @@ impl Model {
                     if let Some(env) = env(&self.session) {
                         self.catalog.refresh_open(ctx, &env);
                     }
+                    self.check_achievements(ctx, false);
                 }
                 // timers do not run while an app is suspended
                 self.accounts.poll_pairing_now(ctx, &self.servers);
@@ -152,38 +169,13 @@ impl Model {
                     self.start_web_session(ctx);
                 }
             }
-            Event::ServerAddressSubmitted(address) => {
-                self.servers.submit_address(ctx, &address.address);
-            }
-            Event::ServerRemoved(server) => {
-                let active_server =
-                    self.session.account_id().and_then(|a| self.accounts.server_of(a));
-                if active_server == Some(server.server_id.as_str()) {
-                    self.end_session(ctx);
-                }
-                self.servers.remove(ctx, &server.server_id);
-                self.accounts.remove_server(ctx, &server.server_id);
-                if self.session.account_id().is_none() {
-                    self.settle(ctx);
-                }
-            }
-            Event::PasswordSignInSubmitted(req) => {
-                self.accounts.password_sign_in(ctx, &self.servers, &self.config, &req);
-            }
-            Event::PairingStarted(server) => {
-                self.accounts.start_pairing(ctx, &self.servers, &self.config, &server.server_id);
-            }
-            Event::PairingCancelled => self.accounts.cancel_pairing(ctx),
-            Event::LinkOpened(link) => {
-                if let Some(server_url) = self.accounts.open_link(ctx, &self.servers, &link.url) {
-                    self.servers.submit_address(ctx, &server_url);
-                }
-            }
-            Event::AccountSelected(account) => {
-                if self.accounts.select(ctx, &account.account_id) {
-                    self.activate(ctx, &account.account_id);
-                }
-            }
+            onboarding @ (Event::ServerAddressSubmitted(_)
+            | Event::ServerRemoved(_)
+            | Event::PasswordSignInSubmitted(_)
+            | Event::PairingStarted(_)
+            | Event::PairingCancelled
+            | Event::LinkOpened(_)
+            | Event::AccountSelected(_)) => self.onboard(ctx, onboarding),
             Event::SignOutRequested(_) if self.config.auth_mode == AuthMode::Cookie => {
                 self.session.log_out(ctx);
                 self.catalog.reset(ctx);
@@ -219,6 +211,15 @@ impl Model {
                 self.language_settled(ctx, &before);
             }
             Event::NoticeDismissed(notice) => self.notices.dismiss(ctx, notice.id),
+            Event::AchievementsCheckRequested(request) => {
+                self.check_achievements(ctx, request.force);
+            }
+            Event::CelebrationDismissed => self.ranks.celebrated(ctx),
+            progress @ (Event::ProfileVisibilityChanged(_)
+            | Event::ProfileEditSubmitted(_)
+            | Event::PasswordChangeSubmitted(_)
+            | Event::ImageChosen(_)
+            | Event::ImageRemoved(_)) => self.edit_profile(ctx, progress),
             browsing @ (Event::ScreenOpened(_)
             | Event::ScreenClosed(_)
             | Event::RefreshRequested(_)
@@ -228,8 +229,54 @@ impl Model {
         }
     }
 
+    /// Servers and accounts: adding a server, signing in, links, switching accounts.
+    fn onboard(&mut self, ctx: &mut Ctx, event: Event) {
+        match event {
+            Event::ServerAddressSubmitted(address) => {
+                self.servers.submit_address(ctx, &address.address);
+            }
+            Event::ServerRemoved(server) => {
+                let active_server =
+                    self.session.account_id().and_then(|a| self.accounts.server_of(a));
+                if active_server == Some(server.server_id.as_str()) {
+                    self.end_session(ctx);
+                }
+                self.servers.remove(ctx, &server.server_id);
+                self.accounts.remove_server(ctx, &server.server_id);
+                if self.session.account_id().is_none() {
+                    self.settle(ctx);
+                }
+            }
+            Event::PasswordSignInSubmitted(req) => {
+                self.accounts.password_sign_in(ctx, &self.servers, &self.config, &req);
+            }
+            Event::PairingStarted(server) => {
+                self.accounts.start_pairing(ctx, &self.servers, &self.config, &server.server_id);
+            }
+            Event::PairingCancelled => self.accounts.cancel_pairing(ctx),
+            Event::LinkOpened(link) => {
+                if let Some(server_url) = self.accounts.open_link(ctx, &self.servers, &link.url) {
+                    self.servers.submit_address(ctx, &server_url);
+                }
+            }
+            Event::AccountSelected(account) if self.accounts.select(ctx, &account.account_id) => {
+                self.activate(ctx, &account.account_id);
+            }
+            _ => {}
+        }
+    }
+
     /// The catalog's events: screens opening and closing, listings, search, My List.
     fn browse(&mut self, ctx: &mut Ctx, event: Event) {
+        if let Event::ScreenOpened(surface) | Event::RefreshRequested(surface) = &event
+            && ranks::owns(surface)
+        {
+            let force = matches!(event, Event::RefreshRequested(_));
+            if let Some(env) = ranks_env(&self.session) {
+                self.ranks.open(ctx, &env, surface, force);
+            }
+            return;
+        }
         let env = env(&self.session);
         match (event, env) {
             (Event::ScreenOpened(surface), env) if catalog::owns(&surface) => {
@@ -296,6 +343,8 @@ impl Model {
                             ctx.render(Surface::App);
                         }
                     }
+                    // the first check waits until the server says rankings are on
+                    SessionChange::Features => self.check_achievements(ctx, false),
                     SessionChange::Unauthorized(id) => self.signed_out(ctx, &id),
                     SessionChange::None => {}
                 }
@@ -305,15 +354,57 @@ impl Model {
             Pending::Catalog(p) => {
                 let env = env(&self.session);
                 match self.catalog.resolve(ctx, env.as_ref(), p, output) {
-                    CatalogChange::Unauthorized => {
-                        if let Some(id) = self.session.account_id().map(str::to_string) {
-                            self.signed_out(ctx, &id);
-                        }
-                    }
+                    CatalogChange::Unauthorized => self.session_rejected(ctx),
                     CatalogChange::WatchlistFailed => self.notices.push(ctx, "watchlist_failed"),
                     CatalogChange::None => {}
                 }
             }
+            Pending::Ranks(p) => match self.ranks.resolve(ctx, p, output) {
+                RanksChange::Unauthorized => self.session_rejected(ctx),
+                RanksChange::VisibilityFailed => self.notices.push(ctx, "visibility_failed"),
+                RanksChange::None => {}
+            },
+            Pending::Profile(p) => match self.profile.resolve(ctx, p, output) {
+                ProfileChange::Updated(user) => {
+                    self.session.user_updated(ctx, &user);
+                    if let Some(id) = self.session.account_id() {
+                        self.accounts.update_profile(ctx, id, &user);
+                    }
+                    if let Some(env) = ranks_env(&self.session) {
+                        let me = Surface::Profile(user.username.clone());
+                        self.ranks.open(ctx, &env, &me, true);
+                    }
+                    // a first avatar is an achievement
+                    self.check_achievements(ctx, true);
+                }
+                ProfileChange::Unauthorized => self.session_rejected(ctx),
+                ProfileChange::None => {}
+            },
+        }
+    }
+
+    /// The viewer's own profile: visibility, details, password and images.
+    fn edit_profile(&mut self, ctx: &mut Ctx, event: Event) {
+        let Some(endpoint) = self.session.endpoint() else { return };
+        match event {
+            Event::ProfileVisibilityChanged(choice) => {
+                self.ranks.set_public(ctx, endpoint, choice.public);
+            }
+            Event::ProfileEditSubmitted(edit) => self.profile.save_details(ctx, endpoint, &edit),
+            Event::PasswordChangeSubmitted(form) => {
+                self.profile.change_password(ctx, endpoint, &form);
+            }
+            Event::ImageChosen(choice) => self.profile.upload(ctx, endpoint, &choice),
+            Event::ImageRemoved(slot) => self.profile.remove(ctx, endpoint, slot.slot),
+            _ => {}
+        }
+    }
+
+    fn check_achievements(&mut self, ctx: &mut Ctx, force: bool) {
+        if self.session.rankings()
+            && let Some(endpoint) = self.session.endpoint()
+        {
+            self.ranks.check(ctx, endpoint, force);
         }
     }
 
@@ -323,6 +414,7 @@ impl Model {
             && let Some(env) = env(&self.session)
         {
             self.catalog.language_changed(ctx, &env);
+            self.ranks.language_changed();
         }
     }
 
@@ -388,6 +480,8 @@ impl Model {
 
     /// A new account's catalog, loading whatever its screens already have open.
     fn start_catalog(&mut self, ctx: &mut Ctx, account_id: &str) {
+        self.ranks.reset(ctx);
+        self.profile.reset(ctx);
         self.catalog.activate(ctx, account_id);
         if let Some(env) = env(&self.session) {
             self.catalog.refresh_open(ctx, &env);
@@ -397,6 +491,15 @@ impl Model {
     fn end_session(&mut self, ctx: &mut Ctx) {
         self.session.end(ctx);
         self.catalog.reset(ctx);
+        self.ranks.reset(ctx);
+        self.profile.reset(ctx);
+    }
+
+    /// A module's request came back 401: the active session is no longer valid.
+    fn session_rejected(&mut self, ctx: &mut Ctx) {
+        if let Some(id) = self.session.account_id().map(str::to_string) {
+            self.signed_out(ctx, &id);
+        }
     }
 
     fn signed_out(&mut self, ctx: &mut Ctx, account_id: &str) {
@@ -448,6 +551,14 @@ impl Model {
             Surface::MyList => serde_json::to_string(&catalog.my_list_view(&images)),
             Surface::Search => serde_json::to_string(&catalog.search_view(&images)),
             Surface::Notices => serde_json::to_string(&self.notices.view()),
+            Surface::Rank => serde_json::to_string(&self.ranks.rank_view()),
+            Surface::Profile(username) => {
+                serde_json::to_string(&self.ranks.profile_view(username, &images))
+            }
+            Surface::Leaderboard(key) => {
+                serde_json::to_string(&self.ranks.leaderboard_view(*key, &images))
+            }
+            Surface::ProfileEditor => serde_json::to_string(&self.profile.view()),
         };
         json.expect("view models always serialize")
     }

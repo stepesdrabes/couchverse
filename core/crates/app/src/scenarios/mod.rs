@@ -4,6 +4,7 @@
 mod boot;
 mod catalog;
 mod pairing;
+mod ranks;
 mod session;
 mod sign_in;
 
@@ -16,7 +17,7 @@ use crate::core::{AppPhase, AppView, Core};
 use crate::messages::{
     AuthMode, CoreConfig, Effect, EffectOutput, EffectRequest, Event, HttpFailure, HttpFailureKind,
     HttpRequest, HttpResponse, LoadStatus, Message, Platform, Resolution, StoreOp, StoredValue,
-    Surface, U53,
+    Surface, U53, UploadRequest,
 };
 
 pub const SERVER_ID: &str = "4f6c0a5e-6a43-4c0e-9d4b-2b8f8d0b7a11";
@@ -110,7 +111,9 @@ impl Shell {
                         StoreOp::Read => self.outstanding.push(effect),
                     }
                 }
-                Effect::Http(_) | Effect::Timer(_) => self.outstanding.push(effect),
+                Effect::Http(_) | Effect::Timer(_) | Effect::Upload(_) => {
+                    self.outstanding.push(effect);
+                }
             }
         }
     }
@@ -138,7 +141,11 @@ impl Shell {
 
     pub fn find_request(&self, method: &str, url: &str) -> Option<(U53, HttpRequest)> {
         self.outstanding.iter().find_map(|e| match &e.effect {
-            Effect::Http(r) if r.method == method && r.url == url => Some((e.id, r.clone())),
+            Effect::Http(r) | Effect::Upload(UploadRequest { request: r, .. })
+                if r.method == method && r.url == url =>
+            {
+                Some((e.id, r.clone()))
+            }
             _ => None,
         })
     }
@@ -148,7 +155,11 @@ impl Shell {
         self.outstanding
             .iter()
             .filter_map(|e| match &e.effect {
-                Effect::Http(r) if r.method == method && r.url == url => Some((e.id, r.clone())),
+                Effect::Http(r) | Effect::Upload(UploadRequest { request: r, .. })
+                    if r.method == method && r.url == url =>
+                {
+                    Some((e.id, r.clone()))
+                }
                 _ => None,
             })
             .collect()
@@ -159,6 +170,7 @@ impl Shell {
             .iter()
             .filter_map(|e| match &e.effect {
                 Effect::Http(r) => Some(format!("{} {}", r.method, r.url)),
+                Effect::Upload(u) => Some(format!("UPLOAD {} {}", u.request.method, u.request.url)),
                 _ => None,
             })
             .collect()
@@ -183,6 +195,11 @@ impl Shell {
         let (id, _) = self.request(method, url);
         let failure = HttpFailure { kind, message: "simulated".into() };
         self.resolve(id, EffectOutput::HttpFailed(failure));
+    }
+
+    /// Every effect still waiting for an answer.
+    pub fn effects_waiting(&self) -> Vec<EffectRequest> {
+        self.outstanding.clone()
     }
 
     /// The outstanding timers as `(id, after_ms, repeat)`.

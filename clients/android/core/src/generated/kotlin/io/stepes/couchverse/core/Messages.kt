@@ -41,6 +41,23 @@ data class AccountsView (
 	val active: String? = null
 )
 
+/// An achievement; `code` is localized by the shell (`achievement_<code>_name` and `_desc`).
+@Serializable
+data class AchievementCard (
+	val code: String,
+	/// `watching`, `streaks`, `explorer`, `couch` or `meta`.
+	val category: String,
+	/// `bronze`, `silver`, `gold` or `platinum`.
+	val tier: String,
+	val unlocked: Boolean,
+	val unlockedAt: String? = null,
+	val value: ULong,
+	val target: ULong,
+	/// From 0 to 100.
+	val percent: UInt,
+	val xp: ULong
+)
+
 /// Where a view model's data stands. `Stale` keeps the previous content while a refresh runs,
 /// so a screen never blanks out (stale beats blank).
 @Serializable
@@ -157,6 +174,12 @@ data class BrowseView (
 	val more: Boolean,
 	val loadingMore: Boolean,
 	val problem: Problem? = null
+)
+
+@Serializable
+data class CheckRequest (
+	/// Check even inside the throttle window (the end of a title).
+	val force: Boolean? = null
 )
 
 @Serializable
@@ -284,6 +307,10 @@ sealed class Effect {
 	@Serializable
 	@SerialName("render")
 	data class Render(val content: RenderRequest): Effect()
+	/// Upload a file the shell holds as a multipart form; resolves like `Http`.
+	@Serializable
+	@SerialName("upload")
+	data class Upload(val content: UploadRequest): Effect()
 }
 
 /// Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -387,6 +414,22 @@ data class HeadingBlock (
 )
 
 @Serializable
+data class HeatDay (
+	val seconds: ULong,
+	/// 0 (nothing watched) to 4 (among the viewer's busiest days).
+	val level: UByte
+)
+
+@Serializable
+data class Heatmap (
+	/// The date of `days[0]` (`YYYY-MM-DD`); the run ends today.
+	val from: String,
+	val days: List<HeatDay>,
+	val totalSeconds: ULong,
+	val activeDays: UInt
+)
+
+@Serializable
 enum class HomeRowKind(val string: String) {
 	@SerialName("continueWatching")
 	ContinueWatching("continueWatching"),
@@ -455,9 +498,89 @@ data class HttpResponse (
 )
 
 @Serializable
+enum class ImageSlot(val string: String) {
+	@SerialName("avatar")
+	Avatar("avatar"),
+	@SerialName("banner")
+	Banner("banner"),
+}
+
+@Serializable
+data class ImageChoice (
+	val slot: ImageSlot,
+	/// The shell's handle for the picked file; the upload effect hands it back.
+	val file: String
+)
+
+@Serializable
+data class ImageSlotRef (
+	val slot: ImageSlot
+)
+
+@Serializable
 data class LanguageChoice (
 	/// ISO 639-1, one of the supported display languages.
 	val code: String
+)
+
+@Serializable
+data class LeaderRow (
+	/// 1-based, by the board's metric.
+	val position: UInt,
+	val username: String,
+	val displayName: String,
+	val avatar: Image? = null,
+	val level: UInt,
+	val tierCode: String,
+	/// The board's metric for this member.
+	val value: ULong,
+	val xp: ULong,
+	val watchSeconds: ULong,
+	val achievements: ULong,
+	val isSelf: Boolean
+)
+
+@Serializable
+enum class Period(val string: String) {
+	@SerialName("all")
+	All("all"),
+	@SerialName("month")
+	Month("month"),
+	@SerialName("week")
+	Week("week"),
+}
+
+/// What a leaderboard ranks by; one payload carries every metric, so switching costs nothing.
+@Serializable
+enum class Metric(val string: String) {
+	@SerialName("xp")
+	Xp("xp"),
+	@SerialName("watch")
+	Watch("watch"),
+	@SerialName("achievements")
+	Achievements("achievements"),
+}
+
+@Serializable
+data class LeaderboardKey (
+	val period: Period,
+	val metric: Metric
+)
+
+@Serializable
+data class LeaderboardView (
+	val key: LeaderboardKey,
+	val status: LoadStatus,
+	val rows: List<LeaderRow>,
+	/// The viewer's place on this board, when listed.
+	val myPosition: UInt? = null,
+	/// The top three earned something, so a podium makes sense.
+	val podium: Boolean,
+	/// Nobody has anything on this metric yet.
+	val allZero: Boolean,
+	/// The viewer opted out of leaderboards, so is missing from the rows.
+	val hidden: Boolean,
+	val problem: Problem? = null
 )
 
 @Serializable
@@ -600,6 +723,31 @@ sealed class Event {
 	@Serializable
 	@SerialName("noticeDismissed")
 	data class NoticeDismissed(val content: NoticeRef): Event()
+	/// Something that may have earned an achievement happened (playback finished a title).
+	@Serializable
+	@SerialName("achievementsCheckRequested")
+	data class AchievementsCheckRequested(val content: CheckRequest): Event()
+	/// The celebration on screen was seen.
+	@Serializable
+	@SerialName("celebrationDismissed")
+	object CelebrationDismissed: Event()
+	/// The viewer's profile appears on public pages and leaderboards, or not.
+	@Serializable
+	@SerialName("profileVisibilityChanged")
+	data class ProfileVisibilityChanged(val content: PublicChoice): Event()
+	@Serializable
+	@SerialName("profileEditSubmitted")
+	data class ProfileEditSubmitted(val content: ProfileEdit): Event()
+	@Serializable
+	@SerialName("passwordChangeSubmitted")
+	data class PasswordChangeSubmitted(val content: PasswordForm): Event()
+	/// The user picked an image; the core asks the shell to upload it.
+	@Serializable
+	@SerialName("imageChosen")
+	data class ImageChosen(val content: ImageChoice): Event()
+	@Serializable
+	@SerialName("imageRemoved")
+	data class ImageRemoved(val content: ImageSlotRef): Event()
 }
 
 /// Something that happened in the shell: a user intent or a lifecycle change.
@@ -680,6 +828,13 @@ data class PairingView (
 )
 
 @Serializable
+data class PasswordForm (
+	val current: String,
+	/// At least 8 characters.
+	val new: String
+)
+
+@Serializable
 data class PasswordSignIn (
 	val serverId: String,
 	val username: String,
@@ -693,6 +848,134 @@ data class PlayAction (
 	val resumeSeconds: ULong? = null,
 	/// The episode the button plays, for its label.
 	val episode: EpisodeNumber? = null
+)
+
+/// A rank tier; `code` is localized by the shell (`rank_tier_<code>`).
+@Serializable
+data class Tier (
+	val code: String,
+	val level: UInt,
+	/// `#rrggbb`.
+	val colour: String,
+	val minXp: ULong
+)
+
+@Serializable
+data class RankBadge (
+	val tier: Tier,
+	/// The tier after this one; the same as `tier` at the top.
+	val next: Tier,
+	val xp: ULong,
+	/// Progress through the current tier, from 0 to 100.
+	val percent: UInt
+)
+
+@Serializable
+data class XpLine (
+	/// What earned it; localized by the shell (`rank_xp_source_<key>`).
+	val key: String,
+	val units: ULong,
+	val rate: ULong,
+	val xp: ULong
+)
+
+@Serializable
+data class ProfileTotals (
+	val watchSeconds: ULong,
+	val moviesCompleted: ULong,
+	val episodesCompleted: ULong,
+	val seriesCompleted: ULong,
+	val distinctTitles: ULong,
+	val distinctGenres: ULong,
+	val activeDays: ULong,
+	val currentStreak: ULong,
+	val longestStreak: ULong,
+	val bestDayMinutes: ULong,
+	val couchHosted: ULong,
+	val couchJoined: ULong,
+	val biggestCouch: ULong,
+	val emojiSent: ULong
+)
+
+@Serializable
+data class TopTitle (
+	val slug: String,
+	val name: String,
+	val kind: TitleKind,
+	val seconds: ULong,
+	val poster: Image? = null
+)
+
+@Serializable
+data class ProfileDetail (
+	val username: String,
+	val displayName: String,
+	val bio: MarkdownDoc,
+	val avatar: Image? = null,
+	val banner: Image? = null,
+	val memberSince: String,
+	val isSelf: Boolean,
+	val public: Boolean,
+	val rank: RankBadge,
+	val xpTotal: ULong,
+	val xpSources: List<XpLine>,
+	val achievements: List<AchievementCard>,
+	val achievementsWon: UInt,
+	val recentUnlocks: List<AchievementCard>,
+	val totals: ProfileTotals,
+	val topTitles: List<TopTitle>,
+	/// Empty when nothing has been watched.
+	val favouriteGenre: String,
+	/// Watch seconds per hour of the day, 24 entries.
+	val hours: List<ULong>,
+	val heatmap: Heatmap
+)
+
+@Serializable
+data class ProfileEdit (
+	val displayName: String,
+	/// Markdown, at most 2000 characters.
+	val bio: String
+)
+
+/// Where one save stands: `loading` while it runs, `loaded` once it succeeded.
+@Serializable
+data class SaveState (
+	val status: LoadStatus,
+	val problem: Problem? = null
+)
+
+@Serializable
+data class ProfileEditorView (
+	val details: SaveState,
+	val password: SaveState,
+	val avatar: SaveState,
+	val banner: SaveState
+)
+
+@Serializable
+data class ProfileView (
+	val username: String,
+	val status: LoadStatus,
+	val profile: ProfileDetail? = null,
+	val problem: Problem? = null
+)
+
+@Serializable
+data class PublicChoice (
+	val public: Boolean
+)
+
+@Serializable
+data class RankView (
+	/// Absent until the first check, or with rankings off.
+	val rank: RankBadge? = null,
+	/// Bumped on every genuine level-up, so a badge can pulse once per change.
+	val levelUps: ULong,
+	/// The unlock to celebrate now; dismissing it shows the next.
+	val celebration: AchievementCard? = null,
+	/// How many more are queued behind it.
+	val queued: UInt
 )
 
 /// A screen, panel or piece of state a shell renders from a view model.
@@ -754,6 +1037,21 @@ sealed class Surface {
 	@Serializable
 	@SerialName("notices")
 	object Notices: Surface()
+	/// The viewer's rank badge and the achievement celebrations.
+	@Serializable
+	@SerialName("rank")
+	object Rank: Surface()
+	/// A member's profile; the content is the username.
+	@Serializable
+	@SerialName("profile")
+	data class Profile(val content: String): Surface()
+	@Serializable
+	@SerialName("leaderboard")
+	data class Leaderboard(val content: LeaderboardKey): Surface()
+	/// The viewer's profile, password and image saves.
+	@Serializable
+	@SerialName("profileEditor")
+	object ProfileEditor: Surface()
 }
 
 @Serializable
@@ -975,6 +1273,17 @@ data class TitleView (
 	val status: LoadStatus,
 	val detail: TitleDetailView? = null,
 	val problem: Problem? = null
+)
+
+@Serializable
+data class UploadRequest (
+	/// The request without a body; the shell sends the form as its body.
+	val request: HttpRequest,
+	/// The handle the shell gave the core for the picked file.
+	val file: String,
+	/// The form part the file goes in, with the file's own name (servers type images by its
+	/// extension).
+	val field: String
 )
 
 @Serializable

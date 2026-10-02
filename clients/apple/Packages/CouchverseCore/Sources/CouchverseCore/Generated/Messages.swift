@@ -61,6 +61,34 @@ public struct AccountsView: Codable, Sendable, Hashable {
 	}
 }
 
+/// An achievement; `code` is localized by the shell (`achievement_<code>_name` and `_desc`).
+public struct AchievementCard: Codable, Sendable, Hashable {
+	public let code: String
+	/// `watching`, `streaks`, `explorer`, `couch` or `meta`.
+	public let category: String
+	/// `bronze`, `silver`, `gold` or `platinum`.
+	public let tier: String
+	public let unlocked: Bool
+	public let unlockedAt: String?
+	public let value: UInt64
+	public let target: UInt64
+	/// From 0 to 100.
+	public let percent: UInt32
+	public let xp: UInt64
+
+	public init(code: String, category: String, tier: String, unlocked: Bool, unlockedAt: String?, value: UInt64, target: UInt64, percent: UInt32, xp: UInt64) {
+		self.code = code
+		self.category = category
+		self.tier = tier
+		self.unlocked = unlocked
+		self.unlockedAt = unlockedAt
+		self.value = value
+		self.target = target
+		self.percent = percent
+		self.xp = xp
+	}
+}
+
 /// Where a view model's data stands. `Stale` keeps the previous content while a refresh runs,
 /// so a screen never blanks out (stale beats blank).
 public enum LoadStatus: String, Codable, Sendable, Hashable {
@@ -197,6 +225,15 @@ public struct BrowseView: Codable, Sendable, Hashable {
 		self.more = more
 		self.loadingMore = loadingMore
 		self.problem = problem
+	}
+}
+
+public struct CheckRequest: Codable, Sendable, Hashable {
+	/// Check even inside the throttle window (the end of a title).
+	public let force: Bool?
+
+	public init(force: Bool?) {
+		self.force = force
 	}
 }
 
@@ -341,6 +378,8 @@ public enum Effect: Codable, Sendable, Hashable {
 	case store(StoreRequest)
 	/// These view models changed; re-read them with `view`. Fire-and-forget.
 	case render(RenderRequest)
+	/// Upload a file the shell holds as a multipart form; resolves like `Http`.
+	case upload(UploadRequest)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case http,
@@ -348,7 +387,8 @@ public enum Effect: Codable, Sendable, Hashable {
 			cancelTimer,
 			secureStore,
 			store,
-			render
+			render,
+			upload
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -389,6 +429,11 @@ public enum Effect: Codable, Sendable, Hashable {
 					self = .render(content)
 					return
 				}
+			case .upload:
+				if let content = try? container.decode(UploadRequest.self, forKey: .content) {
+					self = .upload(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(Effect.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Effect"))
@@ -414,6 +459,9 @@ public enum Effect: Codable, Sendable, Hashable {
 			try container.encode(content, forKey: .content)
 		case .render(let content):
 			try container.encode(CodingKeys.render, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .upload(let content):
+			try container.encode(CodingKeys.upload, forKey: .type)
 			try container.encode(content, forKey: .content)
 		}
 	}
@@ -635,6 +683,32 @@ public struct HeadingBlock: Codable, Sendable, Hashable {
 	}
 }
 
+public struct HeatDay: Codable, Sendable, Hashable {
+	public let seconds: UInt64
+	/// 0 (nothing watched) to 4 (among the viewer's busiest days).
+	public let level: UInt8
+
+	public init(seconds: UInt64, level: UInt8) {
+		self.seconds = seconds
+		self.level = level
+	}
+}
+
+public struct Heatmap: Codable, Sendable, Hashable {
+	/// The date of `days[0]` (`YYYY-MM-DD`); the run ends today.
+	public let from: String
+	public let days: [HeatDay]
+	public let totalSeconds: UInt64
+	public let activeDays: UInt32
+
+	public init(from: String, days: [HeatDay], totalSeconds: UInt64, activeDays: UInt32) {
+		self.from = from
+		self.days = days
+		self.totalSeconds = totalSeconds
+		self.activeDays = activeDays
+	}
+}
+
 public enum HomeRowKind: String, Codable, Sendable, Hashable {
 	case continueWatching
 	case recentlyAdded
@@ -725,12 +799,115 @@ public struct HttpResponse: Codable, Sendable, Hashable {
 	}
 }
 
+public enum ImageSlot: String, Codable, Sendable, Hashable {
+	case avatar
+	case banner
+}
+
+public struct ImageChoice: Codable, Sendable, Hashable {
+	public let slot: ImageSlot
+	/// The shell's handle for the picked file; the upload effect hands it back.
+	public let file: String
+
+	public init(slot: ImageSlot, file: String) {
+		self.slot = slot
+		self.file = file
+	}
+}
+
+public struct ImageSlotRef: Codable, Sendable, Hashable {
+	public let slot: ImageSlot
+
+	public init(slot: ImageSlot) {
+		self.slot = slot
+	}
+}
+
 public struct LanguageChoice: Codable, Sendable, Hashable {
 	/// ISO 639-1, one of the supported display languages.
 	public let code: String
 
 	public init(code: String) {
 		self.code = code
+	}
+}
+
+public struct LeaderRow: Codable, Sendable, Hashable {
+	/// 1-based, by the board's metric.
+	public let position: UInt32
+	public let username: String
+	public let displayName: String
+	public let avatar: Image?
+	public let level: UInt32
+	public let tierCode: String
+	/// The board's metric for this member.
+	public let value: UInt64
+	public let xp: UInt64
+	public let watchSeconds: UInt64
+	public let achievements: UInt64
+	public let isSelf: Bool
+
+	public init(position: UInt32, username: String, displayName: String, avatar: Image?, level: UInt32, tierCode: String, value: UInt64, xp: UInt64, watchSeconds: UInt64, achievements: UInt64, isSelf: Bool) {
+		self.position = position
+		self.username = username
+		self.displayName = displayName
+		self.avatar = avatar
+		self.level = level
+		self.tierCode = tierCode
+		self.value = value
+		self.xp = xp
+		self.watchSeconds = watchSeconds
+		self.achievements = achievements
+		self.isSelf = isSelf
+	}
+}
+
+public enum Period: String, Codable, Sendable, Hashable {
+	case all
+	case month
+	case week
+}
+
+/// What a leaderboard ranks by; one payload carries every metric, so switching costs nothing.
+public enum Metric: String, Codable, Sendable, Hashable {
+	case xp
+	case watch
+	case achievements
+}
+
+public struct LeaderboardKey: Codable, Sendable, Hashable {
+	public let period: Period
+	public let metric: Metric
+
+	public init(period: Period, metric: Metric) {
+		self.period = period
+		self.metric = metric
+	}
+}
+
+public struct LeaderboardView: Codable, Sendable, Hashable {
+	public let key: LeaderboardKey
+	public let status: LoadStatus
+	public let rows: [LeaderRow]
+	/// The viewer's place on this board, when listed.
+	public let myPosition: UInt32?
+	/// The top three earned something, so a podium makes sense.
+	public let podium: Bool
+	/// Nobody has anything on this metric yet.
+	public let allZero: Bool
+	/// The viewer opted out of leaderboards, so is missing from the rows.
+	public let hidden: Bool
+	public let problem: Problem?
+
+	public init(key: LeaderboardKey, status: LoadStatus, rows: [LeaderRow], myPosition: UInt32?, podium: Bool, allZero: Bool, hidden: Bool, problem: Problem?) {
+		self.key = key
+		self.status = status
+		self.rows = rows
+		self.myPosition = myPosition
+		self.podium = podium
+		self.allZero = allZero
+		self.hidden = hidden
+		self.problem = problem
 	}
 }
 
@@ -909,6 +1086,17 @@ public enum Event: Codable, Sendable, Hashable {
 	case searchChanged(SearchText)
 	case watchlistChanged(WatchlistChange)
 	case noticeDismissed(NoticeRef)
+	/// Something that may have earned an achievement happened (playback finished a title).
+	case achievementsCheckRequested(CheckRequest)
+	/// The celebration on screen was seen.
+	case celebrationDismissed
+	/// The viewer's profile appears on public pages and leaderboards, or not.
+	case profileVisibilityChanged(PublicChoice)
+	case profileEditSubmitted(ProfileEdit)
+	case passwordChangeSubmitted(PasswordForm)
+	/// The user picked an image; the core asks the shell to upload it.
+	case imageChosen(ImageChoice)
+	case imageRemoved(ImageSlotRef)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case appStarted,
@@ -934,7 +1122,14 @@ public enum Event: Codable, Sendable, Hashable {
 			browseMoreRequested,
 			searchChanged,
 			watchlistChanged,
-			noticeDismissed
+			noticeDismissed,
+			achievementsCheckRequested,
+			celebrationDismissed,
+			profileVisibilityChanged,
+			profileEditSubmitted,
+			passwordChangeSubmitted,
+			imageChosen,
+			imageRemoved
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -1055,6 +1250,39 @@ public enum Event: Codable, Sendable, Hashable {
 					self = .noticeDismissed(content)
 					return
 				}
+			case .achievementsCheckRequested:
+				if let content = try? container.decode(CheckRequest.self, forKey: .content) {
+					self = .achievementsCheckRequested(content)
+					return
+				}
+			case .celebrationDismissed:
+				self = .celebrationDismissed
+				return
+			case .profileVisibilityChanged:
+				if let content = try? container.decode(PublicChoice.self, forKey: .content) {
+					self = .profileVisibilityChanged(content)
+					return
+				}
+			case .profileEditSubmitted:
+				if let content = try? container.decode(ProfileEdit.self, forKey: .content) {
+					self = .profileEditSubmitted(content)
+					return
+				}
+			case .passwordChangeSubmitted:
+				if let content = try? container.decode(PasswordForm.self, forKey: .content) {
+					self = .passwordChangeSubmitted(content)
+					return
+				}
+			case .imageChosen:
+				if let content = try? container.decode(ImageChoice.self, forKey: .content) {
+					self = .imageChosen(content)
+					return
+				}
+			case .imageRemoved:
+				if let content = try? container.decode(ImageSlotRef.self, forKey: .content) {
+					self = .imageRemoved(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(Event.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Event"))
@@ -1129,6 +1357,26 @@ public enum Event: Codable, Sendable, Hashable {
 			try container.encode(content, forKey: .content)
 		case .noticeDismissed(let content):
 			try container.encode(CodingKeys.noticeDismissed, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .achievementsCheckRequested(let content):
+			try container.encode(CodingKeys.achievementsCheckRequested, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .celebrationDismissed:
+			try container.encode(CodingKeys.celebrationDismissed, forKey: .type)
+		case .profileVisibilityChanged(let content):
+			try container.encode(CodingKeys.profileVisibilityChanged, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .profileEditSubmitted(let content):
+			try container.encode(CodingKeys.profileEditSubmitted, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .passwordChangeSubmitted(let content):
+			try container.encode(CodingKeys.passwordChangeSubmitted, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .imageChosen(let content):
+			try container.encode(CodingKeys.imageChosen, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .imageRemoved(let content):
+			try container.encode(CodingKeys.imageRemoved, forKey: .type)
 			try container.encode(content, forKey: .content)
 		}
 	}
@@ -1241,6 +1489,17 @@ public struct PairingView: Codable, Sendable, Hashable {
 	}
 }
 
+public struct PasswordForm: Codable, Sendable, Hashable {
+	public let current: String
+	/// At least 8 characters.
+	public let new: String
+
+	public init(current: String, new: String) {
+		self.current = current
+		self.new = new
+	}
+}
+
 public struct PasswordSignIn: Codable, Sendable, Hashable {
 	public let serverId: String
 	public let username: String
@@ -1264,6 +1523,225 @@ public struct PlayAction: Codable, Sendable, Hashable {
 		self.target = target
 		self.resumeSeconds = resumeSeconds
 		self.episode = episode
+	}
+}
+
+/// A rank tier; `code` is localized by the shell (`rank_tier_<code>`).
+public struct Tier: Codable, Sendable, Hashable {
+	public let code: String
+	public let level: UInt32
+	/// `#rrggbb`.
+	public let colour: String
+	public let minXp: UInt64
+
+	public init(code: String, level: UInt32, colour: String, minXp: UInt64) {
+		self.code = code
+		self.level = level
+		self.colour = colour
+		self.minXp = minXp
+	}
+}
+
+public struct RankBadge: Codable, Sendable, Hashable {
+	public let tier: Tier
+	/// The tier after this one; the same as `tier` at the top.
+	public let next: Tier
+	public let xp: UInt64
+	/// Progress through the current tier, from 0 to 100.
+	public let percent: UInt32
+
+	public init(tier: Tier, next: Tier, xp: UInt64, percent: UInt32) {
+		self.tier = tier
+		self.next = next
+		self.xp = xp
+		self.percent = percent
+	}
+}
+
+public struct XpLine: Codable, Sendable, Hashable {
+	/// What earned it; localized by the shell (`rank_xp_source_<key>`).
+	public let key: String
+	public let units: UInt64
+	public let rate: UInt64
+	public let xp: UInt64
+
+	public init(key: String, units: UInt64, rate: UInt64, xp: UInt64) {
+		self.key = key
+		self.units = units
+		self.rate = rate
+		self.xp = xp
+	}
+}
+
+public struct ProfileTotals: Codable, Sendable, Hashable {
+	public let watchSeconds: UInt64
+	public let moviesCompleted: UInt64
+	public let episodesCompleted: UInt64
+	public let seriesCompleted: UInt64
+	public let distinctTitles: UInt64
+	public let distinctGenres: UInt64
+	public let activeDays: UInt64
+	public let currentStreak: UInt64
+	public let longestStreak: UInt64
+	public let bestDayMinutes: UInt64
+	public let couchHosted: UInt64
+	public let couchJoined: UInt64
+	public let biggestCouch: UInt64
+	public let emojiSent: UInt64
+
+	public init(watchSeconds: UInt64, moviesCompleted: UInt64, episodesCompleted: UInt64, seriesCompleted: UInt64, distinctTitles: UInt64, distinctGenres: UInt64, activeDays: UInt64, currentStreak: UInt64, longestStreak: UInt64, bestDayMinutes: UInt64, couchHosted: UInt64, couchJoined: UInt64, biggestCouch: UInt64, emojiSent: UInt64) {
+		self.watchSeconds = watchSeconds
+		self.moviesCompleted = moviesCompleted
+		self.episodesCompleted = episodesCompleted
+		self.seriesCompleted = seriesCompleted
+		self.distinctTitles = distinctTitles
+		self.distinctGenres = distinctGenres
+		self.activeDays = activeDays
+		self.currentStreak = currentStreak
+		self.longestStreak = longestStreak
+		self.bestDayMinutes = bestDayMinutes
+		self.couchHosted = couchHosted
+		self.couchJoined = couchJoined
+		self.biggestCouch = biggestCouch
+		self.emojiSent = emojiSent
+	}
+}
+
+public struct TopTitle: Codable, Sendable, Hashable {
+	public let slug: String
+	public let name: String
+	public let kind: TitleKind
+	public let seconds: UInt64
+	public let poster: Image?
+
+	public init(slug: String, name: String, kind: TitleKind, seconds: UInt64, poster: Image?) {
+		self.slug = slug
+		self.name = name
+		self.kind = kind
+		self.seconds = seconds
+		self.poster = poster
+	}
+}
+
+public struct ProfileDetail: Codable, Sendable, Hashable {
+	public let username: String
+	public let displayName: String
+	public let bio: MarkdownDoc
+	public let avatar: Image?
+	public let banner: Image?
+	public let memberSince: String
+	public let isSelf: Bool
+	public let `public`: Bool
+	public let rank: RankBadge
+	public let xpTotal: UInt64
+	public let xpSources: [XpLine]
+	public let achievements: [AchievementCard]
+	public let achievementsWon: UInt32
+	public let recentUnlocks: [AchievementCard]
+	public let totals: ProfileTotals
+	public let topTitles: [TopTitle]
+	/// Empty when nothing has been watched.
+	public let favouriteGenre: String
+	/// Watch seconds per hour of the day, 24 entries.
+	public let hours: [UInt64]
+	public let heatmap: Heatmap
+
+	public init(username: String, displayName: String, bio: MarkdownDoc, avatar: Image?, banner: Image?, memberSince: String, isSelf: Bool, public: Bool, rank: RankBadge, xpTotal: UInt64, xpSources: [XpLine], achievements: [AchievementCard], achievementsWon: UInt32, recentUnlocks: [AchievementCard], totals: ProfileTotals, topTitles: [TopTitle], favouriteGenre: String, hours: [UInt64], heatmap: Heatmap) {
+		self.username = username
+		self.displayName = displayName
+		self.bio = bio
+		self.avatar = avatar
+		self.banner = banner
+		self.memberSince = memberSince
+		self.isSelf = isSelf
+		self.public = `public`
+		self.rank = rank
+		self.xpTotal = xpTotal
+		self.xpSources = xpSources
+		self.achievements = achievements
+		self.achievementsWon = achievementsWon
+		self.recentUnlocks = recentUnlocks
+		self.totals = totals
+		self.topTitles = topTitles
+		self.favouriteGenre = favouriteGenre
+		self.hours = hours
+		self.heatmap = heatmap
+	}
+}
+
+public struct ProfileEdit: Codable, Sendable, Hashable {
+	public let displayName: String
+	/// Markdown, at most 2000 characters.
+	public let bio: String
+
+	public init(displayName: String, bio: String) {
+		self.displayName = displayName
+		self.bio = bio
+	}
+}
+
+/// Where one save stands: `loading` while it runs, `loaded` once it succeeded.
+public struct SaveState: Codable, Sendable, Hashable {
+	public let status: LoadStatus
+	public let problem: Problem?
+
+	public init(status: LoadStatus, problem: Problem?) {
+		self.status = status
+		self.problem = problem
+	}
+}
+
+public struct ProfileEditorView: Codable, Sendable, Hashable {
+	public let details: SaveState
+	public let password: SaveState
+	public let avatar: SaveState
+	public let banner: SaveState
+
+	public init(details: SaveState, password: SaveState, avatar: SaveState, banner: SaveState) {
+		self.details = details
+		self.password = password
+		self.avatar = avatar
+		self.banner = banner
+	}
+}
+
+public struct ProfileView: Codable, Sendable, Hashable {
+	public let username: String
+	public let status: LoadStatus
+	public let profile: ProfileDetail?
+	public let problem: Problem?
+
+	public init(username: String, status: LoadStatus, profile: ProfileDetail?, problem: Problem?) {
+		self.username = username
+		self.status = status
+		self.profile = profile
+		self.problem = problem
+	}
+}
+
+public struct PublicChoice: Codable, Sendable, Hashable {
+	public let `public`: Bool
+
+	public init(public: Bool) {
+		self.public = `public`
+	}
+}
+
+public struct RankView: Codable, Sendable, Hashable {
+	/// Absent until the first check, or with rankings off.
+	public let rank: RankBadge?
+	/// Bumped on every genuine level-up, so a badge can pulse once per change.
+	public let levelUps: UInt64
+	/// The unlock to celebrate now; dismissing it shows the next.
+	public let celebration: AchievementCard?
+	/// How many more are queued behind it.
+	public let queued: UInt32
+
+	public init(rank: RankBadge?, levelUps: UInt64, celebration: AchievementCard?, queued: UInt32) {
+		self.rank = rank
+		self.levelUps = levelUps
+		self.celebration = celebration
+		self.queued = queued
 	}
 }
 
@@ -1295,6 +1773,13 @@ public enum Surface: Codable, Sendable, Hashable {
 	case search
 	/// Transient notices for a toast or banner.
 	case notices
+	/// The viewer's rank badge and the achievement celebrations.
+	case rank
+	/// A member's profile; the content is the username.
+	case profile(String)
+	case leaderboard(LeaderboardKey)
+	/// The viewer's profile, password and image saves.
+	case profileEditor
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case app,
@@ -1311,7 +1796,11 @@ public enum Surface: Codable, Sendable, Hashable {
 			genres,
 			myList,
 			search,
-			notices
+			notices,
+			rank,
+			profile,
+			leaderboard,
+			profileEditor
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -1373,6 +1862,22 @@ public enum Surface: Codable, Sendable, Hashable {
 			case .notices:
 				self = .notices
 				return
+			case .rank:
+				self = .rank
+				return
+			case .profile:
+				if let content = try? container.decode(String.self, forKey: .content) {
+					self = .profile(content)
+					return
+				}
+			case .leaderboard:
+				if let content = try? container.decode(LeaderboardKey.self, forKey: .content) {
+					self = .leaderboard(content)
+					return
+				}
+			case .profileEditor:
+				self = .profileEditor
+				return
 			}
 		}
 		throw DecodingError.typeMismatch(Surface.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Surface"))
@@ -1414,6 +1919,16 @@ public enum Surface: Codable, Sendable, Hashable {
 			try container.encode(CodingKeys.search, forKey: .type)
 		case .notices:
 			try container.encode(CodingKeys.notices, forKey: .type)
+		case .rank:
+			try container.encode(CodingKeys.rank, forKey: .type)
+		case .profile(let content):
+			try container.encode(CodingKeys.profile, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .leaderboard(let content):
+			try container.encode(CodingKeys.leaderboard, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .profileEditor:
+			try container.encode(CodingKeys.profileEditor, forKey: .type)
 		}
 	}
 }
@@ -1840,6 +2355,22 @@ public struct TitleView: Codable, Sendable, Hashable {
 		self.status = status
 		self.detail = detail
 		self.problem = problem
+	}
+}
+
+public struct UploadRequest: Codable, Sendable, Hashable {
+	/// The request without a body; the shell sends the form as its body.
+	public let request: HttpRequest
+	/// The handle the shell gave the core for the picked file.
+	public let file: String
+	/// The form part the file goes in, with the file's own name (servers type images by its
+	/// extension).
+	public let field: String
+
+	public init(request: HttpRequest, file: String, field: String) {
+		self.request = request
+		self.file = file
+		self.field = field
 	}
 }
 

@@ -61,6 +61,7 @@ pub struct Env<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CatalogPending {
     generation: u64,
+    language: u64,
     request: Request,
 }
 
@@ -204,6 +205,8 @@ struct Search {
 
 pub struct Catalog {
     generation: u64,
+    /// Bumped by a language switch, which outdates content but not My List changes.
+    language: u64,
     /// Where the last home is kept for a warm start; `None` without an account.
     warm_key: Option<String>,
     home: Slot<Home>,
@@ -221,6 +224,7 @@ impl Default for Catalog {
     fn default() -> Self {
         Self {
             generation: 0,
+            language: 0,
             warm_key: None,
             home: Slot::default(),
             titles: Lru::new(MAX_TITLES),
@@ -276,14 +280,15 @@ impl Catalog {
             ctx.cancel_timer(timer);
         }
         let open = std::mem::take(&mut self.open);
-        *self = Catalog { generation: self.generation + 1, open, ..Catalog::default() };
+        let generation = self.generation + 1;
+        *self = Catalog { generation, language: self.language, open, ..Catalog::default() };
         self.render_all(ctx);
     }
 
     /// The display language changed: everything shown is in the old one, so it stays visible
     /// as stale while open surfaces reload.
     pub fn language_changed(&mut self, ctx: &mut Ctx, env: &Env) {
-        self.generation += 1;
+        self.language += 1;
         self.home.invalidate();
         self.home.loading = false;
         self.genres = Slot { value: self.genres.value.take(), ..Slot::default() };
@@ -451,7 +456,11 @@ impl Catalog {
     }
 
     fn pending(&self, request: Request) -> Pending {
-        Pending::Catalog(CatalogPending { generation: self.generation, request })
+        Pending::Catalog(CatalogPending {
+            generation: self.generation,
+            language: self.language,
+            request,
+        })
     }
 
     pub fn resolve(
@@ -461,7 +470,8 @@ impl Catalog {
         pending: CatalogPending,
         output: EffectOutput,
     ) -> CatalogChange {
-        if pending.generation != self.generation {
+        let content = !matches!(pending.request, Request::Watchlist { .. });
+        if pending.generation != self.generation || (content && pending.language != self.language) {
             return CatalogChange::None;
         }
         let now = ctx.now;
