@@ -1,7 +1,9 @@
 package artwork
 
 import (
+	"context"
 	"net/http"
+	"reflect"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -16,12 +18,39 @@ func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
 }
 
-func (h *Handlers) Register(rt httpx.Routes) {
-	tags := []string{"artwork"}
-	httpx.Raw(rt.User, huma.Operation{OperationID: "getArtwork", Method: http.MethodGet, Path: "/artwork/{id}", Tags: tags}, h.Serve)
+const tag httpx.Tag = "artwork"
 
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUploadArtwork", Method: http.MethodPost, Path: "/artwork", Tags: tags}, h.Upload)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminDeleteArtwork", Method: http.MethodDelete, Path: "/artwork/{id}", Tags: tags}, h.Delete)
+func (h *Handlers) Register(rt httpx.Routes) {
+	httpx.Raw(rt.User, serveOp(rt.User), h.Serve)
+
+	huma.Register(rt.Admin, tag.Created("adminUploadArtwork", http.MethodPost, "/artwork"), h.Upload)
+	huma.Register(rt.Admin, tag.NoContent("adminDeleteArtwork", http.MethodDelete, "/artwork/{id}"), h.Delete)
+}
+
+// serveOp documents the image route, which stays a plain handler because it
+// answers with file bytes (and conditional 304s) rather than JSON.
+func serveOp(api huma.API) huma.Operation {
+	op := tag.Op("getArtwork", http.MethodGet, "/artwork/{id}")
+	op.Summary = "Get an artwork image"
+	op.Description = "The stored original (JPEG, PNG or WebP), or with size a cached JPEG resize."
+	op.Parameters = []*huma.Param{
+		{Name: "id", In: "path", Required: true, Schema: &huma.Schema{Type: huma.TypeString, Format: "uuid"}},
+		{Name: "size", In: "query", Description: "Resize to this width; the original when omitted.",
+			Schema: &huma.Schema{Type: huma.TypeString, Enum: []any{"w342", "w780"}}},
+		{Name: "v", In: "query", Description: "Version token (the artwork's createdAt); a versioned URL is cached as immutable.",
+			Schema: &huma.Schema{Type: huma.TypeString}},
+	}
+	image := &huma.MediaType{Schema: &huma.Schema{Type: huma.TypeString, Format: "binary"}}
+	op.Responses = map[string]*huma.Response{
+		"200": {Description: "The image", Content: map[string]*huma.MediaType{
+			"image/jpeg": image, "image/png": image, "image/webp": image,
+		}},
+		"304": {Description: "Not modified since If-Modified-Since"},
+		"default": {Description: "Error", Content: map[string]*huma.MediaType{
+			"application/json": {Schema: api.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[httpx.APIError](), true, "")},
+		}},
+	}
+	return op
 }
 
 // Serve returns the artwork image, resized on first request when ?size= is given.
@@ -53,55 +82,35 @@ func (h *Handlers) Serve(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, path)
 }
 
-var artworkOwnerKinds = map[string]bool{
-	"title": true, "season": true, "episode": true,
-}
-var artworkKinds = map[string]bool{
-	"poster": true, "backdrop": true, "thumb": true,
+type uploadForm struct {
+	OwnerKind string        `form:"ownerKind" enum:"title,season,episode"`
+	OwnerID   string        `form:"ownerId"`
+	Kind      string        `form:"kind" enum:"poster,backdrop,thumb"`
+	File      huma.FormFile `form:"file" doc:"A .jpg, .jpeg, .png or .webp image (checked by extension)."`
 }
 
-// Upload accepts multipart form data: ownerKind, ownerId, kind, file.
-func (h *Handlers) Upload(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		httpx.BadRequest(w, "invalid multipart form")
-		return
-	}
-	ownerKind := r.FormValue("ownerKind")
-	kind := r.FormValue("kind")
-	ownerID := r.FormValue("ownerId")
-	if !artworkOwnerKinds[ownerKind] || !artworkKinds[kind] {
-		httpx.BadRequest(w, "invalid ownerKind or kind")
-		return
-	}
-	if ownerID == "" {
-		httpx.BadRequest(w, "ownerId is required")
-		return
-	}
+type uploadInput struct {
+	RawBody huma.MultipartFormFiles[uploadForm]
+}
 
-	file, header, err := r.FormFile("file")
+type artworkOutput struct{ Body *Artwork }
+
+// Upload stores an image in an owner's artwork slot, replacing any previous one.
+func (h *Handlers) Upload(ctx context.Context, in *uploadInput) (*artworkOutput, error) {
+	form := in.RawBody.Data()
+	defer form.File.Close()
+	art, err := h.service.Save(ctx, form.OwnerKind, form.OwnerID, form.Kind, form.File.Filename, form.File)
 	if err != nil {
-		httpx.BadRequest(w, "file field is required")
-		return
+		return nil, httpx.Fail(http.StatusBadRequest, "artwork_failed", err.Error())
 	}
-	defer file.Close()
-
-	art, err := h.service.Save(r.Context(), ownerKind, ownerID, kind, header.Filename, file)
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "artwork_failed", err.Error())
-		return
-	}
-	httpx.JSON(w, http.StatusCreated, art)
+	return &artworkOutput{Body: art}, nil
 }
 
-func (h *Handlers) Delete(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	if err := h.service.Delete(r.Context(), id); err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+type idInput struct {
+	ID string `path:"id" format:"uuid"`
+}
+
+// Delete removes the artwork row, its file and cached resizes.
+func (h *Handlers) Delete(ctx context.Context, in *idInput) (*struct{}, error) {
+	return nil, h.service.Delete(ctx, in.ID)
 }

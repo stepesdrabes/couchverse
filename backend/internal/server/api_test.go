@@ -63,6 +63,8 @@ type apiCase struct {
 	body   any
 	// upload sends the body as multipart/form-data with this file in a "file" part
 	upload *upload
+	// fields are the text parts sent alongside upload
+	fields map[string]string
 	// raw sends these bytes as application/octet-stream
 	raw    []byte
 	status int
@@ -285,6 +287,16 @@ func apiCases() []apiCase {
 		{op: "adminImportEpisodes", as: "admin", method: "POST", path: "/admin/titles/" + seriesID + "/metadata/import-episodes", status: 202},
 		{op: "adminImportEpisodes", as: "admin", method: "POST", path: "/admin/titles/" + movieID + "/metadata/import-episodes", status: 400},
 
+		// replacing the pilot's thumb keeps its row, so it can be deleted by id
+		{op: "adminUploadArtwork", as: "admin", method: "POST", path: "/admin/artwork", upload: &upload{"thumb.png", pngImage()},
+			fields: map[string]string{"ownerKind": "episode", "ownerId": pilotID, "kind": "thumb"}, status: 201},
+		{op: "adminUploadArtwork", as: "admin", method: "POST", path: "/admin/artwork", upload: &upload{"thumb.gif", pngImage()},
+			fields: map[string]string{"ownerKind": "episode", "ownerId": pilotID, "kind": "thumb"}, status: 400},
+		{op: "adminUploadArtwork", as: "admin", method: "POST", path: "/admin/artwork", upload: &upload{"thumb.png", pngImage()},
+			fields: map[string]string{"ownerKind": "user", "ownerId": "2", "kind": "avatar"}, status: 400},
+		{op: "adminDeleteArtwork", as: "admin", method: "DELETE", path: "/admin/artwork/" + thumbArtID, status: 204},
+		{op: "adminDeleteArtwork", as: "admin", method: "DELETE", path: "/admin/artwork/" + thumbArtID, status: 404},
+
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "wrong", "newPassword": "long enough"}, status: 400},
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "admin", "newPassword": "long enough"}, status: 204},
 		{op: "logout", as: "admin", method: "POST", path: "/auth/logout", status: 204},
@@ -443,6 +455,9 @@ func (e *testEnv) do(t *testing.T, c apiCase) (int, []byte, string) {
 	}
 	var buf bytes.Buffer
 	form := multipart.NewWriter(&buf)
+	for name, value := range c.fields {
+		_ = form.WriteField(name, value)
+	}
 	part, err := form.CreateFormFile("file", c.upload.name)
 	if err != nil {
 		t.Fatal(err)

@@ -20,16 +20,17 @@ func NewStore(db *pgxpool.Pool) *Store {
 	return &Store{db: db}
 }
 
+// Artwork is one image slot of an owner (a title, season, episode or user).
 type Artwork struct {
 	ID        string    `json:"id"`
-	OwnerKind string    `json:"ownerKind"`
-	OwnerID   string    `json:"ownerId"`
-	Kind      string    `json:"kind"`
-	Path      string    `json:"path"`
-	Width     int       `json:"width"`
-	Height    int       `json:"height"`
-	Source    string    `json:"source"`
-	Accent    string    `json:"accent,omitempty"`
+	OwnerKind string    `json:"ownerKind" enum:"title,season,episode,user"`
+	OwnerID   string    `json:"ownerId" doc:"The owner's uuid, or the numeric user id for user artwork."`
+	Kind      string    `json:"kind" enum:"poster,backdrop,thumb,avatar,banner"`
+	Path      string    `json:"path" doc:"Location under the server's data directory."`
+	Width     int       `json:"width" doc:"0 when not measured."`
+	Height    int       `json:"height" doc:"0 when not measured."`
+	Source    string    `json:"source" enum:"tmdb,uploaded,embedded"`
+	Accent    string    `json:"accent,omitempty" doc:"Dominant vibrant colour as #rrggbb; - when the image yielded none."`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
