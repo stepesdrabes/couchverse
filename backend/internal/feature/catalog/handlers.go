@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"encoding/json"
+	"math"
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
@@ -22,13 +23,40 @@ func NewHandlers(st *Store, set *settings.Store, art *artwork.Store) *Handlers {
 }
 
 // FeaturedItem is one slide of the home hero carousel: a title plus its
-// backdrop and the viewer's My List state.
+// backdrop, its logo and the viewer's My List state.
 type FeaturedItem struct {
 	*Title
 	BackdropID     *string `json:"backdropId"`
 	BackdropVer    int64   `json:"backdropVer,omitempty"`
 	BackdropAccent string  `json:"backdropAccent,omitempty"`
 	InList         bool    `json:"inList"`
+	TitleLogo
+}
+
+// TitleLogo is the logo a hero shows in place of the title's name. The fields
+// are absent when the title has no logo.
+type TitleLogo struct {
+	LogoID     string  `json:"logoId,omitempty" doc:"Artwork id of the title's logo, a transparent PNG: the one in the display language, else in the title's base language, else one not tied to a language, else any."`
+	LogoVer    int64   `json:"logoVer,omitempty" doc:"Version token for the logo's artwork URL (v)."`
+	LogoAspect float64 `json:"logoAspect,omitempty" doc:"The logo's width divided by its height, to lay it out before it loads; absent when unknown."`
+}
+
+// titleLogo picks t's logo for the request's display language from the
+// title's artwork.
+func titleLogo(ctx context.Context, t *Title, art []artwork.Artwork) TitleLogo {
+	base := ""
+	if len(t.MetadataLanguages) > 0 {
+		base = t.MetadataLanguages[0]
+	}
+	logo := artwork.PickLogo(art, httpx.LangFrom(ctx), base)
+	if logo == nil {
+		return TitleLogo{}
+	}
+	out := TitleLogo{LogoID: logo.ID, LogoVer: logo.CreatedAt.Unix()}
+	if logo.Width > 0 && logo.Height > 0 {
+		out.LogoAspect = math.Round(float64(logo.Width)/float64(logo.Height)*1000) / 1000
+	}
+	return out
 }
 
 // HomeRow is one admin-configured shelf. Continue-watching rows fill
@@ -70,6 +98,7 @@ func (h *Handlers) Home(ctx context.Context, _ *struct{}) (*homeOutput, error) {
 				item.BackdropAccent = a.Accent
 			}
 		}
+		item.TitleLogo = titleLogo(ctx, &titles[i], art)
 		if item.InList, err = h.store.WatchlistHas(ctx, user.ID, titles[i].ID); err != nil {
 			return nil, err
 		}
@@ -160,11 +189,12 @@ type TitleDetail struct {
 	Title       *Title            `json:"title"`
 	InWatchlist bool              `json:"inWatchlist"`
 	MediaFiles  []media.MediaFile `json:"mediaFiles"`
-	Artwork     []artwork.Artwork `json:"artwork"`
+	Artwork     []artwork.Artwork `json:"artwork" doc:"Every artwork of the title, including the logos of all its languages."`
 	Seasons     []Season          `json:"seasons"`
 	// EpisodeProgress is keyed by episode id.
 	EpisodeProgress map[string]EpisodeProgress `json:"episodeProgress"`
 	Progress        *EpisodeProgress           `json:"progress,omitempty"`
+	TitleLogo
 }
 
 type titleInput struct {
@@ -193,6 +223,7 @@ func (h *Handlers) Title(ctx context.Context, in *titleInput) (*titleDetailOutpu
 	if out.Artwork, err = h.artwork.ArtworkFor(ctx, "title", t.ID); err != nil {
 		return nil, err
 	}
+	out.TitleLogo = titleLogo(ctx, t, out.Artwork)
 
 	if t.Kind == "series" {
 		if out.Seasons, err = h.store.SeasonsWithEpisodes(ctx, t.ID); err != nil {

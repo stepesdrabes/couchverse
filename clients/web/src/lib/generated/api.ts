@@ -532,6 +532,12 @@ export interface FeaturedItem {
 	id: string;
 	inList: boolean;
 	kind: FeaturedItemKind;
+	/** The logo's width divided by its height, to lay it out before it loads; absent when unknown. */
+	logoAspect?: number;
+	/** Artwork id of the title's logo, a transparent PNG: the one in the display language, else in the title's base language, else one not tied to a language, else any. */
+	logoId?: string;
+	/** Version token for the logo's artwork URL (v). */
+	logoVer?: number;
 	metadataLanguages: string[];
 	name: string;
 	overview: string;
@@ -1300,9 +1306,16 @@ export interface Title {
 }
 
 export interface TitleDetail {
+	/** Every artwork of the title, including the logos of all its languages. */
 	artwork: Artwork[];
 	episodeProgress: Record<string, EpisodeProgress>;
 	inWatchlist: boolean;
+	/** The logo's width divided by its height, to lay it out before it loads; absent when unknown. */
+	logoAspect?: number;
+	/** Artwork id of the title's logo, a transparent PNG: the one in the display language, else in the title's base language, else one not tied to a language, else any. */
+	logoId?: string;
+	/** Version token for the logo's artwork URL (v). */
+	logoVer?: number;
 	mediaFiles: MediaFile[];
 	progress?: EpisodeProgress;
 	seasons: Season[];

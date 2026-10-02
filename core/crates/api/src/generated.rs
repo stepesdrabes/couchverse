@@ -1569,6 +1569,15 @@ pub mod types {
         pub id: String,
         pub in_list: bool,
         pub kind: FeaturedItemKind,
+        /// The logo's width divided by its height, to lay it out before it loads; absent when unknown.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub logo_aspect: Option<f64>,
+        /// Artwork id of the title's logo, a transparent PNG: the one in the display language, else in the title's base language, else one not tied to a language, else any.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub logo_id: Option<String>,
+        /// Version token for the logo's artwork URL (v).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub logo_ver: Option<i64>,
         pub metadata_languages: Vec<String>,
         pub name: String,
         pub overview: String,
@@ -3429,9 +3438,19 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct TitleDetail {
+        /// Every artwork of the title, including the logos of all its languages.
         pub artwork: Vec<Artwork>,
         pub episode_progress: BTreeMap<String, EpisodeProgress>,
         pub in_watchlist: bool,
+        /// The logo's width divided by its height, to lay it out before it loads; absent when unknown.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub logo_aspect: Option<f64>,
+        /// Artwork id of the title's logo, a transparent PNG: the one in the display language, else in the title's base language, else one not tied to a language, else any.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub logo_id: Option<String>,
+        /// Version token for the logo's artwork URL (v).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub logo_ver: Option<i64>,
         pub media_files: Vec<MediaFile>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub progress: Option<EpisodeProgress>,

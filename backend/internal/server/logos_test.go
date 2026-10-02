@@ -21,6 +21,65 @@ import (
 	"couchverse/internal/settings"
 )
 
+// Seeded logos (testdata/seed.sql).
+const (
+	movieLogoEn = "00000000-0000-4000-8000-000000000407"
+	movieLogoCs = "00000000-0000-4000-8000-000000000408"
+	seriesLogo  = "00000000-0000-4000-8000-000000000409"
+)
+
+type logoFields struct {
+	LogoID     string  `json:"logoId"`
+	LogoVer    int64   `json:"logoVer"`
+	LogoAspect float64 `json:"logoAspect"`
+}
+
+// TestTitleLogos checks which logo the viewer reads hand out: the display
+// language's, else the base language's, else one not tied to a language.
+func TestTitleLogos(t *testing.T) {
+	env := newTestEnv(t)
+	for _, c := range []struct {
+		path   string
+		want   string
+		aspect float64
+	}{
+		{"/titles/glass-harbor-2025?lang=cs", movieLogoCs, 2},
+		{"/titles/glass-harbor-2025", movieLogoEn, 2.667},
+		{"/titles/glass-harbor-2025?lang=de", movieLogoEn, 2.667},
+		{"/titles/static-bloom-2024?lang=cs", seriesLogo, 2.5},
+	} {
+		var got logoFields
+		env.getJSON(t, memberName, c.path, &got)
+		if got.LogoID != c.want || got.LogoAspect != c.aspect || got.LogoVer == 0 {
+			t.Errorf("%s: logo %+v, want %s at %v", c.path, got, c.want, c.aspect)
+		}
+	}
+
+	var home struct {
+		Featured []struct {
+			ID string `json:"id"`
+			logoFields
+		} `json:"featured"`
+	}
+	env.getJSON(t, memberName, "/home?lang=cs", &home)
+	logos := map[string]string{}
+	for _, f := range home.Featured {
+		logos[f.ID] = f.LogoID
+	}
+	if logos[movieID] != movieLogoCs || logos[seriesID] != seriesLogo {
+		t.Errorf("featured logos %v", logos)
+	}
+
+	if status, body, _ := env.request(t, env.clients["admin"], "DELETE", "/admin/artwork/"+seriesLogo, nil); status != http.StatusNoContent {
+		t.Fatalf("delete logo: %d %s", status, body)
+	}
+	var raw map[string]any
+	env.getJSON(t, memberName, "/titles/static-bloom-2024", &raw)
+	if _, ok := raw["logoId"]; ok {
+		t.Errorf("a title without a logo has logoId %v", raw["logoId"])
+	}
+}
+
 // TestApplyMetadataLogos runs the TMDB jobs against a fake TMDB: apply stores
 // a logo per content language and drops stale TMDB ones, import fills only the
 // languages without a logo.
@@ -144,4 +203,15 @@ func pngOfSize(w, h int) []byte {
 		panic(err)
 	}
 	return buf.Bytes()
+}
+
+func (e *testEnv) getJSON(t *testing.T, as, path string, out any) {
+	t.Helper()
+	status, body, _ := e.request(t, e.clients[as], "GET", path, nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET %s: %d %s", path, status, body)
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		t.Fatalf("GET %s: %v", path, err)
+	}
 }

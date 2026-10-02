@@ -1743,6 +1743,20 @@
             ],
             "type": "string"
           },
+          "logoAspect": {
+            "description": "The logo's width divided by its height, to lay it out before it loads; absent when unknown.",
+            "format": "double",
+            "type": "number"
+          },
+          "logoId": {
+            "description": "Artwork id of the title's logo, a transparent PNG: the one in the display language, else in the title's base language, else one not tied to a language, else any.",
+            "type": "string"
+          },
+          "logoVer": {
+            "description": "Version token for the logo's artwork URL (v).",
+            "format": "int64",
+            "type": "integer"
+          },
           "metadataLanguages": {
             "items": {
               "type": "string"
@@ -4203,6 +4217,7 @@
         "additionalProperties": false,
         "properties": {
           "artwork": {
+            "description": "Every artwork of the title, including the logos of all its languages.",
             "items": {
               "$ref": "#/components/schemas/Artwork"
             },
@@ -4216,6 +4231,20 @@
           },
           "inWatchlist": {
             "type": "boolean"
+          },
+          "logoAspect": {
+            "description": "The logo's width divided by its height, to lay it out before it loads; absent when unknown.",
+            "format": "double",
+            "type": "number"
+          },
+          "logoId": {
+            "description": "Artwork id of the title's logo, a transparent PNG: the one in the display language, else in the title's base language, else one not tied to a language, else any.",
+            "type": "string"
+          },
+          "logoVer": {
+            "description": "Version token for the logo's artwork URL (v).",
+            "format": "int64",
+            "type": "integer"
           },
           "mediaFiles": {
             "items": {
