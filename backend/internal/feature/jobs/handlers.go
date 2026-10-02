@@ -3,7 +3,7 @@ package jobs
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/httpx"
 )
@@ -16,10 +16,11 @@ func NewAdminJobs(st *Store) *AdminJobs {
 	return &AdminJobs{store: st}
 }
 
-func (h *AdminJobs) MountAdmin(r chi.Router) {
-	r.Get("/jobs", h.List)
-	r.Post("/jobs/{id}/retry", h.Retry)
-	r.Post("/jobs/{id}/cancel", h.Cancel)
+func (h *AdminJobs) Register(rt httpx.Routes) {
+	tags := []string{"jobs"}
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminListJobs", Method: http.MethodGet, Path: "/jobs", Tags: tags}, h.List)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminRetryJob", Method: http.MethodPost, Path: "/jobs/{id}/retry", Tags: tags}, h.Retry)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminCancelJob", Method: http.MethodPost, Path: "/jobs/{id}/cancel", Tags: tags}, h.Cancel)
 }
 
 func (h *AdminJobs) List(w http.ResponseWriter, r *http.Request) {

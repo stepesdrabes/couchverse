@@ -26,30 +26,25 @@ func Load(ctx context.Context, st *settings.Store) Flags {
 	return f
 }
 
-// RequireCouch hides couch-session routes entirely while the feature is disabled.
-func RequireCouch(st *settings.Store) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !Load(r.Context(), st).CouchEnabled {
-				httpx.Error(w, http.StatusNotFound, "feature_disabled", "couch sessions are disabled")
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
+// CouchOn is an httpx.Guard check that hides couch-session routes entirely while
+// the feature is disabled.
+func CouchOn(st *settings.Store) func(context.Context) error {
+	return func(ctx context.Context) error {
+		if !Load(ctx, st).CouchEnabled {
+			return httpx.Fail(http.StatusNotFound, "feature_disabled", "couch sessions are disabled")
+		}
+		return nil
 	}
 }
 
-// RequireRankings hides profile and leaderboard routes entirely while the
-// feature is disabled. The couch counters keep accruing regardless, so turning
-// it back on does not present an empty history.
-func RequireRankings(st *settings.Store) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !Load(r.Context(), st).RankingsEnabled {
-				httpx.Error(w, http.StatusNotFound, "feature_disabled", "rankings are disabled")
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
+// RankingsOn is an httpx.Guard check that hides profile and leaderboard routes
+// entirely while the feature is disabled. The couch counters keep accruing
+// regardless, so turning it back on does not present an empty history.
+func RankingsOn(st *settings.Store) func(context.Context) error {
+	return func(ctx context.Context) error {
+		if !Load(ctx, st).RankingsEnabled {
+			return httpx.Fail(http.StatusNotFound, "feature_disabled", "rankings are disabled")
+		}
+		return nil
 	}
 }

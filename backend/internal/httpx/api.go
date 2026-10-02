@@ -1,0 +1,138 @@
+package httpx
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
+	"github.com/go-chi/chi/v5"
+
+	"couchverse/internal/version"
+)
+
+func init() {
+	// Handlers encode empty lists as [] (the contract tests reject null), so
+	// arrays are typed non-nullable and every client decodes plain lists.
+	huma.DefaultArrayNullable = false
+	huma.NewError = newError
+}
+
+// NewAPI creates the typed API on r, which is mounted at /api/v1. Operations
+// register on it (directly or through a huma.Group) so the OpenAPI document is
+// derived from the handler types and cannot drift from them.
+func NewAPI(r chi.Router) huma.API {
+	cfg := huma.DefaultConfig("Couchverse", strconv.Itoa(version.APILevel))
+	// the spec is published through `couchverse openapi`, not served, and
+	// responses carry no $schema links
+	cfg.OpenAPIPath, cfg.DocsPath, cfg.SchemasPath = "", "", ""
+	cfg.CreateHooks = nil
+	cfg.Servers = []*huma.Server{{URL: "/api/v1"}}
+	return humachi.New(r, cfg)
+}
+
+// newError adapts huma's own failures (validation, body limits, handler errors
+// that are not an APIError) to the API envelope. A wrapped db.ErrNotFound is a
+// 404 wherever it surfaces.
+func newError(status int, msg string, errs ...error) huma.StatusError {
+	for _, err := range errs {
+		var apiErr *APIError
+		if errors.As(err, &apiErr) {
+			return apiErr
+		}
+		if errors.Is(err, ErrNotFound) {
+			return NotFoundError()
+		}
+	}
+	switch {
+	case status >= http.StatusInternalServerError:
+		return InternalError(fmt.Errorf("%s: %w", msg, errors.Join(errs...)))
+	case status == http.StatusUnprocessableEntity:
+		// invalid input was always a 400 here; keep it one
+		return BadRequestError(detailMessage(msg, errs))
+	}
+	return Fail(status, statusCode(status), detailMessage(msg, errs))
+}
+
+func detailMessage(msg string, errs []error) string {
+	var parts []string
+	for _, err := range errs {
+		var d *huma.ErrorDetail
+		if errors.As(err, &d) && d.Location != "" {
+			parts = append(parts, d.Location+": "+d.Message)
+		} else if err != nil {
+			parts = append(parts, err.Error())
+		}
+	}
+	if len(parts) == 0 {
+		return msg
+	}
+	return strings.Join(parts, "; ")
+}
+
+func statusCode(status int) string {
+	switch status {
+	case http.StatusTooManyRequests:
+		return "rate_limited"
+	case http.StatusRequestEntityTooLarge:
+		return "too_large"
+	}
+	return strings.ToLower(strings.ReplaceAll(http.StatusText(status), " ", "_"))
+}
+
+// Localized marks a read whose catalog text follows the display language: it
+// documents ?lang= and puts it on the context for the stores (see LangFrom).
+func Localized(op huma.Operation) huma.Operation {
+	op.Parameters = append(op.Parameters, &huma.Param{
+		Name:        "lang",
+		In:          "query",
+		Description: "Display language (ISO 639-1). Empty serves the base text.",
+		Schema:      &huma.Schema{Type: huma.TypeString},
+	})
+	op.Middlewares = append(op.Middlewares, func(ctx huma.Context, next func(huma.Context)) {
+		next(huma.WithContext(ctx, WithLang(ctx.Context(), ctx.Query("lang"))))
+	})
+	return op
+}
+
+// Guard is middleware that rejects a request when check returns an error;
+// install it on a group for auth or feature-flag gates.
+func Guard(api huma.API, check func(context.Context) error) func(huma.Context, func(huma.Context)) {
+	return func(ctx huma.Context, next func(huma.Context)) {
+		if err := check(ctx.Context()); err != nil {
+			se := newError(http.StatusInternalServerError, "guard", err)
+			_ = huma.WriteErr(api, ctx, se.GetStatus(), se.Error(), se)
+			return
+		}
+		next(ctx)
+	}
+}
+
+// Raw registers a route served by a plain handler (byte streams, WebSockets,
+// multipart, beacons) through the same API, so it shares the group's prefix,
+// middleware and security and is still documented for typed clients.
+func Raw(api huma.API, op huma.Operation, h http.HandlerFunc) {
+	if d, ok := api.(huma.OperationDocumenter); ok {
+		d.DocumentOperation(&op)
+	} else {
+		api.OpenAPI().AddOperation(&op)
+	}
+	api.Adapter().Handle(&op, api.Middlewares().Handler(op.Middlewares.Handler(func(ctx huma.Context) {
+		r, w := humachi.Unwrap(ctx)
+		h(w, r)
+	})))
+}
+
+// Routes are the API groups a feature registers its operations on.
+type Routes struct {
+	Public huma.API // anyone, including anonymous couch followers
+	User   huma.API // a signed-in user
+	Admin  huma.API // an admin; paths are prefixed with /admin
+	// Stream admits a signed-in user or an anonymous couch follower of exactly
+	// the media the request targets (the guard lives in the composition root).
+	Stream huma.API
+}

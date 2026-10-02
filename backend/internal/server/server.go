@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,56 +31,58 @@ import (
 	"couchverse/web"
 )
 
-type Server struct {
-	cfg       config.Config
-	pool      *pgxpool.Pool
-	system    *system.Store
-	settings  *settings.Store
-	auth      *auth.Store
-	catalog   *catalog.Store
-	jobs      *jobs.Store
-	library   *library.Store
-	uploads   *library.Manager
-	artwork   *artwork.Service
-	subtitles *subtitles.Service
-	transcode *playback.JobHandler
-	sessions  *playback.SessionManager
-	stream    *playback.Stream
-	analytics *analytics.Store
-	ranks     *ranks.Store
-	couch     *couch.Hub
+// Deps are the stores and services the HTTP layer composes, constructed in
+// cmd/couchverse.
+type Deps struct {
+	Config    config.Config
+	Pool      *pgxpool.Pool
+	Settings  *settings.Store
+	Auth      *auth.Store
+	Catalog   *catalog.Store
+	Jobs      *jobs.Store
+	Library   *library.Store
+	System    *system.Store
+	Uploads   *library.Manager
+	Artwork   *artwork.Service
+	Subtitles *subtitles.Service
+	Transcode *playback.JobHandler
+	Sessions  *playback.SessionManager
+	Stream    *playback.Stream
+	Analytics *analytics.Store
+	Ranks     *ranks.Store
+	Couch     *couch.Hub
 }
 
-func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, lib *library.Store, sys *system.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager, stream *playback.Stream, an *analytics.Store, rk *ranks.Store, couchHub *couch.Hub) *Server {
-	return &Server{cfg: cfg, pool: pool, system: sys, settings: set, auth: au, catalog: cat, jobs: jb, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions, stream: stream, analytics: an, ranks: rk, couch: couchHub}
+type Server struct {
+	Deps
+}
+
+func New(d Deps) *Server {
+	return &Server{Deps: d}
+}
+
+// OpenAPI returns the API description without a database or running server:
+// operations only reference their handlers, so empty dependencies suffice.
+func OpenAPI() *huma.OpenAPI {
+	s := New(Deps{
+		Artwork:   &artwork.Service{},
+		Subtitles: &subtitles.Service{},
+		Uploads:   &library.Manager{},
+	})
+	return s.register(chi.NewRouter()).OpenAPI()
 }
 
 func (s *Server) Handler() http.Handler {
-	sessions := auth.NewMiddleware(s.auth)
-	authModule := auth.NewModule(s.auth, s.cfg, s.artwork)
-	systemModule := system.NewModule(s.system, s.settings, s.jobs, s.cfg.DataDir, s.couch, s.sessions)
-	libraryModule := library.NewModule(s.library, s.uploads)
-	adminJobs := jobs.NewAdminJobs(s.jobs)
-	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.jobs, s.analytics)
-	playbackModule := playback.NewModule(
-		s.stream,
-		playback.NewAdminTranscode(s.library, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath),
-	)
-	couchModule := couch.NewModule(s.couch, s.settings)
-	analyticsModule := analytics.NewModule(s.analytics)
-	ranksModule := ranks.NewModule(s.ranks, s.settings)
-	artworkAPI := artwork.NewHandlers(s.artwork)
-	subtitlesAPI := subtitles.NewSubtitles(s.subtitles.Subs, s.library, s.subtitles)
-	metadataAPI := metadata.NewAdminMetadata(s.catalog, s.settings, s.jobs)
+	sessions := auth.NewMiddleware(s.Auth)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(clientIP(s.cfg.TrustedProxies))
+	r.Use(clientIP(s.Config.TrustedProxies))
 	r.Use(requestLogger)
 	r.Use(middleware.Recoverer)
 
 	r.Get("/healthz", s.handleHealthz)
-	r.Get("/favicon.svg", systemModule.Favicon)
+	r.Get("/favicon.svg", system.NewTheme(s.Settings).Favicon)
 
 	r.Route("/api/v1", func(v1 chi.Router) {
 		v1.Use(auth.CSRFOrigin)
@@ -87,72 +90,57 @@ func (s *Server) Handler() http.Handler {
 		v1.NotFound(func(w http.ResponseWriter, _ *http.Request) {
 			httpx.NotFound(w)
 		})
-
-		authModule.MountPublic(v1)
-		systemModule.MountPublic(v1)
-
-		// couch session routes are public so anonymous followers can join; each
-		// handler enforces its own auth and the group self-gates on couchEnabled
-		couchModule.MountUser(v1)
-
-		// authenticated routes
-		v1.Group(func(p chi.Router) {
-			p.Use(auth.RequireAuth)
-			authModule.MountUser(p)
-			catalogModule.MountUser(p)
-
-			artworkAPI.MountUser(p)
-			subtitlesAPI.MountUser(p)
-
-			systemModule.MountUser(p)
-
-			// profiles + leaderboard gate themselves on the rankings toggle
-			ranksModule.MountUser(p)
-		})
-
-		// stream + playback routes: logged-in, or an anonymous couch follower
-		// limited to the host's current media (the couch stream-auth guard)
-		v1.Group(func(p chi.Router) {
-			p.Use(s.requireAuthOrCouch)
-			playbackModule.MountUser(p)
-		})
-
-		// admin routes
-		v1.Route("/admin", func(adm chi.Router) {
-			adm.Use(auth.RequireAdmin)
-
-			catalogModule.MountAdmin(adm)
-
-			authModule.MountAdmin(adm)
-
-			systemModule.MountAdmin(adm)
-
-			libraryModule.MountAdmin(adm)
-
-			adminJobs.MountAdmin(adm)
-
-			analyticsModule.MountAdmin(adm)
-
-			ranksModule.MountAdmin(adm)
-
-			metadataAPI.MountAdmin(adm)
-
-			artworkAPI.MountAdmin(adm)
-
-			subtitlesAPI.MountAdmin(adm)
-
-			playbackModule.MountAdmin(adm)
-		})
+		s.register(v1)
 	})
 
 	r.NotFound(spaHandler())
 	return r
 }
 
+// register builds the API on v1 and lets every feature add its operations to the
+// group matching who may call them.
+func (s *Server) register(v1 chi.Router) huma.API {
+	api := httpx.NewAPI(v1)
+	api.OpenAPI().Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		"cookieSession": {Type: "apiKey", In: "cookie", Name: auth.SessionCookie},
+	}
+	signedIn := func(op *huma.Operation) {
+		op.Security = []map[string][]string{{"cookieSession": {}}}
+	}
+
+	user := huma.NewGroup(api)
+	user.UseMiddleware(httpx.Guard(api, auth.SignedIn))
+	user.UseSimpleModifier(signedIn)
+
+	admin := huma.NewGroup(api, "/admin")
+	admin.UseMiddleware(httpx.Guard(api, auth.Admin))
+	admin.UseSimpleModifier(signedIn)
+
+	stream := huma.NewGroup(api)
+	stream.UseMiddleware(s.authOrCouch(api))
+	stream.UseSimpleModifier(signedIn)
+
+	rt := httpx.Routes{Public: api, User: user, Admin: admin, Stream: stream}
+
+	auth.NewModule(s.Auth, s.Config, s.Artwork).Register(rt)
+	system.NewModule(s.System, s.Settings, s.Jobs, s.Config.DataDir, s.Couch, s.Sessions).Register(rt)
+	catalog.NewModule(s.Catalog, s.Settings, s.Artwork, s.Jobs, s.Analytics).Register(rt)
+	playback.NewModule(s.Stream, playback.NewAdminTranscode(s.Library, s.Settings, s.Jobs, s.Transcode, s.Config.FFmpegPath)).Register(rt)
+	couch.NewModule(s.Couch, s.Settings).Register(rt)
+	ranks.NewModule(s.Ranks, s.Settings).Register(rt)
+	artwork.NewHandlers(s.Artwork).Register(rt)
+	subtitles.NewSubtitles(s.Subtitles.Subs, s.Library, s.Subtitles).Register(rt)
+	library.NewModule(s.Library, s.Uploads).Register(rt)
+	metadata.NewAdminMetadata(s.Catalog, s.Settings, s.Jobs).Register(rt)
+	jobs.NewAdminJobs(s.Jobs).Register(rt)
+	analytics.NewModule(s.Analytics).Register(rt)
+	return api
+}
+
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
-	if err := s.pool.Ping(ctx); err != nil {
+	if err := s.Pool.Ping(ctx); err != nil {
 		httpx.Error(w, http.StatusServiceUnavailable, "db_unreachable", "database unreachable")
 		return
 	}

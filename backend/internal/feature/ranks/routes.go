@@ -3,7 +3,7 @@ package ranks
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
@@ -22,21 +22,20 @@ func NewModule(st *Store, set *settings.Store) *Module {
 	return &Module{handlers: NewHandlers(st, set), admin: NewAdminRanks(st, set), settings: set}
 }
 
-func (m *Module) MountUser(r chi.Router) {
-	r.Group(func(g chi.Router) {
-		g.Use(flags.RequireRankings(m.settings))
-		g.Get("/me/stats", withLang(m.handlers.MyStats))
-		g.Post("/me/achievements/check", m.handlers.Check)
-		g.Get("/users/{username}/profile", withLang(m.handlers.PublicProfile))
-		g.Get("/leaderboard", m.handlers.Leaderboard)
-	})
-}
-
-// MountAdmin registers the progression admin. Deliberately not flag-gated: an
+// Register adds the progression routes. The viewer group is hidden while the
+// rankingsEnabled flag is off; the admin is deliberately not gated, since an
 // admin has to be able to inspect and retune ranks in order to turn them back on.
-func (m *Module) MountAdmin(r chi.Router) {
-	r.Get("/ranks", m.admin.Overview)
-	r.Put("/ranks/config", m.admin.PutConfig)
+func (m *Module) Register(rt httpx.Routes) {
+	tags := []string{"ranks"}
+	api := huma.NewGroup(rt.User)
+	api.UseMiddleware(httpx.Guard(api, flags.RankingsOn(m.settings)))
+	httpx.Raw(api, huma.Operation{OperationID: "getMyStats", Method: http.MethodGet, Path: "/me/stats", Tags: tags}, withLang(m.handlers.MyStats))
+	httpx.Raw(api, huma.Operation{OperationID: "checkAchievements", Method: http.MethodPost, Path: "/me/achievements/check", Tags: tags}, m.handlers.Check)
+	httpx.Raw(api, huma.Operation{OperationID: "getProfile", Method: http.MethodGet, Path: "/users/{username}/profile", Tags: tags}, withLang(m.handlers.PublicProfile))
+	httpx.Raw(api, huma.Operation{OperationID: "getLeaderboard", Method: http.MethodGet, Path: "/leaderboard", Tags: tags}, m.handlers.Leaderboard)
+
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetRanks", Method: http.MethodGet, Path: "/ranks", Tags: tags}, m.admin.Overview)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUpdateRanksConfig", Method: http.MethodPut, Path: "/ranks/config", Tags: tags}, m.admin.PutConfig)
 }
 
 // withLang threads the ?lang= display language onto the request context so a

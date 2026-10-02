@@ -9,18 +9,54 @@ import (
 	"couchverse/internal/db"
 )
 
-type apiError struct {
+// ErrNotFound aliases db.ErrNotFound so handlers can match store errors
+// without importing the db package.
+var ErrNotFound = db.ErrNotFound
+
+// APIError is every error the API returns. It encodes as the envelope all
+// clients parse, {"error":{"code","message"}}, and satisfies huma.StatusError
+// so typed operations can return it directly.
+type APIError struct {
+	status int
+	Body   ErrorBody `json:"error"`
+}
+
+// ErrorBody is the payload of an APIError. Code is stable and meant for
+// programs; Message is a human-readable English hint.
+type ErrorBody struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
 
-type errorBody struct {
-	Error apiError `json:"error"`
+func (e *APIError) Error() string  { return e.Body.Message }
+func (e *APIError) GetStatus() int { return e.status }
+
+// Fail returns an APIError with an explicit status and code.
+func Fail(status int, code, message string) *APIError {
+	return &APIError{status: status, Body: ErrorBody{Code: code, Message: message}}
 }
 
-// ErrNotFound aliases db.ErrNotFound so handlers can match store errors
-// without importing the db package.
-var ErrNotFound = db.ErrNotFound
+func NotFoundError() *APIError {
+	return Fail(http.StatusNotFound, "not_found", "resource not found")
+}
+
+func BadRequestError(message string) *APIError {
+	return Fail(http.StatusBadRequest, "bad_request", message)
+}
+
+// InternalError logs err and hides it behind a generic 500.
+func InternalError(err error) *APIError {
+	slog.Error("internal error", "err", err)
+	return Fail(http.StatusInternalServerError, "internal", "internal server error")
+}
+
+// StoreError maps a store error to 404 for missing rows, 500 otherwise.
+func StoreError(err error) *APIError {
+	if errors.Is(err, ErrNotFound) {
+		return NotFoundError()
+	}
+	return InternalError(err)
+}
 
 func JSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -34,29 +70,28 @@ func JSON(w http.ResponseWriter, status int, v any) {
 }
 
 func Error(w http.ResponseWriter, status int, code, message string) {
-	JSON(w, status, errorBody{Error: apiError{Code: code, Message: message}})
+	JSON(w, status, Fail(status, code, message))
 }
 
 func Internal(w http.ResponseWriter, err error) {
-	slog.Error("internal error", "err", err)
-	Error(w, http.StatusInternalServerError, "internal", "internal server error")
+	e := InternalError(err)
+	JSON(w, e.status, e)
 }
 
 func NotFound(w http.ResponseWriter) {
-	Error(w, http.StatusNotFound, "not_found", "resource not found")
+	e := NotFoundError()
+	JSON(w, e.status, e)
 }
 
 func BadRequest(w http.ResponseWriter, message string) {
-	Error(w, http.StatusBadRequest, "bad_request", message)
+	e := BadRequestError(message)
+	JSON(w, e.status, e)
 }
 
-// StoreErr maps a store error to 404 for missing rows, 500 otherwise.
+// StoreErr writes the response StoreError describes.
 func StoreErr(w http.ResponseWriter, err error) {
-	if errors.Is(err, ErrNotFound) {
-		NotFound(w)
-		return
-	}
-	Internal(w, err)
+	e := StoreError(err)
+	JSON(w, e.status, e)
 }
 
 // Decode reads a JSON request body into v, capping the body size.

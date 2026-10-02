@@ -3,7 +3,7 @@ package analytics
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/httpx"
 )
@@ -16,8 +16,8 @@ func NewModule(st *Store) *Module {
 	return &Module{store: st}
 }
 
-func (m *Module) MountAdmin(r chi.Router) {
-	r.Get("/analytics/overview", m.overview)
+func (m *Module) Register(rt httpx.Routes) {
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetAnalytics", Method: http.MethodGet, Path: "/analytics/overview", Tags: []string{"analytics"}}, m.overview)
 }
 
 func (m *Module) overview(w http.ResponseWriter, r *http.Request) {

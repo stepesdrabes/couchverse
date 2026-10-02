@@ -3,7 +3,7 @@ package system
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/flags"
@@ -32,31 +32,20 @@ func NewModule(st *Store, set *settings.Store, jb *jobs.Store, dataDir string, c
 	}
 }
 
-// MountPublic mounts routes that work without a session - the accent theme
-// applies on the login screen too.
-func (m *Module) MountPublic(r chi.Router) {
-	r.Get("/theme", m.theme.Get)
-}
+func (m *Module) Register(rt httpx.Routes) {
+	tags := []string{"system"}
+	// public: the accent theme applies on the login screen too
+	httpx.Raw(rt.Public, huma.Operation{OperationID: "getTheme", Method: http.MethodGet, Path: "/theme", Tags: tags}, m.theme.Get)
+	httpx.Raw(rt.User, huma.Operation{OperationID: "getFeatures", Method: http.MethodGet, Path: "/features", Tags: tags}, m.Features)
 
-// Favicon serves the accent-tinted app icon (registered at the root, not /api).
-func (m *Module) Favicon(w http.ResponseWriter, r *http.Request) {
-	m.theme.Favicon(w, r)
-}
-
-func (m *Module) MountUser(r chi.Router) {
-	r.Get("/features", m.Features)
-}
-
-func (m *Module) MountAdmin(r chi.Router) {
-	r.Get("/settings", m.settings.Get)
-	r.Put("/settings", m.settings.Put)
-
-	r.Get("/storage", m.storage.Get)
-	r.Get("/overview", m.storage.Overview)
-	r.Get("/system", m.stats.Get)
-	r.Get("/live", m.live.Get)
-	r.Get("/home-rows", m.storage.HomeRowsGet)
-	r.Put("/home-rows", m.storage.HomeRowsPut)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetSettings", Method: http.MethodGet, Path: "/settings", Tags: tags}, m.settings.Get)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUpdateSettings", Method: http.MethodPut, Path: "/settings", Tags: tags}, m.settings.Put)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetStorage", Method: http.MethodGet, Path: "/storage", Tags: tags}, m.storage.Get)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetOverview", Method: http.MethodGet, Path: "/overview", Tags: tags}, m.storage.Overview)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetSystemStats", Method: http.MethodGet, Path: "/system", Tags: tags}, m.stats.Get)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetLive", Method: http.MethodGet, Path: "/live", Tags: tags}, m.live.Get)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetHomeRows", Method: http.MethodGet, Path: "/home-rows", Tags: tags}, m.storage.HomeRowsGet)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUpdateHomeRows", Method: http.MethodPut, Path: "/home-rows", Tags: tags}, m.storage.HomeRowsPut)
 }
 
 // Features reports the admin-toggleable feature flags to the app shell.

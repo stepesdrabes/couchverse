@@ -27,7 +27,7 @@ func NewMiddleware(st *Store) *Middleware {
 }
 
 // Load resolves the session cookie into a user on the request context.
-// It never rejects - RequireAuth/RequireAdmin do that per route.
+// It never rejects - the SignedIn/Admin guards do that per route group.
 func (m *Middleware) Load(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(SessionCookie)
@@ -45,31 +45,6 @@ func (m *Middleware) Load(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, user)))
-	})
-}
-
-func RequireAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if UserFrom(r.Context()) == nil {
-			httpx.Error(w, http.StatusUnauthorized, "unauthorized", "authentication required")
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-func RequireAdmin(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		u := UserFrom(r.Context())
-		if u == nil {
-			httpx.Error(w, http.StatusUnauthorized, "unauthorized", "authentication required")
-			return
-		}
-		if u.Role != "admin" {
-			httpx.Error(w, http.StatusForbidden, "forbidden", "admin access required")
-			return
-		}
-		next.ServeHTTP(w, r)
 	})
 }
 

@@ -56,6 +56,14 @@ func ensureManagedLibraries(ctx context.Context, st *library.Store, dataDir stri
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
 
+	if len(os.Args) > 1 && os.Args[1] == "openapi" {
+		if err := printOpenAPI(os.Stdout); err != nil {
+			slog.Error("openapi", "err", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err)
 		os.Exit(1)
@@ -145,8 +153,26 @@ func run() error {
 	go artworkService.BackfillAccents(ctx)
 
 	srv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, pool, set, authStore, catalogStore, jobsStore, libraryStore, systemStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager, playbackStream, analyticsStore, ranksStore, couchHub).Handler(),
+		Addr: fmt.Sprintf(":%d", cfg.Port),
+		Handler: server.New(server.Deps{
+			Config:    cfg,
+			Pool:      pool,
+			Settings:  set,
+			Auth:      authStore,
+			Catalog:   catalogStore,
+			Jobs:      jobsStore,
+			Library:   libraryStore,
+			System:    systemStore,
+			Uploads:   uploadManager,
+			Artwork:   artworkService,
+			Subtitles: subtitleService,
+			Transcode: transcodeHandler,
+			Sessions:  sessionManager,
+			Stream:    playbackStream,
+			Analytics: analyticsStore,
+			Ranks:     ranksStore,
+			Couch:     couchHub,
+		}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

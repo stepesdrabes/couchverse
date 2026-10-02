@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
@@ -26,20 +26,20 @@ func NewModule(hub *Hub, set *settings.Store) *Module {
 	}
 }
 
-// MountUser registers the public couch routes (anonymous followers must reach
-// them); each handler enforces its own auth. The whole group is hidden when the
-// couchEnabled flag is off.
-func (m *Module) MountUser(r chi.Router) {
-	r.Group(func(c chi.Router) {
-		c.Use(flags.RequireCouch(m.settings))
-		c.Post("/couch", m.handlers.Create)
-		c.Get("/couch/{token}/info", withLang(m.handlers.Info))
-		c.Post("/couch/{token}/join", m.handlers.Join)
-		c.Post("/couch/{token}/leave", m.handlers.Leave)
-		c.Post("/couch/{token}/end", m.handlers.End)
-		c.Get("/couch/{token}/playback", withLang(m.handlers.Playback))
-		c.Get("/couch/{token}/ws", m.handlers.WS)
-	})
+// Register adds the couch routes to the public group (anonymous followers must
+// reach them); each handler enforces its own auth. The whole group is hidden
+// when the couchEnabled flag is off.
+func (m *Module) Register(rt httpx.Routes) {
+	tags := []string{"couch"}
+	api := huma.NewGroup(rt.Public)
+	api.UseMiddleware(httpx.Guard(api, flags.CouchOn(m.settings)))
+	httpx.Raw(api, huma.Operation{OperationID: "createCouch", Method: http.MethodPost, Path: "/couch", Tags: tags}, m.handlers.Create)
+	httpx.Raw(api, huma.Operation{OperationID: "getCouchInfo", Method: http.MethodGet, Path: "/couch/{token}/info", Tags: tags}, withLang(m.handlers.Info))
+	httpx.Raw(api, huma.Operation{OperationID: "joinCouch", Method: http.MethodPost, Path: "/couch/{token}/join", Tags: tags}, m.handlers.Join)
+	httpx.Raw(api, huma.Operation{OperationID: "leaveCouch", Method: http.MethodPost, Path: "/couch/{token}/leave", Tags: tags}, m.handlers.Leave)
+	httpx.Raw(api, huma.Operation{OperationID: "endCouch", Method: http.MethodPost, Path: "/couch/{token}/end", Tags: tags}, m.handlers.End)
+	httpx.Raw(api, huma.Operation{OperationID: "getCouchPlayback", Method: http.MethodGet, Path: "/couch/{token}/playback", Tags: tags}, withLang(m.handlers.Playback))
+	httpx.Raw(api, huma.Operation{OperationID: "couchSocket", Method: http.MethodGet, Path: "/couch/{token}/ws", Tags: tags}, m.handlers.WS)
 }
 
 // withLang threads the ?lang= display language onto the request context so a

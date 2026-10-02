@@ -3,7 +3,7 @@ package artwork
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/httpx"
 )
@@ -16,13 +16,12 @@ func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
 }
 
-func (h *Handlers) MountUser(r chi.Router) {
-	r.Get("/artwork/{id}", h.Serve)
-}
+func (h *Handlers) Register(rt httpx.Routes) {
+	tags := []string{"artwork"}
+	httpx.Raw(rt.User, huma.Operation{OperationID: "getArtwork", Method: http.MethodGet, Path: "/artwork/{id}", Tags: tags}, h.Serve)
 
-func (h *Handlers) MountAdmin(r chi.Router) {
-	r.Post("/artwork", h.Upload)
-	r.Delete("/artwork/{id}", h.Delete)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUploadArtwork", Method: http.MethodPost, Path: "/artwork", Tags: tags}, h.Upload)
+	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminDeleteArtwork", Method: http.MethodDelete, Path: "/artwork/{id}", Tags: tags}, h.Delete)
 }
 
 // Serve returns the artwork image, resized on first request when ?size= is given.
