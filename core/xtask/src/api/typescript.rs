@@ -1,22 +1,28 @@
 //! Renders the model as `clients/web/src/lib/generated/api.ts`: interfaces for every schema,
-//! discriminated unions for the couch frames, one function per JSON operation (over the web's
-//! `api()` fetch wrapper, which adds `?lang=`, the cookie and error handling) and a path builder
-//! per raw operation.
+//! discriminated unions for the couch frames and one function per typed operation over the web's
+//! `api()` fetch wrapper (which adds `?lang=`, the cookie and error handling, and sends a JSON
+//! body, a `FormData` or bytes as such). Each function takes a trailing `CallOptions` passed
+//! through to `api()`. Raw operations (byte streams, sockets) and uploads also get a path builder
+//! returning the full `<base>/...` path, for an `<img src>`, a media element or a request made
+//! without `api()`, such as one reporting upload progress.
 
 use std::fmt::Write as _;
 
-use super::model::{Field, FrameUnion, Item, Operation, Param, Response, Ty, pascal};
+use super::model::{
+    BodyKind, Field, FrameUnion, Item, Operation, Param, Response, Ty, bullet, pascal,
+};
 use crate::out;
 
 pub fn render(
     source: &str,
+    base: &str,
     types: &[&Item],
     ops: &[Operation],
     couch: &[&Item],
     frames: &[FrameUnion],
 ) -> String {
     let mut s = out::header("//", source);
-    s.push_str("\nimport { api, qs } from '$lib/api/client';\n");
+    s.push_str("\nimport { api, qs, type CallOptions } from '$lib/api/client';\n");
     for item in types.iter().chain(couch) {
         write_item(&mut s, item);
     }
@@ -24,7 +30,7 @@ pub fn render(
         write_frames(&mut s, union);
     }
     for op in ops {
-        write_operation(&mut s, op);
+        write_operation(&mut s, op, base);
     }
     s
 }
@@ -53,7 +59,7 @@ fn write_doc(s: &mut String, indent: &str, doc: Option<&str>) {
     } else {
         let _ = writeln!(s, "{indent}/**");
         for line in lines {
-            let _ = writeln!(s, "{indent} * {line}");
+            let _ = writeln!(s, "{}", format!("{indent} * {line}").trim_end());
         }
         let _ = writeln!(s, "{indent} */");
     }
@@ -110,33 +116,50 @@ fn query_params(op: &Operation) -> Vec<&Param> {
     op.query().into_iter().filter(|p| p.name != "lang").collect()
 }
 
-fn write_operation(s: &mut String, op: &Operation) {
-    let query = query_params(op);
-    let query_type = format!("{}Query", pascal(&op.id));
-    if !query.is_empty() {
-        let _ = writeln!(s, "\nexport interface {query_type} {{");
-        for p in &query {
-            write_doc(s, "\t", p.doc.as_deref());
-            let optional = if p.required { "" } else { "?" };
-            let _ = writeln!(s, "\t{}{optional}: {};", p.name, ty(&p.ty));
+/// The argument carrying the body, its type and its `@param` text.
+fn body_arg(op: &Operation) -> Option<(&'static str, String, Vec<String>)> {
+    let body = op.body.as_ref()?;
+    let optional = if body.required { "" } else { "?" };
+    let mut doc: Vec<String> = body.doc.iter().flat_map(|d| lines(d)).collect();
+    let (name, t) = match &body.kind {
+        BodyKind::Json(t) => {
+            if !body.required {
+                doc.push("May be omitted, which sends no body.".to_string());
+            }
+            ("body", ty(t))
         }
-        s.push_str("}\n");
-    }
+        BodyKind::Multipart(parts) => {
+            doc.push("Sent as `multipart/form-data`, with the parts:".to_string());
+            for part in parts {
+                doc.extend(bullet(&part.label(), part.doc.as_deref()));
+            }
+            ("form", "FormData".to_string())
+        }
+        BodyKind::Binary => {
+            doc.push("Sent as `application/octet-stream`.".to_string());
+            ("body", "Blob | ArrayBuffer | Uint8Array<ArrayBuffer>".to_string())
+        }
+    };
+    Some((name, format!("{name}{optional}: {t}"), doc))
+}
 
-    let mut args: Vec<String> =
-        op.path_params().iter().map(|p| format!("{}: {}", p.name, ty(&p.ty))).collect();
-    if !query.is_empty() {
-        let all_optional = query.iter().all(|p| !p.required);
-        args.push(if all_optional {
-            format!("query: {query_type} = {{}}")
-        } else {
-            format!("query: {query_type}")
-        });
-    }
-    if let Some(body) = &op.body {
-        args.push(format!("body: {}", ty(body)));
-    }
+/// `@param name doc` with the doc's further lines under it.
+fn param_tag(name: &str, doc: &[String]) -> Vec<String> {
+    let mut lines = doc.iter();
+    let mut out = vec![match lines.next() {
+        Some(first) => format!("@param {name} {first}"),
+        None => format!("@param {name}"),
+    }];
+    out.extend(lines.cloned());
+    out
+}
 
+fn lines(doc: &str) -> Vec<String> {
+    doc.lines().map(str::to_string).collect()
+}
+
+/// The path below the API base as a template literal's content, query string included.
+fn template_path(op: &Operation, query: &[&Param]) -> String {
     let mut path = op.path.clone();
     for p in op.path_params() {
         path = path
@@ -160,38 +183,94 @@ fn write_operation(s: &mut String, op: &Operation) {
             .collect();
         let _ = write!(path, "${{qs({{ {} }})}}", fields.join(", "));
     }
+    path
+}
 
-    s.push('\n');
-    let doc = match &op.summary {
+/// The summary with method and path, then `@param` tags for documented path parameters and the
+/// body.
+fn operation_doc(op: &Operation, body: Option<&(&str, String, Vec<String>)>) -> String {
+    let mut doc = vec![match &op.summary {
         Some(summary) => format!("{summary} (`{} {}`)", op.method.to_uppercase(), op.path),
         None => format!("`{} {}`", op.method.to_uppercase(), op.path),
-    };
-    write_doc(s, "", Some(&doc));
+    }];
+    let mut tags: Vec<String> = op
+        .path_params()
+        .iter()
+        .filter_map(|p| p.doc.as_deref().map(|d| param_tag(&p.name, &lines(d))))
+        .flatten()
+        .collect();
+    if let Some((name, _, body_doc)) = body {
+        tags.extend(param_tag(name, body_doc));
+    }
+    if !tags.is_empty() {
+        doc.push(String::new());
+        doc.extend(tags);
+    }
+    doc.join("\n")
+}
+
+fn write_operation(s: &mut String, op: &Operation, base: &str) {
+    let query = query_params(op);
+    let query_type = format!("{}Query", pascal(&op.id));
+    if !query.is_empty() {
+        let _ = writeln!(s, "\nexport interface {query_type} {{");
+        for p in &query {
+            write_doc(s, "\t", p.doc.as_deref());
+            let optional = if p.required { "" } else { "?" };
+            let _ = writeln!(s, "\t{}{optional}: {};", p.name, ty(&p.ty));
+        }
+        s.push_str("}\n");
+    }
+
+    let mut args: Vec<String> =
+        op.path_params().iter().map(|p| format!("{}: {}", p.name, ty(&p.ty))).collect();
+    if !query.is_empty() {
+        let all_optional = query.iter().all(|p| !p.required);
+        args.push(if all_optional {
+            format!("query: {query_type} = {{}}")
+        } else {
+            format!("query: {query_type}")
+        });
+    }
+    let path = template_path(op, &query);
     let name = out::camel(&op.id);
-    let args = args.join(", ");
-    match &op.response {
+    let path_builder =
+        format!("export const {name}Path = ({}) => `{base}{path}`;", args.join(", "));
+    let body = body_arg(op);
+
+    s.push('\n');
+    write_doc(s, "", Some(&operation_doc(op, body.as_ref())));
+    let result = match &op.response {
         Response::Raw => {
-            let _ = writeln!(s, "export const {name}Path = ({args}) => `{path}`;");
+            let _ = writeln!(s, "{path_builder}");
+            return;
         }
-        response => {
-            let result = match response {
-                Response::Json(t) => ty(t),
-                _ => "void".to_string(),
-            };
-            let mut opts = Vec::new();
-            if op.method != "Get" {
-                opts.push(format!("method: '{}'", op.method.to_uppercase()));
-            }
-            if op.body.is_some() {
-                opts.push("body".to_string());
-            }
-            let opts = if opts.is_empty() {
-                String::new()
-            } else {
-                format!(", {{ {} }}", opts.join(", "))
-            };
-            let _ =
-                writeln!(s, "export const {name} = ({args}) =>\n\tapi<{result}>(`{path}`{opts});");
-        }
+        Response::Json(t) => ty(t),
+        Response::NoContent => "void".to_string(),
+    };
+    let mut fields = Vec::new();
+    if op.method != "Get" {
+        fields.push(format!("method: '{}'", op.method.to_uppercase()));
+    }
+    if let Some((arg, decl, _)) = body {
+        args.push(decl);
+        fields.push(if arg == "body" { "body".to_string() } else { format!("body: {arg}") });
+    }
+    args.push("opts?: CallOptions".to_string());
+    let opts = if fields.is_empty() {
+        "opts".to_string()
+    } else {
+        format!("{{ ...opts, {} }}", fields.join(", "))
+    };
+    let _ = writeln!(
+        s,
+        "export const {name} = ({}) =>\n\tapi<{result}>(`{path}`, {opts});",
+        args.join(", ")
+    );
+    if op.uploads() {
+        let _ = writeln!(
+            s,
+            "\n/** The full path of {{@link {name}}}, to send its body without `api()`. */\n{path_builder}"
+        );
     }
 }

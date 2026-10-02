@@ -4,7 +4,10 @@
 //!
 //! The parser covers the subset of `OpenAPI` 3.1 / JSON Schema that huma emits for plain Go
 //! structs: objects, arrays, string maps, `$ref`, string enums, `["T", "null"]` nullability and
-//! the integer/number formats. Anything else is an error, so a new construct is a conscious change.
+//! the integer/number formats. Request bodies are JSON, a multipart form or raw
+//! `application/octet-stream` bytes. Anything else is an error, so a new construct is a conscious
+//! change. Validation keywords (defaults, ranges, lengths, item counts) are not types in either
+//! client, so they are folded into the doc comments.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -57,10 +60,48 @@ pub struct Param {
     pub doc: Option<String>,
 }
 
+pub struct Body {
+    pub kind: BodyKind,
+    pub required: bool,
+    pub doc: Option<String>,
+}
+
+pub enum BodyKind {
+    /// `application/json`.
+    Json(Ty),
+    /// `multipart/form-data`; the client assembles the form, so its parts are only documented.
+    Multipart(Vec<FormPart>),
+    /// Raw `application/octet-stream` bytes.
+    Binary,
+}
+
+pub struct FormPart {
+    pub name: String,
+    pub required: bool,
+    /// A file rather than a text value.
+    pub file: bool,
+    pub doc: Option<String>,
+}
+
+impl FormPart {
+    /// `` `file` (file, required) ``, for the list of parts in an operation's docs.
+    pub fn label(&self) -> String {
+        let traits: Vec<&str> = [(self.file, "file"), (self.required, "required")]
+            .into_iter()
+            .filter_map(|(set, name)| set.then_some(name))
+            .collect();
+        if traits.is_empty() {
+            format!("`{}`", self.name)
+        } else {
+            format!("`{}` ({})", self.name, traits.join(", "))
+        }
+    }
+}
+
 pub enum Response {
     Json(Ty),
     NoContent,
-    /// Byte streams, uploads and sockets: only the request is typed.
+    /// Byte streams and sockets: only the request is typed.
     Raw,
 }
 
@@ -71,7 +112,7 @@ pub struct Operation {
     pub path: String,
     pub summary: Option<String>,
     pub params: Vec<Param>,
-    pub body: Option<Ty>,
+    pub body: Option<Body>,
     pub response: Response,
 }
 
@@ -82,6 +123,12 @@ impl Operation {
 
     pub fn path_params(&self) -> Vec<&Param> {
         self.params.iter().filter(|p| p.in_path).collect()
+    }
+
+    /// The body is a file or a form around one, which a client may need to send itself (to
+    /// report upload progress, say).
+    pub fn uploads(&self) -> bool {
+        self.body.as_ref().is_some_and(|b| !matches!(b.kind, BodyKind::Json(_)))
     }
 }
 
@@ -138,7 +185,7 @@ impl<'a> Schemas<'a> {
                 ty,
                 optional: !required.contains(json.as_str()),
                 nullable: nullable(prop),
-                doc: description(prop),
+                doc: documented(description(prop), prop),
             });
         }
         let doc = description(schema);
@@ -225,7 +272,7 @@ impl<'a> Schemas<'a> {
             params.push(Param {
                 required: location == "path" || param["required"] == true,
                 in_path: location == "path",
-                doc: description(param),
+                doc: documented(description(param), &param["schema"]),
                 name,
                 ty,
             });
@@ -237,10 +284,7 @@ impl<'a> Schemas<'a> {
             return Err(format!("{id}: path parameter {{{name}}} is not declared"));
         }
 
-        let body = match &op["requestBody"]["content"]["application/json"]["schema"] {
-            Value::Null => None,
-            schema => Some(self.type_of(schema, &format!("{op_name}Body"))?),
-        };
+        let body = self.request_body(&op_name, &op["requestBody"])?;
         let mut response = Response::Raw;
         for (status, resp) in op["responses"].as_object().into_iter().flatten() {
             if !status.starts_with('2') {
@@ -262,6 +306,51 @@ impl<'a> Schemas<'a> {
             response,
         })
     }
+
+    fn request_body(&mut self, op_name: &str, body: &Value) -> Result<Option<Body>, String> {
+        let Some(content) = body["content"].as_object() else { return Ok(None) };
+        let mut media = content.iter();
+        let (Some((media_type, spec)), None) = (media.next(), media.next()) else {
+            return Err(format!("{op_name}: a request body needs exactly one media type"));
+        };
+        let schema = &spec["schema"];
+        let kind = match media_type.as_str() {
+            "application/json" => BodyKind::Json(self.type_of(schema, &format!("{op_name}Body"))?),
+            "multipart/form-data" => BodyKind::Multipart(form_parts(op_name, schema)?),
+            "application/octet-stream" => BodyKind::Binary,
+            other => return Err(format!("{op_name}: unsupported request body {other}")),
+        };
+        Ok(Some(Body { kind, required: body["required"] == true, doc: description(body) }))
+    }
+}
+
+fn form_parts(op_name: &str, schema: &Value) -> Result<Vec<FormPart>, String> {
+    let required: BTreeSet<&str> =
+        schema["required"].as_array().into_iter().flatten().filter_map(Value::as_str).collect();
+    let mut parts = Vec::new();
+    for (name, prop) in schema["properties"].as_object().into_iter().flatten() {
+        if !matches!(base_type(prop), Some("string" | "integer" | "number" | "boolean")) {
+            return Err(format!("{op_name}: form part {name} is not a scalar"));
+        }
+        // no type is generated for a part, so its closed set is spelled out
+        let values: Vec<String> = prop["enum"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(|v| format!("`{v}`"))
+            .collect();
+        let one_of = (!values.is_empty()).then(|| format!("One of {}.", values.join(", ")));
+        let lines: Vec<String> =
+            [description(prop), one_of, constraints(prop)].into_iter().flatten().collect();
+        parts.push(FormPart {
+            name: name.clone(),
+            required: required.contains(name.as_str()),
+            file: prop["format"] == "binary",
+            doc: (!lines.is_empty()).then(|| lines.join("\n")),
+        });
+    }
+    Ok(parts)
 }
 
 /// A `oneOf` of `{"type": {"const": tag}, "data": {"$ref": ...}}` objects.
@@ -297,6 +386,58 @@ fn nullable(schema: &Value) -> bool {
 
 fn description(schema: &Value) -> Option<String> {
     schema["description"].as_str().map(str::to_string)
+}
+
+/// A description followed by the schema's validation keywords on a line of their own.
+fn documented(description: Option<String>, schema: &Value) -> Option<String> {
+    match (description, constraints(schema)) {
+        (Some(text), Some(rules)) => Some(format!("{text}\n{rules}")),
+        (text, rules) => text.or(rules),
+    }
+}
+
+/// The default and the bounds on a value, its length or its item count as a sentence, such as
+/// "From 1 to 60 characters.".
+fn constraints(schema: &Value) -> Option<String> {
+    let mut parts = Vec::new();
+    if let Some(default) = schema.get("default") {
+        parts.push(format!("default `{}`", literal(default)));
+    }
+    let bounds = [
+        ("minimum", "maximum", ("", "")),
+        ("minLength", "maxLength", (" character", " characters")),
+        ("minItems", "maxItems", (" item", " items")),
+    ];
+    for (min, max, (one, many)) in bounds {
+        let (min, max) = (schema.get(min).map(literal), schema.get(max).map(literal));
+        let unit = |n: &str| if n == "1" { one } else { many };
+        parts.push(match (min, max) {
+            (Some(min), Some(max)) if min == max => format!("exactly {min}{}", unit(&min)),
+            (Some(min), Some(max)) => format!("from {min} to {max}{many}"),
+            (Some(min), None) => format!("at least {min}{}", unit(&min)),
+            (None, Some(max)) => format!("at most {max}{}", unit(&max)),
+            (None, None) => continue,
+        });
+    }
+    let sentence = parts.join(", ");
+    let mut chars = sentence.chars();
+    let first = chars.next()?;
+    Some(format!("{}{}.", first.to_uppercase(), chars.as_str()))
+}
+
+fn literal(value: &Value) -> String {
+    value.as_str().map_or_else(|| value.to_string(), str::to_string)
+}
+
+/// A markdown list item `- label: doc`, the doc's further lines indented under it.
+pub fn bullet(label: &str, doc: Option<&str>) -> Vec<String> {
+    let mut lines = doc.into_iter().flat_map(str::lines);
+    let mut out = vec![match lines.next() {
+        Some(first) => format!("- {label}: {first}"),
+        None => format!("- {label}"),
+    }];
+    out.extend(lines.map(|line| format!("  {line}")));
+    out
 }
 
 /// Schema names are type names already, except for acronym runs: `APIError` -> `ApiError`.
@@ -377,5 +518,61 @@ mod tests {
         assert_eq!(variant("continue_watching"), "ContinueWatching");
         assert_eq!(variant("1080p"), "V1080p");
         assert_eq!(variant(""), "Empty");
+    }
+
+    #[test]
+    fn constraints_read_as_a_sentence() {
+        let rules = |schema: Value| constraints(&schema);
+        assert_eq!(
+            rules(serde_json::json!({"default": 50, "minimum": 1, "maximum": 200})).as_deref(),
+            Some("Default `50`, from 1 to 200.")
+        );
+        assert_eq!(rules(serde_json::json!({"default": "all"})).as_deref(), Some("Default `all`."));
+        assert_eq!(
+            rules(serde_json::json!({"minLength": 1, "maxLength": 60})).as_deref(),
+            Some("From 1 to 60 characters.")
+        );
+        assert_eq!(
+            rules(serde_json::json!({"minLength": 1})).as_deref(),
+            Some("At least 1 character.")
+        );
+        assert_eq!(
+            rules(serde_json::json!({"minItems": 10, "maxItems": 10})).as_deref(),
+            Some("Exactly 10 items.")
+        );
+        assert_eq!(rules(serde_json::json!({"type": "string"})), None);
+    }
+
+    #[test]
+    fn request_bodies_keep_their_kind() {
+        let defs = Map::new();
+        let mut schemas = Schemas::parse(&defs, "#/components/schemas/").unwrap();
+        let form = serde_json::json!({
+            "required": true,
+            "content": {"multipart/form-data": {"schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                    "file": {"type": "string", "format": "binary", "description": "An image."},
+                    "kind": {"type": "string", "enum": ["poster", "backdrop"]}
+                }
+            }}}
+        });
+        let body = schemas.request_body("Upload", &form).unwrap().unwrap();
+        let BodyKind::Multipart(parts) = body.kind else { panic!("not a form") };
+        assert!(body.required);
+        assert_eq!(parts.len(), 2);
+        assert!(parts[0].file && parts[0].required);
+        assert_eq!(parts[1].doc.as_deref(), Some("One of `poster`, `backdrop`."));
+
+        let bytes = serde_json::json!({"content": {"application/octet-stream": {
+            "schema": {"type": "string", "format": "binary"}
+        }}});
+        let body = schemas.request_body("Append", &bytes).unwrap().unwrap();
+        assert!(matches!(body.kind, BodyKind::Binary) && !body.required);
+
+        let xml = serde_json::json!({"content": {"application/xml": {"schema": {}}}});
+        assert!(schemas.request_body("Xml", &xml).is_err());
+        assert!(schemas.request_body("None", &Value::Null).unwrap().is_none());
     }
 }

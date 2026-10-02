@@ -5,6 +5,12 @@
 //! performs (the core never does I/O) plus the knowledge of how to read the response. Response
 //! types tolerate unknown fields and unknown enum values, so additive server changes never break
 //! an older client.
+//!
+//! Uploads are calls too, but the core never holds file bytes: their request carries the marker
+//! [`Body::Multipart`] or [`Body::Binary`] instead of content. The shell attaches the file (and a
+//! form's other parts, listed on the operation), sends the request and hands the response to
+//! [`Call::parse`] like any other. Doc comments carry what neither language types: defaults,
+//! ranges and lengths of parameters and fields.
 
 mod generated;
 
@@ -42,8 +48,22 @@ pub struct Request {
     pub path: String,
     /// Query parameters in order; absent optional parameters are omitted.
     pub query: Vec<(String, String)>,
-    /// A JSON request body.
-    pub body: Option<String>,
+    pub body: Body,
+}
+
+/// What a [`Request`] sends.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Body {
+    /// No body.
+    Empty,
+    /// A JSON document, sent as `application/json`.
+    Json(String),
+    /// A `multipart/form-data` form the shell assembles: the file, plus any text parts the
+    /// operation lists. Its HTTP stack writes the boundary into `Content-Type`.
+    Multipart,
+    /// Raw bytes the shell attaches (a file or a slice of one), sent as
+    /// `application/octet-stream`.
+    Binary,
 }
 
 impl Request {
@@ -134,7 +154,7 @@ impl std::error::Error for ApiError {}
 
 /// Builders used by the generated operations.
 mod build {
-    use super::{Call, Method, NoContent, PhantomData, Request};
+    use super::{Body, Call, Method, NoContent, PhantomData, Request};
     use serde::Serialize;
     use serde::de::DeserializeOwned;
 
@@ -150,14 +170,16 @@ mod build {
         method: Method,
         path: String,
         query: Vec<(String, String)>,
-        body: Option<&impl Serialize>,
+        body: Body,
     ) -> Request {
-        Request {
-            method,
-            path,
-            query,
-            body: body.map(|b| serde_json::to_string(b).expect("API types always serialize")),
-        }
+        Request { method, path, query, body }
+    }
+
+    /// A JSON body, or none for an omitted optional one.
+    pub(crate) fn json_body(value: Option<&impl Serialize>) -> Body {
+        value.map_or(Body::Empty, |value| {
+            Body::Json(serde_json::to_string(value).expect("API types always serialize"))
+        })
     }
 
     /// One path segment, percent-encoded.
@@ -208,15 +230,35 @@ mod tests {
             method: Method::Get,
             path: "/search".into(),
             query: vec![("q".into(), "glass harbor & co".into())],
-            body: None,
+            body: Body::Empty,
         };
         assert_eq!(request.path_and_query(), "/search?q=glass%20harbor%20%26%20co");
     }
 
     #[test]
+    fn bodies_follow_the_operation() {
+        let transcode = types::TranscodeRequest {
+            variants: Some(vec![types::TranscodeRequestVariantsItem::V720p]),
+        };
+        let call = ops::admin_enqueue_transcode("f", Some(&transcode));
+        assert_eq!(call.request.body, Body::Json(r#"{"variants":["720p"]}"#.into()));
+        assert_eq!(ops::admin_enqueue_transcode("f", None).request.body, Body::Empty);
+
+        let call = ops::upload_avatar();
+        assert_eq!((call.request.method, &call.request.body), (Method::Post, &Body::Multipart));
+        let user = r#"{"id":1,"username":"nora","displayName":"Nora","role":"member",
+            "disabled":false,"avatarId":"a","bannerId":null,"bio":"","createdAt":"2026-01-01T00:00:00Z"}"#;
+        assert_eq!(call.parse(200, user).unwrap().avatar_id.as_deref(), Some("a"));
+
+        let call = ops::admin_append_upload("u", &ops::AdminAppendUploadQuery { offset: 8 });
+        assert_eq!(call.request.path_and_query(), "/admin/uploads/u?offset=8");
+        assert_eq!(call.request.body, Body::Binary);
+    }
+
+    #[test]
     fn error_envelopes_become_api_errors() {
         let call =
-            build::no_content(build::request(Method::Delete, "/x".into(), vec![], None::<&()>));
+            build::no_content(build::request(Method::Delete, "/x".into(), vec![], Body::Empty));
         let err =
             call.parse(404, r#"{"error":{"code":"not_found","message":"resource not found"}}"#);
         assert_eq!(
@@ -231,13 +273,13 @@ mod tests {
 
     #[test]
     fn responses_without_an_envelope_get_a_status_code() {
-        let call = build::no_content(build::request(Method::Get, "/x".into(), vec![], None::<&()>));
+        let call = build::no_content(build::request(Method::Get, "/x".into(), vec![], Body::Empty));
         assert_eq!(call.parse(502, "<html>").unwrap_err().code, "http_502");
     }
 
     #[test]
     fn no_content_ignores_the_body() {
-        let call = build::no_content(build::request(Method::Put, "/x".into(), vec![], None::<&()>));
+        let call = build::no_content(build::request(Method::Put, "/x".into(), vec![], Body::Empty));
         assert_eq!(call.parse(204, ""), Ok(NoContent));
     }
 }

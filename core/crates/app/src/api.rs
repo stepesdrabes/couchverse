@@ -1,6 +1,6 @@
 //! Turning the generated API calls into HTTP effects and their outputs back into results.
 
-use couchverse_api::{ApiError, Call, Request};
+use couchverse_api::{ApiError, Body, Call, Request};
 
 use crate::messages::{
     EffectOutput, HttpFailure, HttpFailureKind, HttpHeader, HttpRequest, Problem,
@@ -21,10 +21,16 @@ impl Endpoint {
         Self { base: base.to_string(), token: None }
     }
 
+    /// The HTTP effect for `request`. An upload's file never passes through the core, so a
+    /// multipart or binary request comes out without a body for the shell to attach it.
     pub fn request(&self, request: &Request) -> HttpRequest {
         let mut headers =
             vec![HttpHeader { name: "Accept".into(), value: "application/json".into() }];
-        if request.body.is_some() {
+        let body = match &request.body {
+            Body::Json(json) => Some(json.clone()),
+            Body::Empty | Body::Multipart | Body::Binary => None,
+        };
+        if body.is_some() {
             headers
                 .push(HttpHeader { name: "Content-Type".into(), value: "application/json".into() });
         }
@@ -38,7 +44,7 @@ impl Endpoint {
             method: request.method.as_str().to_string(),
             url: format!("{}/api/v1{}", self.base, request.path_and_query()),
             headers,
-            body: request.body.clone(),
+            body,
         }
     }
 }

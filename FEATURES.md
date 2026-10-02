@@ -412,8 +412,18 @@ client is generated from it (native clients plan, D30).
   renders one parsed model as the core's Rust crate (`core/crates/api`: types, one builder per
   operation returning a `Call<T>` for a shell to execute, couch `ServerFrame`/`ClientFrame`)
   and the web's `src/lib/generated/api.ts` (types plus one function per operation over the
-  existing `api()` wrapper). Response enums tolerate unknown values and frames decode unknown
+  existing `api()` wrapper, each taking trailing `CallOptions` such as `signal` or
+  `skipAuthRedirect`). Response enums tolerate unknown values and frames decode unknown
   types as `Unknown`, so additive server changes never break older clients.
+- **Request bodies** are JSON, a multipart form or raw `application/octet-stream` bytes, and
+  `requestBody.required: false` makes one optional (`body?: T`, `Option<&T>`). An upload takes a
+  `FormData` or a `Blob`/`ArrayBuffer`/`Uint8Array` on the web; in Rust it is still a `Call<T>`,
+  whose request carries the marker `Body::Multipart`/`Body::Binary` instead of content, because
+  the core never holds file bytes: the shell attaches the file and hands the response to
+  `Call::parse`. Defaults, ranges, lengths and a form's parts live in the doc comments.
+- **Path builders** (`getArtworkPath`, `adminAppendUploadPath`, ...) exist for raw operations
+  and uploads and return the full `/api/v1/...` path, ready for an `<img src>`, a media element
+  or a request made without `api()`; call sites never prepend the prefix.
 - **Conformance**: `TestAPIConformance` (`internal/server/api_test.go`) builds the real app on
   a throwaway database seeded from `testdata/seed.sql`, runs cases for every typed operation
   (including uploads, captured ids and an anonymous cookie-keeping client) and validates each

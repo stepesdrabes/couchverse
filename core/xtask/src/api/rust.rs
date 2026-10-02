@@ -5,7 +5,8 @@ use std::io::Write as _;
 use std::process::{Command, Stdio};
 
 use super::model::{
-    Field, FrameUnion, Item, Operation, Param, Response, Ty, pascal, snake, variant,
+    BodyKind, Field, FrameUnion, Item, Operation, Param, Response, Ty, bullet, pascal, snake,
+    variant,
 };
 use crate::out;
 
@@ -79,7 +80,7 @@ fn field_name(json: &str) -> String {
 
 fn write_doc(s: &mut String, doc: Option<&str>) {
     for line in doc.into_iter().flat_map(str::lines) {
-        let _ = writeln!(s, "/// {line}");
+        let _ = writeln!(s, "{}", format!("/// {line}").trim_end());
     }
 }
 
@@ -198,7 +199,7 @@ fn write_frames(s: &mut String, union: &FrameUnion) {
 
 fn ops_module(ops: &[Operation]) -> String {
     let mut s = String::from(
-        "\npub mod ops {\n#![allow(clippy::doc_markdown, clippy::too_many_lines, clippy::wildcard_imports)]\nuse super::types::*;\n#[allow(unused_imports)]\nuse std::collections::BTreeMap;\nuse crate::{build, Call, Method, NoContent, Request};\n",
+        "\npub mod ops {\n#![allow(clippy::doc_markdown, clippy::too_many_lines, clippy::wildcard_imports)]\nuse super::types::*;\n#[allow(unused_imports)]\nuse std::collections::BTreeMap;\nuse crate::{build, Body, Call, Method, NoContent, Request};\n",
     );
     for op in ops {
         write_query_struct(&mut s, op);
@@ -241,9 +242,21 @@ fn write_operation(s: &mut String, op: &Operation) {
     if !query.is_empty() {
         args.push(format!("query: &{}Query", pascal(&op.id)));
     }
-    if let Some(body) = &op.body {
-        args.push(format!("body: &{}", ty(body)));
-    }
+    let body = match &op.body {
+        None => "Body::Empty",
+        Some(body) => match &body.kind {
+            BodyKind::Json(t) if body.required => {
+                args.push(format!("body: &{}", ty(t)));
+                "build::json_body(Some(body))"
+            }
+            BodyKind::Json(t) => {
+                args.push(format!("body: Option<&{}>", ty(t)));
+                "build::json_body(body)"
+            }
+            BodyKind::Multipart(_) => "Body::Multipart",
+            BodyKind::Binary => "Body::Binary",
+        },
+    };
     let (ret, wrap) = match &op.response {
         Response::Json(t) => (format!("Call<{}>", ty(t)), "build::json"),
         Response::NoContent => ("Call<NoContent>".to_string(), "build::no_content"),
@@ -251,10 +264,7 @@ fn write_operation(s: &mut String, op: &Operation) {
     };
 
     s.push('\n');
-    if let Some(summary) = &op.summary {
-        let _ = writeln!(s, "/// {summary}\n///");
-    }
-    let _ = writeln!(s, "/// `{} {}`", op.method.to_uppercase(), op.path);
+    write_operation_doc(s, op);
     let _ = writeln!(s, "pub fn {}({}) -> {ret} {{", snake(&op.id), args.join(", "));
 
     let mut path = op.path.clone();
@@ -291,11 +301,58 @@ fn write_operation(s: &mut String, op: &Operation) {
         };
         let _ = writeln!(s, "build::push(&mut q, \"{}\", {value});", p.name);
     }
-    let body = if op.body.is_some() { "Some(body)" } else { "None::<&()>" };
     let request = format!("build::request(Method::{}, {path_expr}, q, {body})", op.method);
     if wrap.is_empty() {
         let _ = writeln!(s, "{request}\n}}");
     } else {
         let _ = writeln!(s, "{wrap}({request})\n}}");
+    }
+}
+
+fn path_param_lines(op: &Operation) -> Vec<String> {
+    op.path_params()
+        .into_iter()
+        .filter(|p| p.doc.is_some())
+        .flat_map(|p| bullet(&format!("`{}`", p.name), p.doc.as_deref()))
+        .collect()
+}
+
+/// The summary, method and path, documented path parameters and what the body carries.
+fn write_operation_doc(s: &mut String, op: &Operation) {
+    if let Some(summary) = &op.summary {
+        let _ = writeln!(s, "/// {summary}\n///");
+    }
+    let _ = writeln!(s, "/// `{} {}`", op.method.to_uppercase(), op.path);
+    let mut sections = vec![path_param_lines(op)];
+    if let Some(body) = &op.body {
+        let mut lines = Vec::new();
+        match &body.kind {
+            BodyKind::Json(_) if !body.required => {
+                lines.push("`body` may be `None`, which sends no body.".to_string());
+            }
+            BodyKind::Json(_) => {}
+            BodyKind::Multipart(parts) => {
+                lines.push(
+                    "The body is a `multipart/form-data` form the shell assembles and sends \
+                     ([`Body::Multipart`]), with the parts:"
+                        .to_string(),
+                );
+                for part in parts {
+                    lines.extend(bullet(&part.label(), part.doc.as_deref()));
+                }
+            }
+            BodyKind::Binary => {
+                lines.push("The body is raw bytes the shell attaches ([`Body::Binary`]).".into());
+            }
+        }
+        if !body.required && !matches!(body.kind, BodyKind::Json(_)) {
+            lines.push("The body may be omitted.".to_string());
+        }
+        lines.extend(body.doc.iter().flat_map(|d| d.lines().map(str::to_string)));
+        sections.push(lines);
+    }
+    for section in sections.into_iter().filter(|lines| !lines.is_empty()) {
+        s.push_str("///\n");
+        write_doc(s, Some(&section.join("\n")));
     }
 }

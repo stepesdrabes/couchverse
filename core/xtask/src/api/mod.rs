@@ -24,6 +24,7 @@ pub fn generate(root: &Path, written: &mut Vec<PathBuf>) -> Result<(), String> {
         .ok_or_else(|| format!("{OPENAPI}: no components.schemas"))?;
     let mut api = model::Schemas::parse(schemas, "#/components/schemas/")?;
     let ops = api.operations(&spec)?;
+    let base = spec["servers"][0]["url"].as_str().ok_or_else(|| format!("{OPENAPI}: no server"))?;
 
     let couch_doc = out::read_json(&root.join(COUCH))?;
     let defs = couch_doc["$defs"].as_object().ok_or_else(|| format!("{COUCH}: no $defs"))?;
@@ -55,6 +56,6 @@ pub fn generate(root: &Path, written: &mut Vec<PathBuf>) -> Result<(), String> {
     let source = format!("{OPENAPI} and {COUCH}");
     let rust = rust::render(&source, &types, &ops, &couch_types, &shared, &frames)?;
     out::write(&root.join(RUST_TARGET), &rust, written)?;
-    let ts = typescript::render(&source, &types, &ops, &couch_types, &frames);
+    let ts = typescript::render(&source, base, &types, &ops, &couch_types, &frames);
     out::write(&root.join(TS_TARGET), &ts, written)
 }

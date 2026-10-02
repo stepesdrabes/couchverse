@@ -20,6 +20,7 @@ pub mod types {
         pub category: AchievementProgressCategory,
         /// Stable achievement code (the catalogue only grows).
         pub code: String,
+        /// From 0 to 100.
         pub percent: i64,
         pub target: i64,
         pub tier: AchievementProgressTier,
@@ -455,6 +456,7 @@ pub mod types {
         pub disabled: Option<bool>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub display_name: Option<String>,
+        /// At least 4 characters.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub password: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -775,6 +777,7 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct BulkTitleAction {
         pub action: BulkTitleActionAction,
+        /// At least 1 item.
         pub ids: Vec<String>,
     }
 
@@ -868,6 +871,7 @@ pub mod types {
         pub into_tier: i64,
         pub next: NextRankTier,
         /// Progress through the current tier; 100 at the top tier.
+        /// From 0 to 100.
         pub percent: i64,
         pub tier: RankTier,
         /// XP between this tier and the next; 0 at the top tier.
@@ -892,8 +896,10 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct ConnectRedemption {
+        /// At least 1 character.
         pub code: String,
         /// Shown in the account's devices list, e.g. "Living room Apple TV".
+        /// From 1 to 60 characters.
         pub device_name: String,
         pub platform: ConnectRedemptionPlatform,
     }
@@ -1024,6 +1030,7 @@ pub mod types {
         pub playing: bool,
         pub position_seconds: f64,
         /// Increases with every state change; drop frames older than the last seen.
+        /// At least 0.
         pub seq: i64,
         /// When the state was stamped, in milliseconds on the server's monotonic clock (the hello frame's serverTime).
         pub server_timestamp: i64,
@@ -1202,7 +1209,9 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Credentials {
+        /// At least 1 character.
         pub password: String,
+        /// At least 1 character.
         pub username: String,
     }
 
@@ -1244,6 +1253,7 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct DeviceInfo {
         /// Shown in the account's devices list, e.g. "Living room Apple TV".
+        /// From 1 to 60 characters.
         pub device_name: String,
         pub platform: DeviceInfoPlatform,
     }
@@ -1354,9 +1364,12 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct DeviceSignIn {
         /// Shown in the account's devices list, e.g. "Living room Apple TV".
+        /// From 1 to 60 characters.
         pub device_name: String,
+        /// At least 1 character.
         pub password: String,
         pub platform: DeviceSignInPlatform,
+        /// At least 1 character.
         pub username: String,
     }
 
@@ -1430,6 +1443,7 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct EpisodeInput {
+        /// At least 0.
         pub episode_number: i64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub name: Option<String>,
@@ -2143,6 +2157,7 @@ pub mod types {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub audio_lang: Option<String>,
         /// audio_alt marks a separate-language sibling of the title's or episode's primary file.
+        /// Default `primary`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub audio_role: Option<MediaFileAudioAudioRole>,
     }
@@ -2311,8 +2326,10 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct NewUpload {
+        /// At least 1 character.
         pub filename: String,
         /// Total file size in bytes.
+        /// At least 1.
         pub size: i64,
     }
 
@@ -2322,9 +2339,12 @@ pub mod types {
         /// Defaults to the username.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub display_name: Option<String>,
+        /// At least 4 characters.
         pub password: String,
+        /// Default `member`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub role: Option<NewUserRole>,
+        /// At least 1 character.
         pub username: String,
     }
 
@@ -2434,6 +2454,7 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct PairingApproval {
         /// Renames the device; it keeps its own name when empty.
+        /// At most 60 characters.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub device_name: Option<String>,
     }
@@ -2441,6 +2462,7 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct PairingPoll {
+        /// At least 1 character.
         pub device_code: String,
     }
 
@@ -2534,6 +2556,7 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct PasswordChange {
         pub current_password: String,
+        /// At least 8 characters.
         pub new_password: String,
     }
 
@@ -2719,6 +2742,7 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct ProfileHourBucket {
+        /// From 0 to 23.
         pub hour: i64,
         pub video_seconds: i64,
     }
@@ -2783,8 +2807,10 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct ProfileUpdate {
         /// Markdown; absent keeps the current bio.
+        /// At most 2000 characters.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub bio: Option<String>,
+        /// At least 1 character.
         pub display_name: String,
     }
 
@@ -2805,15 +2831,18 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct ProgressReport {
+        /// At least 0.
         pub duration_seconds: i64,
         /// Set for an episode; exactly one of titleId and episodeId.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub episode_id: Option<String>,
+        /// At least 0.
         pub position_seconds: i64,
         /// Set for a movie; exactly one of titleId and episodeId.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub title_id: Option<String>,
         /// Seconds actually played since the previous report (feeds analytics).
+        /// At least 0.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub watched_seconds: Option<i64>,
     }
@@ -2836,6 +2865,7 @@ pub mod types {
     pub struct RankConfig {
         pub rates: RankRates,
         /// XP each tier starts at, rookie first; starts at 0 and strictly ascends.
+        /// Exactly 10 items.
         pub tiers: Vec<i64>,
     }
 
@@ -2846,6 +2876,7 @@ pub mod types {
         pub into_tier: i64,
         pub next: NextRankTier,
         /// Progress through the current tier; 100 at the top tier.
+        /// From 0 to 100.
         pub percent: i64,
         pub tier: RankTier,
         /// XP between this tier and the next; 0 at the top tier.
@@ -2857,22 +2888,31 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct RankRates {
         /// XP per bronze achievement.
+        /// At least 0.
         pub bronze: i64,
         /// XP per couch session hosted.
+        /// At least 0.
         pub couch_host: i64,
         /// XP per couch session joined.
+        /// At least 0.
         pub couch_join: i64,
         /// XP per completed episode.
+        /// At least 0.
         pub episode: i64,
         /// XP per gold achievement.
+        /// At least 0.
         pub gold: i64,
         /// XP per completed movie.
+        /// At least 0.
         pub movie: i64,
         /// XP per platinum achievement.
+        /// At least 0.
         pub platinum: i64,
         /// XP per silver achievement.
+        /// At least 0.
         pub silver: i64,
         /// XP per minute of video watched.
+        /// At least 0.
         pub video_minute: i64,
     }
 
@@ -2984,6 +3024,7 @@ pub mod types {
     pub struct SeasonInput {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub name: Option<String>,
+        /// At least 0.
         pub season_number: i64,
     }
 
@@ -3023,6 +3064,7 @@ pub mod types {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub home: Option<HomeSettings>,
         /// The name clients show for this server; the host name when unset.
+        /// From 1 to 60 characters.
         #[serde(rename = "server.name")]
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub server_name: Option<String>,
@@ -3127,6 +3169,7 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct SubtitlePreferences {
         /// Opacity of the box behind the text, in percent.
+        /// From 0 to 100.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub background_opacity: Option<i64>,
         /// Text colour as #rrggbb.
@@ -3135,6 +3178,7 @@ pub mod types {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub font_family: Option<SubtitlePreferencesFontFamily>,
         /// Text size as a percentage of the default.
+        /// From 50 to 200.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub font_size_pct: Option<i64>,
     }
@@ -3209,6 +3253,7 @@ pub mod types {
         pub cpu_percent: f64,
         /// Every ffmpeg process: transcodes, instant-play sessions, artwork resizes.
         pub ffmpeg: FFmpegUsage,
+        /// At least 0.
         pub go_heap_bytes: i64,
         pub goroutines: i64,
         /// One-minute load average; -1 when unavailable.
@@ -3335,6 +3380,7 @@ pub mod types {
         pub kind: TitleInputKind,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub metadata_languages: Option<Vec<String>>,
+        /// At least 1 character.
         pub name: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub overview: Option<String>,
@@ -3502,6 +3548,7 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct TmdbLink {
+        /// At least 1.
         pub tmdb_id: i64,
     }
 
@@ -3890,7 +3937,7 @@ pub mod types {
 pub mod ops {
     #![allow(clippy::doc_markdown, clippy::too_many_lines, clippy::wildcard_imports)]
     use super::types::*;
-    use crate::{Call, Method, NoContent, Request, build};
+    use crate::{Body, Call, Method, NoContent, Request, build};
     #[allow(unused_imports)]
     use std::collections::BTreeMap;
 
@@ -3901,7 +3948,7 @@ pub mod ops {
             Method::Put,
             format!("/me/watchlist/{}", build::segment(title_id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -3912,7 +3959,7 @@ pub mod ops {
             Method::Delete,
             format!("/admin/uploads/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -3920,12 +3967,16 @@ pub mod ops {
     #[derive(Debug, Clone, PartialEq)]
     pub struct AdminAppendUploadQuery {
         /// Byte offset this chunk starts at.
+        /// At least 0.
         pub offset: i64,
     }
 
     /// Append a chunk to an upload
     ///
     /// `PUT /admin/uploads/{id}`
+    ///
+    /// The body is raw bytes the shell attaches ([`Body::Binary`]).
+    /// The chunk, at most 64 MiB.
     pub fn admin_append_upload(id: &str, query: &AdminAppendUploadQuery) -> Call<UploadOffset> {
         let mut q = Vec::new();
         build::push(&mut q, "offset", Some(&query.offset));
@@ -3933,7 +3984,7 @@ pub mod ops {
             Method::Put,
             format!("/admin/uploads/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Binary,
         ))
     }
 
@@ -3944,7 +3995,7 @@ pub mod ops {
             Method::Post,
             format!("/admin/titles/{}/metadata/apply", build::segment(id)),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
@@ -3955,7 +4006,7 @@ pub mod ops {
             Method::Post,
             "/admin/titles/bulk".to_string(),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
@@ -3966,7 +4017,7 @@ pub mod ops {
             Method::Post,
             format!("/admin/jobs/{}/cancel", build::segment(&id.to_string())),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -3977,7 +4028,7 @@ pub mod ops {
             Method::Post,
             format!("/admin/uploads/{}/complete", build::segment(id)),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
@@ -3988,7 +4039,7 @@ pub mod ops {
             Method::Post,
             format!("/admin/seasons/{}/episodes", build::segment(id)),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
@@ -3999,26 +4050,41 @@ pub mod ops {
             Method::Post,
             format!("/admin/titles/{}/seasons", build::segment(id)),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
     /// `POST /admin/titles`
     pub fn admin_create_title(body: &TitleInput) -> Call<Title> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/admin/titles".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Post,
+            "/admin/titles".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `POST /admin/uploads`
     pub fn admin_create_upload(body: &NewUpload) -> Call<UploadSession> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/admin/uploads".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Post,
+            "/admin/uploads".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `POST /admin/users`
     pub fn admin_create_user(body: &NewUser) -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/admin/users".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Post,
+            "/admin/users".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `DELETE /admin/artwork/{id}`
@@ -4028,7 +4094,7 @@ pub mod ops {
             Method::Delete,
             format!("/admin/artwork/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4039,7 +4105,7 @@ pub mod ops {
             Method::Delete,
             format!("/admin/episodes/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4050,7 +4116,7 @@ pub mod ops {
             Method::Delete,
             format!("/admin/media-files/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4061,7 +4127,7 @@ pub mod ops {
             Method::Delete,
             format!("/admin/seasons/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4072,7 +4138,7 @@ pub mod ops {
             Method::Delete,
             format!("/admin/subtitles/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4083,18 +4149,20 @@ pub mod ops {
             Method::Delete,
             format!("/admin/titles/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `DELETE /admin/titles/{id}/languages/{lang}`
+    ///
+    /// - `lang`: From 2 to 5 characters.
     pub fn admin_delete_title_language(id: &str, lang: &str) -> Call<NoContent> {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Delete,
             format!("/admin/titles/{}/languages/{}", build::segment(id), build::segment(lang)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4105,7 +4173,7 @@ pub mod ops {
             Method::Delete,
             format!("/admin/users/{}", build::segment(&id.to_string())),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4116,18 +4184,23 @@ pub mod ops {
             Method::Delete,
             format!("/admin/transcode-variants/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `POST /admin/media-files/{id}/transcode`
-    pub fn admin_enqueue_transcode(id: &str, body: &TranscodeRequest) -> Call<QueuedTranscodes> {
+    ///
+    /// `body` may be `None`, which sends no body.
+    pub fn admin_enqueue_transcode(
+        id: &str,
+        body: Option<&TranscodeRequest>,
+    ) -> Call<QueuedTranscodes> {
         let q = Vec::new();
         build::json(build::request(
             Method::Post,
             format!("/admin/media-files/{}/transcode", build::segment(id)),
             q,
-            Some(body),
+            build::json_body(body),
         ))
     }
 
@@ -4135,6 +4208,7 @@ pub mod ops {
     #[derive(Debug, Clone, Default, PartialEq)]
     pub struct AdminGetAnalyticsQuery {
         /// Window in days ending today, clamped to 1..365.
+        /// Default `30`.
         pub days: Option<i64>,
     }
 
@@ -4146,7 +4220,7 @@ pub mod ops {
             Method::Get,
             "/admin/analytics/overview".to_string(),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4157,50 +4231,50 @@ pub mod ops {
             Method::Get,
             format!("/admin/episodes/{}/translations", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `GET /admin/home-rows`
     pub fn admin_get_home_rows() -> Call<Vec<HomeRowConfig>> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/admin/home-rows".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/home-rows".to_string(), q, Body::Empty))
     }
 
     /// `GET /admin/live`
     pub fn admin_get_live() -> Call<LiveStats> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/admin/live".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/live".to_string(), q, Body::Empty))
     }
 
     /// `GET /admin/overview`
     pub fn admin_get_overview() -> Call<DashboardOverview> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/admin/overview".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/overview".to_string(), q, Body::Empty))
     }
 
     /// `GET /admin/ranks`
     pub fn admin_get_ranks() -> Call<RanksOverview> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/admin/ranks".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/ranks".to_string(), q, Body::Empty))
     }
 
     /// `GET /admin/settings`
     pub fn admin_get_settings() -> Call<ServerSettings> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/admin/settings".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/settings".to_string(), q, Body::Empty))
     }
 
     /// `GET /admin/storage`
     pub fn admin_get_storage() -> Call<StorageInfo> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/admin/storage".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/storage".to_string(), q, Body::Empty))
     }
 
     /// `GET /admin/system`
     pub fn admin_get_system_stats() -> Call<SystemStats> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/admin/system".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/system".to_string(), q, Body::Empty))
     }
 
     /// `GET /admin/titles/{id}`
@@ -4210,7 +4284,7 @@ pub mod ops {
             Method::Get,
             format!("/admin/titles/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4221,7 +4295,7 @@ pub mod ops {
             Method::Get,
             format!("/admin/titles/{}/storage", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4232,7 +4306,7 @@ pub mod ops {
             Method::Get,
             "/admin/transcode/info".to_string(),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4243,18 +4317,20 @@ pub mod ops {
             Method::Get,
             format!("/admin/uploads/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `POST /admin/titles/{id}/metadata/import-episodes`
-    pub fn admin_import_episodes(id: &str, body: &EpisodeImport) -> Call<MetadataJob> {
+    ///
+    /// `body` may be `None`, which sends no body.
+    pub fn admin_import_episodes(id: &str, body: Option<&EpisodeImport>) -> Call<MetadataJob> {
         let q = Vec::new();
         build::json(build::request(
             Method::Post,
             format!("/admin/titles/{}/metadata/import-episodes", build::segment(id)),
             q,
-            Some(body),
+            build::json_body(body),
         ))
     }
 
@@ -4265,7 +4341,7 @@ pub mod ops {
             Method::Get,
             "/admin/transcode/active".to_string(),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4276,6 +4352,7 @@ pub mod ops {
         pub status: Option<AdminListJobsStatus>,
         /// Only jobs working on this media file.
         pub media_file_id: Option<String>,
+        /// Default `50`, from 1 to 200.
         pub limit: Option<i64>,
     }
 
@@ -4285,7 +4362,7 @@ pub mod ops {
         build::push(&mut q, "status", query.status.as_ref());
         build::push(&mut q, "mediaFileId", query.media_file_id.as_ref());
         build::push(&mut q, "limit", query.limit.as_ref());
-        build::json(build::request(Method::Get, "/admin/jobs".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/jobs".to_string(), q, Body::Empty))
     }
 
     /// Query parameters of [`admin_list_library`].
@@ -4295,7 +4372,9 @@ pub mod ops {
         pub status: Option<AdminListLibraryStatus>,
         pub q: Option<String>,
         pub sort: Option<AdminListLibrarySort>,
+        /// Default `1`, at least 1.
         pub page: Option<i64>,
+        /// Default `50`, from 1 to 200.
         pub page_size: Option<i64>,
     }
 
@@ -4308,7 +4387,7 @@ pub mod ops {
         build::push(&mut q, "sort", query.sort.as_ref());
         build::push(&mut q, "page", query.page.as_ref());
         build::push(&mut q, "pageSize", query.page_size.as_ref());
-        build::json(build::request(Method::Get, "/admin/library".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/library".to_string(), q, Body::Empty))
     }
 
     /// Query parameters of [`admin_list_metadata_seasons`].
@@ -4329,7 +4408,7 @@ pub mod ops {
             Method::Get,
             format!("/admin/titles/{}/metadata/seasons", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4340,20 +4419,20 @@ pub mod ops {
             Method::Get,
             format!("/admin/media-files/{}/subtitles", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `GET /admin/uploads`
     pub fn admin_list_uploads() -> Call<Vec<UploadSession>> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/admin/uploads".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/uploads".to_string(), q, Body::Empty))
     }
 
     /// `GET /admin/users`
     pub fn admin_list_users() -> Call<Vec<User>> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/admin/users".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/admin/users".to_string(), q, Body::Empty))
     }
 
     /// `GET /admin/media-files/{id}/variants`
@@ -4363,7 +4442,7 @@ pub mod ops {
             Method::Get,
             format!("/admin/media-files/{}/variants", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4374,13 +4453,14 @@ pub mod ops {
             Method::Post,
             format!("/admin/jobs/{}/retry", build::segment(&id.to_string())),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// Query parameters of [`admin_search_metadata`].
     #[derive(Debug, Clone, PartialEq)]
     pub struct AdminSearchMetadataQuery {
+        /// At least 1 character.
         pub q: String,
         pub kind: AdminSearchMetadataKind,
         /// Language (ISO 639-1) of the returned names and overviews; TMDB's default (English) when empty.
@@ -4397,11 +4477,13 @@ pub mod ops {
             Method::Get,
             "/admin/metadata/search".to_string(),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `PATCH /admin/episodes/{id}/translations/{lang}`
+    ///
+    /// - `lang`: From 2 to 5 characters.
     pub fn admin_set_episode_translation(
         id: &str,
         lang: &str,
@@ -4412,11 +4494,13 @@ pub mod ops {
             Method::Patch,
             format!("/admin/episodes/{}/translations/{}", build::segment(id), build::segment(lang)),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
     /// `PATCH /admin/titles/{id}/translations/{lang}`
+    ///
+    /// - `lang`: From 2 to 5 characters.
     pub fn admin_set_title_translation(
         id: &str,
         lang: &str,
@@ -4427,7 +4511,7 @@ pub mod ops {
             Method::Patch,
             format!("/admin/titles/{}/translations/{}", build::segment(id), build::segment(lang)),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
@@ -4438,14 +4522,19 @@ pub mod ops {
             Method::Patch,
             format!("/admin/episodes/{}", build::segment(id)),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
     /// `PUT /admin/home-rows`
     pub fn admin_update_home_rows(body: &Vec<HomeRowInput>) -> Call<Vec<HomeRowConfig>> {
         let q = Vec::new();
-        build::json(build::request(Method::Put, "/admin/home-rows".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Put,
+            "/admin/home-rows".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `PATCH /admin/media-files/{id}`
@@ -4455,20 +4544,30 @@ pub mod ops {
             Method::Patch,
             format!("/admin/media-files/{}", build::segment(id)),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
     /// `PUT /admin/ranks/config`
     pub fn admin_update_ranks_config(body: &RankConfig) -> Call<RankConfig> {
         let q = Vec::new();
-        build::json(build::request(Method::Put, "/admin/ranks/config".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Put,
+            "/admin/ranks/config".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `PUT /admin/settings`
     pub fn admin_update_settings(body: &ServerSettings) -> Call<ServerSettings> {
         let q = Vec::new();
-        build::json(build::request(Method::Put, "/admin/settings".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Put,
+            "/admin/settings".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `PATCH /admin/titles/{id}`
@@ -4478,7 +4577,7 @@ pub mod ops {
             Method::Patch,
             format!("/admin/titles/{}", build::segment(id)),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
@@ -4489,35 +4588,50 @@ pub mod ops {
             Method::Patch,
             format!("/admin/users/{}", build::segment(&id.to_string())),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
     /// `POST /admin/artwork`
+    ///
+    /// The body is a `multipart/form-data` form the shell assembles and sends ([`Body::Multipart`]), with the parts:
+    /// - `file` (file, required): A .jpg, .jpeg, .png or .webp image (checked by extension).
+    /// - `kind` (required): One of `poster`, `backdrop`, `thumb`.
+    /// - `ownerId` (required)
+    /// - `ownerKind` (required): One of `title`, `season`, `episode`.
     pub fn admin_upload_artwork() -> Call<Artwork> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/admin/artwork".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Post, "/admin/artwork".to_string(), q, Body::Multipart))
     }
 
     /// `POST /admin/media-files/{id}/subtitles`
+    ///
+    /// The body is a `multipart/form-data` form the shell assembles and sends ([`Body::Multipart`]), with the parts:
+    /// - `file` (file, required): A .srt or .vtt file (checked by extension); .srt is converted to WebVTT.
+    /// - `label`: Track name in the player; the upper-cased language when omitted.
+    /// - `lang`: Language code; und when omitted.
     pub fn admin_upload_subtitle(id: &str) -> Call<Subtitle> {
         let q = Vec::new();
         build::json(build::request(
             Method::Post,
             format!("/admin/media-files/{}/subtitles", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Multipart,
         ))
     }
 
     /// `POST /me/pairings/{code}/approve`
-    pub fn approve_pairing(code: &str, body: &PairingApproval) -> Call<NoContent> {
+    ///
+    /// - `code`: The user code, with or without the dash, any case.
+    ///
+    /// `body` may be `None`, which sends no body.
+    pub fn approve_pairing(code: &str, body: Option<&PairingApproval>) -> Call<NoContent> {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Post,
             format!("/me/pairings/{}/approve", build::segment(code)),
             q,
-            Some(body),
+            build::json_body(body),
         ))
     }
 
@@ -4534,6 +4648,7 @@ pub mod ops {
         pub q: Option<String>,
         /// Ordering; newest first when omitted.
         pub sort: Option<BrowseTitlesSort>,
+        /// Default `1`, at least 1.
         pub page: Option<i64>,
     }
 
@@ -4546,13 +4661,18 @@ pub mod ops {
         build::push(&mut q, "q", query.q.as_ref());
         build::push(&mut q, "sort", query.sort.as_ref());
         build::push(&mut q, "page", query.page.as_ref());
-        build::json(build::request(Method::Get, "/titles".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/titles".to_string(), q, Body::Empty))
     }
 
     /// `PATCH /me/password`
     pub fn change_password(body: &PasswordChange) -> Call<NoContent> {
         let q = Vec::new();
-        build::no_content(build::request(Method::Patch, "/me/password".to_string(), q, Some(body)))
+        build::no_content(build::request(
+            Method::Patch,
+            "/me/password".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `POST /me/achievements/check`
@@ -4562,78 +4682,96 @@ pub mod ops {
             Method::Post,
             "/me/achievements/check".to_string(),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `POST /auth/connect`
     pub fn connect_device(body: &ConnectRedemption) -> Call<DeviceToken> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/auth/connect".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Post,
+            "/auth/connect".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// Open a couch session's WebSocket
     ///
     /// `GET /couch/{token}/ws`
+    ///
+    /// - `token`: The session's share code.
     pub fn couch_socket(token: &str) -> Request {
         let q = Vec::new();
-        build::request(Method::Get, format!("/couch/{}/ws", build::segment(token)), q, None::<&()>)
+        build::request(Method::Get, format!("/couch/{}/ws", build::segment(token)), q, Body::Empty)
     }
 
     /// `POST /me/connect-codes`
     pub fn create_connect_code() -> Call<ConnectCode> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/me/connect-codes".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Post, "/me/connect-codes".to_string(), q, Body::Empty))
     }
 
     /// `POST /couch`
     pub fn create_couch(body: &CouchStart) -> Call<CouchSession> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/couch".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Post,
+            "/couch".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `POST /media/{grant}/jit`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
     pub fn create_stream_session(grant: &str, body: &StreamSessionStart) -> Call<StreamSession> {
         let q = Vec::new();
         build::json(build::request(
             Method::Post,
             format!("/media/{}/jit", build::segment(grant)),
             q,
-            Some(body),
+            build::json_body(Some(body)),
         ))
     }
 
     /// `DELETE /me/avatar`
     pub fn delete_avatar() -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(Method::Delete, "/me/avatar".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Delete, "/me/avatar".to_string(), q, Body::Empty))
     }
 
     /// `DELETE /me/banner`
     pub fn delete_banner() -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(Method::Delete, "/me/banner".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Delete, "/me/banner".to_string(), q, Body::Empty))
     }
 
     /// `POST /me/pairings/{code}/deny`
+    ///
+    /// - `code`: The user code, with or without the dash, any case.
     pub fn deny_pairing(code: &str) -> Call<NoContent> {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Post,
             format!("/me/pairings/{}/deny", build::segment(code)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `POST /couch/{token}/end`
+    ///
+    /// - `token`: The session's share code.
     pub fn end_couch(token: &str) -> Call<NoContent> {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Post,
             format!("/couch/{}/end", build::segment(token)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4656,13 +4794,13 @@ pub mod ops {
         build::push(&mut q, "size", query.size.as_ref());
         build::push(&mut q, "v", query.v.as_ref());
         build::push(&mut q, "g", query.g.as_ref());
-        build::request(Method::Get, format!("/artwork/{}", build::segment(id)), q, None::<&()>)
+        build::request(Method::Get, format!("/artwork/{}", build::segment(id)), q, Body::Empty)
     }
 
     /// `GET /me/artwork-grant`
     pub fn get_artwork_grant() -> Call<ArtworkGrant> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/me/artwork-grant".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/me/artwork-grant".to_string(), q, Body::Empty))
     }
 
     /// Query parameters of [`get_couch_info`].
@@ -4673,6 +4811,8 @@ pub mod ops {
     }
 
     /// `GET /couch/{token}/info`
+    ///
+    /// - `token`: The session's share code.
     pub fn get_couch_info(token: &str, query: &GetCouchInfoQuery) -> Call<CouchInfo> {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
@@ -4680,7 +4820,7 @@ pub mod ops {
             Method::Get,
             format!("/couch/{}/info", build::segment(token)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4694,6 +4834,8 @@ pub mod ops {
     }
 
     /// `GET /couch/{token}/playback`
+    ///
+    /// - `token`: The session's share code.
     pub fn get_couch_playback(token: &str, query: &GetCouchPlaybackQuery) -> Call<CouchPlayback> {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
@@ -4702,19 +4844,23 @@ pub mod ops {
             Method::Get,
             format!("/couch/{}/playback", build::segment(token)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `GET /features`
     pub fn get_features() -> Call<FeatureFlags> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/features".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/features".to_string(), q, Body::Empty))
     }
 
     /// Get an HLS playlist or segment of a prepared variant
     ///
     /// `GET /media/{grant}/hls/{variant}/{file}`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
+    /// - `variant`: Rendition name (e.g. 720p), source or multiaudio.
+    /// - `file`: Playlist or segment file name.
     pub fn get_hls_file(grant: &str, variant: &str, file: &str) -> Request {
         let q = Vec::new();
         build::request(
@@ -4726,20 +4872,22 @@ pub mod ops {
                 build::segment(file)
             ),
             q,
-            None::<&()>,
+            Body::Empty,
         )
     }
 
     /// Get the HLS master playlist of a media file's ready variants
     ///
     /// `GET /media/{grant}/hls/master.m3u8`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
     pub fn get_hls_master(grant: &str) -> Request {
         let q = Vec::new();
         build::request(
             Method::Get,
             format!("/media/{}/hls/master.m3u8", build::segment(grant)),
             q,
-            None::<&()>,
+            Body::Empty,
         )
     }
 
@@ -4754,12 +4902,13 @@ pub mod ops {
     pub fn get_home(query: &GetHomeQuery) -> Call<Home> {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
-        build::json(build::request(Method::Get, "/home".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/home".to_string(), q, Body::Empty))
     }
 
     /// Query parameters of [`get_leaderboard`].
     #[derive(Debug, Clone, Default, PartialEq)]
     pub struct GetLeaderboardQuery {
+        /// Default `all`.
         pub period: Option<GetLeaderboardPeriod>,
     }
 
@@ -4767,13 +4916,13 @@ pub mod ops {
     pub fn get_leaderboard(query: &GetLeaderboardQuery) -> Call<Leaderboard> {
         let mut q = Vec::new();
         build::push(&mut q, "period", query.period.as_ref());
-        build::json(build::request(Method::Get, "/leaderboard".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/leaderboard".to_string(), q, Body::Empty))
     }
 
     /// `GET /auth/me`
     pub fn get_me() -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/auth/me".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/auth/me".to_string(), q, Body::Empty))
     }
 
     /// Query parameters of [`get_my_stats`].
@@ -4787,17 +4936,19 @@ pub mod ops {
     pub fn get_my_stats(query: &GetMyStatsQuery) -> Call<UserProfile> {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
-        build::json(build::request(Method::Get, "/me/stats".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/me/stats".to_string(), q, Body::Empty))
     }
 
     /// `GET /me/pairings/{code}`
+    ///
+    /// - `code`: The user code, with or without the dash, any case.
     pub fn get_pairing_request(code: &str) -> Call<PairingRequest> {
         let q = Vec::new();
         build::json(build::request(
             Method::Get,
             format!("/me/pairings/{}", build::segment(code)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4811,6 +4962,8 @@ pub mod ops {
     }
 
     /// `GET /playback/{kind}/{id}`
+    ///
+    /// - `id`: The movie's title id or the episode id.
     pub fn get_playback(
         kind: GetPlaybackKind,
         id: &str,
@@ -4823,14 +4976,14 @@ pub mod ops {
             Method::Get,
             format!("/playback/{}/{}", build::segment(&kind.to_string()), build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `GET /me/preferences`
     pub fn get_preferences() -> Call<Preferences> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/me/preferences".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/me/preferences".to_string(), q, Body::Empty))
     }
 
     /// Query parameters of [`get_profile`].
@@ -4848,26 +5001,29 @@ pub mod ops {
             Method::Get,
             format!("/users/{}/profile", build::segment(username)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `GET /server`
     pub fn get_server() -> Call<ServerInfo> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/server".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/server".to_string(), q, Body::Empty))
     }
 
     /// Query parameters of [`get_stream_frame`].
     #[derive(Debug, Clone, Default, PartialEq)]
     pub struct GetStreamFrameQuery {
         /// Position in seconds, rounded down to its 5-second bucket and clamped to the duration.
+        /// Default `0`, at least 0.
         pub t: Option<i64>,
     }
 
     /// Get a seek-preview still from a video
     ///
     /// `GET /media/{grant}/frame`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
     pub fn get_stream_frame(grant: &str, query: &GetStreamFrameQuery) -> Request {
         let mut q = Vec::new();
         build::push(&mut q, "t", query.t.as_ref());
@@ -4875,13 +5031,17 @@ pub mod ops {
             Method::Get,
             format!("/media/{}/frame", build::segment(grant)),
             q,
-            None::<&()>,
+            Body::Empty,
         )
     }
 
     /// Get a JIT session's playlist or segment
     ///
     /// `GET /media/{grant}/jit/{sid}/{file}`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
+    /// - `sid`: Session id from createStreamSession.
+    /// - `file`: index.m3u8 or a segment name.
     pub fn get_stream_session_file(grant: &str, sid: &str, file: &str) -> Request {
         let q = Vec::new();
         build::request(
@@ -4893,27 +5053,29 @@ pub mod ops {
                 build::segment(file)
             ),
             q,
-            None::<&()>,
+            Body::Empty,
         )
     }
 
     /// Get a subtitle track
     ///
     /// `GET /media/{grant}/subtitles/{id}.vtt`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
     pub fn get_subtitle(grant: &str, id: &str) -> Request {
         let q = Vec::new();
         build::request(
             Method::Get,
             format!("/media/{}/subtitles/{}.vtt", build::segment(grant), build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         )
     }
 
     /// `GET /theme`
     pub fn get_theme() -> Call<ThemeInfo> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/theme".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/theme".to_string(), q, Body::Empty))
     }
 
     /// Query parameters of [`get_title`].
@@ -4931,40 +5093,46 @@ pub mod ops {
             Method::Get,
             format!("/titles/{}", build::segment(slug)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `POST /couch/{token}/join`
+    ///
+    /// - `token`: The session's share code.
     pub fn join_couch(token: &str) -> Call<CouchSession> {
         let q = Vec::new();
         build::json(build::request(
             Method::Post,
             format!("/couch/{}/join", build::segment(token)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `POST /media/{grant}/jit/{sid}/keepalive`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
     pub fn keep_stream_session_alive(grant: &str, sid: &str) -> Call<NoContent> {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Post,
             format!("/media/{}/jit/{}/keepalive", build::segment(grant), build::segment(sid)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `POST /couch/{token}/leave`
+    ///
+    /// - `token`: The session's share code.
     pub fn leave_couch(token: &str) -> Call<NoContent> {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Post,
             format!("/couch/{}/leave", build::segment(token)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -4983,14 +5151,14 @@ pub mod ops {
             Method::Get,
             "/me/continue-watching".to_string(),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `GET /me/devices`
     pub fn list_devices() -> Call<Vec<Device>> {
         let q = Vec::new();
-        build::json(build::request(Method::Get, "/me/devices".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/me/devices".to_string(), q, Body::Empty))
     }
 
     /// Query parameters of [`list_genres`].
@@ -5004,7 +5172,7 @@ pub mod ops {
     pub fn list_genres(query: &ListGenresQuery) -> Call<Vec<Genre>> {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
-        build::json(build::request(Method::Get, "/genres".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/genres".to_string(), q, Body::Empty))
     }
 
     /// Query parameters of [`list_watchlist`].
@@ -5018,25 +5186,35 @@ pub mod ops {
     pub fn list_watchlist(query: &ListWatchlistQuery) -> Call<Vec<CardItem>> {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
-        build::json(build::request(Method::Get, "/me/watchlist".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/me/watchlist".to_string(), q, Body::Empty))
     }
 
     /// `POST /auth/login`
     pub fn login(body: &Credentials) -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/auth/login".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Post,
+            "/auth/login".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `POST /auth/logout`
     pub fn logout() -> Call<NoContent> {
         let q = Vec::new();
-        build::no_content(build::request(Method::Post, "/auth/logout".to_string(), q, None::<&()>))
+        build::no_content(build::request(Method::Post, "/auth/logout".to_string(), q, Body::Empty))
     }
 
     /// `POST /auth/pairings/poll`
     pub fn poll_pairing(body: &PairingPoll) -> Call<PairingStatus> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/auth/pairings/poll".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Post,
+            "/auth/pairings/poll".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `DELETE /me/watchlist/{titleId}`
@@ -5046,7 +5224,7 @@ pub mod ops {
             Method::Delete,
             format!("/me/watchlist/{}", build::segment(title_id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
@@ -5057,20 +5235,30 @@ pub mod ops {
             Method::Delete,
             format!("/me/devices/{}", build::segment(id)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// `PUT /progress`
     pub fn save_progress(body: &ProgressReport) -> Call<NoContent> {
         let q = Vec::new();
-        build::no_content(build::request(Method::Put, "/progress".to_string(), q, Some(body)))
+        build::no_content(build::request(
+            Method::Put,
+            "/progress".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `POST /progress`
     pub fn save_progress_beacon(body: &ProgressReport) -> Call<NoContent> {
         let q = Vec::new();
-        build::no_content(build::request(Method::Post, "/progress".to_string(), q, Some(body)))
+        build::no_content(build::request(
+            Method::Post,
+            "/progress".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// Query parameters of [`search`].
@@ -5086,67 +5274,97 @@ pub mod ops {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
         build::push(&mut q, "q", query.q.as_ref());
-        build::json(build::request(Method::Get, "/search".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Get, "/search".to_string(), q, Body::Empty))
     }
 
     /// `POST /auth/token`
     pub fn sign_in_device(body: &DeviceSignIn) -> Call<DeviceToken> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/auth/token".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Post,
+            "/auth/token".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `POST /auth/pairings`
     pub fn start_pairing(body: &DeviceInfo) -> Call<Pairing> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/auth/pairings".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Post,
+            "/auth/pairings".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `DELETE /media/{grant}/jit/{sid}`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
     pub fn stop_stream_session(grant: &str, sid: &str) -> Call<NoContent> {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Delete,
             format!("/media/{}/jit/{}", build::segment(grant), build::segment(sid)),
             q,
-            None::<&()>,
+            Body::Empty,
         ))
     }
 
     /// Stream a media file for direct play
     ///
     /// `GET /media/{grant}/stream`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
     pub fn stream_media_file(grant: &str) -> Request {
         let q = Vec::new();
         build::request(
             Method::Get,
             format!("/media/{}/stream", build::segment(grant)),
             q,
-            None::<&()>,
+            Body::Empty,
         )
     }
 
     /// `PUT /me/preferences`
     pub fn update_preferences(body: &Preferences) -> Call<Preferences> {
         let q = Vec::new();
-        build::json(build::request(Method::Put, "/me/preferences".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Put,
+            "/me/preferences".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `PATCH /me/profile`
     pub fn update_profile(body: &ProfileUpdate) -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(Method::Patch, "/me/profile".to_string(), q, Some(body)))
+        build::json(build::request(
+            Method::Patch,
+            "/me/profile".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// `POST /me/avatar`
+    ///
+    /// The body is a `multipart/form-data` form the shell assembles and sends ([`Body::Multipart`]), with the parts:
+    /// - `file` (file, required): JPEG, PNG or WebP image, typed by its file name extension.
     pub fn upload_avatar() -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/me/avatar".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Post, "/me/avatar".to_string(), q, Body::Multipart))
     }
 
     /// `POST /me/banner`
+    ///
+    /// The body is a `multipart/form-data` form the shell assembles and sends ([`Body::Multipart`]), with the parts:
+    /// - `file` (file, required): JPEG, PNG or WebP image, typed by its file name extension.
     pub fn upload_banner() -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(Method::Post, "/me/banner".to_string(), q, None::<&()>))
+        build::json(build::request(Method::Post, "/me/banner".to_string(), q, Body::Multipart))
     }
 }
 
@@ -5227,6 +5445,7 @@ pub mod couch {
     #[serde(rename_all = "camelCase")]
     pub struct CouchMediaChanged {
         pub media: CouchMediaRef,
+        /// At least 0.
         pub seq: i64,
     }
 

@@ -620,7 +620,7 @@ impl Accounts {
                 let body = types::PairingApproval {
                     device_name: Some(name.to_string()).filter(|n| !n.is_empty()),
                 };
-                (ApprovalOutcome::Approved, ops::approve_pairing(code, &body))
+                (ApprovalOutcome::Approved, ops::approve_pairing(code, Some(&body)))
             }
             None => (ApprovalOutcome::Denied, ops::deny_pairing(code)),
         };
