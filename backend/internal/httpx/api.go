@@ -33,7 +33,16 @@ func NewAPI(r chi.Router) huma.API {
 	cfg.OpenAPIPath, cfg.DocsPath, cfg.SchemasPath = "", "", ""
 	cfg.CreateHooks = nil
 	cfg.Servers = []*huma.Server{{URL: "/api/v1"}}
+	cfg.OnAddOperation = append(cfg.OnAddOperation, requireForm)
 	return humachi.New(r, cfg)
+}
+
+// requireForm marks a multipart body required: huma documents a decoded form
+// as optional, yet rejects a request that carries none.
+func requireForm(_ *huma.OpenAPI, op *huma.Operation) {
+	if op.RequestBody != nil && op.RequestBody.Content["multipart/form-data"] != nil {
+		op.RequestBody.Required = true
+	}
 }
 
 // newError adapts huma's own failures (validation, body limits, handler errors

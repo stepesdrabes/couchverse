@@ -224,6 +224,7 @@ func apiCases() []apiCase {
 		{op: "updatePreferences", as: "nora", method: "PUT", path: "/me/preferences", body: map[string]any{"subtitles": map[string]any{"fontSizePct": 900}}, status: 400},
 		{op: "updateProfile", as: "nora", method: "PATCH", path: "/me/profile", body: map[string]any{"displayName": "Nora B", "bio": "Hi **there**"}, status: 200},
 		{op: "uploadAvatar", as: "nora", method: "POST", path: "/me/avatar", upload: &upload{"avatar.png", pngImage()}, status: 200},
+		{op: "uploadAvatar", as: "nora", method: "POST", path: "/me/avatar", status: 400},
 		{op: "uploadBanner", as: "nora", method: "POST", path: "/me/banner", upload: &upload{"banner.png", pngImage()}, status: 200},
 		{op: "deleteBanner", as: "nora", method: "DELETE", path: "/me/banner", status: 200},
 		{op: "deleteAvatar", as: "nora", method: "DELETE", path: "/me/avatar", status: 200},
