@@ -20,17 +20,21 @@
 	import XpSourceCard from './XpSourceCard.svelte';
 	import AchievementGrid from './AchievementGrid.svelte';
 	import * as m from '$lib/paraglide/messages';
+	import type { Snippet } from 'svelte';
 	import type { Profile } from '../types';
 
 	let {
 		profile,
 		onedit = undefined,
-		onpassword = undefined
+		onpassword = undefined,
+		children = undefined
 	}: {
 		profile: Profile;
 		// owner affordances, threaded to the hero; absent on someone else's profile
 		onedit?: () => void;
 		onpassword?: () => void;
+		// owner-only sections below the public profile (the devices list)
+		children?: Snippet;
 	} = $props();
 
 	const t = $derived(profile.totals);
@@ -147,4 +151,6 @@
 	</div>
 
 	<AchievementGrid achievements={profile.achievements} won={profile.achievementsWon} />
+
+	{@render children?.()}
 </div>

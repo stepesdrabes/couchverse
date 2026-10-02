@@ -6,6 +6,7 @@
 	import { artworkUrl } from '$lib/features/catalog/api';
 	import { formatYearDate } from '$lib/utils/format';
 	import { session } from '../session.svelte';
+	import DevicesSection from './DevicesSection.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	// The identity card on its own, for servers with rankings switched off: same
@@ -73,4 +74,6 @@
 	</div>
 
 	<p class="mt-4 text-xs text-faint">{m.profile_help_text()}</p>
+
+	<DevicesSection />
 </div>

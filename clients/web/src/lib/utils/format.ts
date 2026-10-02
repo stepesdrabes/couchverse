@@ -14,12 +14,31 @@ export function formatDate(iso: string): string {
 	return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export function formatYearDate(iso: string): string {
-	return new Date(iso).toLocaleDateString(undefined, {
+export function formatYearDate(iso: string, locale?: string): string {
+	return new Date(iso).toLocaleDateString(locale, {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric'
 	});
+}
+
+const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+	['year', 365 * 86400],
+	['month', 30 * 86400],
+	['week', 7 * 86400],
+	['day', 86400],
+	['hour', 3600],
+	['minute', 60]
+];
+
+/** an instant relative to now: "3 hours ago", "yesterday", "před 3 hodinami" */
+export function formatRelative(iso: string, locale: string, now = Date.now()): string {
+	const seconds = (new Date(iso).getTime() - now) / 1000;
+	const format = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+	for (const [unit, size] of RELATIVE_UNITS) {
+		if (Math.abs(seconds) >= size) return format.format(Math.trunc(seconds / size), unit);
+	}
+	return format.format(0, 'second');
 }
 
 /** 95 → "1h 35m", 47 → "47m" */

@@ -10,6 +10,7 @@
 	import EditProfileModal from '../components/EditProfileModal.svelte';
 	import ChangePasswordModal from '../components/ChangePasswordModal.svelte';
 	import AccountOnlyProfile from '../components/AccountOnlyProfile.svelte';
+	import DevicesSection from '../components/DevicesSection.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import type { Profile } from '$lib/features/ranks/types';
 
@@ -46,7 +47,9 @@
 		{profile}
 		onedit={() => (editOpen = true)}
 		onpassword={() => (passwordOpen = true)}
-	/>
+	>
+		<DevicesSection />
+	</ProfileContent>
 {:else}
 	<ProfileSkeleton />
 {/if}
