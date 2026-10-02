@@ -256,3 +256,37 @@ func TestWSRemoteSteersTheHostsPlayer(t *testing.T) {
 		t.Fatal("the host's token stopped working")
 	}
 }
+
+// Ending a session must deliver session_ended to every attached follower before the
+// socket closes; a follower that only sees the close waits for the host forever.
+func TestWSEndDeliversSessionEnded(t *testing.T) {
+	fm := &fakeMedia{files: map[string]*media.MediaFile{"title:t1": {ID: "mf1", TitleID: ptr("t1")}}}
+	h := newTestHub(t, fm)
+	hand := &Handlers{hub: h, joinRate: newRateLimiter(1000, time.Minute)}
+
+	r := chi.NewRouter()
+	r.Get("/api/v1/couch/{token}/ws", hand.WS)
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+
+	// the teardown races the final write; rounds keep a lucky ordering from hiding a drop
+	for range 50 {
+		rm, _, hostToken, _, err := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
+		if err != nil {
+			t.Fatalf("create: %v", err)
+		}
+		_, followerToken, _, err := h.join(rm, nil, false)
+		if err != nil {
+			t.Fatalf("join: %v", err)
+		}
+		wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/couch/" + rm.shareToken + "/ws"
+		fc := dialWS(t, wsURL, followerToken)
+		waitForType(t, fc, msgHello)
+
+		if !h.endByHostToken(hostToken) {
+			t.Fatal("the host token should end the session")
+		}
+		waitForType(t, fc, msgSessionEnded)
+		fc.CloseNow()
+	}
+}

@@ -42,14 +42,18 @@ func (c *conn) beginClose() {
 }
 
 // drainAndClose flushes any already-queued frames (e.g. session_ended) then
-// closes the socket. Uses a fresh context since the conn context is cancelled.
+// closes the socket. One fresh deadline bounds the whole flush: the conn context
+// may be cancelled (server shutdown), and a client too slow to drain its buffer
+// must not hold the teardown for a deadline per queued frame.
 func (c *conn) drainAndClose() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 	for {
 		select {
 		case frame := <-c.send:
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			_ = c.ws.Write(ctx, websocket.MessageText, frame)
-			cancel()
+			if c.ws.Write(ctx, websocket.MessageText, frame) != nil {
+				return
+			}
 		default:
 			c.ws.Close(websocket.StatusNormalClosure, "")
 			return

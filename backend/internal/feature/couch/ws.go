@@ -34,8 +34,10 @@ func (h *Handlers) WS(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveConn runs one connection's read/write pumps until it closes, then detaches
-// it from the room. A watcher cancels the shared context as soon as either pump
-// begins closing, unblocking the other.
+// it from the room. A closing reader stops the writer through c.closed; the reader
+// is stopped only once the writer is done, because cancelling a read closes the
+// socket at once and would cut off the frames the writer still flushes
+// (session_ended above all).
 func (h *Hub) serveConn(ws *websocket.Conn, rm *room, pid string, isHost, remote bool) {
 	defer ws.CloseNow()
 
@@ -56,19 +58,15 @@ func (h *Hub) serveConn(ws *websocket.Conn, rm *room, pid string, isHost, remote
 
 	ctx, cancel := context.WithCancel(h.appCtx)
 	defer cancel()
-	go func() {
-		select {
-		case <-c.closed:
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
 
 	c.enqueue(rm.helloFrame(c))
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go c.writePump(ctx, &wg)
+	go func() {
+		defer cancel()
+		c.writePump(ctx, &wg)
+	}()
 	go c.readPump(ctx, &wg)
 	wg.Wait()
 }
