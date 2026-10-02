@@ -164,7 +164,10 @@ export interface Artwork {
 	/** 0 when not measured. */
 	height: number;
 	id: string;
+	/** A title's poster, backdrop or logo (a transparent PNG wordmark, one per content language), an episode's thumb, a user's avatar or banner. */
 	kind: ArtworkKind;
+	/** Content language (ISO 639-1) of a title logo; null for art not tied to a language. */
+	lang: string | null;
 	/** The owner's uuid, or the numeric user id for user artwork. */
 	ownerId: string;
 	ownerKind: ArtworkOwnerKind;
@@ -181,7 +184,8 @@ export interface ArtworkGrant {
 	grant: string;
 }
 
-export type ArtworkKind = 'poster' | 'backdrop' | 'thumb' | 'avatar' | 'banner';
+/** A title's poster, backdrop or logo (a transparent PNG wordmark, one per content language), an episode's thumb, a user's avatar or banner. */
+export type ArtworkKind = 'poster' | 'backdrop' | 'thumb' | 'avatar' | 'banner' | 'logo';
 
 export type ArtworkOwnerKind = 'title' | 'season' | 'episode' | 'user';
 
@@ -1937,8 +1941,10 @@ export const adminUpdateUser = (id: number, body: AdminUserUpdate, opts?: CallOp
  * `POST /admin/artwork`
  *
  * @param form Sent as `multipart/form-data`, with the parts:
- * - `file` (file, required): A .jpg, .jpeg, .png or .webp image (checked by extension).
- * - `kind` (required): One of `poster`, `backdrop`, `thumb`.
+ * - `file` (file, required): A .jpg, .jpeg, .png or .webp image (checked by extension); a logo must be a .png.
+ * - `kind` (required): A logo belongs to a title.
+ *   One of `poster`, `backdrop`, `thumb`, `logo`.
+ * - `lang`: Content language (ISO 639-1) of a logo; omit it for a logo not tied to a language. Logos only.
  * - `ownerId` (required)
  * - `ownerKind` (required): One of `title`, `season`, `episode`.
  */

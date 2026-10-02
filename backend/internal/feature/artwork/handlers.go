@@ -32,7 +32,7 @@ func (h *Handlers) Register(rt httpx.Routes) {
 func serveOp(api huma.API) huma.Operation {
 	op := tag.Op("getArtwork", http.MethodGet, "/artwork/{id}")
 	op.Summary = "Get an artwork image"
-	op.Description = "The stored original (JPEG, PNG or WebP), or with size a cached JPEG resize."
+	op.Description = "The stored original (JPEG, PNG or WebP), or with size a cached resize: JPEG, except a PNG for a logo, which keeps its transparency."
 	op.Parameters = []*huma.Param{
 		{Name: "id", In: "path", Required: true, Schema: &huma.Schema{Type: huma.TypeString, Format: "uuid"}},
 		{Name: "size", In: "query", Description: "Resize to this width; the original when omitted.",
@@ -100,8 +100,9 @@ func (h *Handlers) Serve(w http.ResponseWriter, r *http.Request) {
 type uploadForm struct {
 	OwnerKind string        `form:"ownerKind" enum:"title,season,episode"`
 	OwnerID   string        `form:"ownerId"`
-	Kind      string        `form:"kind" enum:"poster,backdrop,thumb"`
-	File      huma.FormFile `form:"file" doc:"A .jpg, .jpeg, .png or .webp image (checked by extension)."`
+	Kind      string        `form:"kind" enum:"poster,backdrop,thumb,logo" doc:"A logo belongs to a title."`
+	Lang      string        `form:"lang" required:"false" pattern:"^[a-z]{2}$" doc:"Content language (ISO 639-1) of a logo; omit it for a logo not tied to a language. Logos only."`
+	File      huma.FormFile `form:"file" doc:"A .jpg, .jpeg, .png or .webp image (checked by extension); a logo must be a .png."`
 }
 
 type uploadInput struct {
@@ -114,7 +115,13 @@ type artworkOutput struct{ Body *Artwork }
 func (h *Handlers) Upload(ctx context.Context, in *uploadInput) (*artworkOutput, error) {
 	form := in.RawBody.Data()
 	defer form.File.Close()
-	art, err := h.service.Save(ctx, form.OwnerKind, form.OwnerID, form.Kind, form.File.Filename, form.File)
+	if form.Kind == "logo" && form.OwnerKind != "title" {
+		return nil, httpx.Fail(http.StatusBadRequest, "artwork_failed", "only a title has logos")
+	}
+	if form.Lang != "" && form.Kind != "logo" {
+		return nil, httpx.Fail(http.StatusBadRequest, "artwork_failed", "only a logo has a language")
+	}
+	art, err := h.service.Save(ctx, form.OwnerKind, form.OwnerID, form.Kind, form.Lang, form.File.Filename, form.File)
 	if err != nil {
 		return nil, httpx.Fail(http.StatusBadRequest, "artwork_failed", err.Error())
 	}

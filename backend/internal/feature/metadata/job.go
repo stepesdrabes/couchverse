@@ -118,7 +118,7 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 		if err != nil {
 			return err
 		}
-		if _, err := j.Artwork.SaveBytes(ctx, "title", title.ID, "poster", ".jpg", data, "tmdb"); err != nil {
+		if _, err := j.Artwork.SaveBytes(ctx, "title", title.ID, "poster", "", ".jpg", data, "tmdb"); err != nil {
 			return err
 		}
 	}
@@ -129,7 +129,7 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 		if err != nil {
 			return err
 		}
-		if _, err := j.Artwork.SaveBytes(ctx, "title", title.ID, "backdrop", ".jpg", data, "tmdb"); err != nil {
+		if _, err := j.Artwork.SaveBytes(ctx, "title", title.ID, "backdrop", "", ".jpg", data, "tmdb"); err != nil {
 			return err
 		}
 	}

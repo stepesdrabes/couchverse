@@ -188,7 +188,7 @@ func (j *ImportEpisodesJob) importStill(ctx context.Context, client *Client, epi
 		slog.Warn("tmdb episode still download", "episodeId", episodeID, "err", err)
 		return
 	}
-	if _, err := j.Artwork.SaveBytes(ctx, "episode", episodeID, "thumb", ".jpg", data, "tmdb"); err != nil {
+	if _, err := j.Artwork.SaveBytes(ctx, "episode", episodeID, "thumb", "", ".jpg", data, "tmdb"); err != nil {
 		slog.Warn("save episode still", "episodeId", episodeID, "err", err)
 	}
 }

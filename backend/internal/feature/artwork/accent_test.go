@@ -54,3 +54,26 @@ func TestVibrantAccentFallsBackToDominant(t *testing.T) {
 		t.Fatalf("expected a grey fallback near #505050, got %s", hex)
 	}
 }
+
+// A logo is mostly transparent with anti-aliased edges: the background must
+// not count, and half-covered edge pixels must keep their hue rather than read
+// as a darker shade.
+func TestVibrantAccentIgnoresTransparency(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 100, 100))
+	for x := 0; x < 100; x++ {
+		for y := 10; y < 40; y++ {
+			img.Set(x, y, color.NRGBA{220, 30, 40, 0x90}) // a soft edge wider than the solid part
+		}
+		for y := 40; y < 50; y++ {
+			img.Set(x, y, color.NRGBA{220, 30, 40, 255})
+		}
+	}
+	r, g, b := parseAccent(t, vibrantAccent(img))
+	if r < 200 || g > 50 || b > 60 {
+		t.Fatalf("expected the logo's red, got r=%d g=%d b=%d", r, g, b)
+	}
+
+	if hex := vibrantAccent(image.NewNRGBA(image.Rect(0, 0, 10, 10))); hex != "" {
+		t.Fatalf("a fully transparent image accented to %s", hex)
+	}
+}

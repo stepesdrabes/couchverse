@@ -181,10 +181,10 @@ func (h *AdminHandlers) Storage(ctx context.Context, in *idInput) (*storageOutpu
 }
 
 // DeleteLanguage removes one content language from a title: its translations
-// across the title and all seasons/episodes, plus the code itself (promoting the
-// next language to base when the removed one was the base). The matching audio
-// files and subtitles are deleted by the client through their own endpoints;
-// this owns only the catalog (title/season/episode) side.
+// across the title and all seasons/episodes, its logo, plus the code itself
+// (promoting the next language to base when the removed one was the base). The
+// matching audio files and subtitles are deleted by the client through their
+// own endpoints; this owns only the catalog (title/season/episode) side.
 func (h *AdminHandlers) DeleteLanguage(ctx context.Context, in *idLangInput) (*struct{}, error) {
 	if err := h.store.RemoveContentLanguage(ctx, in.ID, in.Lang); err != nil {
 		if errors.Is(err, ErrLastLanguage) {
@@ -192,7 +192,7 @@ func (h *AdminHandlers) DeleteLanguage(ctx context.Context, in *idLangInput) (*s
 		}
 		return nil, err
 	}
-	return nil, nil
+	return nil, h.artwork.DeleteForLang(ctx, "title", in.ID, in.Lang)
 }
 
 func (h *AdminHandlers) Delete(ctx context.Context, in *idInput) (*struct{}, error) {

@@ -1,7 +1,8 @@
 -- A small but complete catalog for the API tests: a published movie and series
--- with translations, artwork, files, subtitles and audio tracks, a draft title,
--- viewing history, rankings state and jobs. Runs after migrations and the admin
--- bootstrap; every member reuses the admin's password hash ("admin").
+-- with translations, artwork (logos included), files, subtitles and audio
+-- tracks, a draft title, viewing history, rankings state and jobs. Runs after
+-- migrations and the admin bootstrap; every member reuses the admin's password
+-- hash ("admin").
 
 INSERT INTO users (id, username, display_name, password_hash, role, preferences, bio)
 OVERRIDING SYSTEM VALUE
@@ -69,6 +70,15 @@ INSERT INTO artwork (id, owner_kind, owner_id, kind, path, width, height, source
      'artwork/nora-avatar.jpg', 256, 256, 'uploaded', '#aa3366', '2026-01-03T10:00:00Z'),
     ('00000000-0000-4000-8000-000000000406', 'user', '2', 'banner',
      'artwork/nora-banner.jpg', 1500, 500, 'uploaded', '#112233', '2026-01-03T10:00:00Z');
+
+-- logos: one per content language of the movie, one not tied to a language for the series
+INSERT INTO artwork (id, owner_kind, owner_id, kind, lang, path, width, height, source, accent, created_at) VALUES
+    ('00000000-0000-4000-8000-000000000407', 'title', '00000000-0000-4000-8000-000000000101', 'logo', 'en',
+     'artwork/glass-logo-en.png', 800, 300, 'tmdb', '#e0e0e0', '2026-01-01T10:00:00Z'),
+    ('00000000-0000-4000-8000-000000000408', 'title', '00000000-0000-4000-8000-000000000101', 'logo', 'cs',
+     'artwork/glass-logo-cs.png', 600, 300, 'tmdb', '#e0e0e0', '2026-01-01T10:00:00Z'),
+    ('00000000-0000-4000-8000-000000000409', 'title', '00000000-0000-4000-8000-000000000102', 'logo', NULL,
+     'artwork/bloom-logo.png', 1000, 400, 'uploaded', '-', '2026-01-02T10:00:00Z');
 
 INSERT INTO media_files (id, library_id, title_id, episode_id, path, size_bytes, container, video_codec, audio_codec,
                          width, height, duration_seconds, bitrate, channels, sample_rate, video_range, direct_play,

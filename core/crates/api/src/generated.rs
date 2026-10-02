@@ -589,7 +589,10 @@ pub mod types {
         /// 0 when not measured.
         pub height: i64,
         pub id: String,
+        /// A title's poster, backdrop or logo (a transparent PNG wordmark, one per content language), an episode's thumb, a user's avatar or banner.
         pub kind: ArtworkKind,
+        /// Content language (ISO 639-1) of a title logo; null for art not tied to a language.
+        pub lang: Option<String>,
         /// The owner's uuid, or the numeric user id for user artwork.
         pub owner_id: String,
         pub owner_kind: ArtworkOwnerKind,
@@ -608,6 +611,7 @@ pub mod types {
         pub grant: String,
     }
 
+    /// A title's poster, backdrop or logo (a transparent PNG wordmark, one per content language), an episode's thumb, a user's avatar or banner.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum ArtworkKind {
         #[serde(rename = "poster")]
@@ -620,6 +624,8 @@ pub mod types {
         Avatar,
         #[serde(rename = "banner")]
         Banner,
+        #[serde(rename = "logo")]
+        Logo,
         /// A value this client does not know yet.
         #[serde(other)]
         Unknown,
@@ -633,6 +639,7 @@ pub mod types {
                 ArtworkKind::Thumb => "thumb",
                 ArtworkKind::Avatar => "avatar",
                 ArtworkKind::Banner => "banner",
+                ArtworkKind::Logo => "logo",
                 ArtworkKind::Unknown => "unknown",
             }
         }
@@ -4657,8 +4664,10 @@ pub mod ops {
     /// `POST /admin/artwork`
     ///
     /// The body is a `multipart/form-data` form the shell assembles and sends ([`Body::Multipart`]), with the parts:
-    /// - `file` (file, required): A .jpg, .jpeg, .png or .webp image (checked by extension).
-    /// - `kind` (required): One of `poster`, `backdrop`, `thumb`.
+    /// - `file` (file, required): A .jpg, .jpeg, .png or .webp image (checked by extension); a logo must be a .png.
+    /// - `kind` (required): A logo belongs to a title.
+    ///   One of `poster`, `backdrop`, `thumb`, `logo`.
+    /// - `lang`: Content language (ISO 639-1) of a logo; omit it for a logo not tied to a language. Logos only.
     /// - `ownerId` (required)
     /// - `ownerKind` (required): One of `title`, `season`, `episode`.
     pub fn admin_upload_artwork() -> Call<Artwork> {

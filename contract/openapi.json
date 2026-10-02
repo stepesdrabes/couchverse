@@ -569,14 +569,23 @@
             "type": "string"
           },
           "kind": {
+            "description": "A title's poster, backdrop or logo (a transparent PNG wordmark, one per content language), an episode's thumb, a user's avatar or banner.",
             "enum": [
               "poster",
               "backdrop",
               "thumb",
               "avatar",
-              "banner"
+              "banner",
+              "logo"
             ],
             "type": "string"
+          },
+          "lang": {
+            "description": "Content language (ISO 639-1) of a title logo; null for art not tied to a language.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "ownerId": {
             "description": "The owner's uuid, or the numeric user id for user artwork.",
@@ -614,6 +623,7 @@
           "ownerKind",
           "ownerId",
           "kind",
+          "lang",
           "path",
           "width",
           "height",
@@ -5037,6 +5047,9 @@
                 "kind": {
                   "contentType": "text/plain"
                 },
+                "lang": {
+                  "contentType": "text/plain"
+                },
                 "ownerId": {
                   "contentType": "text/plain"
                 },
@@ -5049,16 +5062,23 @@
                   "file": {
                     "contentEncoding": "binary",
                     "contentMediaType": "application/octet-stream",
-                    "description": "A .jpg, .jpeg, .png or .webp image (checked by extension).",
+                    "description": "A .jpg, .jpeg, .png or .webp image (checked by extension); a logo must be a .png.",
                     "format": "binary",
                     "type": "string"
                   },
                   "kind": {
+                    "description": "A logo belongs to a title.",
                     "enum": [
                       "poster",
                       "backdrop",
-                      "thumb"
+                      "thumb",
+                      "logo"
                     ],
+                    "type": "string"
+                  },
+                  "lang": {
+                    "description": "Content language (ISO 639-1) of a logo; omit it for a logo not tied to a language. Logos only.",
+                    "pattern": "^[a-z]{2}$",
                     "type": "string"
                   },
                   "ownerId": {
@@ -7892,7 +7912,7 @@
     },
     "/artwork/{id}": {
       "get": {
-        "description": "The stored original (JPEG, PNG or WebP), or with size a cached JPEG resize.",
+        "description": "The stored original (JPEG, PNG or WebP), or with size a cached resize: JPEG, except a PNG for a logo, which keeps its transparency.",
         "operationId": "getArtwork",
         "parameters": [
           {

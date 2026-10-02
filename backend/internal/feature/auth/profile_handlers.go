@@ -127,7 +127,7 @@ func (h *Profile) setImage(ctx context.Context, in *imageUploadInput, kind strin
 	defer file.Close()
 
 	owner := strconv.FormatInt(self.ID, 10)
-	if _, err := h.artwork.Save(ctx, "user", owner, kind, file.Filename, file); err != nil {
+	if _, err := h.artwork.Save(ctx, "user", owner, kind, "", file.Filename, file); err != nil {
 		return nil, httpx.Fail(http.StatusBadRequest, kind+"_failed", err.Error())
 	}
 	return h.reload(ctx, self.ID)

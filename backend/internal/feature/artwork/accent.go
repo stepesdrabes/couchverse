@@ -51,9 +51,11 @@ func vibrantAccent(img image.Image) string {
 		for x := b.Min.X; x < b.Max.X; x += stepX {
 			r16, g16, b16, a16 := img.At(x, y).RGBA()
 			if a16 < 0x8000 {
-				continue // mostly transparent
+				continue // mostly transparent (a logo's background)
 			}
-			r, g, bl := int(r16>>8), int(g16>>8), int(b16>>8)
+			// RGBA is premultiplied: undo it so a logo's anti-aliased
+			// edges keep their colour instead of reading darker
+			r, g, bl := int(r16*0xff/a16), int(g16*0xff/a16), int(b16*0xff/a16)
 			key := uint16((r>>4)<<8 | (g>>4)<<4 | (bl >> 4))
 			bk := buckets[key]
 			if bk == nil {

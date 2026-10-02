@@ -1,4 +1,4 @@
-// Package artwork stores poster/backdrop/thumb images, produces resized
+// Package artwork stores poster/backdrop/thumb/logo images, produces resized
 // variants on demand by shelling out to ffmpeg, and extracts a vibrant accent
 // colour per image (stdlib decode, see accent.go) for the UI to theme with.
 package artwork
@@ -6,6 +6,7 @@ package artwork
 import (
 	"context"
 	"fmt"
+	"image"
 	"io"
 	"log/slog"
 	"os"
@@ -44,13 +45,16 @@ var sizes = map[string]int{
 var allowedExts = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
 
 // Save stores an uploaded original and upserts the artwork slot.
-func (s *Service) Save(ctx context.Context, ownerKind string, ownerID string, kind, filename string, body io.Reader) (*Artwork, error) {
+func (s *Service) Save(ctx context.Context, ownerKind string, ownerID string, kind, lang, filename string, body io.Reader) (*Artwork, error) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	if !allowedExts[ext] {
 		return nil, fmt.Errorf("unsupported image type %q (jpg/png/webp)", ext)
 	}
+	if kind == "logo" && ext != ".png" {
+		return nil, fmt.Errorf("a logo must be a .png image, which keeps its transparency")
+	}
 
-	rel := filepath.Join("artwork", ownerKind, ownerID, kind+ext)
+	rel := slotPath(ownerKind, ownerID, kind, lang, ext)
 	abs := filepath.Join(s.DataDir, rel)
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 		return nil, err
@@ -64,18 +68,12 @@ func (s *Service) Save(ctx context.Context, ownerKind string, ownerID string, ki
 		return nil, err
 	}
 	f.Close()
-
-	art, err := s.Store.SetArtwork(ctx, ownerKind, ownerID, kind, rel, 0, 0, "uploaded", AccentFor(abs))
-	if err != nil {
-		return nil, err
-	}
-	s.dropCache(art.ID)
-	return art, nil
+	return s.record(ctx, ownerKind, ownerID, kind, lang, rel, "uploaded")
 }
 
 // SaveBytes is used by metadata jobs (TMDB downloads).
-func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID string, kind, ext string, data []byte, source string) (*Artwork, error) {
-	rel := filepath.Join("artwork", ownerKind, ownerID, kind+ext)
+func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID string, kind, lang, ext string, data []byte, source string) (*Artwork, error) {
+	rel := slotPath(ownerKind, ownerID, kind, lang, ext)
 	abs := filepath.Join(s.DataDir, rel)
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 		return nil, err
@@ -83,12 +81,45 @@ func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID strin
 	if err := os.WriteFile(abs, data, 0o644); err != nil {
 		return nil, err
 	}
-	art, err := s.Store.SetArtwork(ctx, ownerKind, ownerID, kind, rel, 0, 0, source, AccentFor(abs))
+	return s.record(ctx, ownerKind, ownerID, kind, lang, rel, source)
+}
+
+// slotPath names a slot's original file; a language-bound slot (a logo) gets
+// the language in its name so the slots of one owner never share a file.
+func slotPath(ownerKind, ownerID, kind, lang, ext string) string {
+	name := kind
+	if lang != "" {
+		name += "-" + lang
+	}
+	return filepath.Join("artwork", ownerKind, ownerID, name+ext)
+}
+
+// record upserts the slot for a freshly written original, measuring it and
+// extracting its accent.
+func (s *Service) record(ctx context.Context, ownerKind, ownerID, kind, lang, rel, source string) (*Artwork, error) {
+	abs := filepath.Join(s.DataDir, rel)
+	w, h := dimensions(abs)
+	art, err := s.Store.SetArtwork(ctx, ownerKind, ownerID, kind, lang, rel, w, h, source, AccentFor(abs))
 	if err != nil {
 		return nil, err
 	}
 	s.dropCache(art.ID)
 	return art, nil
+}
+
+// dimensions reads an image's size from its header; 0x0 for a format the
+// standard library cannot decode (WebP).
+func dimensions(path string) (width, height int) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, 0
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return 0, 0
+	}
+	return cfg.Width, cfg.Height
 }
 
 // Resolve returns the on-disk path for an artwork id at the requested size,
@@ -101,13 +132,19 @@ func (s *Service) Resolve(ctx context.Context, art *Artwork, size string) (strin
 	if !ok {
 		return original, nil
 	}
+	// a logo is drawn over other art, so its resize has to keep the alpha
+	// channel that JPEG would flatten
+	ext := ".jpg"
+	if art.Kind == "logo" {
+		ext = ".png"
+	}
 
 	info, err := os.Stat(original)
 	if err != nil {
 		return "", err
 	}
 	cached := filepath.Join(s.DataDir, "cache", "images",
-		fmt.Sprintf("%s_%d_%s.jpg", art.ID, info.ModTime().UnixNano(), size))
+		fmt.Sprintf("%s_%d_%s%s", art.ID, info.ModTime().UnixNano(), size, ext))
 	if _, err := os.Stat(cached); err == nil {
 		return cached, nil
 	}
@@ -116,7 +153,7 @@ func (s *Service) Resolve(ctx context.Context, art *Artwork, size string) (strin
 	}
 	// drop resizes of older versions of this artwork
 	if stale, err := filepath.Glob(filepath.Join(s.DataDir, "cache", "images",
-		fmt.Sprintf("%s_*_%s.jpg", art.ID, size))); err == nil {
+		fmt.Sprintf("%s_*_%s%s", art.ID, size, ext))); err == nil {
 		for _, f := range stale {
 			os.Remove(f)
 		}
@@ -141,9 +178,26 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	s.removeFiles(*art)
+	return nil
+}
+
+// DeleteForLang removes an owner's artwork in one language with its files -
+// called when a title drops a content language.
+func (s *Service) DeleteForLang(ctx context.Context, ownerKind string, ownerID string, lang string) error {
+	rows, err := s.Store.DeleteArtworkForLang(ctx, ownerKind, ownerID, lang)
+	if err != nil {
+		return err
+	}
+	for _, art := range rows {
+		s.removeFiles(art)
+	}
+	return nil
+}
+
+func (s *Service) removeFiles(art Artwork) {
 	os.Remove(filepath.Join(s.DataDir, art.Path))
 	s.dropCache(art.ID)
-	return nil
 }
 
 func (s *Service) dropCache(id string) {
@@ -196,8 +250,7 @@ func (s *Service) DeleteForOwner(ctx context.Context, ownerKind string, ownerID 
 		return err
 	}
 	for _, art := range rows {
-		os.Remove(filepath.Join(s.DataDir, art.Path))
-		s.dropCache(art.ID)
+		s.removeFiles(art)
 	}
 	os.Remove(filepath.Join(s.DataDir, "artwork", ownerKind, ownerID))
 	return nil
