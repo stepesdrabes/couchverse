@@ -104,6 +104,94 @@ data class AppView (
 )
 
 @Serializable
+enum class TitleKind(val string: String) {
+	@SerialName("movie")
+	Movie("movie"),
+	@SerialName("series")
+	Series("series"),
+}
+
+@Serializable
+enum class BrowseSort(val string: String) {
+	@SerialName("added")
+	Added("added"),
+	@SerialName("name")
+	Name("name"),
+	@SerialName("year")
+	Year("year"),
+}
+
+/// One browse listing: a kind, a genre (by its English name), or both.
+@Serializable
+data class BrowseKey (
+	val kind: TitleKind? = null,
+	val genre: String? = null,
+	val sort: BrowseSort? = null
+)
+
+/// An image ready to load, with the accent colour extracted from it when known.
+@Serializable
+data class Image (
+	val url: String,
+	val accent: String? = null
+)
+
+@Serializable
+data class Card (
+	val titleId: String,
+	val slug: String,
+	val name: String,
+	val kind: TitleKind,
+	val year: Int? = null,
+	val poster: Image? = null,
+	val backdrop: Image? = null
+)
+
+@Serializable
+data class BrowseView (
+	val key: BrowseKey,
+	val status: LoadStatus,
+	val cards: List<Card>,
+	val total: ULong,
+	/// More pages can be loaded with `BrowseMoreRequested`.
+	val more: Boolean,
+	val loadingMore: Boolean,
+	val problem: Problem? = null
+)
+
+@Serializable
+enum class PlayKind(val string: String) {
+	@SerialName("movie")
+	Movie("movie"),
+	@SerialName("episode")
+	Episode("episode"),
+}
+
+/// What a play button starts.
+@Serializable
+data class PlayTarget (
+	val kind: PlayKind,
+	val id: String
+)
+
+@Serializable
+data class ContinueCard (
+	val titleId: String,
+	val slug: String,
+	val name: String,
+	val kind: TitleKind,
+	/// The server's episode label (`S1 E3`); absent for a movie.
+	val episodeLabel: String? = null,
+	val positionSeconds: ULong,
+	val durationSeconds: ULong,
+	/// How far in, from 0 to 1.
+	val progress: Double,
+	val play: PlayTarget,
+	val poster: Image? = null,
+	val backdrop: Image? = null
+)
+
+@Serializable
 enum class Platform(val string: String) {
 	@SerialName("ios")
 	Ios("ios"),
@@ -206,11 +294,62 @@ data class EffectRequest (
 	val effect: Effect
 )
 
+@Serializable
+data class EpisodeNumber (
+	val season: UInt,
+	val episode: UInt
+)
+
+@Serializable
+data class EpisodeView (
+	val id: String,
+	val number: UInt,
+	val name: String,
+	val overview: String,
+	val runtimeMinutes: UInt? = null,
+	val airDate: String? = null,
+	val still: Image? = null,
+	/// How far in, from 0 to 1.
+	val progress: Double,
+	val completed: Boolean
+)
+
+@Serializable
+data class FeaturedCard (
+	val titleId: String,
+	val slug: String,
+	val name: String,
+	val kind: TitleKind,
+	val year: Int? = null,
+	val overview: String,
+	/// Genre labels in the display language.
+	val genres: List<String>,
+	val contentRating: String? = null,
+	val runtimeMinutes: UInt? = null,
+	/// The full-size backdrop for a hero.
+	val backdrop: Image? = null,
+	val inList: Boolean
+)
+
 /// Optional server features; on until the server says otherwise, so nothing flickers away.
 @Serializable
 data class Features (
 	val couch: Boolean,
 	val rankings: Boolean
+)
+
+@Serializable
+data class GenreView (
+	/// The English name, which identifies the genre in a `BrowseKey`.
+	val name: String,
+	val label: String
+)
+
+@Serializable
+data class GenresView (
+	val status: LoadStatus,
+	val genres: List<GenreView>,
+	val problem: Problem? = null
 )
 
 @Serializable
@@ -245,6 +384,34 @@ data class HeadingBlock (
 	/// 1 to 6.
 	val level: UByte,
 	val inlines: List<Inline>
+)
+
+@Serializable
+enum class HomeRowKind(val string: String) {
+	@SerialName("continueWatching")
+	ContinueWatching("continueWatching"),
+	@SerialName("recentlyAdded")
+	RecentlyAdded("recentlyAdded"),
+	@SerialName("genre")
+	Genre("genre"),
+}
+
+@Serializable
+data class HomeRowView (
+	/// Stable within one home, for list identity.
+	val id: String,
+	val kind: HomeRowKind,
+	val label: String,
+	val cards: List<Card>,
+	val continueWatching: List<ContinueCard>
+)
+
+@Serializable
+data class HomeView (
+	val status: LoadStatus,
+	val featured: List<FeaturedCard>,
+	val rows: List<HomeRowView>,
+	val problem: Problem? = null
 )
 
 @Serializable
@@ -407,6 +574,32 @@ sealed class Event {
 	@Serializable
 	@SerialName("displayLanguageChanged")
 	data class DisplayLanguageChanged(val content: LanguageChoice): Event()
+	/// A screen showing this surface appeared; the core loads it or, when cached, shows it
+	/// and refreshes it.
+	@Serializable
+	@SerialName("screenOpened")
+	data class ScreenOpened(val content: Surface): Event()
+	@Serializable
+	@SerialName("screenClosed")
+	data class ScreenClosed(val content: Surface): Event()
+	/// Pull to refresh.
+	@Serializable
+	@SerialName("refreshRequested")
+	data class RefreshRequested(val content: Surface): Event()
+	/// The user scrolled near the end of a listing.
+	@Serializable
+	@SerialName("browseMoreRequested")
+	data class BrowseMoreRequested(val content: BrowseKey): Event()
+	/// The search field changed; the core waits for a pause in typing before searching.
+	@Serializable
+	@SerialName("searchChanged")
+	data class SearchChanged(val content: SearchText): Event()
+	@Serializable
+	@SerialName("watchlistChanged")
+	data class WatchlistChanged(val content: WatchlistChange): Event()
+	@Serializable
+	@SerialName("noticeDismissed")
+	data class NoticeDismissed(val content: NoticeRef): Event()
 }
 
 /// Something that happened in the shell: a user intent or a lifecycle change.
@@ -414,6 +607,30 @@ sealed class Event {
 data class Message (
 	val nowMs: ULong,
 	val event: Event
+)
+
+@Serializable
+data class MyListView (
+	val status: LoadStatus,
+	val cards: List<Card>,
+	val problem: Problem? = null
+)
+
+@Serializable
+data class Notice (
+	val id: ULong,
+	/// Stable and localized by the shell, like `Problem.code`.
+	val code: String
+)
+
+@Serializable
+data class NoticeRef (
+	val id: ULong
+)
+
+@Serializable
+data class NoticesView (
+	val notices: List<Notice>
 )
 
 @Serializable
@@ -469,6 +686,15 @@ data class PasswordSignIn (
 	val password: String
 )
 
+@Serializable
+data class PlayAction (
+	val target: PlayTarget,
+	/// Where playback resumes; absent to start from the beginning.
+	val resumeSeconds: ULong? = null,
+	/// The episode the button plays, for its label.
+	val episode: EpisodeNumber? = null
+)
+
 /// A screen, panel or piece of state a shell renders from a view model.
 @Serializable
 sealed class Surface {
@@ -504,6 +730,30 @@ sealed class Surface {
 	@Serializable
 	@SerialName("markdown")
 	data class Markdown(val content: String): Surface()
+	@Serializable
+	@SerialName("home")
+	object Home: Surface()
+	/// A listing of movies, series or a genre.
+	@Serializable
+	@SerialName("browse")
+	data class Browse(val content: BrowseKey): Surface()
+	/// A title's detail page; the content is its slug.
+	@Serializable
+	@SerialName("title")
+	data class Title(val content: String): Surface()
+	@Serializable
+	@SerialName("genres")
+	object Genres: Surface()
+	@Serializable
+	@SerialName("myList")
+	object MyList: Surface()
+	@Serializable
+	@SerialName("search")
+	object Search: Surface()
+	/// Transient notices for a toast or banner.
+	@Serializable
+	@SerialName("notices")
+	object Notices: Surface()
 }
 
 @Serializable
@@ -543,6 +793,28 @@ data class Resolution (
 	val nowMs: ULong,
 	val id: ULong,
 	val output: EffectOutput
+)
+
+@Serializable
+data class SearchText (
+	val query: String
+)
+
+@Serializable
+data class SearchView (
+	val query: String,
+	val status: LoadStatus,
+	val cards: List<Card>,
+	val problem: Problem? = null
+)
+
+@Serializable
+data class SeasonView (
+	val id: String,
+	val number: UInt,
+	val name: String,
+	val overview: String,
+	val episodes: List<EpisodeView>
 )
 
 @Serializable
@@ -658,8 +930,62 @@ data class TimerRequest (
 	val repeat: Boolean? = null
 )
 
+/// The highest resolution a title is available in.
+@Serializable
+enum class Quality(val string: String) {
+	@SerialName("sd")
+	Sd("sd"),
+	@SerialName("hd720")
+	Hd720("hd720"),
+	@SerialName("hd1080")
+	Hd1080("hd1080"),
+	@SerialName("uhd")
+	Uhd("uhd"),
+}
+
+@Serializable
+data class TitleDetailView (
+	val id: String,
+	val slug: String,
+	val name: String,
+	val kind: TitleKind,
+	val year: Int? = null,
+	val overview: String,
+	val genres: List<String>,
+	val contentRating: String? = null,
+	val runtimeMinutes: UInt? = null,
+	val poster: Image? = null,
+	val backdrop: Image? = null,
+	/// The page's colours, from the backdrop.
+	val accent: AccentPalette? = null,
+	val quality: Quality? = null,
+	val hdr: Boolean,
+	val inList: Boolean,
+	/// Absent for a series without a playable episode.
+	val play: PlayAction? = null,
+	/// A series that allows playing a random episode.
+	val shuffle: Boolean,
+	/// Only seasons and episodes that have something to play.
+	val seasons: List<SeasonView>
+)
+
+@Serializable
+data class TitleView (
+	val slug: String,
+	val status: LoadStatus,
+	val detail: TitleDetailView? = null,
+	val problem: Problem? = null
+)
+
 @Serializable
 data class UserCode (
 	val code: String
+)
+
+@Serializable
+data class WatchlistChange (
+	val titleId: String,
+	/// True to add the title to My List, false to remove it.
+	val listed: Boolean
 )
 

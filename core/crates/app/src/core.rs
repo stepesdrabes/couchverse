@@ -12,7 +12,10 @@ use crate::messages::{
     Resolution, Surface,
 };
 use crate::modules::accounts::{Accounts, AccountsChange, AccountsPending};
+use crate::modules::catalog::{self, Catalog, CatalogChange, CatalogPending, Env};
+use crate::modules::images::Images;
 use crate::modules::markdown;
+use crate::modules::notices::Notices;
 use crate::modules::servers::{Servers, ServersPending};
 use crate::modules::session::{Session, SessionChange, SessionPending};
 use crate::modules::theme;
@@ -23,6 +26,7 @@ pub enum Pending {
     Servers(ServersPending),
     Accounts(AccountsPending),
     Session(SessionPending),
+    Catalog(CatalogPending),
 }
 
 /// Where the app is, so a shell knows which root screen to show.
@@ -66,6 +70,8 @@ struct Model {
     servers: Servers,
     accounts: Accounts,
     session: Session,
+    catalog: Catalog,
+    notices: Notices,
     phase: AppPhase,
     /// Persisted reads still outstanding at start-up; the phase is decided when they land.
     boot_reads: usize,
@@ -79,6 +85,8 @@ impl Core {
             servers: Servers::default(),
             accounts: Accounts::default(),
             session,
+            catalog: Catalog::default(),
+            notices: Notices::default(),
             phase: AppPhase::Starting,
             boot_reads: 0,
         };
@@ -111,6 +119,12 @@ impl Core {
     }
 }
 
+/// The active session's request context, built from the session field alone so the catalog can
+/// be borrowed mutably next to it.
+fn env(session: &Session) -> Option<Env<'_>> {
+    session.endpoint().map(|endpoint| Env { endpoint, language: session.language() })
+}
+
 impl Model {
     fn send(&mut self, ctx: &mut Ctx, event: Event) {
         match event {
@@ -126,6 +140,9 @@ impl Model {
             Event::AppBecameActive => {
                 if self.phase == AppPhase::Ready {
                     self.session.refresh(ctx);
+                    if let Some(env) = env(&self.session) {
+                        self.catalog.refresh_open(ctx, &env);
+                    }
                 }
                 // timers do not run while an app is suspended
                 self.accounts.poll_pairing_now(ctx, &self.servers);
@@ -142,7 +159,7 @@ impl Model {
                 let active_server =
                     self.session.account_id().and_then(|a| self.accounts.server_of(a));
                 if active_server == Some(server.server_id.as_str()) {
-                    self.session.end(ctx);
+                    self.end_session(ctx);
                 }
                 self.servers.remove(ctx, &server.server_id);
                 self.accounts.remove_server(ctx, &server.server_id);
@@ -169,12 +186,13 @@ impl Model {
             }
             Event::SignOutRequested(_) if self.config.auth_mode == AuthMode::Cookie => {
                 self.session.log_out(ctx);
+                self.catalog.reset(ctx);
                 self.phase = AppPhase::SignIn;
                 ctx.render(Surface::App);
             }
             Event::SignOutRequested(account) => {
                 if self.session.account_id() == Some(account.account_id.as_str()) {
-                    self.session.end(ctx);
+                    self.end_session(ctx);
                 }
                 self.accounts.sign_out(ctx, &self.servers, &account.account_id);
                 if self.session.account_id().is_none() {
@@ -195,7 +213,40 @@ impl Model {
             Event::PairingDenied(code) => {
                 self.accounts.decide_pairing(ctx, &self.servers, &code.code, None);
             }
-            Event::DisplayLanguageChanged(choice) => self.session.set_language(ctx, &choice.code),
+            Event::DisplayLanguageChanged(choice) => {
+                let before = self.session.language().to_string();
+                self.session.set_language(ctx, &choice.code);
+                self.language_settled(ctx, &before);
+            }
+            Event::NoticeDismissed(notice) => self.notices.dismiss(ctx, notice.id),
+            browsing @ (Event::ScreenOpened(_)
+            | Event::ScreenClosed(_)
+            | Event::RefreshRequested(_)
+            | Event::BrowseMoreRequested(_)
+            | Event::SearchChanged(_)
+            | Event::WatchlistChanged(_)) => self.browse(ctx, browsing),
+        }
+    }
+
+    /// The catalog's events: screens opening and closing, listings, search, My List.
+    fn browse(&mut self, ctx: &mut Ctx, event: Event) {
+        let env = env(&self.session);
+        match (event, env) {
+            (Event::ScreenOpened(surface), env) if catalog::owns(&surface) => {
+                self.catalog.opened(ctx, env.as_ref(), &surface);
+            }
+            (Event::ScreenClosed(surface), _) => self.catalog.closed(&surface),
+            (Event::SearchChanged(text), _) => self.catalog.search_changed(ctx, &text.query),
+            (Event::RefreshRequested(surface), Some(env)) => {
+                self.catalog.refresh(ctx, &env, &surface);
+            }
+            (Event::BrowseMoreRequested(key), Some(env)) => {
+                self.catalog.browse_more(ctx, &env, &key);
+            }
+            (Event::WatchlistChanged(change), Some(env)) => {
+                self.catalog.set_listed(ctx, &env, &change.title_id, change.listed);
+            }
+            _ => {}
         }
     }
 
@@ -232,20 +283,46 @@ impl Model {
                     self.boot_read_done(ctx, queued);
                 }
             }
-            Pending::Session(p) => match self.session.resolve(ctx, p, output) {
-                SessionChange::Ready(user) => {
-                    if let Some(id) = self.session.account_id() {
-                        self.accounts.update_profile(ctx, id, &user);
+            Pending::Session(p) => {
+                let before = self.session.language().to_string();
+                match self.session.resolve(ctx, p, output) {
+                    SessionChange::Ready(user) => {
+                        if let Some(id) = self.session.account_id() {
+                            self.accounts.update_profile(ctx, id, &user);
+                        }
+                        if self.phase != AppPhase::Ready {
+                            // the web's cookie session checked out
+                            self.phase = AppPhase::Ready;
+                            ctx.render(Surface::App);
+                        }
                     }
-                    if self.phase != AppPhase::Ready {
-                        // the web's cookie session checked out
-                        self.phase = AppPhase::Ready;
-                        ctx.render(Surface::App);
-                    }
+                    SessionChange::Unauthorized(id) => self.signed_out(ctx, &id),
+                    SessionChange::None => {}
                 }
-                SessionChange::Unauthorized(id) => self.signed_out(ctx, &id),
-                SessionChange::None => {}
-            },
+                // the account's saved language can differ from the one showing
+                self.language_settled(ctx, &before);
+            }
+            Pending::Catalog(p) => {
+                let env = env(&self.session);
+                match self.catalog.resolve(ctx, env.as_ref(), p, output) {
+                    CatalogChange::Unauthorized => {
+                        if let Some(id) = self.session.account_id().map(str::to_string) {
+                            self.signed_out(ctx, &id);
+                        }
+                    }
+                    CatalogChange::WatchlistFailed => self.notices.push(ctx, "watchlist_failed"),
+                    CatalogChange::None => {}
+                }
+            }
+        }
+    }
+
+    /// Reloads what is showing when the display language differs from `before`.
+    fn language_settled(&mut self, ctx: &mut Ctx, before: &str) {
+        if self.session.language() != before
+            && let Some(env) = env(&self.session)
+        {
+            self.catalog.language_changed(ctx, &env);
         }
     }
 
@@ -295,6 +372,7 @@ impl Model {
             .map_or_else(|| theme::default_accent().to_string(), |s| s.accent.clone());
         self.session.activate(ctx, account_id, endpoint, &accent);
         self.accounts.refresh(ctx, &self.servers, account_id);
+        self.start_catalog(ctx, account_id);
         self.phase = AppPhase::Ready;
         ctx.render(Surface::App);
     }
@@ -303,26 +381,54 @@ impl Model {
     fn start_web_session(&mut self, ctx: &mut Ctx) {
         let endpoint = Endpoint { base: String::new(), token: None };
         self.session.activate(ctx, WEB_ACCOUNT, endpoint, theme::default_accent());
+        self.start_catalog(ctx, WEB_ACCOUNT);
         self.phase = AppPhase::Starting;
         ctx.render(Surface::App);
+    }
+
+    /// A new account's catalog, loading whatever its screens already have open.
+    fn start_catalog(&mut self, ctx: &mut Ctx, account_id: &str) {
+        self.catalog.activate(ctx, account_id);
+        if let Some(env) = env(&self.session) {
+            self.catalog.refresh_open(ctx, &env);
+        }
+    }
+
+    fn end_session(&mut self, ctx: &mut Ctx) {
+        self.session.end(ctx);
+        self.catalog.reset(ctx);
     }
 
     fn signed_out(&mut self, ctx: &mut Ctx, account_id: &str) {
         if self.config.auth_mode == AuthMode::Cookie {
             // the web's own login page takes over
-            self.session.end(ctx);
+            self.end_session(ctx);
             self.phase = AppPhase::SignIn;
             ctx.render(Surface::App);
             return;
         }
         self.accounts.token_rejected(ctx, account_id);
         if self.session.account_id() == Some(account_id) {
-            self.session.end(ctx);
+            self.end_session(ctx);
             self.settle(ctx);
         }
     }
 
+    /// Where artwork comes from for the active account: its server, with its grant.
+    fn images(&self) -> Images {
+        let Some(account) = self.session.account_id() else {
+            return Images::default();
+        };
+        let server = self.accounts.server_of(account).and_then(|s| self.servers.get(s));
+        Images {
+            base: server.map(|s| s.url.clone()).unwrap_or_default(),
+            grant: self.accounts.artwork_grant(account).map(str::to_string),
+        }
+    }
+
     fn view(&self, surface: &Surface) -> String {
+        let images = self.images();
+        let catalog = &self.catalog;
         let json = match surface {
             Surface::App => serde_json::to_string(&AppView {
                 phase: self.phase,
@@ -335,6 +441,13 @@ impl Model {
             Surface::PairingApproval => serde_json::to_string(&self.accounts.approval_view()),
             Surface::Session => serde_json::to_string(&self.session.view()),
             Surface::Markdown(source) => serde_json::to_string(&markdown::parse(source)),
+            Surface::Home => serde_json::to_string(&catalog.home_view(&images)),
+            Surface::Browse(key) => serde_json::to_string(&catalog.browse_view(key, &images)),
+            Surface::Title(slug) => serde_json::to_string(&catalog.title_view(slug, &images)),
+            Surface::Genres => serde_json::to_string(&catalog.genres_view()),
+            Surface::MyList => serde_json::to_string(&catalog.my_list_view(&images)),
+            Surface::Search => serde_json::to_string(&catalog.search_view(&images)),
+            Surface::Notices => serde_json::to_string(&self.notices.view()),
         };
         json.expect("view models always serialize")
     }

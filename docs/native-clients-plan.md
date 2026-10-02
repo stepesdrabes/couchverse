@@ -413,14 +413,18 @@ with every playback-info request (8.5).
   is not used (no tvOS support). Recipe and gotchas: `docs/spikes/s2-core-bridge.md`.
 - Android: `cargo-ndk` for `arm64-v8a`, `armeabi-v7a`, `x86_64`; UniFFI Kotlin bindings (JNA)
   and typeshare-generated Kotlin types in the `core` Gradle module.
-- Web: `wasm32-unknown-unknown` with `wasm-bindgen` (CLI version pinned to the crate) and
-  `wasm-opt -O3`, emitted as a local package that `clients/web` imports, plus typeshare
-  TypeScript types. Profile `release-wasm`: opt-level 3 (S2: it halves `view` latency for
-  ~28 KB more gzip, still far under budget), LTO, `panic = "abort"`; no `regex`.
+- Web: `wasm32-unknown-unknown` with wasm-bindgen (its library, pinned with the crate, run by
+  `cargo xtask wasm`) and `wasm-opt -Oz`, emitted as a local package that `clients/web`
+  imports, plus typeshare TypeScript types. Profile `release-wasm`: opt-level "z", LTO,
+  `panic = "abort"`; no `regex`. (S2 chose opt-level 3, which halves `view` latency, while
+  the core was small; with the catalog the serde code for API payloads put opt-level 3 at
+  258 KB gzip against 204 KB for "z", so size won, 2026-10-03.)
 - `cargo xtask` builds all three; `make core-apple|core-android|core-wasm` wrap it. A clean
   clone builds with `rustup` plus the documented targets; no prebuilt binaries are committed.
   The Docker image gains a Rust stage that builds the wasm package for the web build.
-- Budgets enforced in CI: wasm under 250 KB gzip, `send`/`resolve` under 1 ms for typical
+- Budgets enforced in CI: wasm under 400 KB gzip (raised from 250 KB on 2026-10-03 once the
+  catalog showed every slice adds tens of KB of payload decoding; cached after the first
+  visit), `send`/`resolve` under 1 ms for typical
   messages, home view model serialization under 2 ms on an Apple TV 4K (2nd gen). The budget
   covers the core's side; the shell's JSON decode is measured separately (S2: Swift
   `JSONDecoder` is the dominant cost, so shells decode off the main actor and `Render` names

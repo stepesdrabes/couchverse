@@ -2,6 +2,7 @@
 //! its effects and asserts on the effects and view models, the way a real shell would see them.
 
 mod boot;
+mod catalog;
 mod pairing;
 mod session;
 mod sign_in;
@@ -140,6 +141,17 @@ impl Shell {
             Effect::Http(r) if r.method == method && r.url == url => Some((e.id, r.clone())),
             _ => None,
         })
+    }
+
+    /// Every outstanding request for `method` and `url`, oldest first.
+    pub fn requests(&self, method: &str, url: &str) -> Vec<(U53, HttpRequest)> {
+        self.outstanding
+            .iter()
+            .filter_map(|e| match &e.effect {
+                Effect::Http(r) if r.method == method && r.url == url => Some((e.id, r.clone())),
+                _ => None,
+            })
+            .collect()
     }
 
     pub fn http_summary(&self) -> Vec<String> {

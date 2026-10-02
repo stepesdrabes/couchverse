@@ -124,6 +124,128 @@ public struct AppView: Codable, Sendable, Hashable {
 	}
 }
 
+public enum TitleKind: String, Codable, Sendable, Hashable {
+	case movie
+	case series
+}
+
+public enum BrowseSort: String, Codable, Sendable, Hashable {
+	case added
+	case name
+	case year
+}
+
+/// One browse listing: a kind, a genre (by its English name), or both.
+public struct BrowseKey: Codable, Sendable, Hashable {
+	public let kind: TitleKind?
+	public let genre: String?
+	public let sort: BrowseSort?
+
+	public init(kind: TitleKind?, genre: String?, sort: BrowseSort?) {
+		self.kind = kind
+		self.genre = genre
+		self.sort = sort
+	}
+}
+
+/// An image ready to load, with the accent colour extracted from it when known.
+public struct Image: Codable, Sendable, Hashable {
+	public let url: String
+	public let accent: String?
+
+	public init(url: String, accent: String?) {
+		self.url = url
+		self.accent = accent
+	}
+}
+
+public struct Card: Codable, Sendable, Hashable {
+	public let titleId: String
+	public let slug: String
+	public let name: String
+	public let kind: TitleKind
+	public let year: Int32?
+	public let poster: Image?
+	public let backdrop: Image?
+
+	public init(titleId: String, slug: String, name: String, kind: TitleKind, year: Int32?, poster: Image?, backdrop: Image?) {
+		self.titleId = titleId
+		self.slug = slug
+		self.name = name
+		self.kind = kind
+		self.year = year
+		self.poster = poster
+		self.backdrop = backdrop
+	}
+}
+
+public struct BrowseView: Codable, Sendable, Hashable {
+	public let key: BrowseKey
+	public let status: LoadStatus
+	public let cards: [Card]
+	public let total: UInt64
+	/// More pages can be loaded with `BrowseMoreRequested`.
+	public let more: Bool
+	public let loadingMore: Bool
+	public let problem: Problem?
+
+	public init(key: BrowseKey, status: LoadStatus, cards: [Card], total: UInt64, more: Bool, loadingMore: Bool, problem: Problem?) {
+		self.key = key
+		self.status = status
+		self.cards = cards
+		self.total = total
+		self.more = more
+		self.loadingMore = loadingMore
+		self.problem = problem
+	}
+}
+
+public enum PlayKind: String, Codable, Sendable, Hashable {
+	case movie
+	case episode
+}
+
+/// What a play button starts.
+public struct PlayTarget: Codable, Sendable, Hashable {
+	public let kind: PlayKind
+	public let id: String
+
+	public init(kind: PlayKind, id: String) {
+		self.kind = kind
+		self.id = id
+	}
+}
+
+public struct ContinueCard: Codable, Sendable, Hashable {
+	public let titleId: String
+	public let slug: String
+	public let name: String
+	public let kind: TitleKind
+	/// The server's episode label (`S1 E3`); absent for a movie.
+	public let episodeLabel: String?
+	public let positionSeconds: UInt64
+	public let durationSeconds: UInt64
+	/// How far in, from 0 to 1.
+	public let progress: Double
+	public let play: PlayTarget
+	public let poster: Image?
+	public let backdrop: Image?
+
+	public init(titleId: String, slug: String, name: String, kind: TitleKind, episodeLabel: String?, positionSeconds: UInt64, durationSeconds: UInt64, progress: Double, play: PlayTarget, poster: Image?, backdrop: Image?) {
+		self.titleId = titleId
+		self.slug = slug
+		self.name = name
+		self.kind = kind
+		self.episodeLabel = episodeLabel
+		self.positionSeconds = positionSeconds
+		self.durationSeconds = durationSeconds
+		self.progress = progress
+		self.play = play
+		self.poster = poster
+		self.backdrop = backdrop
+	}
+}
+
 public enum Platform: String, Codable, Sendable, Hashable {
 	case ios
 	case ipados
@@ -309,6 +431,71 @@ public struct EffectRequest: Codable, Sendable, Hashable {
 	}
 }
 
+public struct EpisodeNumber: Codable, Sendable, Hashable {
+	public let season: UInt32
+	public let episode: UInt32
+
+	public init(season: UInt32, episode: UInt32) {
+		self.season = season
+		self.episode = episode
+	}
+}
+
+public struct EpisodeView: Codable, Sendable, Hashable {
+	public let id: String
+	public let number: UInt32
+	public let name: String
+	public let overview: String
+	public let runtimeMinutes: UInt32?
+	public let airDate: String?
+	public let still: Image?
+	/// How far in, from 0 to 1.
+	public let progress: Double
+	public let completed: Bool
+
+	public init(id: String, number: UInt32, name: String, overview: String, runtimeMinutes: UInt32?, airDate: String?, still: Image?, progress: Double, completed: Bool) {
+		self.id = id
+		self.number = number
+		self.name = name
+		self.overview = overview
+		self.runtimeMinutes = runtimeMinutes
+		self.airDate = airDate
+		self.still = still
+		self.progress = progress
+		self.completed = completed
+	}
+}
+
+public struct FeaturedCard: Codable, Sendable, Hashable {
+	public let titleId: String
+	public let slug: String
+	public let name: String
+	public let kind: TitleKind
+	public let year: Int32?
+	public let overview: String
+	/// Genre labels in the display language.
+	public let genres: [String]
+	public let contentRating: String?
+	public let runtimeMinutes: UInt32?
+	/// The full-size backdrop for a hero.
+	public let backdrop: Image?
+	public let inList: Bool
+
+	public init(titleId: String, slug: String, name: String, kind: TitleKind, year: Int32?, overview: String, genres: [String], contentRating: String?, runtimeMinutes: UInt32?, backdrop: Image?, inList: Bool) {
+		self.titleId = titleId
+		self.slug = slug
+		self.name = name
+		self.kind = kind
+		self.year = year
+		self.overview = overview
+		self.genres = genres
+		self.contentRating = contentRating
+		self.runtimeMinutes = runtimeMinutes
+		self.backdrop = backdrop
+		self.inList = inList
+	}
+}
+
 /// Optional server features; on until the server says otherwise, so nothing flickers away.
 public struct Features: Codable, Sendable, Hashable {
 	public let couch: Bool
@@ -317,6 +504,29 @@ public struct Features: Codable, Sendable, Hashable {
 	public init(couch: Bool, rankings: Bool) {
 		self.couch = couch
 		self.rankings = rankings
+	}
+}
+
+public struct GenreView: Codable, Sendable, Hashable {
+	/// The English name, which identifies the genre in a `BrowseKey`.
+	public let name: String
+	public let label: String
+
+	public init(name: String, label: String) {
+		self.name = name
+		self.label = label
+	}
+}
+
+public struct GenresView: Codable, Sendable, Hashable {
+	public let status: LoadStatus
+	public let genres: [GenreView]
+	public let problem: Problem?
+
+	public init(status: LoadStatus, genres: [GenreView], problem: Problem?) {
+		self.status = status
+		self.genres = genres
+		self.problem = problem
 	}
 }
 
@@ -422,6 +632,43 @@ public struct HeadingBlock: Codable, Sendable, Hashable {
 	public init(level: UInt8, inlines: [Inline]) {
 		self.level = level
 		self.inlines = inlines
+	}
+}
+
+public enum HomeRowKind: String, Codable, Sendable, Hashable {
+	case continueWatching
+	case recentlyAdded
+	case genre
+}
+
+public struct HomeRowView: Codable, Sendable, Hashable {
+	/// Stable within one home, for list identity.
+	public let id: String
+	public let kind: HomeRowKind
+	public let label: String
+	public let cards: [Card]
+	public let continueWatching: [ContinueCard]
+
+	public init(id: String, kind: HomeRowKind, label: String, cards: [Card], continueWatching: [ContinueCard]) {
+		self.id = id
+		self.kind = kind
+		self.label = label
+		self.cards = cards
+		self.continueWatching = continueWatching
+	}
+}
+
+public struct HomeView: Codable, Sendable, Hashable {
+	public let status: LoadStatus
+	public let featured: [FeaturedCard]
+	public let rows: [HomeRowView]
+	public let problem: Problem?
+
+	public init(status: LoadStatus, featured: [FeaturedCard], rows: [HomeRowView], problem: Problem?) {
+		self.status = status
+		self.featured = featured
+		self.rows = rows
+		self.problem = problem
 	}
 }
 
@@ -650,6 +897,18 @@ public enum Event: Codable, Sendable, Hashable {
 	case pairingApproved(PairingApproval)
 	case pairingDenied(UserCode)
 	case displayLanguageChanged(LanguageChoice)
+	/// A screen showing this surface appeared; the core loads it or, when cached, shows it
+	/// and refreshes it.
+	case screenOpened(Surface)
+	case screenClosed(Surface)
+	/// Pull to refresh.
+	case refreshRequested(Surface)
+	/// The user scrolled near the end of a listing.
+	case browseMoreRequested(BrowseKey)
+	/// The search field changed; the core waits for a pause in typing before searching.
+	case searchChanged(SearchText)
+	case watchlistChanged(WatchlistChange)
+	case noticeDismissed(NoticeRef)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case appStarted,
@@ -668,7 +927,14 @@ public enum Event: Codable, Sendable, Hashable {
 			pairingApprovalOpened,
 			pairingApproved,
 			pairingDenied,
-			displayLanguageChanged
+			displayLanguageChanged,
+			screenOpened,
+			screenClosed,
+			refreshRequested,
+			browseMoreRequested,
+			searchChanged,
+			watchlistChanged,
+			noticeDismissed
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -754,6 +1020,41 @@ public enum Event: Codable, Sendable, Hashable {
 					self = .displayLanguageChanged(content)
 					return
 				}
+			case .screenOpened:
+				if let content = try? container.decode(Surface.self, forKey: .content) {
+					self = .screenOpened(content)
+					return
+				}
+			case .screenClosed:
+				if let content = try? container.decode(Surface.self, forKey: .content) {
+					self = .screenClosed(content)
+					return
+				}
+			case .refreshRequested:
+				if let content = try? container.decode(Surface.self, forKey: .content) {
+					self = .refreshRequested(content)
+					return
+				}
+			case .browseMoreRequested:
+				if let content = try? container.decode(BrowseKey.self, forKey: .content) {
+					self = .browseMoreRequested(content)
+					return
+				}
+			case .searchChanged:
+				if let content = try? container.decode(SearchText.self, forKey: .content) {
+					self = .searchChanged(content)
+					return
+				}
+			case .watchlistChanged:
+				if let content = try? container.decode(WatchlistChange.self, forKey: .content) {
+					self = .watchlistChanged(content)
+					return
+				}
+			case .noticeDismissed:
+				if let content = try? container.decode(NoticeRef.self, forKey: .content) {
+					self = .noticeDismissed(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(Event.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Event"))
@@ -808,6 +1109,27 @@ public enum Event: Codable, Sendable, Hashable {
 		case .displayLanguageChanged(let content):
 			try container.encode(CodingKeys.displayLanguageChanged, forKey: .type)
 			try container.encode(content, forKey: .content)
+		case .screenOpened(let content):
+			try container.encode(CodingKeys.screenOpened, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .screenClosed(let content):
+			try container.encode(CodingKeys.screenClosed, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .refreshRequested(let content):
+			try container.encode(CodingKeys.refreshRequested, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .browseMoreRequested(let content):
+			try container.encode(CodingKeys.browseMoreRequested, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .searchChanged(let content):
+			try container.encode(CodingKeys.searchChanged, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .watchlistChanged(let content):
+			try container.encode(CodingKeys.watchlistChanged, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .noticeDismissed(let content):
+			try container.encode(CodingKeys.noticeDismissed, forKey: .type)
+			try container.encode(content, forKey: .content)
 		}
 	}
 }
@@ -820,6 +1142,45 @@ public struct Message: Codable, Sendable, Hashable {
 	public init(nowMs: UInt64, event: Event) {
 		self.nowMs = nowMs
 		self.event = event
+	}
+}
+
+public struct MyListView: Codable, Sendable, Hashable {
+	public let status: LoadStatus
+	public let cards: [Card]
+	public let problem: Problem?
+
+	public init(status: LoadStatus, cards: [Card], problem: Problem?) {
+		self.status = status
+		self.cards = cards
+		self.problem = problem
+	}
+}
+
+public struct Notice: Codable, Sendable, Hashable {
+	public let id: UInt64
+	/// Stable and localized by the shell, like `Problem.code`.
+	public let code: String
+
+	public init(id: UInt64, code: String) {
+		self.id = id
+		self.code = code
+	}
+}
+
+public struct NoticeRef: Codable, Sendable, Hashable {
+	public let id: UInt64
+
+	public init(id: UInt64) {
+		self.id = id
+	}
+}
+
+public struct NoticesView: Codable, Sendable, Hashable {
+	public let notices: [Notice]
+
+	public init(notices: [Notice]) {
+		self.notices = notices
 	}
 }
 
@@ -892,6 +1253,20 @@ public struct PasswordSignIn: Codable, Sendable, Hashable {
 	}
 }
 
+public struct PlayAction: Codable, Sendable, Hashable {
+	public let target: PlayTarget
+	/// Where playback resumes; absent to start from the beginning.
+	public let resumeSeconds: UInt64?
+	/// The episode the button plays, for its label.
+	public let episode: EpisodeNumber?
+
+	public init(target: PlayTarget, resumeSeconds: UInt64?, episode: EpisodeNumber?) {
+		self.target = target
+		self.resumeSeconds = resumeSeconds
+		self.episode = episode
+	}
+}
+
 /// A screen, panel or piece of state a shell renders from a view model.
 public enum Surface: Codable, Sendable, Hashable {
 	/// Where the app is: which account is active and what the shell should show at the root.
@@ -910,6 +1285,16 @@ public enum Surface: Codable, Sendable, Hashable {
 	case session
 	/// A markdown document rendered safely; the content is the source.
 	case markdown(String)
+	case home
+	/// A listing of movies, series or a genre.
+	case browse(BrowseKey)
+	/// A title's detail page; the content is its slug.
+	case title(String)
+	case genres
+	case myList
+	case search
+	/// Transient notices for a toast or banner.
+	case notices
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case app,
@@ -919,7 +1304,14 @@ public enum Surface: Codable, Sendable, Hashable {
 			devices,
 			pairingApproval,
 			session,
-			markdown
+			markdown,
+			home,
+			browse,
+			title,
+			genres,
+			myList,
+			search,
+			notices
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -956,6 +1348,31 @@ public enum Surface: Codable, Sendable, Hashable {
 					self = .markdown(content)
 					return
 				}
+			case .home:
+				self = .home
+				return
+			case .browse:
+				if let content = try? container.decode(BrowseKey.self, forKey: .content) {
+					self = .browse(content)
+					return
+				}
+			case .title:
+				if let content = try? container.decode(String.self, forKey: .content) {
+					self = .title(content)
+					return
+				}
+			case .genres:
+				self = .genres
+				return
+			case .myList:
+				self = .myList
+				return
+			case .search:
+				self = .search
+				return
+			case .notices:
+				self = .notices
+				return
 			}
 		}
 		throw DecodingError.typeMismatch(Surface.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Surface"))
@@ -981,6 +1398,22 @@ public enum Surface: Codable, Sendable, Hashable {
 		case .markdown(let content):
 			try container.encode(CodingKeys.markdown, forKey: .type)
 			try container.encode(content, forKey: .content)
+		case .home:
+			try container.encode(CodingKeys.home, forKey: .type)
+		case .browse(let content):
+			try container.encode(CodingKeys.browse, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .title(let content):
+			try container.encode(CodingKeys.title, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .genres:
+			try container.encode(CodingKeys.genres, forKey: .type)
+		case .myList:
+			try container.encode(CodingKeys.myList, forKey: .type)
+		case .search:
+			try container.encode(CodingKeys.search, forKey: .type)
+		case .notices:
+			try container.encode(CodingKeys.notices, forKey: .type)
 		}
 	}
 }
@@ -1086,6 +1519,44 @@ public struct Resolution: Codable, Sendable, Hashable {
 		self.nowMs = nowMs
 		self.id = id
 		self.output = output
+	}
+}
+
+public struct SearchText: Codable, Sendable, Hashable {
+	public let query: String
+
+	public init(query: String) {
+		self.query = query
+	}
+}
+
+public struct SearchView: Codable, Sendable, Hashable {
+	public let query: String
+	public let status: LoadStatus
+	public let cards: [Card]
+	public let problem: Problem?
+
+	public init(query: String, status: LoadStatus, cards: [Card], problem: Problem?) {
+		self.query = query
+		self.status = status
+		self.cards = cards
+		self.problem = problem
+	}
+}
+
+public struct SeasonView: Codable, Sendable, Hashable {
+	public let id: String
+	public let number: UInt32
+	public let name: String
+	public let overview: String
+	public let episodes: [EpisodeView]
+
+	public init(id: String, number: UInt32, name: String, overview: String, episodes: [EpisodeView]) {
+		self.id = id
+		self.number = number
+		self.name = name
+		self.overview = overview
+		self.episodes = episodes
 	}
 }
 
@@ -1304,10 +1775,89 @@ public struct TimerRequest: Codable, Sendable, Hashable {
 	}
 }
 
+/// The highest resolution a title is available in.
+public enum Quality: String, Codable, Sendable, Hashable {
+	case sd
+	case hd720
+	case hd1080
+	case uhd
+}
+
+public struct TitleDetailView: Codable, Sendable, Hashable {
+	public let id: String
+	public let slug: String
+	public let name: String
+	public let kind: TitleKind
+	public let year: Int32?
+	public let overview: String
+	public let genres: [String]
+	public let contentRating: String?
+	public let runtimeMinutes: UInt32?
+	public let poster: Image?
+	public let backdrop: Image?
+	/// The page's colours, from the backdrop.
+	public let accent: AccentPalette?
+	public let quality: Quality?
+	public let hdr: Bool
+	public let inList: Bool
+	/// Absent for a series without a playable episode.
+	public let play: PlayAction?
+	/// A series that allows playing a random episode.
+	public let shuffle: Bool
+	/// Only seasons and episodes that have something to play.
+	public let seasons: [SeasonView]
+
+	public init(id: String, slug: String, name: String, kind: TitleKind, year: Int32?, overview: String, genres: [String], contentRating: String?, runtimeMinutes: UInt32?, poster: Image?, backdrop: Image?, accent: AccentPalette?, quality: Quality?, hdr: Bool, inList: Bool, play: PlayAction?, shuffle: Bool, seasons: [SeasonView]) {
+		self.id = id
+		self.slug = slug
+		self.name = name
+		self.kind = kind
+		self.year = year
+		self.overview = overview
+		self.genres = genres
+		self.contentRating = contentRating
+		self.runtimeMinutes = runtimeMinutes
+		self.poster = poster
+		self.backdrop = backdrop
+		self.accent = accent
+		self.quality = quality
+		self.hdr = hdr
+		self.inList = inList
+		self.play = play
+		self.shuffle = shuffle
+		self.seasons = seasons
+	}
+}
+
+public struct TitleView: Codable, Sendable, Hashable {
+	public let slug: String
+	public let status: LoadStatus
+	public let detail: TitleDetailView?
+	public let problem: Problem?
+
+	public init(slug: String, status: LoadStatus, detail: TitleDetailView?, problem: Problem?) {
+		self.slug = slug
+		self.status = status
+		self.detail = detail
+		self.problem = problem
+	}
+}
+
 public struct UserCode: Codable, Sendable, Hashable {
 	public let code: String
 
 	public init(code: String) {
 		self.code = code
+	}
+}
+
+public struct WatchlistChange: Codable, Sendable, Hashable {
+	public let titleId: String
+	/// True to add the title to My List, false to remove it.
+	public let listed: Bool
+
+	public init(titleId: String, listed: Bool) {
+		self.titleId = titleId
+		self.listed = listed
 	}
 }

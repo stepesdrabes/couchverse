@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
 
-use crate::modules::{accounts, servers, session};
+use crate::modules::{accounts, catalog, notices, servers, session};
 
 /// Effect ids and monotonic milliseconds: typeshare maps the name to a 53-bit-safe integer in
 /// every language.
@@ -112,6 +112,18 @@ pub enum Event {
     PairingApproved(accounts::PairingApproval),
     PairingDenied(accounts::UserCode),
     DisplayLanguageChanged(session::LanguageChoice),
+    /// A screen showing this surface appeared; the core loads it or, when cached, shows it
+    /// and refreshes it.
+    ScreenOpened(Surface),
+    ScreenClosed(Surface),
+    /// Pull to refresh.
+    RefreshRequested(Surface),
+    /// The user scrolled near the end of a listing.
+    BrowseMoreRequested(catalog::BrowseKey),
+    /// The search field changed; the core waits for a pause in typing before searching.
+    SearchChanged(catalog::SearchText),
+    WatchlistChanged(catalog::WatchlistChange),
+    NoticeDismissed(notices::NoticeRef),
 }
 
 /// A screen, panel or piece of state a shell renders from a view model.
@@ -135,6 +147,16 @@ pub enum Surface {
     Session,
     /// A markdown document rendered safely; the content is the source.
     Markdown(String),
+    Home,
+    /// A listing of movies, series or a genre.
+    Browse(catalog::BrowseKey),
+    /// A title's detail page; the content is its slug.
+    Title(String),
+    Genres,
+    MyList,
+    Search,
+    /// Transient notices for a toast or banner.
+    Notices,
 }
 
 /// Something the core asks the shell to do. One-shot effects resolve once; streaming ones

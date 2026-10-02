@@ -24,8 +24,8 @@ const APPLE_PACKAGE: &str = "clients/apple/Packages/CouchverseCore";
 const ANDROID_ABIS: [&str; 3] = ["arm64-v8a", "armeabi-v7a", "x86_64"];
 const ANDROID_MODULE: &str = "clients/android/core";
 const WASM_PACKAGE: &str = "clients/web/src/lib/core/pkg";
-/// Plan 7.7: the web downloads the core on every cold start.
-const WASM_BUDGET_GZIP: usize = 250 * 1024;
+/// Plan 7.7: every web visitor downloads the core (once; it is cached after that).
+const WASM_BUDGET_GZIP: usize = 400 * 1024;
 
 pub fn apple() -> Result<(), String> {
     let root = out::repo_root();
@@ -180,10 +180,10 @@ pub fn wasm() -> Result<(), String> {
         .map_err(|e| format!("wasm-bindgen: {e:#}"))?;
 
     let wasm = package.join("couchverse_core_bg.wasm");
-    // optional locally, required in CI and the image: it shrinks and speeds up the module
+    // optional locally, required in CI and the image, where size counts
     match Command::new("wasm-opt").arg("--version").output() {
         Ok(_) => run(Command::new("wasm-opt")
-            .args(["-O3", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"])
+            .args(["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"])
             .args(["--enable-sign-ext", "--enable-mutable-globals", "--enable-reference-types"])
             .arg("--enable-multivalue")
             .arg(&wasm)

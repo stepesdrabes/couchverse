@@ -293,6 +293,10 @@ impl Accounts {
         self.persisted.accounts.len()
     }
 
+    pub fn artwork_grant(&self, account_id: &str) -> Option<&str> {
+        self.account(account_id).and_then(|a| a.artwork_grant.as_deref())
+    }
+
     pub fn server_of(&self, account_id: &str) -> Option<&str> {
         self.account(account_id).map(|a| a.server_id.as_str())
     }

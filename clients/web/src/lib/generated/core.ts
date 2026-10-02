@@ -82,6 +82,78 @@ export interface AppView {
 	activeAccount?: string;
 }
 
+export enum TitleKind {
+	Movie = "movie",
+	Series = "series",
+}
+
+export enum BrowseSort {
+	Added = "added",
+	Name = "name",
+	Year = "year",
+}
+
+/** One browse listing: a kind, a genre (by its English name), or both. */
+export interface BrowseKey {
+	kind?: TitleKind;
+	genre?: string;
+	sort?: BrowseSort;
+}
+
+/** An image ready to load, with the accent colour extracted from it when known. */
+export interface Image {
+	url: string;
+	accent?: string;
+}
+
+export interface Card {
+	titleId: string;
+	slug: string;
+	name: string;
+	kind: TitleKind;
+	year?: number;
+	poster?: Image;
+	backdrop?: Image;
+}
+
+export interface BrowseView {
+	key: BrowseKey;
+	status: LoadStatus;
+	cards: Card[];
+	total: number;
+	/** More pages can be loaded with `BrowseMoreRequested`. */
+	more: boolean;
+	loadingMore: boolean;
+	problem?: Problem;
+}
+
+export enum PlayKind {
+	Movie = "movie",
+	Episode = "episode",
+}
+
+/** What a play button starts. */
+export interface PlayTarget {
+	kind: PlayKind;
+	id: string;
+}
+
+export interface ContinueCard {
+	titleId: string;
+	slug: string;
+	name: string;
+	kind: TitleKind;
+	/** The server's episode label (`S1 E3`); absent for a movie. */
+	episodeLabel?: string;
+	positionSeconds: number;
+	durationSeconds: number;
+	/** How far in, from 0 to 1. */
+	progress: number;
+	play: PlayTarget;
+	poster?: Image;
+	backdrop?: Image;
+}
+
 export enum Platform {
 	Ios = "ios",
 	Ipados = "ipados",
@@ -157,10 +229,56 @@ export interface EffectRequest {
 	effect: Effect;
 }
 
+export interface EpisodeNumber {
+	season: number;
+	episode: number;
+}
+
+export interface EpisodeView {
+	id: string;
+	number: number;
+	name: string;
+	overview: string;
+	runtimeMinutes?: number;
+	airDate?: string;
+	still?: Image;
+	/** How far in, from 0 to 1. */
+	progress: number;
+	completed: boolean;
+}
+
+export interface FeaturedCard {
+	titleId: string;
+	slug: string;
+	name: string;
+	kind: TitleKind;
+	year?: number;
+	overview: string;
+	/** Genre labels in the display language. */
+	genres: string[];
+	contentRating?: string;
+	runtimeMinutes?: number;
+	/** The full-size backdrop for a hero. */
+	backdrop?: Image;
+	inList: boolean;
+}
+
 /** Optional server features; on until the server says otherwise, so nothing flickers away. */
 export interface Features {
 	couch: boolean;
 	rankings: boolean;
+}
+
+export interface GenreView {
+	/** The English name, which identifies the genre in a `BrowseKey`. */
+	name: string;
+	label: string;
+}
+
+export interface GenresView {
+	status: LoadStatus;
+	genres: GenreView[];
+	problem?: Problem;
 }
 
 export type Inline = 
@@ -178,6 +296,28 @@ export interface HeadingBlock {
 	/** 1 to 6. */
 	level: number;
 	inlines: Inline[];
+}
+
+export enum HomeRowKind {
+	ContinueWatching = "continueWatching",
+	RecentlyAdded = "recentlyAdded",
+	Genre = "genre",
+}
+
+export interface HomeRowView {
+	/** Stable within one home, for list identity. */
+	id: string;
+	kind: HomeRowKind;
+	label: string;
+	cards: Card[];
+	continueWatching: ContinueCard[];
+}
+
+export interface HomeView {
+	status: LoadStatus;
+	featured: FeaturedCard[];
+	rows: HomeRowView[];
+	problem?: Problem;
 }
 
 export enum HttpFailureKind {
@@ -275,12 +415,46 @@ export type Event =
 	| { type: "pairingApprovalOpened", content: UserCode }
 	| { type: "pairingApproved", content: PairingApproval }
 	| { type: "pairingDenied", content: UserCode }
-	| { type: "displayLanguageChanged", content: LanguageChoice };
+	| { type: "displayLanguageChanged", content: LanguageChoice }
+	/**
+	 * A screen showing this surface appeared; the core loads it or, when cached, shows it
+	 * and refreshes it.
+	 */
+	| { type: "screenOpened", content: Surface }
+	| { type: "screenClosed", content: Surface }
+	/** Pull to refresh. */
+	| { type: "refreshRequested", content: Surface }
+	/** The user scrolled near the end of a listing. */
+	| { type: "browseMoreRequested", content: BrowseKey }
+	/** The search field changed; the core waits for a pause in typing before searching. */
+	| { type: "searchChanged", content: SearchText }
+	| { type: "watchlistChanged", content: WatchlistChange }
+	| { type: "noticeDismissed", content: NoticeRef };
 
 /** Something that happened in the shell: a user intent or a lifecycle change. */
 export interface Message {
 	nowMs: number;
 	event: Event;
+}
+
+export interface MyListView {
+	status: LoadStatus;
+	cards: Card[];
+	problem?: Problem;
+}
+
+export interface Notice {
+	id: number;
+	/** Stable and localized by the shell, like `Problem.code`. */
+	code: string;
+}
+
+export interface NoticeRef {
+	id: number;
+}
+
+export interface NoticesView {
+	notices: Notice[];
 }
 
 export interface PairingApproval {
@@ -325,6 +499,14 @@ export interface PasswordSignIn {
 	password: string;
 }
 
+export interface PlayAction {
+	target: PlayTarget;
+	/** Where playback resumes; absent to start from the beginning. */
+	resumeSeconds?: number;
+	/** The episode the button plays, for its label. */
+	episode?: EpisodeNumber;
+}
+
 /** A screen, panel or piece of state a shell renders from a view model. */
 export type Surface = 
 	/** Where the app is: which account is active and what the shell should show at the root. */
@@ -342,7 +524,17 @@ export type Surface =
 	/** The active account's session: user, features, display language and theme. */
 	| { type: "session", content?: undefined }
 	/** A markdown document rendered safely; the content is the source. */
-	| { type: "markdown", content: string };
+	| { type: "markdown", content: string }
+	| { type: "home", content?: undefined }
+	/** A listing of movies, series or a genre. */
+	| { type: "browse", content: BrowseKey }
+	/** A title's detail page; the content is its slug. */
+	| { type: "title", content: string }
+	| { type: "genres", content?: undefined }
+	| { type: "myList", content?: undefined }
+	| { type: "search", content?: undefined }
+	/** Transient notices for a toast or banner. */
+	| { type: "notices", content?: undefined };
 
 export interface RenderRequest {
 	surfaces: Surface[];
@@ -367,6 +559,25 @@ export interface Resolution {
 	nowMs: number;
 	id: number;
 	output: EffectOutput;
+}
+
+export interface SearchText {
+	query: string;
+}
+
+export interface SearchView {
+	query: string;
+	status: LoadStatus;
+	cards: Card[];
+	problem?: Problem;
+}
+
+export interface SeasonView {
+	id: string;
+	number: number;
+	name: string;
+	overview: string;
+	episodes: EpisodeView[];
 }
 
 export interface Server {
@@ -460,7 +671,53 @@ export interface TimerRequest {
 	repeat?: boolean;
 }
 
+/** The highest resolution a title is available in. */
+export enum Quality {
+	Sd = "sd",
+	Hd720 = "hd720",
+	Hd1080 = "hd1080",
+	Uhd = "uhd",
+}
+
+export interface TitleDetailView {
+	id: string;
+	slug: string;
+	name: string;
+	kind: TitleKind;
+	year?: number;
+	overview: string;
+	genres: string[];
+	contentRating?: string;
+	runtimeMinutes?: number;
+	poster?: Image;
+	backdrop?: Image;
+	/** The page's colours, from the backdrop. */
+	accent?: AccentPalette;
+	quality?: Quality;
+	hdr: boolean;
+	inList: boolean;
+	/** Absent for a series without a playable episode. */
+	play?: PlayAction;
+	/** A series that allows playing a random episode. */
+	shuffle: boolean;
+	/** Only seasons and episodes that have something to play. */
+	seasons: SeasonView[];
+}
+
+export interface TitleView {
+	slug: string;
+	status: LoadStatus;
+	detail?: TitleDetailView;
+	problem?: Problem;
+}
+
 export interface UserCode {
 	code: string;
+}
+
+export interface WatchlistChange {
+	titleId: string;
+	/** True to add the title to My List, false to remove it. */
+	listed: boolean;
 }
 

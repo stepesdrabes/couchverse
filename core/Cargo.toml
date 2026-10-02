@@ -38,8 +38,11 @@ lto = true
 codegen-units = 1
 strip = "debuginfo"
 
-# the web build: a panic traps the instance anyway, so unwinding tables are dead weight
+# the web build optimizes for size: every visitor downloads and compiles it, and building a
+# view model stays well under a millisecond (plan 7.7); a panic traps the instance anyway, so
+# unwinding tables are dead weight
 [profile.release-wasm]
 inherits = "release"
+opt-level = "z"
 panic = "abort"
 strip = true

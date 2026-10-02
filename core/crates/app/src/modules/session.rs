@@ -129,6 +129,15 @@ impl Session {
         self.view.account_id.as_deref()
     }
 
+    pub fn language(&self) -> &str {
+        &self.view.language
+    }
+
+    /// Where the active session's API calls go; `None` without one.
+    pub fn endpoint(&self) -> Option<&Endpoint> {
+        self.endpoint.as_ref()
+    }
+
     /// Makes `account_id` the session and loads it. The previous account's state is dropped,
     /// so nothing leaks between accounts.
     pub fn activate(&mut self, ctx: &mut Ctx, account_id: &str, endpoint: Endpoint, accent: &str) {
