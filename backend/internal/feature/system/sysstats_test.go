@@ -1,22 +1,22 @@
 package system
 
 import (
+	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
 func TestSysStatsGet(t *testing.T) {
-	h := NewSysStats()
-	rec := httptest.NewRecorder()
-	h.Get(rec, httptest.NewRequest(http.MethodGet, "/admin/system", nil))
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rec.Code)
+	res, err := NewSysStats().Get(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	body, err := json.Marshal(res.Body)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
 	}
 	var out map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+	if err := json.Unmarshal(body, &out); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	for _, key := range []string{"cpuPercent", "cpuCores", "memUsed", "memTotal", "load1",

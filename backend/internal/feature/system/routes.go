@@ -1,6 +1,7 @@
 package system
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -32,23 +33,26 @@ func NewModule(st *Store, set *settings.Store, jb *jobs.Store, dataDir string, c
 	}
 }
 
-func (m *Module) Register(rt httpx.Routes) {
-	tags := []string{"system"}
-	// public: the accent theme applies on the login screen too
-	httpx.Raw(rt.Public, huma.Operation{OperationID: "getTheme", Method: http.MethodGet, Path: "/theme", Tags: tags}, m.theme.Get)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "getFeatures", Method: http.MethodGet, Path: "/features", Tags: tags}, m.Features)
+const tag httpx.Tag = "system"
 
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetSettings", Method: http.MethodGet, Path: "/settings", Tags: tags}, m.settings.Get)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUpdateSettings", Method: http.MethodPut, Path: "/settings", Tags: tags}, m.settings.Put)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetStorage", Method: http.MethodGet, Path: "/storage", Tags: tags}, m.storage.Get)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetOverview", Method: http.MethodGet, Path: "/overview", Tags: tags}, m.storage.Overview)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetSystemStats", Method: http.MethodGet, Path: "/system", Tags: tags}, m.stats.Get)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetLive", Method: http.MethodGet, Path: "/live", Tags: tags}, m.live.Get)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetHomeRows", Method: http.MethodGet, Path: "/home-rows", Tags: tags}, m.storage.HomeRowsGet)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUpdateHomeRows", Method: http.MethodPut, Path: "/home-rows", Tags: tags}, m.storage.HomeRowsPut)
+func (m *Module) Register(rt httpx.Routes) {
+	// public: the accent theme applies on the login screen too
+	huma.Register(rt.Public, tag.Op("getTheme", http.MethodGet, "/theme"), m.theme.Get)
+	huma.Register(rt.User, tag.Op("getFeatures", http.MethodGet, "/features"), m.Features)
+
+	huma.Register(rt.Admin, tag.Op("adminGetSettings", http.MethodGet, "/settings"), m.settings.Get)
+	huma.Register(rt.Admin, tag.Op("adminUpdateSettings", http.MethodPut, "/settings"), m.settings.Put)
+	huma.Register(rt.Admin, tag.Op("adminGetStorage", http.MethodGet, "/storage"), m.storage.Get)
+	huma.Register(rt.Admin, tag.Op("adminGetOverview", http.MethodGet, "/overview"), m.storage.Overview)
+	huma.Register(rt.Admin, tag.Op("adminGetSystemStats", http.MethodGet, "/system"), m.stats.Get)
+	huma.Register(rt.Admin, tag.Op("adminGetLive", http.MethodGet, "/live"), m.live.Get)
+	huma.Register(rt.Admin, tag.Op("adminGetHomeRows", http.MethodGet, "/home-rows"), m.storage.HomeRowsGet)
+	huma.Register(rt.Admin, tag.Op("adminUpdateHomeRows", http.MethodPut, "/home-rows"), m.storage.HomeRowsPut)
 }
 
+type featuresOutput struct{ Body FeatureFlags }
+
 // Features reports the admin-toggleable feature flags to the app shell.
-func (m *Module) Features(w http.ResponseWriter, r *http.Request) {
-	httpx.JSON(w, http.StatusOK, flags.Load(r.Context(), m.flags))
+func (m *Module) Features(ctx context.Context, _ *struct{}) (*featuresOutput, error) {
+	return &featuresOutput{Body: FeatureFlags(flags.Load(ctx, m.flags))}, nil
 }

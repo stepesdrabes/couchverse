@@ -50,15 +50,15 @@ func (s *Store) TranscodeUsage(ctx context.Context) (int64, error) {
 	return total, err
 }
 
-type OverviewCounts struct {
+type DashboardCounts struct {
 	Movies   int `json:"movies"`
 	Series   int `json:"series"`
 	Episodes int `json:"episodes"`
 	Users    int `json:"users"`
 }
 
-func (s *Store) Overview(ctx context.Context) (*OverviewCounts, error) {
-	var c OverviewCounts
+func (s *Store) Overview(ctx context.Context) (*DashboardCounts, error) {
+	var c DashboardCounts
 	err := s.db.QueryRow(ctx, `
 		SELECT
 			(SELECT count(*) FROM titles WHERE kind = 'movie'),
@@ -69,22 +69,25 @@ func (s *Store) Overview(ctx context.Context) (*OverviewCounts, error) {
 	return &c, err
 }
 
-type LibraryStats struct {
-	TotalRuntimeSeconds int64 `json:"totalRuntimeSeconds"`
-	Quality             struct {
-		UHD int `json:"uhd"`
-		FHD int `json:"fhd"`
-		HD  int `json:"hd"`
-		SD  int `json:"sd"`
-	} `json:"quality"`
-	HDR             int `json:"hdr"`
-	AddedLast30Days int `json:"addedLast30Days"`
+type LibraryInsights struct {
+	TotalRuntimeSeconds int64            `json:"totalRuntimeSeconds"`
+	Quality             ResolutionCounts `json:"quality"`
+	HDR                 int              `json:"hdr" doc:"Media files with a high dynamic range video stream."`
+	AddedLast30Days     int              `json:"addedLast30Days" doc:"Titles added in the last 30 days."`
+}
+
+// ResolutionCounts buckets media files by video height.
+type ResolutionCounts struct {
+	UHD int `json:"uhd" doc:"2160p and up."`
+	FHD int `json:"fhd" doc:"1080p up to 2160p."`
+	HD  int `json:"hd" doc:"720p up to 1080p."`
+	SD  int `json:"sd" doc:"Below 720p."`
 }
 
 // LibraryStats summarises the video library: total runtime, a resolution
 // breakdown, HDR count and how many titles were added in the last 30 days.
-func (s *Store) LibraryStats(ctx context.Context) (*LibraryStats, error) {
-	var ls LibraryStats
+func (s *Store) LibraryStats(ctx context.Context) (*LibraryInsights, error) {
+	var ls LibraryInsights
 	err := s.db.QueryRow(ctx, `
 		SELECT
 			COALESCE(sum(mf.duration_seconds), 0)::bigint,
@@ -119,13 +122,25 @@ func (s *Store) ActiveStreamCount(ctx context.Context) (int, error) {
 	return n, err
 }
 
+// HomeRowConfig is one admin-curated row of the home page.
 type HomeRowConfig struct {
 	ID       int64  `json:"id"`
-	Position int    `json:"position"`
-	Kind     string `json:"kind"`
-	GenreID  *int64 `json:"genreId"`
+	Position int    `json:"position" doc:"1-based order on the home page."`
+	Kind     string `json:"kind" enum:"continue_watching,recently_added,genre"`
+	GenreID  *int64 `json:"genreId" doc:"The genre a genre row lists; null for other kinds."`
 	Label    string `json:"label"`
 	Enabled  bool   `json:"enabled"`
+}
+
+// HomeRowInput is one row of a home page layout being saved. The list order
+// is the row order, so id and position are accepted but ignored.
+type HomeRowInput struct {
+	ID       int64  `json:"id,omitempty"`
+	Position int    `json:"position,omitempty"`
+	Kind     string `json:"kind" enum:"continue_watching,recently_added,genre"`
+	GenreID  *int64 `json:"genreId" required:"false" doc:"Required for genre rows."`
+	Label    string `json:"label" required:"false"`
+	Enabled  bool   `json:"enabled" required:"false"`
 }
 
 func (s *Store) ListHomeRows(ctx context.Context) ([]HomeRowConfig, error) {
@@ -148,7 +163,7 @@ func (s *Store) ListHomeRows(ctx context.Context) ([]HomeRowConfig, error) {
 }
 
 // ReplaceHomeRows rewrites the home page row config atomically.
-func (s *Store) ReplaceHomeRows(ctx context.Context, configs []HomeRowConfig) error {
+func (s *Store) ReplaceHomeRows(ctx context.Context, configs []HomeRowInput) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err

@@ -1,14 +1,12 @@
 package system
 
 import (
-	"net/http"
+	"context"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"couchverse/internal/httpx"
 )
 
 // SysStats reports host and process resource usage for the admin overview.
@@ -105,7 +103,35 @@ func statCPUTicks(stat string) (uint64, bool) {
 	return utime + stime, true
 }
 
-func (s *SysStats) Get(w http.ResponseWriter, r *http.Request) {
+// SystemStats is host and process resource usage. The host and per-process
+// figures are sampled on Linux only (the deploy target); elsewhere they read
+// as unavailable and only the Go runtime figures are real.
+type SystemStats struct {
+	CPUPercent    float64      `json:"cpuPercent" doc:"Whole-host CPU use; -1 when unavailable."`
+	CPUCores      int          `json:"cpuCores"`
+	MemUsed       int64        `json:"memUsed" doc:"Host RAM in use, in bytes; 0 when unavailable."`
+	MemTotal      int64        `json:"memTotal" doc:"Host RAM in bytes; 0 when unavailable."`
+	Load1         float64      `json:"load1" doc:"One-minute load average; -1 when unavailable."`
+	GoHeapBytes   uint64       `json:"goHeapBytes"`
+	Goroutines    int          `json:"goroutines"`
+	UptimeSeconds int64        `json:"uptimeSeconds" doc:"Seconds since the server started."`
+	App           ProcessUsage `json:"app" doc:"This server process."`
+	FFmpeg        FFmpegUsage  `json:"ffmpeg" doc:"Every ffmpeg process: transcodes, instant-play sessions, artwork resizes."`
+}
+
+type ProcessUsage struct {
+	CPUPercent float64 `json:"cpuPercent" doc:"Share of the whole machine's CPU capacity; -1 when unavailable."`
+	MemBytes   int64   `json:"memBytes" doc:"Resident memory; 0 when unavailable."`
+}
+
+type FFmpegUsage struct {
+	ProcessUsage
+	Processes int `json:"processes"`
+}
+
+type systemStatsOutput struct{ Body SystemStats }
+
+func (s *SysStats) Get(context.Context, *struct{}) (*systemStatsOutput, error) {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
@@ -113,31 +139,24 @@ func (s *SysStats) Get(w http.ResponseWriter, r *http.Request) {
 	snap := s.snap
 	s.mu.Unlock()
 
-	out := map[string]any{
-		"cpuPercent":    snap.cpuPercent,
-		"cpuCores":      runtime.NumCPU(),
-		"memUsed":       0,
-		"memTotal":      0,
-		"load1":         -1.0,
-		"goHeapBytes":   mem.HeapAlloc,
-		"goroutines":    runtime.NumGoroutine(),
-		"uptimeSeconds": int64(time.Since(s.start).Seconds()),
-		"app": map[string]any{
-			"cpuPercent": snap.appCPUPercent,
-			"memBytes":   snap.appRSS,
-		},
-		"ffmpeg": map[string]any{
-			"cpuPercent": snap.ffCPUPercent,
-			"memBytes":   snap.ffRSS,
-			"processes":  snap.ffProcs,
+	out := SystemStats{
+		CPUPercent:    snap.cpuPercent,
+		CPUCores:      runtime.NumCPU(),
+		Load1:         -1,
+		GoHeapBytes:   mem.HeapAlloc,
+		Goroutines:    runtime.NumGoroutine(),
+		UptimeSeconds: int64(time.Since(s.start).Seconds()),
+		App:           ProcessUsage{CPUPercent: snap.appCPUPercent, MemBytes: snap.appRSS},
+		FFmpeg: FFmpegUsage{
+			ProcessUsage: ProcessUsage{CPUPercent: snap.ffCPUPercent, MemBytes: snap.ffRSS},
+			Processes:    snap.ffProcs,
 		},
 	}
 	if used, total, ok := hostMemory(); ok {
-		out["memUsed"] = used
-		out["memTotal"] = total
+		out.MemUsed, out.MemTotal = used, total
 	}
 	if load, ok := loadAverage(); ok {
-		out["load1"] = load
+		out.Load1 = load
 	}
-	httpx.JSON(w, http.StatusOK, out)
+	return &systemStatsOutput{Body: out}, nil
 }

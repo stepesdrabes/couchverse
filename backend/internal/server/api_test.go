@@ -308,6 +308,32 @@ func apiCases() []apiCase {
 		{op: "adminDeleteSubtitle", as: "admin", method: "DELETE", path: "/admin/subtitles/" + movieSubID, status: 204},
 		{op: "adminDeleteSubtitle", as: "admin", method: "DELETE", path: "/admin/subtitles/" + movieSubID, status: 404},
 
+		{op: "adminGetSettings", as: "admin", method: "GET", path: "/admin/settings", status: 200},
+		{op: "adminGetSettings", as: "nora", method: "GET", path: "/admin/settings", status: 403},
+		{op: "adminUpdateSettings", as: "admin", method: "PUT", path: "/admin/settings", body: map[string]any{
+			"tmdb.api_key": "",
+			"transcode": map[string]any{"hwAccel": "auto", "ladder": []string{"720p", "480p"}, "preset": "veryfast",
+				"maxConcurrent": 1, "jitEnabled": nil, "autoPrepare": true, "deleteSourceAfterTranscode": false},
+			"features":   map[string]bool{"couchEnabled": true, "rankingsEnabled": true},
+			"home":       map[string]int{"featuredCount": 4},
+			"appearance": map[string]string{"accent": "#3b82f6"},
+		}, status: 200},
+		{op: "adminUpdateSettings", as: "admin", method: "PUT", path: "/admin/settings", body: map[string]any{
+			"transcode": map[string]any{"hwAccel": "auto", "ladder": []string{"4k"}, "preset": "veryfast",
+				"maxConcurrent": 1, "jitEnabled": nil, "autoPrepare": true, "deleteSourceAfterTranscode": false},
+		}, status: 400},
+		{op: "adminUpdateSettings", as: "admin", method: "PUT", path: "/admin/settings", body: map[string]any{"ranks": map[string]any{}}, status: 400},
+		{op: "adminGetStorage", as: "admin", method: "GET", path: "/admin/storage", status: 200},
+		{op: "adminGetOverview", as: "admin", method: "GET", path: "/admin/overview", status: 200},
+		{op: "adminGetSystemStats", as: "admin", method: "GET", path: "/admin/system", status: 200},
+		{op: "adminGetLive", as: "admin", method: "GET", path: "/admin/live", status: 200},
+		{op: "adminGetHomeRows", as: "admin", method: "GET", path: "/admin/home-rows", status: 200},
+		{op: "adminUpdateHomeRows", as: "admin", method: "PUT", path: "/admin/home-rows", body: []map[string]any{
+			{"id": 1, "position": 1, "kind": "continue_watching", "genreId": nil, "label": "Continue watching", "enabled": true},
+			{"kind": "genre", "genreId": 102, "label": "Science Fiction", "enabled": true},
+		}, status: 200},
+		{op: "adminUpdateHomeRows", as: "admin", method: "PUT", path: "/admin/home-rows", body: []map[string]any{{"kind": "genre", "label": "No genre"}}, status: 400},
+
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "wrong", "newPassword": "long enough"}, status: 400},
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "admin", "newPassword": "long enough"}, status: 204},
 		{op: "logout", as: "admin", method: "POST", path: "/auth/logout", status: 204},

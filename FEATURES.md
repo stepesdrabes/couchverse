@@ -163,8 +163,10 @@ cancellation, and the in-process worker runner. Other features register handlers
   overview/storage/system/analytics api calls).
 
 ### system
-Server-level concerns: the public accent theme endpoint, admin settings KV editing
-(with transcode-settings validation), the feature-flags endpoint, storage stats,
+Server-level concerns: the public accent theme endpoint, admin settings editing (typed
+per settings key: `tmdb.api_key`, `transcode` (validated), `features`, `home`,
+`appearance`; other features' keys such as `ranks` go through their own endpoints),
+the feature-flags endpoint, storage stats,
 catalog overview counts + library insights (total video runtime, resolution/HDR mix,
 titles added in the last 30 days), live host metrics (CPU/RAM/disk, platform-specific,
 with per-process attribution to the Go app and ffmpeg children via /proc), a

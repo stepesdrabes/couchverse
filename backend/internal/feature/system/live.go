@@ -1,10 +1,6 @@
 package system
 
-import (
-	"net/http"
-
-	"couchverse/internal/httpx"
-)
+import "context"
 
 // CouchPresence and TranscodePresence are the live-session signals the dashboard
 // shows. They are satisfied by couch.Hub and playback.SessionManager; declaring
@@ -29,17 +25,25 @@ func NewLive(st *Store, couch CouchPresence, transcodes TranscodePresence) *Live
 	return &Live{store: st, couch: couch, transcodes: transcodes}
 }
 
-func (h *Live) Get(w http.ResponseWriter, r *http.Request) {
-	streams, err := h.store.ActiveStreamCount(r.Context())
+type LiveStats struct {
+	Streams       int `json:"streams" doc:"Players that reported progress in the last minute."`
+	CouchSessions int `json:"couchSessions"`
+	CouchViewers  int `json:"couchViewers"`
+	Transcodes    int `json:"transcodes" doc:"Active instant-play transcode sessions."`
+}
+
+type liveOutput struct{ Body LiveStats }
+
+func (h *Live) Get(ctx context.Context, _ *struct{}) (*liveOutput, error) {
+	streams, err := h.store.ActiveStreamCount(ctx)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
 	sessions, viewers := h.couch.LivePresence()
-	httpx.JSON(w, http.StatusOK, map[string]any{
-		"streams":       streams,
-		"couchSessions": sessions,
-		"couchViewers":  viewers,
-		"transcodes":    h.transcodes.ActiveCount(),
-	})
+	return &liveOutput{Body: LiveStats{
+		Streams:       streams,
+		CouchSessions: sessions,
+		CouchViewers:  viewers,
+		Transcodes:    h.transcodes.ActiveCount(),
+	}}, nil
 }
