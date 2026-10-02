@@ -1,5 +1,6 @@
 //! Repository automation: `cargo xtask <command>` (run from `core/`).
 
+mod api;
 mod i18n;
 mod out;
 mod tokens;
@@ -9,7 +10,7 @@ use std::process::ExitCode;
 const USAGE: &str = "usage: cargo xtask <command>
 
 commands:
-  codegen   regenerate every client artifact derived from contract/ (i18n, design tokens)";
+  codegen   regenerate every artifact derived from contract/ (i18n, design tokens, API types)";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -35,6 +36,7 @@ fn codegen() -> Result<(), String> {
     let mut written = Vec::new();
     i18n::generate(&root, &mut written)?;
     tokens::generate(&root, &mut written)?;
+    api::generate(&root, &mut written)?;
     for path in &written {
         println!(
             "wrote {}",

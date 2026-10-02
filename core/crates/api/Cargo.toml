@@ -1,0 +1,14 @@
+[package]
+name = "couchverse-api"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Types and typed request builders for the Couchverse HTTP API, generated from contract/openapi.json."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
