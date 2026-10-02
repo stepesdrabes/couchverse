@@ -1,0 +1,42 @@
+name: android
+
+# The Gradle project: the core built for every ABI, its Kotlin bindings run on the JVM against
+# the host build, and every module assembled.
+on:
+  push:
+    paths: [core/**, contract/**, clients/android/**, .github/workflows/android.yml]
+  pull_request:
+    paths: [core/**, contract/**, clients/android/**, .github/workflows/android.yml]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      # caches dependencies and validates the committed wrapper
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk@4.1.2
+      # the NDK the Gradle build strips the libraries with, so both use the same one
+      - name: Build the core for Android
+        run: |
+          ndk=$(sed -n 's/^ndk = "\(.*\)"$/\1/p' clients/android/gradle/libs.versions.toml)
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" > /dev/null
+          ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$ndk" make core-android
+      - name: Test and assemble
+        working-directory: clients/android
+        run: ./gradlew :core:testDebugUnitTest :core:assembleDebug :design:assembleDebug
