@@ -1,0 +1,16 @@
+{
+  "period": "week",
+  "hidden": false,
+  "total": 2,
+  "me": null,
+  "rows": [
+    {
+      "username": "a", "displayName": "A", "avatarId": null, "level": 1, "tierCode": "rookie",
+      "xp": 300, "watchSeconds": 10, "achievements": 0, "isSelf": false
+    },
+    {
+      "username": "nora", "displayName": "Nora", "avatarId": "av-2", "level": 2,
+      "tierCode": "remote", "xp": 200, "watchSeconds": 30, "achievements": 4, "isSelf": true
+    }
+  ]
+}

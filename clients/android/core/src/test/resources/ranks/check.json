@@ -1,0 +1,14 @@
+{
+  "throttled": false,
+  "rank": {
+    "tier": { "code": "rookie", "level": 1, "colour": "#cd7f32", "minXp": 0 },
+    "next": { "code": "snack", "level": 2, "colour": "#60a5fa", "minXp": 100 },
+    "xp": 140, "percent": 40, "intoTier": 40, "tierSpan": 100
+  },
+  "unlocked": [
+    {
+      "code": "first_play", "category": "watching", "tier": "bronze", "unlocked": true,
+      "unlockedAt": "2026-10-02T20:00:00Z", "value": 1, "target": 1, "percent": 100, "xp": 50
+    }
+  ]
+}

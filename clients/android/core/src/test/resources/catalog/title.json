@@ -1,0 +1,61 @@
+{
+  "title": {
+    "id": "t1", "slug": "glass-harbor", "name": "Glass Harbor", "kind": "series",
+    "year": 2025, "overview": "Lighthouses.", "genres": ["Drama"], "genreLabels": ["Drama"],
+    "contentRating": "15", "runtimeMinutes": null, "allowRandomPlayback": true,
+    "addedAt": "2026-09-01T00:00:00Z", "metadataLanguages": ["en"], "releaseDate": null,
+    "sortName": "Glass Harbor", "status": "published", "tmdbId": null,
+    "updatedAt": "2026-09-01T00:00:00Z"
+  },
+  "artwork": [
+    {
+      "id": "b1", "kind": "backdrop", "accent": "#3a6ea5", "createdAt": "2026-10-02T12:00:00Z",
+      "height": 1080, "width": 1920, "ownerId": "t1", "ownerKind": "title", "path": "x",
+      "source": "tmdb"
+    },
+    {
+      "id": "p1", "kind": "poster", "accent": null, "createdAt": "1970-01-01T00:00:10Z",
+      "height": 750, "width": 500, "ownerId": "t1", "ownerKind": "title", "path": "x",
+      "source": "tmdb"
+    }
+  ],
+  "seasons": [
+    {
+      "id": "s1", "seasonNumber": 1, "name": "Season 1", "overview": "", "titleId": "t1",
+      "episodes": [
+        {
+          "id": "e1", "episodeNumber": 1, "name": "Episode 1", "overview": "", "seasonId": "s1",
+          "airDate": null, "runtimeMinutes": 42, "thumbId": "th-e1", "thumbVer": 3
+        },
+        {
+          "id": "e2", "episodeNumber": 2, "name": "Episode 2", "overview": "", "seasonId": "s1",
+          "airDate": "2025-03-07", "runtimeMinutes": 42, "thumbId": "th-e2", "thumbVer": 3
+        }
+      ]
+    }
+  ],
+  "mediaFiles": [
+    {
+      "id": "m1", "episodeId": "e1", "titleId": null, "height": 2160, "width": 3840,
+      "videoRange": "hdr10", "audioCodec": "aac", "audioLang": "en", "audioRole": "main",
+      "bitrate": 1, "channels": 2, "container": "mp4", "createdAt": "2026-01-01T00:00:00Z",
+      "directPlay": true, "durationSeconds": 2400.0, "fileMtime": null, "libraryId": 1,
+      "path": "/x", "sampleRate": 48000, "scannedAt": null, "sizeBytes": 1,
+      "sourceDeletedAt": null, "videoCodec": "h264"
+    },
+    {
+      "id": "m2", "episodeId": "e2", "titleId": null, "height": 1080, "width": 1920,
+      "videoRange": "sdr", "audioCodec": "aac", "audioLang": "en", "audioRole": "main",
+      "bitrate": 1, "channels": 2, "container": "mp4", "createdAt": "2026-01-01T00:00:00Z",
+      "directPlay": true, "durationSeconds": 2400.0, "fileMtime": null, "libraryId": 1,
+      "path": "/x", "sampleRate": 48000, "scannedAt": null, "sizeBytes": 1,
+      "sourceDeletedAt": null, "videoCodec": "h264"
+    }
+  ],
+  "episodeProgress": {
+    "e1": { "completed": true, "positionSeconds": 2390, "durationSeconds": 2400 },
+    "e2": { "completed": false, "positionSeconds": 700, "durationSeconds": 2400 }
+  },
+  "progress": null,
+  "inWatchlist": true
+}

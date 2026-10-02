@@ -1,0 +1,15 @@
+{
+  "total": 3,
+  "items": [
+    {
+      "titleId": "a", "slug": "a-slug", "name": "Name a", "kind": "movie", "year": 2024,
+      "posterId": "p-a", "posterVer": 11, "posterAccent": "#102030", "backdropId": null,
+      "backdropVer": null, "backdropAccent": null
+    },
+    {
+      "titleId": "b", "slug": "b-slug", "name": "Name b", "kind": "movie", "year": null,
+      "posterId": null, "posterVer": null, "posterAccent": null, "backdropId": "bd-b",
+      "backdropVer": 2, "backdropAccent": "#203040"
+    }
+  ]
+}

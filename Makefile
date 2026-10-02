@@ -1,5 +1,5 @@
 .PHONY: run-backend run-web build lint check format test contract sample-media clean \
-	core-test core-apple core-android core-wasm apple-test
+	core-test core-apple core-android core-wasm apple-test android-test
 
 # dev database (compose service `db` published on 5432)
 DEV_DB ?= postgres://couchverse:couchverse@localhost:5432/couchverse
@@ -61,6 +61,9 @@ core-wasm:
 
 apple-test: core-apple
 	cd clients/apple/Packages/CouchverseCore && swift test
+
+android-test: core-android
+	cd clients/android && ./gradlew :core:testDebugUnitTest
 
 sample-media:
 	./scripts/gen-sample-media.sh data/samples

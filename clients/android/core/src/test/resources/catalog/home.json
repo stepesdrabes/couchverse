@@ -1,0 +1,38 @@
+{
+  "featured": [
+    {
+      "id": "t1", "slug": "glass-harbor", "name": "Glass Harbor", "kind": "series",
+      "year": 2025, "overview": "Lighthouses.", "genres": ["Drama"], "genreLabels": ["Drama"],
+      "contentRating": "", "runtimeMinutes": null, "backdropId": "b1", "backdropVer": 5,
+      "backdropAccent": "#3a6ea5", "inList": false, "addedAt": "2026-09-01T00:00:00Z",
+      "allowRandomPlayback": true, "metadataLanguages": ["en"], "releaseDate": null,
+      "sortName": "Glass Harbor", "status": "published", "tmdbId": null,
+      "updatedAt": "2026-09-01T00:00:00Z"
+    }
+  ],
+  "rows": [
+    {
+      "kind": "continue_watching", "label": "Continue watching", "items": [],
+      "continueWatching": [
+        {
+          "titleId": "t1", "slug": "glass-harbor", "name": "Glass Harbor", "kind": "series",
+          "episodeLabel": "S1 E2", "episodeId": "e2", "playbackKind": "episode",
+          "playbackId": "e2", "positionSeconds": 600, "durationSeconds": 2400,
+          "updatedAt": "2026-09-02T00:00:00Z", "year": 2025, "posterId": null,
+          "posterVer": null, "posterAccent": null, "backdropId": "b1", "backdropVer": 5,
+          "backdropAccent": "#3a6ea5"
+        }
+      ]
+    },
+    {
+      "kind": "recently_added", "label": "New", "continueWatching": [],
+      "items": [
+        {
+          "titleId": "t2", "slug": "t2-slug", "name": "Name t2", "kind": "movie", "year": 2024,
+          "posterId": "p-t2", "posterVer": 11, "posterAccent": "#102030", "backdropId": null,
+          "backdropVer": null, "backdropAccent": null
+        }
+      ]
+    }
+  ]
+}
