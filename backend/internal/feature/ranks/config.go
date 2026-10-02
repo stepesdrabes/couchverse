@@ -12,38 +12,38 @@ import (
 // settingsKey is where the admin-tunable progression config lives.
 const settingsKey = "ranks"
 
-// Rates is the XP formula, exposed so an admin can retune pacing without a
+// RankRates is the XP formula, exposed so an admin can retune pacing without a
 // rebuild. Everything is derived from activity, so changing a rate re-levels
 // everyone on the next read rather than needing a migration.
-type Rates struct {
-	VideoMinute int64 `json:"videoMinute"`
-	Movie       int64 `json:"movie"`
-	Episode     int64 `json:"episode"`
-	CouchHost   int64 `json:"couchHost"`
-	CouchJoin   int64 `json:"couchJoin"`
-	Bronze      int64 `json:"bronze"`
-	Silver      int64 `json:"silver"`
-	Gold        int64 `json:"gold"`
-	Platinum    int64 `json:"platinum"`
+type RankRates struct {
+	VideoMinute int64 `json:"videoMinute" minimum:"0" doc:"XP per minute of video watched."`
+	Movie       int64 `json:"movie" minimum:"0" doc:"XP per completed movie."`
+	Episode     int64 `json:"episode" minimum:"0" doc:"XP per completed episode."`
+	CouchHost   int64 `json:"couchHost" minimum:"0" doc:"XP per couch session hosted."`
+	CouchJoin   int64 `json:"couchJoin" minimum:"0" doc:"XP per couch session joined."`
+	Bronze      int64 `json:"bronze" minimum:"0" doc:"XP per bronze achievement."`
+	Silver      int64 `json:"silver" minimum:"0" doc:"XP per silver achievement."`
+	Gold        int64 `json:"gold" minimum:"0" doc:"XP per gold achievement."`
+	Platinum    int64 `json:"platinum" minimum:"0" doc:"XP per platinum achievement."`
 }
 
-// Config is the whole tunable surface: the rates plus the ladder thresholds.
+// RankConfig is the whole tunable surface: the rates plus the ladder thresholds.
 // Tier codes are fixed (they are persisted in payloads and translated on the
 // frontend); only the XP each one starts at is editable.
-type Config struct {
-	Rates Rates   `json:"rates"`
-	Tiers []int64 `json:"tiers"`
+type RankConfig struct {
+	Rates RankRates `json:"rates"`
+	Tiers []int64   `json:"tiers" minItems:"10" maxItems:"10" doc:"XP each tier starts at, rookie first; starts at 0 and strictly ascends."`
 }
 
 // DefaultConfig is the shipped balance, and the fallback whenever the stored
 // value is absent or malformed.
-func DefaultConfig() Config {
+func DefaultConfig() RankConfig {
 	tiers := make([]int64, len(defaultTiers))
 	for i, t := range defaultTiers {
 		tiers[i] = t.MinXP
 	}
-	return Config{
-		Rates: Rates{
+	return RankConfig{
+		Rates: RankRates{
 			VideoMinute: 2,
 			Movie:       100,
 			Episode:     20,
@@ -60,7 +60,7 @@ func DefaultConfig() Config {
 
 // LoadConfig reads the stored config, falling back to the defaults field by
 // field so a partially written value cannot zero out the whole formula.
-func LoadConfig(ctx context.Context, st *settings.Store) Config {
+func LoadConfig(ctx context.Context, st *settings.Store) RankConfig {
 	cfg := DefaultConfig()
 	if st == nil {
 		return cfg
@@ -69,11 +69,11 @@ func LoadConfig(ctx context.Context, st *settings.Store) Config {
 	if err != nil || raw == nil {
 		return cfg
 	}
-	var stored Config
+	var stored RankConfig
 	if json.Unmarshal(raw, &stored) != nil {
 		return cfg
 	}
-	if stored.Rates != (Rates{}) {
+	if stored.Rates != (RankRates{}) {
 		cfg.Rates = stored.Rates
 	}
 	if len(stored.Tiers) == len(cfg.Tiers) {
@@ -85,7 +85,7 @@ func LoadConfig(ctx context.Context, st *settings.Store) Config {
 // Validate rejects a config that would make the ladder nonsensical. Negative
 // rates would let activity subtract XP, and a non-ascending ladder would break
 // the "highest tier reached" scan.
-func (c Config) Validate() error {
+func (c RankConfig) Validate() error {
 	rates := []struct {
 		name  string
 		value int64
@@ -116,8 +116,8 @@ func (c Config) Validate() error {
 }
 
 // TierTable applies the configured thresholds to the fixed tier codes/colours.
-func (c Config) TierTable() []Tier {
-	out := make([]Tier, len(defaultTiers))
+func (c RankConfig) TierTable() []RankTier {
+	out := make([]RankTier, len(defaultTiers))
 	copy(out, defaultTiers)
 	for i := range out {
 		if i < len(c.Tiers) {
@@ -128,7 +128,7 @@ func (c Config) TierTable() []Tier {
 }
 
 // achievementXP maps a badge tier to its configured reward.
-func (c Config) achievementXP(tier AchTier) int64 {
+func (c RankConfig) achievementXP(tier AchTier) int64 {
 	switch tier {
 	case Bronze:
 		return c.Rates.Bronze

@@ -15,17 +15,17 @@ func TestDefaultConfigIsValid(t *testing.T) {
 func TestConfigValidate(t *testing.T) {
 	tests := []struct {
 		name    string
-		mutate  func(*Config)
+		mutate  func(*RankConfig)
 		wantErr bool
 	}{
-		{"defaults", func(*Config) {}, false},
-		{"zero rate is allowed", func(c *Config) { c.Rates.CouchJoin = 0 }, false},
-		{"negative rate", func(c *Config) { c.Rates.VideoMinute = -1 }, true},
-		{"negative achievement reward", func(c *Config) { c.Rates.Gold = -5 }, true},
-		{"first tier must be 0", func(c *Config) { c.Tiers[0] = 10 }, true},
-		{"tiers must ascend", func(c *Config) { c.Tiers[3] = c.Tiers[2] }, true},
-		{"wrong tier count", func(c *Config) { c.Tiers = c.Tiers[:5] }, true},
-		{"rescaled ladder", func(c *Config) {
+		{"defaults", func(*RankConfig) {}, false},
+		{"zero rate is allowed", func(c *RankConfig) { c.Rates.CouchJoin = 0 }, false},
+		{"negative rate", func(c *RankConfig) { c.Rates.VideoMinute = -1 }, true},
+		{"negative achievement reward", func(c *RankConfig) { c.Rates.Gold = -5 }, true},
+		{"first tier must be 0", func(c *RankConfig) { c.Tiers[0] = 10 }, true},
+		{"tiers must ascend", func(c *RankConfig) { c.Tiers[3] = c.Tiers[2] }, true},
+		{"wrong tier count", func(c *RankConfig) { c.Tiers = c.Tiers[:5] }, true},
+		{"rescaled ladder", func(c *RankConfig) {
 			for i := range c.Tiers {
 				c.Tiers[i] *= 2
 			}

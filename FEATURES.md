@@ -249,8 +249,8 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
   (bronze 50, silver 150, gold 400, platinum 1000). Couch pays per session because
   on-couch watch-time has no user dimension. XP counts all recorded activity
   **regardless of flags** - turning couch off must never demote anyone. Every term is one explainable line of the profile's XP breakdown.
-- **Every rate and threshold is admin-tunable** (`ranks.Config` in the `ranks`
-  settings key, defaults in `DefaultConfig`, edited on `/admin/ranks`). `Config` is
+- **Every rate and threshold is admin-tunable** (`ranks.RankConfig` in the `ranks`
+  settings key, defaults in `DefaultConfig`, edited on `/admin/ranks`). `RankConfig` is
   threaded through `ComputeXP`/`TierFor`/`ProgressFor` rather than read globally, so
   the pure functions stay testable. `Validate` rejects negative rates and a ladder
   that does not start at 0 or does not strictly ascend. Because XP is always derived,
@@ -287,7 +287,7 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
   "no such member"; the owner always sees their own.
 - Endpoints (all `RequireAuth` + `flags.RequireRankings`): `GET /me/stats` (the only
   progression fetch on app load - it feeds the nav ring *and* the profile page from
-  one SWR entry), `GET /users/{username}/profile`, `GET /leaderboard?period=`,
+  one SWR entry), `GET /users/{username}/profile`, `GET /leaderboard?period=all|week|month`,
   `POST /me/achievements/check`. The leaderboard returns **every metric per row**
   (xp, watch, achievements) unsorted, so the client's metric switcher sorts in
   place with no refetch and `period` is the only cache key; XP is lifetime whatever
