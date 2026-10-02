@@ -24,4 +24,9 @@
 			right: -18rem;
 		}
 	}
+
+	// a TV GPU can't afford a 120px blur this large; the gradient alone is soft enough
+	:global(html[data-tv]) .glow {
+		filter: none;
+	}
 </style>

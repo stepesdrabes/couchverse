@@ -21,7 +21,7 @@
 		Volume2,
 		VolumeX
 	} from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import { musicPlayer } from '$lib/features/music/player.svelte';
@@ -53,6 +53,8 @@
 	import { features } from '$lib/features/settings/features.svelte';
 	import CouchButton from '$lib/features/couch/components/CouchButton.svelte';
 	import HostAwayOverlay from '$lib/features/couch/components/HostAwayOverlay.svelte';
+	import { focusable } from '$lib/tv/spatial-nav';
+	import { isTV, mediaKey, type MediaKey } from '$lib/tv/tv';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -69,6 +71,7 @@
 
 	let video = $state<HTMLVideoElement>();
 	let wrapper = $state<HTMLDivElement>();
+	let seekBar = $state<HTMLDivElement>();
 
 	let playing = $state(false);
 	let hasPlayed = $state(false); // suppress the pause indicator before autoplay starts
@@ -252,9 +255,15 @@
 	function poke() {
 		controlsVisible = true;
 		clearTimeout(hideTimer);
-		hideTimer = setTimeout(() => {
-			if (playing) controlsVisible = false;
-		}, 3000);
+		hideTimer = setTimeout(
+			() => {
+				// a remote has no pointer to keep an open menu alive, so on a TV the
+				// controls wait while one (episodes, subtitles...) is up
+				const menuOpen = isTV && !!wrapper?.querySelector('[role="dialog"],[role="listbox"]');
+				if (playing && !menuOpen) controlsVisible = false;
+			},
+			isTV ? 5000 : 3000
+		);
 	}
 
 	function togglePlay() {
@@ -410,8 +419,83 @@
 		hoverRatio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
 	}
 
+	// Remote control. Media keys work at any time. With the controls hidden or the seek
+	// bar focused, OK plays/pauses and left/right skip; any other key brings the controls
+	// up on the seek bar. Once a control button has focus, the arrows belong to the TV's
+	// spatial navigation and OK clicks the button. Back is left to the TV shell.
+	function onRemoteKey(e: KeyboardEvent) {
+		const media = mediaKey(e);
+		if (media) {
+			e.preventDefault();
+			onMediaKey(media);
+			poke();
+			return;
+		}
+		const active = document.activeElement;
+		if (active !== seekBar && focusable(active) && wrapper?.contains(active)) {
+			poke();
+			return;
+		}
+		switch (e.key) {
+			case 'Enter':
+				togglePlay();
+				break;
+			case 'ArrowLeft':
+				skip(-10);
+				break;
+			case 'ArrowRight':
+				skip(10);
+				break;
+			case 'ArrowUp':
+			case 'ArrowDown':
+				// from the seek bar, up/down move on to the other controls
+				if (active === seekBar && controlsVisible) {
+					poke();
+					return;
+				}
+				break;
+			default:
+				poke();
+				return;
+		}
+		e.preventDefault();
+		revealControls();
+	}
+
+	function onMediaKey(key: MediaKey) {
+		if (!video) return;
+		switch (key) {
+			case 'play':
+				if (video.paused) togglePlay();
+				break;
+			case 'pause':
+			case 'stop':
+				if (!video.paused) togglePlay();
+				break;
+			case 'toggle':
+				togglePlay();
+				break;
+			case 'forward':
+				skip(10);
+				break;
+			case 'rewind':
+				skip(-10);
+				break;
+		}
+	}
+
+	async function revealControls() {
+		poke();
+		await tick();
+		if (document.activeElement !== seekBar) seekBar?.focus({ preventScroll: true });
+	}
+
 	function onKeydown(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement) return;
+		if (isTV) {
+			onRemoteKey(e);
+			return;
+		}
 		switch (e.key) {
 			case ' ':
 			case 'k':
@@ -471,13 +555,18 @@
 
 	async function attachHls(url: string, pinName: string | null) {
 		if (!video) return;
-		// Safari plays HLS natively but exposes no level API - adaptive only
-		if (video.canPlayType('application/vnd.apple.mpegurl')) {
+		// Safari plays HLS natively but exposes no level API - adaptive only. TV browsers
+		// claim native HLS too, but there hls.js keeps the quality and audio menus working.
+		const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') !== '';
+		if (nativeHls && !isTV) {
 			videoSrc = url;
 			return;
 		}
 		const { default: HlsCtor } = await import('hls.js');
-		if (!HlsCtor.isSupported()) return;
+		if (!HlsCtor.isSupported()) {
+			if (nativeHls) videoSrc = url;
+			return;
+		}
 		hls = new HlsCtor();
 		hls.loadSource(url);
 		hls.attachMedia(video);
@@ -620,8 +709,12 @@
 	});
 </script>
 
-<svelte:window onkeydown={onKeydown} />
-<svelte:document onfullscreenchange={() => (fullscreen = !!document.fullscreenElement)} />
+<!-- keydown on document rather than window so it runs before the TV shell, which skips
+	keys handled (preventDefault) here -->
+<svelte:document
+	onkeydown={onKeydown}
+	onfullscreenchange={() => (fullscreen = !!document.fullscreenElement)}
+/>
 
 <div
 	bind:this={wrapper}
@@ -824,6 +917,8 @@
 		>
 			<!-- seek bar (followers have no timeline control) -->
 			<div
+				bind:this={seekBar}
+				data-tv-autofocus
 				class="group/seek relative mb-4 h-1 w-full rounded-full bg-white/20"
 				class:cursor-pointer={!couch.followerLocked}
 				class:pointer-events-none={couch.followerLocked}
@@ -879,7 +974,8 @@
 				>
 					<span
 						class="absolute top-1/2 -right-1.5 size-3 -translate-y-1/2 scale-0 rounded-full
-							bg-accent shadow transition-transform group-hover/seek:scale-100"
+							bg-accent shadow transition-transform group-hover/seek:scale-100
+							group-focus-visible/seek:scale-100"
 					></span>
 				</div>
 			</div>
@@ -928,35 +1024,38 @@
 					</Tooltip>
 				{/if}
 
-				<div class="group/vol flex items-center gap-2">
-					<Tooltip label={muted ? m.player_unmute() : m.player_mute()} portalTo={wrapper}>
-						{#snippet trigger(props)}
-							<button
-								{...props}
-								class="player-btn"
-								onclick={() => (muted = !muted)}
-								aria-label={m.player_mute()}
-							>
-								{#if muted || volume === 0}
-									<VolumeX class="size-4.5" />
-								{:else}
-									<Volume2 class="size-4.5" />
-								{/if}
-							</button>
-						{/snippet}
-					</Tooltip>
-					<input
-						type="range"
-						min="0"
-						max="1"
-						step="0.05"
-						value={muted ? 0 : volume}
-						oninput={(e) => setVolume(Number(e.currentTarget.value))}
-						class="volume-slider w-0 opacity-0 transition-all duration-200
+				<!-- a TV's remote drives the volume itself -->
+				{#if !isTV}
+					<div class="group/vol flex items-center gap-2">
+						<Tooltip label={muted ? m.player_unmute() : m.player_mute()} portalTo={wrapper}>
+							{#snippet trigger(props)}
+								<button
+									{...props}
+									class="player-btn"
+									onclick={() => (muted = !muted)}
+									aria-label={m.player_mute()}
+								>
+									{#if muted || volume === 0}
+										<VolumeX class="size-4.5" />
+									{:else}
+										<Volume2 class="size-4.5" />
+									{/if}
+								</button>
+							{/snippet}
+						</Tooltip>
+						<input
+							type="range"
+							min="0"
+							max="1"
+							step="0.05"
+							value={muted ? 0 : volume}
+							oninput={(e) => setVolume(Number(e.currentTarget.value))}
+							class="volume-slider w-0 opacity-0 transition-all duration-200
 							group-hover/vol:w-20 group-hover/vol:opacity-100"
-						aria-label={m.player_volume()}
-					/>
-				</div>
+							aria-label={m.player_volume()}
+						/>
+					</div>
+				{/if}
 
 				<span class="ml-2 text-xs text-white/70 tnum">
 					{formatClock(currentTime)} / {formatClock(duration)}
@@ -1024,7 +1123,7 @@
 										{@const current = ep.episodeId === info.currentEpisodeId}
 										<button
 											class="group flex w-full gap-3 rounded-lg p-1.5 text-left transition-colors
-												{current ? 'bg-surface' : 'hover:bg-surface'}"
+												{current ? 'bg-surface' : 'hover:bg-surface focus-visible:bg-surface'}"
 											onclick={() => openEpisode(ep.episodeId)}
 										>
 											<div
@@ -1038,7 +1137,7 @@
 												/>
 												<div
 													class="absolute inset-0 flex items-center justify-center bg-black/45 transition-opacity
-														{current ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}"
+														{current ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}"
 												>
 													<span
 														class="rounded-full bg-accent p-1.5 text-[var(--color-on-accent)] shadow-lg"
@@ -1264,7 +1363,8 @@
 					</Popover.Root>
 				{/if}
 
-				{#if pipSupported}
+				<!-- a TV app is always full screen and has no picture-in-picture -->
+				{#if pipSupported && !isTV}
 					<Tooltip label={m.player_picture_in_picture()} portalTo={wrapper}>
 						{#snippet trigger(props)}
 							<button
@@ -1279,25 +1379,27 @@
 					</Tooltip>
 				{/if}
 
-				<Tooltip
-					label={fullscreen ? m.player_exit_fullscreen() : m.player_fullscreen()}
-					portalTo={wrapper}
-				>
-					{#snippet trigger(props)}
-						<button
-							{...props}
-							class="player-btn"
-							onclick={toggleFullscreen}
-							aria-label={m.player_fullscreen()}
-						>
-							{#if fullscreen}
-								<Minimize class="size-4.5" />
-							{:else}
-								<Maximize class="size-4.5" />
-							{/if}
-						</button>
-					{/snippet}
-				</Tooltip>
+				{#if !isTV}
+					<Tooltip
+						label={fullscreen ? m.player_exit_fullscreen() : m.player_fullscreen()}
+						portalTo={wrapper}
+					>
+						{#snippet trigger(props)}
+							<button
+								{...props}
+								class="player-btn"
+								onclick={toggleFullscreen}
+								aria-label={m.player_fullscreen()}
+							>
+								{#if fullscreen}
+									<Minimize class="size-4.5" />
+								{:else}
+									<Maximize class="size-4.5" />
+								{/if}
+							</button>
+						{/snippet}
+					</Tooltip>
+				{/if}
 			</div>
 		</div>
 	{/if}

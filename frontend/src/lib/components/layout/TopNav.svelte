@@ -13,6 +13,7 @@
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import LanguageSwitcher from '$lib/components/layout/LanguageSwitcher.svelte';
 	import { readableTextOn } from '$lib/theme';
+	import { isTV } from '$lib/tv/tv';
 	import * as m from '$lib/paraglide/messages';
 
 	const items = $derived(
@@ -44,6 +45,7 @@
 <svelte:window bind:scrollY />
 
 <header
+	data-tv-pin
 	class="fixed inset-x-0 top-0 z-40 border-b transition-all duration-300
 		{scrolled
 		? 'border-edge/60 bg-bg/85 shadow-lg shadow-black/20 backdrop-blur-md'
@@ -197,7 +199,8 @@
 								{/snippet}
 							</DropdownMenu.Item>
 						{/if}
-						{#if session.isAdmin}
+						<!-- admin needs a keyboard and a mouse; the TV app leaves it out -->
+						{#if session.isAdmin && !isTV}
 							<DropdownMenu.Item
 								class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted
 									outline-none data-highlighted:bg-surface data-highlighted:text-text"

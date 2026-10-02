@@ -6,11 +6,13 @@
 	let { album }: { album: AlbumCard } = $props();
 </script>
 
-<a href="/music/albums/{album.id}" class="group w-40 shrink-0 snap-start sm:w-44">
+<a href="/music/albums/{album.id}" class="group w-40 shrink-0 snap-start outline-none sm:w-44">
 	<div
 		class="aspect-square overflow-hidden rounded-xl border border-edge/50 transition-all
 			duration-300 group-hover:scale-[1.04] group-hover:border-accent/60 group-hover:shadow-lg
-			group-hover:shadow-black/40"
+			group-hover:shadow-black/40 group-focus-visible:scale-[1.04] group-focus-visible:shadow-lg
+			group-focus-visible:shadow-black/40 group-focus-visible:ring-3 group-focus-visible:ring-accent
+			group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-bg"
 	>
 		{#if album.coverId}
 			<img
@@ -27,7 +29,9 @@
 			</div>
 		{/if}
 	</div>
-	<p class="mt-2 truncate text-sm font-semibold transition-colors group-hover:text-accent">
+	<p
+		class="mt-2 truncate text-sm font-semibold transition-colors group-hover:text-accent group-focus-visible:text-accent"
+	>
 		{album.name}
 	</p>
 	<p class="truncate text-xs text-faint">{album.artistName}</p>

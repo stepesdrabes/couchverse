@@ -88,6 +88,23 @@
 		outline: 2px solid var(--color-accent);
 		outline-offset: 2px;
 	}
+
+	/* TV mode (lib/tv): rem sizes follow the screen width, so the 10-foot layout looks
+	   the same whether the TV renders the app at 720p or 1080p */
+	html[data-tv] {
+		font-size: 1.125vw;
+	}
+
+	/* the remote's focus is the only pointer, so it must read from across the room */
+	html[data-tv] :focus-visible {
+		outline-width: 3px;
+		outline-offset: 3px;
+	}
+}
+
+/* TV GPUs stutter on backdrop blur; the translucent surfaces stay legible without it */
+html[data-tv] * {
+	backdrop-filter: none !important;
 }
 
 @utility tnum {

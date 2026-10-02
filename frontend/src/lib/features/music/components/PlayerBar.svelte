@@ -28,6 +28,7 @@
 {#if player.current}
 	<div
 		transition:fly={{ y: 80, duration: 300 }}
+		data-tv-pin
 		class="fixed inset-x-0 bottom-0 z-40 border-t border-edge bg-surface/95 backdrop-blur-md"
 		style="view-transition-name: player-bar"
 	>

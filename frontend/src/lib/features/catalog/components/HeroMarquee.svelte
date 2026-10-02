@@ -8,6 +8,7 @@
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { accentVars } from '$lib/theme';
+	import { isTV } from '$lib/tv/tv';
 	import * as m from '$lib/paraglide/messages';
 
 	let { items }: { items: FeaturedItem[] } = $props();
@@ -17,7 +18,17 @@
 
 	let index = $state(0);
 	let progress = $state(0); // 0..1 within the current slide
-	let paused = $state(false);
+	let hovered = $state(false);
+	let region = $state<HTMLDivElement>();
+
+	// Hovering or keyboard focus (a TV remote) holds the slide: advancing re-creates the
+	// buttons and would drop the focus. A mouse click focuses too but should not hold it.
+	function held(): boolean {
+		const el = document.activeElement;
+		const focused = !!el && !!region?.contains(el) && (isTV || el.matches(':focus-visible'));
+		return hovered || focused;
+	}
+
 	// slight scroll parallax: the banner drifts slower than the page
 	let scrollY = $state(0);
 	const parallax = $derived(`translate3d(0, ${scrollY * 0.18}px, 0) scale(1.12)`);
@@ -38,7 +49,7 @@
 	$effect(() => {
 		if (items.length <= 1) return;
 		const timer = setInterval(() => {
-			if (paused) return;
+			if (held()) return;
 			progress += STEP_MS / SLIDE_MS;
 			if (progress >= 1) {
 				progress = 0;
@@ -78,13 +89,14 @@
 <svelte:window bind:scrollY />
 
 <div
+	bind:this={region}
 	class="relative flex min-h-[72vh] items-center justify-center overflow-hidden md:min-h-[82vh]"
 	style={accentStyle}
 	role="region"
 	aria-roledescription="carousel"
 	aria-label={m.catalog_featured_titles()}
-	onpointerenter={() => (paused = true)}
-	onpointerleave={() => (paused = false)}
+	onpointerenter={() => (hovered = true)}
+	onpointerleave={() => (hovered = false)}
 >
 	<!-- backdrops crossfade between slides -->
 	{#if items.some((it) => it.backdropId)}
@@ -151,7 +163,7 @@
 				in:fly={{ y: 14, duration: 450, delay: 520 }}
 				class="mt-8 flex items-center justify-center gap-3"
 			>
-				<Button size="lg" onclick={play}>
+				<Button size="lg" onclick={play} data-tv-autofocus>
 					<Play class="size-4 fill-current" />
 					{m.common_play()}
 				</Button>

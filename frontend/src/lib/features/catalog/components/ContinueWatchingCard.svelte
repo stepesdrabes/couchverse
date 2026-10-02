@@ -22,19 +22,21 @@
 <a
 	href="/watch/{item.playbackKind}/{item.playbackId}"
 	data-sveltekit-preload-data="tap"
-	class="group w-48 shrink-0 snap-start sm:w-56"
+	class="group w-48 shrink-0 snap-start outline-none sm:w-56"
 	style={cardAccent}
 >
 	<div
 		class="relative aspect-video overflow-hidden rounded-xl border border-edge/50 transition-all
 			duration-300 group-hover:scale-[1.02] group-hover:shadow-lg group-hover:shadow-black/40
-			group-hover:ring-2 group-hover:ring-offset-2"
+			group-hover:ring-2 group-hover:ring-offset-2 group-focus-visible:scale-[1.02]
+			group-focus-visible:shadow-lg group-focus-visible:shadow-black/40 group-focus-visible:ring-3
+			group-focus-visible:ring-offset-2"
 		style="--tw-ring-color:var(--card-accent,var(--color-accent));--tw-ring-offset-color:var(--color-bg)"
 	>
 		<Artwork artworkId={art.id} v={art.v} name={item.name} />
 		<div
 			class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0
-				transition-opacity group-hover:opacity-100"
+				transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
 		>
 			<span class="rounded-full bg-accent p-3 text-[var(--color-on-accent)] shadow-lg">
 				<Play class="size-5 fill-current" />
@@ -44,7 +46,9 @@
 			<div class="h-full bg-accent" style="width: {pct}%"></div>
 		</div>
 	</div>
-	<p class="mt-2 truncate text-sm font-semibold transition-colors group-hover:text-accent">
+	<p
+		class="mt-2 truncate text-sm font-semibold transition-colors group-hover:text-accent group-focus-visible:text-accent"
+	>
 		{item.name}
 	</p>
 	<p class="truncate text-xs text-faint">{item.episodeLabel || m.catalog_continue_watching()}</p>

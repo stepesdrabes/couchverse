@@ -4,10 +4,17 @@
 	import { musicPlayer as player } from '$lib/features/music/player.svelte';
 	import { formatClock } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
+
+	function onKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && player.queueOpen) player.queueOpen = false;
+	}
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 {#if player.queueOpen}
 	<aside
+		data-tv-layer
 		transition:fly={{ x: 320, duration: 250 }}
 		class="fixed top-0 right-0 bottom-20 z-40 flex w-80 flex-col border-l border-edge bg-surface/95 backdrop-blur-md"
 	>

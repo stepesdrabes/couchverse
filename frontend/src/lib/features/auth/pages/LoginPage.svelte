@@ -56,6 +56,7 @@
 				name="username"
 				autocomplete="username"
 				bind:value={username}
+				data-tv-autofocus
 				required
 			/>
 			<Input

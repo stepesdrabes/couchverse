@@ -47,12 +47,15 @@
 					in:fly|global={{ y: 14, duration: 300, delay: Math.min(i * 35, 350) }}
 					href="/genres/{encodeURIComponent(genre.name)}"
 					class="group relative flex h-28 items-end overflow-hidden rounded-card border
-						border-edge/50 p-4 transition-all duration-300 hover:scale-[1.02] hover:border-accent/60"
+						border-edge/50 p-4 transition-all duration-300 hover:scale-[1.02] hover:border-accent/60
+						focus-visible:scale-[1.02] focus-visible:border-accent/60"
 					style="background: linear-gradient(135deg, hsl({hue(
 						genre.name
 					)} 40% 16%), var(--color-surface))"
 				>
-					<span class="text-lg font-bold transition-colors group-hover:text-accent">
+					<span
+						class="text-lg font-bold transition-colors group-hover:text-accent group-focus-visible:text-accent"
+					>
 						{genre.label}
 					</span>
 				</a>

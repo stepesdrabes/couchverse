@@ -162,7 +162,12 @@
 				{/if}
 
 				<div class="mt-6 flex items-center gap-3">
-					<Button size="lg" onclick={play} disabled={data.title.kind === 'series' && !nextUp}>
+					<Button
+						size="lg"
+						onclick={play}
+						disabled={data.title.kind === 'series' && !nextUp}
+						data-tv-autofocus
+					>
 						<Play class="size-4 fill-current" />
 						{#if movieResume}
 							{m.catalog_resume_from({ time: formatClock(movieResume) })}
@@ -217,7 +222,9 @@
 								href={file ? `/watch/episode/${ep.id}` : undefined}
 								data-sveltekit-preload-data="tap"
 								class="group flex gap-4 rounded-card border border-edge bg-surface/40 p-3 transition-colors
-									{file ? 'cursor-pointer hover:border-accent/40 hover:bg-surface-2/60' : 'opacity-50'}"
+									{file
+									? 'cursor-pointer hover:border-accent/40 hover:bg-surface-2/60 focus-visible:border-accent/40 focus-visible:bg-surface-2/60'
+									: 'opacity-50'}"
 							>
 								<div
 									class="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg border
@@ -231,7 +238,7 @@
 									{#if file}
 										<div
 											class="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0
-												transition-opacity group-hover:opacity-100"
+												transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
 										>
 											<span
 												class="rounded-full bg-accent p-2.5 text-[var(--color-on-accent)] shadow-lg"
@@ -252,7 +259,9 @@
 										<span class="shrink-0 text-sm font-semibold text-faint tnum"
 											>{ep.episodeNumber}</span
 										>
-										<p class="truncate text-sm font-semibold group-hover:text-accent">
+										<p
+											class="truncate text-sm font-semibold group-hover:text-accent group-focus-visible:text-accent"
+										>
 											{ep.name || m.catalog_episode_number({ number: ep.episodeNumber })}
 										</p>
 									</div>

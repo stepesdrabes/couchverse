@@ -12,6 +12,8 @@
 	import { features } from '$lib/features/settings/features.svelte';
 	import UploadDock from '$lib/features/uploads/components/UploadDock.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
+	import TvShell from '$lib/tv/TvShell.svelte';
+	import { isTV } from '$lib/tv/tv';
 
 	let { children } = $props();
 
@@ -25,8 +27,9 @@
 	// the full-width music bar is only actually on screen when a track is loaded;
 	// the corner stack clears it only then (otherwise it sits at the bottom)
 	const musicBarVisible = $derived(showPlayerBar && !!musicPlayer.current);
-	// the upload dock hides over the player too, but the unload guard below stays
-	const showUploadDock = $derived(!onWatch && !onCouch && !onAuth);
+	// the upload dock hides over the player too, but the unload guard below stays;
+	// TVs never upload
+	const showUploadDock = $derived(!onWatch && !onCouch && !onAuth && !isTV);
 
 	// the on-screen video player hosts the couch bar itself (so it survives
 	// fullscreen); the layout only shows it when no player is mounted
@@ -57,9 +60,10 @@
 		}
 	});
 
-	// soft cross-fade between pages via the View Transitions API
+	// soft cross-fade between pages via the View Transitions API (not on TVs, whose
+	// GPUs stutter through it)
 	onNavigate((navigation) => {
-		if (!document.startViewTransition) return;
+		if (isTV || !document.startViewTransition) return;
 		return new Promise((resolve) => {
 			document.startViewTransition(async () => {
 				resolve();
@@ -75,6 +79,10 @@
 
 <NavProgress />
 
+{#if isTV}
+	<TvShell />
+{/if}
+
 {@render children()}
 
 {#if showPlayerBar}
@@ -86,6 +94,7 @@
 	with no couch session and no music it sits at the bottom. -->
 {#if showUploadDock || showCouchBar}
 	<div
+		data-tv-pin
 		class="fixed right-4 z-40 flex flex-col items-end gap-3"
 		style="bottom: {stackBottom}; transition: bottom 0.25s ease;"
 	>
