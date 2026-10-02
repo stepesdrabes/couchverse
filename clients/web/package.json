@@ -49,6 +49,7 @@
 		"lucide-svelte": "^1.0.1",
 		"markdown-it": "^14.3.0",
 		"minidenticons": "^4.2.1",
-		"svelte-sonner": "^1.1.1"
+		"svelte-sonner": "^1.1.1",
+		"uqr": "^0.1.3"
 	}
 }
