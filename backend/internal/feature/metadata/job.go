@@ -12,7 +12,8 @@ import (
 	"couchverse/internal/settings"
 )
 
-// FetchJob applies TMDB metadata + artwork to a title.
+// FetchJob applies TMDB metadata + artwork (poster, backdrop, a logo per
+// content language) to a title.
 type FetchJob struct {
 	Catalog  *catalog.Store
 	Settings *settings.Store
@@ -132,6 +133,11 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 		if _, err := j.Artwork.SaveBytes(ctx, "title", title.ID, "backdrop", "", ".jpg", data, "tmdb"); err != nil {
 			return err
 		}
+	}
+	report(85)
+
+	if err := applyLogos(ctx, client, j.Artwork, title, p.TmdbID, langs, true); err != nil {
+		return err
 	}
 
 	// release date column is informative only; parse quietly

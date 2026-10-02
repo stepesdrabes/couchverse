@@ -1,0 +1,68 @@
+{
+  "backdrops": [
+    {
+      "aspect_ratio": 1.778,
+      "height": 1080,
+      "iso_3166_1": null,
+      "iso_639_1": null,
+      "file_path": "/backdrop.jpg",
+      "vote_average": 5.6,
+      "vote_count": 12,
+      "width": 1920
+    }
+  ],
+  "id": 603,
+  "logos": [
+    {
+      "aspect_ratio": 3.038,
+      "height": 312,
+      "iso_3166_1": "US",
+      "iso_639_1": "en",
+      "file_path": "/en-vector.svg",
+      "vote_average": 5.454,
+      "vote_count": 3,
+      "width": 948
+    },
+    {
+      "aspect_ratio": 3.04,
+      "height": 658,
+      "iso_3166_1": "US",
+      "iso_639_1": "en",
+      "file_path": "/en-top.png",
+      "vote_average": 5.312,
+      "vote_count": 1,
+      "width": 2000
+    },
+    {
+      "aspect_ratio": 2.9,
+      "height": 400,
+      "iso_3166_1": "US",
+      "iso_639_1": "en",
+      "file_path": "/en-unrated.png",
+      "vote_average": 5.312,
+      "vote_count": 0,
+      "width": 1160
+    },
+    {
+      "aspect_ratio": 2.5,
+      "height": 400,
+      "iso_3166_1": null,
+      "iso_639_1": null,
+      "file_path": "/neutral.png",
+      "vote_average": 0,
+      "vote_count": 0,
+      "width": 1000
+    },
+    {
+      "aspect_ratio": 2.5,
+      "height": 400,
+      "iso_3166_1": "CZ",
+      "iso_639_1": "cs",
+      "file_path": "/cs-vector.svg",
+      "vote_average": 0,
+      "vote_count": 0,
+      "width": 1000
+    }
+  ],
+  "posters": []
+}
