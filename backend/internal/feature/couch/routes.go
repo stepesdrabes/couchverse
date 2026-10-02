@@ -2,7 +2,6 @@ package couch
 
 import (
 	"net/http"
-	"reflect"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -61,12 +60,9 @@ func socketOp(api huma.API) huma.Operation {
 		{Name: CouchCookie, In: "cookie", Description: "The participant cookie set by createCouch or joinCouch.",
 			Schema: &huma.Schema{Type: huma.TypeString}},
 	}
-	errSchema := api.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[httpx.APIError](), true, "")
 	op.Responses = map[string]*huma.Response{
-		"101": {Description: "Switched to the WebSocket protocol."},
-		"default": {Description: "Error", Content: map[string]*huma.MediaType{
-			"application/json": {Schema: errSchema},
-		}},
+		"101":     {Description: "Switched to the WebSocket protocol."},
+		"default": httpx.ErrorResponse(api),
 	}
 	return op
 }

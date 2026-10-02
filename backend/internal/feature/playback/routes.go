@@ -2,7 +2,6 @@ package playback
 
 import (
 	"net/http"
-	"reflect"
 	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -31,7 +30,7 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(stream, session, m.stream.CreateSession)
 	huma.Register(stream, tag.NoContent("keepStreamSessionAlive", http.MethodPost, "/stream/sessions/{sid}/keepalive"), m.stream.SessionKeepalive)
 
-	apiErr := errorResponse(stream)
+	apiErr := httpx.ErrorResponse(stream)
 	httpx.Raw(stream, streamMediaFileOp(apiErr), m.stream.Serve)
 	httpx.Raw(stream, streamFrameOp(apiErr), m.stream.Frame)
 	httpx.Raw(stream, hlsMasterOp(apiErr), m.stream.HLSMaster)
@@ -40,9 +39,7 @@ func (m *Module) Register(rt httpx.Routes) {
 
 	huma.Register(rt.Admin, tag.Op("adminGetTranscodeInfo", http.MethodGet, "/transcode/info"), m.admin.Info)
 	huma.Register(rt.Admin, tag.Op("adminListActiveTranscodes", http.MethodGet, "/transcode/active"), m.admin.Active)
-	enqueue := tag.Op("adminEnqueueTranscode", http.MethodPost, "/media-files/{id}/transcode")
-	enqueue.DefaultStatus = http.StatusAccepted
-	huma.Register(rt.Admin, enqueue, m.admin.Enqueue)
+	huma.Register(rt.Admin, tag.Accepted("adminEnqueueTranscode", http.MethodPost, "/media-files/{id}/transcode"), m.admin.Enqueue)
 	huma.Register(rt.Admin, tag.Op("adminListVariants", http.MethodGet, "/media-files/{id}/variants"), m.admin.ListVariants)
 	huma.Register(rt.Admin, tag.NoContent("adminDeleteVariant", http.MethodDelete, "/transcode-variants/{id}"), m.admin.DeleteVariant)
 }
@@ -76,12 +73,6 @@ func response(desc string, schema *huma.Schema, types ...string) *huma.Response 
 		r.Content[t] = &huma.MediaType{Schema: schema}
 	}
 	return r
-}
-
-// errorResponse is the API error envelope, as typed operations document it.
-func errorResponse(api huma.API) *huma.Response {
-	ref := api.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[httpx.APIError](), true, "")
-	return response("Error", ref, "application/json")
 }
 
 func streamMediaFileOp(apiErr *huma.Response) huma.Operation {

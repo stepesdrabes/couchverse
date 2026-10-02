@@ -3,7 +3,6 @@ package artwork
 import (
 	"context"
 	"net/http"
-	"reflect"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -45,10 +44,8 @@ func serveOp(api huma.API) huma.Operation {
 		"200": {Description: "The image", Content: map[string]*huma.MediaType{
 			"image/jpeg": image, "image/png": image, "image/webp": image,
 		}},
-		"304": {Description: "Not modified since If-Modified-Since"},
-		"default": {Description: "Error", Content: map[string]*huma.MediaType{
-			"application/json": {Schema: api.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[httpx.APIError](), true, "")},
-		}},
+		"304":     {Description: "Not modified since If-Modified-Since"},
+		"default": httpx.ErrorResponse(api),
 	}
 	return op
 }

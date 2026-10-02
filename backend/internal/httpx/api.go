@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -170,4 +171,21 @@ func (t Tag) Created(id, method, path string) huma.Operation {
 	op := t.Op(id, method, path)
 	op.DefaultStatus = http.StatusCreated
 	return op
+}
+
+// Accepted describes an operation that answers 202: the work runs as a queued job.
+func (t Tag) Accepted(id, method, path string) huma.Operation {
+	op := t.Op(id, method, path)
+	op.DefaultStatus = http.StatusAccepted
+	return op
+}
+
+// ErrorResponse documents the error envelope for a raw operation, matching what
+// typed operations get automatically.
+func ErrorResponse(api huma.API) *huma.Response {
+	schema := api.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[APIError](), true, "")
+	return &huma.Response{
+		Description: "Error",
+		Content:     map[string]*huma.MediaType{"application/json": {Schema: schema}},
+	}
 }
