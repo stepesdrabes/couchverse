@@ -140,14 +140,14 @@ func isUniqueViolation(err error) bool {
 }
 
 type TitleInput struct {
-	Kind              string   `json:"kind"`
-	Name              string   `json:"name"`
-	Overview          string   `json:"overview"`
-	Year              *int     `json:"year"`
-	ContentRating     string   `json:"contentRating"`
-	RuntimeMinutes    *int     `json:"runtimeMinutes"`
-	Genres            []string `json:"genres"`
-	MetadataLanguages []string `json:"metadataLanguages"`
+	Kind              string   `json:"kind" enum:"movie,series"`
+	Name              string   `json:"name" minLength:"1"`
+	Overview          string   `json:"overview" required:"false"`
+	Year              *int     `json:"year" required:"false"`
+	ContentRating     string   `json:"contentRating" required:"false"`
+	RuntimeMinutes    *int     `json:"runtimeMinutes" required:"false"`
+	Genres            []string `json:"genres" required:"false"`
+	MetadataLanguages []string `json:"metadataLanguages" required:"false"`
 }
 
 func (s *Store) CreateTitle(ctx context.Context, in TitleInput) (*Title, error) {
@@ -183,18 +183,19 @@ func (s *Store) CreateTitle(ctx context.Context, in TitleInput) (*Title, error) 
 	return t, nil
 }
 
+// TitleUpdate is a partial update: absent fields keep their value.
 type TitleUpdate struct {
-	Name                *string   `json:"name"`
-	SortName            *string   `json:"sortName"`
-	Overview            *string   `json:"overview"`
-	Year                *int      `json:"year"`
-	ContentRating       *string   `json:"contentRating"`
-	RuntimeMinutes      *int      `json:"runtimeMinutes"`
-	Status              *string   `json:"status"`
-	TmdbID              *int      `json:"tmdbId"`
-	Genres              *[]string `json:"genres"`
-	MetadataLanguages   *[]string `json:"metadataLanguages"`
-	AllowRandomPlayback *bool     `json:"allowRandomPlayback"`
+	Name                *string   `json:"name" required:"false"`
+	SortName            *string   `json:"sortName" required:"false"`
+	Overview            *string   `json:"overview" required:"false"`
+	Year                *int      `json:"year" required:"false"`
+	ContentRating       *string   `json:"contentRating" required:"false"`
+	RuntimeMinutes      *int      `json:"runtimeMinutes" required:"false"`
+	Status              *string   `json:"status" required:"false" enum:"draft,processing,published,hidden"`
+	TmdbID              *int      `json:"tmdbId" required:"false"`
+	Genres              *[]string `json:"genres" required:"false"`
+	MetadataLanguages   *[]string `json:"metadataLanguages" required:"false"`
+	AllowRandomPlayback *bool     `json:"allowRandomPlayback" required:"false"`
 }
 
 func (s *Store) UpdateTitle(ctx context.Context, id string, up TitleUpdate) (*Title, error) {

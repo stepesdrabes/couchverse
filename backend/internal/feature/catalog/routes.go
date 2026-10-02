@@ -27,45 +27,37 @@ func NewModule(st *Store, set *settings.Store, art *artwork.Service, jb *jobs.St
 	}
 }
 
-// withLang stores the ?lang= display language on the request context so the
-// catalog stores localize names/overviews. Admin and background-job paths leave
-// it unset, so they always see the base (default-language) text.
-func withLang(h http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		h(w, r.WithContext(httpx.WithLang(r.Context(), httpx.Lang(r))))
-	}
-}
+const tag httpx.Tag = "catalog"
 
 func (m *Module) Register(rt httpx.Routes) {
-	tags := []string{"catalog"}
-	httpx.Raw(rt.User, huma.Operation{OperationID: "listGenres", Method: http.MethodGet, Path: "/genres", Tags: tags}, withLang(m.handlers.Genres))
-	httpx.Raw(rt.User, huma.Operation{OperationID: "getHome", Method: http.MethodGet, Path: "/home", Tags: tags}, withLang(m.handlers.Home))
-	httpx.Raw(rt.User, huma.Operation{OperationID: "browseTitles", Method: http.MethodGet, Path: "/titles", Tags: tags}, withLang(m.handlers.Browse))
-	httpx.Raw(rt.User, huma.Operation{OperationID: "getTitle", Method: http.MethodGet, Path: "/titles/{slug}", Tags: tags}, withLang(m.handlers.Title))
-	httpx.Raw(rt.User, huma.Operation{OperationID: "search", Method: http.MethodGet, Path: "/search", Tags: tags}, withLang(m.handlers.Search))
+	huma.Register(rt.User, httpx.Localized(tag.Op("listGenres", http.MethodGet, "/genres")), m.handlers.Genres)
+	huma.Register(rt.User, httpx.Localized(tag.Op("getHome", http.MethodGet, "/home")), m.handlers.Home)
+	huma.Register(rt.User, httpx.Localized(tag.Op("browseTitles", http.MethodGet, "/titles")), m.handlers.Browse)
+	huma.Register(rt.User, httpx.Localized(tag.Op("getTitle", http.MethodGet, "/titles/{slug}")), m.handlers.Title)
+	huma.Register(rt.User, httpx.Localized(tag.Op("search", http.MethodGet, "/search")), m.handlers.Search)
 
-	httpx.Raw(rt.User, huma.Operation{OperationID: "saveProgress", Method: http.MethodPut, Path: "/progress", Tags: tags}, m.progress.Put)
+	huma.Register(rt.User, tag.NoContent("saveProgress", http.MethodPut, "/progress"), m.progress.Put)
 	// sendBeacon can only POST
-	httpx.Raw(rt.User, huma.Operation{OperationID: "saveProgressBeacon", Method: http.MethodPost, Path: "/progress", Tags: tags}, m.progress.Put)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "listContinueWatching", Method: http.MethodGet, Path: "/me/continue-watching", Tags: tags}, withLang(m.progress.ContinueWatching))
-	httpx.Raw(rt.User, huma.Operation{OperationID: "listWatchlist", Method: http.MethodGet, Path: "/me/watchlist", Tags: tags}, withLang(m.progress.WatchlistGet))
-	httpx.Raw(rt.User, huma.Operation{OperationID: "addToWatchlist", Method: http.MethodPut, Path: "/me/watchlist/{titleId}", Tags: tags}, m.progress.WatchlistPut)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "removeFromWatchlist", Method: http.MethodDelete, Path: "/me/watchlist/{titleId}", Tags: tags}, m.progress.WatchlistDelete)
+	huma.Register(rt.User, tag.NoContent("saveProgressBeacon", http.MethodPost, "/progress"), m.progress.Put)
+	huma.Register(rt.User, httpx.Localized(tag.Op("listContinueWatching", http.MethodGet, "/me/continue-watching")), m.progress.ContinueWatching)
+	huma.Register(rt.User, httpx.Localized(tag.Op("listWatchlist", http.MethodGet, "/me/watchlist")), m.progress.WatchlistGet)
+	huma.Register(rt.User, tag.NoContent("addToWatchlist", http.MethodPut, "/me/watchlist/{titleId}"), m.progress.WatchlistPut)
+	huma.Register(rt.User, tag.NoContent("removeFromWatchlist", http.MethodDelete, "/me/watchlist/{titleId}"), m.progress.WatchlistDelete)
 
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminListLibrary", Method: http.MethodGet, Path: "/library", Tags: tags}, m.admin.Library)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminCreateTitle", Method: http.MethodPost, Path: "/titles", Tags: tags}, m.admin.Create)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminBulkTitles", Method: http.MethodPost, Path: "/titles/bulk", Tags: tags}, m.admin.Bulk)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetTitle", Method: http.MethodGet, Path: "/titles/{id}", Tags: tags}, m.admin.Get)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetTitleStorage", Method: http.MethodGet, Path: "/titles/{id}/storage", Tags: tags}, m.admin.Storage)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUpdateTitle", Method: http.MethodPatch, Path: "/titles/{id}", Tags: tags}, m.admin.Update)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminSetTitleTranslation", Method: http.MethodPatch, Path: "/titles/{id}/translations/{lang}", Tags: tags}, m.admin.SetTranslation)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminDeleteTitleLanguage", Method: http.MethodDelete, Path: "/titles/{id}/languages/{lang}", Tags: tags}, m.admin.DeleteLanguage)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminDeleteTitle", Method: http.MethodDelete, Path: "/titles/{id}", Tags: tags}, m.admin.Delete)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminCreateSeason", Method: http.MethodPost, Path: "/titles/{id}/seasons", Tags: tags}, m.admin.CreateSeason)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminDeleteSeason", Method: http.MethodDelete, Path: "/seasons/{id}", Tags: tags}, m.admin.DeleteSeason)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminCreateEpisode", Method: http.MethodPost, Path: "/seasons/{id}/episodes", Tags: tags}, m.admin.CreateEpisode)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUpdateEpisode", Method: http.MethodPatch, Path: "/episodes/{id}", Tags: tags}, m.admin.UpdateEpisode)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetEpisodeTranslations", Method: http.MethodGet, Path: "/episodes/{id}/translations", Tags: tags}, m.admin.EpisodeTranslations)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminSetEpisodeTranslation", Method: http.MethodPatch, Path: "/episodes/{id}/translations/{lang}", Tags: tags}, m.admin.SetEpisodeTranslation)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminDeleteEpisode", Method: http.MethodDelete, Path: "/episodes/{id}", Tags: tags}, m.admin.DeleteEpisode)
+	huma.Register(rt.Admin, tag.Op("adminListLibrary", http.MethodGet, "/library"), m.admin.Library)
+	huma.Register(rt.Admin, tag.Op("adminCreateTitle", http.MethodPost, "/titles"), m.admin.Create)
+	huma.Register(rt.Admin, tag.NoContent("adminBulkTitles", http.MethodPost, "/titles/bulk"), m.admin.Bulk)
+	huma.Register(rt.Admin, tag.Op("adminGetTitle", http.MethodGet, "/titles/{id}"), m.admin.Get)
+	huma.Register(rt.Admin, tag.Op("adminGetTitleStorage", http.MethodGet, "/titles/{id}/storage"), m.admin.Storage)
+	huma.Register(rt.Admin, tag.Op("adminUpdateTitle", http.MethodPatch, "/titles/{id}"), m.admin.Update)
+	huma.Register(rt.Admin, tag.NoContent("adminSetTitleTranslation", http.MethodPatch, "/titles/{id}/translations/{lang}"), m.admin.SetTranslation)
+	huma.Register(rt.Admin, tag.NoContent("adminDeleteTitleLanguage", http.MethodDelete, "/titles/{id}/languages/{lang}"), m.admin.DeleteLanguage)
+	huma.Register(rt.Admin, tag.NoContent("adminDeleteTitle", http.MethodDelete, "/titles/{id}"), m.admin.Delete)
+	huma.Register(rt.Admin, tag.Op("adminCreateSeason", http.MethodPost, "/titles/{id}/seasons"), m.admin.CreateSeason)
+	huma.Register(rt.Admin, tag.NoContent("adminDeleteSeason", http.MethodDelete, "/seasons/{id}"), m.admin.DeleteSeason)
+	huma.Register(rt.Admin, tag.Op("adminCreateEpisode", http.MethodPost, "/seasons/{id}/episodes"), m.admin.CreateEpisode)
+	huma.Register(rt.Admin, tag.Op("adminUpdateEpisode", http.MethodPatch, "/episodes/{id}"), m.admin.UpdateEpisode)
+	huma.Register(rt.Admin, tag.Op("adminGetEpisodeTranslations", http.MethodGet, "/episodes/{id}/translations"), m.admin.EpisodeTranslations)
+	huma.Register(rt.Admin, tag.NoContent("adminSetEpisodeTranslation", http.MethodPatch, "/episodes/{id}/translations/{lang}"), m.admin.SetEpisodeTranslation)
+	huma.Register(rt.Admin, tag.NoContent("adminDeleteEpisode", http.MethodDelete, "/episodes/{id}"), m.admin.DeleteEpisode)
 }

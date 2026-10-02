@@ -75,10 +75,12 @@ export interface ContinueItem extends CardItem {
 	updatedAt: string;
 }
 
+/** one home shelf: continue-watching rows fill continueWatching, the rest fill items */
 export interface HomeRow {
 	kind: 'continue_watching' | 'recently_added' | 'genre';
 	label: string;
-	items: CardItem[] | ContinueItem[];
+	items: CardItem[];
+	continueWatching: ContinueItem[];
 }
 
 export interface FeaturedItem extends Title {

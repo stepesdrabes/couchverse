@@ -1,8 +1,8 @@
 package catalog
 
 import (
+	"context"
 	"log/slog"
-	"net/http"
 
 	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/auth"
@@ -22,82 +22,67 @@ func NewProgress(st *Store, an *analytics.Store) *Progress {
 	return &Progress{store: st, analytics: an}
 }
 
-func (h *Progress) Put(w http.ResponseWriter, r *http.Request) {
-	user := auth.UserFrom(r.Context())
-	var req struct {
-		TitleID         *string `json:"titleId"`
-		EpisodeID       *string `json:"episodeId"`
-		PositionSeconds int     `json:"positionSeconds"`
-		DurationSeconds int     `json:"durationSeconds"`
-		WatchedSeconds  int     `json:"watchedSeconds"`
-	}
-	if err := httpx.Decode(r, &req); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
+// ProgressReport is the player's periodic beacon for one title or episode.
+type ProgressReport struct {
+	TitleID         *string `json:"titleId,omitempty" format:"uuid" doc:"Set for a movie; exactly one of titleId and episodeId."`
+	EpisodeID       *string `json:"episodeId,omitempty" format:"uuid" doc:"Set for an episode; exactly one of titleId and episodeId."`
+	PositionSeconds int     `json:"positionSeconds" minimum:"0"`
+	DurationSeconds int     `json:"durationSeconds" minimum:"0"`
+	WatchedSeconds  int     `json:"watchedSeconds,omitempty" minimum:"0" doc:"Seconds actually played since the previous report (feeds analytics)."`
+}
+
+type progressInput struct {
+	Body ProgressReport
+}
+
+func (h *Progress) Put(ctx context.Context, in *progressInput) (*struct{}, error) {
+	user := auth.UserFrom(ctx)
+	req := in.Body
 	if (req.TitleID == nil) == (req.EpisodeID == nil) {
-		httpx.BadRequest(w, "exactly one of titleId or episodeId is required")
-		return
+		return nil, httpx.BadRequestError("exactly one of titleId or episodeId is required")
 	}
-	if err := h.store.UpsertProgress(r.Context(), user.ID, req.TitleID, req.EpisodeID,
+	if err := h.store.UpsertProgress(ctx, user.ID, req.TitleID, req.EpisodeID,
 		req.PositionSeconds, req.DurationSeconds); err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
 	if req.WatchedSeconds > 0 {
 		// best effort - analytics must never fail the beacon
-		if err := h.analytics.RecordWatch(r.Context(), user.ID, req.TitleID, req.EpisodeID,
+		if err := h.analytics.RecordWatch(ctx, user.ID, req.TitleID, req.EpisodeID,
 			min(req.WatchedSeconds, maxWatchedDelta)); err != nil {
 			slog.Warn("record watch time", "err", err)
 		}
 	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+	return nil, nil
 }
 
-func (h *Progress) ContinueWatching(w http.ResponseWriter, r *http.Request) {
-	user := auth.UserFrom(r.Context())
-	items, err := h.store.ContinueWatching(r.Context(), user.ID, 20)
+type continueOutput struct{ Body []ContinueItem }
+
+func (h *Progress) ContinueWatching(ctx context.Context, _ *struct{}) (*continueOutput, error) {
+	items, err := h.store.ContinueWatching(ctx, auth.UserFrom(ctx).ID, 20)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, items)
+	return &continueOutput{Body: items}, nil
 }
 
-func (h *Progress) WatchlistGet(w http.ResponseWriter, r *http.Request) {
-	user := auth.UserFrom(r.Context())
-	items, err := h.store.Watchlist(r.Context(), user.ID)
+type cardsOutput struct{ Body []CardItem }
+
+func (h *Progress) WatchlistGet(ctx context.Context, _ *struct{}) (*cardsOutput, error) {
+	items, err := h.store.Watchlist(ctx, auth.UserFrom(ctx).ID)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, items)
+	return &cardsOutput{Body: items}, nil
 }
 
-func (h *Progress) WatchlistPut(w http.ResponseWriter, r *http.Request) {
-	user := auth.UserFrom(r.Context())
-	titleID := httpx.UUID(r, "titleId")
-	if titleID == "" {
-		httpx.NotFound(w)
-		return
-	}
-	if err := h.store.WatchlistAdd(r.Context(), user.ID, titleID); err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+type watchlistInput struct {
+	TitleID string `path:"titleId" format:"uuid"`
 }
 
-func (h *Progress) WatchlistDelete(w http.ResponseWriter, r *http.Request) {
-	user := auth.UserFrom(r.Context())
-	titleID := httpx.UUID(r, "titleId")
-	if titleID == "" {
-		httpx.NotFound(w)
-		return
-	}
-	if err := h.store.WatchlistRemove(r.Context(), user.ID, titleID); err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+func (h *Progress) WatchlistPut(ctx context.Context, in *watchlistInput) (*struct{}, error) {
+	return nil, h.store.WatchlistAdd(ctx, auth.UserFrom(ctx).ID, in.TitleID)
+}
+
+func (h *Progress) WatchlistDelete(ctx context.Context, in *watchlistInput) (*struct{}, error) {
+	return nil, h.store.WatchlistRemove(ctx, auth.UserFrom(ctx).ID, in.TitleID)
 }

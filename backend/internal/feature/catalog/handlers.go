@@ -3,13 +3,11 @@ package catalog
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-
-	"github.com/go-chi/chi/v5"
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/httpx"
+	"couchverse/internal/media"
 	"couchverse/internal/settings"
 )
 
@@ -33,22 +31,36 @@ type FeaturedItem struct {
 	InList         bool    `json:"inList"`
 }
 
-func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
-	user := auth.UserFrom(r.Context())
+// HomeRow is one admin-configured shelf. Continue-watching rows fill
+// ContinueWatching; every other kind fills Items.
+type HomeRow struct {
+	Kind             string         `json:"kind" enum:"continue_watching,recently_added,genre"`
+	Label            string         `json:"label"`
+	Items            []CardItem     `json:"items"`
+	ContinueWatching []ContinueItem `json:"continueWatching"`
+}
 
-	titles, err := h.store.FeaturedTitles(r.Context(), featuredCount(r.Context(), h.settings))
+type Home struct {
+	Featured []FeaturedItem `json:"featured"`
+	Rows     []HomeRow      `json:"rows"`
+}
+
+type homeOutput struct{ Body Home }
+
+func (h *Handlers) Home(ctx context.Context, _ *struct{}) (*homeOutput, error) {
+	user := auth.UserFrom(ctx)
+
+	titles, err := h.store.FeaturedTitles(ctx, featuredCount(ctx, h.settings))
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
 
 	featured := []FeaturedItem{}
 	for i := range titles {
 		item := FeaturedItem{Title: &titles[i]}
-		art, aerr := h.artwork.ArtworkFor(r.Context(), "title", titles[i].ID)
-		if aerr != nil {
-			httpx.Internal(w, aerr)
-			return
+		art, err := h.artwork.ArtworkFor(ctx, "title", titles[i].ID)
+		if err != nil {
+			return nil, err
 		}
 		for _, a := range art {
 			if a.Kind == "backdrop" {
@@ -58,46 +70,40 @@ func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 				item.BackdropAccent = a.Accent
 			}
 		}
-		if item.InList, err = h.store.WatchlistHas(r.Context(), user.ID, titles[i].ID); err != nil {
-			httpx.Internal(w, err)
-			return
+		if item.InList, err = h.store.WatchlistHas(ctx, user.ID, titles[i].ID); err != nil {
+			return nil, err
 		}
 		featured = append(featured, item)
 	}
 
-	configs, err := h.store.HomeRowConfigs(r.Context())
+	configs, err := h.store.HomeRowConfigs(ctx)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
 
 	rows := []HomeRow{}
 	for _, cfg := range configs {
-		var items any
+		row := HomeRow{Kind: cfg.Kind, Label: cfg.Label, Items: []CardItem{}, ContinueWatching: []ContinueItem{}}
 		switch cfg.Kind {
 		case "continue_watching":
-			items, err = h.store.ContinueWatching(r.Context(), user.ID, 20)
+			row.ContinueWatching, err = h.store.ContinueWatching(ctx, user.ID, 20)
 		case "recently_added":
-			items, err = h.store.RecentlyAdded(r.Context(), 20)
+			row.Items, err = h.store.RecentlyAdded(ctx, 20)
 		case "genre":
 			if cfg.GenreID == nil {
 				continue
 			}
-			items, err = h.store.TitlesByGenre(r.Context(), *cfg.GenreID, 20)
+			row.Items, err = h.store.TitlesByGenre(ctx, *cfg.GenreID, 20)
 		default:
 			continue
 		}
 		if err != nil {
-			httpx.Internal(w, err)
-			return
+			return nil, err
 		}
-		rows = append(rows, HomeRow{Kind: cfg.Kind, Label: cfg.Label, Items: items})
+		rows = append(rows, row)
 	}
 
-	httpx.JSON(w, http.StatusOK, map[string]any{
-		"featured": featured,
-		"rows":     rows,
-	})
+	return &homeOutput{Body: Home{Featured: featured, Rows: rows}}, nil
 }
 
 // featuredCount is how many titles the home hero cycles through (default 3).
@@ -119,102 +125,113 @@ func featuredCount(ctx context.Context, set *settings.Store) int {
 	return h.FeaturedCount
 }
 
-func (h *Handlers) Browse(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	items, total, err := h.store.BrowseTitles(r.Context(), BrowseFilter{
-		Kind:  q.Get("kind"),
-		Genre: q.Get("genre"),
-		Query: q.Get("q"),
-		Sort:  q.Get("sort"),
-		Page:  httpx.QueryInt(r, "page", 1),
+type browseInput struct {
+	Kind  string `query:"kind" enum:"movie,series" doc:"Only movies or only series; all when omitted."`
+	Genre string `query:"genre" doc:"English genre name (the genre's stable identity)."`
+	Query string `query:"q" doc:"Case-insensitive name filter."`
+	Sort  string `query:"sort" enum:"added,name,year" doc:"Ordering; newest first when omitted."`
+	Page  int    `query:"page" minimum:"1" default:"1"`
+}
+
+type BrowsePage struct {
+	Items []CardItem `json:"items"`
+	Total int        `json:"total"`
+}
+
+type browseOutput struct{ Body BrowsePage }
+
+func (h *Handlers) Browse(ctx context.Context, in *browseInput) (*browseOutput, error) {
+	items, total, err := h.store.BrowseTitles(ctx, BrowseFilter{
+		Kind:  in.Kind,
+		Genre: in.Genre,
+		Query: in.Query,
+		Sort:  in.Sort,
+		Page:  in.Page,
 	})
 	if err != nil {
-		httpx.BadRequest(w, err.Error())
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
+	return &browseOutput{Body: BrowsePage{Items: items, Total: total}}, nil
 }
 
-func (h *Handlers) Title(w http.ResponseWriter, r *http.Request) {
-	user := auth.UserFrom(r.Context())
-	slug := chi.URLParam(r, "slug")
-	if slug == "" {
-		httpx.NotFound(w)
-		return
-	}
-	t, err := h.store.TitleBySlug(r.Context(), slug)
+// TitleDetail is a published title as the title page shows it. Seasons and
+// EpisodeProgress are empty for movies; Progress is set for movies only.
+type TitleDetail struct {
+	Title       *Title            `json:"title"`
+	InWatchlist bool              `json:"inWatchlist"`
+	MediaFiles  []media.MediaFile `json:"mediaFiles"`
+	Artwork     []artwork.Artwork `json:"artwork"`
+	Seasons     []Season          `json:"seasons"`
+	// EpisodeProgress is keyed by episode id.
+	EpisodeProgress map[string]EpisodeProgress `json:"episodeProgress"`
+	Progress        *EpisodeProgress           `json:"progress,omitempty"`
+}
+
+type titleInput struct {
+	Slug string `path:"slug"`
+}
+
+type titleDetailOutput struct{ Body TitleDetail }
+
+func (h *Handlers) Title(ctx context.Context, in *titleInput) (*titleDetailOutput, error) {
+	user := auth.UserFrom(ctx)
+	t, err := h.store.TitleBySlug(ctx, in.Slug)
 	if err != nil {
-		httpx.StoreErr(w, err)
-		return
+		return nil, err
 	}
 	if t.Status != "published" {
-		httpx.NotFound(w)
-		return
+		return nil, httpx.NotFoundError()
 	}
 
-	out := map[string]any{"title": t}
-
-	watchlisted, err := h.store.WatchlistHas(r.Context(), user.ID, t.ID)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
+	out := TitleDetail{Title: t, Seasons: []Season{}, EpisodeProgress: map[string]EpisodeProgress{}}
+	if out.InWatchlist, err = h.store.WatchlistHas(ctx, user.ID, t.ID); err != nil {
+		return nil, err
 	}
-	out["inWatchlist"] = watchlisted
-
-	files, err := h.store.MediaFilesForTitle(r.Context(), t.ID)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
+	if out.MediaFiles, err = h.store.MediaFilesForTitle(ctx, t.ID); err != nil {
+		return nil, err
 	}
-	out["mediaFiles"] = files
-
-	artwork, err := h.artwork.ArtworkFor(r.Context(), "title", t.ID)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
+	if out.Artwork, err = h.artwork.ArtworkFor(ctx, "title", t.ID); err != nil {
+		return nil, err
 	}
-	out["artwork"] = artwork
 
 	if t.Kind == "series" {
-		seasons, err := h.store.SeasonsWithEpisodes(r.Context(), t.ID)
-		if err != nil {
-			httpx.Internal(w, err)
-			return
+		if out.Seasons, err = h.store.SeasonsWithEpisodes(ctx, t.ID); err != nil {
+			return nil, err
 		}
-		out["seasons"] = seasons
-
-		progress, err := h.store.EpisodeProgressForTitle(r.Context(), user.ID, t.ID)
-		if err != nil {
-			httpx.Internal(w, err)
-			return
+		if out.EpisodeProgress, err = h.store.EpisodeProgressForTitle(ctx, user.ID, t.ID); err != nil {
+			return nil, err
 		}
-		out["episodeProgress"] = progress
 	} else {
-		position, duration, err := h.store.ProgressFor(r.Context(), user.ID, &t.ID, nil)
+		position, duration, err := h.store.ProgressFor(ctx, user.ID, &t.ID, nil)
 		if err != nil {
-			httpx.Internal(w, err)
-			return
+			return nil, err
 		}
-		out["progress"] = EpisodeProgress{Position: position, Duration: duration}
+		out.Progress = &EpisodeProgress{Position: position, Duration: duration}
 	}
 
-	httpx.JSON(w, http.StatusOK, out)
+	return &titleDetailOutput{Body: out}, nil
 }
 
-func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
-	res, err := h.store.Search(r.Context(), r.URL.Query().Get("q"), 12)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusOK, res)
+type searchInput struct {
+	Query string `query:"q"`
 }
 
-func (h *Handlers) Genres(w http.ResponseWriter, r *http.Request) {
-	genres, err := h.store.ListGenres(r.Context())
+type searchOutput struct{ Body *SearchResults }
+
+func (h *Handlers) Search(ctx context.Context, in *searchInput) (*searchOutput, error) {
+	res, err := h.store.Search(ctx, in.Query, 12)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, genres)
+	return &searchOutput{Body: res}, nil
+}
+
+type genresOutput struct{ Body []Genre }
+
+func (h *Handlers) Genres(ctx context.Context, _ *struct{}) (*genresOutput, error) {
+	genres, err := h.store.ListGenres(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &genresOutput{Body: genres}, nil
 }

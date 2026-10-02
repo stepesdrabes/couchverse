@@ -35,12 +35,6 @@ type ContinueItem struct {
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
-type HomeRow struct {
-	Kind  string `json:"kind"`
-	Label string `json:"label"`
-	Items any    `json:"items"`
-}
-
 // Each card carries its poster/backdrop id plus a version token (artwork
 // updated time, unix seconds - an immutable cache-busting key; 0 when absent)
 // and the server-extracted accent colour. The lateral joins fetch all three in

@@ -1,15 +1,15 @@
 package catalog
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
+	"couchverse/internal/media"
 )
 
 type AdminHandlers struct {
@@ -22,163 +22,166 @@ func NewAdminHandlers(st *Store, jb *jobs.Store, art *artwork.Service) *AdminHan
 	return &AdminHandlers{store: st, jobs: jb, artwork: art}
 }
 
-func (h *AdminHandlers) Library(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
+// Translation is one language's hand-edited or TMDB-fetched text.
+type Translation struct {
+	Name     string `json:"name"`
+	Overview string `json:"overview"`
+}
+
+// decodeTranslations reads a translations jsonb column (language code ->
+// Translation) for the editors.
+func decodeTranslations(raw json.RawMessage) (map[string]Translation, error) {
+	out := map[string]Translation{}
+	if len(raw) == 0 {
+		return out, nil
+	}
+	return out, json.Unmarshal(raw, &out)
+}
+
+type idInput struct {
+	ID string `path:"id" format:"uuid"`
+}
+
+type idLangInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Lang string `path:"lang" minLength:"2" maxLength:"5"`
+}
+
+type libraryInput struct {
+	Kind     string `query:"type" enum:"movie,series"`
+	Status   string `query:"status" enum:"draft,processing,published,hidden"`
+	Query    string `query:"q"`
+	Sort     string `query:"sort" enum:"added,name,year,size"`
+	Page     int    `query:"page" minimum:"1" default:"1"`
+	PageSize int    `query:"pageSize" minimum:"1" maximum:"200" default:"50"`
+}
+
+type LibraryPage struct {
+	Items []LibraryRow `json:"items"`
+	Total int          `json:"total"`
+	Page  int          `json:"page"`
+}
+
+type libraryOutput struct{ Body LibraryPage }
+
+func (h *AdminHandlers) Library(ctx context.Context, in *libraryInput) (*libraryOutput, error) {
 	f := LibraryFilter{
-		Kind:     q.Get("type"),
-		Status:   q.Get("status"),
-		Query:    q.Get("q"),
-		Sort:     q.Get("sort"),
-		Page:     httpx.QueryInt(r, "page", 1),
-		PageSize: httpx.QueryInt(r, "pageSize", 50),
+		Kind:     in.Kind,
+		Status:   in.Status,
+		Query:    in.Query,
+		Sort:     in.Sort,
+		Page:     in.Page,
+		PageSize: in.PageSize,
 	}
-	items, total, err := h.store.ListLibrary(r.Context(), f)
+	items, total, err := h.store.ListLibrary(ctx, f)
 	if err != nil {
-		httpx.BadRequest(w, err.Error())
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{
-		"items": items,
-		"total": total,
-		"page":  f.Page,
-	})
+	return &libraryOutput{Body: LibraryPage{Items: items, Total: total, Page: f.Page}}, nil
 }
 
-func (h *AdminHandlers) Create(w http.ResponseWriter, r *http.Request) {
-	var in TitleInput
-	if err := httpx.Decode(r, &in); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	if in.Name == "" || (in.Kind != "movie" && in.Kind != "series") {
-		httpx.BadRequest(w, "name and kind (movie|series) are required")
-		return
-	}
-	t, err := h.store.CreateTitle(r.Context(), in)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusCreated, t)
+type createTitleInput struct{ Body TitleInput }
+
+type titleCreatedOutput struct {
+	Status int
+	Body   *Title
 }
 
-func (h *AdminHandlers) Get(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	t, err := h.store.TitleByID(r.Context(), id)
+func (h *AdminHandlers) Create(ctx context.Context, in *createTitleInput) (*titleCreatedOutput, error) {
+	t, err := h.store.CreateTitle(ctx, in.Body)
 	if err != nil {
-		httpx.StoreErr(w, err)
-		return
+		return nil, err
 	}
-	out := map[string]any{"title": t}
-	if len(t.Translations) > 0 {
-		out["translations"] = t.Translations // raw per-language jsonb for the editor
+	return &titleCreatedOutput{Status: http.StatusCreated, Body: t}, nil
+}
+
+// AdminTitle is everything the title editor needs in one read. Translations
+// are keyed by language code; Seasons is empty for movies. SubtitlesByFile is keyed by
+// media file id.
+type AdminTitle struct {
+	Title           *Title                      `json:"title"`
+	Translations    map[string]Translation      `json:"translations"`
+	Seasons         []Season                    `json:"seasons"`
+	MediaFiles      []media.MediaFile           `json:"mediaFiles"`
+	SubtitlesByFile map[string][]media.Subtitle `json:"subtitlesByFile"`
+	Artwork         []artwork.Artwork           `json:"artwork"`
+}
+
+type adminTitleOutput struct{ Body AdminTitle }
+
+func (h *AdminHandlers) Get(ctx context.Context, in *idInput) (*adminTitleOutput, error) {
+	t, err := h.store.TitleByID(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	out := AdminTitle{Title: t, Seasons: []Season{}}
+	if out.Translations, err = decodeTranslations(t.Translations); err != nil {
+		return nil, err
 	}
 	if t.Kind == "series" {
-		seasons, err := h.store.SeasonsWithEpisodes(r.Context(), t.ID)
-		if err != nil {
-			httpx.Internal(w, err)
-			return
+		if out.Seasons, err = h.store.SeasonsWithEpisodes(ctx, t.ID); err != nil {
+			return nil, err
 		}
-		out["seasons"] = seasons
 	}
-	files, err := h.store.MediaFilesForTitle(r.Context(), t.ID)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
+	if out.MediaFiles, err = h.store.MediaFilesForTitle(ctx, t.ID); err != nil {
+		return nil, err
 	}
-	out["mediaFiles"] = files
 
-	fileIDs := make([]string, len(files))
-	for i, f := range files {
+	fileIDs := make([]string, len(out.MediaFiles))
+	for i, f := range out.MediaFiles {
 		fileIDs[i] = f.ID
 	}
-	subsByFile, err := h.store.SubtitlesForMediaFiles(r.Context(), fileIDs)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
+	if out.SubtitlesByFile, err = h.store.SubtitlesForMediaFiles(ctx, fileIDs); err != nil {
+		return nil, err
 	}
-	out["subtitlesByFile"] = subsByFile
-
-	art, err := h.artwork.Store.ArtworkFor(r.Context(), "title", t.ID)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
+	if out.Artwork, err = h.artwork.Store.ArtworkFor(ctx, "title", t.ID); err != nil {
+		return nil, err
 	}
-	out["artwork"] = art
-	httpx.JSON(w, http.StatusOK, out)
+	return &adminTitleOutput{Body: out}, nil
 }
 
-func (h *AdminHandlers) Update(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	var up TitleUpdate
-	if err := httpx.Decode(r, &up); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	if up.Status != nil && !validStatus(*up.Status) {
-		httpx.BadRequest(w, "invalid status")
-		return
-	}
-	t, err := h.store.UpdateTitle(r.Context(), id, up)
+type updateTitleInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body TitleUpdate
+}
+
+type titleOutput struct{ Body *Title }
+
+func (h *AdminHandlers) Update(ctx context.Context, in *updateTitleInput) (*titleOutput, error) {
+	t, err := h.store.UpdateTitle(ctx, in.ID, in.Body)
 	if err != nil {
-		httpx.StoreErr(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, t)
+	return &titleOutput{Body: t}, nil
+}
+
+type setTranslationInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Lang string `path:"lang" minLength:"2" maxLength:"5"`
+	Body Translation
 }
 
 // SetTranslation saves a manually-edited name/overview for one language, so
 // admins can localize titles that were not fetched from TMDB.
-func (h *AdminHandlers) SetTranslation(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	lang := chi.URLParam(r, "lang")
-	if id == "" || len(lang) < 2 || len(lang) > 5 {
-		httpx.NotFound(w)
-		return
-	}
-	var req struct {
-		Name     string `json:"name"`
-		Overview string `json:"overview"`
-	}
-	if err := httpx.Decode(r, &req); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	if err := h.store.SetTitleTranslationText(r.Context(), id, lang, req.Name, req.Overview); err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+func (h *AdminHandlers) SetTranslation(ctx context.Context, in *setTranslationInput) (*struct{}, error) {
+	return nil, h.store.SetTitleTranslationText(ctx, in.ID, in.Lang, in.Body.Name, in.Body.Overview)
 }
+
+type storageOutput struct{ Body *TitleStorageBreakdown }
 
 // Storage returns a per-title disk-usage breakdown for the editor chart: one
 // entry per episode (series) or per media file (movie), split into source and
 // transcoded bytes, plus totals.
-func (h *AdminHandlers) Storage(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	t, err := h.store.TitleByID(r.Context(), id)
+func (h *AdminHandlers) Storage(ctx context.Context, in *idInput) (*storageOutput, error) {
+	t, err := h.store.TitleByID(ctx, in.ID)
 	if err != nil {
-		httpx.StoreErr(w, err)
-		return
+		return nil, err
 	}
-	breakdown, err := h.store.TitleStorage(r.Context(), id, t.Kind)
+	breakdown, err := h.store.TitleStorage(ctx, in.ID, t.Kind)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, breakdown)
+	return &storageOutput{Body: breakdown}, nil
 }
 
 // DeleteLanguage removes one content language from a title: its translations
@@ -186,221 +189,144 @@ func (h *AdminHandlers) Storage(w http.ResponseWriter, r *http.Request) {
 // next language to base when the removed one was the base). The matching audio
 // files and subtitles are deleted by the client through their own endpoints;
 // this owns only the catalog (title/season/episode) side.
-func (h *AdminHandlers) DeleteLanguage(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	lang := chi.URLParam(r, "lang")
-	if id == "" || len(lang) < 2 || len(lang) > 5 {
-		httpx.NotFound(w)
-		return
-	}
-	if err := h.store.RemoveContentLanguage(r.Context(), id, lang); err != nil {
+func (h *AdminHandlers) DeleteLanguage(ctx context.Context, in *idLangInput) (*struct{}, error) {
+	if err := h.store.RemoveContentLanguage(ctx, in.ID, in.Lang); err != nil {
 		if errors.Is(err, ErrLastLanguage) {
-			httpx.BadRequest(w, err.Error())
-			return
+			return nil, httpx.BadRequestError(err.Error())
 		}
-		httpx.StoreErr(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+	return nil, nil
 }
 
-func (h *AdminHandlers) Delete(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
+func (h *AdminHandlers) Delete(ctx context.Context, in *idInput) (*struct{}, error) {
+	if err := h.store.DeleteTitle(ctx, in.ID); err != nil {
+		return nil, err
 	}
-	if err := h.store.DeleteTitle(r.Context(), id); err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	if err := h.artwork.DeleteForOwner(r.Context(), "title", id); err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+	return nil, h.artwork.DeleteForOwner(ctx, "title", in.ID)
 }
 
-func (h *AdminHandlers) Bulk(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		IDs    []string `json:"ids"`
-		Action string   `json:"action"`
+type bulkInput struct {
+	Body struct {
+		IDs    []string `json:"ids" minItems:"1"`
+		Action string   `json:"action" enum:"publish,hide,draft,delete,rescan"`
 	}
-	if err := httpx.Decode(r, &req); err != nil || len(req.IDs) == 0 {
-		httpx.BadRequest(w, "ids and action are required")
-		return
-	}
+}
 
-	var err error
-	switch req.Action {
+func (h *AdminHandlers) Bulk(ctx context.Context, in *bulkInput) (*struct{}, error) {
+	ids := in.Body.IDs
+	switch in.Body.Action {
 	case "publish":
-		err = h.store.SetTitlesStatus(r.Context(), req.IDs, "published")
+		return nil, h.store.SetTitlesStatus(ctx, ids, "published")
 	case "hide":
-		err = h.store.SetTitlesStatus(r.Context(), req.IDs, "hidden")
+		return nil, h.store.SetTitlesStatus(ctx, ids, "hidden")
 	case "draft":
-		err = h.store.SetTitlesStatus(r.Context(), req.IDs, "draft")
+		return nil, h.store.SetTitlesStatus(ctx, ids, "draft")
 	case "delete":
-		err = h.store.DeleteTitles(r.Context(), req.IDs)
-		if err == nil {
-			for _, id := range req.IDs {
-				if err = h.artwork.DeleteForOwner(r.Context(), "title", id); err != nil {
-					break
-				}
+		if err := h.store.DeleteTitles(ctx, ids); err != nil {
+			return nil, err
+		}
+		for _, id := range ids {
+			if err := h.artwork.DeleteForOwner(ctx, "title", id); err != nil {
+				return nil, err
 			}
 		}
 	case "rescan":
-		var fileIDs []string
-		fileIDs, err = h.store.MediaFileIDsForTitles(r.Context(), req.IDs)
-		if err == nil {
-			for _, id := range fileIDs {
-				if _, err = h.jobs.EnqueueJobOnce(r.Context(), "probe",
-					map[string]string{"mediaFileId": id}, jobs.EnqueueOpts{}); err != nil {
-					break
-				}
+		fileIDs, err := h.store.MediaFileIDsForTitles(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range fileIDs {
+			if _, err := h.jobs.EnqueueJobOnce(ctx, "probe",
+				map[string]string{"mediaFileId": id}, jobs.EnqueueOpts{}); err != nil {
+				return nil, err
 			}
 		}
-	default:
-		httpx.BadRequest(w, "unknown action")
-		return
 	}
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+	return nil, nil
 }
 
-func (h *AdminHandlers) CreateSeason(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		SeasonNumber int    `json:"seasonNumber"`
-		Name         string `json:"name"`
+type createSeasonInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body struct {
+		SeasonNumber int    `json:"seasonNumber" minimum:"0"`
+		Name         string `json:"name" required:"false"`
 	}
-	if err := httpx.Decode(r, &req); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	se, err := h.store.CreateSeason(r.Context(), id, req.SeasonNumber, req.Name)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusCreated, se)
 }
 
-func (h *AdminHandlers) DeleteSeason(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	if err := h.store.DeleteSeason(r.Context(), id); err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+type seasonCreatedOutput struct {
+	Status int
+	Body   *Season
 }
 
-func (h *AdminHandlers) CreateEpisode(w http.ResponseWriter, r *http.Request) {
-	var in EpisodeInput
-	if err := httpx.Decode(r, &in); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	e, err := h.store.CreateEpisode(r.Context(), id, in)
+func (h *AdminHandlers) CreateSeason(ctx context.Context, in *createSeasonInput) (*seasonCreatedOutput, error) {
+	se, err := h.store.CreateSeason(ctx, in.ID, in.Body.SeasonNumber, in.Body.Name)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusCreated, e)
+	return &seasonCreatedOutput{Status: http.StatusCreated, Body: se}, nil
 }
 
-func (h *AdminHandlers) UpdateEpisode(w http.ResponseWriter, r *http.Request) {
-	var up EpisodeUpdate
-	if err := httpx.Decode(r, &up); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	e, err := h.store.UpdateEpisode(r.Context(), id, up)
-	if err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusOK, e)
+func (h *AdminHandlers) DeleteSeason(ctx context.Context, in *idInput) (*struct{}, error) {
+	return nil, h.store.DeleteSeason(ctx, in.ID)
 }
 
-// EpisodeTranslations returns an episode's raw translations for the editor.
-func (h *AdminHandlers) EpisodeTranslations(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	tr, err := h.store.EpisodeTranslations(r.Context(), id)
+type createEpisodeInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body EpisodeInput
+}
+
+type episodeCreatedOutput struct {
+	Status int
+	Body   *Episode
+}
+
+func (h *AdminHandlers) CreateEpisode(ctx context.Context, in *createEpisodeInput) (*episodeCreatedOutput, error) {
+	e, err := h.store.CreateEpisode(ctx, in.ID, in.Body)
 	if err != nil {
-		httpx.StoreErr(w, err)
-		return
+		return nil, err
 	}
-	if len(tr) == 0 {
-		tr = json.RawMessage("{}")
+	return &episodeCreatedOutput{Status: http.StatusCreated, Body: e}, nil
+}
+
+type updateEpisodeInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body EpisodeUpdate
+}
+
+type episodeOutput struct{ Body *Episode }
+
+func (h *AdminHandlers) UpdateEpisode(ctx context.Context, in *updateEpisodeInput) (*episodeOutput, error) {
+	e, err := h.store.UpdateEpisode(ctx, in.ID, in.Body)
+	if err != nil {
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, tr)
+	return &episodeOutput{Body: e}, nil
+}
+
+type translationsOutput struct {
+	// Body is keyed by language code.
+	Body map[string]Translation
+}
+
+// EpisodeTranslations returns an episode's translations for the editor.
+func (h *AdminHandlers) EpisodeTranslations(ctx context.Context, in *idInput) (*translationsOutput, error) {
+	raw, err := h.store.EpisodeTranslations(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	tr, err := decodeTranslations(raw)
+	if err != nil {
+		return nil, err
+	}
+	return &translationsOutput{Body: tr}, nil
 }
 
 // SetEpisodeTranslation saves a manually-edited name/overview for one language.
-func (h *AdminHandlers) SetEpisodeTranslation(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	lang := chi.URLParam(r, "lang")
-	if id == "" || len(lang) < 2 || len(lang) > 5 {
-		httpx.NotFound(w)
-		return
-	}
-	var req struct {
-		Name     string `json:"name"`
-		Overview string `json:"overview"`
-	}
-	if err := httpx.Decode(r, &req); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	if err := h.store.SetEpisodeTranslation(r.Context(), id, lang, req.Name, req.Overview); err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+func (h *AdminHandlers) SetEpisodeTranslation(ctx context.Context, in *setTranslationInput) (*struct{}, error) {
+	return nil, h.store.SetEpisodeTranslation(ctx, in.ID, in.Lang, in.Body.Name, in.Body.Overview)
 }
 
-func (h *AdminHandlers) DeleteEpisode(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	if err := h.store.DeleteEpisode(r.Context(), id); err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
-}
-
-func validStatus(s string) bool {
-	switch s {
-	case "draft", "processing", "published", "hidden":
-		return true
-	}
-	return false
+func (h *AdminHandlers) DeleteEpisode(ctx context.Context, in *idInput) (*struct{}, error) {
+	return nil, h.store.DeleteEpisode(ctx, in.ID)
 }

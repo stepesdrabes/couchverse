@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { home } from '$lib/features/catalog/api';
-	import type { ContinueItem } from '$lib/features/catalog/types';
 	import ContinueWatchingCard from '$lib/features/catalog/components/ContinueWatchingCard.svelte';
 	import HeroMarquee from '$lib/features/catalog/components/HeroMarquee.svelte';
 	import MediaRow from '$lib/features/catalog/components/MediaRow.svelte';
@@ -10,7 +9,9 @@
 
 	let { data }: { data: Awaited<ReturnType<typeof home>> } = $props();
 
-	const visibleRows = $derived(data.rows.filter((r) => r.items.length > 0));
+	const visibleRows = $derived(
+		data.rows.filter((r) => r.items.length > 0 || r.continueWatching.length > 0)
+	);
 
 	// built-in home rows ship English default labels in the DB; translate those by
 	// kind, but respect a label the admin customized in the home-row editor.
@@ -41,15 +42,12 @@
 	<div class="relative z-10 -mt-10 space-y-10 pb-16">
 		{#each visibleRows as row (row.label)}
 			<MediaRow label={rowLabel(row)}>
-				{#if row.kind === 'continue_watching'}
-					{#each row.items as ContinueItem[] as item (item.playbackKind + item.playbackId)}
-						<ContinueWatchingCard {item} />
-					{/each}
-				{:else}
-					{#each row.items as ContinueItem[] as item (item.titleId)}
-						<TitleCard {item} />
-					{/each}
-				{/if}
+				{#each row.continueWatching as item (item.playbackKind + item.playbackId)}
+					<ContinueWatchingCard {item} />
+				{/each}
+				{#each row.items as item (item.titleId)}
+					<TitleCard {item} />
+				{/each}
 			</MediaRow>
 		{/each}
 	</div>

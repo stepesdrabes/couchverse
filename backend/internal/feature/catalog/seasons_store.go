@@ -134,10 +134,10 @@ func (s *Store) DeleteSeason(ctx context.Context, id string) error {
 }
 
 type EpisodeInput struct {
-	EpisodeNumber  int    `json:"episodeNumber"`
-	Name           string `json:"name"`
-	Overview       string `json:"overview"`
-	RuntimeMinutes *int   `json:"runtimeMinutes"`
+	EpisodeNumber  int    `json:"episodeNumber" minimum:"0"`
+	Name           string `json:"name" required:"false"`
+	Overview       string `json:"overview" required:"false"`
+	RuntimeMinutes *int   `json:"runtimeMinutes" required:"false"`
 }
 
 func (s *Store) CreateEpisode(ctx context.Context, seasonID string, in EpisodeInput) (*Episode, error) {
@@ -148,11 +148,12 @@ func (s *Store) CreateEpisode(ctx context.Context, seasonID string, in EpisodeIn
 		seasonID, in.EpisodeNumber, in.Name, in.Overview, in.RuntimeMinutes))
 }
 
+// EpisodeUpdate is a partial update: absent fields keep their value.
 type EpisodeUpdate struct {
-	EpisodeNumber  *int    `json:"episodeNumber"`
-	Name           *string `json:"name"`
-	Overview       *string `json:"overview"`
-	RuntimeMinutes *int    `json:"runtimeMinutes"`
+	EpisodeNumber  *int    `json:"episodeNumber" required:"false"`
+	Name           *string `json:"name" required:"false"`
+	Overview       *string `json:"overview" required:"false"`
+	RuntimeMinutes *int    `json:"runtimeMinutes" required:"false"`
 }
 
 func (s *Store) UpdateEpisode(ctx context.Context, id string, up EpisodeUpdate) (*Episode, error) {

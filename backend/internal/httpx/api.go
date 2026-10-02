@@ -52,10 +52,24 @@ func newError(status int, msg string, errs ...error) huma.StatusError {
 	case status >= http.StatusInternalServerError:
 		return InternalError(fmt.Errorf("%s: %w", msg, errors.Join(errs...)))
 	case status == http.StatusUnprocessableEntity:
-		// invalid input was always a 400 here; keep it one
+		// a path that does not parse names no resource; other invalid input
+		// was always a 400 here, so keep it one
+		if inPath(errs) {
+			return NotFoundError()
+		}
 		return BadRequestError(detailMessage(msg, errs))
 	}
 	return Fail(status, statusCode(status), detailMessage(msg, errs))
+}
+
+func inPath(errs []error) bool {
+	for _, err := range errs {
+		var d *huma.ErrorDetail
+		if errors.As(err, &d) && strings.HasPrefix(d.Location, "path.") {
+			return true
+		}
+	}
+	return false
 }
 
 func detailMessage(msg string, errs []error) string {
@@ -135,4 +149,18 @@ type Routes struct {
 	// Stream admits a signed-in user or an anonymous couch follower of exactly
 	// the media the request targets (the guard lives in the composition root).
 	Stream huma.API
+}
+
+// Tag is a feature's OpenAPI tag; its methods describe the feature's operations.
+type Tag string
+
+func (t Tag) Op(id, method, path string) huma.Operation {
+	return huma.Operation{OperationID: id, Method: method, Path: path, Tags: []string{string(t)}}
+}
+
+// NoContent describes an operation that answers 204 on success.
+func (t Tag) NoContent(id, method, path string) huma.Operation {
+	op := t.Op(id, method, path)
+	op.DefaultStatus = http.StatusNoContent
+	return op
 }
