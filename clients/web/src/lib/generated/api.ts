@@ -47,10 +47,12 @@ export interface ActiveTranscode {
 	jobId: number;
 	mediaFileId: string;
 	progress: number;
-	status: string;
+	status: ActiveTranscodeStatus;
 	titleId: string | null;
 	variant: string;
 }
+
+export type ActiveTranscodeStatus = 'pending' | 'running';
 
 export interface AdminJob {
 	attempts: number;
@@ -205,7 +207,7 @@ export interface CardItem {
 	backdropAccent?: string;
 	backdropId: string | null;
 	backdropVer?: number;
-	kind: string;
+	kind: CardItemKind;
 	name: string;
 	posterAccent?: string;
 	posterId: string | null;
@@ -214,6 +216,8 @@ export interface CardItem {
 	titleId: string;
 	year: number | null;
 }
+
+export type CardItemKind = 'movie' | 'series';
 
 export interface CheckedRank {
 	/** XP earned inside the current tier. */
@@ -253,10 +257,10 @@ export interface ContinueItem {
 	durationSeconds: number;
 	episodeId: string | null;
 	episodeLabel: string;
-	kind: string;
+	kind: ContinueItemKind;
 	name: string;
 	playbackId: string;
-	playbackKind: string;
+	playbackKind: ContinueItemPlaybackKind;
 	positionSeconds: number;
 	posterAccent?: string;
 	posterId: string | null;
@@ -266,6 +270,10 @@ export interface ContinueItem {
 	updatedAt: string;
 	year: number | null;
 }
+
+export type ContinueItemKind = 'movie' | 'series';
+
+export type ContinueItemPlaybackKind = 'movie' | 'episode';
 
 export interface CouchHostState {
 	/** The host lost its connection and the grace countdown is running. */
@@ -490,7 +498,7 @@ export interface FeaturedItem {
 	genres: string[];
 	id: string;
 	inList: boolean;
-	kind: string;
+	kind: FeaturedItemKind;
 	metadataLanguages: string[];
 	name: string;
 	overview: string;
@@ -498,11 +506,15 @@ export interface FeaturedItem {
 	runtimeMinutes: number | null;
 	slug: string;
 	sortName: string;
-	status: string;
+	status: FeaturedItemStatus;
 	tmdbId: number | null;
 	updatedAt: string;
 	year: number | null;
 }
+
+export type FeaturedItemKind = 'movie' | 'series';
+
+export type FeaturedItemStatus = 'draft' | 'processing' | 'published' | 'hidden';
 
 export interface Genre {
 	id: number;
@@ -632,7 +644,7 @@ export interface LibraryRow {
 	episodeCount: number;
 	hdr: boolean;
 	id: string;
-	kind: string;
+	kind: LibraryRowKind;
 	maxHeight: number;
 	name: string;
 	needsPrepare: boolean;
@@ -640,10 +652,14 @@ export interface LibraryRow {
 	seasonCount: number;
 	sizeBytes: number;
 	slug: string;
-	status: string;
+	status: LibraryRowStatus;
 	transcodedBytes: number;
 	year: number | null;
 }
+
+export type LibraryRowKind = 'movie' | 'series';
+
+export type LibraryRowStatus = 'draft' | 'processing' | 'published' | 'hidden';
 
 export interface LiveStats {
 	couchSessions: number;
@@ -657,7 +673,7 @@ export interface LiveStats {
 export interface MediaFile {
 	audioCodec: string;
 	audioLang: string;
-	audioRole: string;
+	audioRole: MediaFileAudioRole;
 	bitrate: number;
 	channels: number;
 	container: string;
@@ -676,7 +692,7 @@ export interface MediaFile {
 	sourceDeletedAt: string | null;
 	titleId: string | null;
 	videoCodec: string;
-	videoRange: string;
+	videoRange: MediaFileVideoRange;
 	width: number;
 }
 
@@ -689,6 +705,10 @@ export interface MediaFileAudio {
 
 /** audio_alt marks a separate-language sibling of the title's or episode's primary file. */
 export type MediaFileAudioAudioRole = 'primary' | 'audio_alt';
+
+export type MediaFileAudioRole = 'primary' | 'audio_alt';
+
+export type MediaFileVideoRange = 'sdr' | 'hdr10' | 'hlg' | 'dv';
 
 export interface MemberRank {
 	achievements: number;
@@ -1101,7 +1121,7 @@ export interface Subtitle {
 	label: string;
 	lang: string;
 	mediaFileId: string;
-	source: string;
+	source: SubtitleSource;
 }
 
 export interface SubtitlePreferences {
@@ -1115,6 +1135,8 @@ export interface SubtitlePreferences {
 }
 
 export type SubtitlePreferencesFontFamily = 'sans' | 'serif' | 'mono' | 'rounded';
+
+export type SubtitleSource = 'embedded' | 'uploaded';
 
 export interface SystemStats {
 	/** This server process. */
@@ -1158,7 +1180,7 @@ export interface Title {
 	genreLabels: string[];
 	genres: string[];
 	id: string;
-	kind: string;
+	kind: TitleKind;
 	metadataLanguages: string[];
 	name: string;
 	overview: string;
@@ -1166,7 +1188,7 @@ export interface Title {
 	runtimeMinutes: number | null;
 	slug: string;
 	sortName: string;
-	status: string;
+	status: TitleStatus;
 	tmdbId: number | null;
 	updatedAt: string;
 	year: number | null;
@@ -1194,6 +1216,10 @@ export interface TitleInput {
 }
 
 export type TitleInputKind = 'movie' | 'series';
+
+export type TitleKind = 'movie' | 'series';
+
+export type TitleStatus = 'draft' | 'processing' | 'published' | 'hidden';
 
 export interface TitleStorageBreakdown {
 	items: StorageSegment[];

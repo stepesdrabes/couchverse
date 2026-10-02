@@ -31,13 +31,13 @@ type MediaFile struct {
 	Bitrate         int64   `json:"bitrate"`
 	Channels        int     `json:"channels"`
 	SampleRate      int     `json:"sampleRate"`
-	VideoRange      string  `json:"videoRange"`
+	VideoRange      string  `json:"videoRange" enum:"sdr,hdr10,hlg,dv"`
 	DirectPlay      bool    `json:"directPlay"`
 	// AudioLang/AudioRole tag a file as an alternate-audio sibling (model B):
 	// a separate-language file linked to the same title/episode. Empty lang +
 	// role "primary" is a normal full file.
 	AudioLang       string          `json:"audioLang"`
-	AudioRole       string          `json:"audioRole"`
+	AudioRole       string          `json:"audioRole" enum:"primary,audio_alt"`
 	Probe           json.RawMessage `json:"-"`
 	FileMtime       *time.Time      `json:"fileMtime"`
 	ScannedAt       *time.Time      `json:"scannedAt"`
@@ -82,7 +82,7 @@ type Subtitle struct {
 	MediaFileID string    `json:"mediaFileId"`
 	Lang        string    `json:"lang"`
 	Label       string    `json:"label"`
-	Source      string    `json:"source"`
+	Source      string    `json:"source" enum:"embedded,uploaded"`
 	Forced      bool      `json:"forced"`
 	Path        string    `json:"-"`
 	CreatedAt   time.Time `json:"createdAt"`

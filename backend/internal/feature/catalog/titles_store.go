@@ -19,7 +19,7 @@ import (
 type Title struct {
 	ID                  string          `json:"id"`
 	Slug                string          `json:"slug"`
-	Kind                string          `json:"kind"`
+	Kind                string          `json:"kind" enum:"movie,series"`
 	Name                string          `json:"name"`
 	SortName            string          `json:"sortName"`
 	Overview            string          `json:"overview"`
@@ -27,7 +27,7 @@ type Title struct {
 	ReleaseDate         *time.Time      `json:"releaseDate"`
 	ContentRating       string          `json:"contentRating"`
 	RuntimeMinutes      *int            `json:"runtimeMinutes"`
-	Status              string          `json:"status"`
+	Status              string          `json:"status" enum:"draft,processing,published,hidden"`
 	TmdbID              *int            `json:"tmdbId"`
 	AddedAt             time.Time       `json:"addedAt"`
 	UpdatedAt           time.Time       `json:"updatedAt"`
@@ -520,10 +520,10 @@ type LibraryFilter struct {
 type LibraryRow struct {
 	ID              string    `json:"id"`
 	Slug            string    `json:"slug"`
-	Kind            string    `json:"kind"`
+	Kind            string    `json:"kind" enum:"movie,series"`
 	Name            string    `json:"name"`
 	Year            *int      `json:"year"`
-	Status          string    `json:"status"`
+	Status          string    `json:"status" enum:"draft,processing,published,hidden"`
 	SeasonCount     int       `json:"seasonCount"`
 	EpisodeCount    int       `json:"episodeCount"`
 	SizeBytes       int64     `json:"sizeBytes"`

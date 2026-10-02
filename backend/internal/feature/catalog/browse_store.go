@@ -13,7 +13,7 @@ import (
 type CardItem struct {
 	TitleID        string  `json:"titleId"`
 	Slug           string  `json:"slug"`
-	Kind           string  `json:"kind"`
+	Kind           string  `json:"kind" enum:"movie,series"`
 	Name           string  `json:"name"`
 	Year           *int    `json:"year"`
 	PosterID       *string `json:"posterId"`
@@ -28,7 +28,7 @@ type ContinueItem struct {
 	CardItem
 	EpisodeID    *string   `json:"episodeId"`
 	EpisodeLabel string    `json:"episodeLabel"` // "S1 E3 · Pilot"
-	PlaybackKind string    `json:"playbackKind"` // movie | episode
+	PlaybackKind string    `json:"playbackKind" enum:"movie,episode"`
 	PlaybackID   string    `json:"playbackId"`
 	Position     int       `json:"positionSeconds"`
 	Duration     int       `json:"durationSeconds"`

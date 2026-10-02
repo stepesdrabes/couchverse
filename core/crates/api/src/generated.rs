@@ -189,9 +189,36 @@ pub mod types {
         pub job_id: i64,
         pub media_file_id: String,
         pub progress: i64,
-        pub status: String,
+        pub status: ActiveTranscodeStatus,
         pub title_id: Option<String>,
         pub variant: String,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum ActiveTranscodeStatus {
+        #[serde(rename = "pending")]
+        Pending,
+        #[serde(rename = "running")]
+        Running,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl ActiveTranscodeStatus {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                ActiveTranscodeStatus::Pending => "pending",
+                ActiveTranscodeStatus::Running => "running",
+                ActiveTranscodeStatus::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for ActiveTranscodeStatus {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -795,7 +822,7 @@ pub mod types {
         pub backdrop_id: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub backdrop_ver: Option<i64>,
-        pub kind: String,
+        pub kind: CardItemKind,
         pub name: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub poster_accent: Option<String>,
@@ -805,6 +832,33 @@ pub mod types {
         pub slug: String,
         pub title_id: String,
         pub year: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CardItemKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "series")]
+        Series,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CardItemKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CardItemKind::Movie => "movie",
+                CardItemKind::Series => "series",
+                CardItemKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CardItemKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -891,10 +945,10 @@ pub mod types {
         pub duration_seconds: i64,
         pub episode_id: Option<String>,
         pub episode_label: String,
-        pub kind: String,
+        pub kind: ContinueItemKind,
         pub name: String,
         pub playback_id: String,
-        pub playback_kind: String,
+        pub playback_kind: ContinueItemPlaybackKind,
         pub position_seconds: i64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub poster_accent: Option<String>,
@@ -905,6 +959,60 @@ pub mod types {
         pub title_id: String,
         pub updated_at: String,
         pub year: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum ContinueItemKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "series")]
+        Series,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl ContinueItemKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                ContinueItemKind::Movie => "movie",
+                ContinueItemKind::Series => "series",
+                ContinueItemKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for ContinueItemKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum ContinueItemPlaybackKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "episode")]
+        Episode,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl ContinueItemPlaybackKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                ContinueItemPlaybackKind::Movie => "movie",
+                ContinueItemPlaybackKind::Episode => "episode",
+                ContinueItemPlaybackKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for ContinueItemPlaybackKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1405,7 +1513,7 @@ pub mod types {
         pub genres: Vec<String>,
         pub id: String,
         pub in_list: bool,
-        pub kind: String,
+        pub kind: FeaturedItemKind,
         pub metadata_languages: Vec<String>,
         pub name: String,
         pub overview: String,
@@ -1413,10 +1521,70 @@ pub mod types {
         pub runtime_minutes: Option<i64>,
         pub slug: String,
         pub sort_name: String,
-        pub status: String,
+        pub status: FeaturedItemStatus,
         pub tmdb_id: Option<i64>,
         pub updated_at: String,
         pub year: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum FeaturedItemKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "series")]
+        Series,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl FeaturedItemKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                FeaturedItemKind::Movie => "movie",
+                FeaturedItemKind::Series => "series",
+                FeaturedItemKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for FeaturedItemKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum FeaturedItemStatus {
+        #[serde(rename = "draft")]
+        Draft,
+        #[serde(rename = "processing")]
+        Processing,
+        #[serde(rename = "published")]
+        Published,
+        #[serde(rename = "hidden")]
+        Hidden,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl FeaturedItemStatus {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                FeaturedItemStatus::Draft => "draft",
+                FeaturedItemStatus::Processing => "processing",
+                FeaturedItemStatus::Published => "published",
+                FeaturedItemStatus::Hidden => "hidden",
+                FeaturedItemStatus::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for FeaturedItemStatus {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1856,7 +2024,7 @@ pub mod types {
         pub episode_count: i64,
         pub hdr: bool,
         pub id: String,
-        pub kind: String,
+        pub kind: LibraryRowKind,
         pub max_height: i64,
         pub name: String,
         pub needs_prepare: bool,
@@ -1864,9 +2032,69 @@ pub mod types {
         pub season_count: i64,
         pub size_bytes: i64,
         pub slug: String,
-        pub status: String,
+        pub status: LibraryRowStatus,
         pub transcoded_bytes: i64,
         pub year: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum LibraryRowKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "series")]
+        Series,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl LibraryRowKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                LibraryRowKind::Movie => "movie",
+                LibraryRowKind::Series => "series",
+                LibraryRowKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for LibraryRowKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum LibraryRowStatus {
+        #[serde(rename = "draft")]
+        Draft,
+        #[serde(rename = "processing")]
+        Processing,
+        #[serde(rename = "published")]
+        Published,
+        #[serde(rename = "hidden")]
+        Hidden,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl LibraryRowStatus {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                LibraryRowStatus::Draft => "draft",
+                LibraryRowStatus::Processing => "processing",
+                LibraryRowStatus::Published => "published",
+                LibraryRowStatus::Hidden => "hidden",
+                LibraryRowStatus::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for LibraryRowStatus {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1885,7 +2113,7 @@ pub mod types {
     pub struct MediaFile {
         pub audio_codec: String,
         pub audio_lang: String,
-        pub audio_role: String,
+        pub audio_role: MediaFileAudioRole,
         pub bitrate: i64,
         pub channels: i64,
         pub container: String,
@@ -1904,7 +2132,7 @@ pub mod types {
         pub source_deleted_at: Option<String>,
         pub title_id: Option<String>,
         pub video_codec: String,
-        pub video_range: String,
+        pub video_range: MediaFileVideoRange,
         pub width: i64,
     }
 
@@ -1942,6 +2170,66 @@ pub mod types {
     }
 
     impl std::fmt::Display for MediaFileAudioAudioRole {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum MediaFileAudioRole {
+        #[serde(rename = "primary")]
+        Primary,
+        #[serde(rename = "audio_alt")]
+        AudioAlt,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl MediaFileAudioRole {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                MediaFileAudioRole::Primary => "primary",
+                MediaFileAudioRole::AudioAlt => "audio_alt",
+                MediaFileAudioRole::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for MediaFileAudioRole {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum MediaFileVideoRange {
+        #[serde(rename = "sdr")]
+        Sdr,
+        #[serde(rename = "hdr10")]
+        Hdr10,
+        #[serde(rename = "hlg")]
+        Hlg,
+        #[serde(rename = "dv")]
+        Dv,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl MediaFileVideoRange {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                MediaFileVideoRange::Sdr => "sdr",
+                MediaFileVideoRange::Hdr10 => "hdr10",
+                MediaFileVideoRange::Hlg => "hlg",
+                MediaFileVideoRange::Dv => "dv",
+                MediaFileVideoRange::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for MediaFileVideoRange {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -2832,7 +3120,7 @@ pub mod types {
         pub label: String,
         pub lang: String,
         pub media_file_id: String,
-        pub source: String,
+        pub source: SubtitleSource,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2879,6 +3167,33 @@ pub mod types {
     }
 
     impl std::fmt::Display for SubtitlePreferencesFontFamily {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum SubtitleSource {
+        #[serde(rename = "embedded")]
+        Embedded,
+        #[serde(rename = "uploaded")]
+        Uploaded,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl SubtitleSource {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                SubtitleSource::Embedded => "embedded",
+                SubtitleSource::Uploaded => "uploaded",
+                SubtitleSource::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for SubtitleSource {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -2983,7 +3298,7 @@ pub mod types {
         pub genre_labels: Vec<String>,
         pub genres: Vec<String>,
         pub id: String,
-        pub kind: String,
+        pub kind: TitleKind,
         pub metadata_languages: Vec<String>,
         pub name: String,
         pub overview: String,
@@ -2991,7 +3306,7 @@ pub mod types {
         pub runtime_minutes: Option<i64>,
         pub slug: String,
         pub sort_name: String,
-        pub status: String,
+        pub status: TitleStatus,
         pub tmdb_id: Option<i64>,
         pub updated_at: String,
         pub year: Option<i64>,
@@ -3051,6 +3366,66 @@ pub mod types {
     }
 
     impl std::fmt::Display for TitleInputKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum TitleKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "series")]
+        Series,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl TitleKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                TitleKind::Movie => "movie",
+                TitleKind::Series => "series",
+                TitleKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for TitleKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum TitleStatus {
+        #[serde(rename = "draft")]
+        Draft,
+        #[serde(rename = "processing")]
+        Processing,
+        #[serde(rename = "published")]
+        Published,
+        #[serde(rename = "hidden")]
+        Hidden,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl TitleStatus {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                TitleStatus::Draft => "draft",
+                TitleStatus::Processing => "processing",
+                TitleStatus::Published => "published",
+                TitleStatus::Hidden => "hidden",
+                TitleStatus::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for TitleStatus {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }

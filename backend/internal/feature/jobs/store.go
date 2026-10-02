@@ -309,7 +309,7 @@ type ActiveTranscode struct {
 	TitleID     *string `json:"titleId"`
 	EpisodeID   *string `json:"episodeId"`
 	Variant     string  `json:"variant"`
-	Status      string  `json:"status"`
+	Status      string  `json:"status" enum:"pending,running"`
 	Progress    int     `json:"progress"`
 }
 

@@ -172,6 +172,10 @@
             "type": "integer"
           },
           "status": {
+            "enum": [
+              "pending",
+              "running"
+            ],
             "type": "string"
           },
           "titleId": {
@@ -700,6 +704,10 @@
             "type": "integer"
           },
           "kind": {
+            "enum": [
+              "movie",
+              "series"
+            ],
             "type": "string"
           },
           "name": {
@@ -878,6 +886,10 @@
             "type": "string"
           },
           "kind": {
+            "enum": [
+              "movie",
+              "series"
+            ],
             "type": "string"
           },
           "name": {
@@ -887,6 +899,10 @@
             "type": "string"
           },
           "playbackKind": {
+            "enum": [
+              "movie",
+              "episode"
+            ],
             "type": "string"
           },
           "positionSeconds": {
@@ -1706,6 +1722,10 @@
             "type": "boolean"
           },
           "kind": {
+            "enum": [
+              "movie",
+              "series"
+            ],
             "type": "string"
           },
           "metadataLanguages": {
@@ -1741,6 +1761,12 @@
             "type": "string"
           },
           "status": {
+            "enum": [
+              "draft",
+              "processing",
+              "published",
+              "hidden"
+            ],
             "type": "string"
           },
           "tmdbId": {
@@ -2207,6 +2233,10 @@
             "type": "string"
           },
           "kind": {
+            "enum": [
+              "movie",
+              "series"
+            ],
             "type": "string"
           },
           "maxHeight": {
@@ -2237,6 +2267,12 @@
             "type": "string"
           },
           "status": {
+            "enum": [
+              "draft",
+              "processing",
+              "published",
+              "hidden"
+            ],
             "type": "string"
           },
           "transcodedBytes": {
@@ -2311,6 +2347,10 @@
             "type": "string"
           },
           "audioRole": {
+            "enum": [
+              "primary",
+              "audio_alt"
+            ],
             "type": "string"
           },
           "bitrate": {
@@ -2394,6 +2434,12 @@
             "type": "string"
           },
           "videoRange": {
+            "enum": [
+              "sdr",
+              "hdr10",
+              "hlg",
+              "dv"
+            ],
             "type": "string"
           },
           "width": {
@@ -3850,6 +3896,10 @@
             "type": "string"
           },
           "source": {
+            "enum": [
+              "embedded",
+              "uploaded"
+            ],
             "type": "string"
           }
         },
@@ -4046,6 +4096,10 @@
             "type": "string"
           },
           "kind": {
+            "enum": [
+              "movie",
+              "series"
+            ],
             "type": "string"
           },
           "metadataLanguages": {
@@ -4081,6 +4135,12 @@
             "type": "string"
           },
           "status": {
+            "enum": [
+              "draft",
+              "processing",
+              "published",
+              "hidden"
+            ],
             "type": "string"
           },
           "tmdbId": {
