@@ -1,0 +1,21 @@
+[versions]
+agp = "9.4.1"
+# the NDK `make core-android` builds the core with (r29); AGP strips the libraries with it
+ndk = "29.0.14206865"
+kotlin = "2.4.20"
+kotlinx-serialization = "1.11.0"
+jna = "5.19.1"
+compose-bom = "2026.09.00"
+
+[libraries]
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+androidx-compose-ui-unit = { module = "androidx.compose.ui:ui-unit" }
+
+[plugins]
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
