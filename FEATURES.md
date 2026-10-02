@@ -431,6 +431,60 @@ client is generated from it (native clients plan, D30).
   golden frames in `contract/fixtures/couch`, asserted by the Go tests and decoded by the
   core's tests.
 
+## Shared client core (cross-cutting)
+
+Every client (the native apps and, slice by slice, the web) runs the same Rust state machine,
+`core/crates/app` (`couchverse-core`), so logic is written once (native clients plan, section
+7). It is **sans-I/O**: it never touches the network, a clock or storage; shells send it
+messages and perform the effects it asks for.
+
+- **The bridge** is four string calls: `new(config)`, `send(message)`, `resolve(resolution)`
+  and `view(surface)` (`bridge.rs`), exported by `crates/ffi` (UniFFI: Swift, Kotlin) and
+  `crates/wasm` (wasm-bindgen: the web). Every message type carries `#[typeshare]`; `cargo
+  xtask codegen` renders them as `Messages.swift` (CouchverseCore package), `Messages.kt`
+  (Android `core` module) and `clients/web/src/lib/generated/core.ts`, committed with the
+  change. Enums with data are adjacently tagged (`{"type", "content"}`), unit enums are
+  strings, ids and milliseconds are `U53`.
+- **Messages**: `Message { nowMs, event }` (time is an input, so tests control it) and
+  `Resolution { nowMs, id, output }`. `CoreConfig` names the platform and the auth mode:
+  `bearer` (native: per-account device tokens in the secure store) or `cookie` (the web: one
+  session over the browser cookie, origin-relative URLs).
+- **Effects** (`EffectRequest { id, effect }`): `http`, `upload` (a multipart form around a
+  file the shell holds; the core only sees the shell's handle), `timer` (one-shot or
+  repeating, stopped by `cancelTimer`), `store` and `secureStore` (read/write/delete), and
+  `render { surfaces }`, which names the view models to re-read. Writes, deletes, cancels and
+  renders are fire-and-forget; a late answer for a cancelled or forgotten effect is ignored.
+- **View models** are plain data per `Surface` (`app`, `servers`, `accounts`, `signIn`,
+  `devices`, `pairingApproval`, `session`, `markdown(source)`, `home`, `browse(key)`,
+  `title(slug)`, `genres`, `myList`, `search`, `notices`, `rank`, `profile(username)`,
+  `leaderboard(key)`, `profileEditor`), each with a `LoadStatus`
+  (`idle|loading|loaded|stale|notFound|failed`: stale beats blank) and a `Problem { code }`
+  that shells localize. `AppView.phase` (`starting|welcome|signIn|chooseAccount|ready`) picks
+  the root screen; a TV always opens on "Who's watching?".
+- **Modules** (`src/modules/`): `servers` (address -> `/server` identity, https then http),
+  `accounts` (password, pairing with polling and expiry, connect and pair links, approvals,
+  devices, tokens), `session` (user, features, display language, accent; a 401 anywhere signs
+  the account out but keeps it), `catalog` (stale-while-revalidate home, listings, titles,
+  genres, My List, search with debounce and supersede, warm-start home per account, image URLs
+  per role with the artwork grant), `ranks` (rank badge and level-ups, throttled achievement
+  checks, celebration queue, profiles with the heatmap, leaderboards), `profile` (edits,
+  password, avatar/banner uploads), `notices` (transient toasts), plus pure helpers `theme`
+  (accent palettes from `contract/design/tokens.json`), `images` and `markdown` (bios as a
+  safe tree: no HTML, no images, http(s)/mailto links only). Requests in flight carry a
+  generation, so answers for a previous account or display language are dropped.
+- **API calls** come from the generated `couchverse-api` crate (`ops::*` returning a
+  `Call<T>`); API types never cross the bridge.
+- **Tests**: unit tests per module, scenario tests (`src/scenarios/`) that drive whole flows
+  through a fake shell with in-memory stores and explicit time, and `tests/bridge.rs` pinning
+  the JSON wire format. `make core-test` runs fmt, clippy (pedantic, warnings denied) and all
+  tests.
+- **Packaging** (build output, gitignored): `make core-apple` (the five-slice
+  `CouchverseCoreFFI.xcframework` plus Swift bindings into the CouchverseCore package; `make
+  apple-test` runs its `swift test`), `make core-android` (per-ABI `libcouchverse_ffi.so`, a
+  host library for JVM tests and the Kotlin bindings) and `make core-wasm` (the web package in
+  `clients/web/src/lib/core/pkg`, built for size with opt-level "z" and `wasm-opt -Oz`, and
+  checked against a 400 KB gzip budget). `core.yml` builds all three in CI.
+
 ## Media grants (cross-cutting)
 
 Players cannot reliably attach a cookie or an `Authorization` header to every request

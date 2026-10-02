@@ -96,7 +96,9 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   anonymous body structs, no `any`/`map[string]any`/`json.RawMessage` in a schema); response
   lists are never nil; an optional response field is `omitempty`, a nullable scalar is a pointer
   without it; partial-update fields are `required:"false"`; uuid path params are
-  `format:"uuid"` (a malformed path param is a 404); closed sets get `enum:`. Errors: return the
+  `format:"uuid"` (a malformed path param is a 404); closed sets get `enum:`, on response
+  fields too (a DB CHECK constraint is a closed set). A multipart body is documented as
+  required by `httpx.NewAPI`'s `requireForm` hook. Errors: return the
   plain error for internal failures (logged, generic 500), domain failures with
   `httpx.Fail(status, code, message)` keeping stable codes. `httpx.Localized(op)` for `?lang=`
   reads. `httpx.Raw` only for byte streams, WebSockets and chunked uploads, still fully
@@ -110,6 +112,22 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   which emits the core's typed API crate (`core/crates/api`), the web's typed client
   (`clients/web/src/lib/generated/api.ts`), the web token CSS/TS, and the Apple/Android
   strings and tokens. Generated files are never edited by hand; CI fails when any is stale.
+  Request bodies are JSON, multipart (`FormData` on the web; in Rust a `Call` whose request
+  carries `Body::Multipart`) or octet-stream (`Body::Binary`): the core never holds file bytes,
+  the shell attaches the file and parses the answer with `Call::parse`. Every generated TS
+  function takes a trailing `CallOptions`; raw and upload operations also get an `xxxPath`
+  builder returning the full `/api/v1/...` path, so never prepend `/api/v1` by hand.
+- **Shared client core** (`core/crates/app`, full design in FEATURES.md): sans-I/O and
+  deterministic. Events and effect outputs come in with the shell's `nowMs`; all I/O goes out
+  as effects; shells read view models per `Surface`. Rules: no clock, randomness, threads or
+  network inside the core (time and any randomness arrive in messages); no UI words (stable
+  codes in `Problem`/`Notice`, localized by shells); API types never cross the bridge (map
+  them to view models); a module owns its state, its `Pending` continuations and its view
+  models, and the model in `core.rs` only routes; requests in flight carry a generation so
+  answers for a previous account or language are dropped. Every new flow gets a scenario test
+  in `src/scenarios/` (fake shell, explicit time); `make core-test` must be clean. A change to a
+  `#[typeshare]` type changes the wire format for every shell: run `make contract` and keep the
+  Swift/Kotlin/TS runtimes handling every `Effect` variant.
 - Web features live in `clients/web/src/lib/features/<name>/` (admin, auth, catalog, couch,
   jobs, library, playback, preferences, ranks, settings, uploads, users). Each keeps its
   types, API calls (`api.ts`), rune state (`*.svelte.ts`), `components/` and `pages/` together.
@@ -123,7 +141,7 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     NavProgress), and the optimistic page shells `{CachedView,StreamedView,NotFound}.svelte`.
     Domain components live in their feature.
   - Shared catalog entities live in `features/catalog/types.ts`. The bare fetch wrapper
-    stays in `src/lib/api/client.ts`. Never hand-write URLs in components.
+    stays in `src/lib/api/client.ts`. Never hand-write URLs: use the generated functions or `xxxPath` builders.
   - Forms that edit existing data track dirtiness with `FormState`
     (`lib/utils/form-state.svelte.ts`); Save buttons are `disabled={!form.dirty}`
     (disabled, not hidden).
@@ -160,8 +178,10 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   tokens come from the generated `src/lib/generated/tokens.css`, imported by `src/app.css`,
   which stays plain CSS), **SCSS** for component styles
   (`<style lang="scss">`), svelte-sonner for toasts, **Paraglide JS** for i18n.
-- `core/` - Rust workspace (`cargo xtask` lives here): today the generators and the generated
-  `couchverse-api` crate; the shared client core follows (docs/native-clients-plan.md).
+- `core/` - Rust workspace: the shared client core (`crates/app`), its UniFFI and wasm exports
+  (`crates/ffi`, `crates/wasm`), the generated `couchverse-api` crate and `cargo xtask`
+  (codegen and packaging). Design in FEATURES.md "Shared client core".
+- `clients/apple/`, `clients/android/` - the native clients (docs/native-clients-plan.md).
 - `contract/` - the API spec, couch protocol schema, i18n catalogs, design tokens, fixtures.
 - Postgres 17; job queue is a Postgres table (no Redis). ffmpeg/ffprobe shelled out.
 
@@ -170,11 +190,17 @@ A feature owns its HTTP handlers, domain logic and SQL together.
 - `docker compose up db -d` then `make run-backend` (Go on :8080) + `make run-web` (Vite on :5173, proxies /api).
   Dev .env: `DB_PASSWORD=couchverse` so the Makefile default DSN works.
 - `make lint` (go vet [+ golangci-lint if installed]), `make check` (svelte-check + prettier + eslint), `make test`, `make build` (SPA -> embed -> binary).
-- `make contract` after any change to an operation, a schema type, the couch protocol, i18n or
-  design tokens; commit the regenerated files with the change.
+- `make contract` after any change to an operation, a schema type, the couch protocol, i18n,
+  design tokens or a `#[typeshare]` type in the core; commit the regenerated files with the
+  change.
+- Core: `make core-test` (fmt, clippy pedantic with warnings denied, tests); `make
+  core-apple|core-android|core-wasm` package it for each shell (gitignored output; rustup
+  targets and, for Android, the NDK and `cargo-ndk`); `make apple-test` runs the Swift
+  package tests against the real core.
 - CI (`.github/workflows/`): `backend.yml` (gofmt, vet, golangci-lint, tests incl. API
   conformance against a Postgres service), `web.yml` (check, lint, build), `contract.yml`
-  (xtask fmt/clippy/tests, `make contract`, no drift), `repo.yml` (`scripts/check-no-emdash.sh`).
+  (xtask fmt/clippy/tests, `make contract`, no drift), `core.yml` (the wasm, Apple and
+  Android packages built and run), `repo.yml` (`scripts/check-no-emdash.sh`).
 - Sample media: `make sample-media` (lavfi-generated clips covering direct-play/remux/transcode tiers).
 - Verify HTTP: `curl localhost:8080/healthz`.
 
