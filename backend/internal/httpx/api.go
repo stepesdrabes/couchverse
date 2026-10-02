@@ -164,3 +164,10 @@ func (t Tag) NoContent(id, method, path string) huma.Operation {
 	op.DefaultStatus = http.StatusNoContent
 	return op
 }
+
+// Created describes an operation that answers 201 with the created resource.
+func (t Tag) Created(id, method, path string) huma.Operation {
+	op := t.Op(id, method, path)
+	op.DefaultStatus = http.StatusCreated
+	return op
+}

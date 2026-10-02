@@ -31,8 +31,9 @@ format:
 	cd clients/web && npx prettier --write src
 	cd backend && gofmt -w .
 
+# API conformance tests create throwaway databases on the dev Postgres
 test:
-	cd backend && go test ./...
+	cd backend && TEST_DATABASE_URL=$(DEV_DB) go test ./...
 
 # regenerate everything derived from contract/ (and the spec itself from the Go handlers)
 contract:

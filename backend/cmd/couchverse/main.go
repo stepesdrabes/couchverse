@@ -8,50 +8,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
+	"couchverse/internal/app"
 	"couchverse/internal/config"
 	"couchverse/internal/db"
-	"couchverse/internal/feature/analytics"
-	"couchverse/internal/feature/artwork"
-	"couchverse/internal/feature/auth"
-	"couchverse/internal/feature/catalog"
-	"couchverse/internal/feature/couch"
-	"couchverse/internal/feature/jobs"
-	"couchverse/internal/feature/library"
-	"couchverse/internal/feature/metadata"
-	"couchverse/internal/feature/playback"
-	"couchverse/internal/feature/ranks"
-	"couchverse/internal/feature/subtitles"
-	"couchverse/internal/feature/system"
-	"couchverse/internal/media"
-	"couchverse/internal/server"
-	"couchverse/internal/settings"
 )
-
-// ensureManagedLibraries creates the default upload-target libraries under
-// DATA_DIR/media on first start.
-func ensureManagedLibraries(ctx context.Context, st *library.Store, dataDir string) error {
-	for _, lib := range []struct{ name, kind string }{
-		{"Movies", "movies"},
-		{"Series", "series"},
-	} {
-		path := filepath.Join(dataDir, "media", lib.kind)
-		if err := os.MkdirAll(path, 0o755); err != nil {
-			return err
-		}
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			return err
-		}
-		if err := st.EnsureLibrary(ctx, lib.name, lib.kind, abs, true); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
@@ -89,90 +52,18 @@ func run() error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 
-	set := settings.NewStore(pool)
-	jobsStore := jobs.NewStore(pool)
-	authStore := auth.NewStore(pool)
-	catalogStore := catalog.NewStore(pool)
-	systemStore := system.NewStore(pool)
-	libraryStore := library.NewStore(pool)
-	analyticsStore := analytics.NewStore(pool)
-	ranksStore := ranks.NewStore(pool)
-	if err := auth.Bootstrap(ctx, authStore, cfg); err != nil {
+	a, err := app.New(ctx, cfg, pool)
+	if err != nil {
 		return err
 	}
-	if err := ensureManagedLibraries(ctx, libraryStore, cfg.DataDir); err != nil {
+	defer a.Close()
+	if err := a.Start(ctx); err != nil {
 		return err
 	}
-
-	uploadManager := &library.Manager{Files: libraryStore, Catalog: catalogStore, Jobs: jobsStore, DataDir: cfg.DataDir}
-	artworkService := &artwork.Service{Store: artwork.NewStore(pool), DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
-	subtitleService := &subtitles.Service{Subs: subtitles.NewStore(pool), Files: libraryStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
-	transcodeHandler := &playback.JobHandler{Files: libraryStore, Settings: set, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
-	sessionManager := &playback.SessionManager{
-		Files: libraryStore, Settings: set, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath, MaxSessions: 3,
-	}
-	defer sessionManager.StopAll()
-
-	// one shared stream resolver: the playback module serves it and the couch
-	// hub reuses its BuildPlayback to assemble follower payloads
-	playbackStream := playback.NewStream(subtitleService.Subs, catalogStore, libraryStore, set, jobsStore, cfg.DataDir, sessionManager, cfg.FFmpegPath)
-	couchHub := couch.NewHub(ctx, couch.Deps{
-		Media:     catalogStore,
-		Playback:  playbackStream,
-		Analytics: analyticsStore,
-		Stats:     ranksStore,
-		Settings:  set,
-		Secure:    cfg.CookieSecure,
-	})
-	defer couchHub.Shutdown()
-
-	go playback.DetectEncoders(cfg.FFmpegPath)
-
-	// transcodes can occupy their full concurrency budget and still leave
-	// workers free for quick jobs (probes, scans, metadata) - otherwise a
-	// queue of hour-long transcodes starves everything else
-	transcodeSlots := media.LoadTranscodeSettings(ctx, set).MaxConcurrent
-	workers := cfg.JobWorkers
-	if workers < transcodeSlots+2 {
-		workers = transcodeSlots + 2
-	}
-
-	runner := jobs.NewRunner(jobsStore, workers)
-	runner.Register("probe", 2, (&library.Prober{Files: libraryStore, Catalog: catalogStore, Settings: set, Jobs: jobsStore, FFprobePath: cfg.FFprobePath}).Handle)
-	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
-	runner.Register("fetch_metadata", 2, (&metadata.FetchJob{Catalog: catalogStore, Settings: set, Artwork: artworkService}).Handle)
-	runner.Register("import_episodes", 1, (&metadata.ImportEpisodesJob{Catalog: catalogStore, Settings: set, Artwork: artworkService}).Handle)
-	runner.Register("transcode_hls", transcodeSlots, transcodeHandler.Handle)
-	runner.Register("cleanup", 1, cleanupHandler(libraryStore, authStore, jobsStore, analyticsStore, uploadManager, cfg.DataDir))
-	if _, err := jobsStore.EnqueueJobOnce(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{}); err != nil {
-		return err
-	}
-	go runner.Run(ctx)
-	// theme existing libraries: fill in accents for artwork that predates
-	// server-side extraction, in the background so startup isn't blocked
-	go artworkService.BackfillAccents(ctx)
 
 	srv := &http.Server{
-		Addr: fmt.Sprintf(":%d", cfg.Port),
-		Handler: server.New(server.Deps{
-			Config:    cfg,
-			Pool:      pool,
-			Settings:  set,
-			Auth:      authStore,
-			Catalog:   catalogStore,
-			Jobs:      jobsStore,
-			Library:   libraryStore,
-			System:    systemStore,
-			Uploads:   uploadManager,
-			Artwork:   artworkService,
-			Subtitles: subtitleService,
-			Transcode: transcodeHandler,
-			Sessions:  sessionManager,
-			Stream:    playbackStream,
-			Analytics: analyticsStore,
-			Ranks:     ranksStore,
-			Couch:     couchHub,
-		}).Handler(),
+		Addr:              fmt.Sprintf(":%d", cfg.Port),
+		Handler:           a.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

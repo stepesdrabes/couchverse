@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
@@ -82,17 +81,14 @@ func (h *AdminHandlers) Library(ctx context.Context, in *libraryInput) (*library
 
 type createTitleInput struct{ Body TitleInput }
 
-type titleCreatedOutput struct {
-	Status int
-	Body   *Title
-}
+type titleCreatedOutput struct{ Body *Title }
 
 func (h *AdminHandlers) Create(ctx context.Context, in *createTitleInput) (*titleCreatedOutput, error) {
 	t, err := h.store.CreateTitle(ctx, in.Body)
 	if err != nil {
 		return nil, err
 	}
-	return &titleCreatedOutput{Status: http.StatusCreated, Body: t}, nil
+	return &titleCreatedOutput{Body: t}, nil
 }
 
 // AdminTitle is everything the title editor needs in one read. Translations
@@ -254,17 +250,14 @@ type createSeasonInput struct {
 	}
 }
 
-type seasonCreatedOutput struct {
-	Status int
-	Body   *Season
-}
+type seasonCreatedOutput struct{ Body *Season }
 
 func (h *AdminHandlers) CreateSeason(ctx context.Context, in *createSeasonInput) (*seasonCreatedOutput, error) {
 	se, err := h.store.CreateSeason(ctx, in.ID, in.Body.SeasonNumber, in.Body.Name)
 	if err != nil {
 		return nil, err
 	}
-	return &seasonCreatedOutput{Status: http.StatusCreated, Body: se}, nil
+	return &seasonCreatedOutput{Body: se}, nil
 }
 
 func (h *AdminHandlers) DeleteSeason(ctx context.Context, in *idInput) (*struct{}, error) {
@@ -276,17 +269,14 @@ type createEpisodeInput struct {
 	Body EpisodeInput
 }
 
-type episodeCreatedOutput struct {
-	Status int
-	Body   *Episode
-}
+type episodeCreatedOutput struct{ Body *Episode }
 
 func (h *AdminHandlers) CreateEpisode(ctx context.Context, in *createEpisodeInput) (*episodeCreatedOutput, error) {
 	e, err := h.store.CreateEpisode(ctx, in.ID, in.Body)
 	if err != nil {
 		return nil, err
 	}
-	return &episodeCreatedOutput{Status: http.StatusCreated, Body: e}, nil
+	return &episodeCreatedOutput{Body: e}, nil
 }
 
 type updateEpisodeInput struct {
