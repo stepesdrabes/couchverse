@@ -199,13 +199,13 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct BulkInputBody {
-        pub action: BulkInputBodyAction,
+    pub struct BulkTitleAction {
+        pub action: BulkTitleActionAction,
         pub ids: Vec<String>,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-    pub enum BulkInputBodyAction {
+    pub enum BulkTitleActionAction {
         #[serde(rename = "publish")]
         Publish,
         #[serde(rename = "hide")]
@@ -221,20 +221,20 @@ pub mod types {
         Unknown,
     }
 
-    impl BulkInputBodyAction {
+    impl BulkTitleActionAction {
         pub fn as_str(self) -> &'static str {
             match self {
-                BulkInputBodyAction::Publish => "publish",
-                BulkInputBodyAction::Hide => "hide",
-                BulkInputBodyAction::Draft => "draft",
-                BulkInputBodyAction::Delete => "delete",
-                BulkInputBodyAction::Rescan => "rescan",
-                BulkInputBodyAction::Unknown => "unknown",
+                BulkTitleActionAction::Publish => "publish",
+                BulkTitleActionAction::Hide => "hide",
+                BulkTitleActionAction::Draft => "draft",
+                BulkTitleActionAction::Delete => "delete",
+                BulkTitleActionAction::Rescan => "rescan",
+                BulkTitleActionAction::Unknown => "unknown",
             }
         }
     }
 
-    impl std::fmt::Display for BulkInputBodyAction {
+    impl std::fmt::Display for BulkTitleActionAction {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -292,14 +292,6 @@ pub mod types {
         pub updated_at: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub year: Option<i64>,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct CreateSeasonInputBody {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub name: Option<String>,
-        pub season_number: i64,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -548,6 +540,14 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct SeasonInput {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub name: Option<String>,
+        pub season_number: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct StorageSegment {
         pub label: String,
         pub source_bytes: i64,
@@ -779,7 +779,7 @@ pub mod ops {
     }
 
     /// `POST /admin/titles/bulk`
-    pub fn admin_bulk_titles(body: &BulkInputBody) -> Call<NoContent> {
+    pub fn admin_bulk_titles(body: &BulkTitleAction) -> Call<NoContent> {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Post,
@@ -823,7 +823,7 @@ pub mod ops {
     }
 
     /// `POST /admin/titles/{id}/seasons`
-    pub fn admin_create_season(id: &str, body: &CreateSeasonInputBody) -> Call<Season> {
+    pub fn admin_create_season(id: &str, body: &SeasonInput) -> Call<Season> {
         let q = Vec::new();
         build::json(build::request(
             Method::Post,

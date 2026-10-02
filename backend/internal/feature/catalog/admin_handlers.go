@@ -202,12 +202,13 @@ func (h *AdminHandlers) Delete(ctx context.Context, in *idInput) (*struct{}, err
 	return nil, h.artwork.DeleteForOwner(ctx, "title", in.ID)
 }
 
-type bulkInput struct {
-	Body struct {
-		IDs    []string `json:"ids" minItems:"1"`
-		Action string   `json:"action" enum:"publish,hide,draft,delete,rescan"`
-	}
+// BulkTitleAction applies one action to several titles from the library table.
+type BulkTitleAction struct {
+	IDs    []string `json:"ids" minItems:"1"`
+	Action string   `json:"action" enum:"publish,hide,draft,delete,rescan"`
 }
+
+type bulkInput struct{ Body BulkTitleAction }
 
 func (h *AdminHandlers) Bulk(ctx context.Context, in *bulkInput) (*struct{}, error) {
 	ids := in.Body.IDs
@@ -242,12 +243,14 @@ func (h *AdminHandlers) Bulk(ctx context.Context, in *bulkInput) (*struct{}, err
 	return nil, nil
 }
 
+type SeasonInput struct {
+	SeasonNumber int    `json:"seasonNumber" minimum:"0"`
+	Name         string `json:"name" required:"false"`
+}
+
 type createSeasonInput struct {
 	ID   string `path:"id" format:"uuid"`
-	Body struct {
-		SeasonNumber int    `json:"seasonNumber" minimum:"0"`
-		Name         string `json:"name" required:"false"`
-	}
+	Body SeasonInput
 }
 
 type seasonCreatedOutput struct{ Body *Season }

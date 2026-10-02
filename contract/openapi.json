@@ -133,7 +133,7 @@
         ],
         "type": "object"
       },
-      "BulkInputBody": {
+      "BulkTitleAction": {
         "additionalProperties": false,
         "properties": {
           "action": {
@@ -311,23 +311,6 @@
           "year",
           "posterId",
           "backdropId"
-        ],
-        "type": "object"
-      },
-      "CreateSeasonInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "seasonNumber": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "seasonNumber"
         ],
         "type": "object"
       },
@@ -1011,6 +994,23 @@
           "name",
           "overview",
           "episodes"
+        ],
+        "type": "object"
+      },
+      "SeasonInput": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "seasonNumber": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seasonNumber"
         ],
         "type": "object"
       },
@@ -2031,7 +2031,7 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -2039,7 +2039,7 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Created"
           },
           "default": {
             "content": {
@@ -2139,7 +2139,7 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -2147,7 +2147,7 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Created"
           },
           "default": {
             "content": {
@@ -2177,7 +2177,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BulkInputBody"
+                "$ref": "#/components/schemas/BulkTitleAction"
               }
             }
           },
@@ -2451,14 +2451,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateSeasonInputBody"
+                "$ref": "#/components/schemas/SeasonInput"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -2466,7 +2466,7 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Created"
           },
           "default": {
             "content": {
