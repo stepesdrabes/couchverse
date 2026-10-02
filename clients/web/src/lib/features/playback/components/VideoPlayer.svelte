@@ -223,7 +223,7 @@
 			const pool = (info.episodes ?? []).filter((e) => e.episodeId !== info.currentEpisodeId);
 			if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
 		}
-		return info.nextEpisode;
+		return info.nextEpisode ?? null;
 	}
 
 	const remaining = $derived(duration - currentTime);

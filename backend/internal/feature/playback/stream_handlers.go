@@ -153,48 +153,49 @@ func (h *Stream) Serve(w http.ResponseWriter, r *http.Request) {
 // PlaybackInfo is the player payload. It is built by BuildPlayback and reused
 // by the couch feature to assemble a follower's player without an auth context.
 type PlaybackInfo struct {
-	Mode           string                  `json:"mode"` // direct | unsupported (hls/jit arrive with transcoding)
+	Mode           string                  `json:"mode" enum:"direct,hls,preparing,jit,unsupported" doc:"How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession; unsupported cannot play."`
 	MediaFileID    string                  `json:"mediaFileId"`
-	StreamURL      string                  `json:"streamUrl,omitempty"`
+	StreamURL      string                  `json:"streamUrl,omitempty" doc:"The source file (mode direct) or the HLS master (mode hls) to load."`
 	Duration       float64                 `json:"durationSeconds"`
-	ResumePosition int                     `json:"resumePosition"`
-	Display        playbackDisplay         `json:"display"`
-	NextEpisode    *catalog.EpisodeRef     `json:"nextEpisode"`
-	Subtitles      []subtitleTrack         `json:"subtitles"`
-	Audio          []audioTrack            `json:"audio,omitempty"`
-	Episodes       []catalog.SeriesEpisode `json:"episodes,omitempty"`
+	ResumePosition int                     `json:"resumePosition" doc:"Saved position in seconds; 0 for couch followers, who sync to the host."`
+	Display        PlaybackDisplay         `json:"display"`
+	NextEpisode    *catalog.EpisodeRef     `json:"nextEpisode,omitempty" doc:"The episode after this one; absent for movies and series finales."`
+	Subtitles      []PlaybackSubtitleTrack `json:"subtitles"`
+	Audio          []PlaybackAudioTrack    `json:"audio,omitempty" doc:"Selectable audio languages; absent when there is only one."`
+	Episodes       []catalog.SeriesEpisode `json:"episodes,omitempty" doc:"The series' playable episodes, for the in-player switcher."`
 	CurrentEpisode string                  `json:"currentEpisodeId,omitempty"`
-	HLSURL         string                  `json:"hlsUrl,omitempty"`
-	Variants       []qualityVariant        `json:"variants,omitempty"`
-	JobProgress    int                     `json:"jobProgress,omitempty"`
+	HLSURL         string                  `json:"hlsUrl,omitempty" doc:"HLS master of the ready transcodes, offered even when the source direct-plays."`
+	Variants       []QualityVariant        `json:"variants,omitempty" doc:"Ready renditions for the quality menu."`
+	JobProgress    int                     `json:"jobProgress,omitempty" doc:"Transcode progress in percent while mode is preparing."`
 	// series opt-in for shuffle playback (drives the player's shuffle toggle)
 	AllowRandomPlayback bool `json:"allowRandomPlayback"`
 }
 
-type qualityVariant struct {
+// QualityVariant is one ready rendition in the player's quality menu.
+type QualityVariant struct {
 	Name   string `json:"name"`
 	Height int    `json:"height"`
 }
 
-type subtitleTrack struct {
+type PlaybackSubtitleTrack struct {
 	ID     string `json:"id"`
 	Lang   string `json:"lang"`
 	Label  string `json:"label"`
 	Forced bool   `json:"forced"`
-	URL    string `json:"url"`
+	URL    string `json:"url" doc:"The track as WebVTT."`
 }
 
-// audioTrack is one selectable audio language. Source "file" (model B) is a
-// separate-language media file the player swaps to; "embedded" (model A) is an
-// in-stream HLS audio rendition.
-type audioTrack struct {
-	ID        string `json:"id"`
+// PlaybackAudioTrack is one selectable audio language. Source "file" (model B)
+// is a separate-language media file the player swaps to; "embedded" (model A)
+// is an in-stream HLS audio rendition.
+type PlaybackAudioTrack struct {
+	ID        string `json:"id" doc:"The media file id of a file track; embedded:<stream index> for an embedded one."`
 	Lang      string `json:"lang"`
 	Label     string `json:"label"`
 	Default   bool   `json:"default"`
-	Source    string `json:"source"`
-	StreamURL string `json:"streamUrl,omitempty"`
-	HLSURL    string `json:"hlsUrl,omitempty"`
+	Source    string `json:"source" enum:"file,embedded"`
+	StreamURL string `json:"streamUrl,omitempty" doc:"Direct stream of a file track that direct-plays."`
+	HLSURL    string `json:"hlsUrl,omitempty" doc:"HLS master of a file track that does not direct-play."`
 }
 
 var audioLangNames = map[string]string{
@@ -215,8 +216,8 @@ func audioLabel(lang string) string {
 
 // audioTrackFor builds a model-B track from a media file, pointing at its direct
 // stream when it direct-plays, or its HLS master otherwise.
-func audioTrackFor(mf *media.MediaFile, isDefault bool) audioTrack {
-	t := audioTrack{ID: mf.ID, Lang: mf.AudioLang, Label: audioLabel(mf.AudioLang), Default: isDefault, Source: "file"}
+func audioTrackFor(mf *media.MediaFile, isDefault bool) PlaybackAudioTrack {
+	t := PlaybackAudioTrack{ID: mf.ID, Lang: mf.AudioLang, Label: audioLabel(mf.AudioLang), Default: isDefault, Source: "file"}
 	if mf.SourceDeletedAt == nil && mf.DirectPlay {
 		t.StreamURL = "/api/v1/stream/" + mf.ID
 	} else {
@@ -225,9 +226,10 @@ func audioTrackFor(mf *media.MediaFile, isDefault bool) audioTrack {
 	return t
 }
 
-type playbackDisplay struct {
+// PlaybackDisplay is what the player shows about the title being played.
+type PlaybackDisplay struct {
 	Title          string  `json:"title"`
-	Subtitle       string  `json:"subtitle"`
+	Subtitle       string  `json:"subtitle" doc:"The episode line (season, episode and name); empty for movies."`
 	TitleID        string  `json:"titleId"`
 	TitleSlug      string  `json:"titleSlug"`
 	BackdropID     *string `json:"backdropId"`
@@ -240,25 +242,28 @@ var (
 	errBadKind = errors.New("playback: kind must be movie or episode")
 )
 
+type playbackInput struct {
+	Kind string   `path:"kind" enum:"movie,episode"`
+	ID   string   `path:"id" format:"uuid" doc:"The movie's title id or the episode id."`
+	Caps []string `query:"caps" doc:"Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision."`
+}
+
+type playbackOutput struct{ Body *PlaybackInfo }
+
 // Playback resolves what to play for a movie title or an episode.
-func (h *Stream) Playback(w http.ResponseWriter, r *http.Request) {
-	user := auth.UserFrom(r.Context())
+func (h *Stream) Playback(ctx context.Context, in *playbackInput) (*playbackOutput, error) {
 	var uid *int64
-	if user != nil {
+	if user := auth.UserFrom(ctx); user != nil {
 		uid = &user.ID
 	}
-	caps := strings.Split(r.URL.Query().Get("caps"), ",")
-	info, err := h.BuildPlayback(r.Context(), chi.URLParam(r, "kind"), httpx.UUID(r, "id"), uid, caps)
-	switch {
-	case err == nil:
-		httpx.JSON(w, http.StatusOK, info)
-	case errors.Is(err, errBadKind):
-		httpx.BadRequest(w, "kind must be movie or episode")
-	case errors.Is(err, errNoMedia):
-		httpx.Error(w, http.StatusNotFound, "no_media", "this title has no media file yet")
-	default:
-		httpx.StoreErr(w, err)
+	info, err := h.BuildPlayback(ctx, in.Kind, in.ID, uid, in.Caps)
+	if errors.Is(err, errNoMedia) {
+		return nil, httpx.Fail(http.StatusNotFound, "no_media", "this title has no media file yet")
 	}
+	if err != nil {
+		return nil, err
+	}
+	return &playbackOutput{Body: info}, nil
 }
 
 // BuildPlayback assembles the player payload for a movie title or an episode.
@@ -288,7 +293,7 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 		if err != nil {
 			return nil, errNoMedia
 		}
-		info.Display = playbackDisplay{Title: title.Name, TitleID: title.ID, TitleSlug: title.Slug}
+		info.Display = PlaybackDisplay{Title: title.Name, TitleID: title.ID, TitleSlug: title.Slug}
 		info.AllowRandomPlayback = title.AllowRandomPlayback
 		if userID != nil {
 			pos, _, perr := h.catalog.ProgressFor(ctx, *userID, &id, nil)
@@ -307,7 +312,7 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 		if err != nil {
 			return nil, errNoMedia
 		}
-		info.Display = playbackDisplay{
+		info.Display = PlaybackDisplay{
 			Title:     ref.TitleName,
 			Subtitle:  formatEpisodeSubtitle(ref),
 			TitleID:   ref.TitleID,
@@ -350,9 +355,9 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 	if err != nil {
 		return nil, err
 	}
-	info.Subtitles = []subtitleTrack{}
+	info.Subtitles = []PlaybackSubtitleTrack{}
 	for _, sub := range subs {
-		info.Subtitles = append(info.Subtitles, subtitleTrack{
+		info.Subtitles = append(info.Subtitles, PlaybackSubtitleTrack{
 			ID:     sub.ID,
 			Lang:   sub.Lang,
 			Label:  sub.Label,
@@ -395,7 +400,7 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 				if v.Mode == "copy" {
 					height = mf.Height
 				}
-				info.Variants = append(info.Variants, qualityVariant{Name: v.Name, Height: height})
+				info.Variants = append(info.Variants, QualityVariant{Name: v.Name, Height: height})
 			}
 		case "queued", "processing":
 			pending = true
@@ -416,7 +421,7 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 			if label == "" || label == a.Lang {
 				label = audioLabel(a.Lang)
 			}
-			info.Audio = append(info.Audio, audioTrack{
+			info.Audio = append(info.Audio, PlaybackAudioTrack{
 				ID:      fmt.Sprintf("embedded:%d", a.Index),
 				Lang:    a.Lang,
 				Label:   label,
@@ -526,45 +531,55 @@ func (h *Stream) jitAllowed(ctx context.Context) bool {
 	return len(DetectEncoders(h.ffmpeg)) > 0
 }
 
-// CreateSession opens a JIT transcode session.
-func (h *Stream) CreateSession(w http.ResponseWriter, r *http.Request) {
-	if !h.jitAllowed(r.Context()) {
-		httpx.Error(w, http.StatusPreconditionFailed, "jit_disabled", "instant play is disabled")
-		return
+// requireJIT gates opening a JIT session. It runs before the request is
+// parsed, so a disabled instant play is reported ahead of any input error.
+func (h *Stream) requireJIT(ctx context.Context) error {
+	if !h.jitAllowed(ctx) {
+		return httpx.Fail(http.StatusPreconditionFailed, "jit_disabled", "instant play is disabled")
 	}
-	var req struct {
-		StartAt float64 `json:"startAt"`
-	}
-	if err := httpx.Decode(r, &req); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	mediaFileID := httpx.UUID(r, "id")
-	if mediaFileID == "" {
-		httpx.NotFound(w)
-		return
-	}
-	if mf, merr := h.library.MediaFileByID(r.Context(), mediaFileID); merr == nil && mf.SourceDeletedAt != nil {
-		httpx.Error(w, http.StatusNotFound, "source_deleted", "the original file was removed after transcoding")
-		return
-	}
-	session, err := h.sessions.Create(r.Context(), context.Background(), mediaFileID, max(0, req.StartAt))
-	if err != nil {
-		httpx.Error(w, http.StatusServiceUnavailable, "session_failed", err.Error())
-		return
-	}
-	httpx.JSON(w, http.StatusCreated, map[string]string{
-		"sessionId":   session.ID,
-		"playlistUrl": "/api/v1/stream/sessions/" + session.ID + "/index.m3u8",
-	})
+	return nil
 }
 
-func (h *Stream) SessionKeepalive(w http.ResponseWriter, r *http.Request) {
-	if !h.sessions.Touch(chi.URLParam(r, "sid")) {
-		httpx.NotFound(w)
-		return
+type createStreamSessionInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body struct {
+		StartAt float64 `json:"startAt" required:"false" doc:"Position in seconds to start transcoding from."`
 	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+}
+
+// StreamSession is an open JIT transcode. Play PlaylistURL and keep the
+// session alive while watching; idle sessions are reaped.
+type StreamSession struct {
+	SessionID   string `json:"sessionId"`
+	PlaylistURL string `json:"playlistUrl"`
+}
+
+type streamSessionOutput struct{ Body StreamSession }
+
+// CreateSession opens a JIT transcode session.
+func (h *Stream) CreateSession(ctx context.Context, in *createStreamSessionInput) (*streamSessionOutput, error) {
+	if mf, merr := h.library.MediaFileByID(ctx, in.ID); merr == nil && mf.SourceDeletedAt != nil {
+		return nil, httpx.Fail(http.StatusNotFound, "source_deleted", "the original file was removed after transcoding")
+	}
+	session, err := h.sessions.Create(ctx, context.Background(), in.ID, max(0, in.Body.StartAt))
+	if err != nil {
+		return nil, httpx.Fail(http.StatusServiceUnavailable, "session_failed", err.Error())
+	}
+	return &streamSessionOutput{Body: StreamSession{
+		SessionID:   session.ID,
+		PlaylistURL: "/api/v1/stream/sessions/" + session.ID + "/index.m3u8",
+	}}, nil
+}
+
+type sessionInput struct {
+	SID string `path:"sid" pattern:"^[a-f0-9]{24}$"`
+}
+
+func (h *Stream) SessionKeepalive(_ context.Context, in *sessionInput) (*struct{}, error) {
+	if !h.sessions.Touch(in.SID) {
+		return nil, httpx.NotFoundError()
+	}
+	return nil, nil
 }
 
 var sessionIDRe = regexp.MustCompile(`^[a-f0-9]{24}$`)

@@ -45,7 +45,8 @@ export interface PlaybackInfo {
 		backdropVer?: number;
 		backdropAccent?: string;
 	};
-	nextEpisode: EpisodeRef | null;
+	/** absent for movies and after a series' last episode */
+	nextEpisode?: EpisodeRef;
 	subtitles: SubtitleTrack[];
 	audio?: AudioTrack[];
 	episodes?: SeriesEpisode[];
