@@ -204,7 +204,7 @@ impl Shell {
     }
 
     pub fn view<T: DeserializeOwned>(&self, surface: &Surface) -> T {
-        serde_json::from_value(self.core.view(surface)).expect("view model decodes")
+        serde_json::from_str(&self.core.view(surface)).expect("view model decodes")
     }
 
     pub fn phase(&self) -> AppPhase {

@@ -100,7 +100,8 @@ impl Core {
         self.registry.drain()
     }
 
-    pub fn view(&self, surface: &Surface) -> serde_json::Value {
+    /// The surface's view model as JSON.
+    pub fn view(&self, surface: &Surface) -> String {
         self.model.view(surface)
     }
 
@@ -321,19 +322,19 @@ impl Model {
         }
     }
 
-    fn view(&self, surface: &Surface) -> serde_json::Value {
+    fn view(&self, surface: &Surface) -> String {
         let json = match surface {
-            Surface::App => serde_json::to_value(AppView {
+            Surface::App => serde_json::to_string(&AppView {
                 phase: self.phase,
                 active_account: self.session.account_id().map(str::to_string),
             }),
-            Surface::Servers => serde_json::to_value(self.servers.view()),
-            Surface::Accounts => serde_json::to_value(self.accounts.view(&self.servers)),
-            Surface::SignIn => serde_json::to_value(self.accounts.sign_in_view()),
-            Surface::Devices => serde_json::to_value(self.accounts.devices_view()),
-            Surface::PairingApproval => serde_json::to_value(self.accounts.approval_view()),
-            Surface::Session => serde_json::to_value(self.session.view()),
-            Surface::Markdown(source) => serde_json::to_value(markdown::parse(source)),
+            Surface::Servers => serde_json::to_string(&self.servers.view()),
+            Surface::Accounts => serde_json::to_string(&self.accounts.view(&self.servers)),
+            Surface::SignIn => serde_json::to_string(&self.accounts.sign_in_view()),
+            Surface::Devices => serde_json::to_string(&self.accounts.devices_view()),
+            Surface::PairingApproval => serde_json::to_string(&self.accounts.approval_view()),
+            Surface::Session => serde_json::to_string(&self.session.view()),
+            Surface::Markdown(source) => serde_json::to_string(&markdown::parse(source)),
         };
         json.expect("view models always serialize")
     }

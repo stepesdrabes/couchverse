@@ -53,6 +53,6 @@ impl Bridge {
     /// `surface` is a `Surface`; returns its view model.
     pub fn view(&self, surface: &str) -> Result<String, BridgeError> {
         let surface = decode::<Surface>(surface)?;
-        Ok(self.core.view(&surface).to_string())
+        Ok(self.core.view(&surface))
     }
 }

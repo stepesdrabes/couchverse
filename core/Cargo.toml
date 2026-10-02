@@ -14,7 +14,6 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["preserve_order"] }
 # the annotation only: the typeshare crate drags chrono and core-foundation into every slice
 typeshare = { package = "typeshare-annotation", version = "1.0.5" }
-pulldown-cmark = { version = "0.13.4", default-features = false }
 # only the bindgen crate enables the CLI; mobile slices must not compile cargo_metadata
 uniffi = { version = "0.32.2", default-features = false }
 # the crate and xtask's bindgen library must be the same version, or the glue is rejected
