@@ -5,7 +5,8 @@ of the stack, what it talks to, and how the pieces depend on each other.
 
 Architecture rule: **a feature owns its HTTP handlers, domain logic and SQL together.**
 Backend features live in `backend/internal/feature/<name>/` (one Go package each, with a
-per-feature `Store` over the shared pgx pool and `Mount*` methods that register routes).
+per-feature `Store` over the shared pgx pool and a `Register(httpx.Routes)` method that adds
+its typed operations to the shared API - see "API contract" below).
 Web features live in `clients/web/src/lib/features/<name>/` (api.ts, types, rune state
 in `*.svelte.ts`, `components/`, `pages/`). Route files in `src/routes/` are thin shells
 that render a `XxxPage.svelte` component from the owning feature.
@@ -27,12 +28,14 @@ that render a `XxxPage.svelte` component from the owning feature.
 | couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
 | ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters` |
 
-Shared kernel (backend): `internal/config` (env), `internal/db` (pool, migrations,
-`ErrNotFound`), `internal/httpx` (JSON responses, param helpers), `internal/media`
+Shared kernel (backend): `internal/app` (wiring of stores, services and the job runner),
+`internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
+(the huma API, error envelope, `Routes` groups, `Tag`/`Localized`/`Guard`/`Raw`), `internal/media`
 (ffprobe, codec compatibility, filename parsing, transcode ladder policy,
 shared `MediaFile`/`Subtitle` row types), `internal/settings` (settings KV store),
-`internal/flags` (admin-toggleable feature flags), `internal/slug`, `internal/server`
-(composition root: middleware, feature mounts, SPA fallback).
+`internal/flags` (admin-toggleable feature flags), `internal/slug`, `internal/version`
+(build version, API level), `internal/server` (composition root: middleware, API groups,
+feature registration, SPA fallback).
 
 Shared web: `lib/api/client.ts` (fetch wrapper - never hand-write URLs in
 components) and `lib/api/cache.svelte.ts` (SWR cache), `lib/components/ui/` (bits-ui
@@ -230,7 +233,7 @@ admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
 - **Stream authorization (cross-feature):** anonymous followers must reach only the
   host's current media. `playback` owns the stream routes and must not import
   `couch`, so the guard lives in the composition root: `internal/server`'s
-  `requireAuthOrCouch` admits logged-in users unchanged, else asks the Hub's
+  `authOrCouch` guard admits logged-in users unchanged, else asks the Hub's
   `AllowsAnon(r, mediaFileID)` (a valid couch cookie whose live session currently
   allows that file). `playback.BuildPlayback` was extracted so couch builds the
   follower payload without an auth context.
@@ -326,7 +329,9 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
 ## Internationalization & multi-language media (cross-cutting)
 
 **UI + metadata language (one "display language", Czech + English).** The web client
-uses **Paraglide JS** as a compile-only i18n: messages in `clients/web/messages/{en,cs}.json`,
+uses **Paraglide JS** as a compile-only i18n over the shared catalogs in
+`contract/i18n/{en,cs}.json` (also compiled into the Apple and Android string catalogs by
+`cargo xtask codegen`; counted strings carry CLDR plural variants),
 compiled to `src/lib/paraglide/` (gitignored, built by the Vite plugin and the `check`
 script). `lib/i18n/locale.svelte.ts` is the single source of truth (`currentLang`,
 `setDisplayLang`, `applySavedLang`); the header `LanguageSwitcher` (a flag dropdown built on
@@ -343,8 +348,8 @@ jobs loop over the title's languages. Removing a content language
 translations across the title/seasons/episodes and promotes the next language into the base
 columns when the base one is removed (the last language cannot be removed), and the editor
 also deletes that language's alternate-audio files and subtitles from disk via their own
-endpoints. Resolution: `httpx.Lang` + `httpx.WithLang` (set by a `withLang` route wrapper on
-public reads) + `catalog.localize` overwrite name/overview at scan; admin reads and jobs
+endpoints. Resolution: `httpx.Localized` (an operation modifier that documents `?lang=` and
+stores it via `httpx.WithLang`) + `catalog.Localize` overwrite name/overview at scan; admin reads and jobs
 leave it empty so they see base text.
 
 **Multi-language audio (two models, both supported).**
@@ -359,6 +364,36 @@ leave it empty so they see base text.
   `audioTrack` (Safari: native `video.audioTracks`).
 - Both surface as `playbackInfo.audio` (source `file`|`embedded`); the player shows one
   audio menu, selected independently of the display language (`localStorage cv.audioLang`).
+
+## API contract (cross-cutting)
+
+The HTTP API is described by an OpenAPI 3.1 document generated from the Go handlers
+(huma v2 on the chi router), so the spec cannot drift from what the server does, and every
+client is generated from it (native clients plan, D30).
+
+- **One API, four groups** (`internal/server`): `Public`, `User` (session required),
+  `Admin` (`/admin` prefix, admin role) and `Stream` (signed in, or an anonymous couch follower
+  of exactly that media). Feature flags gate their own groups with `httpx.Guard`.
+- **Operations** are typed (`huma.Register`) with stable camelCase operation ids. The few raw
+  routes (byte streams, the couch WebSocket, chunked upload appends, image/VTT files) go through
+  `httpx.Raw`, which shares the group's middleware and still documents parameters and content
+  types, so generated clients get typed URL builders for them too.
+- **Errors** keep the envelope `{"error": {"code", "message"}}`; validation failures are 400
+  `bad_request`, malformed path parameters 404, a wrapped `db.ErrNotFound` 404, anything else
+  a logged 500 `internal`.
+- **Publishing**: `couchverse openapi` and `couchverse couch-schema` print the documents without
+  a database; `make contract` writes them to `contract/` and runs `cargo xtask codegen`, which
+  renders one parsed model as the core's Rust crate (`core/crates/api`: types, one builder per
+  operation returning a `Call<T>` for a shell to execute, couch `ServerFrame`/`ClientFrame`)
+  and the web's `src/lib/generated/api.ts` (types plus one function per operation over the
+  existing `api()` wrapper). Response enums tolerate unknown values and frames decode unknown
+  types as `Unknown`, so additive server changes never break older clients.
+- **Conformance**: `TestAPIConformance` (`internal/server/api_test.go`) builds the real app on
+  a throwaway database seeded from `testdata/seed.sql`, runs cases for every typed operation
+  (including uploads, captured ids and an anonymous cookie-keeping client) and validates each
+  response against the spec; it fails when an operation has no case. The couch protocol has
+  golden frames in `contract/fixtures/couch`, asserted by the Go tests and decoded by the
+  core's tests.
 
 ## Optimistic navigation & caching (cross-cutting)
 
@@ -492,11 +527,13 @@ Notes that keep it acyclic:
 
 Backend:
 1. Create `backend/internal/feature/<name>/` with `store.go` (`type Store struct { db *pgxpool.Pool }`,
-   `NewStore`), handler files, and `routes.go` exposing `Mount*`/`Module` methods.
+   `NewStore`), typed handlers, and `routes.go` with `Register(rt httpx.Routes)`.
 2. Add migrations in `backend/migrations/` (next `NNNN_` prefix; goose runs them at boot).
-3. Construct the store in `cmd/couchverse/main.go`, pass it to `server.New`, mount the
-   routes in `internal/server/server.go` next to the other features.
-4. Register background job handlers (if any) on the runner in `main.go`.
+3. Construct the store in `internal/app` (add it to `server.Deps`) and call the feature's
+   `Register` in `internal/server/server.go` next to the other features.
+4. Register background job handlers (if any) on the runner in `app.Start`.
+5. Add conformance cases for every new operation in `internal/server/api_test.go`, run
+   `make contract` and commit the regenerated files.
 
 Web:
 1. Create `clients/web/src/lib/features/<name>/` with `api.ts` (all endpoint calls),

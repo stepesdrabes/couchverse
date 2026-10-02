@@ -28,28 +28,34 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   one Go package with:
   - a per-feature `Store` struct over the shared pgx pool (`NewStore(pool)`) - SQL stays
     inside the feature;
-  - handler files plus `routes.go` exposing `Mount*` methods (or a `Module`) that register
-    chi routes; `internal/server` only composes middleware + feature mounts + SPA fallback;
-  - wiring happens in `cmd/couchverse/main.go` (stores/services constructed there).
+  - handler files plus `routes.go` with a `Register(rt httpx.Routes)` method (on a `Module` or
+    the handler struct) that adds the feature's operations to the shared huma API (see "Typed
+    API" below); `internal/server` only composes middleware, the API groups and the SPA
+    fallback;
+  - wiring (stores, services, the job runner) happens in `internal/app`; `cmd/couchverse` only
+    loads config, migrates and serves, and tests build the same graph with `app.New`.
   - Import rules: a feature may import another feature's `Store`/exported services, never
     its handlers. The feature import graph must stay acyclic (current DAG in FEATURES.md).
     SQL may JOIN any table - joins create no Go dependency.
-  - Shared kernel: `internal/{config,db,httpx,media,settings,flags,slug,server}`.
+  - Shared kernel: `internal/{app,config,db,httpx,media,settings,flags,slug,server,version}`.
     `r.RemoteAddr` is always the bare client IP: `internal/server`'s `clientIP` believes
     `X-Forwarded-For` only from `TRUSTED_PROXIES`, so never read forwarding headers yourself.
-    `db.ErrNotFound` is the missing-row sentinel (aliased as `httpx.ErrNotFound`;
-    `httpx.StoreErr` maps it to 404). Shared `MediaFile`/`Subtitle`/`AudioStream` row types +
+    `db.ErrNotFound` is the missing-row sentinel (aliased as `httpx.ErrNotFound`; a wrapped
+    one returned from a typed handler becomes a 404 automatically). Shared `MediaFile`/`Subtitle`/`AudioStream` row types +
     ffprobe/compat/namer/tags + transcode ladder policy live in `internal/media`.
   - **Couch sessions** (synced watch parties) keep all session/participant state in-memory in
     a Hub (a server restart ends every session); the only persisted artifact is the per-title
     on-couch watch-time in `analytics`. The feature is gated by the admin `couchEnabled` flag
-    (mirror `rankingsEnabled`/`flags.RequireCouch`). **Anonymous viewers stream the host's current
+    (mirror `rankingsEnabled`/`flags.CouchOn`). **Anonymous viewers stream the host's current
     media via a scoped httpOnly couch cookie** (mirrors the auth session cookie). Because
     `playback` owns the stream routes and must not import `couch`, the anonymous-stream guard is
-    inverted into the composition root: `internal/server`'s `requireAuthOrCouch` allows a request
+    inverted into the composition root: `internal/server`'s `authOrCouch` guard allows a request
     if it is logged-in **or** the Hub's `AllowsAnon(r, mediaFileID)` accepts it (live session,
     current media only). Reuse `playback.BuildPlayback` (no auth context) to build follower
-    payloads. WebSockets use `github.com/coder/websocket`.
+    payloads. WebSockets use `github.com/coder/websocket`. The protocol's frames are listed once
+    in `couch/protocol.go` (`ServerFrames`/`ClientFrames`, exported `Couch*` payload types);
+    `couchverse couch-schema` publishes them and `contract/fixtures/couch` holds one golden
+    frame per type (rerun `go test ./internal/feature/couch -update` after an intended change).
   - **Ranks** (XP, achievements, public profiles, leaderboards) is a near-leaf: it imports only
     `auth` and `catalog`'s `Localize`/`GenreLabel`, reaching every other table by SQL join, and
     **nothing imports it**. That is what lets `couch` report per-user counters through its own
@@ -68,6 +74,31 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     escaped rather than parsed, so the `{@html}` in `ui/Markdown.svelte` can only emit tags
     markdown-it generated itself. Never enable `html`, and never render user markdown any
     other way.
+- **Typed API (huma, the contract's source)**: every route is an operation on one huma API
+  (OpenAPI 3.1 at `/api/v1`), registered through `httpx.Routes` groups: `Public`, `User`
+  (signed in), `Admin` (paths get `/admin`), `Stream` (signed in or a couch follower of that
+  media); flag gates are `httpx.Guard` groups. Declare operations with
+  `const tag httpx.Tag = "<feature>"` and `tag.Op/NoContent/Created/Accepted(operationId,
+  method, path)`; handlers are `func(ctx, *fooInput) (*fooOutput, error)`. **Operation ids are
+  the contract** (camelCase, `admin` prefix for admin ops): every client's function names come
+  from them, so never rename one casually. Typing rules: exported, domain-named body types (no
+  anonymous body structs, no `any`/`map[string]any`/`json.RawMessage` in a schema); response
+  lists are never nil; an optional response field is `omitempty`, a nullable scalar is a pointer
+  without it; partial-update fields are `required:"false"`; uuid path params are
+  `format:"uuid"` (a malformed path param is a 404); closed sets get `enum:`. Errors: return the
+  plain error for internal failures (logged, generic 500), domain failures with
+  `httpx.Fail(status, code, message)` keeping stable codes. `httpx.Localized(op)` for `?lang=`
+  reads. `httpx.Raw` only for byte streams, WebSockets and chunked uploads, still fully
+  documented (parameters, content types, `httpx.ErrorResponse`). Every typed operation needs at
+  least one case in `internal/server/api_test.go` (`TestAPIConformance` runs it against a
+  seeded database and validates the response against the spec; `make test` uses the dev
+  Postgres).
+- **Contract** (`contract/`): `openapi.json` and `couch-protocol.schema.json` are generated from
+  the Go code; `i18n/` and `design/tokens.json` are hand-authored; `fixtures/` holds golden
+  payloads. `make contract` regenerates the specs and runs `cargo xtask codegen` (`core/xtask`),
+  which emits the core's typed API crate (`core/crates/api`), the web's typed client
+  (`clients/web/src/lib/generated/api.ts`), the web token CSS/TS, and the Apple/Android
+  strings and tokens. Generated files are never edited by hand; CI fails when any is stale.
 - Web features live in `clients/web/src/lib/features/<name>/` (admin, auth, catalog, couch,
   jobs, library, playback, preferences, ranks, settings, uploads, users). Each keeps its
   types, API calls (`api.ts`), rune state (`*.svelte.ts`), `components/` and `pages/` together.
@@ -114,19 +145,25 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   name `couchverse`. The built SPA is embedded from `backend/web/dist` (gitignored,
   populated by `make build`/Docker).
 - `clients/web/` - SvelteKit (Svelte 5 runes), static SPA (`adapter-static`, `ssr=false`,
-  fallback index.html). **bits-ui** primitives styled with **Tailwind v4** (theme tokens in
-  `src/app.css` `@theme` - keep that file plain CSS), **SCSS** for component styles
+  fallback index.html). **bits-ui** primitives styled with **Tailwind v4** (colour and radius
+  tokens come from the generated `src/lib/generated/tokens.css`, imported by `src/app.css`,
+  which stays plain CSS), **SCSS** for component styles
   (`<style lang="scss">`), svelte-sonner for toasts, **Paraglide JS** for i18n.
-- Postgres 17; job queue is a Postgres table (no Redis). ffmpeg/ffprobe shelled out (not
-  installed on the dev Mac - use docker for media work).
+- `core/` - Rust workspace (`cargo xtask` lives here): today the generators and the generated
+  `couchverse-api` crate; the shared client core follows (docs/native-clients-plan.md).
+- `contract/` - the API spec, couch protocol schema, i18n catalogs, design tokens, fixtures.
+- Postgres 17; job queue is a Postgres table (no Redis). ffmpeg/ffprobe shelled out.
 
 ## Dev workflow
 
 - `docker compose up db -d` then `make run-backend` (Go on :8080) + `make run-web` (Vite on :5173, proxies /api).
   Dev .env: `DB_PASSWORD=couchverse` so the Makefile default DSN works.
 - `make lint` (go vet [+ golangci-lint if installed]), `make check` (svelte-check + prettier + eslint), `make test`, `make build` (SPA -> embed -> binary).
-- CI (`.github/workflows/`): `backend.yml` (gofmt, vet, golangci-lint, tests), `web.yml`
-  (check, lint, build), `repo.yml` (`scripts/check-no-emdash.sh`).
+- `make contract` after any change to an operation, a schema type, the couch protocol, i18n or
+  design tokens; commit the regenerated files with the change.
+- CI (`.github/workflows/`): `backend.yml` (gofmt, vet, golangci-lint, tests incl. API
+  conformance against a Postgres service), `web.yml` (check, lint, build), `contract.yml`
+  (xtask fmt/clippy/tests, `make contract`, no drift), `repo.yml` (`scripts/check-no-emdash.sh`).
 - Sample media: `make sample-media` (lavfi-generated clips covering direct-play/remux/transcode tiers).
 - Verify HTTP: `curl localhost:8080/healthz`.
 
@@ -134,8 +171,13 @@ A feature owns its HTTP handlers, domain logic and SQL together.
 
 Full design in `FEATURES.md`; the conventions to follow:
 
-- **One display language** (en/cs) drives both UI strings and shown metadata. UI strings use
-  Paraglide: add keys to `clients/web/messages/{en,cs}.json` and call `m.key()`
+- **One display language** (en/cs) drives both UI strings and shown metadata. UI strings live
+  in `contract/i18n/{en,cs}.json` for every client (Paraglide on the web, generated string
+  catalogs on Apple/Android); both files must define the same keys, shapes and parameters
+  (`make contract` checks). Counted strings use plural variants (Czech needs one/few/many/
+  other; see `catalog_season_count`); a message with two counts takes pluralized fragments as
+  parameters. Admin-only keys (`admin_`, `jobs_`, `library_`, `settings_`, `uploads_`,
+  `users_`) are left out of the native catalogs. On the web call `m.key()`
   (`import * as m from '$lib/paraglide/messages'`); generated `src/lib/paraglide/` is
   gitignored and compiled by `make check`/`build`. **Parameterize, never concatenate** (Czech
   word order). The language source of truth is `lib/i18n/locale.svelte.ts`
@@ -143,8 +185,8 @@ Full design in `FEATURES.md`; the conventions to follow:
 - **Content metadata** is stored per language in `translations jsonb` on
   `titles/seasons/episodes/genres`, base columns are the default/fallback;
   `titles.metadata_languages` is the per-title content set. The backend resolves at scan via
-  `catalog.localize` keyed off `httpx.LangFrom` (set by the `withLang` wrapper on public read
-  routes; admin reads and background jobs leave it empty -> base text). Admins edit each
+  `catalog.Localize` keyed off `httpx.LangFrom` (set by `httpx.Localized` on public reads;
+  admin reads and background jobs leave it empty -> base text). Admins edit each
   language in the title editor / episode modal (`PATCH /admin/titles/{id}/translations/{lang}`,
   `.../episodes/{id}/translations/{lang}`); TMDB fetch loops over the title's languages.
   Genres keep their English `name` as the URL/filter identity - only the label is translated
@@ -162,4 +204,5 @@ Full design in `FEATURES.md`; the conventions to follow:
   `PATCH /admin/media-files/{id}`; the player swaps source + re-seeks); model A is one file
   with embedded tracks (`audio_streams` table, ffmpeg `-var_stream_map` `multiaudio` HLS
   variant, switched via hls.js `audioTrack`). Both surface as `playbackInfo.audio`.
-- ffmpeg/HLS paths cannot run on the dev Mac - exercise them with Docker + `make sample-media`.
+- ffmpeg/HLS paths run locally when ffmpeg is installed (Homebrew); the Docker image's ffmpeg
+  (Debian) is the reference for HLS output, exercised with `make sample-media`.
