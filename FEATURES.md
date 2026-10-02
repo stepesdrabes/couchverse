@@ -33,7 +33,8 @@ Shared kernel (backend): `internal/app` (wiring of stores, services and the job 
 (the huma API, error envelope, `Routes` groups, `Tag`/`Localized`/`Guard`/`Raw`), `internal/media`
 (ffprobe, codec compatibility, filename parsing, transcode ladder policy,
 shared `MediaFile`/`Subtitle` row types), `internal/settings` (settings KV store),
-`internal/flags` (admin-toggleable feature flags), `internal/slug`, `internal/version`
+`internal/flags` (admin-toggleable feature flags), `internal/grant` (media and artwork
+grants), `internal/slug`, `internal/version`
 (build version, API level), `internal/server` (composition root: middleware, API groups,
 feature registration, SPA fallback).
 
@@ -47,15 +48,33 @@ caching" and "TV mode".
 ## Features
 
 ### auth
-Login/logout with cookie sessions (CSRF origin check, login rate limiting), the
-`/auth/me` identity endpoint, user profiles (display name, avatar, banner, markdown
-bio), per-user preferences (subtitle appearance), and the admin user CRUD. Bootstraps
-the master admin account on a fresh database.
-- Backend: `Module` mounts public (`POST /auth/login|logout`), user (`/auth/me`,
-  `/me/profile`, `/me/preferences`, `/me/avatar`, `/me/banner`) and admin
-  (`/admin/users...`) routes. Session middleware (`Load`, `RequireAuth`,
-  `RequireAdmin`, `UserFrom`) lives here and is used by the server for every
-  authenticated route group.
+Sign-in for browsers (cookie sessions, CSRF origin check, login rate limiting) and native
+clients (device sessions with bearer tokens, pairing, connect codes), the `/auth/me`
+identity endpoint, the devices list, user profiles (display name, avatar, banner,
+markdown bio), per-user preferences (subtitle appearance), and the admin user CRUD.
+Bootstraps the master admin account on a fresh database.
+- Backend: `Register` adds public (`POST /auth/login|logout|token|connect`,
+  `/auth/pairings...`), user (`/auth/me`, `/me/profile`, `/me/preferences`, `/me/avatar`,
+  `/me/banner`, `/me/devices`, `/me/pairings/{code}...`, `/me/connect-codes`,
+  `/me/artwork-grant`) and admin (`/admin/users...`) operations. Session middleware (`Load`,
+  `UserFrom`, `SessionFrom`) and the `SignedIn`/`Admin` guards live here.
+- **Sessions** (`sessions` table): one row per signed-in browser or app, with a public
+  `id`, `kind` (`browser`|`device`), `device_name` and `platform`. Browsers present the
+  cookie, apps `Authorization: Bearer`; only the token's SHA-256 is stored. Expiry
+  **slides**: a use extends it to 30 days again (written at most daily, and the browser
+  cookie is reissued then), so active members are never signed out by a fixed lifetime.
+  `GET /me/devices` lists them (browsers named from the user agent) and
+  `DELETE /me/devices/{id}` revokes one; logout ends whichever session made the request;
+  disabling a user deletes all of theirs.
+- **Pairing** (RFC 8628 style, `device_pairings`) for TVs without a keyboard:
+  `POST /auth/pairings` returns a secret device code and an `XXXX-XXXX` user code
+  (consonants only) plus `verifyPath` for a QR; a signed-in user approves or denies it
+  under `/me/pairings/{code}` (optionally renaming the device); the device polls
+  `POST /auth/pairings/poll` (429 `slow_down` faster than the interval) and gets its token
+  exactly once. **Connect codes** (`connect_codes`) are the reverse: the web shows a one-time
+  code as a QR (`couchverse://connect?server=...&code=...`) and a phone redeems it at
+  `POST /auth/connect`. Unauthenticated starts and redemptions are rate limited per IP;
+  the hourly cleanup sweeps expired rows.
 - The **banner** is an ordinary `artwork` row (`owner_kind='user'`, `kind='banner'`),
   so it inherits resizing, caching and accent extraction; the profile hero tints
   itself from `artwork.accent` and only falls back to the rank tier colour when there
@@ -101,9 +120,11 @@ Everything that turns a media file into pixels: direct play streaming with range
 requests, prepared HLS variants, JIT ("instant play") transcode sessions with
 seek-anywhere, the playback-info decision endpoint, the background transcode job
 engine (ffmpeg HLS encode, hardware encoder detection/probing) and transcode admin.
-- Endpoints: `/stream/{id}`, `/stream/{id}/frame?t=` (seek-preview still, ffmpeg input-seek
-  cached under `cache/frames`), `/stream/{id}/hls/...`, `/stream/{id}/sessions`,
-  `/stream/sessions/{sid}/...`, `/playback/{kind}/{id}` (its `display.backdropId` accents
+- Endpoints: `/playback/{kind}/{id}` (the payload, with the media grant and grant URLs; its
+  `display.backdropId` accents the player) and, under `/media/{grant}/` (see "Media grants"):
+  `stream`, `frame?t=` (seek-preview still, ffmpeg input-seek cached under `cache/frames`),
+  `hls/master.m3u8`, `hls/{variant}/{file}`, `jit` (open an instant-play session),
+  `jit/{sid}/{file}`, `jit/{sid}/keepalive`, `DELETE jit/{sid}` (stop);
   the player); admin `/admin/transcode/info|active`,
   `/admin/media-files/{id}/transcode|variants`, `/admin/transcode-variants/{id}`.
 - Job handler: `transcode_hls` (per-type concurrency = `maxConcurrent` setting).
@@ -174,7 +195,9 @@ catalog overview counts + library insights (total video runtime, resolution/HDR 
 titles added in the last 30 days), live host metrics (CPU/RAM/disk, platform-specific,
 with per-process attribution to the Go app and ffmpeg children via /proc), a
 live-presence endpoint and the home-rows editor.
-- Endpoints: `/theme` (public), `/features`; admin `/admin/settings`, `/admin/storage`
+- Endpoints: `/server` (public identity: a stable id created at first boot, the
+  admin-editable `server.name`, the build version and the API level clients compare
+  against; adding a server in an app starts here), `/theme` (public), `/features`; admin `/admin/settings`, `/admin/storage`
   (categories movies/series/transcodes/cache - transcodes is the SQL sum of
   ready variant sizes, cache covers images/uploads/JIT session scratch),
   `/admin/overview` (counts + `library` insights), `/admin/system`, `/admin/live`,
@@ -230,13 +253,15 @@ admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
   serverTimestamp, seq}` (server-stamped) + emoji; followers extrapolate position
   from the last update + local elapsed and hard-seek past ~3s drift. Host identity
   is tied to the user (multi-tab reclaim, 60s reconnect grace).
-- **Stream authorization (cross-feature):** anonymous followers must reach only the
-  host's current media. `playback` owns the stream routes and must not import
-  `couch`, so the guard lives in the composition root: `internal/server`'s
-  `authOrCouch` guard admits logged-in users unchanged, else asks the Hub's
-  `AllowsAnon(r, mediaFileID)` (a valid couch cookie whose live session currently
-  allows that file). `playback.BuildPlayback` was extracted so couch builds the
-  follower payload without an auth context.
+- **Stream authorization (cross-feature):** followers (incl. anonymous ones) reach only
+  the host's current media. `GET /couch/{token}/playback` builds their payload with
+  `playback.BuildPlayback` and a `playback.Viewer` naming their participant, so every
+  media grant in it is bound to that participant. `playback` must not import `couch`,
+  so the check lives in the composition root: `internal/server`'s media-grant
+  middleware asks the Hub's `AllowsMedia(participantID, mediaFileID)` on every request
+  carrying such a grant, which revokes it the moment the follower leaves, the host
+  switches media or the session ends. The couch payloads also carry an artwork grant
+  (`artworkGrant`) so anonymous guests can load avatars and backdrops.
 - Web (`features/couch`): a singleton rune store (WebSocket + follower sync +
   host broadcast), a public `/couch/[token]` route that
   joins anonymous viewers without tripping the 401 redirect, the assembled
@@ -371,9 +396,10 @@ The HTTP API is described by an OpenAPI 3.1 document generated from the Go handl
 (huma v2 on the chi router), so the spec cannot drift from what the server does, and every
 client is generated from it (native clients plan, D30).
 
-- **One API, four groups** (`internal/server`): `Public`, `User` (session required),
-  `Admin` (`/admin` prefix, admin role) and `Stream` (signed in, or an anonymous couch follower
-  of exactly that media). Feature flags gate their own groups with `httpx.Guard`.
+- **One API, five groups** (`internal/server`): `Public`, `User` (session required),
+  `Admin` (`/admin` prefix, admin role), `Media` (`/media/{grant}`, a valid media grant) and
+  `Artwork` (a session or an artwork grant). Feature flags gate their own groups with
+  `httpx.Guard`.
 - **Operations** are typed (`huma.Register`) with stable camelCase operation ids. The few raw
   routes (byte streams, the couch WebSocket, chunked upload appends, image/VTT files) go through
   `httpx.Raw`, which shares the group's middleware and still documents parameters and content
@@ -394,6 +420,28 @@ client is generated from it (native clients plan, D30).
   response against the spec; it fails when an operation has no case. The couch protocol has
   golden frames in `contract/fixtures/couch`, asserted by the Go tests and decoded by the
   core's tests.
+
+## Media grants (cross-cutting)
+
+Players cannot reliably attach a cookie or an `Authorization` header to every request
+(AVPlayer forbids custom headers, AirPlay receivers and the browser's media element
+fetch on their own), so media is authorized by a capability in the URL.
+
+- `internal/grant` signs `{scope, subject, resource, couch participant, expiry}` with
+  HMAC-SHA256 (truncated to 128 bits) under a 32-byte key created at first boot
+  (`grant.secret` setting; deleting it revokes every grant), base64url, 83 characters.
+- **Media grants** (6 hours) name one media file. Everything that plays it lives under
+  `/media/{grant}/...`, so relative HLS URIs inherit the grant; handlers read the file from
+  `grant.From(ctx)` and never trust a path id (subtitles and instant-play sessions must
+  belong to that file). `GET /playback/...` returns `grant`, `streamUrl`, `hlsUrl`,
+  `frameUrl` and subtitle URLs already signed. An expired grant answers 403
+  `grant_expired` (fetch the payload again), a forged one 403 `invalid_grant`, a revoked
+  couch grant 403 `grant_revoked`.
+- **Artwork grants** (7 days) unlock artwork images (`?g=`) for system fetches (tvOS Top
+  Shelf, AirPlay) via `GET /me/artwork-grant`, and for anonymous couch guests via the couch
+  payloads.
+- **Couch-bound grants** carry the follower's participant id and are re-checked against the
+  live session on every request (see couch).
 
 ## Optimistic navigation & caching (cross-cutting)
 

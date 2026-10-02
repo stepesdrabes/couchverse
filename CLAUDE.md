@@ -37,7 +37,7 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   - Import rules: a feature may import another feature's `Store`/exported services, never
     its handlers. The feature import graph must stay acyclic (current DAG in FEATURES.md).
     SQL may JOIN any table - joins create no Go dependency.
-  - Shared kernel: `internal/{app,config,db,httpx,media,settings,flags,slug,server,version}`.
+  - Shared kernel: `internal/{app,config,db,grant,httpx,media,settings,flags,slug,server,version}`.
     `r.RemoteAddr` is always the bare client IP: `internal/server`'s `clientIP` believes
     `X-Forwarded-For` only from `TRUSTED_PROXIES`, so never read forwarding headers yourself.
     `db.ErrNotFound` is the missing-row sentinel (aliased as `httpx.ErrNotFound`; a wrapped
@@ -46,13 +46,12 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   - **Couch sessions** (synced watch parties) keep all session/participant state in-memory in
     a Hub (a server restart ends every session); the only persisted artifact is the per-title
     on-couch watch-time in `analytics`. The feature is gated by the admin `couchEnabled` flag
-    (mirror `rankingsEnabled`/`flags.CouchOn`). **Anonymous viewers stream the host's current
-    media via a scoped httpOnly couch cookie** (mirrors the auth session cookie). Because
-    `playback` owns the stream routes and must not import `couch`, the anonymous-stream guard is
-    inverted into the composition root: `internal/server`'s `authOrCouch` guard allows a request
-    if it is logged-in **or** the Hub's `AllowsAnon(r, mediaFileID)` accepts it (live session,
-    current media only). Reuse `playback.BuildPlayback` (no auth context) to build follower
-    payloads. WebSockets use `github.com/coder/websocket`. The protocol's frames are listed once
+    (mirror `rankingsEnabled`/`flags.CouchOn`). A scoped httpOnly **couch cookie** identifies a
+    participant (incl. anonymous ones) for the couch endpoints; followers stream through
+    **media grants bound to their participant** (see below), which the composition root
+    re-checks against the Hub (`AllowsMedia`) on every media request, so leaving, a media switch
+    or the session's end revokes access at once - `playback` never imports `couch`. Reuse
+    `playback.BuildPlayback` (no auth context, a `playback.Viewer`) to build follower payloads. WebSockets use `github.com/coder/websocket`. The protocol's frames are listed once
     in `couch/protocol.go` (`ServerFrames`/`ClientFrames`, exported `Couch*` payload types);
     `couchverse couch-schema` publishes them and `contract/fixtures/couch` holds one golden
     frame per type (rerun `go test ./internal/feature/couch -update` after an intended change).
@@ -74,10 +73,22 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     escaped rather than parsed, so the `{@html}` in `ui/Markdown.svelte` can only emit tags
     markdown-it generated itself. Never enable `html`, and never render user markdown any
     other way.
+- **Auth**: browsers use the httpOnly session cookie (CSRF Origin check); native clients are
+  named **device sessions** sending `Authorization: Bearer` (`POST /auth/token`, RFC 8628-style
+  pairing under `/auth/pairings` approved at `/me/pairings/{code}`, one-time connect codes).
+  Both are `sessions` rows with a public id (`GET/DELETE /me/devices`); every session's expiry
+  slides on use. `auth.SessionFrom(ctx)` is the authenticating session.
+- **Media grants** (`internal/grant`): media is authorized by a signed, expiring capability in
+  the path, never by cookie or header, because players (AVPlayer, ExoPlayer, AirPlay, the
+  browser's media element) cannot attach either reliably. Everything that plays one file lives
+  under `/media/{grant}/...` (`Routes.Media`; the file is `grant.From(ctx).Resource`, never a
+  path id), and the playback payload hands out the grant and grant URLs. Artwork accepts a
+  session or an artwork grant (`?g=`). New media routes go on `Routes.Media` and must only
+  touch the granted file.
 - **Typed API (huma, the contract's source)**: every route is an operation on one huma API
   (OpenAPI 3.1 at `/api/v1`), registered through `httpx.Routes` groups: `Public`, `User`
-  (signed in), `Admin` (paths get `/admin`), `Stream` (signed in or a couch follower of that
-  media); flag gates are `httpx.Guard` groups. Declare operations with
+  (signed in), `Admin` (paths get `/admin`), `Media` (`/media/{grant}`), `Artwork` (session or
+  artwork grant); flag gates are `httpx.Guard` groups. Declare operations with
   `const tag httpx.Tag = "<feature>"` and `tag.Op/NoContent/Created/Accepted(operationId,
   method, path)`; handlers are `func(ctx, *fooInput) (*fooOutput, error)`. **Operation ids are
   the contract** (camelCase, `admin` prefix for admin ops): every client's function names come
