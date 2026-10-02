@@ -14,6 +14,9 @@ const (
 	// the in-memory Hub; the cookie is only a lookup handle. Mirrors the auth
 	// session cookie's attributes (HttpOnly, SameSite=Lax, Secure when configured).
 	CouchCookie = "couchverse_couch"
+	// CouchTokenHeader carries the same participant token for clients without a cookie jar
+	// (native apps join with delivery=body).
+	CouchTokenHeader = "X-Couch-Token"
 	// Short-lived; refreshed while the participant is connected. A leaked cookie
 	// dies quickly, and a server restart invalidates every token regardless.
 	couchCookieTTL = 6 * time.Hour

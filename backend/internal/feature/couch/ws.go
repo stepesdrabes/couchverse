@@ -10,33 +10,33 @@ import (
 	"couchverse/internal/httpx"
 )
 
-// WS upgrades a participant's connection. Authentication is by the couch cookie
-// (set at join); the share token in the path is only routing. coder/websocket
-// enforces same-origin by default (matching the auth CSRF posture).
+// WS upgrades a participant's connection. Authentication is by the participant token,
+// from the couch cookie (browsers) or the X-Couch-Token header (native clients); the share
+// token in the path is only routing. coder/websocket enforces same-origin for browsers by
+// default (matching the auth CSRF posture); native clients send no Origin.
 func (h *Handlers) WS(w http.ResponseWriter, r *http.Request) {
-	c, err := r.Cookie(CouchCookie)
-	if err != nil {
-		httpx.Error(w, http.StatusUnauthorized, "no_couch_session", "join the couch session first")
-		return
+	token := r.Header.Get(CouchTokenHeader)
+	if c, err := r.Cookie(CouchCookie); err == nil && token == "" {
+		token = c.Value
 	}
-	rm, pid, ok := h.hub.lookup(c.Value)
+	ref, ok := h.hub.lookup(token)
 	if !ok {
 		httpx.Error(w, http.StatusUnauthorized, "no_couch_session", "join the couch session first")
 		return
 	}
-	isHost := rm.isHostParticipant(pid)
+	isHost := !ref.remote && ref.room.isHostParticipant(ref.pid)
 
 	ws, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		return // Accept already wrote the handshake error
 	}
-	h.hub.serveConn(ws, rm, pid, isHost)
+	h.hub.serveConn(ws, ref.room, ref.pid, isHost, ref.remote)
 }
 
 // serveConn runs one connection's read/write pumps until it closes, then detaches
 // it from the room. A watcher cancels the shared context as soon as either pump
 // begins closing, unblocking the other.
-func (h *Hub) serveConn(ws *websocket.Conn, rm *room, pid string, isHost bool) {
+func (h *Hub) serveConn(ws *websocket.Conn, rm *room, pid string, isHost, remote bool) {
 	defer ws.CloseNow()
 
 	c := &conn{
@@ -44,6 +44,7 @@ func (h *Hub) serveConn(ws *websocket.Conn, rm *room, pid string, isHost bool) {
 		room:   rm,
 		pid:    pid,
 		isHost: isHost,
+		remote: remote,
 		send:   make(chan []byte, sendBuffer),
 		closed: make(chan struct{}),
 	}
@@ -63,7 +64,7 @@ func (h *Hub) serveConn(ws *websocket.Conn, rm *room, pid string, isHost bool) {
 		}
 	}()
 
-	c.enqueue(rm.helloFrame(pid, isHost))
+	c.enqueue(rm.helloFrame(c))
 
 	var wg sync.WaitGroup
 	wg.Add(2)

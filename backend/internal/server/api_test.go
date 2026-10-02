@@ -78,6 +78,9 @@ type apiCase struct {
 	save map[string]string
 	// bearer sends the saved variable as a device token instead of a cookie
 	bearer string
+	// couchToken sends the saved variable as a couch participant token header, as a native
+	// client does instead of the couch cookie
+	couchToken string
 }
 
 type upload struct {
@@ -116,6 +119,9 @@ func TestAPIConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 			c.body = json.RawMessage(expand(string(raw), vars))
+		}
+		if c.couchToken != "" {
+			c.couchToken = vars[c.couchToken]
 		}
 		if c.bearer != "" {
 			c.bearer = vars[c.bearer]
@@ -299,6 +305,15 @@ func apiCases() []apiCase {
 		{op: "leaveCouch", as: "guest", method: "POST", path: "/couch/{{couch}}/leave", status: 204},
 		// leaving the couch revokes the guest's grant at once
 		{op: "streamMediaFile", method: "GET", path: "/media/{{guestGrant}}/stream", status: 403},
+		// a native client without a cookie jar takes its token in the body and sends it back
+		{op: "joinCouch", method: "POST", path: "/couch/{{couch}}/join?delivery=body", status: 200, save: map[string]string{"tvGuest": "participantToken"}},
+		{op: "getCouchPlayback", couchToken: "tvGuest", method: "GET", path: "/couch/{{couch}}/playback", status: 200},
+		{op: "endCouch", couchToken: "tvGuest", method: "POST", path: "/couch/{{couch}}/end", status: 403},
+		// the host's phone steers the host's player as a remote; anyone else may not
+		{op: "joinCouch", as: "guest", method: "POST", path: "/couch/{{couch}}/join?remote=true", status: 403},
+		{op: "joinCouch", as: "nora", method: "POST", path: "/couch/{{couch}}/join?remote=true&delivery=body", status: 200, save: map[string]string{"remote": "participantToken"}},
+		{op: "leaveCouch", couchToken: "remote", method: "POST", path: "/couch/{{couch}}/leave", status: 204},
+		{op: "getCouchInfo", as: "guest", method: "GET", path: "/couch/{{couch}}/info", status: 200},
 		{op: "endCouch", as: "admin", method: "POST", path: "/couch/{{couch}}/end", status: 403},
 		{op: "endCouch", as: "nora", method: "POST", path: "/couch/{{couch}}/end", status: 204},
 
@@ -589,7 +604,8 @@ func expand(s string, vars map[string]string) string {
 }
 
 func (e *testEnv) do(t *testing.T, c apiCase) (int, []byte, string) {
-	if c.bearer != "" {
+	// a native client: credentials in headers, no cookie jar
+	if c.bearer != "" || c.couchToken != "" {
 		raw, err := json.Marshal(c.body)
 		if err != nil {
 			t.Fatal(err)
@@ -606,7 +622,12 @@ func (e *testEnv) do(t *testing.T, c apiCase) (int, []byte, string) {
 		if contentType != "" {
 			req.Header.Set("Content-Type", contentType)
 		}
-		req.Header.Set("Authorization", "Bearer "+c.bearer)
+		if c.bearer != "" {
+			req.Header.Set("Authorization", "Bearer "+c.bearer)
+		}
+		if c.couchToken != "" {
+			req.Header.Set("X-Couch-Token", c.couchToken)
+		}
 		return e.roundTrip(t, http.DefaultClient, req)
 	}
 	if c.raw != nil {

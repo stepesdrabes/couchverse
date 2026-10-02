@@ -19,7 +19,8 @@ func (rm *room) attach(c *conn) bool {
 	}
 	rm.conns[c] = struct{}{}
 	hostReturned := false
-	if p := rm.participants[c.pid]; p != nil {
+	// a remote is not the host being present: it plays nothing
+	if p := rm.participants[c.pid]; p != nil && !c.remote {
 		p.connCount++
 		p.disconnectedAt = time.Time{}
 		if p.IsHost && p.connCount == 1 {
@@ -48,8 +49,11 @@ func (rm *room) attach(c *conn) bool {
 func (rm *room) detach(c *conn) {
 	rm.mu.Lock()
 	delete(rm.conns, c)
+	if rm.playing == c {
+		rm.playing = nil
+	}
 	startGrace := false
-	if p := rm.participants[c.pid]; p != nil {
+	if p := rm.participants[c.pid]; p != nil && !c.remote {
 		p.connCount--
 		if p.connCount <= 0 {
 			p.connCount = 0
@@ -122,15 +126,18 @@ func (rm *room) broadcastParticipants() {
 	}
 }
 
-func (rm *room) helloFrame(pid string, isHost bool) []byte {
-	role := "follower"
-	if isHost {
-		role = "host"
+func (rm *room) helloFrame(c *conn) []byte {
+	role := roleFollower
+	switch {
+	case c.remote:
+		role = roleRemote
+	case c.isHost:
+		role = roleHost
 	}
-	snap := rm.snapshotFor(pid, role)
+	snap := rm.snapshotFor(c.pid, role)
 	return mustEnvelope(msgHello, CouchHello{
 		SessionID:       snap.SessionID,
-		MyParticipantID: pid,
+		MyParticipantID: c.pid,
 		Role:            role,
 		State:           snap.State,
 		Participants:    snap.Participants,
@@ -187,6 +194,10 @@ func (rm *room) onClientMessage(c *conn, env Envelope) {
 		if json.Unmarshal(env.Data, &cmd) != nil {
 			return
 		}
+		// the device that reports its state is the one playing, which remotes steer
+		rm.mu.Lock()
+		rm.playing = c
+		rm.mu.Unlock()
 		if rm.applyHostState(cmd) {
 			rm.recomputeAllowed()
 			rm.mu.Lock()
@@ -216,6 +227,24 @@ func (rm *room) onClientMessage(c *conn, env Envelope) {
 		rm.mu.Unlock()
 		rm.broadcast(msgEmoji, CouchEmoji{FromParticipantID: c.pid, Emoji: emoji})
 
+	case msgRemote:
+		if !c.remote {
+			c.ws.Close(websocket.StatusPolicyViolation, "remote only")
+			c.beginClose()
+			return
+		}
+		var cmd CouchRemoteCommand
+		if json.Unmarshal(env.Data, &cmd) != nil || !validRemote(cmd) {
+			return
+		}
+		rm.mu.Lock()
+		target := rm.playing
+		rm.lastActive = time.Now()
+		rm.mu.Unlock()
+		if target != nil {
+			target.enqueue(mustEnvelope(msgRemote, cmd))
+		}
+
 	case msgPaused:
 		var cmd CouchPausedCommand
 		if json.Unmarshal(env.Data, &cmd) != nil {
@@ -232,6 +261,16 @@ func (rm *room) onClientMessage(c *conn, env Envelope) {
 			rm.broadcastParticipants()
 		}
 	}
+}
+
+func validRemote(cmd CouchRemoteCommand) bool {
+	switch cmd.Action {
+	case "play", "pause", "next", "previous":
+		return true
+	case "seek":
+		return cmd.PositionSeconds != nil && *cmd.PositionSeconds >= 0
+	}
+	return false
 }
 
 // sanitizeEmoji bounds a reaction to a short unicode string (the picker yields a

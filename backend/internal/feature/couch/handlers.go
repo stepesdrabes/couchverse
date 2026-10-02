@@ -35,12 +35,27 @@ type CouchStart struct {
 	ID   string `json:"id" format:"uuid" doc:"The movie's title id or the episode id."`
 }
 
-type createCouchInput struct{ Body CouchStart }
+// deliver puts a new participant token where the client asked for it: browsers get the
+// httpOnly couch cookie, native apps (no cookie jar) get it in the body and send it back as
+// X-Couch-Token. Huma reads no parameters from embedded structs, so each input declares its
+// own delivery field.
+func deliver(delivery, token string, session CouchSession, secure bool) *couchSessionOutput {
+	if delivery == "body" {
+		session.ParticipantToken = token
+		return &couchSessionOutput{Body: session}
+	}
+	return &couchSessionOutput{SetCookie: []http.Cookie{couchCookie(token, secure)}, Body: session}
+}
 
-// couchSessionOutput carries the participant's couch cookie, which
-// authorizes the socket, the follower payload and anonymous streaming.
+type createCouchInput struct {
+	Delivery string `query:"delivery" enum:"cookie,body" default:"cookie" doc:"body returns the participant token in the response instead of setting the couch cookie."`
+	Body     CouchStart
+}
+
+// couchSessionOutput carries the participant's token (as the couch cookie or in the body),
+// which authorizes the socket, the follower payload and anonymous streaming.
 type couchSessionOutput struct {
-	SetCookie http.Cookie `header:"Set-Cookie"`
+	SetCookie []http.Cookie `header:"Set-Cookie"`
 	Body      CouchSession
 }
 
@@ -64,9 +79,9 @@ func (h *Handlers) Create(ctx context.Context, in *createCouchInput) (*couchSess
 			slog.Warn("record couch hosted", "err", err)
 		}
 	}
-	session := rm.snapshotFor(host.ID, "host")
+	session := rm.snapshotFor(host.ID, roleHost)
 	session.ArtworkGrant = h.artworkGrant(user)
-	return &couchSessionOutput{SetCookie: couchCookie(token, h.hub.secure), Body: session}, nil
+	return deliver(in.Delivery, token, session, h.hub.secure), nil
 }
 
 // artworkGrant lets a guest without an account load the couch's artwork.
@@ -111,7 +126,9 @@ func (h *Handlers) Info(ctx context.Context, in *shareInput) (*couchInfoOutput, 
 }
 
 type joinCouchInput struct {
+	Delivery string `query:"delivery" enum:"cookie,body" default:"cookie" doc:"body returns the participant token in the response instead of setting the couch cookie."`
 	Token    string `path:"token" doc:"The session's share code."`
+	Remote   bool   `query:"remote" doc:"Join as a remote for the host's own player (the host's account on another device); 403 not_host for anyone else."`
 	clientIP string
 }
 
@@ -133,8 +150,10 @@ func (h *Handlers) Join(ctx context.Context, in *joinCouchInput) (*couchSessionO
 		return nil, errNoSession("this couch session does not exist or has ended")
 	}
 	user := auth.UserFrom(ctx)
-	p, token, role, err := h.hub.join(rm, user)
+	p, token, role, err := h.hub.join(rm, user, in.Remote)
 	switch {
+	case errors.Is(err, errNotHost):
+		return nil, httpx.Fail(http.StatusForbidden, "not_host", "only the host can join as a remote")
 	case errors.Is(err, errRoomFull):
 		return nil, httpx.Fail(http.StatusConflict, "session_full", "this couch session is full")
 	case errors.Is(err, errNotLive):
@@ -143,21 +162,29 @@ func (h *Handlers) Join(ctx context.Context, in *joinCouchInput) (*couchSessionO
 		return nil, err
 	}
 	// only a logged-in follower counts; the host reclaiming their own link does not
-	if user != nil && role == "follower" && h.hub.deps.Stats != nil {
+	if user != nil && role == roleFollower && h.hub.deps.Stats != nil {
 		if err := h.hub.deps.Stats.RecordCouchJoined(ctx, user.ID); err != nil {
 			slog.Warn("record couch joined", "err", err)
 		}
 	}
 	session := rm.snapshotFor(p.ID, role)
 	session.ArtworkGrant = h.artworkGrant(user)
-	return &couchSessionOutput{SetCookie: couchCookie(token, h.hub.secure), Body: session}, nil
+	return deliver(in.Delivery, token, session, h.hub.secure), nil
 }
 
-// participantInput identifies the caller by their couch cookie; the share
-// token in the path is only routing.
+// participantToken is the caller's token: the X-Couch-Token header, else the couch cookie.
+// The share token in the path is only routing.
+func participantToken(header, cookie string) string {
+	if header != "" {
+		return header
+	}
+	return cookie
+}
+
 type participantInput struct {
-	Token  string `path:"token" doc:"The session's share code."`
-	Cookie string `cookie:"couchverse_couch" doc:"The participant cookie set by createCouch or joinCouch."`
+	Token      string `path:"token" doc:"The session's share code."`
+	Cookie     string `cookie:"couchverse_couch" doc:"The participant cookie set by createCouch or joinCouch."`
+	CouchToken string `header:"X-Couch-Token" doc:"The participant token from createCouch or joinCouch with delivery=body."`
 }
 
 type clearCookieOutput struct {
@@ -166,15 +193,15 @@ type clearCookieOutput struct {
 
 // Leave drops the caller (identified by their couch cookie) from the session.
 func (h *Handlers) Leave(_ context.Context, in *participantInput) (*clearCookieOutput, error) {
-	if in.Cookie != "" {
-		h.hub.leaveByToken(in.Cookie)
+	if token := participantToken(in.CouchToken, in.Cookie); token != "" {
+		h.hub.leaveByToken(token)
 	}
 	return &clearCookieOutput{SetCookie: clearedCouchCookie(h.hub.secure)}, nil
 }
 
-// End terminates the session; only the host's cookie may do so.
+// End terminates the session; only one of the host's devices (a remote included) may.
 func (h *Handlers) End(_ context.Context, in *participantInput) (*clearCookieOutput, error) {
-	if in.Cookie == "" || !h.hub.endByHostToken(in.Cookie) {
+	if token := participantToken(in.CouchToken, in.Cookie); token == "" || !h.hub.endByHostToken(token) {
 		return nil, httpx.Fail(http.StatusForbidden, "not_host", "only the host can end the session")
 	}
 	return &clearCookieOutput{SetCookie: clearedCouchCookie(h.hub.secure)}, nil
@@ -187,9 +214,10 @@ type CouchPlayback struct {
 }
 
 type couchPlaybackInput struct {
-	Token  string   `path:"token" doc:"The session's share code."`
-	Cookie string   `cookie:"couchverse_couch" doc:"The participant cookie set by createCouch or joinCouch."`
-	Caps   []string `query:"caps" doc:"Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision."`
+	Token      string   `path:"token" doc:"The session's share code."`
+	Cookie     string   `cookie:"couchverse_couch" doc:"The participant cookie set by createCouch or joinCouch."`
+	CouchToken string   `header:"X-Couch-Token" doc:"The participant token from createCouch or joinCouch with delivery=body."`
+	Caps       []string `query:"caps" doc:"Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision."`
 }
 
 type couchPlaybackOutput struct{ Body CouchPlayback }
@@ -202,10 +230,11 @@ func errNoCouchSession() error {
 // authorized by the couch cookie. This is how a follower (incl. anonymous) gets
 // its media grants, bound to the session, without the auth-only /playback.
 func (h *Handlers) Playback(ctx context.Context, in *couchPlaybackInput) (*couchPlaybackOutput, error) {
-	rm, pid, ok := h.hub.lookup(in.Cookie)
+	who, ok := h.hub.lookup(participantToken(in.CouchToken, in.Cookie))
 	if !ok {
 		return nil, errNoCouchSession()
 	}
+	rm, pid := who.room, who.pid
 	rm.mu.Lock()
 	ref := rm.state.Media
 	live := rm.live

@@ -354,6 +354,8 @@ export interface CouchSession {
 	artworkGrant: string;
 	isAnonymous: boolean;
 	myParticipantId: string;
+	/** The participant token, only with delivery=body: send it as the X-Couch-Token header where a browser would send the couch cookie. */
+	participantToken?: string;
 	participants: CouchParticipant[];
 	role: CouchSessionRole;
 	sessionId: string;
@@ -362,7 +364,7 @@ export interface CouchSession {
 	state: CouchHostState;
 }
 
-export type CouchSessionRole = 'host' | 'follower';
+export type CouchSessionRole = 'host' | 'follower' | 'remote';
 
 export interface CouchStart {
 	/** The movie's title id or the episode id. */
@@ -371,6 +373,9 @@ export interface CouchStart {
 }
 
 export type CouchStartKind = 'movie' | 'episode';
+
+/** body returns the participant token in the response instead of setting the couch cookie. */
+export type CreateCouchDelivery = 'cookie' | 'body';
 
 export interface Credentials {
 	/** At least 1 character. */
@@ -618,6 +623,9 @@ export interface JobSubject {
 }
 
 export type JobSubjectTitleKind = 'movie' | 'series';
+
+/** body returns the participant token in the response instead of setting the couch cookie. */
+export type JoinCouchDelivery = 'cookie' | 'body';
 
 export interface Leaderboard {
 	/** The caller opted out, so is missing from rows. */
@@ -1502,6 +1510,7 @@ export interface CouchEmojiCommand {
 export interface CouchHello {
 	myParticipantId: string;
 	participants: CouchParticipant[];
+	/** A remote receives host_state like a follower but plays nothing; it sends remote_command. */
 	role: CouchHelloRole;
 	/** The server's monotonic clock in milliseconds when the snapshot was taken. */
 	serverTime: number;
@@ -1509,7 +1518,8 @@ export interface CouchHello {
 	state: CouchHostState;
 }
 
-export type CouchHelloRole = 'host' | 'follower';
+/** A remote receives host_state like a follower but plays nothing; it sends remote_command. */
+export type CouchHelloRole = 'host' | 'follower' | 'remote';
 
 export interface CouchHostAway {
 	graceSeconds: number;
@@ -1535,6 +1545,17 @@ export interface CouchPausedCommand {
 	paused: boolean;
 }
 
+export interface CouchRemoteCommand {
+	action: CouchRemoteCommandAction;
+	/**
+	 * Where to seek; required for seek.
+	 * At least 0.
+	 */
+	positionSeconds?: number;
+}
+
+export type CouchRemoteCommandAction = 'play' | 'pause' | 'seek' | 'next' | 'previous';
+
 export interface CouchSessionEnded {
 	reason: CouchSessionEndedReason;
 }
@@ -1550,13 +1571,15 @@ export type ServerFrame =
 	| { type: 'host_away'; data: CouchHostAway }
 	| { type: 'host_returned' }
 	| { type: 'emoji'; data: CouchEmoji }
-	| { type: 'session_ended'; data: CouchSessionEnded };
+	| { type: 'session_ended'; data: CouchSessionEnded }
+	| { type: 'remote_command'; data: CouchRemoteCommand };
 
 /** Frames clients send on the couch WebSocket. */
 export type ClientFrame =
 	| { type: 'host_state'; data: CouchHostStateCommand }
 	| { type: 'emoji'; data: CouchEmojiCommand }
-	| { type: 'paused'; data: CouchPausedCommand };
+	| { type: 'paused'; data: CouchPausedCommand }
+	| { type: 'remote_command'; data: CouchRemoteCommand };
 
 /** `PUT /me/watchlist/{titleId}` */
 export const addToWatchlist = (titleId: string, opts?: CallOptions) =>
@@ -1996,13 +2019,21 @@ export const couchSocketPath = (token: string) => `/api/v1/couch/${encodeURIComp
 export const createConnectCode = (opts?: CallOptions) =>
 	api<ConnectCode>(`/me/connect-codes`, { ...opts, method: 'POST' });
 
+export interface CreateCouchQuery {
+	/**
+	 * body returns the participant token in the response instead of setting the couch cookie.
+	 * Default `cookie`.
+	 */
+	delivery?: CreateCouchDelivery;
+}
+
 /**
  * `POST /couch`
  *
  * @param body
  */
-export const createCouch = (body: CouchStart, opts?: CallOptions) =>
-	api<CouchSession>(`/couch`, { ...opts, method: 'POST', body });
+export const createCouch = (query: CreateCouchQuery = {}, body: CouchStart, opts?: CallOptions) =>
+	api<CouchSession>(`/couch${qs({ delivery: query.delivery })}`, { ...opts, method: 'POST', body });
 
 /**
  * `POST /media/{grant}/jit`
@@ -2187,13 +2218,23 @@ export const getTheme = (opts?: CallOptions) =>
 export const getTitle = (slug: string, opts?: CallOptions) =>
 	api<TitleDetail>(`/titles/${encodeURIComponent(slug)}`, opts);
 
+export interface JoinCouchQuery {
+	/**
+	 * body returns the participant token in the response instead of setting the couch cookie.
+	 * Default `cookie`.
+	 */
+	delivery?: JoinCouchDelivery;
+	/** Join as a remote for the host's own player (the host's account on another device); 403 not_host for anyone else. */
+	remote?: boolean;
+}
+
 /**
  * `POST /couch/{token}/join`
  *
  * @param token The session's share code.
  */
-export const joinCouch = (token: string, opts?: CallOptions) =>
-	api<CouchSession>(`/couch/${encodeURIComponent(token)}/join`, { ...opts, method: 'POST' });
+export const joinCouch = (token: string, query: JoinCouchQuery = {}, opts?: CallOptions) =>
+	api<CouchSession>(`/couch/${encodeURIComponent(token)}/join${qs({ delivery: query.delivery, remote: query.remote === undefined ? undefined : String(query.remote) })}`, { ...opts, method: 'POST' });
 
 /**
  * `POST /media/{grant}/jit/{sid}/keepalive`

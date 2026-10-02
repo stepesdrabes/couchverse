@@ -105,7 +105,7 @@ func TestJoinFollowerAndLeave(t *testing.T) {
 	h := newTestHub(t, fm)
 	rm, _, _, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
 
-	p, ftoken, role, err := h.join(rm, nil) // anonymous
+	p, ftoken, role, err := h.join(rm, nil, false) // anonymous
 	if err != nil {
 		t.Fatalf("join: %v", err)
 	}
@@ -128,11 +128,11 @@ func TestParticipantCap(t *testing.T) {
 	rm, _, _, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
 
 	for i := 0; i < 2; i++ {
-		if _, _, _, err := h.join(rm, nil); err != nil {
+		if _, _, _, err := h.join(rm, nil, false); err != nil {
 			t.Fatalf("follower %d should fit: %v", i, err)
 		}
 	}
-	if _, _, _, err := h.join(rm, nil); !errors.Is(err, errRoomFull) {
+	if _, _, _, err := h.join(rm, nil, false); !errors.Is(err, errRoomFull) {
 		t.Fatalf("expected errRoomFull past the cap, got %v", err)
 	}
 }

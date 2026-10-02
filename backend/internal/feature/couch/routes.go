@@ -52,12 +52,16 @@ func (m *Module) Register(rt httpx.Routes) {
 func socketOp(api huma.API) huma.Operation {
 	op := tag.Op("couchSocket", http.MethodGet, "/couch/{token}/ws")
 	op.Summary = "Open a couch session's WebSocket"
-	op.Description = "Upgrades to the session's sync channel, authenticated by the couch cookie from " +
-		"createCouch or joinCouch (401 no_couch_session without one). Cross-origin upgrades are refused."
+	op.Description = "Upgrades to the session's sync channel, authenticated by the participant token " +
+		"from createCouch or joinCouch: the couch cookie, or the X-Couch-Token header for clients " +
+		"that joined with delivery=body (401 no_couch_session without one). Cross-origin browser " +
+		"upgrades are refused."
 	op.Parameters = []*huma.Param{
 		{Name: "token", In: "path", Required: true, Description: "The session's share code.",
 			Schema: &huma.Schema{Type: huma.TypeString}},
 		{Name: CouchCookie, In: "cookie", Description: "The participant cookie set by createCouch or joinCouch.",
+			Schema: &huma.Schema{Type: huma.TypeString}},
+		{Name: CouchTokenHeader, In: "header", Description: "The participant token from createCouch or joinCouch with delivery=body.",
 			Schema: &huma.Schema{Type: huma.TypeString}},
 	}
 	op.Responses = map[string]*huma.Response{

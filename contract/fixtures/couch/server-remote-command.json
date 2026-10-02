@@ -1,0 +1,6 @@
+{
+  "type": "remote_command",
+  "data": {
+    "action": "next"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "type": "remote_command",
+  "data": {
+    "action": "seek",
+    "positionSeconds": 1902.5
+  }
+}

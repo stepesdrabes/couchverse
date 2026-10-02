@@ -1159,6 +1159,10 @@
           "myParticipantId": {
             "type": "string"
           },
+          "participantToken": {
+            "description": "The participant token, only with delivery=body: send it as the X-Couch-Token header where a browser would send the couch cookie.",
+            "type": "string"
+          },
           "participants": {
             "items": {
               "$ref": "#/components/schemas/CouchParticipant"
@@ -1168,7 +1172,8 @@
           "role": {
             "enum": [
               "host",
-              "follower"
+              "follower",
+              "remote"
             ],
             "type": "string"
           },
@@ -8253,6 +8258,23 @@
     "/couch": {
       "post": {
         "operationId": "createCouch",
+        "parameters": [
+          {
+            "description": "body returns the participant token in the response instead of setting the couch cookie.",
+            "explode": false,
+            "in": "query",
+            "name": "delivery",
+            "schema": {
+              "default": "cookie",
+              "description": "body returns the participant token in the response instead of setting the couch cookie.",
+              "enum": [
+                "cookie",
+                "body"
+              ],
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -8325,6 +8347,15 @@
             "name": "couchverse_couch",
             "schema": {
               "description": "The participant cookie set by createCouch or joinCouch.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The participant token from createCouch or joinCouch with delivery=body.",
+            "in": "header",
+            "name": "X-Couch-Token",
+            "schema": {
+              "description": "The participant token from createCouch or joinCouch with delivery=body.",
               "type": "string"
             }
           }
@@ -8411,6 +8442,21 @@
         "operationId": "joinCouch",
         "parameters": [
           {
+            "description": "body returns the participant token in the response instead of setting the couch cookie.",
+            "explode": false,
+            "in": "query",
+            "name": "delivery",
+            "schema": {
+              "default": "cookie",
+              "description": "body returns the participant token in the response instead of setting the couch cookie.",
+              "enum": [
+                "cookie",
+                "body"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "description": "The session's share code.",
             "in": "path",
             "name": "token",
@@ -8418,6 +8464,16 @@
             "schema": {
               "description": "The session's share code.",
               "type": "string"
+            }
+          },
+          {
+            "description": "Join as a remote for the host's own player (the host's account on another device); 403 not_host for anyone else.",
+            "explode": false,
+            "in": "query",
+            "name": "remote",
+            "schema": {
+              "description": "Join as a remote for the host's own player (the host's account on another device); 403 not_host for anyone else.",
+              "type": "boolean"
             }
           }
         ],
@@ -8475,6 +8531,15 @@
             "name": "couchverse_couch",
             "schema": {
               "description": "The participant cookie set by createCouch or joinCouch.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The participant token from createCouch or joinCouch with delivery=body.",
+            "in": "header",
+            "name": "X-Couch-Token",
+            "schema": {
+              "description": "The participant token from createCouch or joinCouch with delivery=body.",
               "type": "string"
             }
           }
@@ -8538,6 +8603,15 @@
             }
           },
           {
+            "description": "The participant token from createCouch or joinCouch with delivery=body.",
+            "in": "header",
+            "name": "X-Couch-Token",
+            "schema": {
+              "description": "The participant token from createCouch or joinCouch with delivery=body.",
+              "type": "string"
+            }
+          },
+          {
             "description": "Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision.",
             "explode": false,
             "in": "query",
@@ -8580,7 +8654,7 @@
     },
     "/couch/{token}/ws": {
       "get": {
-        "description": "Upgrades to the session's sync channel, authenticated by the couch cookie from createCouch or joinCouch (401 no_couch_session without one). Cross-origin upgrades are refused.",
+        "description": "Upgrades to the session's sync channel, authenticated by the participant token from createCouch or joinCouch: the couch cookie, or the X-Couch-Token header for clients that joined with delivery=body (401 no_couch_session without one). Cross-origin browser upgrades are refused.",
         "operationId": "couchSocket",
         "parameters": [
           {
@@ -8596,6 +8670,14 @@
             "description": "The participant cookie set by createCouch or joinCouch.",
             "in": "cookie",
             "name": "couchverse_couch",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The participant token from createCouch or joinCouch with delivery=body.",
+            "in": "header",
+            "name": "X-Couch-Token",
             "schema": {
               "type": "string"
             }

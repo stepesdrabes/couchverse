@@ -52,6 +52,23 @@
             "data"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Remote only: steer the host's player.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchRemoteCommand"
+            },
+            "type": {
+              "const": "remote_command"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -96,9 +113,11 @@
           "type": "array"
         },
         "role": {
+          "description": "A remote receives host_state like a follower but plays nothing; it sends remote_command.",
           "enum": [
             "host",
-            "follower"
+            "follower",
+            "remote"
           ],
           "type": "string"
         },
@@ -302,6 +321,31 @@
       ],
       "type": "object"
     },
+    "CouchRemoteCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "play",
+            "pause",
+            "seek",
+            "next",
+            "previous"
+          ],
+          "type": "string"
+        },
+        "positionSeconds": {
+          "description": "Where to seek; required for seek.",
+          "format": "double",
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    },
     "CouchSessionEnded": {
       "additionalProperties": false,
       "properties": {
@@ -447,6 +491,23 @@
             },
             "type": {
               "const": "session_ended"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "To the host's playing connection only: a remote asks for a change, which the host applies and broadcasts as host_state.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchRemoteCommand"
+            },
+            "type": {
+              "const": "remote_command"
             }
           },
           "required": [

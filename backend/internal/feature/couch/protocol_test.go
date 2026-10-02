@@ -29,22 +29,25 @@ func goldenFrames() map[string]golden {
 	movie := CouchMediaRef{Kind: "movie", TitleID: "00000000-0000-4000-8000-000000000101"}
 	state := CouchHostState{Media: movie, Playing: true, PositionSeconds: 1834.5, ServerTimestampMs: 912345, Seq: 42}
 	host := CouchParticipant{ID: "p-host", DisplayName: "Nora", AvatarID: &avatar, Seed: "nora", IsHost: true}
+	seekTo := 1902.5
 	guest := CouchParticipant{ID: "p-guest", DisplayName: "Sleepy Otter", Seed: "x7Qe2LmA", IsAnonymous: true, Paused: true}
 	return map[string]golden{
 		"server-hello": {true, msgHello, CouchHello{
 			SessionID: "s-1", MyParticipantID: "p-guest", Role: "follower", State: state,
 			Participants: []CouchParticipant{host, guest}, ServerTimeMs: 912400,
 		}},
-		"server-host-state":    {true, msgHostState, state},
-		"server-participants":  {true, msgParticipants, CouchParticipants{Participants: []CouchParticipant{host, guest}}},
-		"server-media-changed": {true, msgMediaChanged, CouchMediaChanged{Media: CouchMediaRef{Kind: "episode", TitleID: "00000000-0000-4000-8000-000000000102", EpisodeID: "00000000-0000-4000-8000-000000000301"}, Seq: 43}},
-		"server-host-away":     {true, msgHostAway, CouchHostAway{GraceSeconds: 60}},
-		"server-host-returned": {true, msgHostReturned, nil},
-		"server-emoji":         {true, msgEmoji, CouchEmoji{FromParticipantID: "p-guest", Emoji: "🍿"}},
-		"server-session-ended": {true, msgSessionEnded, CouchSessionEnded{Reason: "host_ended"}},
-		"client-host-state":    {false, msgHostState, CouchHostStateCommand{Media: movie, Playing: false, PositionSeconds: 1840}},
-		"client-emoji":         {false, msgEmoji, CouchEmojiCommand{Emoji: "😂"}},
-		"client-paused":        {false, msgPaused, CouchPausedCommand{Paused: true}},
+		"server-host-state":     {true, msgHostState, state},
+		"server-participants":   {true, msgParticipants, CouchParticipants{Participants: []CouchParticipant{host, guest}}},
+		"server-media-changed":  {true, msgMediaChanged, CouchMediaChanged{Media: CouchMediaRef{Kind: "episode", TitleID: "00000000-0000-4000-8000-000000000102", EpisodeID: "00000000-0000-4000-8000-000000000301"}, Seq: 43}},
+		"server-host-away":      {true, msgHostAway, CouchHostAway{GraceSeconds: 60}},
+		"server-host-returned":  {true, msgHostReturned, nil},
+		"server-emoji":          {true, msgEmoji, CouchEmoji{FromParticipantID: "p-guest", Emoji: "🍿"}},
+		"server-session-ended":  {true, msgSessionEnded, CouchSessionEnded{Reason: "host_ended"}},
+		"client-host-state":     {false, msgHostState, CouchHostStateCommand{Media: movie, Playing: false, PositionSeconds: 1840}},
+		"client-emoji":          {false, msgEmoji, CouchEmojiCommand{Emoji: "😂"}},
+		"client-paused":         {false, msgPaused, CouchPausedCommand{Paused: true}},
+		"client-remote-command": {false, msgRemote, CouchRemoteCommand{Action: "seek", PositionSeconds: &seekTo}},
+		"server-remote-command": {true, msgRemote, CouchRemoteCommand{Action: "next"}},
 	}
 }
 

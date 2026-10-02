@@ -3,6 +3,7 @@ package couch
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ const (
 var (
 	errRoomFull = errors.New("couch: session is full")
 	errNotLive  = errors.New("couch: session is no longer live")
+	errNotHost  = errors.New("couch: only the host's account can join as a remote")
 )
 
 // MediaResolver resolves the current media to its playable file set (satisfied
@@ -87,13 +89,20 @@ type Hub struct {
 	rooms   map[string]*room           // sessionID  -> room
 	byShare map[string]*room           // shareToken -> room
 	byHost  map[int64]*room            // host userID -> room (reclaim, one per user)
-	byToken map[string]*participantRef // cookie token hash -> {room, participant}
+	byToken map[string]*participantRef // token hash -> {room, participant, device role}
 }
 
+// participantRef is what one token unlocks. A participant holds a token per device; the
+// host's extra devices can be remotes, which control the host's player instead of playing.
 type participantRef struct {
-	room *room
-	pid  string
+	room   *room
+	pid    string
+	remote bool
 }
+
+// maxDeviceTokens bounds how many devices one participant can hold a token on; the oldest
+// stops working when another joins.
+const maxDeviceTokens = 8
 
 func NewHub(appCtx context.Context, deps Deps) *Hub {
 	h := &Hub{
@@ -244,6 +253,7 @@ type room struct {
 	conns           map[*conn]struct{}
 	allowedMediaIDs map[string]struct{}
 	graceTimer      *time.Timer
+	playing         *conn // the host device that last reported its state; remotes steer it
 }
 
 func (rm *room) hostParticipantLocked() *participant {
@@ -325,7 +335,7 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref CouchMed
 			rm.lastActive = time.Now()
 			host := rm.hostParticipantLocked()
 			rm.mu.Unlock()
-			token := h.issueTokenLocked(rm, host)
+			token := h.issueTokenLocked(rm, host, false)
 			return rm, host, token, false, nil
 		}
 		rm.mu.Unlock()
@@ -345,7 +355,7 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref CouchMed
 		conns:           map[*conn]struct{}{},
 		allowedMediaIDs: allowed,
 	}
-	token = h.issueTokenLocked(rm, host)
+	token = h.issueTokenLocked(rm, host, false)
 	h.rooms[rm.sessionID] = rm
 	h.byShare[rm.shareToken] = rm
 	h.byHost[user.ID] = rm
@@ -364,21 +374,30 @@ func (h *Hub) freeShareCodeLocked() string {
 	}
 }
 
-// issueTokenLocked mints a fresh cookie token for a participant, replacing any
-// previous one in the index. Caller holds h.mu.
-func (h *Hub) issueTokenLocked(rm *room, p *participant) string {
+// issueTokenLocked mints a token for one more device of a participant, so a host joining
+// from a phone does not sign out their TV. Caller holds h.mu.
+func (h *Hub) issueTokenLocked(rm *room, p *participant, remote bool) string {
 	token, hash := newToken()
-	if p.tokenHash != "" {
-		delete(h.byToken, p.tokenHash)
+	if len(p.tokenHashes) >= maxDeviceTokens {
+		delete(h.byToken, p.tokenHashes[0])
+		p.tokenHashes = p.tokenHashes[1:]
 	}
-	p.tokenHash = hash
-	h.byToken[hash] = &participantRef{room: rm, pid: p.ID}
+	p.tokenHashes = append(p.tokenHashes, hash)
+	h.byToken[hash] = &participantRef{room: rm, pid: p.ID, remote: remote}
 	return token
+}
+
+// dropTokensLocked forgets every device token of a participant. Caller holds h.mu.
+func (h *Hub) dropTokensLocked(p *participant) {
+	for _, hash := range p.tokenHashes {
+		delete(h.byToken, hash)
+	}
+	p.tokenHashes = nil
 }
 
 // join adds a participant (logged-in or anonymous) to a session. A logged-in
 // host opening their own share link reclaims the host seat.
-func (h *Hub) join(rm *room, user *auth.User) (*participant, string, string, error) {
+func (h *Hub) join(rm *room, user *auth.User, remote bool) (*participant, string, string, error) {
 	h.mu.Lock()
 	rm.mu.Lock()
 	if !rm.live {
@@ -390,9 +409,17 @@ func (h *Hub) join(rm *room, user *auth.User) (*participant, string, string, err
 		host := rm.hostParticipantLocked()
 		rm.lastActive = time.Now()
 		rm.mu.Unlock()
-		token := h.issueTokenLocked(rm, host)
+		token := h.issueTokenLocked(rm, host, remote)
 		h.mu.Unlock()
-		return host, token, "host", nil
+		if remote {
+			return host, token, roleRemote, nil
+		}
+		return host, token, roleHost, nil
+	}
+	if remote {
+		rm.mu.Unlock()
+		h.mu.Unlock()
+		return nil, "", "", errNotHost
 	}
 	if len(rm.participants) >= h.maxParticipants {
 		rm.mu.Unlock()
@@ -403,11 +430,11 @@ func (h *Hub) join(rm *room, user *auth.User) (*participant, string, string, err
 	rm.participants[p.ID] = p
 	rm.lastActive = time.Now()
 	rm.mu.Unlock()
-	token := h.issueTokenLocked(rm, p)
+	token := h.issueTokenLocked(rm, p, false)
 	h.mu.Unlock()
 
 	rm.broadcastParticipants()
-	return p, token, "follower", nil
+	return p, token, roleFollower, nil
 }
 
 // leaveByToken removes the participant identified by a cookie token. If the
@@ -422,9 +449,22 @@ func (h *Hub) leaveByToken(rawToken string) {
 	}
 	delete(h.byToken, hash)
 	rm := ref.room
+	if ref.remote {
+		// a remote putting the phone down leaves the session to the host's player
+		rm.mu.Lock()
+		if p := rm.participants[ref.pid]; p != nil {
+			p.tokenHashes = slices.DeleteFunc(p.tokenHashes, func(t string) bool { return t == hash })
+		}
+		rm.mu.Unlock()
+		h.mu.Unlock()
+		return
+	}
 	rm.mu.Lock()
 	p := rm.participants[ref.pid]
 	isHost := p != nil && p.IsHost
+	if p != nil {
+		h.dropTokensLocked(p)
+	}
 	delete(rm.participants, ref.pid)
 	empty := len(rm.participants) == 0
 	rm.mu.Unlock()
@@ -551,18 +591,18 @@ func (h *Hub) allows(participantID, mediaFileID string) bool {
 	return false
 }
 
-// lookup resolves a cookie token to its room + participant id.
-func (h *Hub) lookup(rawToken string) (*room, string, bool) {
+// lookup resolves a participant token to what it unlocks.
+func (h *Hub) lookup(rawToken string) (participantRef, bool) {
 	if rawToken == "" {
-		return nil, "", false
+		return participantRef{}, false
 	}
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	ref := h.byToken[hashToken(rawToken)]
 	if ref == nil {
-		return nil, "", false
+		return participantRef{}, false
 	}
-	return ref.room, ref.pid, true
+	return *ref, true
 }
 
 func (h *Hub) roomByShare(shareToken string) *room {
@@ -630,14 +670,15 @@ func (h *Hub) reapIdle() {
 // CouchSession is the session state returned by create/join. Participant
 // unexported fields are not serialized.
 type CouchSession struct {
-	SessionID       string             `json:"sessionId"`
-	ShareToken      string             `json:"shareToken" doc:"The share code others join with."`
-	MyParticipantID string             `json:"myParticipantId"`
-	Role            string             `json:"role" enum:"host,follower"`
-	IsAnonymous     bool               `json:"isAnonymous"`
-	State           CouchHostState     `json:"state"`
-	Participants    []CouchParticipant `json:"participants"`
-	ArtworkGrant    string             `json:"artworkGrant" doc:"Lets a guest without an account load artwork: append it to artwork URLs as ?g=."`
+	SessionID        string             `json:"sessionId"`
+	ShareToken       string             `json:"shareToken" doc:"The share code others join with."`
+	MyParticipantID  string             `json:"myParticipantId"`
+	Role             string             `json:"role" enum:"host,follower,remote"`
+	IsAnonymous      bool               `json:"isAnonymous"`
+	State            CouchHostState     `json:"state"`
+	Participants     []CouchParticipant `json:"participants"`
+	ArtworkGrant     string             `json:"artworkGrant" doc:"Lets a guest without an account load artwork: append it to artwork URLs as ?g=."`
+	ParticipantToken string             `json:"participantToken,omitempty" doc:"The participant token, only with delivery=body: send it as the X-Couch-Token header where a browser would send the couch cookie."`
 }
 
 // CouchInfo previews a session for the pre-join screen (no participant created).

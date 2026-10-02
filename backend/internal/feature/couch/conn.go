@@ -19,7 +19,8 @@ type conn struct {
 	ws        *websocket.Conn
 	room      *room
 	pid       string
-	isHost    bool
+	isHost    bool // the host's playing device; false for a remote
+	remote    bool
 	send      chan []byte
 	closed    chan struct{}
 	once      sync.Once

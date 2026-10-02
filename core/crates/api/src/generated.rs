@@ -1136,6 +1136,9 @@ pub mod types {
         pub artwork_grant: String,
         pub is_anonymous: bool,
         pub my_participant_id: String,
+        /// The participant token, only with delivery=body: send it as the X-Couch-Token header where a browser would send the couch cookie.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub participant_token: Option<String>,
         pub participants: Vec<CouchParticipant>,
         pub role: CouchSessionRole,
         pub session_id: String,
@@ -1150,6 +1153,8 @@ pub mod types {
         Host,
         #[serde(rename = "follower")]
         Follower,
+        #[serde(rename = "remote")]
+        Remote,
         /// A value this client does not know yet.
         #[serde(other)]
         Unknown,
@@ -1160,6 +1165,7 @@ pub mod types {
             match self {
                 CouchSessionRole::Host => "host",
                 CouchSessionRole::Follower => "follower",
+                CouchSessionRole::Remote => "remote",
                 CouchSessionRole::Unknown => "unknown",
             }
         }
@@ -1201,6 +1207,34 @@ pub mod types {
     }
 
     impl std::fmt::Display for CouchStartKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// body returns the participant token in the response instead of setting the couch cookie.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CreateCouchDelivery {
+        #[serde(rename = "cookie")]
+        Cookie,
+        #[serde(rename = "body")]
+        Body,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CreateCouchDelivery {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CreateCouchDelivery::Cookie => "cookie",
+                CreateCouchDelivery::Body => "body",
+                CreateCouchDelivery::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CreateCouchDelivery {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -1896,6 +1930,34 @@ pub mod types {
     }
 
     impl std::fmt::Display for JobSubjectTitleKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// body returns the participant token in the response instead of setting the couch cookie.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum JoinCouchDelivery {
+        #[serde(rename = "cookie")]
+        Cookie,
+        #[serde(rename = "body")]
+        Body,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl JoinCouchDelivery {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                JoinCouchDelivery::Cookie => "cookie",
+                JoinCouchDelivery::Body => "body",
+                JoinCouchDelivery::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for JoinCouchDelivery {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -4713,9 +4775,18 @@ pub mod ops {
         build::json(build::request(Method::Post, "/me/connect-codes".to_string(), q, Body::Empty))
     }
 
+    /// Query parameters of [`create_couch`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct CreateCouchQuery {
+        /// body returns the participant token in the response instead of setting the couch cookie.
+        /// Default `cookie`.
+        pub delivery: Option<CreateCouchDelivery>,
+    }
+
     /// `POST /couch`
-    pub fn create_couch(body: &CouchStart) -> Call<CouchSession> {
-        let q = Vec::new();
+    pub fn create_couch(query: &CreateCouchQuery, body: &CouchStart) -> Call<CouchSession> {
+        let mut q = Vec::new();
+        build::push(&mut q, "delivery", query.delivery.as_ref());
         build::json(build::request(
             Method::Post,
             "/couch".to_string(),
@@ -5097,11 +5168,23 @@ pub mod ops {
         ))
     }
 
+    /// Query parameters of [`join_couch`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct JoinCouchQuery {
+        /// body returns the participant token in the response instead of setting the couch cookie.
+        /// Default `cookie`.
+        pub delivery: Option<JoinCouchDelivery>,
+        /// Join as a remote for the host's own player (the host's account on another device); 403 not_host for anyone else.
+        pub remote: Option<bool>,
+    }
+
     /// `POST /couch/{token}/join`
     ///
     /// - `token`: The session's share code.
-    pub fn join_couch(token: &str) -> Call<CouchSession> {
-        let q = Vec::new();
+    pub fn join_couch(token: &str, query: &JoinCouchQuery) -> Call<CouchSession> {
+        let mut q = Vec::new();
+        build::push(&mut q, "delivery", query.delivery.as_ref());
+        build::push(&mut q, "remote", query.remote.as_ref());
         build::json(build::request(
             Method::Post,
             format!("/couch/{}/join", build::segment(token)),
@@ -5393,6 +5476,7 @@ pub mod couch {
     pub struct CouchHello {
         pub my_participant_id: String,
         pub participants: Vec<CouchParticipant>,
+        /// A remote receives host_state like a follower but plays nothing; it sends remote_command.
         pub role: CouchHelloRole,
         /// The server's monotonic clock in milliseconds when the snapshot was taken.
         pub server_time: i64,
@@ -5400,12 +5484,15 @@ pub mod couch {
         pub state: CouchHostState,
     }
 
+    /// A remote receives host_state like a follower but plays nothing; it sends remote_command.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum CouchHelloRole {
         #[serde(rename = "host")]
         Host,
         #[serde(rename = "follower")]
         Follower,
+        #[serde(rename = "remote")]
+        Remote,
         /// A value this client does not know yet.
         #[serde(other)]
         Unknown,
@@ -5416,6 +5503,7 @@ pub mod couch {
             match self {
                 CouchHelloRole::Host => "host",
                 CouchHelloRole::Follower => "follower",
+                CouchHelloRole::Remote => "remote",
                 CouchHelloRole::Unknown => "unknown",
             }
         }
@@ -5459,6 +5547,52 @@ pub mod couch {
     #[serde(rename_all = "camelCase")]
     pub struct CouchPausedCommand {
         pub paused: bool,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchRemoteCommand {
+        pub action: CouchRemoteCommandAction,
+        /// Where to seek; required for seek.
+        /// At least 0.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub position_seconds: Option<f64>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchRemoteCommandAction {
+        #[serde(rename = "play")]
+        Play,
+        #[serde(rename = "pause")]
+        Pause,
+        #[serde(rename = "seek")]
+        Seek,
+        #[serde(rename = "next")]
+        Next,
+        #[serde(rename = "previous")]
+        Previous,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchRemoteCommandAction {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchRemoteCommandAction::Play => "play",
+                CouchRemoteCommandAction::Pause => "pause",
+                CouchRemoteCommandAction::Seek => "seek",
+                CouchRemoteCommandAction::Next => "next",
+                CouchRemoteCommandAction::Previous => "previous",
+                CouchRemoteCommandAction::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchRemoteCommandAction {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5531,6 +5665,9 @@ pub mod couch {
         /// Terminal: the session is over and the socket closes.
         #[serde(rename = "session_ended")]
         SessionEnded(CouchSessionEnded),
+        /// To the host's playing connection only: a remote asks for a change, which the host applies and broadcasts as host_state.
+        #[serde(rename = "remote_command")]
+        RemoteCommand(CouchRemoteCommand),
         /// A frame this client does not know yet.
         Unknown,
     }
@@ -5567,6 +5704,9 @@ pub mod couch {
                 "session_ended" => ServerFrame::SessionEnded(
                     serde_json::from_value(envelope.data).map_err(serde::de::Error::custom)?,
                 ),
+                "remote_command" => ServerFrame::RemoteCommand(
+                    serde_json::from_value(envelope.data).map_err(serde::de::Error::custom)?,
+                ),
                 _ => ServerFrame::Unknown,
             })
         }
@@ -5585,6 +5725,9 @@ pub mod couch {
         /// Follower only: paused or resumed locally.
         #[serde(rename = "paused")]
         Paused(CouchPausedCommand),
+        /// Remote only: steer the host's player.
+        #[serde(rename = "remote_command")]
+        RemoteCommand(CouchRemoteCommand),
         /// A frame this client does not know yet.
         Unknown,
     }
@@ -5606,6 +5749,9 @@ pub mod couch {
                     serde_json::from_value(envelope.data).map_err(serde::de::Error::custom)?,
                 ),
                 "paused" => ClientFrame::Paused(
+                    serde_json::from_value(envelope.data).map_err(serde::de::Error::custom)?,
+                ),
+                "remote_command" => ClientFrame::RemoteCommand(
                     serde_json::from_value(envelope.data).map_err(serde::de::Error::custom)?,
                 ),
                 _ => ClientFrame::Unknown,

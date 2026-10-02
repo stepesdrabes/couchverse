@@ -17,7 +17,7 @@ import (
 type participant struct {
 	CouchParticipant
 
-	tokenHash      string    // hex SHA-256 of the current cookie token
+	tokenHashes    []string  // hex SHA-256 of each device's token, oldest first
 	userID         int64     // 0 when anonymous
 	connCount      int       // live WebSocket connections (multi-tab)
 	emojiCount     int       // reactions sent since the last stats flush

@@ -24,6 +24,15 @@ const (
 	msgEmoji        = "emoji"
 	msgPaused       = "paused"
 	msgSessionEnded = "session_ended"
+	msgRemote       = "remote_command"
+)
+
+// Connection roles: the host's playing device, a follower, or the host's account on another
+// device steering the host's player.
+const (
+	roleHost     = "host"
+	roleFollower = "follower"
+	roleRemote   = "remote"
 )
 
 // Frame describes one message type: its payload type (nil for none) and what
@@ -44,6 +53,7 @@ var ServerFrames = []Frame{
 	{msgHostReturned, nil, "The host reconnected within the grace period."},
 	{msgEmoji, CouchEmoji{}, "A relayed reaction."},
 	{msgSessionEnded, CouchSessionEnded{}, "Terminal: the session is over and the socket closes."},
+	{msgRemote, CouchRemoteCommand{}, "To the host's playing connection only: a remote asks for a change, which the host applies and broadcasts as host_state."},
 }
 
 // ClientFrames are the messages clients send.
@@ -51,6 +61,7 @@ var ClientFrames = []Frame{
 	{msgHostState, CouchHostStateCommand{}, "Host only: the host's play state."},
 	{msgEmoji, CouchEmojiCommand{}, "Send a reaction."},
 	{msgPaused, CouchPausedCommand{}, "Follower only: paused or resumed locally."},
+	{msgRemote, CouchRemoteCommand{}, "Remote only: steer the host's player."},
 }
 
 // CouchMediaRef identifies what the host is watching. An empty Kind means the
@@ -88,7 +99,7 @@ type CouchParticipant struct {
 type CouchHello struct {
 	SessionID       string             `json:"sessionId"`
 	MyParticipantID string             `json:"myParticipantId"`
-	Role            string             `json:"role" enum:"host,follower"`
+	Role            string             `json:"role" enum:"host,follower,remote" doc:"A remote receives host_state like a follower but plays nothing; it sends remote_command."`
 	State           CouchHostState     `json:"state"`
 	Participants    []CouchParticipant `json:"participants"`
 	ServerTimeMs    int64              `json:"serverTime" doc:"The server's monotonic clock in milliseconds when the snapshot was taken."`
@@ -128,6 +139,12 @@ type CouchEmojiCommand struct {
 
 type CouchPausedCommand struct {
 	Paused bool `json:"paused"`
+}
+
+// CouchRemoteCommand is a remote's request to the host's player.
+type CouchRemoteCommand struct {
+	Action          string   `json:"action" enum:"play,pause,seek,next,previous"`
+	PositionSeconds *float64 `json:"positionSeconds,omitempty" doc:"Where to seek; required for seek." minimum:"0"`
 }
 
 // mustEnvelope marshals a typed payload into a wire frame. Marshalling failures

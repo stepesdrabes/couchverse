@@ -97,7 +97,8 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   lists are never nil; an optional response field is `omitempty`, a nullable scalar is a pointer
   without it; partial-update fields are `required:"false"`; uuid path params are
   `format:"uuid"` (a malformed path param is a 404); closed sets get `enum:`, on response
-  fields too (a DB CHECK constraint is a closed set). A multipart body is documented as
+  fields too (a DB CHECK constraint is a closed set). Parameters must be direct fields of the
+  input struct: huma reads none from embedded structs. A multipart body is documented as
   required by `httpx.NewAPI`'s `requireForm` hook. Errors: return the
   plain error for internal failures (logged, generic 500), domain failures with
   `httpx.Fail(status, code, message)` keeping stable codes. `httpx.Localized(op)` for `?lang=`
