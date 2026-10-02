@@ -50,7 +50,6 @@ type JobSubject struct {
 	SeasonNumber  *int    `json:"seasonNumber,omitempty"`
 	EpisodeNumber *int    `json:"episodeNumber,omitempty"`
 	EpisodeName   *string `json:"episodeName,omitempty"`
-	TrackName     *string `json:"trackName,omitempty"`
 	Variant       *string `json:"variant,omitempty"`
 }
 
@@ -220,12 +219,11 @@ func (s *Store) ListJobs(ctx context.Context, status, mediaFileID string, limit 
 		`SELECT j.id, j.type, j.payload, j.status, j.priority, j.run_at, j.attempts,
 			j.max_attempts, j.progress, j.last_error, j.claimed_at, j.created_at, j.finished_at,
 			mf.id, t.id, t.name, t.kind, se.season_number, e.episode_number,
-			NULLIF(e.name, ''), NULLIF(tr.name, ''), j.payload->>'variant'
+			NULLIF(e.name, ''), j.payload->>'variant'
 		 FROM jobs j
 		 LEFT JOIN media_files mf ON mf.id = (j.payload->>'mediaFileId')::uuid
 		 LEFT JOIN episodes e ON e.id = mf.episode_id
 		 LEFT JOIN seasons se ON se.id = e.season_id
-		 LEFT JOIN tracks tr ON tr.id = mf.track_id
 		 LEFT JOIN titles t ON t.id = COALESCE(mf.title_id, se.title_id, (j.payload->>'titleId')::uuid)
 		 WHERE ($1 = '' OR j.status = $1)
 			AND ($2 = '' OR j.payload->>'mediaFileId' = $2)
@@ -242,8 +240,7 @@ func (s *Store) ListJobs(ctx context.Context, status, mediaFileID string, limit 
 		if err := rows.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Priority, &j.RunAt,
 			&j.Attempts, &j.MaxAttempts, &j.Progress, &j.LastError, &j.ClaimedAt, &j.CreatedAt,
 			&j.FinishedAt, &sub.MediaFileID, &sub.TitleID, &sub.TitleName, &sub.TitleKind,
-			&sub.SeasonNumber, &sub.EpisodeNumber, &sub.EpisodeName, &sub.TrackName,
-			&sub.Variant); err != nil {
+			&sub.SeasonNumber, &sub.EpisodeNumber, &sub.EpisodeName, &sub.Variant); err != nil {
 			return nil, err
 		}
 		if sub.MediaFileID != nil || sub.TitleID != nil {

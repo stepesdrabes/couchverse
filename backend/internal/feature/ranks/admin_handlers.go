@@ -32,7 +32,6 @@ type AdminMember struct {
 	XP           int64   `json:"xp"`
 	Achievements int64   `json:"achievements"`
 	WatchSeconds int64   `json:"watchSeconds"`
-	MusicSeconds int64   `json:"musicSeconds"`
 	CouchHosted  int64   `json:"couchHosted"`
 	Public       bool    `json:"public"`
 }
@@ -57,7 +56,7 @@ type TierBucket struct {
 type AdminOverview struct {
 	Members      int               `json:"members"`
 	TotalXP      int64             `json:"totalXp"`
-	TotalUnlocks int              `json:"totalUnlocks"`
+	TotalUnlocks int               `json:"totalUnlocks"`
 	AverageLevel float64           `json:"averageLevel"`
 	Tiers        []TierBucket      `json:"tiers"`
 	Achievements []AchievementStat `json:"achievements"`
@@ -92,12 +91,7 @@ func (h *AdminRanks) Overview(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	watched, err := h.store.PeriodSeconds(ctx, "video", 0)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	listened, err := h.store.PeriodSeconds(ctx, "music", 0)
+	watched, err := h.store.WatchSeconds(ctx, 0)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -127,7 +121,6 @@ func (h *AdminRanks) Overview(w http.ResponseWriter, r *http.Request) {
 			XP:           xp,
 			Achievements: perUser[m.ID],
 			WatchSeconds: watched[m.ID],
-			MusicSeconds: listened[m.ID],
 			CouchHosted:  in.CouchHosted,
 			Public:       m.Public,
 		})

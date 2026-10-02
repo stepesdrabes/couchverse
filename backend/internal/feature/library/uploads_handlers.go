@@ -84,8 +84,8 @@ func (h *AdminUploads) Complete(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "invalid request body")
 		return
 	}
-	if assign.LibraryKind != "movies" && assign.LibraryKind != "series" && assign.LibraryKind != "music" {
-		httpx.BadRequest(w, "libraryKind must be movies, series or music")
+	if assign.LibraryKind != "movies" && assign.LibraryKind != "series" {
+		httpx.BadRequest(w, "libraryKind must be movies or series")
 		return
 	}
 	mediaFileID, err := h.manager.Complete(r.Context(), chi.URLParam(r, "id"), assign)

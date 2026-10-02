@@ -132,9 +132,9 @@ func (s *Store) PersistUnlocks(ctx context.Context, userID int64, codes []string
 func (s *Store) SnapshotFor(ctx context.Context, userID int64) (Snapshot, error) {
 	var snap Snapshot
 
-	// Watch and listen seconds, active days, both streaks and the best single
-	// day. Streaks use gaps-and-islands: consecutive dates minus their row
-	// number collapse to a shared anchor, so each unbroken run is one group.
+	// Watch seconds, active days, both streaks and the best single day. Streaks
+	// use gaps-and-islands: consecutive dates minus their row number collapse to
+	// a shared anchor, so each unbroken run is one group.
 	err := s.db.QueryRow(ctx,
 		`WITH mine AS (
 			SELECT day, kind, seconds FROM watch_time_daily WHERE user_id = $1
@@ -147,13 +147,12 @@ func (s *Store) SnapshotFor(ctx context.Context, userID int64) (Snapshot, error)
 		)
 		SELECT
 			COALESCE((SELECT sum(seconds) FILTER (WHERE kind = 'video') FROM mine), 0)::bigint,
-			COALESCE((SELECT sum(seconds) FILTER (WHERE kind = 'music') FROM mine), 0)::bigint,
 			(SELECT count(*) FROM days),
 			COALESCE((SELECT max(len) FROM runs), 0),
 			COALESCE((SELECT max(len) FROM runs WHERE last_day >= current_date - 1), 0),
 			COALESCE((SELECT max(s) FROM (
 				SELECT sum(seconds) AS s FROM mine WHERE kind = 'video' GROUP BY day) d), 0)::bigint`,
-		userID).Scan(&snap.VideoSeconds, &snap.MusicSeconds, &snap.ActiveDays,
+		userID).Scan(&snap.VideoSeconds, &snap.ActiveDays,
 		&snap.LongestStreak, &snap.CurrentStreak, &snap.BestDayMinutes)
 	if err != nil {
 		return snap, err
@@ -213,20 +212,10 @@ func (s *Store) SnapshotFor(ctx context.Context, userID int64) (Snapshot, error)
 		return snap, err
 	}
 
-	// Music reach, the biggest playlist and the watchlist.
+	// Watchlist size, for the explorer badge.
 	if err := s.db.QueryRow(ctx,
-		`SELECT
-			(SELECT count(*) FROM play_history WHERE user_id = $1 AND track_id IS NOT NULL),
-			(SELECT count(DISTINCT al.artist_id) FROM play_history ph
-				JOIN tracks tr ON tr.id = ph.track_id
-				JOIN albums al ON al.id = tr.album_id
-				WHERE ph.user_id = $1),
-			COALESCE((SELECT max(c) FROM (
-				SELECT count(*) AS c FROM playlist_tracks pt
-				JOIN playlists p ON p.id = pt.playlist_id
-				WHERE p.user_id = $1 GROUP BY p.id) x), 0),
-			(SELECT count(*) FROM watchlist WHERE user_id = $1)`,
-		userID).Scan(&snap.TracksPlayed, &snap.DistinctArtists, &snap.BiggestPlaylist, &snap.WatchlistSize); err != nil {
+		`SELECT count(*) FROM watchlist WHERE user_id = $1`,
+		userID).Scan(&snap.WatchlistSize); err != nil {
 		return snap, err
 	}
 

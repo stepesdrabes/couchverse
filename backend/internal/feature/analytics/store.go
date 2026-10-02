@@ -1,6 +1,5 @@
-// Package analytics owns the watch/listen time rollup behind the admin
-// overview charts. Catalog and music call RecordWatch/RecordListen from
-// their existing beacon and scrobble handlers.
+// Package analytics owns the watch time rollup behind the admin overview
+// charts. Catalog calls RecordWatch from its existing progress beacon.
 package analytics
 
 import (
@@ -29,19 +28,19 @@ func tzName() string {
 }
 
 // recordHour keeps the hour-of-day rollup behind the profile clock and the
-// night-owl achievements. It rides along inside the existing Record* calls so
-// no caller changes and the beacon keeps a single round trip per stat.
-func (s *Store) recordHour(ctx context.Context, userID int64, kind string, seconds int) error {
+// night-owl achievements. It rides along inside RecordWatch so no caller
+// changes and the beacon keeps a single round trip per stat.
+func (s *Store) recordHour(ctx context.Context, userID int64, seconds int) error {
 	if seconds <= 0 {
 		return nil
 	}
 	_, err := s.db.Exec(ctx,
 		`INSERT INTO watch_time_hourly (day, hour, user_id, kind, seconds)
 		 VALUES ((now() AT TIME ZONE $1)::date,
-			extract(hour FROM now() AT TIME ZONE $1)::smallint, $2, $3, $4)
+			extract(hour FROM now() AT TIME ZONE $1)::smallint, $2, 'video', $3)
 		 ON CONFLICT (day, hour, user_id, kind)
 		 DO UPDATE SET seconds = watch_time_hourly.seconds + EXCLUDED.seconds`,
-		tzName(), userID, kind, seconds)
+		tzName(), userID, seconds)
 	return err
 }
 
@@ -63,7 +62,7 @@ func (s *Store) RecordWatch(ctx context.Context, userID int64, titleID, episodeI
 	if err != nil {
 		return err
 	}
-	return s.recordHour(ctx, userID, "video", seconds)
+	return s.recordHour(ctx, userID, seconds)
 }
 
 // RecordCouchWatch adds aggregate follower-seconds spent watching a title in a
@@ -83,32 +82,6 @@ func (s *Store) RecordCouchWatch(ctx context.Context, titleID string, seconds in
 	return err
 }
 
-// RecordListen counts a scrobble as the track's duration of listening time.
-// Skipped tracks over-count slightly - fine for an admin chart.
-func (s *Store) RecordListen(ctx context.Context, userID int64, trackID string) error {
-	_, err := s.db.Exec(ctx,
-		`INSERT INTO watch_time_daily (day, user_id, title_id, kind, seconds)
-		 SELECT current_date, $1, NULL, 'music', t.duration_seconds
-		 FROM tracks t WHERE t.id = $2 AND t.duration_seconds > 0
-		 ON CONFLICT (day, user_id, kind, title_id)
-		 DO UPDATE SET seconds = watch_time_daily.seconds + EXCLUDED.seconds`,
-		userID, trackID)
-	if err != nil {
-		return err
-	}
-	// the duration lives in SQL rather than in Go here, so the hour bucket reads
-	// it again instead of taking a seconds argument like recordHour does
-	_, err = s.db.Exec(ctx,
-		`INSERT INTO watch_time_hourly (day, hour, user_id, kind, seconds)
-		 SELECT (now() AT TIME ZONE $1)::date,
-			extract(hour FROM now() AT TIME ZONE $1)::smallint, $2, 'music', t.duration_seconds
-		 FROM tracks t WHERE t.id = $3 AND t.duration_seconds > 0
-		 ON CONFLICT (day, hour, user_id, kind)
-		 DO UPDATE SET seconds = watch_time_hourly.seconds + EXCLUDED.seconds`,
-		tzName(), userID, trackID)
-	return err
-}
-
 // PruneHourly drops hour buckets past the profile clock's window. The daily
 // rollup is kept forever (it is one row per user per day and the admin charts
 // read it), but the hourly one is 48x denser and only ever read for the last year.
@@ -121,14 +94,12 @@ func (s *Store) PruneHourly(ctx context.Context, keepDays int) (int64, error) {
 type Day struct {
 	Day          string `json:"day"` // YYYY-MM-DD
 	VideoSeconds int64  `json:"videoSeconds"`
-	MusicSeconds int64  `json:"musicSeconds"`
 	CouchSeconds int64  `json:"couchSeconds"`
 	ActiveUsers  int    `json:"activeUsers"`
 }
 
 type Totals struct {
 	VideoSeconds int64 `json:"videoSeconds"`
-	MusicSeconds int64 `json:"musicSeconds"`
 	CouchSeconds int64 `json:"couchSeconds"`
 	ActiveUsers  int   `json:"activeUsers"`
 }
@@ -163,7 +134,6 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 	rows, err := s.db.Query(ctx,
 		`SELECT d::date,
 			COALESCE(sum(w.seconds) FILTER (WHERE w.kind = 'video'), 0),
-			COALESCE(sum(w.seconds) FILTER (WHERE w.kind = 'music'), 0),
 			count(DISTINCT w.user_id),
 			COALESCE((SELECT sum(c.seconds) FROM couch_watch_time_daily c WHERE c.day = d::date), 0)
 		 FROM generate_series(current_date - ($1::int - 1), current_date, interval '1 day') d
@@ -176,7 +146,7 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 	for rows.Next() {
 		var d Day
 		var day time.Time
-		if err := rows.Scan(&day, &d.VideoSeconds, &d.MusicSeconds, &d.ActiveUsers, &d.CouchSeconds); err != nil {
+		if err := rows.Scan(&day, &d.VideoSeconds, &d.ActiveUsers, &d.CouchSeconds); err != nil {
 			return nil, err
 		}
 		d.Day = day.Format("2006-01-02")
@@ -188,10 +158,9 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 
 	err = s.db.QueryRow(ctx,
 		`SELECT COALESCE(sum(seconds) FILTER (WHERE kind = 'video'), 0),
-			COALESCE(sum(seconds) FILTER (WHERE kind = 'music'), 0),
 			count(DISTINCT user_id)
 		 FROM watch_time_daily WHERE day >= current_date - ($1::int - 1)`, days).
-		Scan(&out.Totals.VideoSeconds, &out.Totals.MusicSeconds, &out.Totals.ActiveUsers)
+		Scan(&out.Totals.VideoSeconds, &out.Totals.ActiveUsers)
 	if err != nil {
 		return nil, err
 	}

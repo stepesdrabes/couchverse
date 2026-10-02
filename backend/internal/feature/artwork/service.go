@@ -1,4 +1,4 @@
-// Package artwork stores poster/backdrop/cover images, produces resized
+// Package artwork stores poster/backdrop/thumb images, produces resized
 // variants on demand by shelling out to ffmpeg, and extracts a vibrant accent
 // colour per image (stdlib decode, see accent.go) for the UI to theme with.
 package artwork
@@ -22,7 +22,7 @@ const accentUnknown = "-"
 
 // AccentFor extracts an artwork's accent, returning the sentinel when none was
 // found so the value is never left empty. Used at every write site (uploads,
-// TMDB downloads, embedded covers) so callers store a stable accent in one step.
+// TMDB downloads) so callers store a stable accent in one step.
 func AccentFor(path string) string {
 	if hex := ExtractAccent(path); hex != "" {
 		return hex
@@ -73,7 +73,7 @@ func (s *Service) Save(ctx context.Context, ownerKind string, ownerID string, ki
 	return art, nil
 }
 
-// SaveBytes is used by metadata jobs (TMDB downloads, embedded covers).
+// SaveBytes is used by metadata jobs (TMDB downloads).
 func (s *Service) SaveBytes(ctx context.Context, ownerKind string, ownerID string, kind, ext string, data []byte, source string) (*Artwork, error) {
 	rel := filepath.Join("artwork", ownerKind, ownerID, kind+ext)
 	abs := filepath.Join(s.DataDir, rel)
@@ -189,7 +189,7 @@ func (s *Service) BackfillAccents(ctx context.Context) {
 }
 
 // DeleteForOwner removes all artwork rows, files and cached resizes of an
-// owner - called when a title or album is deleted.
+// owner - called when a title is deleted.
 func (s *Service) DeleteForOwner(ctx context.Context, ownerKind string, ownerID string) error {
 	rows, err := s.Store.DeleteArtworkForOwner(ctx, ownerKind, ownerID)
 	if err != nil {

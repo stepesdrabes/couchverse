@@ -8,7 +8,6 @@ import (
 	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/jobs"
-	"couchverse/internal/feature/music"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
 )
@@ -20,9 +19,9 @@ type Module struct {
 	admin    *AdminHandlers
 }
 
-func NewModule(st *Store, set *settings.Store, art *artwork.Service, mus *music.Store, jb *jobs.Store, an *analytics.Store) *Module {
+func NewModule(st *Store, set *settings.Store, art *artwork.Service, jb *jobs.Store, an *analytics.Store) *Module {
 	return &Module{
-		handlers: NewHandlers(st, set, art.Store, mus),
+		handlers: NewHandlers(st, set, art.Store),
 		progress: NewProgress(st, an),
 		admin:    NewAdminHandlers(st, jb, art),
 	}

@@ -53,7 +53,6 @@ func (h *Handlers) allowCheck(userID int64) bool {
 // Totals are the headline numbers on a profile.
 type Totals struct {
 	VideoSeconds      int64 `json:"videoSeconds"`
-	MusicSeconds      int64 `json:"musicSeconds"`
 	MoviesCompleted   int64 `json:"moviesCompleted"`
 	EpisodesCompleted int64 `json:"episodesCompleted"`
 	SeriesCompleted   int64 `json:"seriesCompleted"`
@@ -63,8 +62,6 @@ type Totals struct {
 	CurrentStreak     int64 `json:"currentStreak"`
 	LongestStreak     int64 `json:"longestStreak"`
 	BestDayMinutes    int64 `json:"bestDayMinutes"`
-	TracksPlayed      int64 `json:"tracksPlayed"`
-	DistinctArtists   int64 `json:"distinctArtists"`
 	CouchHosted       int64 `json:"couchHosted"`
 	CouchJoined       int64 `json:"couchJoined"`
 	BiggestCouch      int64 `json:"biggestCouch"`
@@ -74,7 +71,6 @@ type Totals struct {
 func totalsOf(s Snapshot) Totals {
 	return Totals{
 		VideoSeconds:      s.VideoSeconds,
-		MusicSeconds:      s.MusicSeconds,
 		MoviesCompleted:   s.MoviesCompleted,
 		EpisodesCompleted: s.EpisodesCompleted,
 		SeriesCompleted:   s.SeriesCompleted,
@@ -84,8 +80,6 @@ func totalsOf(s Snapshot) Totals {
 		CurrentStreak:     s.CurrentStreak,
 		LongestStreak:     s.LongestStreak,
 		BestDayMinutes:    s.BestDayMinutes,
-		TracksPlayed:      s.TracksPlayed,
-		DistinctArtists:   s.DistinctArtists,
 		CouchHosted:       s.CouchHosted,
 		CouchJoined:       s.CouchJoined,
 		BiggestCouch:      s.CouchPartyMax,
@@ -290,7 +284,6 @@ type LeaderRow struct {
 	TierCode     string  `json:"tierCode"`
 	XP           int64   `json:"xp"`
 	WatchSeconds int64   `json:"watchSeconds"`
-	MusicSeconds int64   `json:"musicSeconds"`
 	Achievements int64   `json:"achievements"`
 	IsSelf       bool    `json:"isSelf"`
 }
@@ -333,12 +326,7 @@ func (h *Handlers) Leaderboard(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	watched, err := h.store.PeriodSeconds(r.Context(), "video", days)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	listened, err := h.store.PeriodSeconds(r.Context(), "music", days)
+	watched, err := h.store.WatchSeconds(r.Context(), days)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -363,7 +351,6 @@ func (h *Handlers) Leaderboard(w http.ResponseWriter, r *http.Request) {
 			TierCode:     tier.Code,
 			XP:           xp,
 			WatchSeconds: watched[m.ID],
-			MusicSeconds: listened[m.ID],
 			Achievements: unlocked[m.ID],
 			IsSelf:       m.ID == user.ID,
 		}

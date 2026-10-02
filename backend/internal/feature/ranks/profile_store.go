@@ -153,7 +153,6 @@ func (s *Store) Activity(ctx context.Context, userID int64) (Activity, error) {
 type HourBucket struct {
 	Hour         int   `json:"hour"`
 	VideoSeconds int64 `json:"videoSeconds"`
-	MusicSeconds int64 `json:"musicSeconds"`
 }
 
 // HourBuckets always returns 24 entries so the clock never has to densify.
@@ -163,9 +162,7 @@ func (s *Store) HourBuckets(ctx context.Context, userID int64) ([]HourBucket, er
 		out[i].Hour = i
 	}
 	rows, err := s.db.Query(ctx,
-		`SELECT hour,
-			COALESCE(sum(seconds) FILTER (WHERE kind = 'video'), 0)::bigint,
-			COALESCE(sum(seconds) FILTER (WHERE kind = 'music'), 0)::bigint
+		`SELECT hour, COALESCE(sum(seconds) FILTER (WHERE kind = 'video'), 0)::bigint
 		 FROM watch_time_hourly WHERE user_id = $1 GROUP BY hour`, userID)
 	if err != nil {
 		return out, err
@@ -173,13 +170,12 @@ func (s *Store) HourBuckets(ctx context.Context, userID int64) ([]HourBucket, er
 	defer rows.Close()
 	for rows.Next() {
 		var hour int
-		var video, music int64
-		if err := rows.Scan(&hour, &video, &music); err != nil {
+		var video int64
+		if err := rows.Scan(&hour, &video); err != nil {
 			return out, err
 		}
 		if hour >= 0 && hour < 24 {
 			out[hour].VideoSeconds = video
-			out[hour].MusicSeconds = music
 		}
 	}
 	return out, rows.Err()

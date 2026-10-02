@@ -94,7 +94,6 @@ type ProbeUpdate struct {
 	Probe           json.RawMessage
 	TitleID         *string
 	EpisodeID       *string
-	TrackID         *string
 }
 
 func (s *Store) ApplyProbe(ctx context.Context, id string, up ProbeUpdate) error {
@@ -103,11 +102,11 @@ func (s *Store) ApplyProbe(ctx context.Context, id string, up ProbeUpdate) error
 			container = $2, video_codec = $3, audio_codec = $4, width = $5, height = $6,
 			duration_seconds = $7, bitrate = $8, channels = $9, sample_rate = $10,
 			video_range = $11, direct_play = $12, probe = $13,
-			title_id = $14, episode_id = $15, track_id = $16,
+			title_id = $14, episode_id = $15,
 			scanned_at = now()
 		 WHERE id = $1`,
 		id, up.Container, up.VideoCodec, up.AudioCodec, up.Width, up.Height,
 		up.DurationSeconds, up.Bitrate, up.Channels, up.SampleRate,
-		up.VideoRange, up.DirectPlay, up.Probe, up.TitleID, up.EpisodeID, up.TrackID)
+		up.VideoRange, up.DirectPlay, up.Probe, up.TitleID, up.EpisodeID)
 	return err
 }

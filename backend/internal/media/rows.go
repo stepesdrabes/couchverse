@@ -20,7 +20,6 @@ type MediaFile struct {
 	LibraryID       int64   `json:"libraryId"`
 	TitleID         *string `json:"titleId"`
 	EpisodeID       *string `json:"episodeId"`
-	TrackID         *string `json:"trackId"`
 	Path            string  `json:"path"`
 	SizeBytes       int64   `json:"sizeBytes"`
 	Container       string  `json:"container"`
@@ -46,14 +45,14 @@ type MediaFile struct {
 	CreatedAt       time.Time       `json:"createdAt"`
 }
 
-const MediaFileCols = `id, library_id, title_id, episode_id, track_id, path, size_bytes, container,
+const MediaFileCols = `id, library_id, title_id, episode_id, path, size_bytes, container,
 	video_codec, audio_codec, width, height, duration_seconds, bitrate, channels, sample_rate,
 	video_range, direct_play, probe, file_mtime, scanned_at, source_deleted_at, created_at,
 	audio_lang, audio_role`
 
 func ScanMediaFile(row pgx.Row) (*MediaFile, error) {
 	var m MediaFile
-	err := row.Scan(&m.ID, &m.LibraryID, &m.TitleID, &m.EpisodeID, &m.TrackID, &m.Path, &m.SizeBytes,
+	err := row.Scan(&m.ID, &m.LibraryID, &m.TitleID, &m.EpisodeID, &m.Path, &m.SizeBytes,
 		&m.Container, &m.VideoCodec, &m.AudioCodec, &m.Width, &m.Height, &m.DurationSeconds,
 		&m.Bitrate, &m.Channels, &m.SampleRate, &m.VideoRange, &m.DirectPlay, &m.Probe,
 		&m.FileMtime, &m.ScannedAt, &m.SourceDeletedAt, &m.CreatedAt, &m.AudioLang, &m.AudioRole)

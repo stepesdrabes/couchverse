@@ -17,7 +17,6 @@ const settingsKey = "ranks"
 // everyone on the next read rather than needing a migration.
 type Rates struct {
 	VideoMinute int64 `json:"videoMinute"`
-	MusicMinute int64 `json:"musicMinute"`
 	Movie       int64 `json:"movie"`
 	Episode     int64 `json:"episode"`
 	CouchHost   int64 `json:"couchHost"`
@@ -46,7 +45,6 @@ func DefaultConfig() Config {
 	return Config{
 		Rates: Rates{
 			VideoMinute: 2,
-			MusicMinute: 1,
 			Movie:       100,
 			Episode:     20,
 			CouchHost:   50,
@@ -92,7 +90,7 @@ func (c Config) Validate() error {
 		name  string
 		value int64
 	}{
-		{"videoMinute", c.Rates.VideoMinute}, {"musicMinute", c.Rates.MusicMinute},
+		{"videoMinute", c.Rates.VideoMinute},
 		{"movie", c.Rates.Movie}, {"episode", c.Rates.Episode},
 		{"couchHost", c.Rates.CouchHost}, {"couchJoin", c.Rates.CouchJoin},
 		{"bronze", c.Rates.Bronze}, {"silver", c.Rates.Silver},

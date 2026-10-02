@@ -22,7 +22,6 @@ import (
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/metadata"
-	"couchverse/internal/feature/music"
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/feature/ranks"
 	"couchverse/internal/feature/subtitles"
@@ -38,7 +37,6 @@ func ensureManagedLibraries(ctx context.Context, st *library.Store, dataDir stri
 	for _, lib := range []struct{ name, kind string }{
 		{"Movies", "movies"},
 		{"Series", "series"},
-		{"Music", "music"},
 	} {
 		path := filepath.Join(dataDir, "media", lib.kind)
 		if err := os.MkdirAll(path, 0o755); err != nil {
@@ -88,7 +86,6 @@ func run() error {
 	authStore := auth.NewStore(pool)
 	catalogStore := catalog.NewStore(pool)
 	systemStore := system.NewStore(pool)
-	musicStore := music.NewStore(pool)
 	libraryStore := library.NewStore(pool)
 	analyticsStore := analytics.NewStore(pool)
 	ranksStore := ranks.NewStore(pool)
@@ -133,7 +130,7 @@ func run() error {
 	}
 
 	runner := jobs.NewRunner(jobsStore, workers)
-	runner.Register("probe", 2, (&library.Prober{Files: libraryStore, Catalog: catalogStore, Settings: set, Jobs: jobsStore, Artwork: artworkService.Store, Music: musicStore, FFprobePath: cfg.FFprobePath, DataDir: cfg.DataDir}).Handle)
+	runner.Register("probe", 2, (&library.Prober{Files: libraryStore, Catalog: catalogStore, Settings: set, Jobs: jobsStore, FFprobePath: cfg.FFprobePath}).Handle)
 	runner.Register("extract_subtitles", 1, subtitleService.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&metadata.FetchJob{Catalog: catalogStore, Settings: set, Artwork: artworkService}).Handle)
 	runner.Register("import_episodes", 1, (&metadata.ImportEpisodesJob{Catalog: catalogStore, Settings: set, Artwork: artworkService}).Handle)
@@ -149,7 +146,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           server.New(cfg, pool, set, authStore, catalogStore, jobsStore, musicStore, libraryStore, systemStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager, playbackStream, analyticsStore, ranksStore, couchHub).Handler(),
+		Handler:           server.New(cfg, pool, set, authStore, catalogStore, jobsStore, libraryStore, systemStore, uploadManager, artworkService, subtitleService, transcodeHandler, sessionManager, playbackStream, analyticsStore, ranksStore, couchHub).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

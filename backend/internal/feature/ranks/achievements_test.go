@@ -8,7 +8,7 @@ import (
 )
 
 func allOn() flags.Flags {
-	return flags.Flags{MusicEnabled: true, CouchEnabled: true, RankingsEnabled: true}
+	return flags.Flags{CouchEnabled: true, RankingsEnabled: true}
 }
 
 func byCode(list []Unlock) map[string]Unlock {
@@ -22,7 +22,7 @@ func byCode(list []Unlock) map[string]Unlock {
 func TestAchievementCatalogueIsWellFormed(t *testing.T) {
 	categories := map[Category]bool{
 		CatWatching: true, CatStreaks: true, CatExplorer: true,
-		CatMusic: true, CatCouch: true, CatMeta: true,
+		CatCouch: true, CatMeta: true,
 	}
 	seen := map[string]bool{}
 	for _, a := range Achievements {
@@ -43,7 +43,7 @@ func TestAchievementCatalogueIsWellFormed(t *testing.T) {
 			t.Fatalf("%s has unknown tier %q", a.Code, a.Tier)
 		}
 		switch a.Requires {
-		case "", needsMusic, needsCouch:
+		case "", needsCouch:
 		default:
 			t.Fatalf("%s requires unknown flag %q", a.Code, a.Requires)
 		}
@@ -51,8 +51,8 @@ func TestAchievementCatalogueIsWellFormed(t *testing.T) {
 }
 
 // TestMetaTargetsAreReachable fails the moment someone adds a flag-gated
-// achievement and bumps a meta target past what a music- or couch-disabled
-// server can ever reach.
+// achievement and bumps a meta target past what a couch-disabled server can
+// ever reach.
 func TestMetaTargetsAreReachable(t *testing.T) {
 	var alwaysVisible int64
 	for _, a := range Achievements {
@@ -101,15 +101,12 @@ func TestEvaluateUnlocksAtTarget(t *testing.T) {
 }
 
 func TestEvaluateHidesFlagGatedAchievements(t *testing.T) {
-	got := byCode(Evaluate(Snapshot{}, nil, flags.Flags{MusicEnabled: false, CouchEnabled: true}, defCfg))
-	if _, ok := got["listen_50h"]; ok {
-		t.Fatal("a music achievement is visible with music disabled")
-	}
+	got := byCode(Evaluate(Snapshot{}, nil, flags.Flags{CouchEnabled: true}, defCfg))
 	if _, ok := got["couch_host_1"]; !ok {
 		t.Fatal("a couch achievement is hidden with couch enabled")
 	}
 
-	got = byCode(Evaluate(Snapshot{}, nil, flags.Flags{MusicEnabled: true, CouchEnabled: false}, defCfg))
+	got = byCode(Evaluate(Snapshot{}, nil, flags.Flags{CouchEnabled: false}, defCfg))
 	if _, ok := got["couch_host_1"]; ok {
 		t.Fatal("a couch achievement is visible with couch disabled")
 	}
@@ -120,10 +117,10 @@ func TestEvaluateHidesFlagGatedAchievements(t *testing.T) {
 func TestEvaluateCountsMetaInTheSamePass(t *testing.T) {
 	// A snapshot generous enough to clear well over ten non-meta rules.
 	snap := Snapshot{
-		XPInputs:       XPInputs{VideoSeconds: 40 * 3600, MusicSeconds: 60 * 3600, MoviesCompleted: 30, EpisodesCompleted: 200},
+		XPInputs:       XPInputs{VideoSeconds: 40 * 3600, MoviesCompleted: 30, EpisodesCompleted: 200},
 		DistinctTitles: 60, DistinctGenres: 12, DistinctDecades: 5, WatchlistSize: 20,
 		LongestStreak: 40, SeriesCompleted: 2, BestDayMinutes: 400,
-		NightNights: 12, EarlyMornings: 12, TracksPlayed: 200,
+		NightNights: 12, EarlyMornings: 12,
 	}
 	got := byCode(Evaluate(snap, nil, allOn(), defCfg))
 	if !got["achievements_10"].Unlocked {

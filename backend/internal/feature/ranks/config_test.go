@@ -19,7 +19,7 @@ func TestConfigValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{"defaults", func(*Config) {}, false},
-		{"zero rate is allowed", func(c *Config) { c.Rates.MusicMinute = 0 }, false},
+		{"zero rate is allowed", func(c *Config) { c.Rates.CouchJoin = 0 }, false},
 		{"negative rate", func(c *Config) { c.Rates.VideoMinute = -1 }, true},
 		{"negative achievement reward", func(c *Config) { c.Rates.Gold = -5 }, true},
 		{"first tier must be 0", func(c *Config) { c.Tiers[0] = 10 }, true},

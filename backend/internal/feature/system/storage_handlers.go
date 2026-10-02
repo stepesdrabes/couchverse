@@ -28,7 +28,7 @@ type storageCategory struct {
 // not the whole disk. The denominator ("budget") is Couchverse's own usage
 // plus the disk's free space - i.e. everything Couchverse could occupy,
 // excluding whatever else already lives on the disk. Usage is broken down by
-// category (movies/series/music/transcodes/cache) for the segmented bar.
+// category (movies/series/transcodes/cache) for the segmented bar.
 func (h *AdminStorage) Get(w http.ResponseWriter, r *http.Request) {
 	diskTotal, free, ok := diskUsage(h.dataDir)
 	if !ok {
@@ -53,7 +53,6 @@ func (h *AdminStorage) Get(w http.ResponseWriter, r *http.Request) {
 	categories := []storageCategory{
 		{Kind: "movies", Bytes: byKind["movies"]},
 		{Kind: "series", Bytes: byKind["series"]},
-		{Kind: "music", Bytes: byKind["music"]},
 		{Kind: "transcodes", Bytes: transcodes},
 		{Kind: "cache", Bytes: cache},
 	}
@@ -119,7 +118,7 @@ func (h *AdminStorage) HomeRowsPut(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, row := range rows {
 		switch row.Kind {
-		case "continue_watching", "recently_added", "genre", "recently_played_music":
+		case "continue_watching", "recently_added", "genre":
 		default:
 			httpx.BadRequest(w, "unknown row kind "+row.Kind)
 			return

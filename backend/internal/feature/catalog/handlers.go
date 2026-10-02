@@ -9,8 +9,6 @@ import (
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
-	"couchverse/internal/feature/music"
-	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
 	"couchverse/internal/settings"
 )
@@ -19,11 +17,10 @@ type Handlers struct {
 	store    *Store
 	settings *settings.Store
 	artwork  *artwork.Store
-	music    *music.Store
 }
 
-func NewHandlers(st *Store, set *settings.Store, art *artwork.Store, mus *music.Store) *Handlers {
-	return &Handlers{store: st, settings: set, artwork: art, music: mus}
+func NewHandlers(st *Store, set *settings.Store, art *artwork.Store) *Handlers {
+	return &Handlers{store: st, settings: set, artwork: art}
 }
 
 // FeaturedItem is one slide of the home hero carousel: a title plus its
@@ -74,7 +71,6 @@ func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	flags := flags.Load(r.Context(), h.settings)
 	rows := []HomeRow{}
 	for _, cfg := range configs {
 		var items any
@@ -88,11 +84,6 @@ func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			items, err = h.store.TitlesByGenre(r.Context(), *cfg.GenreID, 20)
-		case "recently_played_music":
-			if !flags.MusicEnabled {
-				continue
-			}
-			items, err = h.music.RecentlyPlayedAlbums(r.Context(), user.ID, 20)
 		default:
 			continue
 		}
@@ -211,8 +202,7 @@ func (h *Handlers) Title(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
-	includeMusic := flags.Load(r.Context(), h.settings).MusicEnabled
-	res, err := h.store.Search(r.Context(), r.URL.Query().Get("q"), 12, includeMusic)
+	res, err := h.store.Search(r.Context(), r.URL.Query().Get("q"), 12)
 	if err != nil {
 		httpx.Internal(w, err)
 		return

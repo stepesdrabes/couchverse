@@ -55,10 +55,10 @@ func (h *Handlers) Serve(w http.ResponseWriter, r *http.Request) {
 }
 
 var artworkOwnerKinds = map[string]bool{
-	"title": true, "season": true, "episode": true, "artist": true, "album": true,
+	"title": true, "season": true, "episode": true,
 }
 var artworkKinds = map[string]bool{
-	"poster": true, "backdrop": true, "thumb": true, "album_cover": true, "artist_photo": true,
+	"poster": true, "backdrop": true, "thumb": true,
 }
 
 // Upload accepts multipart form data: ownerKind, ownerId, kind, file.

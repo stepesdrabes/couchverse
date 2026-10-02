@@ -8,9 +8,9 @@ func TestComputeXPSourcesSumToTotal(t *testing.T) {
 	cases := []XPInputs{
 		{},
 		{VideoSeconds: 3600},
-		{VideoSeconds: 7200, MusicSeconds: 1800, MoviesCompleted: 3},
+		{VideoSeconds: 7200, MoviesCompleted: 3},
 		{EpisodesCompleted: 40, CouchHosted: 2, CouchJoined: 5},
-		{VideoSeconds: 999_999, MusicSeconds: 12_345, MoviesCompleted: 7,
+		{VideoSeconds: 999_999, MoviesCompleted: 7,
 			EpisodesCompleted: 120, CouchHosted: 9, CouchJoined: 11,
 			AchievementCount: 6, AchievementXP: 900},
 	}
@@ -30,11 +30,10 @@ func TestComputeXPSourcesSumToTotal(t *testing.T) {
 }
 
 func TestComputeXPGolden(t *testing.T) {
-	// 120 video minutes, 60 music minutes, 2 movies, 10 episodes, 1 host,
-	// 2 joins and 300 achievement xp.
+	// 120 video minutes, 2 movies, 10 episodes, 1 host, 2 joins and 300
+	// achievement xp.
 	got := ComputeXP(XPInputs{
 		VideoSeconds:      7200,
-		MusicSeconds:      3600,
 		MoviesCompleted:   2,
 		EpisodesCompleted: 10,
 		CouchHosted:       1,
@@ -42,12 +41,12 @@ func TestComputeXPGolden(t *testing.T) {
 		AchievementCount:  3,
 		AchievementXP:     300,
 	}, defCfg)
-	const want = 240 + 60 + 200 + 200 + 50 + 50 + 300
+	const want = 240 + 200 + 200 + 50 + 50 + 300
 	if got.Total != want {
 		t.Fatalf("got %d, want %d", got.Total, want)
 	}
-	if len(got.Sources) != 7 {
-		t.Fatalf("got %d sources, want 7", len(got.Sources))
+	if len(got.Sources) != 6 {
+		t.Fatalf("got %d sources, want 6", len(got.Sources))
 	}
 }
 

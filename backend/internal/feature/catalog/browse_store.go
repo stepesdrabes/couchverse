@@ -203,20 +203,11 @@ func (s *Store) BrowseTitles(ctx context.Context, f BrowseFilter) ([]CardItem, i
 }
 
 type SearchResults struct {
-	Titles  []CardItem  `json:"titles"`
-	Artists []SearchHit `json:"artists"`
-	Albums  []SearchHit `json:"albums"`
-	Tracks  []SearchHit `json:"tracks"`
+	Titles []CardItem `json:"titles"`
 }
 
-type SearchHit struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Subtitle string `json:"subtitle"`
-}
-
-func (s *Store) Search(ctx context.Context, q string, limit int, includeMusic bool) (*SearchResults, error) {
-	res := &SearchResults{Titles: []CardItem{}, Artists: []SearchHit{}, Albums: []SearchHit{}, Tracks: []SearchHit{}}
+func (s *Store) Search(ctx context.Context, q string, limit int) (*SearchResults, error) {
+	res := &SearchResults{Titles: []CardItem{}}
 	if q == "" {
 		return res, nil
 	}
@@ -226,45 +217,6 @@ func (s *Store) Search(ctx context.Context, q string, limit int, includeMusic bo
 		WHERE t.status = 'published' AND t.name ILIKE '%' || $1 || '%'
 		ORDER BY similarity(t.name, $1) DESC LIMIT $2`, q, limit)
 	if err != nil {
-		return nil, err
-	}
-	if !includeMusic {
-		return res, nil
-	}
-
-	collect := func(query string) ([]SearchHit, error) {
-		rows, err := s.db.Query(ctx, query, q, limit)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		hits := []SearchHit{}
-		for rows.Next() {
-			var h SearchHit
-			if err := rows.Scan(&h.ID, &h.Name, &h.Subtitle); err != nil {
-				return nil, err
-			}
-			hits = append(hits, h)
-		}
-		return hits, rows.Err()
-	}
-
-	if res.Artists, err = collect(
-		`SELECT id, name, '' FROM artists WHERE name ILIKE '%' || $1 || '%'
-		 ORDER BY similarity(name, $1) DESC LIMIT $2`); err != nil {
-		return nil, err
-	}
-	if res.Albums, err = collect(
-		`SELECT al.id, al.name, ar.name FROM albums al JOIN artists ar ON ar.id = al.artist_id
-		 WHERE al.status = 'published' AND al.name ILIKE '%' || $1 || '%'
-		 ORDER BY similarity(al.name, $1) DESC LIMIT $2`); err != nil {
-		return nil, err
-	}
-	if res.Tracks, err = collect(
-		`SELECT t.id, t.name, ar.name || ' · ' || al.name
-		 FROM tracks t JOIN albums al ON al.id = t.album_id JOIN artists ar ON ar.id = al.artist_id
-		 WHERE al.status = 'published' AND t.name ILIKE '%' || $1 || '%'
-		 ORDER BY similarity(t.name, $1) DESC LIMIT $2`); err != nil {
 		return nil, err
 	}
 	return res, nil

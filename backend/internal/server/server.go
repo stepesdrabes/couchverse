@@ -21,7 +21,6 @@ import (
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/metadata"
-	"couchverse/internal/feature/music"
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/feature/ranks"
 	"couchverse/internal/feature/subtitles"
@@ -39,7 +38,6 @@ type Server struct {
 	auth      *auth.Store
 	catalog   *catalog.Store
 	jobs      *jobs.Store
-	music     *music.Store
 	library   *library.Store
 	uploads   *library.Manager
 	artwork   *artwork.Service
@@ -52,8 +50,8 @@ type Server struct {
 	couch     *couch.Hub
 }
 
-func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, mus *music.Store, lib *library.Store, sys *system.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager, stream *playback.Stream, an *analytics.Store, rk *ranks.Store, couchHub *couch.Hub) *Server {
-	return &Server{cfg: cfg, pool: pool, system: sys, settings: set, auth: au, catalog: cat, jobs: jb, music: mus, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions, stream: stream, analytics: an, ranks: rk, couch: couchHub}
+func New(cfg config.Config, pool *pgxpool.Pool, set *settings.Store, au *auth.Store, cat *catalog.Store, jb *jobs.Store, lib *library.Store, sys *system.Store, uploads *library.Manager, art *artwork.Service, subs *subtitles.Service, tc *playback.JobHandler, sessions *playback.SessionManager, stream *playback.Stream, an *analytics.Store, rk *ranks.Store, couchHub *couch.Hub) *Server {
+	return &Server{cfg: cfg, pool: pool, system: sys, settings: set, auth: au, catalog: cat, jobs: jb, library: lib, uploads: uploads, artwork: art, subtitles: subs, transcode: tc, sessions: sessions, stream: stream, analytics: an, ranks: rk, couch: couchHub}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -62,12 +60,11 @@ func (s *Server) Handler() http.Handler {
 	systemModule := system.NewModule(s.system, s.settings, s.jobs, s.cfg.DataDir, s.couch, s.sessions)
 	libraryModule := library.NewModule(s.library, s.uploads)
 	adminJobs := jobs.NewAdminJobs(s.jobs)
-	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.music, s.jobs, s.analytics)
+	catalogModule := catalog.NewModule(s.catalog, s.settings, s.artwork, s.jobs, s.analytics)
 	playbackModule := playback.NewModule(
 		s.stream,
 		playback.NewAdminTranscode(s.library, s.settings, s.jobs, s.transcode, s.cfg.FFmpegPath),
 	)
-	musicModule := music.NewModule(s.music, s.settings, s.artwork, s.analytics)
 	couchModule := couch.NewModule(s.couch, s.settings)
 	analyticsModule := analytics.NewModule(s.analytics)
 	ranksModule := ranks.NewModule(s.ranks, s.settings)
@@ -109,9 +106,6 @@ func (s *Server) Handler() http.Handler {
 
 			systemModule.MountUser(p)
 
-			// music routes (incl. track playlists) gate themselves on the feature toggle
-			musicModule.MountUser(p)
-
 			// profiles + leaderboard gate themselves on the rankings toggle
 			ranksModule.MountUser(p)
 		})
@@ -128,8 +122,6 @@ func (s *Server) Handler() http.Handler {
 			adm.Use(auth.RequireAdmin)
 
 			catalogModule.MountAdmin(adm)
-
-			musicModule.MountAdmin(adm)
 
 			authModule.MountAdmin(adm)
 

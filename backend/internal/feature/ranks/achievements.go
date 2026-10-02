@@ -12,7 +12,6 @@ const (
 	CatWatching Category = "watching"
 	CatStreaks  Category = "streaks"
 	CatExplorer Category = "explorer"
-	CatMusic    Category = "music"
 	CatCouch    Category = "couch"
 	CatMeta     Category = "meta"
 )
@@ -27,12 +26,9 @@ const (
 )
 
 // Feature gates. An achievement whose Requires is unmet is absent from the
-// payload rather than shown locked, so a music-disabled server never displays
+// payload rather than shown locked, so a couch-disabled server never displays
 // an unreachable badge.
-const (
-	needsMusic = "music"
-	needsCouch = "couch"
-)
+const needsCouch = "couch"
 
 // Snapshot is every measured fact about one user. A single batch of SQL in the
 // store fills it so the rules below stay pure and unit-testable.
@@ -51,10 +47,6 @@ type Snapshot struct {
 	DistinctGenres  int64
 	DistinctDecades int64
 	WatchlistSize   int64
-
-	TracksPlayed    int64
-	DistinctArtists int64
-	BiggestPlaylist int64
 
 	EmojiSent     int64
 	CouchPartyMax int64
@@ -117,12 +109,6 @@ var Achievements = []Achievement{
 	{"watchlist_10", CatExplorer, Bronze, 10, "", func(s Snapshot) int64 { return s.WatchlistSize }},
 	{"decades_4", CatExplorer, Silver, 4, "", func(s Snapshot) int64 { return s.DistinctDecades }},
 
-	// music
-	{"tracks_100", CatMusic, Bronze, 100, needsMusic, func(s Snapshot) int64 { return s.TracksPlayed }},
-	{"listen_50h", CatMusic, Silver, 3000, needsMusic, func(s Snapshot) int64 { return s.MusicSeconds / 60 }},
-	{"artists_25", CatMusic, Silver, 25, needsMusic, func(s Snapshot) int64 { return s.DistinctArtists }},
-	{"playlist_50", CatMusic, Bronze, 50, needsMusic, func(s Snapshot) int64 { return s.BiggestPlaylist }},
-
 	// couch
 	{"couch_host_1", CatCouch, Bronze, 1, needsCouch, func(s Snapshot) int64 { return s.CouchHosted }},
 	{"couch_host_25", CatCouch, Gold, 25, needsCouch, func(s Snapshot) int64 { return s.CouchHosted }},
@@ -154,8 +140,6 @@ type Unlock struct {
 // visible reports whether a rule's feature gate is satisfied.
 func (a Achievement) visible(f flags.Flags) bool {
 	switch a.Requires {
-	case needsMusic:
-		return f.MusicEnabled
 	case needsCouch:
 		return f.CouchEnabled
 	default:
@@ -214,7 +198,7 @@ func Evaluate(s Snapshot, unlockedAt map[string]time.Time, f flags.Flags, cfg Co
 }
 
 // AchievementXPFor sums the reward of the codes a user has already unlocked.
-// Flags are not consulted: disabling music must never demote anyone.
+// Flags are not consulted: disabling couch must never demote anyone.
 func AchievementXPFor(codes []string, cfg Config) (count, xp int64) {
 	byCode := make(map[string]AchTier, len(Achievements))
 	for _, a := range Achievements {

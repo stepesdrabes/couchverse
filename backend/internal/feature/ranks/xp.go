@@ -1,16 +1,14 @@
 package ranks
 
-// The shipped rates live in DefaultConfig: music is worth half of video because
-// a background playlist should not outrank a movie night, and couch pays per
-// session rather than per minute because on-couch watch-time has no user
-// dimension in the schema. An admin can retune all of it.
+// The shipped rates live in DefaultConfig: couch pays per session rather than
+// per minute because on-couch watch-time has no user dimension in the schema.
+// An admin can retune all of it.
 
 // XPInputs are the countable facts the formula needs. The leaderboard loads
 // exactly these for every user in four queries, while a profile view gets them
 // as part of the fuller Snapshot.
 type XPInputs struct {
 	VideoSeconds      int64
-	MusicSeconds      int64
 	MoviesCompleted   int64
 	EpisodesCompleted int64
 	CouchHosted       int64
@@ -49,7 +47,6 @@ func ComputeXP(in XPInputs, cfg Config) XPResult {
 	}
 
 	add("video", in.VideoSeconds/60, cfg.Rates.VideoMinute)
-	add("music", in.MusicSeconds/60, cfg.Rates.MusicMinute)
 	add("movies", in.MoviesCompleted, cfg.Rates.Movie)
 	add("episodes", in.EpisodesCompleted, cfg.Rates.Episode)
 	add("couchHosted", in.CouchHosted, cfg.Rates.CouchHost)

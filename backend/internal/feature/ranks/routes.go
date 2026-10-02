@@ -11,7 +11,7 @@ import (
 )
 
 // Module mounts the progression routes. The whole group is hidden when the
-// rankingsEnabled flag is off, mirroring music and couch.
+// rankingsEnabled flag is off, mirroring couch.
 type Module struct {
 	handlers *Handlers
 	admin    *AdminRanks

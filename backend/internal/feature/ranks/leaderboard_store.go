@@ -42,26 +42,14 @@ func (s *Store) Members(ctx context.Context) ([]Member, error) {
 func (s *Store) XPRowsAll(ctx context.Context, cfg Config) (map[int64]XPInputs, error) {
 	out := map[int64]XPInputs{}
 
-	seconds, err := s.db.Query(ctx,
-		`SELECT user_id,
-			COALESCE(sum(seconds) FILTER (WHERE kind = 'video'), 0)::bigint,
-			COALESCE(sum(seconds) FILTER (WHERE kind = 'music'), 0)::bigint
-		 FROM watch_time_daily GROUP BY user_id`)
+	watched, err := s.WatchSeconds(ctx, 0)
 	if err != nil {
 		return nil, err
 	}
-	defer seconds.Close()
-	for seconds.Next() {
-		var id, video, music int64
-		if err := seconds.Scan(&id, &video, &music); err != nil {
-			return nil, err
-		}
+	for id, video := range watched {
 		v := out[id]
-		v.VideoSeconds, v.MusicSeconds = video, music
+		v.VideoSeconds = video
 		out[id] = v
-	}
-	if err := seconds.Err(); err != nil {
-		return nil, err
 	}
 
 	completions, err := s.db.Query(ctx,
@@ -159,12 +147,12 @@ func (s *Store) UnlockCounts(ctx context.Context) (map[string]int, error) {
 	return out, rows.Err()
 }
 
-// PeriodSeconds sums watch or listen seconds per user. days == 0 means all time.
-func (s *Store) PeriodSeconds(ctx context.Context, kind string, days int) (map[int64]int64, error) {
+// WatchSeconds sums watch seconds per user. days == 0 means all time.
+func (s *Store) WatchSeconds(ctx context.Context, days int) (map[int64]int64, error) {
 	rows, err := s.db.Query(ctx,
 		`SELECT user_id, COALESCE(sum(seconds), 0)::bigint FROM watch_time_daily
-		 WHERE kind = $1 AND ($2::int = 0 OR day >= current_date - ($2::int - 1))
-		 GROUP BY user_id`, kind, days)
+		 WHERE kind = 'video' AND ($1::int = 0 OR day >= current_date - ($1::int - 1))
+		 GROUP BY user_id`, days)
 	if err != nil {
 		return nil, err
 	}

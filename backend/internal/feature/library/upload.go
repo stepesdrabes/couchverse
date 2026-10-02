@@ -110,7 +110,7 @@ func (m *Manager) Append(ctx context.Context, id string, offset int64, body io.R
 }
 
 type Assign struct {
-	LibraryKind string  `json:"libraryKind"` // movies | series | music
+	LibraryKind string  `json:"libraryKind"` // movies | series
 	TitleID     *string `json:"titleId"`
 	EpisodeID   *string `json:"episodeId"`
 }
@@ -202,7 +202,7 @@ func (m *Manager) destinationPath(ctx context.Context, lib *Library, filename st
 		}
 		return filepath.Join(sanitizeFilename(folder), filename), nil
 
-	case "series":
+	default: // series
 		if assign.EpisodeID != nil {
 			if ref, err := m.Catalog.EpisodeRef(ctx, *assign.EpisodeID); err == nil {
 				return filepath.Join(
@@ -224,9 +224,6 @@ func (m *Manager) destinationPath(ctx context.Context, lib *Library, filename st
 				fmt.Sprintf("Season %02d", parsed.Season),
 				filename), nil
 		}
-		return filename, nil
-
-	default: // music - tags decide the catalog placement, keep files flat
 		return filename, nil
 	}
 }

@@ -16,7 +16,7 @@ func NewStore(db *pgxpool.Pool) *Store {
 	return &Store{db: db}
 }
 
-// MediaUsageByKind sums media file sizes per library kind (movies/series/music),
+// MediaUsageByKind sums media file sizes per library kind (movies/series),
 // collapsing multiple libraries of the same kind into one total.
 func (s *Store) MediaUsageByKind(ctx context.Context) (map[string]int64, error) {
 	rows, err := s.db.Query(ctx,
@@ -54,8 +54,6 @@ type OverviewCounts struct {
 	Movies   int `json:"movies"`
 	Series   int `json:"series"`
 	Episodes int `json:"episodes"`
-	Albums   int `json:"albums"`
-	Tracks   int `json:"tracks"`
 	Users    int `json:"users"`
 }
 
@@ -66,10 +64,8 @@ func (s *Store) Overview(ctx context.Context) (*OverviewCounts, error) {
 			(SELECT count(*) FROM titles WHERE kind = 'movie'),
 			(SELECT count(*) FROM titles WHERE kind = 'series'),
 			(SELECT count(*) FROM episodes),
-			(SELECT count(*) FROM albums),
-			(SELECT count(*) FROM tracks),
 			(SELECT count(*) FROM users)`).
-		Scan(&c.Movies, &c.Series, &c.Episodes, &c.Albums, &c.Tracks, &c.Users)
+		Scan(&c.Movies, &c.Series, &c.Episodes, &c.Users)
 	return &c, err
 }
 
