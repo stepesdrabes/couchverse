@@ -29,12 +29,13 @@ func New(apiKey string) *Client {
 	}
 }
 
-type SearchResult struct {
+// TmdbSearchResult is one TMDB match offered when linking a title.
+type TmdbSearchResult struct {
 	TmdbID    int    `json:"tmdbId"`
 	Name      string `json:"name"`
-	Year      int    `json:"year"`
+	Year      int    `json:"year" doc:"Release or first-air year; 0 when TMDB has no date."`
 	Overview  string `json:"overview"`
-	PosterURL string `json:"posterUrl"`
+	PosterURL string `json:"posterUrl" doc:"Small TMDB poster URL; empty when there is none."`
 }
 
 type Details struct {
@@ -80,7 +81,7 @@ func (c *Client) get(ctx context.Context, path string, params url.Values, out an
 }
 
 // Search queries movies or TV shows. kind is "movie" or "series".
-func (c *Client) Search(ctx context.Context, kind, query, lang string) ([]SearchResult, error) {
+func (c *Client) Search(ctx context.Context, kind, query, lang string) ([]TmdbSearchResult, error) {
 	endpoint := "/search/movie"
 	if kind == "series" {
 		endpoint = "/search/tv"
@@ -103,7 +104,7 @@ func (c *Client) Search(ctx context.Context, kind, query, lang string) ([]Search
 		return nil, err
 	}
 
-	results := []SearchResult{}
+	results := []TmdbSearchResult{}
 	for _, r := range raw.Results {
 		name := r.Title
 		date := r.ReleaseDate
@@ -111,7 +112,7 @@ func (c *Client) Search(ctx context.Context, kind, query, lang string) ([]Search
 			name = r.Name
 			date = r.FirstAirDate
 		}
-		res := SearchResult{TmdbID: r.ID, Name: name, Overview: r.Overview}
+		res := TmdbSearchResult{TmdbID: r.ID, Name: name, Overview: r.Overview}
 		if len(date) >= 4 {
 			res.Year, _ = strconv.Atoi(date[:4])
 		}
@@ -172,8 +173,9 @@ func (c *Client) Details(ctx context.Context, kind string, tmdbID int, lang stri
 	return d, nil
 }
 
-type SeasonInfo struct {
-	SeasonNumber int    `json:"seasonNumber"`
+// TmdbSeason previews one season of a linked show for the import picker.
+type TmdbSeason struct {
+	SeasonNumber int    `json:"seasonNumber" doc:"0 is TMDB's specials season."`
 	Name         string `json:"name"`
 	Overview     string `json:"overview"`
 	EpisodeCount int    `json:"episodeCount"`
@@ -189,7 +191,7 @@ type EpisodeInfo struct {
 }
 
 // SeriesSeasons lists a show's seasons (including specials/season 0).
-func (c *Client) SeriesSeasons(ctx context.Context, tmdbID int, lang string) ([]SeasonInfo, error) {
+func (c *Client) SeriesSeasons(ctx context.Context, tmdbID int, lang string) ([]TmdbSeason, error) {
 	var raw struct {
 		Seasons []struct {
 			SeasonNumber int    `json:"season_number"`
@@ -201,9 +203,9 @@ func (c *Client) SeriesSeasons(ctx context.Context, tmdbID int, lang string) ([]
 	if err := c.get(ctx, fmt.Sprintf("/tv/%d", tmdbID), langValues(lang), &raw); err != nil {
 		return nil, err
 	}
-	seasons := []SeasonInfo{}
+	seasons := []TmdbSeason{}
 	for _, s := range raw.Seasons {
-		seasons = append(seasons, SeasonInfo(s))
+		seasons = append(seasons, TmdbSeason(s))
 	}
 	return seasons, nil
 }

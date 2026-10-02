@@ -57,7 +57,7 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 	if err != nil {
 		return err
 	}
-	wanted := []SeasonInfo{}
+	wanted := []TmdbSeason{}
 	for _, season := range all {
 		if len(p.Seasons) > 0 {
 			if slices.Contains(p.Seasons, season.SeasonNumber) {
@@ -135,7 +135,7 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 		if terr != nil {
 			return terr
 		}
-		byNum := map[int]SeasonInfo{}
+		byNum := map[int]TmdbSeason{}
 		for _, ts := range tseasons {
 			byNum[ts.SeasonNumber] = ts
 		}

@@ -8,10 +8,17 @@ import (
 	"couchverse/internal/httpx"
 )
 
+const tag httpx.Tag = "metadata"
+
 func (h *AdminMetadata) Register(rt httpx.Routes) {
-	tags := []string{"metadata"}
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminSearchMetadata", Method: http.MethodGet, Path: "/metadata/search", Tags: tags}, h.Search)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminApplyMetadata", Method: http.MethodPost, Path: "/titles/{id}/metadata/apply", Tags: tags}, h.Apply)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminListMetadataSeasons", Method: http.MethodGet, Path: "/titles/{id}/metadata/seasons", Tags: tags}, h.Seasons)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminImportEpisodes", Method: http.MethodPost, Path: "/titles/{id}/metadata/import-episodes", Tags: tags}, h.ImportEpisodes)
+	huma.Register(rt.Admin, tag.Op("adminSearchMetadata", http.MethodGet, "/metadata/search"), h.Search)
+	huma.Register(rt.Admin, accepted(tag.Op("adminApplyMetadata", http.MethodPost, "/titles/{id}/metadata/apply")), h.Apply)
+	huma.Register(rt.Admin, tag.Op("adminListMetadataSeasons", http.MethodGet, "/titles/{id}/metadata/seasons"), h.Seasons)
+	huma.Register(rt.Admin, accepted(tag.Op("adminImportEpisodes", http.MethodPost, "/titles/{id}/metadata/import-episodes")), h.ImportEpisodes)
+}
+
+// accepted marks an operation that answers 202: the work runs as a queued job.
+func accepted(op huma.Operation) huma.Operation {
+	op.DefaultStatus = http.StatusAccepted
+	return op
 }

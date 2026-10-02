@@ -274,6 +274,17 @@ func apiCases() []apiCase {
 		{op: "adminCancelJob", as: "admin", method: "POST", path: "/admin/jobs/" + failedJobID + "/cancel", status: 204},
 		{op: "adminCancelJob", as: "admin", method: "POST", path: "/admin/jobs/" + doneJobID + "/cancel", status: 404},
 
+		// no TMDB key is configured, so the TMDB reads stop at no_tmdb_key
+		{op: "adminSearchMetadata", as: "admin", method: "GET", path: "/admin/metadata/search?q=glass&kind=movie", status: 412},
+		{op: "adminSearchMetadata", as: "admin", method: "GET", path: "/admin/metadata/search?q=glass", status: 400},
+		{op: "adminListMetadataSeasons", as: "admin", method: "GET", path: "/admin/titles/" + seriesID + "/metadata/seasons", status: 412},
+		{op: "adminListMetadataSeasons", as: "admin", method: "GET", path: "/admin/titles/" + movieID + "/metadata/seasons", status: 400},
+		{op: "adminApplyMetadata", as: "admin", method: "POST", path: "/admin/titles/" + movieID + "/metadata/apply", body: map[string]int{"tmdbId": 1001}, status: 202},
+		{op: "adminApplyMetadata", as: "admin", method: "POST", path: "/admin/titles/" + movieID + "/metadata/apply", body: map[string]int{"tmdbId": 0}, status: 400},
+		{op: "adminImportEpisodes", as: "admin", method: "POST", path: "/admin/titles/" + seriesID + "/metadata/import-episodes", body: map[string][]int{"seasons": {1}}, status: 202},
+		{op: "adminImportEpisodes", as: "admin", method: "POST", path: "/admin/titles/" + seriesID + "/metadata/import-episodes", status: 202},
+		{op: "adminImportEpisodes", as: "admin", method: "POST", path: "/admin/titles/" + movieID + "/metadata/import-episodes", status: 400},
+
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "wrong", "newPassword": "long enough"}, status: 400},
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "admin", "newPassword": "long enough"}, status: 204},
 		{op: "logout", as: "admin", method: "POST", path: "/auth/logout", status: 204},
