@@ -16,10 +16,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"couchverse/internal/app"
 	"couchverse/internal/config"
@@ -68,9 +71,12 @@ type apiCase struct {
 	// raw sends these bytes as application/octet-stream
 	raw    []byte
 	status int
-	// save stores response fields for later paths: {"couch": "shareToken"}
-	// makes {{couch}} expand to that value
+	// save stores response fields for later paths and bodies: {"couch":
+	// "shareToken"} makes {{couch}} expand to that value; "device.token" reads
+	// a nested field
 	save map[string]string
+	// bearer sends the saved variable as a device token instead of a cookie
+	bearer string
 }
 
 type upload struct {
@@ -102,8 +108,16 @@ func TestAPIConformance(t *testing.T) {
 	covered := map[string]bool{}
 	vars := map[string]string{}
 	for i, c := range apiCases() {
-		for k, v := range vars {
-			c.path = strings.ReplaceAll(c.path, "{{"+k+"}}", v)
+		c.path = expand(c.path, vars)
+		if c.body != nil {
+			raw, err := json.Marshal(c.body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c.body = json.RawMessage(expand(string(raw), vars))
+		}
+		if c.bearer != "" {
+			c.bearer = vars[c.bearer]
 		}
 		name := fmt.Sprintf("%02d %s %s %s", i, c.op, c.method, c.path)
 		op, ok := ops[c.op]
@@ -133,9 +147,12 @@ func TestAPIConformance(t *testing.T) {
 			continue
 		}
 		for k, field := range c.save {
-			if obj, ok := value.(map[string]any); ok {
-				vars[k] = fmt.Sprint(obj[field])
+			v := value
+			for _, key := range strings.Split(field, ".") {
+				obj, _ := v.(map[string]any)
+				v = obj[key]
 			}
+			vars[k] = fmt.Sprint(v)
 		}
 		res := &huma.ValidateResult{}
 		huma.Validate(doc.Components.Schemas, schema, huma.NewPathBuffer([]byte{}, 0), huma.ModeReadFromServer, value, res)
@@ -334,9 +351,67 @@ func apiCases() []apiCase {
 		}, status: 200},
 		{op: "adminUpdateHomeRows", as: "admin", method: "PUT", path: "/admin/home-rows", body: []map[string]any{{"kind": "genre", "label": "No genre"}}, status: 400},
 
+		{op: "signInDevice", method: "POST", path: "/auth/token", body: map[string]any{"username": "nora", "password": "admin", "deviceName": "Kitchen iPad", "platform": "ipados"}, status: 200, save: map[string]string{"ipad": "token", "ipadId": "deviceId"}},
+		{op: "signInDevice", method: "POST", path: "/auth/token", body: map[string]any{"username": "nora", "password": "nope", "deviceName": "Kitchen iPad", "platform": "ipados"}, status: 401},
+		{op: "signInDevice", method: "POST", path: "/auth/token", body: map[string]any{"username": "nora", "password": "admin", "deviceName": "Toaster", "platform": "toaster"}, status: 400},
+		{op: "getMe", bearer: "ipad", method: "GET", path: "/auth/me", status: 200},
+		{op: "getHome", bearer: "ipad", method: "GET", path: "/home", status: 200},
+		{op: "listDevices", as: "nora", method: "GET", path: "/me/devices", status: 200},
+		{op: "startPairing", method: "POST", path: "/auth/pairings", body: map[string]any{"deviceName": "Living room TV", "platform": "tvos"}, status: 201, save: map[string]string{"tv": "deviceCode", "tvCode": "userCode"}},
+		{op: "pollPairing", method: "POST", path: "/auth/pairings/poll", body: map[string]any{"deviceCode": "{{tv}}"}, status: 200},
+		{op: "getPairingRequest", as: "nora", method: "GET", path: "/me/pairings/{{tvCode}}", status: 200},
+		{op: "getPairingRequest", as: "nora", method: "GET", path: "/me/pairings/BCDF-GHJK", status: 404},
+		{op: "approvePairing", as: "nora", method: "POST", path: "/me/pairings/{{tvCode}}/approve", body: map[string]any{"deviceName": "Big TV"}, status: 204},
+		{op: "pollPairing", method: "POST", path: "/auth/pairings/poll", body: map[string]any{"deviceCode": "{{tv}}"}, status: 200, save: map[string]string{"tvToken": "device.token"}},
+		{op: "pollPairing", method: "POST", path: "/auth/pairings/poll", body: map[string]any{"deviceCode": "{{tv}}"}, status: 404},
+		{op: "getMe", bearer: "tvToken", method: "GET", path: "/auth/me", status: 200},
+		{op: "startPairing", method: "POST", path: "/auth/pairings", body: map[string]any{"deviceName": "Unknown TV", "platform": "androidtv"}, status: 201, save: map[string]string{"stranger": "deviceCode", "strangerCode": "userCode"}},
+		{op: "denyPairing", as: "nora", method: "POST", path: "/me/pairings/{{strangerCode}}/deny", status: 204},
+		{op: "pollPairing", method: "POST", path: "/auth/pairings/poll", body: map[string]any{"deviceCode": "{{stranger}}"}, status: 200},
+		{op: "createConnectCode", as: "nora", method: "POST", path: "/me/connect-codes", status: 201, save: map[string]string{"connect": "code"}},
+		{op: "connectDevice", method: "POST", path: "/auth/connect", body: map[string]any{"code": "{{connect}}", "deviceName": "Pixel", "platform": "android"}, status: 200},
+		{op: "connectDevice", method: "POST", path: "/auth/connect", body: map[string]any{"code": "{{connect}}", "deviceName": "Pixel", "platform": "android"}, status: 401},
+		{op: "revokeDevice", as: "nora", method: "DELETE", path: "/me/devices/{{ipadId}}", status: 204},
+		{op: "getMe", bearer: "ipad", method: "GET", path: "/auth/me", status: 401},
+		{op: "logout", bearer: "tvToken", method: "POST", path: "/auth/logout", status: 204},
+		{op: "getMe", bearer: "tvToken", method: "GET", path: "/auth/me", status: 401},
+
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "wrong", "newPassword": "long enough"}, status: 400},
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "admin", "newPassword": "long enough"}, status: 204},
 		{op: "logout", as: "admin", method: "POST", path: "/auth/logout", status: 204},
+	}
+}
+
+// TestSessionExpirySlides checks that using a session close to its expiry
+// extends it and reissues the browser's cookie, so active members are never
+// signed out by a fixed lifetime.
+func TestSessionExpirySlides(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := context.Background()
+	if _, err := env.pool.Exec(ctx, `UPDATE sessions SET expires_at = now() + interval '2 days'
+		WHERE user_id = (SELECT id FROM users WHERE username = 'nora')`); err != nil {
+		t.Fatal(err)
+	}
+
+	req, _ := http.NewRequest(http.MethodGet, env.srv.URL+"/api/v1/auth/me", nil)
+	res, err := env.clients[memberName].Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+	if len(res.Cookies()) != 1 || res.Cookies()[0].MaxAge < 29*24*3600 {
+		t.Errorf("cookie was not reissued with a fresh lifetime: %v", res.Cookies())
+	}
+	var expires time.Time
+	if err := env.pool.QueryRow(ctx, `SELECT max(expires_at) FROM sessions
+		WHERE user_id = (SELECT id FROM users WHERE username = 'nora')`).Scan(&expires); err != nil {
+		t.Fatal(err)
+	}
+	if time.Until(expires) < 29*24*time.Hour {
+		t.Errorf("session still expires at %v", expires)
 	}
 }
 
@@ -407,8 +482,11 @@ func (o operation) responseSchema(doc *huma.OpenAPI, status int) *huma.Schema {
 
 type testEnv struct {
 	srv     *httptest.Server
+	pool    *pgxpool.Pool
 	clients map[string]*http.Client
 }
+
+var testDatabases atomic.Int32
 
 // newTestEnv migrates and seeds a throwaway database and serves the real app
 // on it. It needs TEST_DATABASE_URL (a Postgres the test may create databases
@@ -425,7 +503,7 @@ func newTestEnv(t *testing.T) *testEnv {
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
-	name := fmt.Sprintf("couchverse_test_%d", os.Getpid())
+	name := fmt.Sprintf("couchverse_test_%d_%d", os.Getpid(), testDatabases.Add(1))
 	if _, err := admin.Exec(ctx, "DROP DATABASE IF EXISTS "+name); err != nil {
 		t.Fatal(err)
 	}
@@ -465,7 +543,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatalf("seed: %v", err)
 	}
 
-	env := &testEnv{srv: httptest.NewServer(a.Handler()), clients: map[string]*http.Client{}}
+	env := &testEnv{srv: httptest.NewServer(a.Handler()), pool: pool, clients: map[string]*http.Client{}}
 	t.Cleanup(env.srv.Close)
 	env.clients[""] = env.srv.Client()
 	// an anonymous viewer that keeps cookies, like a couch follower without an account
@@ -483,7 +561,35 @@ func newTestEnv(t *testing.T) *testEnv {
 	return env
 }
 
+// expand replaces {{name}} placeholders with saved response values.
+func expand(s string, vars map[string]string) string {
+	for k, v := range vars {
+		s = strings.ReplaceAll(s, "{{"+k+"}}", v)
+	}
+	return s
+}
+
 func (e *testEnv) do(t *testing.T, c apiCase) (int, []byte, string) {
+	if c.bearer != "" {
+		raw, err := json.Marshal(c.body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var body io.Reader
+		contentType := ""
+		if c.body != nil {
+			body, contentType = bytes.NewReader(raw), "application/json"
+		}
+		req, err := http.NewRequest(c.method, e.srv.URL+"/api/v1"+c.path, body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
+		req.Header.Set("Authorization", "Bearer "+c.bearer)
+		return e.roundTrip(t, http.DefaultClient, req)
+	}
 	if c.raw != nil {
 		return e.send(t, e.clients[c.as], c.method, c.path, bytes.NewReader(c.raw), "application/octet-stream")
 	}
@@ -525,6 +631,11 @@ func (e *testEnv) send(t *testing.T, client *http.Client, method, path string, b
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
+	return e.roundTrip(t, client, req)
+}
+
+func (e *testEnv) roundTrip(t *testing.T, client *http.Client, req *http.Request) (int, []byte, string) {
+	t.Helper()
 	res, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"couchverse/internal/db"
 	"couchverse/internal/httpx"
@@ -134,11 +133,6 @@ func (s *Store) uniqueSlug(ctx context.Context, base string) (string, error) {
 	}
 }
 
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
-}
-
 type TitleInput struct {
 	Kind              string   `json:"kind" enum:"movie,series"`
 	Name              string   `json:"name" minLength:"1"`
@@ -169,7 +163,7 @@ func (s *Store) CreateTitle(ctx context.Context, in TitleInput) (*Title, error) 
 		if err == nil {
 			break
 		}
-		if attempt == 0 && isUniqueViolation(err) {
+		if attempt == 0 && db.IsUniqueViolation(err) {
 			continue // slug raced another insert; recompute once
 		}
 		return nil, err
@@ -486,7 +480,7 @@ func (s *Store) FindOrCreateTitle(ctx context.Context, kind, name string, year *
 		if err == nil {
 			return t, nil
 		}
-		if attempt == 0 && isUniqueViolation(err) {
+		if attempt == 0 && db.IsUniqueViolation(err) {
 			continue
 		}
 		return nil, err

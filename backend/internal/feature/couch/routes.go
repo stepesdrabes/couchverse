@@ -37,7 +37,7 @@ func (m *Module) Register(rt httpx.Routes) {
 
 	create := tag.Created("createCouch", http.MethodPost, "/couch")
 	create.Middlewares = huma.Middlewares{httpx.Guard(api, hostSignedIn)}
-	create.Security = []map[string][]string{{"cookieSession": {}}}
+	create.Security = []map[string][]string{{"cookieSession": {}}, {"bearerDevice": {}}}
 	huma.Register(api, create, m.handlers.Create)
 	huma.Register(api, httpx.Localized(tag.Op("getCouchInfo", http.MethodGet, "/couch/{token}/info")), m.handlers.Info)
 	huma.Register(api, tag.Op("joinCouch", http.MethodPost, "/couch/{token}/join"), m.handlers.Join)

@@ -821,6 +821,59 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct ConnectCode {
+        pub code: String,
+        /// Seconds until the code expires.
+        pub expires_in: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ConnectRedemption {
+        pub code: String,
+        /// Shown in the account's devices list, e.g. "Living room Apple TV".
+        pub device_name: String,
+        pub platform: ConnectRedemptionPlatform,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum ConnectRedemptionPlatform {
+        #[serde(rename = "ios")]
+        Ios,
+        #[serde(rename = "ipados")]
+        Ipados,
+        #[serde(rename = "tvos")]
+        Tvos,
+        #[serde(rename = "android")]
+        Android,
+        #[serde(rename = "androidtv")]
+        Androidtv,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl ConnectRedemptionPlatform {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                ConnectRedemptionPlatform::Ios => "ios",
+                ConnectRedemptionPlatform::Ipados => "ipados",
+                ConnectRedemptionPlatform::Tvos => "tvos",
+                ConnectRedemptionPlatform::Android => "android",
+                ConnectRedemptionPlatform::Androidtv => "androidtv",
+                ConnectRedemptionPlatform::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for ConnectRedemptionPlatform {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct ContinueItem {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub backdrop_accent: Option<String>,
@@ -1051,6 +1104,184 @@ pub mod types {
         pub pending_jobs: i64,
         /// The newest jobs, newest first.
         pub recent_jobs: Vec<AdminJob>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Device {
+        pub created_at: String,
+        /// The session making this request.
+        pub current: bool,
+        pub id: String,
+        pub kind: DeviceKind,
+        pub last_seen_at: String,
+        /// The app's device name, or the browser and OS read from a browser's user agent.
+        pub name: String,
+        pub platform: DevicePlatform,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DeviceInfo {
+        /// Shown in the account's devices list, e.g. "Living room Apple TV".
+        pub device_name: String,
+        pub platform: DeviceInfoPlatform,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DeviceInfoPlatform {
+        #[serde(rename = "ios")]
+        Ios,
+        #[serde(rename = "ipados")]
+        Ipados,
+        #[serde(rename = "tvos")]
+        Tvos,
+        #[serde(rename = "android")]
+        Android,
+        #[serde(rename = "androidtv")]
+        Androidtv,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DeviceInfoPlatform {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DeviceInfoPlatform::Ios => "ios",
+                DeviceInfoPlatform::Ipados => "ipados",
+                DeviceInfoPlatform::Tvos => "tvos",
+                DeviceInfoPlatform::Android => "android",
+                DeviceInfoPlatform::Androidtv => "androidtv",
+                DeviceInfoPlatform::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DeviceInfoPlatform {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DeviceKind {
+        #[serde(rename = "browser")]
+        Browser,
+        #[serde(rename = "device")]
+        Device,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DeviceKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DeviceKind::Browser => "browser",
+                DeviceKind::Device => "device",
+                DeviceKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DeviceKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DevicePlatform {
+        #[serde(rename = "ios")]
+        Ios,
+        #[serde(rename = "ipados")]
+        Ipados,
+        #[serde(rename = "tvos")]
+        Tvos,
+        #[serde(rename = "android")]
+        Android,
+        #[serde(rename = "androidtv")]
+        Androidtv,
+        #[serde(rename = "web")]
+        Web,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DevicePlatform {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DevicePlatform::Ios => "ios",
+                DevicePlatform::Ipados => "ipados",
+                DevicePlatform::Tvos => "tvos",
+                DevicePlatform::Android => "android",
+                DevicePlatform::Androidtv => "androidtv",
+                DevicePlatform::Web => "web",
+                DevicePlatform::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DevicePlatform {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DeviceSignIn {
+        /// Shown in the account's devices list, e.g. "Living room Apple TV".
+        pub device_name: String,
+        pub password: String,
+        pub platform: DeviceSignInPlatform,
+        pub username: String,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DeviceSignInPlatform {
+        #[serde(rename = "ios")]
+        Ios,
+        #[serde(rename = "ipados")]
+        Ipados,
+        #[serde(rename = "tvos")]
+        Tvos,
+        #[serde(rename = "android")]
+        Android,
+        #[serde(rename = "androidtv")]
+        Androidtv,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DeviceSignInPlatform {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DeviceSignInPlatform::Ios => "ios",
+                DeviceSignInPlatform::Ipados => "ipados",
+                DeviceSignInPlatform::Tvos => "tvos",
+                DeviceSignInPlatform::Android => "android",
+                DeviceSignInPlatform::Androidtv => "androidtv",
+                DeviceSignInPlatform::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DeviceSignInPlatform {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DeviceToken {
+        pub device_id: String,
+        pub token: String,
+        pub user: User,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1879,6 +2110,121 @@ pub mod types {
     }
 
     impl std::fmt::Display for NextRankTierCode {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Pairing {
+        /// Secret the device polls with; never shown to anyone.
+        pub device_code: String,
+        /// Seconds until both codes expire.
+        pub expires_in: i64,
+        /// Seconds to wait between polls.
+        pub interval: i64,
+        /// Shown on the device as XXXX-XXXX for a signed-in user to approve.
+        pub user_code: String,
+        /// Where the code is approved on the server's web app; render the server URL plus this path as a QR code.
+        pub verify_path: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct PairingApproval {
+        /// Renames the device; it keeps its own name when empty.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub device_name: Option<String>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct PairingPoll {
+        pub device_code: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct PairingRequest {
+        pub device_name: String,
+        pub expires_at: String,
+        pub platform: PairingRequestPlatform,
+        pub user_code: String,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum PairingRequestPlatform {
+        #[serde(rename = "ios")]
+        Ios,
+        #[serde(rename = "ipados")]
+        Ipados,
+        #[serde(rename = "tvos")]
+        Tvos,
+        #[serde(rename = "android")]
+        Android,
+        #[serde(rename = "androidtv")]
+        Androidtv,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl PairingRequestPlatform {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                PairingRequestPlatform::Ios => "ios",
+                PairingRequestPlatform::Ipados => "ipados",
+                PairingRequestPlatform::Tvos => "tvos",
+                PairingRequestPlatform::Android => "android",
+                PairingRequestPlatform::Androidtv => "androidtv",
+                PairingRequestPlatform::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for PairingRequestPlatform {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct PairingStatus {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub device: Option<DeviceToken>,
+        pub status: PairingStatusStatus,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum PairingStatusStatus {
+        #[serde(rename = "pending")]
+        Pending,
+        #[serde(rename = "approved")]
+        Approved,
+        #[serde(rename = "denied")]
+        Denied,
+        #[serde(rename = "expired")]
+        Expired,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl PairingStatusStatus {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                PairingStatusStatus::Pending => "pending",
+                PairingStatusStatus::Approved => "approved",
+                PairingStatusStatus::Denied => "denied",
+                PairingStatusStatus::Expired => "expired",
+                PairingStatusStatus::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for PairingStatusStatus {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -3860,6 +4206,17 @@ pub mod ops {
         ))
     }
 
+    /// `POST /me/pairings/{code}/approve`
+    pub fn approve_pairing(code: &str, body: &PairingApproval) -> Call<NoContent> {
+        let q = Vec::new();
+        build::no_content(build::request(
+            Method::Post,
+            format!("/me/pairings/{}/approve", build::segment(code)),
+            q,
+            Some(body),
+        ))
+    }
+
     /// Query parameters of [`browse_titles`].
     #[derive(Debug, Clone, Default, PartialEq)]
     pub struct BrowseTitlesQuery {
@@ -3915,6 +4272,17 @@ pub mod ops {
         ))
     }
 
+    /// `POST /auth/connect`
+    pub fn connect_device(body: &ConnectRedemption) -> Call<DeviceToken> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Post,
+            "/auth/connect".to_string(),
+            q,
+            Some(body),
+        ))
+    }
+
     /// Open a couch session's WebSocket
     ///
     /// `GET /couch/{token}/ws`
@@ -3926,6 +4294,17 @@ pub mod ops {
             q,
             None::<&()>,
         )
+    }
+
+    /// `POST /me/connect-codes`
+    pub fn create_connect_code() -> Call<ConnectCode> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Post,
+            "/me/connect-codes".to_string(),
+            q,
+            None::<&()>,
+        ))
     }
 
     /// `POST /couch`
@@ -3967,6 +4346,17 @@ pub mod ops {
         build::json(build::request(
             Method::Delete,
             "/me/banner".to_string(),
+            q,
+            None::<&()>,
+        ))
+    }
+
+    /// `POST /me/pairings/{code}/deny`
+    pub fn deny_pairing(code: &str) -> Call<NoContent> {
+        let q = Vec::new();
+        build::no_content(build::request(
+            Method::Post,
+            format!("/me/pairings/{}/deny", build::segment(code)),
             q,
             None::<&()>,
         ))
@@ -4152,6 +4542,17 @@ pub mod ops {
         build::json(build::request(
             Method::Get,
             "/me/stats".to_string(),
+            q,
+            None::<&()>,
+        ))
+    }
+
+    /// `GET /me/pairings/{code}`
+    pub fn get_pairing_request(code: &str) -> Call<PairingRequest> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Get,
+            format!("/me/pairings/{}", build::segment(code)),
             q,
             None::<&()>,
         ))
@@ -4350,6 +4751,17 @@ pub mod ops {
         ))
     }
 
+    /// `GET /me/devices`
+    pub fn list_devices() -> Call<Vec<Device>> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Get,
+            "/me/devices".to_string(),
+            q,
+            None::<&()>,
+        ))
+    }
+
     /// Query parameters of [`list_genres`].
     #[derive(Debug, Clone, Default, PartialEq)]
     pub struct ListGenresQuery {
@@ -4410,12 +4822,34 @@ pub mod ops {
         ))
     }
 
+    /// `POST /auth/pairings/poll`
+    pub fn poll_pairing(body: &PairingPoll) -> Call<PairingStatus> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Post,
+            "/auth/pairings/poll".to_string(),
+            q,
+            Some(body),
+        ))
+    }
+
     /// `DELETE /me/watchlist/{titleId}`
     pub fn remove_from_watchlist(title_id: &str) -> Call<NoContent> {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Delete,
             format!("/me/watchlist/{}", build::segment(title_id)),
+            q,
+            None::<&()>,
+        ))
+    }
+
+    /// `DELETE /me/devices/{id}`
+    pub fn revoke_device(id: &str) -> Call<NoContent> {
+        let q = Vec::new();
+        build::no_content(build::request(
+            Method::Delete,
+            format!("/me/devices/{}", build::segment(id)),
             q,
             None::<&()>,
         ))
@@ -4461,6 +4895,28 @@ pub mod ops {
             "/search".to_string(),
             q,
             None::<&()>,
+        ))
+    }
+
+    /// `POST /auth/token`
+    pub fn sign_in_device(body: &DeviceSignIn) -> Call<DeviceToken> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Post,
+            "/auth/token".to_string(),
+            q,
+            Some(body),
+        ))
+    }
+
+    /// `POST /auth/pairings`
+    pub fn start_pairing(body: &DeviceInfo) -> Call<Pairing> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Post,
+            "/auth/pairings".to_string(),
+            q,
+            Some(body),
         ))
     }
 

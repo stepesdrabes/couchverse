@@ -16,13 +16,17 @@ type Handlers struct {
 	store   *Store
 	cfg     config.Config
 	limiter *rateLimiter
+	// pairingLimiter bounds the other unauthenticated ways in (pairing starts,
+	// connect-code redemptions) per IP
+	pairingLimiter *rateLimiter
 }
 
 func NewHandlers(st *Store, cfg config.Config) *Handlers {
 	return &Handlers{
-		store:   st,
-		cfg:     cfg,
-		limiter: newRateLimiter(5, time.Minute),
+		store:          st,
+		cfg:            cfg,
+		limiter:        newRateLimiter(5, time.Minute),
+		pairingLimiter: newRateLimiter(10, time.Minute),
 	}
 }
 
@@ -56,51 +60,55 @@ type loginOutput struct {
 }
 
 func (a *Handlers) Login(ctx context.Context, in *loginInput) (*loginOutput, error) {
-	req := in.Body
-	if !a.limiter.allow(in.remoteAddr + "|" + req.Username) {
+	user, err := a.authenticate(ctx, in.remoteAddr, in.Body)
+	if err != nil {
+		return nil, err
+	}
+	token, tokenHash, err := NewToken()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.store.CreateSession(ctx, NewSession{
+		TokenHash: tokenHash, UserID: user.ID, Kind: "browser", UserAgent: in.userAgent,
+	}); err != nil {
+		return nil, err
+	}
+	return &loginOutput{SetCookie: sessionCookie(token, a.cfg.CookieSecure), Body: user}, nil
+}
+
+// authenticate checks a username and password, throttled per client IP and
+// username, in constant time whether or not the user exists.
+func (a *Handlers) authenticate(ctx context.Context, ip string, c Credentials) (*User, error) {
+	if !a.limiter.allow(ip + "|" + c.Username) {
 		return nil, httpx.Fail(http.StatusTooManyRequests, "rate_limited", "too many attempts, try again in a minute")
 	}
-
-	user, err := a.store.UserByUsername(ctx, req.Username)
+	user, err := a.store.UserByUsername(ctx, c.Username)
 	if err != nil && !errors.Is(err, httpx.ErrNotFound) {
 		return nil, err
 	}
-
 	hash := dummyHash
 	if user != nil {
 		hash = user.PasswordHash
 	}
-	ok, err := VerifyPassword(req.Password, hash)
+	ok, err := VerifyPassword(c.Password, hash)
 	if err != nil {
 		return nil, err
 	}
 	if !ok || user == nil || user.Disabled {
 		return nil, httpx.Fail(http.StatusUnauthorized, "invalid_credentials", "invalid username or password")
 	}
-
-	token, tokenHash, err := NewToken()
-	if err != nil {
-		return nil, err
-	}
-	expires := time.Now().Add(SessionTTL)
-	if err := a.store.CreateSession(ctx, tokenHash, user.ID, expires, in.userAgent); err != nil {
-		return nil, err
-	}
-
-	return &loginOutput{SetCookie: sessionCookie(token, a.cfg.CookieSecure), Body: user}, nil
-}
-
-type logoutInput struct {
-	Session string `cookie:"couchverse_session"` // SessionCookie; tags cannot name a constant
+	return user, nil
 }
 
 type logoutOutput struct {
 	SetCookie http.Cookie `header:"Set-Cookie"`
 }
 
-func (a *Handlers) Logout(ctx context.Context, in *logoutInput) (*logoutOutput, error) {
-	if in.Session != "" {
-		if err := a.store.DeleteSession(ctx, HashToken(in.Session)); err != nil && !errors.Is(err, httpx.ErrNotFound) {
+// Logout ends the session that made the request, whether a browser cookie or a
+// device token, and clears the cookie either way.
+func (a *Handlers) Logout(ctx context.Context, _ *struct{}) (*logoutOutput, error) {
+	if sess := SessionFrom(ctx); sess != nil {
+		if err := a.store.DeleteSession(ctx, sess.ID); err != nil && !errors.Is(err, httpx.ErrNotFound) {
 			return nil, err
 		}
 	}

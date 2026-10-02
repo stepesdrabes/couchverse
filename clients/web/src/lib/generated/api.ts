@@ -225,6 +225,21 @@ export interface CompletedUpload {
 	mediaFileId: string;
 }
 
+export interface ConnectCode {
+	code: string;
+	/** Seconds until the code expires. */
+	expiresIn: number;
+}
+
+export interface ConnectRedemption {
+	code: string;
+	/** Shown in the account's devices list, e.g. "Living room Apple TV". */
+	deviceName: string;
+	platform: ConnectRedemptionPlatform;
+}
+
+export type ConnectRedemptionPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv';
+
 export interface ContinueItem {
 	backdropAccent?: string;
 	backdropId: string | null;
@@ -345,6 +360,46 @@ export interface DashboardOverview {
 	pendingJobs: number;
 	/** The newest jobs, newest first. */
 	recentJobs: AdminJob[];
+}
+
+export interface Device {
+	createdAt: string;
+	/** The session making this request. */
+	current: boolean;
+	id: string;
+	kind: DeviceKind;
+	lastSeenAt: string;
+	/** The app's device name, or the browser and OS read from a browser's user agent. */
+	name: string;
+	platform: DevicePlatform;
+}
+
+export interface DeviceInfo {
+	/** Shown in the account's devices list, e.g. "Living room Apple TV". */
+	deviceName: string;
+	platform: DeviceInfoPlatform;
+}
+
+export type DeviceInfoPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv';
+
+export type DeviceKind = 'browser' | 'device';
+
+export type DevicePlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv' | 'web';
+
+export interface DeviceSignIn {
+	/** Shown in the account's devices list, e.g. "Living room Apple TV". */
+	deviceName: string;
+	password: string;
+	platform: DeviceSignInPlatform;
+	username: string;
+}
+
+export type DeviceSignInPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv';
+
+export interface DeviceToken {
+	deviceId: string;
+	token: string;
+	user: User;
 }
 
 export interface Episode {
@@ -669,6 +724,44 @@ export interface NextRankTier {
 }
 
 export type NextRankTierCode = 'rookie' | 'remote' | 'snack' | 'binger' | 'popcorn' | 'marathoner' | 'sage' | 'cinephile' | 'master' | 'legend';
+
+export interface Pairing {
+	/** Secret the device polls with; never shown to anyone. */
+	deviceCode: string;
+	/** Seconds until both codes expire. */
+	expiresIn: number;
+	/** Seconds to wait between polls. */
+	interval: number;
+	/** Shown on the device as XXXX-XXXX for a signed-in user to approve. */
+	userCode: string;
+	/** Where the code is approved on the server's web app; render the server URL plus this path as a QR code. */
+	verifyPath: string;
+}
+
+export interface PairingApproval {
+	/** Renames the device; it keeps its own name when empty. */
+	deviceName?: string;
+}
+
+export interface PairingPoll {
+	deviceCode: string;
+}
+
+export interface PairingRequest {
+	deviceName: string;
+	expiresAt: string;
+	platform: PairingRequestPlatform;
+	userCode: string;
+}
+
+export type PairingRequestPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv';
+
+export interface PairingStatus {
+	device?: DeviceToken;
+	status: PairingStatusStatus;
+}
+
+export type PairingStatusStatus = 'pending' | 'approved' | 'denied' | 'expired';
 
 export interface PasswordChange {
 	currentPassword: string;
@@ -1575,6 +1668,10 @@ export const adminUploadArtwork = () =>
 export const adminUploadSubtitle = (id: string) =>
 	api<Subtitle>(`/admin/media-files/${encodeURIComponent(id)}/subtitles`, { method: 'POST' });
 
+/** `POST /me/pairings/{code}/approve` */
+export const approvePairing = (code: string, body: PairingApproval) =>
+	api<void>(`/me/pairings/${encodeURIComponent(code)}/approve`, { method: 'POST', body });
+
 export interface BrowseTitlesQuery {
 	/** Only movies or only series; all when omitted. */
 	kind?: BrowseTitlesKind;
@@ -1599,8 +1696,16 @@ export const changePassword = (body: PasswordChange) =>
 export const checkAchievements = () =>
 	api<AchievementCheck>(`/me/achievements/check`, { method: 'POST' });
 
+/** `POST /auth/connect` */
+export const connectDevice = (body: ConnectRedemption) =>
+	api<DeviceToken>(`/auth/connect`, { method: 'POST', body });
+
 /** Open a couch session's WebSocket (`GET /couch/{token}/ws`) */
 export const couchSocketPath = (token: string) => `/couch/${encodeURIComponent(token)}/ws`;
+
+/** `POST /me/connect-codes` */
+export const createConnectCode = () =>
+	api<ConnectCode>(`/me/connect-codes`, { method: 'POST' });
 
 /** `POST /couch` */
 export const createCouch = (body: CouchStart) =>
@@ -1617,6 +1722,10 @@ export const deleteAvatar = () =>
 /** `DELETE /me/banner` */
 export const deleteBanner = () =>
 	api<User>(`/me/banner`, { method: 'DELETE' });
+
+/** `POST /me/pairings/{code}/deny` */
+export const denyPairing = (code: string) =>
+	api<void>(`/me/pairings/${encodeURIComponent(code)}/deny`, { method: 'POST' });
 
 /** `POST /couch/{token}/end` */
 export const endCouch = (token: string) =>
@@ -1675,6 +1784,10 @@ export const getMe = () =>
 export const getMyStats = () =>
 	api<UserProfile>(`/me/stats`);
 
+/** `GET /me/pairings/{code}` */
+export const getPairingRequest = (code: string) =>
+	api<PairingRequest>(`/me/pairings/${encodeURIComponent(code)}`);
+
 export interface GetPlaybackQuery {
 	/** Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision. */
 	caps?: string[];
@@ -1730,6 +1843,10 @@ export const leaveCouch = (token: string) =>
 export const listContinueWatching = () =>
 	api<ContinueItem[]>(`/me/continue-watching`);
 
+/** `GET /me/devices` */
+export const listDevices = () =>
+	api<Device[]>(`/me/devices`);
+
 /** `GET /genres` */
 export const listGenres = () =>
 	api<Genre[]>(`/genres`);
@@ -1746,9 +1863,17 @@ export const login = (body: Credentials) =>
 export const logout = () =>
 	api<void>(`/auth/logout`, { method: 'POST' });
 
+/** `POST /auth/pairings/poll` */
+export const pollPairing = (body: PairingPoll) =>
+	api<PairingStatus>(`/auth/pairings/poll`, { method: 'POST', body });
+
 /** `DELETE /me/watchlist/{titleId}` */
 export const removeFromWatchlist = (titleId: string) =>
 	api<void>(`/me/watchlist/${encodeURIComponent(titleId)}`, { method: 'DELETE' });
+
+/** `DELETE /me/devices/{id}` */
+export const revokeDevice = (id: string) =>
+	api<void>(`/me/devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 /** `PUT /progress` */
 export const saveProgress = (body: ProgressReport) =>
@@ -1765,6 +1890,14 @@ export interface SearchQuery {
 /** `GET /search` */
 export const search = (query: SearchQuery = {}) =>
 	api<SearchResults>(`/search${qs({ q: query.q })}`);
+
+/** `POST /auth/token` */
+export const signInDevice = (body: DeviceSignIn) =>
+	api<DeviceToken>(`/auth/token`, { method: 'POST', body });
+
+/** `POST /auth/pairings` */
+export const startPairing = (body: DeviceInfo) =>
+	api<Pairing>(`/auth/pairings`, { method: 'POST', body });
 
 /** Stream a media file for direct play (`GET /stream/{id}`) */
 export const streamMediaFilePath = (id: string) => `/stream/${encodeURIComponent(id)}`;

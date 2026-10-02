@@ -5,37 +5,49 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"couchverse/internal/httpx"
 )
 
 type ctxKey int
 
-const userKey ctxKey = iota
+const (
+	userKey ctxKey = iota
+	sessionKey
+)
 
 func UserFrom(ctx context.Context) *User {
 	u, _ := ctx.Value(userKey).(*User)
 	return u
 }
 
+// SessionFrom returns the session that authenticated the request, nil when anonymous.
+func SessionFrom(ctx context.Context) *Session {
+	s, _ := ctx.Value(sessionKey).(*Session)
+	return s
+}
+
 type Middleware struct {
-	store *Store
+	store  *Store
+	secure bool
 }
 
-func NewMiddleware(st *Store) *Middleware {
-	return &Middleware{store: st}
+func NewMiddleware(st *Store, cookieSecure bool) *Middleware {
+	return &Middleware{store: st, secure: cookieSecure}
 }
 
-// Load resolves the session cookie into a user on the request context.
-// It never rejects - the SignedIn/Admin guards do that per route group.
+// Load resolves the bearer token (devices) or session cookie (browsers) into a
+// user and session on the request context. It never rejects - the SignedIn and
+// Admin guards do that per route group.
 func (m *Middleware) Load(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(SessionCookie)
-		if err != nil || cookie.Value == "" {
+		token, fromCookie := requestToken(r)
+		if token == "" {
 			next.ServeHTTP(w, r)
 			return
 		}
-		user, err := m.store.UserBySession(r.Context(), HashToken(cookie.Value))
+		user, sess, extended, err := m.store.UserBySession(r.Context(), HashToken(token))
 		if err != nil {
 			if !errors.Is(err, httpx.ErrNotFound) {
 				httpx.Internal(w, err)
@@ -44,8 +56,24 @@ func (m *Middleware) Load(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, user)))
+		if extended && fromCookie {
+			cookie := sessionCookie(token, m.secure)
+			http.SetCookie(w, &cookie)
+		}
+		ctx := context.WithValue(r.Context(), userKey, user)
+		ctx = context.WithValue(ctx, sessionKey, sess)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func requestToken(r *http.Request) (token string, fromCookie bool) {
+	if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
+		return strings.TrimSpace(bearer), false
+	}
+	if cookie, err := r.Cookie(SessionCookie); err == nil {
+		return cookie.Value, true
+	}
+	return "", false
 }
 
 // CSRFOrigin rejects state-changing cross-origin requests. Browsers always

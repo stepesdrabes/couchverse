@@ -30,6 +30,10 @@ const tag httpx.Tag = "auth"
 func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.Public, tag.Op("login", http.MethodPost, "/auth/login"), m.handlers.Login)
 	huma.Register(rt.Public, tag.NoContent("logout", http.MethodPost, "/auth/logout"), m.handlers.Logout)
+	huma.Register(rt.Public, tag.Op("signInDevice", http.MethodPost, "/auth/token"), m.handlers.Token)
+	huma.Register(rt.Public, tag.Created("startPairing", http.MethodPost, "/auth/pairings"), m.handlers.StartPairing)
+	huma.Register(rt.Public, tag.Op("pollPairing", http.MethodPost, "/auth/pairings/poll"), m.handlers.PollPairing)
+	huma.Register(rt.Public, tag.Op("connectDevice", http.MethodPost, "/auth/connect"), m.handlers.Connect)
 
 	huma.Register(rt.User, tag.Op("getMe", http.MethodGet, "/auth/me"), m.handlers.Me)
 	huma.Register(rt.User, tag.Op("updateProfile", http.MethodPatch, "/me/profile"), m.profile.Update)
@@ -40,6 +44,12 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.User, tag.Op("deleteAvatar", http.MethodDelete, "/me/avatar"), m.profile.DeleteAvatar)
 	huma.Register(rt.User, tag.Op("uploadBanner", http.MethodPost, "/me/banner"), m.profile.SetBanner)
 	huma.Register(rt.User, tag.Op("deleteBanner", http.MethodDelete, "/me/banner"), m.profile.DeleteBanner)
+	huma.Register(rt.User, tag.Op("listDevices", http.MethodGet, "/me/devices"), m.profile.Devices)
+	huma.Register(rt.User, tag.NoContent("revokeDevice", http.MethodDelete, "/me/devices/{id}"), m.profile.RevokeDevice)
+	huma.Register(rt.User, tag.Op("getPairingRequest", http.MethodGet, "/me/pairings/{code}"), m.profile.PairingRequest)
+	huma.Register(rt.User, tag.NoContent("approvePairing", http.MethodPost, "/me/pairings/{code}/approve"), m.profile.ApprovePairing)
+	huma.Register(rt.User, tag.NoContent("denyPairing", http.MethodPost, "/me/pairings/{code}/deny"), m.profile.DenyPairing)
+	huma.Register(rt.User, tag.Created("createConnectCode", http.MethodPost, "/me/connect-codes"), m.profile.CreateConnectCode)
 
 	huma.Register(rt.Admin, tag.Op("adminListUsers", http.MethodGet, "/users"), m.admin.List)
 	huma.Register(rt.Admin, tag.Created("adminCreateUser", http.MethodPost, "/users"), m.admin.Create)

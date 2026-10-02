@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -70,4 +71,10 @@ func (gooseLogger) Fatalf(format string, v ...any) {
 
 func (gooseLogger) Printf(format string, v ...any) {
 	slog.Info(fmt.Sprintf("goose: "+format, v...))
+}
+
+// IsUniqueViolation reports whether err is Postgres rejecting a duplicate key.
+func IsUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

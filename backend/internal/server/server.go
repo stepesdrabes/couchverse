@@ -73,7 +73,7 @@ func OpenAPI() *huma.OpenAPI {
 }
 
 func (s *Server) Handler() http.Handler {
-	sessions := auth.NewMiddleware(s.Auth)
+	sessions := auth.NewMiddleware(s.Auth, s.Config.CookieSecure)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -102,10 +102,11 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) register(v1 chi.Router) huma.API {
 	api := httpx.NewAPI(v1)
 	api.OpenAPI().Components.SecuritySchemes = map[string]*huma.SecurityScheme{
-		"cookieSession": {Type: "apiKey", In: "cookie", Name: auth.SessionCookie},
+		"cookieSession": {Type: "apiKey", In: "cookie", Name: auth.SessionCookie, Description: "Browsers."},
+		"bearerDevice":  {Type: "http", Scheme: "bearer", Description: "Native clients: a device token from signInDevice, pollPairing or connectDevice."},
 	}
 	signedIn := func(op *huma.Operation) {
-		op.Security = []map[string][]string{{"cookieSession": {}}}
+		op.Security = []map[string][]string{{"cookieSession": {}}, {"bearerDevice": {}}}
 	}
 
 	user := huma.NewGroup(api)

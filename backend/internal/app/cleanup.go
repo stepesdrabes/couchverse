@@ -37,6 +37,12 @@ func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, an *anal
 		} else if n > 0 {
 			slog.Info("cleanup: deleted expired sessions", "count", n)
 		}
+		if _, err := au.DeleteExpiredPairings(ctx); err != nil {
+			return err
+		}
+		if _, err := au.DeleteExpiredConnectCodes(ctx); err != nil {
+			return err
+		}
 
 		// the profile clock only ever reads the last year of hour buckets
 		if n, err := an.PruneHourly(ctx, 400); err != nil {

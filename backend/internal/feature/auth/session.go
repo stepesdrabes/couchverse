@@ -10,8 +10,17 @@ import (
 
 const (
 	SessionCookie = "couchverse_session"
-	SessionTTL    = 30 * 24 * time.Hour
+	// SessionTTL is how long a session survives without being used; every use
+	// slides the expiry forward again.
+	SessionTTL = 30 * 24 * time.Hour
 )
+
+// Session is the session that authenticated a request.
+type Session struct {
+	ID        string
+	Kind      string // browser | device
+	ExpiresAt time.Time
+}
 
 // NewToken returns a random session token for the cookie and its SHA-256 hash
 // for storage - a leaked sessions table cannot be used to forge cookies.

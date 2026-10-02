@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"couchverse/internal/db"
@@ -36,17 +35,22 @@ type User struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
-const userSelect = `
-	SELECT u.id, u.username, u.display_name, u.password_hash, u.role, u.disabled,
-	       av.id, bn.id, u.bio, u.created_at
+const (
+	userColumns = `u.id, u.username, u.display_name, u.password_hash, u.role, u.disabled,
+	       av.id, bn.id, u.bio, u.created_at`
+	userFrom = `
 	FROM users u
 	LEFT JOIN artwork av ON av.owner_kind = 'user' AND av.owner_id = u.id::text AND av.kind = 'avatar'
 	LEFT JOIN artwork bn ON bn.owner_kind = 'user' AND bn.owner_id = u.id::text AND bn.kind = 'banner'`
+	userSelect = `SELECT ` + userColumns + userFrom
+)
 
-func scanUser(row pgx.Row) (*User, error) {
+// scanUser reads userColumns, then any extra columns selected after them.
+func scanUser(row pgx.Row, extra ...any) (*User, error) {
 	var u User
-	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Role, &u.Disabled,
-		&u.AvatarID, &u.BannerID, &u.Bio, &u.CreatedAt)
+	dest := []any{&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Role, &u.Disabled,
+		&u.AvatarID, &u.BannerID, &u.Bio, &u.CreatedAt}
+	err := row.Scan(append(dest, extra...)...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -80,8 +84,7 @@ func (s *Store) CreateUser(ctx context.Context, username, displayName, passwordH
 		 VALUES ($1, $2, $3, $4)
 		 RETURNING id`,
 		username, displayName, passwordHash, role).Scan(&id)
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+	if db.IsUniqueViolation(err) {
 		return nil, ErrUsernameTaken
 	}
 	if err != nil {
