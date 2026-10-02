@@ -19,10 +19,9 @@ export function jobAction(job: Job): string {
 	return job.type === 'transcode_hls' && variant ? `${base} ${variant}` : base;
 }
 
-/** "The Simpsons S01E01", "Movie Name", "Track Name" - null when unknown */
+/** "The Simpsons S01E01", "Movie Name" - null when unknown */
 export function jobSubjectLabel(job: Job): string | null {
 	const s = job.subject;
-	if (s?.trackName) return s.trackName;
 	if (!s?.titleName) return null;
 	if (s.seasonNumber != null && s.episodeNumber != null) {
 		return `${s.titleName} S${pad(s.seasonNumber)}E${pad(s.episodeNumber)}`;

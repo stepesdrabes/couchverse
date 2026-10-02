@@ -11,9 +11,9 @@ export type TierCode =
 	| 'legend';
 
 export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'platinum';
-export type AchievementCategory = 'watching' | 'streaks' | 'explorer' | 'music' | 'couch' | 'meta';
+export type AchievementCategory = 'watching' | 'streaks' | 'explorer' | 'couch' | 'meta';
 
-export type Metric = 'xp' | 'watch' | 'music' | 'achievements';
+export type Metric = 'xp' | 'watch' | 'achievements';
 export type Period = 'all' | 'month' | 'week';
 
 export interface Tier {
@@ -59,7 +59,6 @@ export interface Achievement {
 
 export interface ProfileTotals {
 	videoSeconds: number;
-	musicSeconds: number;
 	moviesCompleted: number;
 	episodesCompleted: number;
 	seriesCompleted: number;
@@ -69,8 +68,6 @@ export interface ProfileTotals {
 	currentStreak: number;
 	longestStreak: number;
 	bestDayMinutes: number;
-	tracksPlayed: number;
-	distinctArtists: number;
 	couchHosted: number;
 	couchJoined: number;
 	biggestCouch: number;
@@ -94,7 +91,6 @@ export interface Activity {
 export interface HourBucket {
 	hour: number;
 	videoSeconds: number;
-	musicSeconds: number;
 }
 
 export interface Profile {
@@ -131,7 +127,6 @@ export interface LeaderRow {
 	tierCode: TierCode;
 	xp: number;
 	watchSeconds: number;
-	musicSeconds: number;
 	achievements: number;
 	isSelf: boolean;
 }

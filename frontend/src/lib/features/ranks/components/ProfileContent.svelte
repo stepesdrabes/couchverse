@@ -6,7 +6,6 @@
 		Clock,
 		EyeOff,
 		Flame,
-		Headphones,
 		ListVideo,
 		Sofa,
 		Tag
@@ -36,8 +35,8 @@
 
 	const t = $derived(profile.totals);
 
-	// Music and couch tiles are gated on their flags, so a server with music off
-	// never shows a permanent zero.
+	// The couch tile is gated on its flag, so a server with couch off never shows
+	// a permanent zero.
 	const tiles = $derived(
 		[
 			{
@@ -57,13 +56,6 @@
 				icon: ListVideo,
 				value: t.episodesCompleted,
 				label: m.profiles_stat_episodes()
-			},
-			{
-				key: 'listening',
-				icon: Headphones,
-				value: formatUptime(t.musicSeconds),
-				label: m.profiles_stat_listening(),
-				hidden: !features.musicEnabled
 			},
 			{
 				key: 'longest',

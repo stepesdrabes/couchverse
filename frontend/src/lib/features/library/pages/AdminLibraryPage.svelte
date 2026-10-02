@@ -6,8 +6,6 @@
 	import { listActiveTranscodes, type ActiveTranscode } from '$lib/features/jobs/api';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { LibraryRow } from '$lib/features/library/api';
-	import { features } from '$lib/features/settings/features.svelte';
-	import AdminMusicTable from '$lib/features/library/components/AdminMusicTable.svelte';
 	import NewTitleModal from '$lib/features/library/components/NewTitleModal.svelte';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -36,26 +34,14 @@
 	let confirmDelete = $state(false);
 
 	let searchTimer: ReturnType<typeof setTimeout>;
-	// debounced copy of the search box, shared with the music table
-	let searchQuery = $state('');
 
-	const musicTab = $derived(kind === 'music');
-
-	const kindTabs = $derived(
-		[
-			{ value: '', label: m.common_all() },
-			{ value: 'series', label: m.library_kind_series() },
-			{ value: 'movie', label: m.library_kind_movies() },
-			{ value: 'music', label: m.library_kind_music() }
-		].filter((t) => t.value !== 'music' || features.musicEnabled)
-	);
-
-	$effect(() => {
-		if (kind === 'music' && !features.musicEnabled) kind = '';
-	});
+	const kindTabs = $derived([
+		{ value: '', label: m.common_all() },
+		{ value: 'series', label: m.library_kind_series() },
+		{ value: 'movie', label: m.library_kind_movies() }
+	]);
 
 	async function refresh() {
-		if (musicTab) return; // the music table fetches its own data
 		loading = true;
 		try {
 			const res = await libraryApi.listLibrary({ type: kind, status, sort, q: query });
@@ -119,10 +105,7 @@
 
 	function onSearchInput() {
 		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => {
-			searchQuery = query;
-			refresh();
-		}, 250);
+		searchTimer = setTimeout(refresh, 250);
 	}
 
 	function toggle(id: string, on: boolean) {
@@ -203,30 +186,26 @@
 					placeholder:text-faint focus:border-accent focus:outline-none"
 			/>
 		</div>
-		{#if !musicTab}
-			<Button size="sm" onclick={() => (createOpen = true)}>
-				<Plus class="size-4" />
-				{m.library_new_title()}
-			</Button>
-		{/if}
+		<Button size="sm" onclick={() => (createOpen = true)}>
+			<Plus class="size-4" />
+			{m.library_new_title()}
+		</Button>
 	</div>
 </div>
 
 <div class="mb-4 flex flex-wrap items-center gap-3">
 	<Tabs bind:value={kind} items={kindTabs} />
-	{#if !musicTab}
-		<Select
-			bind:value={status}
-			label={m.common_status()}
-			items={[
-				{ value: '', label: m.common_any() },
-				{ value: 'draft', label: m.library_status_draft() },
-				{ value: 'processing', label: m.library_status_processing() },
-				{ value: 'published', label: m.library_status_published() },
-				{ value: 'hidden', label: m.library_status_hidden() }
-			]}
-		/>
-	{/if}
+	<Select
+		bind:value={status}
+		label={m.common_status()}
+		items={[
+			{ value: '', label: m.common_any() },
+			{ value: 'draft', label: m.library_status_draft() },
+			{ value: 'processing', label: m.library_status_processing() },
+			{ value: 'published', label: m.library_status_published() },
+			{ value: 'hidden', label: m.library_status_hidden() }
+		]}
+	/>
 	<Select
 		bind:value={sort}
 		label={m.library_sort_label()}
@@ -239,176 +218,169 @@
 	/>
 </div>
 
-{#if musicTab}
-	<AdminMusicTable query={searchQuery} {sort} />
-{:else}
-	<div class="overflow-hidden rounded-card border border-edge bg-surface/40">
-		<table class="w-full text-left text-sm">
-			<thead>
-				<tr class="border-b border-edge text-[11px] tracking-wider text-faint uppercase">
-					<th class="w-12 px-4 py-3">
-						<Checkbox
-							checked={items.length > 0 && selected.size === items.length}
-							onCheckedChange={toggleAll}
-						/>
-					</th>
-					<th class="py-3 pr-4 font-semibold">{m.library_col_title()}</th>
-					<th class="py-3 pr-4 font-semibold">{m.library_col_type()}</th>
-					<th class="py-3 pr-4 font-semibold">{m.library_col_quality()}</th>
-					<th class="py-3 pr-4 font-semibold">{m.library_col_size()}</th>
-					<th class="py-3 pr-4 font-semibold">{m.library_col_added()}</th>
-					<th class="py-3 pr-4 font-semibold">{m.common_status()}</th>
-					<th class="w-28 py-3 pr-4"></th>
-				</tr>
-			</thead>
-			<tbody>
-				{#if loading && items.length === 0}
-					{#each [0, 1, 2, 3, 4, 5] as i (i)}
-						<tr class="border-b border-edge/50">
-							<td class="px-4 py-3"><Skeleton class="size-4 rounded" /></td>
-							<td class="py-3 pr-4">
-								<div class="flex items-center gap-3">
-									<Skeleton class="h-10 w-16 rounded-md" />
-									<div class="space-y-1.5">
-										<Skeleton class="h-3.5 w-40" />
-										<Skeleton class="h-3 w-24" />
-									</div>
+<div class="overflow-hidden rounded-card border border-edge bg-surface/40">
+	<table class="w-full text-left text-sm">
+		<thead>
+			<tr class="border-b border-edge text-[11px] tracking-wider text-faint uppercase">
+				<th class="w-12 px-4 py-3">
+					<Checkbox
+						checked={items.length > 0 && selected.size === items.length}
+						onCheckedChange={toggleAll}
+					/>
+				</th>
+				<th class="py-3 pr-4 font-semibold">{m.library_col_title()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.library_col_type()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.library_col_quality()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.library_col_size()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.library_col_added()}</th>
+				<th class="py-3 pr-4 font-semibold">{m.common_status()}</th>
+				<th class="w-28 py-3 pr-4"></th>
+			</tr>
+		</thead>
+		<tbody>
+			{#if loading && items.length === 0}
+				{#each [0, 1, 2, 3, 4, 5] as i (i)}
+					<tr class="border-b border-edge/50">
+						<td class="px-4 py-3"><Skeleton class="size-4 rounded" /></td>
+						<td class="py-3 pr-4">
+							<div class="flex items-center gap-3">
+								<Skeleton class="h-10 w-16 rounded-md" />
+								<div class="space-y-1.5">
+									<Skeleton class="h-3.5 w-40" />
+									<Skeleton class="h-3 w-24" />
 								</div>
-							</td>
-							<td class="py-3 pr-4"><Skeleton class="h-4 w-12" /></td>
-							<td class="py-3 pr-4"><Skeleton class="h-4 w-10" /></td>
-							<td class="py-3 pr-4"><Skeleton class="h-4 w-16" /></td>
-							<td class="py-3 pr-4"><Skeleton class="h-4 w-12" /></td>
-							<td class="py-3 pr-4"><Skeleton class="h-5 w-16 rounded-full" /></td>
-							<td class="py-3 pr-4"></td>
-						</tr>
-					{/each}
-				{/if}
-				{#each items as row (row.id)}
-					<tr
-						class="border-b border-edge/50 transition-colors last:border-0
-						{selected.has(row.id) ? 'bg-accent-soft/30' : 'hover:bg-surface-2/40'}"
-					>
-						<td class="px-4 py-3">
-							<Checkbox
-								checked={selected.has(row.id)}
-								onCheckedChange={(on) => toggle(row.id, on)}
-							/>
+							</div>
 						</td>
-						<td class="py-3 pr-4">
-							<a href="/admin/library/{row.id}" class="group flex items-center gap-3">
-								<span class="block h-10 w-16 shrink-0 overflow-hidden rounded-md">
-									<Artwork artworkId={row.backdropId ?? row.posterId} name={row.name} />
-								</span>
-								<span class="min-w-0">
-									<span class="block truncate font-semibold group-hover:text-accent">
-										{row.name}
-									</span>
-									<span class="block text-xs text-faint">{subtitle(row)}</span>
-								</span>
-							</a>
-						</td>
-						<td class="py-3 pr-4 text-muted capitalize">{row.kind}</td>
-						<td class="py-3 pr-4">
-							<span class="flex flex-wrap items-center gap-1">
-								{#if qualityLabel(row.maxHeight)}
-									<Badge>{qualityLabel(row.maxHeight)}</Badge>
-								{/if}
-								{#if row.hdr}
-									<Badge>HDR</Badge>
-								{/if}
-								{#if row.needsPrepare}
-									<span
-										class="inline-flex items-center rounded border border-amber-400/30 bg-amber-400/10
-											px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-amber-300 uppercase"
-										title={m.library_needs_prep_hint()}
-									>
-										{m.library_needs_prep()}
-									</span>
-								{/if}
-								{#if !qualityLabel(row.maxHeight)}
-									<span class="text-xs text-faint">{m.library_no_files()}</span>
-								{/if}
-								{#if transcodesByTitle.has(row.id)}
-									{@const active = transcodesByTitle.get(row.id)!}
-									{@const progress = Math.min(...active.map((t) => t.progress))}
-									<span class="flex items-center gap-1.5" title={m.library_transcoding()}>
-										<span class="block h-1.5 w-20 overflow-hidden rounded-full bg-surface-2">
-											<span
-												class="block h-full rounded-full bg-accent transition-all duration-500"
-												style="width: {progress}%"
-											></span>
-										</span>
-										<span class="text-[11px] text-muted tnum">
-											{Math.round(progress)}%{active.length > 1
-												? m.library_transcode_jobs_suffix({ count: active.length })
-												: ''}
-										</span>
-									</span>
-								{/if}
-							</span>
-						</td>
-						<td class="py-3 pr-4 text-muted tnum">
-							{formatBytes(row.sizeBytes)}
-							{#if row.transcodedBytes > 0}
-								<span class="block text-[11px] text-faint">
-									+ {formatBytes(row.transcodedBytes)} HLS
-								</span>
-							{/if}
-						</td>
-						<td class="py-3 pr-4 text-muted tnum">{formatDate(row.addedAt)}</td>
-						<td class="py-3 pr-4"><StatusPill status={row.status} /></td>
-						<td class="py-3 pr-4">
-							<span class="flex justify-end gap-1">
-								<a
-									href="/admin/library/{row.id}"
-									class="rounded-full p-2 text-muted transition-colors hover:bg-surface-2 hover:text-text"
-									title={m.common_edit()}
-								>
-									<Pencil class="size-3.5" />
-								</a>
-								<button
-									class="rounded-full p-2 text-muted transition-colors hover:bg-surface-2 hover:text-text"
-									title={row.status === 'published'
-										? m.library_action_hide()
-										: m.library_action_publish()}
-									onclick={() => quickToggleVisibility(row)}
-								>
-									{#if row.status === 'published'}
-										<EyeOff class="size-3.5" />
-									{:else}
-										<Eye class="size-3.5" />
-									{/if}
-								</button>
-								<button
-									class="rounded-full p-2 text-muted transition-colors hover:bg-danger/15 hover:text-danger"
-									title={m.common_delete()}
-									onclick={() => {
-										rowPendingDelete = row;
-										confirmRowDelete = true;
-									}}
-								>
-									<Trash2 class="size-3.5" />
-								</button>
-							</span>
-						</td>
+						<td class="py-3 pr-4"><Skeleton class="h-4 w-12" /></td>
+						<td class="py-3 pr-4"><Skeleton class="h-4 w-10" /></td>
+						<td class="py-3 pr-4"><Skeleton class="h-4 w-16" /></td>
+						<td class="py-3 pr-4"><Skeleton class="h-4 w-12" /></td>
+						<td class="py-3 pr-4"><Skeleton class="h-5 w-16 rounded-full" /></td>
+						<td class="py-3 pr-4"></td>
 					</tr>
 				{/each}
-			</tbody>
-		</table>
+			{/if}
+			{#each items as row (row.id)}
+				<tr
+					class="border-b border-edge/50 transition-colors last:border-0
+					{selected.has(row.id) ? 'bg-accent-soft/30' : 'hover:bg-surface-2/40'}"
+				>
+					<td class="px-4 py-3">
+						<Checkbox checked={selected.has(row.id)} onCheckedChange={(on) => toggle(row.id, on)} />
+					</td>
+					<td class="py-3 pr-4">
+						<a href="/admin/library/{row.id}" class="group flex items-center gap-3">
+							<span class="block h-10 w-16 shrink-0 overflow-hidden rounded-md">
+								<Artwork artworkId={row.backdropId ?? row.posterId} name={row.name} />
+							</span>
+							<span class="min-w-0">
+								<span class="block truncate font-semibold group-hover:text-accent">
+									{row.name}
+								</span>
+								<span class="block text-xs text-faint">{subtitle(row)}</span>
+							</span>
+						</a>
+					</td>
+					<td class="py-3 pr-4 text-muted capitalize">{row.kind}</td>
+					<td class="py-3 pr-4">
+						<span class="flex flex-wrap items-center gap-1">
+							{#if qualityLabel(row.maxHeight)}
+								<Badge>{qualityLabel(row.maxHeight)}</Badge>
+							{/if}
+							{#if row.hdr}
+								<Badge>HDR</Badge>
+							{/if}
+							{#if row.needsPrepare}
+								<span
+									class="inline-flex items-center rounded border border-amber-400/30 bg-amber-400/10
+										px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-amber-300 uppercase"
+									title={m.library_needs_prep_hint()}
+								>
+									{m.library_needs_prep()}
+								</span>
+							{/if}
+							{#if !qualityLabel(row.maxHeight)}
+								<span class="text-xs text-faint">{m.library_no_files()}</span>
+							{/if}
+							{#if transcodesByTitle.has(row.id)}
+								{@const active = transcodesByTitle.get(row.id)!}
+								{@const progress = Math.min(...active.map((t) => t.progress))}
+								<span class="flex items-center gap-1.5" title={m.library_transcoding()}>
+									<span class="block h-1.5 w-20 overflow-hidden rounded-full bg-surface-2">
+										<span
+											class="block h-full rounded-full bg-accent transition-all duration-500"
+											style="width: {progress}%"
+										></span>
+									</span>
+									<span class="text-[11px] text-muted tnum">
+										{Math.round(progress)}%{active.length > 1
+											? m.library_transcode_jobs_suffix({ count: active.length })
+											: ''}
+									</span>
+								</span>
+							{/if}
+						</span>
+					</td>
+					<td class="py-3 pr-4 text-muted tnum">
+						{formatBytes(row.sizeBytes)}
+						{#if row.transcodedBytes > 0}
+							<span class="block text-[11px] text-faint">
+								+ {formatBytes(row.transcodedBytes)} HLS
+							</span>
+						{/if}
+					</td>
+					<td class="py-3 pr-4 text-muted tnum">{formatDate(row.addedAt)}</td>
+					<td class="py-3 pr-4"><StatusPill status={row.status} /></td>
+					<td class="py-3 pr-4">
+						<span class="flex justify-end gap-1">
+							<a
+								href="/admin/library/{row.id}"
+								class="rounded-full p-2 text-muted transition-colors hover:bg-surface-2 hover:text-text"
+								title={m.common_edit()}
+							>
+								<Pencil class="size-3.5" />
+							</a>
+							<button
+								class="rounded-full p-2 text-muted transition-colors hover:bg-surface-2 hover:text-text"
+								title={row.status === 'published'
+									? m.library_action_hide()
+									: m.library_action_publish()}
+								onclick={() => quickToggleVisibility(row)}
+							>
+								{#if row.status === 'published'}
+									<EyeOff class="size-3.5" />
+								{:else}
+									<Eye class="size-3.5" />
+								{/if}
+							</button>
+							<button
+								class="rounded-full p-2 text-muted transition-colors hover:bg-danger/15 hover:text-danger"
+								title={m.common_delete()}
+								onclick={() => {
+									rowPendingDelete = row;
+									confirmRowDelete = true;
+								}}
+							>
+								<Trash2 class="size-3.5" />
+							</button>
+						</span>
+					</td>
+				</tr>
+			{/each}
+		</tbody>
+	</table>
 
-		{#if !loading && items.length === 0}
-			<EmptyState title={m.library_empty_title()} message={m.library_empty_message()}>
-				<Button size="sm" onclick={() => (createOpen = true)}>
-					<Plus class="size-4" />
-					{m.library_new_title()}
-				</Button>
-			</EmptyState>
-		{/if}
-	</div>
-{/if}
+	{#if !loading && items.length === 0}
+		<EmptyState title={m.library_empty_title()} message={m.library_empty_message()}>
+			<Button size="sm" onclick={() => (createOpen = true)}>
+				<Plus class="size-4" />
+				{m.library_new_title()}
+			</Button>
+		</EmptyState>
+	{/if}
+</div>
 
-{#if selected.size > 0 && !musicTab}
+{#if selected.size > 0}
 	<div
 		transition:fly={{ y: 24, duration: 200 }}
 		class="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-full

@@ -23,9 +23,9 @@ function loadRecentEmojis(): string[] {
 }
 
 /**
- * Single source of truth for a live couch session, mirroring the music player's
- * singleton-store pattern. It owns the WebSocket, the follower sync loop and the
- * host broadcast, and is consumed directly by VideoPlayer at its seams.
+ * Single source of truth for a live couch session, as a module-scope singleton
+ * store. It owns the WebSocket, the follower sync loop and the host broadcast, and
+ * is consumed directly by VideoPlayer at its seams.
  */
 class Couch {
 	token = $state<string | null>(null);

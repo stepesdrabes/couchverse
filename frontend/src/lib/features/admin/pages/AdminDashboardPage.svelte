@@ -3,13 +3,11 @@
 		Boxes,
 		Clapperboard,
 		Cpu,
-		Disc3,
 		Film,
 		Gauge,
 		ListVideo,
 		MemoryStick,
 		MonitorPlay,
-		Music,
 		Sofa,
 		Sparkles,
 		Timer,
@@ -112,18 +110,6 @@
 						href: '/admin/library?type=series'
 					},
 					{
-						label: m.admin_albums(),
-						value: overview.counts.albums,
-						icon: Disc3,
-						href: '/admin/jobs'
-					},
-					{
-						label: m.admin_tracks(),
-						value: overview.counts.tracks,
-						icon: Music,
-						href: '/admin/jobs'
-					},
-					{
 						label: m.admin_nav_users(),
 						value: overview.counts.users,
 						icon: Users,
@@ -141,19 +127,13 @@
 		cancelled: 'text-faint'
 	};
 
-	const MUSIC_COLOR = '#f5b14c'; // matches the storage music segment
 	const watchBars = $derived(
 		(analytics?.daily ?? []).map((d) => ({
 			label: formatDate(d.day),
-			segments: [
-				{ name: m.admin_video(), value: d.videoSeconds, color: 'var(--color-accent)' },
-				{ name: m.nav_music(), value: d.musicSeconds, color: MUSIC_COLOR }
-			]
+			segments: [{ name: m.admin_video(), value: d.videoSeconds, color: 'var(--color-accent)' }]
 		}))
 	);
-	const watchTotal = $derived(
-		analytics ? analytics.totals.videoSeconds + analytics.totals.musicSeconds : 0
-	);
+	const watchTotal = $derived(analytics?.totals.videoSeconds ?? 0);
 	const avgActiveUsers = $derived.by(() => {
 		if (!analytics || analytics.daily.length === 0) return 0;
 		return analytics.daily.reduce((sum, d) => sum + d.activeUsers, 0) / analytics.daily.length;
@@ -210,7 +190,7 @@
 
 <h1 class="mb-6 text-2xl font-bold">{m.admin_nav_overview()}</h1>
 
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 	{#each cards as card, i (card.label)}
 		<div in:fly|global={{ y: 16, duration: 350, delay: Math.min(i * 55, 300) }}>
 			<StatTile icon={card.icon} value={card.value} label={card.label} href={card.href} />
@@ -450,15 +430,9 @@
 				</div>
 				<BarChart bars={watchBars} format={formatUptime} class="h-36 w-full" />
 				<div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 text-[11px]">
-					<span class="flex items-center gap-4 text-muted">
-						<span class="flex items-center gap-1.5">
-							<span class="size-2 rounded-full bg-accent"></span>
-							{m.admin_video()}
-						</span>
-						<span class="flex items-center gap-1.5">
-							<span class="size-2 rounded-full" style="background: {MUSIC_COLOR}"></span>
-							{m.nav_music()}
-						</span>
+					<span class="flex items-center gap-1.5 text-muted">
+						<span class="size-2 rounded-full bg-accent"></span>
+						{m.admin_video()}
 					</span>
 					<span class="text-faint tnum">
 						{m.admin_avg_active_users({ count: avgActiveUsers.toFixed(1) })}

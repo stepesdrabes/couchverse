@@ -29,8 +29,7 @@
 	const kindLabel: Record<HomeRowConfig['kind'], () => string> = {
 		continue_watching: () => m.settings_home_row_continue_watching(),
 		recently_added: () => m.settings_home_row_recently_added(),
-		genre: () => m.settings_home_row_genre(),
-		recently_played_music: () => m.settings_home_row_recently_played_music()
+		genre: () => m.settings_home_row_genre()
 	};
 
 	function move(index: number, dir: -1 | 1) {

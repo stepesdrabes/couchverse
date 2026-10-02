@@ -1,7 +1,7 @@
 // Spatial navigation for the TV remote: arrow keys move focus to the geometrically
 // nearest focusable element in that direction. Pages opt into tweaks with attributes:
 //   data-tv-autofocus  where focus lands when a page opens
-//   data-tv-pin        fixed chrome (nav bar, music bar) that the page scrolls under
+//   data-tv-pin        fixed chrome (nav bar, corner stack) that the page scrolls under
 //   data-tv-layer      a custom overlay that confines focus like a bits-ui dialog
 //   data-tv-skip       never focused by the remote
 

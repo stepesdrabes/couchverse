@@ -42,11 +42,10 @@
 		deleteSource
 	}));
 
-	let musicEnabled = $state(true);
 	let couchEnabled = $state(true);
 	let rankingsEnabled = $state(true);
 	let savingFeatures = $state(false);
-	const featuresForm = new FormState(() => ({ musicEnabled, couchEnabled, rankingsEnabled }));
+	const featuresForm = new FormState(() => ({ couchEnabled, rankingsEnabled }));
 
 	let featuredCount = $state('3');
 	let savingHome = $state(false);
@@ -84,9 +83,8 @@
 				}
 				if (!featuresForm.dirty) {
 					const flags = s.features as
-						| { musicEnabled?: boolean; couchEnabled?: boolean; rankingsEnabled?: boolean }
+						| { couchEnabled?: boolean; rankingsEnabled?: boolean }
 						| undefined;
-					musicEnabled = flags?.musicEnabled ?? true;
 					couchEnabled = flags?.couchEnabled ?? true;
 					rankingsEnabled = flags?.rankingsEnabled ?? true;
 					featuresForm.reset();
@@ -185,8 +183,7 @@
 		e.preventDefault();
 		savingFeatures = true;
 		try {
-			await settingsApi.putSettings({ features: { musicEnabled, couchEnabled, rankingsEnabled } });
-			features.musicEnabled = musicEnabled;
+			await settingsApi.putSettings({ features: { couchEnabled, rankingsEnabled } });
 			features.couchEnabled = couchEnabled;
 			features.rankingsEnabled = rankingsEnabled;
 			featuresForm.reset();
@@ -345,7 +342,8 @@
 						]}
 					/>
 					<p class="mt-1.5 text-[11px] text-faint">
-						{m.settings_detected_label()}{' '}{detecting
+						{m.settings_detected_label()}
+						{detecting
 							? m.settings_detecting_encoders()
 							: detectedEncoders.length
 								? detectedEncoders.join(', ')
@@ -439,18 +437,6 @@
 				class="max-w-xl space-y-4 rounded-card border border-edge bg-surface/40 p-6"
 			>
 				<h2 class="text-sm font-semibold text-muted">{m.settings_tab_features()}</h2>
-
-				<label
-					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"
-				>
-					<span>
-						<span class="block text-sm">{m.settings_music_library_label()}</span>
-						<span class="block text-[11px] text-faint">
-							{m.settings_music_library_hint()}
-						</span>
-					</span>
-					<Switch bind:checked={musicEnabled} />
-				</label>
 
 				<label
 					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"

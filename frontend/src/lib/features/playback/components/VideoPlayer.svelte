@@ -24,7 +24,6 @@
 	import { onMount, tick } from 'svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
-	import { musicPlayer } from '$lib/features/music/player.svelte';
 	import type {
 		AudioTrack,
 		EpisodeRef,
@@ -668,7 +667,6 @@
 	onMount(() => {
 		poke();
 		couch.playerMounts++; // the on-screen player hosts the couch bar (so it survives fullscreen)
-		musicPlayer.pause(); // never play video and music together
 		if (info.mode === 'hls' && initialHlsUrl) attachHls(initialHlsUrl, null);
 
 		// warm the likely "back to title" destination so the Pi has it ready on click

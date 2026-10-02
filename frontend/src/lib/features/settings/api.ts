@@ -8,7 +8,6 @@ export const putSettings = (patch: Settings) =>
 	api<Settings>('/admin/settings', { method: 'PUT', body: patch });
 
 export interface FeatureFlags {
-	musicEnabled: boolean;
 	couchEnabled: boolean;
 	rankingsEnabled: boolean;
 }

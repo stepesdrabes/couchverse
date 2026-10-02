@@ -27,7 +27,6 @@ export interface JobSubject {
 	seasonNumber?: number;
 	episodeNumber?: number;
 	episodeName?: string;
-	trackName?: string;
 	variant?: string;
 }
 
@@ -76,7 +75,7 @@ export interface ActiveTranscode {
 export const listActiveTranscodes = () => api<ActiveTranscode[]>('/admin/transcode/active');
 
 // storage & overview
-export type StorageCategoryKind = 'movies' | 'series' | 'music' | 'transcodes' | 'cache';
+export type StorageCategoryKind = 'movies' | 'series' | 'transcodes' | 'cache';
 
 export interface StorageCategory {
 	kind: StorageCategoryKind;
@@ -105,8 +104,6 @@ export interface OverviewInfo {
 		movies: number;
 		series: number;
 		episodes: number;
-		albums: number;
-		tracks: number;
 		users: number;
 	};
 	library: LibraryInsights;
@@ -141,11 +138,10 @@ export interface SystemStats {
 
 export const getSystem = () => api<SystemStats>('/admin/system');
 
-// analytics (watch/listen time rollup)
+// analytics (watch time rollup)
 export interface AnalyticsDay {
 	day: string; // YYYY-MM-DD
 	videoSeconds: number;
-	musicSeconds: number;
 	couchSeconds: number;
 	activeUsers: number;
 }
@@ -161,7 +157,7 @@ export interface AnalyticsTopTitle {
 export interface AnalyticsInfo {
 	days: number;
 	daily: AnalyticsDay[];
-	totals: { videoSeconds: number; musicSeconds: number; couchSeconds: number; activeUsers: number };
+	totals: { videoSeconds: number; couchSeconds: number; activeUsers: number };
 	topTitles: AnalyticsTopTitle[];
 	topCouchTitles: AnalyticsTopTitle[];
 	topUsers: { userId: number; displayName: string; avatarId: string | null; seconds: number }[];
@@ -174,7 +170,7 @@ export const getAnalytics = (days = 30) =>
 export interface HomeRowConfig {
 	id: number;
 	position: number;
-	kind: 'continue_watching' | 'recently_added' | 'genre' | 'recently_played_music';
+	kind: 'continue_watching' | 'recently_added' | 'genre';
 	genreId: number | null;
 	label: string;
 	enabled: boolean;

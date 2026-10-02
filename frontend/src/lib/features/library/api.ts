@@ -203,7 +203,7 @@ async function multipart<T>(path: string, form: FormData): Promise<T> {
 export function uploadArtwork(
 	ownerKind: string,
 	ownerId: string,
-	kind: 'poster' | 'backdrop' | 'album_cover',
+	kind: 'poster' | 'backdrop',
 	file: File
 ) {
 	const form = new FormData();
@@ -240,40 +240,6 @@ export function uploadSubtitle(mediaFileId: string, lang: string, file: File) {
 
 export const deleteSubtitle = (id: string) =>
 	api<void>(`/admin/subtitles/${id}`, { method: 'DELETE' });
-
-// admin music (albums & tracks)
-export interface AdminAlbumRow {
-	id: string;
-	name: string;
-	year: number | null;
-	artistId: string;
-	artistName: string;
-	coverId: string | null;
-	trackCount: number;
-	status: ContentStatus;
-	sizeBytes: number;
-	addedAt: string;
-}
-
-export const listAdminMusic = (query: { q?: string; sort?: string; page?: number }) =>
-	api<{ items: AdminAlbumRow[]; total: number }>(`/admin/music${qs({ ...query })}`);
-
-export const getAdminAlbum = (id: string) =>
-	api<{ album: AdminAlbumRow; tracks: import('$lib/features/music/api').TrackItem[] }>(
-		`/admin/albums/${id}`
-	);
-
-export const updateAlbum = (
-	id: string,
-	patch: Partial<{ name: string; year: number | null; status: string; artistName: string }>
-) => api<{ album: AdminAlbumRow }>(`/admin/albums/${id}`, { method: 'PATCH', body: patch });
-
-export const deleteAlbum = (id: string) => api<void>(`/admin/albums/${id}`, { method: 'DELETE' });
-
-export const renameTrack = (id: string, name: string) =>
-	api<void>(`/admin/tracks/${id}`, { method: 'PATCH', body: { name } });
-
-export const deleteTrack = (id: string) => api<void>(`/admin/tracks/${id}`, { method: 'DELETE' });
 
 // transcoding
 export interface TranscodeVariant {

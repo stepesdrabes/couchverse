@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import TopNav from '$lib/components/layout/TopNav.svelte';
-	import { musicPlayer } from '$lib/features/music/player.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
 	import AchievementWatcher from '$lib/features/ranks/components/AchievementWatcher.svelte';
 
@@ -21,6 +20,6 @@
 	<AchievementWatcher />
 {/if}
 
-<main class="min-h-dvh {musicPlayer.current && !watching ? 'pb-24' : ''}">
+<main class="min-h-dvh">
 	{@render children()}
 </main>

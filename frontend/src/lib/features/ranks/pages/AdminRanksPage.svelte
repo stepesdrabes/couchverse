@@ -69,7 +69,6 @@
 		rates
 			? ([
 					{ key: 'videoMinute', label: m.admin_ranks_rate_video() },
-					{ key: 'musicMinute', label: m.admin_ranks_rate_music() },
 					{ key: 'movie', label: m.admin_ranks_rate_movie() },
 					{ key: 'episode', label: m.admin_ranks_rate_episode() },
 					{ key: 'couchHost', label: m.admin_ranks_rate_couch_host() },

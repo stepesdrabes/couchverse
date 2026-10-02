@@ -5,7 +5,7 @@ import { leaderboardCache } from '$lib/features/ranks/cache.svelte';
 import type { Metric, Period } from '$lib/features/ranks/types';
 
 const PERIODS: Period[] = ['all', 'month', 'week'];
-const METRICS: Metric[] = ['xp', 'watch', 'music', 'achievements'];
+const METRICS: Metric[] = ['xp', 'watch', 'achievements'];
 
 export function load({ url }) {
 	if (!features.rankingsEnabled) error(404, 'Not found');

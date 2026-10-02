@@ -8,7 +8,6 @@
 	import LeaderboardTable from './LeaderboardTable.svelte';
 	import CountUp from './CountUp.svelte';
 	import { metricLabel } from '../labels';
-	import { musicPlayer } from '$lib/features/music/player.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import type { Leaderboard, LeaderRow, Metric } from '../types';
 
@@ -17,13 +16,12 @@
 	const SCORE: Record<Metric, (row: LeaderRow) => number> = {
 		xp: (r) => r.xp,
 		watch: (r) => r.watchSeconds,
-		music: (r) => r.musicSeconds,
 		achievements: (r) => r.achievements
 	};
 
 	const value = $derived(SCORE[metric]);
 	const display = $derived(
-		metric === 'watch' || metric === 'music'
+		metric === 'watch'
 			? (n: number) => formatUptime(n)
 			: metric === 'xp'
 				? (n: number) => m.rank_xp_value({ xp: Math.round(n) })
@@ -37,9 +35,6 @@
 	const showPodium = $derived(ranked.length >= 3 && value(ranked[0]) > 0);
 	const empty = $derived(ranked.length === 0);
 	const allZero = $derived(!empty && value(ranked[0]) === 0);
-
-	// The fixed music player bar would otherwise sit on top of the sticky row.
-	const stickyBottom = $derived(musicPlayer.current ? '6.5rem' : '1rem');
 </script>
 
 {#if board.hidden}
@@ -77,9 +72,8 @@
      anchor, and an IntersectionObserver would be pure cost on a Pi. -->
 {#if board.me && (board.hidden || myPosition > 3)}
 	<div
-		class="sticky z-10 mt-4 flex items-center gap-3 rounded-card border border-accent/50
+		class="sticky bottom-4 z-10 mt-4 flex items-center gap-3 rounded-card border border-accent/50
 			bg-surface-2/90 px-4 py-2.5 shadow-xl shadow-black/40 backdrop-blur"
-		style="bottom: {stickyBottom}"
 	>
 		<span class="w-6 shrink-0 text-center text-sm font-bold text-accent tnum">
 			{board.hidden ? '-' : `#${myPosition}`}

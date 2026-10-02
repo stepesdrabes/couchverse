@@ -12,7 +12,7 @@ export interface UploadSession {
 	expiresAt: string;
 }
 
-export type LibraryKind = 'movies' | 'series' | 'music';
+export type LibraryKind = 'movies' | 'series';
 
 export const listSessions = () => api<UploadSession[]>('/admin/uploads');
 

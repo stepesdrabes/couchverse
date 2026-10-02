@@ -76,9 +76,9 @@ export interface ContinueItem extends CardItem {
 }
 
 export interface HomeRow {
-	kind: 'continue_watching' | 'recently_added' | 'genre' | 'recently_played_music';
+	kind: 'continue_watching' | 'recently_added' | 'genre';
 	label: string;
-	items: CardItem[] | ContinueItem[] | import('$lib/features/music/api').AlbumCard[];
+	items: CardItem[] | ContinueItem[];
 }
 
 export interface FeaturedItem extends Title {
@@ -97,7 +97,7 @@ export interface ArtworkRef {
 	id: string;
 	ownerKind: string;
 	ownerId: string;
-	kind: 'poster' | 'backdrop' | 'thumb' | 'album_cover' | 'artist_photo';
+	kind: 'poster' | 'backdrop' | 'thumb';
 	path: string;
 	width: number;
 	height: number;
@@ -122,17 +122,8 @@ export interface TitleDetail {
 	progress?: EpisodeProgress;
 }
 
-export interface SearchHit {
-	id: string;
-	name: string;
-	subtitle: string;
-}
-
 export interface SearchResults {
 	titles: CardItem[];
-	artists: SearchHit[];
-	albums: SearchHit[];
-	tracks: SearchHit[];
 }
 
 export interface MediaFile {
@@ -140,7 +131,6 @@ export interface MediaFile {
 	libraryId: number;
 	titleId: string | null;
 	episodeId: string | null;
-	trackId: string | null;
 	path: string;
 	sizeBytes: number;
 	container: string;

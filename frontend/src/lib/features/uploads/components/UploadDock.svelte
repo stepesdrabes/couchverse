@@ -15,8 +15,8 @@
 	import { formatBytes, formatEta } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
 
-	// positioning (bottom offset, stacking vs the music + couch bars) is owned by
-	// the root layout's corner stack, so this is just the card
+	// positioning (bottom offset, stacking vs the couch bar) is owned by the root
+	// layout's corner stack, so this is just the card
 	let collapsed = $state(false);
 
 	const uploads = $derived(uploadQueue.uploads);

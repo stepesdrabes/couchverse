@@ -43,7 +43,6 @@ export const PODIUM = [
 /** XP sources borrow the storage categories so the same thing is the same colour. */
 export const XP_SOURCE_COLORS: Record<string, string> = {
 	video: 'var(--color-accent)',
-	music: '#f5b14c',
 	movies: '#38bdf8',
 	episodes: '#8b7cf0',
 	couchHosted: '#c084fc',

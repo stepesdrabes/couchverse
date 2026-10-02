@@ -5,7 +5,6 @@
 	import Select from '$lib/components/ui/Select.svelte';
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import { Info } from 'lucide-svelte';
-	import { features } from '$lib/features/settings/features.svelte';
 	import LeaderboardContent from '../components/LeaderboardContent.svelte';
 	import LeaderboardSkeleton from '../components/LeaderboardSkeleton.svelte';
 	import { leaderboardCache } from '../cache.svelte';
@@ -29,16 +28,11 @@
 		if (period !== data.period) period = data.period;
 	});
 
-	const metrics = $derived(
-		(
-			[
-				{ value: 'xp', label: metricLabel('xp') },
-				{ value: 'watch', label: metricLabel('watch') },
-				{ value: 'music', label: metricLabel('music'), hidden: !features.musicEnabled },
-				{ value: 'achievements', label: metricLabel('achievements') }
-			] as { value: Metric; label: string; hidden?: boolean }[]
-		).filter((item) => !item.hidden)
-	);
+	const metrics = $derived([
+		{ value: 'xp', label: metricLabel('xp') },
+		{ value: 'watch', label: metricLabel('watch') },
+		{ value: 'achievements', label: metricLabel('achievements') }
+	]);
 
 	const periods = $derived([
 		{ value: 'all', label: m.leaderboard_period_all() },

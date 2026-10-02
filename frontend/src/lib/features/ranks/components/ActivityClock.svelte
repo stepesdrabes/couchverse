@@ -13,8 +13,8 @@
 	const INNER = 16;
 	const GAP_DEG = 2;
 
-	const peak = $derived(Math.max(1, ...hours.map((h) => h.videoSeconds + h.musicSeconds)));
-	const total = $derived(hours.reduce((sum, h) => sum + h.videoSeconds + h.musicSeconds, 0));
+	const peak = $derived(Math.max(1, ...hours.map((h) => h.videoSeconds)));
+	const total = $derived(hours.reduce((sum, h) => sum + h.videoSeconds, 0));
 
 	const polar = (radius: number, degrees: number) => {
 		const rad = ((degrees - 90) * Math.PI) / 180;
@@ -22,12 +22,11 @@
 	};
 
 	/** an annulus wedge for one hour, scaled by that hour's share of the peak */
-	function wedge(hour: number, fraction: number, from = 0) {
+	function wedge(hour: number, fraction: number) {
 		const start = hour * 15 + GAP_DEG / 2;
 		const end = (hour + 1) * 15 - GAP_DEG / 2;
-		const span = OUTER - INNER;
-		const r0 = INNER + span * from;
-		const r1 = INNER + span * (from + fraction);
+		const r0 = INNER;
+		const r1 = INNER + (OUTER - INNER) * fraction;
 		const [ax, ay] = polar(r1, start);
 		const [bx, by] = polar(r1, end);
 		const [cx, cy] = polar(r0, end);
@@ -35,13 +34,7 @@
 		return `M${ax} ${ay} A${r1} ${r1} 0 0 1 ${bx} ${by} L${cx} ${cy} A${r0} ${r0} 0 0 0 ${dx} ${dy} Z`;
 	}
 
-	const slices = $derived(
-		hours.map((h) => {
-			const video = h.videoSeconds / peak;
-			const music = h.musicSeconds / peak;
-			return { ...h, video, music, any: h.videoSeconds + h.musicSeconds > 0 };
-		})
-	);
+	const slices = $derived(hours.map((h) => ({ ...h, video: h.videoSeconds / peak })));
 
 	let hover = $state<HourBucket | null>(null);
 
@@ -88,13 +81,6 @@
 							class="pointer-events-none"
 						/>
 					{/if}
-					{#if slice.music > 0}
-						<path
-							d={wedge(slice.hour, slice.music, slice.video)}
-							fill={XP_SOURCE_COLORS.music}
-							class="pointer-events-none"
-						/>
-					{/if}
 				{/each}
 				{#each [0, 6, 12, 18] as mark (mark)}
 					{@const [x, y] = polar(OUTER + 4.5, mark * 15 + 7.5)}
@@ -117,7 +103,7 @@
 				>
 					<span class="text-sm font-bold tnum">{m.profiles_clock_hour({ hour: hover.hour })}</span>
 					<span class="text-[11px] text-faint tnum">
-						{formatUptime(hover.videoSeconds + hover.musicSeconds)}
+						{formatUptime(hover.videoSeconds)}
 					</span>
 				</div>
 			{/if}

@@ -3,7 +3,6 @@ import type { AchievementCategory, AchievementTier, TierCode } from './types';
 
 export interface RankRates {
 	videoMinute: number;
-	musicMinute: number;
 	movie: number;
 	episode: number;
 	couchHost: number;
@@ -30,7 +29,6 @@ export interface AdminMember {
 	xp: number;
 	achievements: number;
 	watchSeconds: number;
-	musicSeconds: number;
 	couchHosted: number;
 	public: boolean;
 }

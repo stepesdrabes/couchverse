@@ -16,16 +16,13 @@
 	import { isTV } from '$lib/tv/tv';
 	import * as m from '$lib/paraglide/messages';
 
-	const items = $derived(
-		[
-			{ href: '/', label: m.nav_home() },
-			{ href: '/series', label: m.nav_series() },
-			{ href: '/movies', label: m.nav_movies() },
-			{ href: '/music', label: m.nav_music() },
-			{ href: '/my-list', label: m.nav_my_list() },
-			{ href: '/genres', label: m.nav_genres() }
-		].filter((item) => item.href !== '/music' || features.musicEnabled)
-	);
+	const items = $derived([
+		{ href: '/', label: m.nav_home() },
+		{ href: '/series', label: m.nav_series() },
+		{ href: '/movies', label: m.nav_movies() },
+		{ href: '/my-list', label: m.nav_my_list() },
+		{ href: '/genres', label: m.nav_genres() }
+	]);
 
 	let scrollY = $state(0);
 	const scrolled = $derived(scrollY > 24);

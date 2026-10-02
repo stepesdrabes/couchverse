@@ -6,10 +6,7 @@
 	import { Toaster } from 'svelte-sonner';
 	import { couch } from '$lib/features/couch/couch.svelte';
 	import CouchBar from '$lib/features/couch/components/CouchBar.svelte';
-	import { musicPlayer } from '$lib/features/music/player.svelte';
-	import PlayerBar from '$lib/features/music/components/PlayerBar.svelte';
 	import NavProgress from '$lib/components/layout/NavProgress.svelte';
-	import { features } from '$lib/features/settings/features.svelte';
 	import UploadDock from '$lib/features/uploads/components/UploadDock.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
 	import TvShell from '$lib/tv/TvShell.svelte';
@@ -22,20 +19,13 @@
 	// the couch player is fully immersive, like /watch
 	const onCouch = $derived(page.route.id?.includes('/couch/') ?? false);
 
-	// the music bar yields to the video player and the login screen
-	const showPlayerBar = $derived(!onWatch && !onCouch && !onAuth && features.musicEnabled);
-	// the full-width music bar is only actually on screen when a track is loaded;
-	// the corner stack clears it only then (otherwise it sits at the bottom)
-	const musicBarVisible = $derived(showPlayerBar && !!musicPlayer.current);
-	// the upload dock hides over the player too, but the unload guard below stays;
-	// TVs never upload
+	// the upload dock hides over the player and the login screen, but the unload
+	// guard below stays; TVs never upload
 	const showUploadDock = $derived(!onWatch && !onCouch && !onAuth && !isTV);
 
 	// the on-screen video player hosts the couch bar itself (so it survives
 	// fullscreen); the layout only shows it when no player is mounted
 	const showCouchBar = $derived(couch.active && !couch.playerMounted);
-	// the stack clears the music bar only when a track is actually on screen
-	const stackBottom = $derived(musicBarVisible ? '5.75rem' : '1rem');
 
 	// warn before closing/reloading the tab while an upload could be lost. Lives
 	// in the always-mounted root layout so it holds even on the /watch player.
@@ -85,19 +75,9 @@
 
 {@render children()}
 
-{#if showPlayerBar}
-	<PlayerBar />
-{/if}
-
-<!-- bottom-right corner stack: upload dock on top, couch bar at the very bottom.
-	The whole stack clears the music bar only when a track is actually playing, so
-	with no couch session and no music it sits at the bottom. -->
+<!-- bottom-right corner stack: upload dock on top, couch bar at the very bottom -->
 {#if showUploadDock || showCouchBar}
-	<div
-		data-tv-pin
-		class="fixed right-4 z-40 flex flex-col items-end gap-3"
-		style="bottom: {stackBottom}; transition: bottom 0.25s ease;"
-	>
+	<div data-tv-pin class="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-3">
 		{#if showUploadDock}
 			<UploadDock />
 		{/if}
