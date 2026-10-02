@@ -140,7 +140,13 @@ INSERT INTO user_counters (user_id, key, value) VALUES
 INSERT INTO home_rows (position, kind, genre_id, label, enabled) VALUES
     (3, 'genre', 102, 'Science Fiction', true);
 
-INSERT INTO jobs (type, payload, status, attempts, progress, last_error, created_at, finished_at) VALUES
-    ('probe', '{"mediaFileId": "00000000-0000-4000-8000-000000000501"}', 'done', 1, 100, '', now() - interval '1 day', now() - interval '1 day'),
-    ('transcode_hls', '{"mediaFileId": "00000000-0000-4000-8000-000000000504", "variant": "source"}', 'failed', 3, 40,
-     'ffmpeg exited with status 1', now() - interval '2 hours', now() - interval '1 hour');
+-- fixed ids clear of the cleanup jobs the app enqueues at startup
+INSERT INTO jobs (id, type, payload, status, attempts, progress, last_error, created_at, finished_at)
+OVERRIDING SYSTEM VALUE VALUES
+    (901, 'probe', '{"mediaFileId": "00000000-0000-4000-8000-000000000501"}', 'done', 1, 100, '', now() - interval '1 day', now() - interval '1 day'),
+    (902, 'transcode_hls', '{"mediaFileId": "00000000-0000-4000-8000-000000000504", "variant": "source"}', 'failed', 3, 40,
+     'ffmpeg exited with status 1', now() - interval '2 hours', now() - interval '1 hour'),
+    (903, 'fetch_metadata', '{"titleId": "00000000-0000-4000-8000-000000000101", "tmdbId": 1001}', 'done', 1, 100, NULL,
+     now() - interval '3 days', now() - interval '3 days'),
+    (904, 'import_episodes', '{"titleId": "00000000-0000-4000-8000-000000000102", "seasons": []}', 'cancelled', 0, 0, NULL,
+     now() - interval '3 days', now() - interval '3 days');

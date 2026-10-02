@@ -22,21 +22,53 @@ func NewStore(db *pgxpool.Pool) *Store {
 	return &Store{db: db}
 }
 
+// Job is a claimed queue row as the runner hands it to a handler, which
+// decodes Payload into its own type.
 type Job struct {
-	ID          int64           `json:"id"`
-	Type        string          `json:"type"`
-	Payload     json.RawMessage `json:"payload"`
-	Status      string          `json:"status"`
-	Priority    int             `json:"priority"`
-	RunAt       time.Time       `json:"runAt"`
-	Attempts    int             `json:"attempts"`
-	MaxAttempts int             `json:"maxAttempts"`
-	Progress    int16           `json:"progress"`
-	LastError   *string         `json:"lastError"`
-	ClaimedAt   *time.Time      `json:"claimedAt"`
-	CreatedAt   time.Time       `json:"createdAt"`
-	FinishedAt  *time.Time      `json:"finishedAt"`
-	Subject     *JobSubject     `json:"subject,omitempty"`
+	ID          int64
+	Type        string
+	Payload     json.RawMessage
+	Status      string
+	Priority    int
+	RunAt       time.Time
+	Attempts    int
+	MaxAttempts int
+	Progress    int16
+	LastError   *string
+	ClaimedAt   *time.Time
+	CreatedAt   time.Time
+	FinishedAt  *time.Time
+}
+
+// AdminJob is a job as the admin job list shows it, with its subject resolved.
+type AdminJob struct {
+	ID          int64       `json:"id"`
+	Type        string      `json:"type" doc:"probe, extract_subtitles, transcode_hls, fetch_metadata, import_episodes or cleanup; rows left by older versions may carry retired types."`
+	Payload     JobPayload  `json:"payload"`
+	Status      string      `json:"status" enum:"pending,running,done,failed,cancelled"`
+	Priority    int         `json:"priority"`
+	RunAt       time.Time   `json:"runAt"`
+	Attempts    int         `json:"attempts"`
+	MaxAttempts int         `json:"maxAttempts"`
+	Progress    int16       `json:"progress" doc:"Percent complete, 0-100."`
+	LastError   *string     `json:"lastError"`
+	ClaimedAt   *time.Time  `json:"claimedAt"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	FinishedAt  *time.Time  `json:"finishedAt"`
+	Subject     *JobSubject `json:"subject,omitempty"`
+}
+
+// JobPayload is a job's input. Which keys are set depends on the type:
+// mediaFileId for probe, extract_subtitles and transcode_hls (which adds
+// variant), titleId with tmdbId for fetch_metadata or with seasons for
+// import_episodes, and none for cleanup.
+type JobPayload struct {
+	MediaFileID string `json:"mediaFileId,omitempty"`
+	Variant     string `json:"variant,omitempty" doc:"Transcode output: source, multiaudio or a rendition such as 720p."`
+	TitleID     string `json:"titleId,omitempty"`
+	TmdbID      int    `json:"tmdbId,omitempty"`
+	// a pointer so an explicit empty list (every season) is listed as stored
+	Seasons *[]int `json:"seasons,omitempty" doc:"Season numbers to import; empty imports every season."`
 }
 
 // JobSubject names the content a job works on, resolved from the payload's
@@ -46,7 +78,7 @@ type JobSubject struct {
 	MediaFileID   *string `json:"mediaFileId,omitempty"`
 	TitleID       *string `json:"titleId,omitempty"`
 	TitleName     *string `json:"titleName,omitempty"`
-	TitleKind     *string `json:"titleKind,omitempty"`
+	TitleKind     *string `json:"titleKind,omitempty" enum:"movie,series"`
 	SeasonNumber  *int    `json:"seasonNumber,omitempty"`
 	EpisodeNumber *int    `json:"episodeNumber,omitempty"`
 	EpisodeName   *string `json:"episodeName,omitempty"`
@@ -208,7 +240,7 @@ func (s *Store) ResetRunningJobs(ctx context.Context) (int64, error) {
 
 // ListJobs returns recent jobs with their subject (the content they work on)
 // resolved from the payload. mediaFileID narrows to one file's jobs.
-func (s *Store) ListJobs(ctx context.Context, status, mediaFileID string, limit int) ([]Job, error) {
+func (s *Store) ListJobs(ctx context.Context, status, mediaFileID string, limit int) ([]AdminJob, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
@@ -233,9 +265,9 @@ func (s *Store) ListJobs(ctx context.Context, status, mediaFileID string, limit 
 	}
 	defer rows.Close()
 
-	jobs := []Job{}
+	jobs := []AdminJob{}
 	for rows.Next() {
-		var j Job
+		var j AdminJob
 		var sub JobSubject
 		if err := rows.Scan(&j.ID, &j.Type, &j.Payload, &j.Status, &j.Priority, &j.RunAt,
 			&j.Attempts, &j.MaxAttempts, &j.Progress, &j.LastError, &j.ClaimedAt, &j.CreatedAt,

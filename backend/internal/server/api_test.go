@@ -47,6 +47,8 @@ const (
 	movieSubID     = "00000000-0000-4000-8000-000000000701"
 	failedRungID   = "00000000-0000-4000-8000-000000000802"
 	readyRungID    = "00000000-0000-4000-8000-000000000801"
+	doneJobID      = "901"
+	failedJobID    = "902"
 	memberName     = "nora"
 	privateMember  = "piet"
 )
@@ -261,6 +263,16 @@ func apiCases() []apiCase {
 		{op: "leaveCouch", as: "guest", method: "POST", path: "/couch/{{couch}}/leave", status: 204},
 		{op: "endCouch", as: "admin", method: "POST", path: "/couch/{{couch}}/end", status: 403},
 		{op: "endCouch", as: "nora", method: "POST", path: "/couch/{{couch}}/end", status: 204},
+
+		{op: "adminListJobs", as: "admin", method: "GET", path: "/admin/jobs", status: 200},
+		{op: "adminListJobs", as: "admin", method: "GET", path: "/admin/jobs?status=failed&mediaFileId=" + ladderFileID + "&limit=5", status: 200},
+		{op: "adminListJobs", as: "admin", method: "GET", path: "/admin/jobs?status=bogus", status: 400},
+		{op: "adminListJobs", as: "nora", method: "GET", path: "/admin/jobs", status: 403},
+		{op: "adminRetryJob", as: "admin", method: "POST", path: "/admin/jobs/" + failedJobID + "/retry", status: 204},
+		{op: "adminRetryJob", as: "admin", method: "POST", path: "/admin/jobs/" + doneJobID + "/retry", status: 404},
+		// right after the retry: the runner may fail it again, but only back to pending
+		{op: "adminCancelJob", as: "admin", method: "POST", path: "/admin/jobs/" + failedJobID + "/cancel", status: 204},
+		{op: "adminCancelJob", as: "admin", method: "POST", path: "/admin/jobs/" + doneJobID + "/cancel", status: 404},
 
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "wrong", "newPassword": "long enough"}, status: 400},
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "admin", "newPassword": "long enough"}, status: 204},
