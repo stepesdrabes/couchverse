@@ -116,6 +116,13 @@ library table, title/season/episode CRUD and bulk actions.
   (incl. `DELETE /admin/titles/{id}/languages/{lang}` to drop a content language and
   `GET /admin/titles/{id}/storage` for the per-title disk-usage breakdown),
   `/admin/seasons/{id}...`, `/admin/episodes/{id}`.
+- **Title logos**: featured items (`GET /home`) and title detail (`GET /titles/{slug}`)
+  embed `TitleLogo` - `logoId`, `logoVer` (the `v` token) and `logoAspect` (width / height,
+  so a client lays the hero out before the PNG loads), all absent without a logo. The logo is
+  picked for the request's display language (`httpx.LangFrom`), else the title's base
+  language (`metadataLanguages[0]`), else a language-neutral one, else any (`PickLogo`). Title
+  detail's `artwork` list still carries every logo, with its `lang`. Viewer pages do not show
+  logos yet; they will read them from the core's catalog.
 - Web pages: HomePage, MoviesPage, SeriesPage, GenresPage, GenrePage, MyListPage,
   SearchPage, TitleDetailPage; components HeroMarquee, MediaRow, PosterCard, TitleCard,
   ContinueWatchingCard, BrowseGrid, Artwork. `features/catalog/types.ts` is the shared
@@ -159,16 +166,27 @@ upload targets, auto-created on first boot.)
 - Web: `features/library` (AdminLibraryPage, AdminTitleEditorPage,
   editor components incl. EditorHero with hover poster/backdrop editing, EpisodesTable with
   client-side filters, StorageChart, NewTitleModal, TmdbSearchModal, FileVariants,
-  LanguageChips + AddLanguageModal), `features/uploads` (upload queue
+  LanguageChips + AddLanguageModal, LogosPanel with a logo slot per content language to
+  upload, replace or remove), `features/uploads` (upload queue
   store, AdminUploadsPage, EditorUploadCard).
 
 ### metadata
-TMDB integration: search, one-click apply of metadata + poster/backdrop to a title,
+TMDB integration: search, one-click apply of metadata + poster/backdrop/logos to a title,
 and bulk import of missing seasons/episodes for a series (episode stills are downloaded
 as episode `thumb` artwork). API key comes from settings.
 - Endpoints (admin): `/admin/metadata/search`, `/admin/titles/{id}/metadata/apply`,
   `/admin/titles/{id}/metadata/seasons`, `/admin/titles/{id}/metadata/import-episodes`.
 - Job handlers: `fetch_metadata`, `import_episodes`.
+- **Logos** (`metadata/logos.go`): one `GET /{movie|tv}/{id}/images` call with
+  `include_image_language=<content languages>,null`; for each content language the
+  best-voted PNG logo in that language (vote average, then vote count), else the best-voted
+  language-neutral PNG, is stored as the title's logo in that language (SVGs are skipped; a
+  legacy title without content languages asks for English and stores a null-language logo;
+  languages sharing the neutral fallback share one download). Apply replaces them and drops
+  TMDB logos it did not store (a re-link to another TMDB entry leaves none of the old one's
+  behind) while uploaded logos are only ever overwritten; a failure fails the job like a
+  poster's. The episode import only fills languages without a logo, best effort, so shows
+  linked before logos existed get them from a re-import.
 
 ### subtitles
 Side-car WebVTT subtitles: automatic extraction of embedded text subs (ffmpeg),
@@ -178,11 +196,23 @@ Side-car WebVTT subtitles: automatic extraction of embedded text subs (ffmpeg),
 - Job handler: `extract_subtitles`.
 
 ### artwork
-Posters, backdrops, episode thumbs (TMDB stills, `owner_kind='episode'` `kind='thumb'`),
-album covers and avatars: upload + storage under `DATA_DIR/artwork`, on-demand resizing
-via ffmpeg (`?size=w342|w780`) with an mtime-keyed cache, and TMDB/embedded-cover
-ingestion through `artwork.Service`.
-- Endpoints: `/artwork/{id}`; admin `POST /admin/artwork`, `DELETE /admin/artwork/{id}`.
+Posters, backdrops, title logos, episode thumbs (TMDB stills, `owner_kind='episode'`
+`kind='thumb'`), avatars and profile banners: upload + storage under `DATA_DIR/artwork`,
+on-demand resizing via ffmpeg (`?size=w342|w780`) with an mtime-keyed cache, and TMDB
+ingestion through `artwork.Service`. Every save measures the image (`width`/`height`, 0 for
+WebP, which the stdlib cannot decode) and extracts its accent (transparent pixels are
+skipped and edge pixels un-premultiplied, so a logo accents to its own colour).
+- Endpoints: `/artwork/{id}`; admin `POST /admin/artwork` (multipart: `ownerKind`,
+  `ownerId`, `kind`, optional `lang`, `file`), `DELETE /admin/artwork/{id}`.
+- **Slots** are `(owner_kind, owner_id, kind, lang)` (`UNIQUE NULLS NOT DISTINCT`): `lang` is
+  an ISO 639-1 code for language-bound art and null for the rest, so a title holds one poster
+  and one backdrop but one **logo** per content language. Original files are named
+  `<kind>.<ext>`, or `<kind>-<lang>.<ext>` for a language-bound slot.
+- **Logos** (`kind='logo'`, titles only) are transparent PNG wordmarks for cinematic heroes:
+  uploads must be `.png` (TMDB's SVG logos are never stored), and their resizes are cached as
+  PNG instead of JPEG so the alpha channel survives. `artwork.PickLogo` chooses which one a
+  viewer sees (see catalog). Dropping a content language deletes that language's logo
+  (`Service.DeleteForLang`).
 
 ### jobs
 The Postgres-backed job queue (no Redis): enqueue/claim with `FOR UPDATE SKIP LOCKED`,
@@ -379,11 +409,13 @@ on `titles/seasons/episodes/genres` with the base columns as the fallback;
 `lib/i18n/content-langs.ts`). `metadata/tmdb.go` takes a `lang` param and the fetch/import
 jobs loop over the title's languages. Removing a content language
 (`DELETE /admin/titles/{id}/languages/{lang}`) is destructive: catalog drops that language's
-translations across the title/seasons/episodes and promotes the next language into the base
-columns when the base one is removed (the last language cannot be removed), and the editor
-also deletes that language's alternate-audio files and subtitles from disk via their own
-endpoints. Resolution: `httpx.Localized` (an operation modifier that documents `?lang=` and
-stores it via `httpx.WithLang`) + `catalog.Localize` overwrite name/overview at scan; admin reads and jobs
+translations across the title/seasons/episodes and its logo, and promotes the next language
+into the base columns when the base one is removed (the last language cannot be removed), and
+the editor also deletes that language's alternate-audio files and subtitles from disk via
+their own endpoints. Title logos are per content language too (one `artwork` row per
+language, see artwork) and are picked by the display language like the text.
+Resolution: `httpx.Localized` (an operation modifier that documents `?lang=` and stores it via
+`httpx.WithLang`) + `catalog.Localize` overwrite name/overview at scan; admin reads and jobs
 leave it empty so they see base text.
 
 **Multi-language audio (two models, both supported).**
