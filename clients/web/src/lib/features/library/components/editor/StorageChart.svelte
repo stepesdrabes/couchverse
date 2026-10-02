@@ -2,11 +2,11 @@
 	import BarChart, { type Bar } from '$lib/features/admin/components/BarChart.svelte';
 	import { categoryStyle } from '$lib/features/admin/components/storageColors';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { TitleStorageBreakdown } from '$lib/features/library/api';
+	import type { TitleKind, TitleStorageBreakdown } from '$lib/features/library/api';
 	import { formatBytes } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
 
-	let { titleId, kind }: { titleId: string; kind: string } = $props();
+	let { titleId, kind }: { titleId: string; kind: TitleKind } = $props();
 
 	let data = $state<TitleStorageBreakdown | null>(null);
 

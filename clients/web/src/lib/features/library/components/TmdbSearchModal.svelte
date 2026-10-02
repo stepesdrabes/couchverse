@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Loader2, Search } from 'lucide-svelte';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { AdminSearchMetadataKind, Title, TmdbSearchResult } from '$lib/features/library/api';
+	import type { Title, TmdbSearchResult } from '$lib/features/library/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -22,10 +22,7 @@
 		searching = true;
 		error = '';
 		try {
-			results = await libraryApi.adminSearchMetadata({
-				q: query,
-				kind: title.kind as AdminSearchMetadataKind
-			});
+			results = await libraryApi.adminSearchMetadata({ q: query, kind: title.kind });
 		} catch (err) {
 			error = err instanceof Error ? err.message : m.library_tmdb_search_failed();
 			results = [];

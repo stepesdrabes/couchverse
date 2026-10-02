@@ -29,7 +29,7 @@
 	let year = $state('');
 	let contentRating = $state('');
 	let overview = $state('');
-	let status = $state<string>('draft');
+	let status = $state<TitleUpdateStatus>('draft');
 	let genres = $state('');
 	let runtime = $state('');
 	let languages = $state<string[]>([]);
@@ -175,7 +175,7 @@
 			const patch: TitleUpdate = {
 				year: year ? Number(year) : null,
 				contentRating,
-				status: status as TitleUpdateStatus,
+				status,
 				runtimeMinutes: runtime ? Number(runtime) : null,
 				genres: genres
 					.split(',')

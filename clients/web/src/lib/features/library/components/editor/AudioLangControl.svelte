@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import { adminUpdateMediaFile } from '$lib/features/library/api';
-	import type { MediaFile, MediaFileAudioAudioRole } from '$lib/features/library/api';
+	import type { MediaFile } from '$lib/features/library/api';
 	import * as m from '$lib/paraglide/messages';
 
 	// per-file audio-language tagging for model-B multi-language audio: mark a
@@ -15,10 +15,7 @@
 
 	async function persist() {
 		try {
-			await adminUpdateMediaFile(file.id, {
-				audioLang: lang,
-				audioRole: role as MediaFileAudioAudioRole
-			});
+			await adminUpdateMediaFile(file.id, { audioLang: lang, audioRole: role });
 			toast.success(m.library_audio_saved());
 		} catch {
 			toast.error(m.common_save_failed());
