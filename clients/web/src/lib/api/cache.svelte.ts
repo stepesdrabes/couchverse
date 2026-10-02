@@ -32,10 +32,15 @@ class SwrCache<T> {
 	}
 
 	/** fetch fresh, store it, return it - a page's `load` returns this promise */
-	async revalidate(key: string, fetcher: () => Promise<T>): Promise<T> {
-		const value = await fetcher();
-		this.set(key, value);
-		return value;
+	revalidate(key: string, fetcher: () => Promise<T>): Promise<T> {
+		const fresh = fetcher().then((value) => {
+			this.set(key, value);
+			return value;
+		});
+		// The page handles a failure once it mounts, but a fast 404 can reject before then
+		// and a page whose layout redirected (a signed-out deep link) never mounts at all.
+		fresh.catch(() => {});
+		return fresh;
 	}
 
 	clear() {
