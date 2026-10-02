@@ -181,6 +181,43 @@ extension L10n {
     public static var couchStartSessionHint: String { string("couch_start_session_hint") }
     public static var couchStarting: String { string("couch_starting") }
     public static var couchYouBadge: String { string("couch_you_badge") }
+    public static var devicesActiveNow: String { string("devices_active_now") }
+    public static var devicesConnect: String { string("devices_connect") }
+    public static var devicesConnectCode: String { string("devices_connect_code") }
+    public static func devicesConnectConnected(device: String) -> String { format("devices_connect_connected", [device]) }
+    public static var devicesConnectCopied: String { string("devices_connect_copied") }
+    public static var devicesConnectCopy: String { string("devices_connect_copy") }
+    public static var devicesConnectCopyFailed: String { string("devices_connect_copy_failed") }
+    public static var devicesConnectFailed: String { string("devices_connect_failed") }
+    public static var devicesConnectHint: String { string("devices_connect_hint") }
+    public static var devicesConnectLoopback: String { string("devices_connect_loopback") }
+    public static func devicesConnectNewCodeIn(time: String) -> String { format("devices_connect_new_code_in", [time]) }
+    public static var devicesConnectQr: String { string("devices_connect_qr") }
+    public static var devicesConnectRegenerate: String { string("devices_connect_regenerate") }
+    public static var devicesConnectScan: String { string("devices_connect_scan") }
+    public static var devicesConnectServer: String { string("devices_connect_server") }
+    public static var devicesEnterCode: String { string("devices_enter_code") }
+    public static var devicesHeading: String { string("devices_heading") }
+    public static var devicesHint: String { string("devices_hint") }
+    public static func devicesLastSeen(time: String) -> String { format("devices_last_seen", [time]) }
+    public static var devicesLoadFailed: String { string("devices_load_failed") }
+    public static var devicesPlatformAndroid: String { string("devices_platform_android") }
+    public static var devicesPlatformAndroidtv: String { string("devices_platform_androidtv") }
+    public static var devicesPlatformIos: String { string("devices_platform_ios") }
+    public static var devicesPlatformIpados: String { string("devices_platform_ipados") }
+    public static var devicesPlatformTvos: String { string("devices_platform_tvos") }
+    public static var devicesPlatformWeb: String { string("devices_platform_web") }
+    public static var devicesSignOut: String { string("devices_sign_out") }
+    public static var devicesSignOutCurrentMessage: String { string("devices_sign_out_current_message") }
+    public static var devicesSignOutCurrentTitle: String { string("devices_sign_out_current_title") }
+    public static func devicesSignOutDevice(device: String) -> String { format("devices_sign_out_device", [device]) }
+    public static var devicesSignOutFailed: String { string("devices_sign_out_failed") }
+    public static var devicesSignOutMessage: String { string("devices_sign_out_message") }
+    public static func devicesSignOutTitle(device: String) -> String { format("devices_sign_out_title", [device]) }
+    public static func devicesSignedInOn(date: String) -> String { format("devices_signed_in_on", [date]) }
+    public static func devicesSignedOut(device: String) -> String { format("devices_signed_out", [device]) }
+    public static func devicesSummary(count: Int) -> String { format("devices_summary", [count]) }
+    public static var devicesThisBrowser: String { string("devices_this_browser") }
     public static var errorGoHome: String { string("error_go_home") }
     public static var errorNotFound: String { string("error_not_found") }
     public static var errorPageTitle: String { string("error_page_title") }
@@ -219,6 +256,7 @@ extension L10n {
     public static var loginPassword: String { string("login_password") }
     public static var loginSubmit: String { string("login_submit") }
     public static var loginSubtitle: String { string("login_subtitle") }
+    public static var loginSubtitlePair: String { string("login_subtitle_pair") }
     public static var loginUsername: String { string("login_username") }
     public static var markdownBold: String { string("markdown_bold") }
     public static var markdownCode: String { string("markdown_code") }
@@ -243,6 +281,29 @@ extension L10n {
     public static var navSeries: String { string("nav_series") }
     public static var navServerAdmin: String { string("nav_server_admin") }
     public static var navSignOut: String { string("nav_sign_out") }
+    public static var pairAnotherCode: String { string("pair_another_code") }
+    public static var pairApprove: String { string("pair_approve") }
+    public static var pairApprovedBody: String { string("pair_approved_body") }
+    public static func pairApprovedTitle(device: String) -> String { format("pair_approved_title", [device]) }
+    public static var pairCodeLabel: String { string("pair_code_label") }
+    public static var pairCodeUnknown: String { string("pair_code_unknown") }
+    public static var pairContinue: String { string("pair_continue") }
+    public static func pairDeniedBody(device: String) -> String { format("pair_denied_body", [device]) }
+    public static var pairDeniedTitle: String { string("pair_denied_title") }
+    public static var pairDeny: String { string("pair_deny") }
+    public static var pairDeviceName: String { string("pair_device_name") }
+    public static var pairDeviceNameHint: String { string("pair_device_name_hint") }
+    public static var pairDone: String { string("pair_done") }
+    public static var pairError: String { string("pair_error") }
+    public static var pairExpiredBody: String { string("pair_expired_body") }
+    public static var pairExpiredTitle: String { string("pair_expired_title") }
+    public static func pairExpiresIn(time: String) -> String { format("pair_expires_in", [time]) }
+    public static var pairHeading: String { string("pair_heading") }
+    public static var pairIntro: String { string("pair_intro") }
+    public static var pairManageDevices: String { string("pair_manage_devices") }
+    public static var pairPageTitle: String { string("pair_page_title") }
+    public static func pairRequestTitle(device: String, name: String) -> String { format("pair_request_title", [device, name]) }
+    public static var pairRequestWarning: String { string("pair_request_warning") }
     public static var playerAudio: String { string("player_audio") }
     public static var playerBack10Seconds: String { string("player_back_10_seconds") }
     public static var playerBackToTitle: String { string("player_back_to_title") }
