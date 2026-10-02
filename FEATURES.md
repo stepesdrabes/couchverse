@@ -6,17 +6,16 @@ of the stack, what it talks to, and how the pieces depend on each other.
 Architecture rule: **a feature owns its HTTP handlers, domain logic and SQL together.**
 Backend features live in `backend/internal/feature/<name>/` (one Go package each, with a
 per-feature `Store` over the shared pgx pool and `Mount*` methods that register routes).
-Frontend features live in `frontend/src/lib/features/<name>/` (api.ts, types, rune state
+Web features live in `clients/web/src/lib/features/<name>/` (api.ts, types, rune state
 in `*.svelte.ts`, `components/`, `pages/`). Route files in `src/routes/` are thin shells
 that render a `XxxPage.svelte` component from the owning feature.
 
 ## Feature index
 
-| Feature | Backend package | Frontend module(s) | DB tables |
+| Feature | Backend package | Web module(s) | DB tables |
 |---|---|---|---|
 | auth | `internal/feature/auth` | `features/auth`, `features/users`, `features/preferences` | `users` (incl. `bio`), `sessions` |
 | catalog | `internal/feature/catalog` | `features/catalog` | `titles`, `seasons`, `episodes`, `genres`, `title_genres`, `watch_progress`, `watchlist` |
-| music | `internal/feature/music` | `features/music` | `artists`, `albums`, `tracks`, `album_genres`, `play_history`, `playlists`, `playlist_tracks` |
 | playback | `internal/feature/playback` | `features/playback` | (reads `media_files`, `transcode_variants`) |
 | library | `internal/feature/library` | `features/library`, `features/uploads` | `libraries`, `media_files`, `upload_sessions`, `transcode_variants` |
 | metadata | `internal/feature/metadata` | (admin UI in `features/library`) | (writes catalog tables) |
@@ -30,12 +29,12 @@ that render a `XxxPage.svelte` component from the owning feature.
 
 Shared kernel (backend): `internal/config` (env), `internal/db` (pool, migrations,
 `ErrNotFound`), `internal/httpx` (JSON responses, param helpers), `internal/media`
-(ffprobe, codec compatibility, filename parsing, audio tags, transcode ladder policy,
+(ffprobe, codec compatibility, filename parsing, transcode ladder policy,
 shared `MediaFile`/`Subtitle` row types), `internal/settings` (settings KV store),
 `internal/flags` (admin-toggleable feature flags), `internal/slug`, `internal/server`
 (composition root: middleware, feature mounts, SPA fallback).
 
-Shared frontend: `lib/api/client.ts` (fetch wrapper - never hand-write URLs in
+Shared web: `lib/api/client.ts` (fetch wrapper - never hand-write URLs in
 components) and `lib/api/cache.svelte.ts` (SWR cache), `lib/components/ui/` (bits-ui
 primitives), `lib/components/layout/` (TopNav, GlowBackdrop, NavProgress),
 `lib/components/{CachedView,StreamedView,NotFound}.svelte` (optimistic page shells),
@@ -64,7 +63,7 @@ the master admin account on a fresh database.
   HTML is escaped rather than parsed and no separate sanitizer is needed; markdown-it
   also rejects unsafe link protocols, images are disabled and every link gets
   `rel="nofollow noopener noreferrer"`.
-- Frontend: `features/auth` (session singleton + 401 handler, LoginPage, ProfilePage +
+- Web: `features/auth` (session singleton + 401 handler, LoginPage, ProfilePage +
   the Edit-profile and Change-password modals), `features/users` (AdminUsersPage),
   `features/preferences` (subtitle settings store). `/profile` renders the *same*
   `ProfileContent` as `/u/you` with owner affordances, reading the same cache entry -
@@ -81,25 +80,13 @@ library table, title/season/episode CRUD and bulk actions.
   (incl. `DELETE /admin/titles/{id}/languages/{lang}` to drop a content language and
   `GET /admin/titles/{id}/storage` for the per-title disk-usage breakdown),
   `/admin/seasons/{id}...`, `/admin/episodes/{id}`.
-- Frontend pages: HomePage, MoviesPage, SeriesPage, GenresPage, GenrePage, MyListPage,
+- Web pages: HomePage, MoviesPage, SeriesPage, GenresPage, GenrePage, MyListPage,
   SearchPage, TitleDetailPage; components HeroMarquee, MediaRow, PosterCard, TitleCard,
   ContinueWatchingCard, BrowseGrid, Artwork. `features/catalog/types.ts` is the shared
   type hub for card/row shapes. The home hero and the title pages are accented from the
   banner palette (`lib/utils/palette.svelte` `bannerAccent` + `lib/theme.accentVars`,
   which also emits a contrast-aware `--color-on-accent`). Episode rows show thumbnails
   (`Episode.thumbId`, from TMDB stills).
-
-### music
-Spotify-style music: albums, artists, tracks, playlists (create/rename/reorder),
-scrobbling (`POST /plays`, which also feeds analytics) and recently-played rows. The persistent bottom player and
-queue live entirely on the frontend. All music routes (user and admin) are gated by
-the `musicEnabled` feature flag - the gating lives inside the music module's mounts.
-- Endpoints: `/music`, `/music/albums/{id}`, `/music/artists/{id}`, `/plays`,
-  `/me/playlists...`; admin `/admin/music`, `/admin/albums/{id}`, `/admin/tracks/{id}`.
-- Frontend: `player.svelte.ts` (module-scope Audio element that survives navigation,
-  Media Session API), PlayerBar/QueuePanel/TrackList/AlbumCard, pages MusicHomePage,
-  AlbumPage, ArtistPage, PlaylistPage. Admin album editing UI lives in
-  `features/library` (AdminAlbumPage) because the admin endpoints do.
 
 ### playback
 Everything that turns a media file into pixels: direct play streaming with range
@@ -112,7 +99,7 @@ engine (ffmpeg HLS encode, hardware encoder detection/probing) and transcode adm
   the player); admin `/admin/transcode/info|active`,
   `/admin/media-files/{id}/transcode|variants`, `/admin/transcode-variants/{id}`.
 - Job handler: `transcode_hls` (per-type concurrency = `maxConcurrent` setting).
-- Frontend: WatchPage + VideoPlayer (HLS.js, subtitles, shortcuts, progress beacons incl.
+- Web: WatchPage + VideoPlayer (HLS.js, subtitles, shortcuts, progress beacons incl.
   watched-seconds deltas, JIT keepalive, banner-accented chrome, bits-ui control tooltips,
   seek-bar time + frame preview - splitting it is a known follow-up).
 - Transcode ladder/settings policy lives in the `media` kernel so library's prober can
@@ -122,7 +109,7 @@ engine (ffmpeg HLS encode, hardware encoder detection/probing) and transcode adm
 
 ### library
 Media ingestion via resumable chunked uploads -> the probe pipeline (filename parsing
-to draft titles/episodes, audio tags to artists/albums/tracks, direct-play detection,
+to draft titles/episodes, direct-play detection,
 auto-prepare of HLS variants), the managed libraries uploads land in, and ownership of the
 `media_files` + `transcode_variants` SQL that playback reads. (There is no folder-scan
 ingestion - everything comes in through the browser; the `libraries` rows are managed
@@ -131,10 +118,10 @@ upload targets, auto-created on first boot.)
   hard-deletes the file plus its source, HLS/frame caches and subtitle files on disk),
   `/admin/uploads...`.
 - Job handler: `probe`.
-- Frontend: `features/library` (AdminLibraryPage, AdminTitleEditorPage, AdminAlbumPage,
+- Web: `features/library` (AdminLibraryPage, AdminTitleEditorPage,
   editor components incl. EditorHero with hover poster/backdrop editing, EpisodesTable with
   client-side filters, StorageChart, NewTitleModal, TmdbSearchModal, FileVariants,
-  LanguageChips + AddLanguageModal, AdminMusicTable), `features/uploads` (upload queue
+  LanguageChips + AddLanguageModal), `features/uploads` (upload queue
   store, AdminUploadsPage, EditorUploadCard).
 
 ### metadata
@@ -167,7 +154,7 @@ cancellation, and the in-process worker runner. Other features register handlers
 - Endpoints (admin): `/admin/jobs` (supports `?mediaFileId=` and returns a `subject`
   per job - the title/episode/track it works on, resolved by SQL joins from the
   payload), `/admin/jobs/{id}/retry|cancel`.
-- Frontend: `features/jobs` (AdminJobsPage, MediaFileJobs, job-label helpers,
+- Web: `features/jobs` (AdminJobsPage, MediaFileJobs, job-label helpers,
   overview/storage/system/analytics api calls).
 
 ### system
@@ -178,7 +165,7 @@ titles added in the last 30 days), live host metrics (CPU/RAM/disk, platform-spe
 with per-process attribution to the Go app and ffmpeg children via /proc), a
 live-presence endpoint and the home-rows editor.
 - Endpoints: `/theme` (public), `/features`; admin `/admin/settings`, `/admin/storage`
-  (categories movies/series/music/transcodes/cache - transcodes is the SQL sum of
+  (categories movies/series/transcodes/cache - transcodes is the SQL sum of
   ready variant sizes, cache covers images/uploads/JIT session scratch),
   `/admin/overview` (counts + `library` insights), `/admin/system`, `/admin/live`,
   `/admin/home-rows`.
@@ -188,27 +175,26 @@ live-presence endpoint and the home-rows editor.
   small interfaces (`CouchPresence`/`TranscodePresence`) satisfied by `couch.Hub` /
   `playback.SessionManager` and wired at the composition root, so `system` imports
   neither package.
-- Frontend: `features/settings` (AdminSettingsPage, HomeRowsEditor, feature-flags store),
+- Web: `features/settings` (AdminSettingsPage, HomeRowsEditor, feature-flags store),
   `features/admin` (AdminDashboardPage, AdminSidebar, meters/sparkline/BarChart widgets).
 
 ### analytics
-Watch/listen time measurement behind the admin overview charts. One daily rollup
-table (`watch_time_daily`), upserted on every video progress beacon (the player sends
-an actually-played `watchedSeconds` delta) and on every music scrobble (counted as
-the track duration). A second **hour-of-day rollup** (`watch_time_hourly`, at most 48
-rows per user per day) is written from *inside* the same `RecordWatch`/`RecordListen`
-calls, so no caller changed; it is bucketed with `AT TIME ZONE` in the app's local
+Watch time measurement behind the admin overview charts. One daily rollup table
+(`watch_time_daily`), upserted on every video progress beacon (the player sends an
+actually-played `watchedSeconds` delta). A second **hour-of-day rollup**
+(`watch_time_hourly`, at most 48 rows per user per day) is written from *inside* the
+same `RecordWatch` call, so no caller changed; it is bucketed with `AT TIME ZONE` in the app's local
 zone (Postgres runs UTC) so "night" means night, feeds the profile clock and the
 night-owl/early-bird achievements, and is pruned past 400 days by the hourly
-`cleanup` job. Kernel-only imports - catalog and music call `RecordWatch`/
-`RecordListen` on its Store, best effort (analytics never fails a beacon). The
+`cleanup` job. Kernel-only imports - catalog calls `RecordWatch` on its Store, best
+effort (analytics never fails a beacon). The
 separate **on-couch watch-time** stat lives here too: `RecordCouchWatch(titleId,
 seconds)` upserts the `couch_watch_time_daily` per-title rollup (no user
 dimension, so anonymous followers count), called best-effort by the couch hub.
 - Endpoints (admin): `/admin/analytics/overview?days=N` - dense daily series
-  (video/music/couch seconds, active users), totals, top titles, top couch
+  (video/couch seconds, active users), totals, top titles, top couch
   titles, top users (each with `avatarId` for the dashboard leaderboard).
-- Frontend: charts + "Top viewers" and "On Couch watch-time" cards on
+- Web: charts + "Top viewers" and "On Couch watch-time" cards on
   AdminDashboardPage (`features/admin`), api call in `features/jobs/api.ts` next to
   the other overview endpoints.
 
@@ -220,7 +206,7 @@ synced to the host (host controls play/pause/seek/episode; followers have no
 timeline control, manage their own audio/subtitles, send emoji). All session and
 participant state is **in-memory** - a server restart ends every session; the only
 persisted artifact is the on-couch watch-time stat (in analytics). Gated by the
-admin `couchEnabled` flag (default on, mirrors `musicEnabled`).
+admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
 - Backend (`internal/feature/couch`): an in-process **Hub** (session registry +
   rooms), a scoped httpOnly **couch cookie** (mirrors the auth session cookie), the
   HTTP handlers and the WS endpoint, on `github.com/coder/websocket`. `Hub.LivePresence()`
@@ -241,8 +227,8 @@ admin `couchEnabled` flag (default on, mirrors `musicEnabled`).
   `AllowsAnon(r, mediaFileID)` (a valid couch cookie whose live session currently
   allows that file). `playback.BuildPlayback` was extracted so couch builds the
   follower payload without an auth context.
-- Frontend (`features/couch`): a singleton rune store (WebSocket + follower sync +
-  host broadcast, mirroring the music player), a public `/couch/[token]` route that
+- Web (`features/couch`): a singleton rune store (WebSocket + follower sync +
+  host broadcast), a public `/couch/[token]` route that
   joins anonymous viewers without tripping the 401 redirect, the assembled
   accent-recoloured `Couch` (seated avatars + host remote), a management popover and
   couch buttons in the player control bar + TopNav, and a bundled (no-CDN) emoji
@@ -252,14 +238,12 @@ admin `couchEnabled` flag (default on, mirrors `musicEnabled`).
 ### ranks
 Player progression: XP, rank tiers, achievements, public profiles and the global
 leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
-`musicEnabled`/`couchEnabled`).
-- **XP** defaults to `2/min` video + `1/min` music + `100` per finished movie + `20`
-  per finished episode + `50`/`25` per couch session hosted/joined + the achievement
-  rewards (bronze 50, silver 150, gold 400, platinum 1000). Music is worth half of
-  video because a background playlist should not outrank a movie night; couch pays
-  per session because on-couch watch-time has no user dimension. XP counts all
-  recorded activity **regardless of flags** - turning music off must never demote
-  anyone. Every term is one explainable line of the profile's XP breakdown.
+`couchEnabled`).
+- **XP** defaults to `2/min` video + `100` per finished movie + `20` per finished
+  episode + `50`/`25` per couch session hosted/joined + the achievement rewards
+  (bronze 50, silver 150, gold 400, platinum 1000). Couch pays per session because
+  on-couch watch-time has no user dimension. XP counts all recorded activity
+  **regardless of flags** - turning couch off must never demote anyone. Every term is one explainable line of the profile's XP breakdown.
 - **Every rate and threshold is admin-tunable** (`ranks.Config` in the `ranks`
   settings key, defaults in `DefaultConfig`, edited on `/admin/ranks`). `Config` is
   threaded through `ComputeXP`/`TierFor`/`ProgressFor` rather than read globally, so
@@ -270,19 +254,19 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
 - **Tiers** (10, couch-themed, `ranks.defaultTiers`): rookie 0, remote 500, snack 1500,
   binger 3500, popcorn 7000, marathoner 13000, sage 23000, cinephile 40000,
   master 70000, legend 120000. Codes, levels and colours are fixed identity (persisted
-  in payloads, translated on the frontend); only the thresholds are configurable.
-- **Achievements** (34) are a pure rules table in `achievements.go`: each is a
+  in payloads, translated by the clients); only the thresholds are configurable.
+- **Achievements** (30) are a pure rules table in `achievements.go`: each is a
   `Target` plus a `Value(Snapshot)`, scored against one `Snapshot` that a single
   batch of SQL fills, so the whole catalogue is unit-testable without a database.
   `Evaluate` runs **two passes** - non-meta rules first, then the meta rules against
   the resulting count - so the badge that rewards ten badges unlocks in the same
-  call as the tenth. Rules gated on `music`/`couch` are **absent** (not locked) when
+  call as the tenth. Rules gated on `couch` are **absent** (not locked) when
   their flag is off, so no unreachable card is ever shown; already-earned hidden
   ones still count toward XP so totals cannot drift. A test asserts meta targets stay
   reachable on a flag-disabled install.
 - **Evaluation is pull-based**: `POST /me/achievements/check` is the *only* writer of
-  `user_achievements`, so **no SQL is added to the 10s progress beacon or the
-  scrobble** and catalog/music need no changes at all. It is throttled per user to
+  `user_achievements`, so **no SQL is added to the 10s progress beacon** and catalog
+  needs no changes at all. It is throttled per user to
   one run per 30s (a mutex-guarded map on the module, bounded by the account count),
   and a throttled call returns `rank: null` so the client keeps the rank it has
   rather than painting a zero. `INSERT ... ON CONFLICT DO NOTHING RETURNING` yields
@@ -300,7 +284,7 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
   progression fetch on app load - it feeds the nav ring *and* the profile page from
   one SWR entry), `GET /users/{username}/profile`, `GET /leaderboard?period=`,
   `POST /me/achievements/check`. The leaderboard returns **every metric per row**
-  (xp, watch, music, achievements) unsorted, so the client's metric switcher sorts in
+  (xp, watch, achievements) unsorted, so the client's metric switcher sorts in
   place with no refetch and `period` is the only cache key; XP is lifetime whatever
   the period, since completions carry no date.
 - Admin (`/admin/ranks`, `PUT /admin/ranks/config`) is deliberately **not**
@@ -318,7 +302,7 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
   history. `ranks` imports `catalog` only for the exported `Localize`/`GenreLabel`
   helpers, so profile title names and the favourite-genre label read in the visitor's
   language without restating the translations shape.
-- Frontend (`features/ranks`): `/u/[username]` (hero accented from the member's banner
+- Web (`features/ranks`): `/u/[username]` (hero accented from the member's banner
   via `accentVars`, falling back to the tier colour; markdown bio; 8 stat tiles; a
   53x7 activity heatmap scrolled to today; a 24-slice "when you watch" clock; the XP
   breakdown; most-watched; the achievement grid) and `/leaderboard` (2-1-3 podium in
@@ -334,8 +318,8 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
 
 ## Internationalization & multi-language media (cross-cutting)
 
-**UI + metadata language (one "display language", Czech + English).** The frontend
-uses **Paraglide JS** as a compile-only i18n: messages in `frontend/messages/{en,cs}.json`,
+**UI + metadata language (one "display language", Czech + English).** The web client
+uses **Paraglide JS** as a compile-only i18n: messages in `clients/web/messages/{en,cs}.json`,
 compiled to `src/lib/paraglide/` (gitignored, built by the Vite plugin and the `check`
 script). `lib/i18n/locale.svelte.ts` is the single source of truth (`currentLang`,
 `setDisplayLang`, `applySavedLang`); the header `LanguageSwitcher` (a flag dropdown built on
@@ -371,7 +355,7 @@ leave it empty so they see base text.
 
 ## Optimistic navigation & caching (cross-cutting)
 
-The frontend is a client-only SPA (`ssr = false`), so every route's `load` runs in the
+The web client is a client-only SPA (`ssr = false`), so every route's `load` runs in the
 browser and used to block the page swap on a network round-trip - visibly slow on a
 Raspberry Pi. Data pages are now **optimistic**: navigation swaps in at once and data
 fills in behind a cached value or a skeleton.
@@ -381,7 +365,7 @@ fills in behind a cached value or a skeleton.
   `get(key)` is a reactive read, `revalidate(key, fetcher)` fetches + stores, and
   `resetAllCaches()` (called by `session` on logout/401) drops everything. Per-feature
   instances live in `features/<name>/cache.svelte.ts` (`titleCache`, `homeCache`,
-  `browseCache`; `musicHomeCache`/`albumCache`/`artistCache`/`playlistCache`).
+  `browseCache`).
 - **Page pattern**: a page's `+page.ts` is non-blocking - it returns the cache key plus the
   un-awaited `fresh` revalidation promise. The route shell still renders `XxxPage.svelte`,
   now a thin wrapper around **`CachedView`** (`lib/components/`) which derives the cached
@@ -389,7 +373,7 @@ fills in behind a cached value or a skeleton.
   updates silently when revalidation lands - stale beats blank), `skeleton` (cold visit),
   or `notFound`. The old page body moved verbatim into `XxxContent.svelte`. Skeletons reuse
   `ui/Skeleton.svelte` + `animate-shimmer` and mirror each real layout. Applies to home,
-  title, browse (movies/series/genres/my-list), and all music pages.
+  title and browse (movies/series/genres/my-list).
 - **`StreamedView`** (`lib/components/`): the same three states but promise-backed and
   **uncached** - it keeps the last resolved value during a same-`key` revalidation
   (`invalidateAll` after a save) so it never flashes the skeleton mid-edit. Used by the
@@ -429,9 +413,9 @@ development (persisted in localStorage `cv.tv`; `?tv=0` clears it).
   by hand, never via `scrollIntoView` (that also scrolls overflow-hidden boxes like the
   hero and shifts their art). Opt-in attributes: `data-tv-autofocus` (where a page starts:
   hero/title Play, login username, player seek bar), `data-tv-pin` (fixed chrome: the nav
-  bar, music bar, corner stack - reached only by leaving the page past its top/bottom
+  bar, corner stack - reached only by leaving the page past its top/bottom
   edge, so it never competes with content scrolling under it), `data-tv-layer` (a custom
-  overlay that confines focus like a bits-ui dialog; the music queue), `data-tv-skip`.
+  overlay that confines focus like a bits-ui dialog), `data-tv-skip`.
   Open bits-ui overlays (`role=dialog|alertdialog|menu|listbox`) confine focus too.
   Elements fading in count as visible (checked through `document.getAnimations()`), but
   transparent hover-revealed controls do not.
@@ -466,12 +450,13 @@ handlers. SQL may JOIN any table (joins create no Go dependency). The import gra
 must stay acyclic:
 
 ```
-artwork <- auth <- music <- catalog <- metadata
-   ^        ^       ^         ^
-   +--------+-------+---- library <- subtitles <- playback        system
-analytics <- music, catalog (leaf: imports kernel only)
+artwork <- auth <- catalog <- metadata
+            ^        ^
+            +--- library <- subtitles <- playback <- couch        system
+analytics <- catalog (leaf: imports kernel only)
+playback -> {auth, catalog, library, subtitles}
 ranks -> {auth, catalog}  (near-leaf; nothing imports ranks)
-couch -> {playback, catalog, auth, analytics, flags}  (top of the DAG; nothing imports couch)
+couch -> {playback, auth}  (top of the DAG; nothing imports couch)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
 ```
@@ -483,9 +468,10 @@ Notes that keep it acyclic:
   time); the transcode ladder/settings policy lives in the `media` kernel.
 - `home_rows` is touched by two features (catalog reads, system edits) - SQL-only
   overlap, intentional.
-- `couch` is the only importer of nothing-else: it imports `playback` (to reuse
-  `BuildPlayback`), `catalog`, `auth`, `analytics` and `flags`, but nothing imports
-  it. The anonymous-stream guard is inverted into `internal/server` so `playback`
+- `couch` sits at the top: it imports `playback` (to reuse `BuildPlayback`) and
+  `auth`, reaches analytics and ranks only through the `CouchWatchRecorder`/
+  `CouchStatsRecorder` interfaces it declares (wired in `main.go`), and nothing
+  imports it. The anonymous-stream guard is inverted into `internal/server` so `playback`
   never depends on `couch`.
 - `ranks` reads a dozen other features' tables but imports only `auth` (for
   `UserFrom`) and `catalog` (for the exported `Localize`/`GenreLabel`); everything
@@ -505,10 +491,10 @@ Backend:
    routes in `internal/server/server.go` next to the other features.
 4. Register background job handlers (if any) on the runner in `main.go`.
 
-Frontend:
-1. Create `frontend/src/lib/features/<name>/` with `api.ts` (all endpoint calls),
+Web:
+1. Create `clients/web/src/lib/features/<name>/` with `api.ts` (all endpoint calls),
    optional `types.ts` and `*.svelte.ts` rune stores, `components/`, `pages/XxxPage.svelte`.
 2. Add a thin route shell in `src/routes/...` that renders the page component
    (loaders in `+page.ts` stay in routes/ and delegate to the feature's `api.ts`).
 
-Verify: `make lint check test build`, then `make run-backend` + `make run-frontend`.
+Verify: `make lint check test build`, then `make run-backend` + `make run-web`.

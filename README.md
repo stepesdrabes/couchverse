@@ -1,7 +1,7 @@
 # Couchverse
 
-A self-hosted, Netflix-style streaming server for your movies, TV series and music -
-with a Spotify-like music player and a full management panel. One Go binary, one
+A self-hosted, Netflix-style streaming server for your movies and TV series, with a
+full management panel. One Go binary, one
 Postgres database, runs on anything from a Raspberry Pi with a USB disk to a beefy
 home server.
 
@@ -14,25 +14,20 @@ home server.
   title pages and the player pick up an accent colour from each banner
 - Movies and series with seasons/episodes (episode thumbnails), resume positions,
   auto-next-episode
-- My List, watch history, full-text search across video and music
+- My List, watch history, full-text search
 - Custom video player: subtitles (side-car VTT), quality menu, picture-in-picture,
   keyboard shortcuts, hover tooltips, and a seek bar with time + frame preview
 - Subtitle support: upload `.srt`/`.vtt` or automatic extraction of embedded text subs
 - **Couch sessions** - synced watch parties: share a link and friends watch in sync
   (even without an account), with a playful couch of avatars and emoji reactions; the
   host drives playback and everyone follows
-- **Ranks & achievements** - watching and listening earn XP and rank tiers (Couch
-  Rookie to Couch Legend), 34 achievements pop as you unlock them, and every member
+- **Ranks & achievements** - watching earns XP and rank tiers (Couch
+  Rookie to Couch Legend), 30 achievements pop as you unlock them, and every member
   gets a public profile with their own banner, a markdown bio, a year-long activity
   heatmap, a "when you watch" clock and their most-watched titles. Global leaderboards
-  for XP, watch time, listening and achievements, with a one-switch opt-out per
+  for XP, watch time and achievements, with a one-switch opt-out per
   person; admins get a Ranks page with level distribution, achievement rarity and
   editable XP rates
-
-**Music**
-- Spotify-style persistent bottom player that survives navigation
-- Albums, artists, playlists (create/reorder), queue with shuffle & repeat
-- Cover art from file tags, lock-screen/media-key controls (Media Session API)
 
 **Library management**
 - Admin panel: library table with quality badges and bulk actions, user management,
@@ -40,8 +35,8 @@ home server.
   editor, home-page row editor, and a Ranks page (level distribution, achievement
   rarity, per-member standing, editable XP rates and rank thresholds)
 - Media comes in through resumable chunked uploads (pause/resume survives disconnects)
-- Filename parsing (`Show/Season 01/Show S01E01.mkv`, `Movie (2024).mkv`) and
-  music tags (ID3/FLAC/MP4) build the catalog automatically
+- Filename parsing (`Show/Season 01/Show S01E01.mkv`, `Movie (2024).mkv`) builds the
+  catalog automatically
 - TMDB integration: search & apply metadata + artwork with one click
 - English & Czech interface (flag switcher) and per-title content languages: translate
   title/episode metadata per language, add languages from a searchable picker, or remove a
@@ -82,9 +77,17 @@ otherwise writes (uploads, transcodes, artwork) fail with permission denied.
 Layout inside `MEDIA_ROOT`:
 
 ```
-media/movies/   media/series/   media/music/   ← uploads are stored here
+media/movies/   media/series/   ← uploads are stored here
 artwork/  subtitles/  cache/                   ← managed by the app
 ```
+
+Behind a reverse proxy (Caddy, nginx, Traefik), set `TRUSTED_PROXIES` in `.env` to the
+proxy's address or subnet (comma-separated, e.g. `172.18.0.0/16`) so login rate limiting
+sees real client addresses. Forwarding headers from anyone else are ignored.
+
+Upgrading from a release with music: music was removed. The upgrade drops the music
+catalog from the database, but leaves files on disk - delete `media/music/` inside
+`MEDIA_ROOT` (and album art under `artwork/`) by hand if you no longer need them.
 
 Add users under **Admin → Users** (no public signup). Set a TMDB API key under
 **Admin → Settings** for one-click metadata.
@@ -133,11 +136,11 @@ Prereqs: Go 1.24+, Node 22+, Docker, ffmpeg on PATH.
 ```sh
 docker compose up db -d      # postgres on localhost:5432 (DB_PASSWORD=couchverse in dev)
 make run-backend             # Go API on :8080 (bootstraps admin/admin)
-make run-frontend            # Vite dev server on :5173, proxies /api
+make run-web                 # Vite dev server on :5173, proxies /api
 make sample-media            # generates test clips covering every pipeline tier
 make lint check test         # golangci-lint/vet · svelte-check/eslint/prettier · go test
 make build                   # SPA → embed → single binary at backend/bin/couchverse
 ```
 
-Architecture notes live in `CLAUDE.md`. The frontend is a static SPA embedded into
+Architecture notes live in `CLAUDE.md`. The web client (`clients/web`) is a static SPA embedded into
 the Go binary; in production only two containers run: the app and Postgres.
