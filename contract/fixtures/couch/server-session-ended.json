@@ -1,0 +1,6 @@
+{
+  "type": "session_ended",
+  "data": {
+    "reason": "host_ended"
+  }
+}

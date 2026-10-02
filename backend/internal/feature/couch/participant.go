@@ -12,16 +12,10 @@ import (
 
 // participant is one viewer in a couch session. A logged-in viewer has userID
 // set and uses their real display name + avatar; an anonymous viewer gets a
-// generated name and identicon seed and no real account. The unexported fields
-// are never serialized to other clients.
+// generated name and identicon seed and no real account. Only the embedded
+// CouchParticipant is ever sent to clients.
 type participant struct {
-	ID          string  `json:"id"`
-	DisplayName string  `json:"displayName"`
-	AvatarID    *string `json:"avatarId,omitempty"`
-	Seed        string  `json:"seed,omitempty" doc:"Identicon seed: the username, or a random seed for an anonymous viewer."`
-	IsHost      bool    `json:"isHost"`
-	IsAnonymous bool    `json:"isAnonymous"`
-	Paused      bool    `json:"paused" doc:"A follower paused their own playback locally."`
+	CouchParticipant
 
 	tokenHash      string    // hex SHA-256 of the current cookie token
 	userID         int64     // 0 when anonymous
@@ -33,7 +27,7 @@ type participant struct {
 // newParticipant builds a participant from an optional logged-in user. A nil
 // user yields an anonymous participant with a generated name + avatar seed.
 func newParticipant(user *auth.User, isHost bool) *participant {
-	p := &participant{ID: uuid.NewString(), IsHost: isHost}
+	p := &participant{CouchParticipant: CouchParticipant{ID: uuid.NewString(), IsHost: isHost}}
 	if user != nil {
 		p.DisplayName = user.DisplayName
 		p.AvatarID = user.AvatarID
@@ -57,4 +51,14 @@ func randIndex(n int) int {
 		return 0
 	}
 	return int(binary.BigEndian.Uint32(b[:]) % uint32(n))
+}
+
+// participantViewsLocked lists what clients see of every participant; rm.mu
+// must be held.
+func (rm *room) participantViewsLocked() []CouchParticipant {
+	views := make([]CouchParticipant, 0, len(rm.participants))
+	for _, p := range rm.participants {
+		views = append(views, p.CouchParticipant)
+	}
+	return views
 }

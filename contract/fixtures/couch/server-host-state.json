@@ -1,0 +1,14 @@
+{
+  "type": "host_state",
+  "data": {
+    "media": {
+      "kind": "movie",
+      "titleId": "00000000-0000-4000-8000-000000000101"
+    },
+    "playing": true,
+    "positionSeconds": 1834.5,
+    "serverTimestamp": 912345,
+    "seq": 42,
+    "away": false
+  }
+}

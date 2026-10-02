@@ -64,7 +64,7 @@ func (rm *room) detach(c *conn) {
 
 	if startGrace {
 		rm.hub.startHostGrace(rm)
-		rm.broadcastExceptHost(msgHostAway, hostAwayData{GraceSeconds: int(rm.hub.hostGrace.Seconds())})
+		rm.broadcastExceptHost(msgHostAway, CouchHostAway{GraceSeconds: int(rm.hub.hostGrace.Seconds())})
 		rm.broadcastHostState()
 	}
 }
@@ -113,13 +113,10 @@ func (rm *room) broadcastHostState() {
 
 func (rm *room) broadcastParticipants() {
 	rm.mu.Lock()
-	parts := make([]participant, 0, len(rm.participants))
-	for _, p := range rm.participants {
-		parts = append(parts, *p)
-	}
+	parts := rm.participantViewsLocked()
 	conns := rm.snapshotConns()
 	rm.mu.Unlock()
-	frame := mustEnvelope(msgParticipants, participantsData{Participants: parts})
+	frame := mustEnvelope(msgParticipants, CouchParticipants{Participants: parts})
 	for _, c := range conns {
 		c.enqueue(frame)
 	}
@@ -131,7 +128,7 @@ func (rm *room) helloFrame(pid string, isHost bool) []byte {
 		role = "host"
 	}
 	snap := rm.snapshotFor(pid, role)
-	return mustEnvelope(msgHello, helloData{
+	return mustEnvelope(msgHello, CouchHello{
 		SessionID:       snap.SessionID,
 		MyParticipantID: pid,
 		Role:            role,
@@ -143,7 +140,7 @@ func (rm *room) helloFrame(pid string, isHost bool) []byte {
 
 // applyHostState stores a new authoritative state from the host, stamping the
 // server timestamp + sequence. Returns whether the loaded media changed.
-func (rm *room) applyHostState(cmd hostStateCmd) bool {
+func (rm *room) applyHostState(cmd CouchHostStateCommand) bool {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 	switched := cmd.Media != rm.state.Media
@@ -157,7 +154,7 @@ func (rm *room) applyHostState(cmd hostStateCmd) bool {
 	return switched
 }
 
-func (rm *room) currentMedia() mediaRef {
+func (rm *room) currentMedia() CouchMediaRef {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 	return rm.state.Media
@@ -186,21 +183,21 @@ func (rm *room) onClientMessage(c *conn, env Envelope) {
 			c.beginClose()
 			return
 		}
-		var cmd hostStateCmd
+		var cmd CouchHostStateCommand
 		if json.Unmarshal(env.Data, &cmd) != nil {
 			return
 		}
 		if rm.applyHostState(cmd) {
 			rm.recomputeAllowed()
 			rm.mu.Lock()
-			data := mediaChangedData{Media: rm.state.Media, Seq: rm.state.Seq}
+			data := CouchMediaChanged{Media: rm.state.Media, Seq: rm.state.Seq}
 			rm.mu.Unlock()
 			rm.broadcastExceptHost(msgMediaChanged, data)
 		}
 		rm.broadcastHostState()
 
 	case msgEmoji:
-		var cmd emojiCmd
+		var cmd CouchEmojiCommand
 		if json.Unmarshal(env.Data, &cmd) != nil {
 			return
 		}
@@ -217,10 +214,10 @@ func (rm *room) onClientMessage(c *conn, env Envelope) {
 			p.emojiCount++ // flushed to the reaction counter by the hub's accrual tick
 		}
 		rm.mu.Unlock()
-		rm.broadcast(msgEmoji, emojiData{FromParticipantID: c.pid, Emoji: emoji})
+		rm.broadcast(msgEmoji, CouchEmoji{FromParticipantID: c.pid, Emoji: emoji})
 
 	case msgPaused:
-		var cmd pausedCmd
+		var cmd CouchPausedCommand
 		if json.Unmarshal(env.Data, &cmd) != nil {
 			return
 		}

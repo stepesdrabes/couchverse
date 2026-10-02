@@ -38,6 +38,7 @@ test:
 # regenerate everything derived from contract/ (and the spec itself from the Go handlers)
 contract:
 	cd backend && go run ./cmd/couchverse openapi > ../contract/openapi.json
+	cd backend && go run ./cmd/couchverse couch-schema > ../contract/couch-protocol.schema.json
 	cd core && cargo xtask codegen
 
 sample-media:

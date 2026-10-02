@@ -19,12 +19,14 @@ import (
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
 
-	if len(os.Args) > 1 && os.Args[1] == "openapi" {
-		if err := printOpenAPI(os.Stdout); err != nil {
-			slog.Error("openapi", "err", err)
-			os.Exit(1)
+	if len(os.Args) > 1 {
+		if write, ok := contractPrinters[os.Args[1]]; ok {
+			if err := write(os.Stdout); err != nil {
+				slog.Error(os.Args[1], "err", err)
+				os.Exit(1)
+			}
+			return
 		}
-		return
 	}
 
 	if err := run(); err != nil {

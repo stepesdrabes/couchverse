@@ -63,7 +63,7 @@ func TestWSHostStateAndEmojiFanout(t *testing.T) {
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
-	rm, hostP, hostToken, _, err := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t1"})
+	rm, hostP, hostToken, _, err := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -87,13 +87,13 @@ func TestWSHostStateAndEmojiFanout(t *testing.T) {
 	// host broadcasts its play-state
 	if err := wsjson.Write(context.Background(), hc, Envelope{
 		Type: msgHostState,
-		Data: mustJSON(hostStateCmd{Media: mediaRef{Kind: "movie", TitleID: "t1"}, Playing: true, PositionSeconds: 42}),
+		Data: mustJSON(CouchHostStateCommand{Media: CouchMediaRef{Kind: "movie", TitleID: "t1"}, Playing: true, PositionSeconds: 42}),
 	}); err != nil {
 		t.Fatalf("host write: %v", err)
 	}
 
 	got := waitForType(t, fc, msgHostState)
-	var st hostState
+	var st CouchHostState
 	if err := json.Unmarshal(got.Data, &st); err != nil {
 		t.Fatalf("unmarshal host_state: %v", err)
 	}
@@ -105,11 +105,11 @@ func TestWSHostStateAndEmojiFanout(t *testing.T) {
 	}
 
 	// emoji relays to everyone, tagged with the sender
-	if err := wsjson.Write(context.Background(), hc, Envelope{Type: msgEmoji, Data: mustJSON(emojiCmd{Emoji: "🎉"})}); err != nil {
+	if err := wsjson.Write(context.Background(), hc, Envelope{Type: msgEmoji, Data: mustJSON(CouchEmojiCommand{Emoji: "🎉"})}); err != nil {
 		t.Fatalf("emoji write: %v", err)
 	}
 	ge := waitForType(t, fc, msgEmoji)
-	var ed emojiData
+	var ed CouchEmoji
 	if err := json.Unmarshal(ge.Data, &ed); err != nil {
 		t.Fatalf("unmarshal emoji: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestWSPausedBroadcast(t *testing.T) {
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
-	rm, _, hostToken, _, _ := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t1"})
+	rm, _, hostToken, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
 	follower, followerToken, _, _ := h.join(rm, nil)
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/couch/" + rm.shareToken + "/ws"
 
@@ -140,12 +140,12 @@ func TestWSPausedBroadcast(t *testing.T) {
 	defer fc.Close(websocket.StatusNormalClosure, "")
 	waitForType(t, fc, msgHello)
 
-	if err := wsjson.Write(context.Background(), fc, Envelope{Type: msgPaused, Data: mustJSON(pausedCmd{Paused: true})}); err != nil {
+	if err := wsjson.Write(context.Background(), fc, Envelope{Type: msgPaused, Data: mustJSON(CouchPausedCommand{Paused: true})}); err != nil {
 		t.Fatalf("paused write: %v", err)
 	}
 
 	env := waitForType(t, hc, msgParticipants)
-	var pd participantsData
+	var pd CouchParticipants
 	if err := json.Unmarshal(env.Data, &pd); err != nil {
 		t.Fatalf("unmarshal participants: %v", err)
 	}

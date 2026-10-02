@@ -1,0 +1,6 @@
+{
+  "type": "host_away",
+  "data": {
+    "graceSeconds": 60
+  }
+}

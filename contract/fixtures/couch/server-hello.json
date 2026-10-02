@@ -1,0 +1,39 @@
+{
+  "type": "hello",
+  "data": {
+    "sessionId": "s-1",
+    "myParticipantId": "p-guest",
+    "role": "follower",
+    "state": {
+      "media": {
+        "kind": "movie",
+        "titleId": "00000000-0000-4000-8000-000000000101"
+      },
+      "playing": true,
+      "positionSeconds": 1834.5,
+      "serverTimestamp": 912345,
+      "seq": 42,
+      "away": false
+    },
+    "participants": [
+      {
+        "id": "p-host",
+        "displayName": "Nora",
+        "avatarId": "00000000-0000-4000-8000-000000000405",
+        "seed": "nora",
+        "isHost": true,
+        "isAnonymous": false,
+        "paused": false
+      },
+      {
+        "id": "p-guest",
+        "displayName": "Sleepy Otter",
+        "seed": "x7Qe2LmA",
+        "isHost": false,
+        "isAnonymous": true,
+        "paused": true
+      }
+    ],
+    "serverTime": 912400
+  }
+}

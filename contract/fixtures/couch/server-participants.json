@@ -1,0 +1,24 @@
+{
+  "type": "participants",
+  "data": {
+    "participants": [
+      {
+        "id": "p-host",
+        "displayName": "Nora",
+        "avatarId": "00000000-0000-4000-8000-000000000405",
+        "seed": "nora",
+        "isHost": true,
+        "isAnonymous": false,
+        "paused": false
+      },
+      {
+        "id": "p-guest",
+        "displayName": "Sleepy Otter",
+        "seed": "x7Qe2LmA",
+        "isHost": false,
+        "isAnonymous": true,
+        "paused": true
+      }
+    ]
+  }
+}

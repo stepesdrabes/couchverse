@@ -219,31 +219,11 @@ func (h *Hub) LivePresence() (sessions, viewers int) {
 // verbatim so all clients share one timeline and sidestep wall-clock skew.
 func (h *Hub) nowMs() int64 { return time.Since(h.epoch).Milliseconds() }
 
-// mediaRef identifies what the host is watching. An empty Kind means the host
-// is on the browse screen ("choosing what to watch").
-type mediaRef struct {
-	Kind      string `json:"kind" enum:",movie,episode" doc:"Empty while the host is choosing what to watch."`
-	TitleID   string `json:"titleId,omitempty"`
-	EpisodeID string `json:"episodeId,omitempty"`
-}
-
-func (m mediaRef) playbackID() string {
+func (m CouchMediaRef) playbackID() string {
 	if m.Kind == "episode" {
 		return m.EpisodeID
 	}
 	return m.TitleID
-}
-
-// hostState is the single authoritative play-state, set by the host and relayed
-// to followers. serverTimestamp/seq are stamped by the Hub so followers can
-// drop stale frames and extrapolate position without trusting client clocks.
-type hostState struct {
-	Media             mediaRef `json:"media"`
-	Playing           bool     `json:"playing"`
-	PositionSeconds   float64  `json:"positionSeconds"`
-	ServerTimestampMs int64    `json:"serverTimestamp" doc:"When the state was stamped, in milliseconds on the server's monotonic clock (the hello frame's serverTime)."`
-	Seq               uint64   `json:"seq" doc:"Increases with every state change; drop frames older than the last seen."`
-	Away              bool     `json:"away" doc:"The host lost its connection and the grace countdown is running."`
 }
 
 type room struct {
@@ -255,7 +235,7 @@ type room struct {
 	mu              sync.Mutex
 	live            bool
 	lastActive      time.Time
-	state           hostState
+	state           CouchHostState
 	titleID         string // series/movie title id of the current media (for watch-time)
 	partyMax        int    // most people connected at once (for the host's biggest-couch stat)
 	participants    map[string]*participant
@@ -291,7 +271,7 @@ func (rm *room) isHostParticipant(pid string) bool {
 // primary playable file plus its model-B audio siblings, so switching audio
 // language stays authorized) and the title id the media belongs to (for the
 // on-couch watch-time stat). Empty ref => empty set (host is choosing).
-func (h *Hub) resolveAllowed(ctx context.Context, ref mediaRef) (map[string]struct{}, string, error) {
+func (h *Hub) resolveAllowed(ctx context.Context, ref CouchMediaRef) (map[string]struct{}, string, error) {
 	set := map[string]struct{}{}
 	var (
 		primary *media.MediaFile
@@ -325,7 +305,7 @@ func (h *Hub) resolveAllowed(ctx context.Context, ref mediaRef) (map[string]stru
 // host's existing live session (a refresh / second tab reclaims, never spawns a
 // duplicate). DB resolution happens before the lock. created is false on a
 // reclaim, so the caller only counts genuinely new sessions.
-func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef) (rm *room, host *participant, token string, created bool, err error) {
+func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref CouchMediaRef) (rm *room, host *participant, token string, created bool, err error) {
 	allowed, titleID, err := h.resolveAllowed(ctx, ref)
 	if err != nil {
 		return nil, nil, "", false, err
@@ -357,7 +337,7 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref mediaRef
 		hostUserID:      user.ID,
 		live:            true,
 		lastActive:      time.Now(),
-		state:           hostState{Media: ref},
+		state:           CouchHostState{Media: ref},
 		titleID:         titleID,
 		participants:    map[string]*participant{host.ID: host},
 		conns:           map[*conn]struct{}{},
@@ -517,7 +497,7 @@ func (h *Hub) endRoomLocked(rm *room, reason string) {
 	}
 	rm.mu.Unlock()
 
-	frame := mustEnvelope(msgSessionEnded, sessionEndedData{Reason: reason})
+	frame := mustEnvelope(msgSessionEnded, CouchSessionEnded{Reason: reason})
 	for _, c := range conns {
 		c.enqueue(frame)
 		c.beginClose()
@@ -650,13 +630,13 @@ func (h *Hub) reapIdle() {
 // CouchSession is the session state returned by create/join. Participant
 // unexported fields are not serialized.
 type CouchSession struct {
-	SessionID       string        `json:"sessionId"`
-	ShareToken      string        `json:"shareToken" doc:"The share code others join with."`
-	MyParticipantID string        `json:"myParticipantId"`
-	Role            string        `json:"role" enum:"host,follower"`
-	IsAnonymous     bool          `json:"isAnonymous"`
-	State           hostState     `json:"state"`
-	Participants    []participant `json:"participants"`
+	SessionID       string             `json:"sessionId"`
+	ShareToken      string             `json:"shareToken" doc:"The share code others join with."`
+	MyParticipantID string             `json:"myParticipantId"`
+	Role            string             `json:"role" enum:"host,follower"`
+	IsAnonymous     bool               `json:"isAnonymous"`
+	State           CouchHostState     `json:"state"`
+	Participants    []CouchParticipant `json:"participants"`
 }
 
 // CouchInfo previews a session for the pre-join screen (no participant created).
@@ -677,7 +657,7 @@ type CouchInfoDisplay struct {
 	BackdropAccent string  `json:"backdropAccent"`
 }
 
-func (rm *room) infoPreview() (CouchInfo, mediaRef) {
+func (rm *room) infoPreview() (CouchInfo, CouchMediaRef) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 	ci := CouchInfo{
@@ -696,10 +676,7 @@ func (rm *room) infoPreview() (CouchInfo, mediaRef) {
 func (rm *room) snapshotFor(pid, role string) CouchSession {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	parts := make([]participant, 0, len(rm.participants))
-	for _, p := range rm.participants {
-		parts = append(parts, *p)
-	}
+	parts := rm.participantViewsLocked()
 	isAnon := false
 	if p := rm.participants[pid]; p != nil {
 		isAnon = p.IsAnonymous

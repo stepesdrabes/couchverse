@@ -1,0 +1,464 @@
+{
+  "$defs": {
+    "ClientFrame": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Host only: the host's play state.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchHostStateCommand"
+            },
+            "type": {
+              "const": "host_state"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Send a reaction.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchEmojiCommand"
+            },
+            "type": {
+              "const": "emoji"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Follower only: paused or resumed locally.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchPausedCommand"
+            },
+            "type": {
+              "const": "paused"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "CouchEmoji": {
+      "additionalProperties": false,
+      "properties": {
+        "emoji": {
+          "type": "string"
+        },
+        "fromParticipantId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fromParticipantId",
+        "emoji"
+      ],
+      "type": "object"
+    },
+    "CouchEmojiCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "emoji": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "emoji"
+      ],
+      "type": "object"
+    },
+    "CouchHello": {
+      "additionalProperties": false,
+      "properties": {
+        "myParticipantId": {
+          "type": "string"
+        },
+        "participants": {
+          "items": {
+            "$ref": "#/$defs/CouchParticipant"
+          },
+          "type": "array"
+        },
+        "role": {
+          "enum": [
+            "host",
+            "follower"
+          ],
+          "type": "string"
+        },
+        "serverTime": {
+          "description": "The server's monotonic clock in milliseconds when the snapshot was taken.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/CouchHostState"
+        }
+      },
+      "required": [
+        "sessionId",
+        "myParticipantId",
+        "role",
+        "state",
+        "participants",
+        "serverTime"
+      ],
+      "type": "object"
+    },
+    "CouchHostAway": {
+      "additionalProperties": false,
+      "properties": {
+        "graceSeconds": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "graceSeconds"
+      ],
+      "type": "object"
+    },
+    "CouchHostState": {
+      "additionalProperties": false,
+      "properties": {
+        "away": {
+          "description": "The host lost its connection and the grace countdown is running.",
+          "type": "boolean"
+        },
+        "media": {
+          "$ref": "#/$defs/CouchMediaRef"
+        },
+        "playing": {
+          "type": "boolean"
+        },
+        "positionSeconds": {
+          "format": "double",
+          "type": "number"
+        },
+        "seq": {
+          "description": "Increases with every state change; drop frames older than the last seen.",
+          "format": "int64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "serverTimestamp": {
+          "description": "When the state was stamped, in milliseconds on the server's monotonic clock (the hello frame's serverTime).",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "media",
+        "playing",
+        "positionSeconds",
+        "serverTimestamp",
+        "seq",
+        "away"
+      ],
+      "type": "object"
+    },
+    "CouchHostStateCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "media": {
+          "$ref": "#/$defs/CouchMediaRef"
+        },
+        "playing": {
+          "type": "boolean"
+        },
+        "positionSeconds": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "media",
+        "playing",
+        "positionSeconds"
+      ],
+      "type": "object"
+    },
+    "CouchMediaChanged": {
+      "additionalProperties": false,
+      "properties": {
+        "media": {
+          "$ref": "#/$defs/CouchMediaRef"
+        },
+        "seq": {
+          "format": "int64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "media",
+        "seq"
+      ],
+      "type": "object"
+    },
+    "CouchMediaRef": {
+      "additionalProperties": false,
+      "properties": {
+        "episodeId": {
+          "type": "string"
+        },
+        "kind": {
+          "description": "Empty while the host is choosing what to watch.",
+          "enum": [
+            "",
+            "movie",
+            "episode"
+          ],
+          "type": "string"
+        },
+        "titleId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "CouchParticipant": {
+      "additionalProperties": false,
+      "properties": {
+        "avatarId": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isAnonymous": {
+          "type": "boolean"
+        },
+        "isHost": {
+          "type": "boolean"
+        },
+        "paused": {
+          "description": "A follower paused their own playback locally.",
+          "type": "boolean"
+        },
+        "seed": {
+          "description": "Identicon seed: the username, or a random seed for an anonymous viewer.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "isHost",
+        "isAnonymous",
+        "paused"
+      ],
+      "type": "object"
+    },
+    "CouchParticipants": {
+      "additionalProperties": false,
+      "properties": {
+        "participants": {
+          "items": {
+            "$ref": "#/$defs/CouchParticipant"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "participants"
+      ],
+      "type": "object"
+    },
+    "CouchPausedCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "paused": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "paused"
+      ],
+      "type": "object"
+    },
+    "CouchSessionEnded": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "enum": [
+            "host_ended",
+            "host_left",
+            "host_timeout",
+            "idle",
+            "server_shutdown"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "type": "object"
+    },
+    "ServerFrame": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Full snapshot, sent once on connect.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchHello"
+            },
+            "type": {
+              "const": "hello"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The authoritative play state, stamped by the server.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchHostState"
+            },
+            "type": {
+              "const": "host_state"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Membership or a follower's local pause changed.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchParticipants"
+            },
+            "type": {
+              "const": "participants"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The host switched title or episode; followers fetch their playback payload again.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchMediaChanged"
+            },
+            "type": {
+              "const": "media_changed"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The host lost every connection; the grace countdown started.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchHostAway"
+            },
+            "type": {
+              "const": "host_away"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The host reconnected within the grace period.",
+          "properties": {
+            "type": {
+              "const": "host_returned"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A relayed reaction.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchEmoji"
+            },
+            "type": {
+              "const": "emoji"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Terminal: the session is over and the socket closes.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchSessionEnded"
+            },
+            "type": {
+              "const": "session_ended"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Frames on the couch WebSocket (GET /api/v1/couch/{token}/ws). Every frame is {\"type\", \"data\"}; ServerFrame lists what the server sends and ClientFrame what clients send.",
+  "title": "Couchverse couch protocol"
+}

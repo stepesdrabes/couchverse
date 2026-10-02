@@ -58,7 +58,7 @@ func TestAllowsScopedToCurrentMedia(t *testing.T) {
 	}}
 	h := newTestHub(t, fm)
 
-	rm, _, token, created, err := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t1"})
+	rm, _, token, created, err := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestAllowsScopedToCurrentMedia(t *testing.T) {
 	}
 
 	// reclaim (refresh/second tab) with new media moves the allowance
-	_, _, token2, reclaimed, err := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t2"})
+	_, _, token2, reclaimed, err := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t2"})
 	if err != nil {
 		t.Fatalf("reclaim: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestAllowsScopedToCurrentMedia(t *testing.T) {
 func TestJoinFollowerAndLeave(t *testing.T) {
 	fm := &fakeMedia{files: map[string]*media.MediaFile{"title:t1": {ID: "mf1", TitleID: ptr("t1")}}}
 	h := newTestHub(t, fm)
-	rm, _, _, _, _ := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t1"})
+	rm, _, _, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
 
 	p, ftoken, role, err := h.join(rm, nil) // anonymous
 	if err != nil {
@@ -125,7 +125,7 @@ func TestParticipantCap(t *testing.T) {
 	fm := &fakeMedia{files: map[string]*media.MediaFile{"title:t1": {ID: "mf1", TitleID: ptr("t1")}}}
 	h := newTestHub(t, fm)
 	h.maxParticipants = 3 // host + 2 followers
-	rm, _, _, _, _ := h.createOrReclaim(context.Background(), host(1), mediaRef{Kind: "movie", TitleID: "t1"})
+	rm, _, _, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
 
 	for i := 0; i < 2; i++ {
 		if _, _, _, err := h.join(rm, nil); err != nil {

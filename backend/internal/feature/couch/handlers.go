@@ -47,7 +47,7 @@ type couchSessionOutput struct {
 // movie/episode and sets the host's couch cookie.
 func (h *Handlers) Create(ctx context.Context, in *createCouchInput) (*couchSessionOutput, error) {
 	user := auth.UserFrom(ctx)
-	ref := mediaRef{Kind: in.Body.Kind}
+	ref := CouchMediaRef{Kind: in.Body.Kind}
 	if ref.Kind == "movie" {
 		ref.TitleID = in.Body.ID
 	} else {
@@ -173,7 +173,7 @@ func (h *Handlers) End(_ context.Context, in *participantInput) (*clearCookieOut
 
 // CouchPlayback is a follower's player for the session's current media.
 type CouchPlayback struct {
-	Media  mediaRef               `json:"media"`
+	Media  CouchMediaRef          `json:"media"`
 	Player *playback.PlaybackInfo `json:"player,omitempty" doc:"Absent while the host is choosing what to watch."`
 }
 
