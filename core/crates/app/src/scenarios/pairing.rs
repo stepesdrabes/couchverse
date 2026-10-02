@@ -191,6 +191,19 @@ fn a_phone_approves_a_pairing_from_a_scanned_link() {
 }
 
 #[test]
+fn a_phone_approves_the_code_it_scanned_from_a_tvs_qr() {
+    let mut shell = approving_phone();
+    // the TV's QR code is the server's web pairing page, scanned by the app instead
+    shell.send(Event::LinkOpened(Link { url: format!("{HTTPS}/pair?code=WDJB-MJHT") }));
+    let url = format!("{HTTPS}/api/v1/me/pairings/WDJB-MJHT");
+    let (_, get) = shell.request("GET", &url);
+    assert_eq!(header(&get, "Authorization"), Some("Bearer tok-1"));
+    let view: PairingApprovalView = shell.view(&Surface::PairingApproval);
+    assert_eq!(view.status, LoadStatus::Loading);
+    assert_eq!(view.code, "WDJB-MJHT");
+}
+
+#[test]
 fn a_phone_denies_a_pairing_and_unknown_codes_are_not_found() {
     let mut shell = approving_phone();
     shell.send(Event::PairingApprovalOpened(UserCode { code: "ZZZZ-ZZZZ".into() }));

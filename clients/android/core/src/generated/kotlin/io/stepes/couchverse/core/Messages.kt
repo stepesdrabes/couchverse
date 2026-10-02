@@ -983,7 +983,8 @@ data class LeaderboardView (
 
 @Serializable
 data class Link (
-	/// A `couchverse://` URL from a QR code or a tapped link.
+	/// A `couchverse://` URL from a QR code or a tapped link, or the pairing page a TV shows as
+	/// a QR code (`<server>/pair?code=<code>`) scanned by the app.
 	val url: String
 )
 

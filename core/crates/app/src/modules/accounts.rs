@@ -63,7 +63,8 @@ pub struct PasswordSignIn {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Link {
-    /// A `couchverse://` URL from a QR code or a tapped link.
+    /// A `couchverse://` URL from a QR code or a tapped link, or the pairing page a TV shows as
+    /// a QR code (`<server>/pair?code=<code>`) scanned by the app.
     pub url: String,
 }
 
@@ -938,22 +939,36 @@ enum ParsedLink {
     Pair { code: String },
 }
 
-/// `couchverse://connect?server=<url>&code=<code>` and `couchverse://pair?code=<code>`.
+/// `couchverse://connect?server=<url>&code=<code>`, `couchverse://pair?code=<code>`, and a
+/// server's pairing page (`<server>/pair?code=<code>`): the QR code a TV shows opens the web app
+/// in a phone's camera, but the app's own scanner approves the code in place.
 fn parse_link(url: &str) -> Option<ParsedLink> {
-    let rest = url.strip_prefix("couchverse://")?;
-    let (path, query) = rest.split_once('?').unwrap_or((rest, ""));
-    let param = |name: &str| {
-        query
-            .split('&')
-            .filter_map(|pair| pair.split_once('='))
-            .find(|(k, _)| *k == name)
-            .map(|(_, v)| percent_decode(v))
-    };
-    match path.trim_end_matches('/') {
-        "connect" => Some(ParsedLink::Connect { server: param("server")?, code: param("code")? }),
-        "pair" => Some(ParsedLink::Pair { code: param("code")? }),
-        _ => None,
+    if let Some(rest) = url.strip_prefix("couchverse://") {
+        let (path, query) = rest.split_once('?').unwrap_or((rest, ""));
+        return match path.trim_end_matches('/') {
+            "connect" => Some(ParsedLink::Connect {
+                server: query_param(query, "server")?,
+                code: query_param(query, "code")?,
+            }),
+            "pair" => Some(ParsedLink::Pair { code: query_param(query, "code")? }),
+            _ => None,
+        };
     }
+    let rest = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://"))?;
+    let (location, query) = rest.split_once('?').unwrap_or((rest, ""));
+    let path = location.split_once('/').map_or("", |(_, path)| path);
+    if path.trim_end_matches('/') != "pair" {
+        return None;
+    }
+    Some(ParsedLink::Pair { code: query_param(query, "code")? })
+}
+
+fn query_param(query: &str, name: &str) -> Option<String> {
+    query
+        .split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .find(|(k, _)| *k == name)
+        .map(|(_, v)| percent_decode(v))
 }
 
 fn percent_decode(s: &str) -> String {
@@ -996,6 +1011,21 @@ mod tests {
             parse_link("couchverse://pair?code=WDJB-MJHT"),
             Some(ParsedLink::Pair { code: "WDJB-MJHT".into() })
         );
+    }
+
+    #[test]
+    fn a_servers_pairing_page_is_a_pair_link() {
+        assert_eq!(
+            parse_link("http://192.168.1.5:8080/pair?code=WDJB-MJHT"),
+            Some(ParsedLink::Pair { code: "WDJB-MJHT".into() })
+        );
+        assert_eq!(
+            parse_link("https://media.example.com/pair/?code=wdjb-mjht"),
+            Some(ParsedLink::Pair { code: "wdjb-mjht".into() })
+        );
+        assert_eq!(parse_link("https://media.example.com/pair"), None);
+        assert_eq!(parse_link("https://media.example.com/watch?code=WDJB-MJHT"), None);
+        assert_eq!(parse_link("https://media.example.com?code=WDJB-MJHT"), None);
     }
 
     #[test]
