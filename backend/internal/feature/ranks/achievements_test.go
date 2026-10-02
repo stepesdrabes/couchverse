@@ -11,8 +11,8 @@ func allOn() flags.Flags {
 	return flags.Flags{CouchEnabled: true, RankingsEnabled: true}
 }
 
-func byCode(list []Unlock) map[string]Unlock {
-	out := make(map[string]Unlock, len(list))
+func byCode(list []AchievementProgress) map[string]AchievementProgress {
+	out := make(map[string]AchievementProgress, len(list))
 	for _, u := range list {
 		out[u.Code] = u
 	}

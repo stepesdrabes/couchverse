@@ -8,7 +8,7 @@ import (
 // caller can be told their own score while staying off the public board.
 type Member struct {
 	ID     int64
-	Ref    UserRef
+	Ref    ProfileUser
 	Public bool
 }
 
@@ -39,7 +39,7 @@ func (s *Store) Members(ctx context.Context) ([]Member, error) {
 // needs an all-time tier badge whatever the selected metric is, so this runs
 // four grouped queries regardless of user count rather than a full Snapshot per
 // member.
-func (s *Store) XPRowsAll(ctx context.Context, cfg Config) (map[int64]XPInputs, error) {
+func (s *Store) XPRowsAll(ctx context.Context, cfg RankConfig) (map[int64]XPInputs, error) {
 	out := map[int64]XPInputs{}
 
 	watched, err := s.WatchSeconds(ctx, 0)

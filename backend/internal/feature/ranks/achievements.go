@@ -123,18 +123,18 @@ var Achievements = []Achievement{
 	{"achievements_20", CatMeta, Platinum, 20, "", func(s Snapshot) int64 { return s.AchievementsUnlocked }},
 }
 
-// Unlock is one achievement scored against a snapshot, including locked progress
-// so the UI can draw a progress ring on what is not earned yet.
-type Unlock struct {
-	Code       string     `json:"code"`
-	Category   string     `json:"category"`
-	Tier       string     `json:"tier"`
-	XP         int64      `json:"xp"`
+// AchievementProgress is one achievement scored against a snapshot, including
+// locked progress so the UI can draw a progress ring on what is not earned yet.
+type AchievementProgress struct {
+	Code       string     `json:"code" doc:"Stable achievement code (the catalogue only grows)."`
+	Category   string     `json:"category" enum:"watching,streaks,explorer,couch,meta"`
+	Tier       string     `json:"tier" enum:"bronze,silver,gold,platinum"`
+	XP         int64      `json:"xp" doc:"XP the badge awards."`
 	Target     int64      `json:"target"`
-	Value      int64      `json:"value"`
-	Percent    int        `json:"percent"`
+	Value      int64      `json:"value" doc:"Progress towards target, capped at it."`
+	Percent    int        `json:"percent" minimum:"0" maximum:"100"`
 	Unlocked   bool       `json:"unlocked"`
-	UnlockedAt *time.Time `json:"unlockedAt"`
+	UnlockedAt *time.Time `json:"unlockedAt" doc:"When a check first recorded the unlock; null until then."`
 }
 
 // visible reports whether a rule's feature gate is satisfied.
@@ -147,12 +147,12 @@ func (a Achievement) visible(f flags.Flags) bool {
 	}
 }
 
-func (a Achievement) score(s Snapshot, unlockedAt map[string]time.Time, cfg Config) Unlock {
+func (a Achievement) score(s Snapshot, unlockedAt map[string]time.Time, cfg RankConfig) AchievementProgress {
 	v := a.Value(s)
 	if v < 0 {
 		v = 0
 	}
-	u := Unlock{
+	u := AchievementProgress{
 		Code:     a.Code,
 		Category: string(a.Category),
 		Tier:     string(a.Tier),
@@ -173,8 +173,8 @@ func (a Achievement) score(s Snapshot, unlockedAt map[string]time.Time, cfg Conf
 // so that the badge which unlocks your tenth badge unlocks in the same call:
 // non-meta rules score first, their unlocked count feeds the snapshot, then the
 // meta rules score. Pure, so the whole catalogue is testable without a database.
-func Evaluate(s Snapshot, unlockedAt map[string]time.Time, f flags.Flags, cfg Config) []Unlock {
-	out := make([]Unlock, 0, len(Achievements))
+func Evaluate(s Snapshot, unlockedAt map[string]time.Time, f flags.Flags, cfg RankConfig) []AchievementProgress {
+	out := make([]AchievementProgress, 0, len(Achievements))
 	var earned int64
 	for _, a := range Achievements {
 		if a.Category == CatMeta || !a.visible(f) {
@@ -199,7 +199,7 @@ func Evaluate(s Snapshot, unlockedAt map[string]time.Time, f flags.Flags, cfg Co
 
 // AchievementXPFor sums the reward of the codes a user has already unlocked.
 // Flags are not consulted: disabling couch must never demote anyone.
-func AchievementXPFor(codes []string, cfg Config) (count, xp int64) {
+func AchievementXPFor(codes []string, cfg RankConfig) (count, xp int64) {
 	byCode := make(map[string]AchTier, len(Achievements))
 	for _, a := range Achievements {
 		byCode[a.Code] = a.Tier

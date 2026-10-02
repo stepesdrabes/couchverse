@@ -21,9 +21,9 @@ type XPInputs struct {
 // 2 XP each"). Key is a translation key, never a display string; Rate is 0 for
 // achievements because theirs varies by tier.
 type XPSource struct {
-	Key   string `json:"key"`
+	Key   string `json:"key" enum:"video,movies,episodes,couchHosted,couchJoined,achievements"`
 	Units int64  `json:"units"`
-	Rate  int64  `json:"rate"`
+	Rate  int64  `json:"rate" doc:"XP per unit; 0 for achievements, whose reward varies by tier."`
 	XP    int64  `json:"xp"`
 }
 
@@ -35,7 +35,7 @@ type XPResult struct {
 // ComputeXP turns the inputs into a total plus the breakdown behind it. Sources
 // with no XP are dropped so the profile never renders an empty row, and the
 // total is always the sum of what is returned.
-func ComputeXP(in XPInputs, cfg Config) XPResult {
+func ComputeXP(in XPInputs, cfg RankConfig) XPResult {
 	out := XPResult{Sources: []XPSource{}}
 	add := func(key string, units, rate int64) {
 		xp := units * rate

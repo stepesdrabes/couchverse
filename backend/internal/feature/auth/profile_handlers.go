@@ -1,9 +1,11 @@
 package auth
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
 	"strconv"
+
+	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/httpx"
@@ -18,156 +20,130 @@ func NewProfile(st *Store, art *artwork.Service) *Profile {
 	return &Profile{store: st, artwork: art}
 }
 
-// MaxBioLength bounds the public-profile bio. Markdown is stored as authored and
-// rendered client-side with raw HTML disabled.
-const MaxBioLength = 2000
-
-// Update lets users change their own display name and bio. Bio is a pointer so
-// clearing it ("") is distinguishable from not touching it.
-func (h *Profile) Update(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		DisplayName string  `json:"displayName"`
-		Bio         *string `json:"bio"`
-	}
-	if err := httpx.Decode(r, &req); err != nil || req.DisplayName == "" {
-		httpx.BadRequest(w, "displayName is required")
-		return
-	}
-	if req.Bio != nil && len(*req.Bio) > MaxBioLength {
-		httpx.BadRequest(w, "bio is too long")
-		return
-	}
-	user, err := h.store.UpdateUser(r.Context(), UserFrom(r.Context()).ID,
-		UserUpdate{DisplayName: &req.DisplayName, Bio: req.Bio})
-	if err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusOK, user)
+// ProfileUpdate is what users may change about themselves. Bio is a pointer so
+// clearing it ("") is distinguishable from not touching it; it is markdown,
+// stored as authored and rendered client-side with raw HTML disabled.
+type ProfileUpdate struct {
+	DisplayName string  `json:"displayName" minLength:"1"`
+	Bio         *string `json:"bio" required:"false" maxLength:"2000" doc:"Markdown; absent keeps the current bio."`
 }
+
+type updateProfileInput struct{ Body ProfileUpdate }
+
+func (h *Profile) Update(ctx context.Context, in *updateProfileInput) (*userOutput, error) {
+	user, err := h.store.UpdateUser(ctx, UserFrom(ctx).ID,
+		UserUpdate{DisplayName: &in.Body.DisplayName, Bio: in.Body.Bio})
+	if err != nil {
+		return nil, err
+	}
+	return &userOutput{Body: user}, nil
+}
+
+type PasswordChange struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword" minLength:"8"`
+}
+
+type changePasswordInput struct{ Body PasswordChange }
 
 // ChangePassword lets a signed-in user set a new password after re-entering the
 // current one. The session is kept (no forced re-login).
-func (h *Profile) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		CurrentPassword string `json:"currentPassword"`
-		NewPassword     string `json:"newPassword"`
-	}
-	if err := httpx.Decode(r, &req); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	if len(req.NewPassword) < 8 {
-		httpx.BadRequest(w, "password must be at least 8 characters")
-		return
-	}
-	self := UserFrom(r.Context())
-	ok, err := VerifyPassword(req.CurrentPassword, self.PasswordHash)
+func (h *Profile) ChangePassword(ctx context.Context, in *changePasswordInput) (*struct{}, error) {
+	self := UserFrom(ctx)
+	ok, err := VerifyPassword(in.Body.CurrentPassword, self.PasswordHash)
 	if err != nil || !ok {
-		httpx.Error(w, http.StatusBadRequest, "invalid_password", "current password is incorrect")
-		return
+		return nil, httpx.Fail(http.StatusBadRequest, "invalid_password", "current password is incorrect")
 	}
-	hash, err := HashPassword(req.NewPassword)
+	hash, err := HashPassword(in.Body.NewPassword)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	if _, err := h.store.UpdateUser(r.Context(), self.ID, UserUpdate{PasswordHash: &hash}); err != nil {
-		httpx.StoreErr(w, err)
-		return
+	if _, err := h.store.UpdateUser(ctx, self.ID, UserUpdate{PasswordHash: &hash}); err != nil {
+		return nil, err
 	}
-	w.WriteHeader(http.StatusNoContent)
+	return nil, nil
 }
 
-// Preferences returns the caller's settings blob (subtitle styling, etc.).
-func (h *Profile) Preferences(w http.ResponseWriter, r *http.Request) {
-	prefs, err := h.store.UserPreferences(r.Context(), UserFrom(r.Context()).ID)
+type preferencesOutput struct{ Body *Preferences }
+
+// Preferences returns the caller's client settings (subtitle styling, etc.).
+func (h *Profile) Preferences(ctx context.Context, _ *struct{}) (*preferencesOutput, error) {
+	prefs, err := h.store.UserPreferences(ctx, UserFrom(ctx).ID)
 	if err != nil {
-		httpx.StoreErr(w, err)
-		return
+		return nil, err
 	}
-	if prefs == nil {
-		prefs = json.RawMessage("{}")
-	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_, _ = w.Write(prefs)
+	return &preferencesOutput{Body: prefs}, nil
 }
 
-// UpdatePreferences shallow-merges the posted top-level keys.
-func (h *Profile) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
-	var patch map[string]json.RawMessage
-	if err := httpx.Decode(r, &patch); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	prefs, err := h.store.MergeUserPreferences(r.Context(), UserFrom(r.Context()).ID, patch)
-	if err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_, _ = w.Write(prefs)
+type updatePreferencesInput struct {
+	// Body is a patch: absent keys keep their stored value.
+	Body Preferences
 }
 
-// SetAvatar accepts a multipart image and stores it as the user's avatar.
-func (h *Profile) SetAvatar(w http.ResponseWriter, r *http.Request) {
-	h.setImage(w, r, "avatar")
+// UpdatePreferences merges the posted keys and returns the result.
+func (h *Profile) UpdatePreferences(ctx context.Context, in *updatePreferencesInput) (*preferencesOutput, error) {
+	prefs, err := h.store.MergeUserPreferences(ctx, UserFrom(ctx).ID, in.Body)
+	if err != nil {
+		return nil, err
+	}
+	return &preferencesOutput{Body: prefs}, nil
+}
+
+type imageForm struct {
+	File huma.FormFile `form:"file" required:"true" doc:"JPEG, PNG or WebP image, typed by its file name extension."`
+}
+
+type imageUploadInput struct {
+	RawBody huma.MultipartFormFiles[imageForm]
+}
+
+// SetAvatar stores an uploaded image as the user's avatar.
+func (h *Profile) SetAvatar(ctx context.Context, in *imageUploadInput) (*userOutput, error) {
+	return h.setImage(ctx, in, "avatar")
 }
 
 // DeleteAvatar removes the user's profile picture.
-func (h *Profile) DeleteAvatar(w http.ResponseWriter, r *http.Request) {
-	h.deleteImage(w, r, func(u *User) *string { return u.AvatarID })
+func (h *Profile) DeleteAvatar(ctx context.Context, _ *struct{}) (*userOutput, error) {
+	return h.deleteImage(ctx, UserFrom(ctx).AvatarID)
 }
 
-// SetBanner accepts a multipart image and stores it as the profile banner. It is
-// an ordinary artwork row, so it gets the same resizing, caching and accent
-// extraction as posters do - the profile hero is tinted from it.
-func (h *Profile) SetBanner(w http.ResponseWriter, r *http.Request) {
-	h.setImage(w, r, "banner")
+// SetBanner stores an uploaded image as the profile banner. It is an ordinary
+// artwork row, so it gets the same resizing, caching and accent extraction as
+// posters do - the profile hero is tinted from it.
+func (h *Profile) SetBanner(ctx context.Context, in *imageUploadInput) (*userOutput, error) {
+	return h.setImage(ctx, in, "banner")
 }
 
 // DeleteBanner removes the profile banner.
-func (h *Profile) DeleteBanner(w http.ResponseWriter, r *http.Request) {
-	h.deleteImage(w, r, func(u *User) *string { return u.BannerID })
+func (h *Profile) DeleteBanner(ctx context.Context, _ *struct{}) (*userOutput, error) {
+	return h.deleteImage(ctx, UserFrom(ctx).BannerID)
 }
 
-func (h *Profile) setImage(w http.ResponseWriter, r *http.Request, kind string) {
-	self := UserFrom(r.Context())
-	if err := r.ParseMultipartForm(16 << 20); err != nil {
-		httpx.BadRequest(w, "invalid multipart form")
-		return
-	}
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		httpx.BadRequest(w, "file field is required")
-		return
-	}
+func (h *Profile) setImage(ctx context.Context, in *imageUploadInput, kind string) (*userOutput, error) {
+	self := UserFrom(ctx)
+	file := in.RawBody.Data().File
 	defer file.Close()
 
 	owner := strconv.FormatInt(self.ID, 10)
-	if _, err := h.artwork.Save(r.Context(), "user", owner, kind, header.Filename, file); err != nil {
-		httpx.Error(w, http.StatusBadRequest, kind+"_failed", err.Error())
-		return
+	if _, err := h.artwork.Save(ctx, "user", owner, kind, file.Filename, file); err != nil {
+		return nil, httpx.Fail(http.StatusBadRequest, kind+"_failed", err.Error())
 	}
-	h.respondSelf(w, r, self.ID)
+	return h.reload(ctx, self.ID)
 }
 
-func (h *Profile) deleteImage(w http.ResponseWriter, r *http.Request, pick func(*User) *string) {
-	self := UserFrom(r.Context())
-	if id := pick(self); id != nil {
-		if err := h.artwork.Delete(r.Context(), *id); err != nil {
-			httpx.StoreErr(w, err)
-			return
+func (h *Profile) deleteImage(ctx context.Context, id *string) (*userOutput, error) {
+	if id != nil {
+		if err := h.artwork.Delete(ctx, *id); err != nil {
+			return nil, err
 		}
 	}
-	h.respondSelf(w, r, self.ID)
+	return h.reload(ctx, UserFrom(ctx).ID)
 }
 
-func (h *Profile) respondSelf(w http.ResponseWriter, r *http.Request, id int64) {
-	user, err := h.store.UserByID(r.Context(), id)
+func (h *Profile) reload(ctx context.Context, id int64) (*userOutput, error) {
+	user, err := h.store.UserByID(ctx, id)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, user)
+	return &userOutput{Body: user}, nil
 }

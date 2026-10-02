@@ -1,9 +1,12 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
+
+	"github.com/danielgtaylor/huma/v2"
 
 	"couchverse/internal/config"
 	"couchverse/internal/httpx"
@@ -26,29 +29,41 @@ func NewHandlers(st *Store, cfg config.Config) *Handlers {
 // dummyHash keeps login timing constant when the username does not exist.
 var dummyHash, _ = HashPassword("dummy-password-for-constant-timing")
 
-func (a *Handlers) Login(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
-	if err := httpx.Decode(r, &req); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	if req.Username == "" || req.Password == "" {
-		httpx.BadRequest(w, "username and password are required")
-		return
-	}
+type Credentials struct {
+	Username string `json:"username" minLength:"1"`
+	Password string `json:"password" minLength:"1"`
+}
+
+type loginInput struct {
+	Body Credentials
+
+	remoteAddr string
+	userAgent  string
+}
+
+// Resolve captures the caller for throttling and the session row; neither is
+// an API parameter.
+func (in *loginInput) Resolve(ctx huma.Context) []error {
 	// RemoteAddr is the bare client IP (server.clientIP resolves trusted proxies)
-	if !a.limiter.allow(r.RemoteAddr + "|" + req.Username) {
-		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many attempts, try again in a minute")
-		return
+	in.remoteAddr = ctx.RemoteAddr()
+	in.userAgent = ctx.Header("User-Agent")
+	return nil
+}
+
+type loginOutput struct {
+	SetCookie http.Cookie `header:"Set-Cookie"`
+	Body      *User
+}
+
+func (a *Handlers) Login(ctx context.Context, in *loginInput) (*loginOutput, error) {
+	req := in.Body
+	if !a.limiter.allow(in.remoteAddr + "|" + req.Username) {
+		return nil, httpx.Fail(http.StatusTooManyRequests, "rate_limited", "too many attempts, try again in a minute")
 	}
 
-	user, err := a.store.UserByUsername(r.Context(), req.Username)
+	user, err := a.store.UserByUsername(ctx, req.Username)
 	if err != nil && !errors.Is(err, httpx.ErrNotFound) {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
 
 	hash := dummyHash
@@ -57,40 +72,43 @@ func (a *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	ok, err := VerifyPassword(req.Password, hash)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
 	if !ok || user == nil || user.Disabled {
-		httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "invalid username or password")
-		return
+		return nil, httpx.Fail(http.StatusUnauthorized, "invalid_credentials", "invalid username or password")
 	}
 
 	token, tokenHash, err := NewToken()
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
 	expires := time.Now().Add(SessionTTL)
-	if err := a.store.CreateSession(r.Context(), tokenHash, user.ID, expires, r.UserAgent()); err != nil {
-		httpx.Internal(w, err)
-		return
+	if err := a.store.CreateSession(ctx, tokenHash, user.ID, expires, in.userAgent); err != nil {
+		return nil, err
 	}
 
-	SetSessionCookie(w, token, a.cfg.CookieSecure)
-	httpx.JSON(w, http.StatusOK, user)
+	return &loginOutput{SetCookie: sessionCookie(token, a.cfg.CookieSecure), Body: user}, nil
 }
 
-func (a *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie(SessionCookie); err == nil && cookie.Value != "" {
-		if err := a.store.DeleteSession(r.Context(), HashToken(cookie.Value)); err != nil && !errors.Is(err, httpx.ErrNotFound) {
-			httpx.Internal(w, err)
-			return
+type logoutInput struct {
+	Session string `cookie:"couchverse_session"` // SessionCookie; tags cannot name a constant
+}
+
+type logoutOutput struct {
+	SetCookie http.Cookie `header:"Set-Cookie"`
+}
+
+func (a *Handlers) Logout(ctx context.Context, in *logoutInput) (*logoutOutput, error) {
+	if in.Session != "" {
+		if err := a.store.DeleteSession(ctx, HashToken(in.Session)); err != nil && !errors.Is(err, httpx.ErrNotFound) {
+			return nil, err
 		}
 	}
-	ClearSessionCookie(w, a.cfg.CookieSecure)
-	httpx.JSON(w, http.StatusNoContent, nil)
+	return &logoutOutput{SetCookie: clearedSessionCookie(a.cfg.CookieSecure)}, nil
 }
 
-func (a *Handlers) Me(w http.ResponseWriter, r *http.Request) {
-	httpx.JSON(w, http.StatusOK, UserFrom(r.Context()))
+type userOutput struct{ Body *User }
+
+func (a *Handlers) Me(ctx context.Context, _ *struct{}) (*userOutput, error) {
+	return &userOutput{Body: UserFrom(ctx)}, nil
 }

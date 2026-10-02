@@ -16,23 +16,23 @@ import (
 // is a clean 53 x 7 with no ragged first column.
 const activityDays = 371
 
-// UserRef is the identity half of a profile, shared by the profile payload and
-// the leaderboard rows. BannerAccent is the colour extracted from the banner when
-// it was uploaded, so the hero can tint itself without a second request.
-type UserRef struct {
+// ProfileUser is the identity half of a profile, shared by the profile payload
+// and the leaderboard rows. BannerAccent is the colour extracted from the banner
+// when it was uploaded, so the hero can tint itself without a second request.
+type ProfileUser struct {
 	Username     string    `json:"username"`
 	DisplayName  string    `json:"displayName"`
 	AvatarID     *string   `json:"avatarId"`
 	BannerID     *string   `json:"bannerId"`
-	BannerAccent string    `json:"bannerAccent"`
-	Bio          string    `json:"bio"`
+	BannerAccent string    `json:"bannerAccent" doc:"Hex colour extracted from the banner; empty when there is none."`
+	Bio          string    `json:"bio" doc:"Markdown, rendered with raw HTML disabled."`
 	MemberSince  time.Time `json:"memberSince"`
 }
 
 // Target is a resolved profile subject plus whether they consent to being seen.
 type Target struct {
 	ID     int64
-	Ref    UserRef
+	Ref    ProfileUser
 	Public bool
 }
 
@@ -64,17 +64,17 @@ func (s *Store) TargetByID(ctx context.Context, id int64) (Target, error) {
 	return scanTarget(s.db.QueryRow(ctx, targetSelect+`u.id = $1`, id))
 }
 
-type TopTitle struct {
+type ProfileTopTitle struct {
 	Slug     string  `json:"slug"`
 	Name     string  `json:"name"`
-	Kind     string  `json:"kind"`
+	Kind     string  `json:"kind" enum:"movie,series"`
 	PosterID *string `json:"posterId"`
 	Seconds  int64   `json:"seconds"`
 }
 
 // TopTitles are the titles this user has spent the most time on. Names are
 // localized through catalog so the profile reads in the visitor's language.
-func (s *Store) TopTitles(ctx context.Context, userID int64, limit int) ([]TopTitle, error) {
+func (s *Store) TopTitles(ctx context.Context, userID int64, limit int) ([]ProfileTopTitle, error) {
 	rows, err := s.db.Query(ctx,
 		`SELECT t.slug, t.name, t.kind, t.translations, po.id, sum(w.seconds)::bigint AS secs
 		 FROM watch_time_daily w
@@ -86,9 +86,9 @@ func (s *Store) TopTitles(ctx context.Context, userID int64, limit int) ([]TopTi
 		return nil, err
 	}
 	defer rows.Close()
-	out := []TopTitle{}
+	out := []ProfileTopTitle{}
 	for rows.Next() {
-		var t TopTitle
+		var t ProfileTopTitle
 		var translations []byte
 		if err := rows.Scan(&t.Slug, &t.Name, &t.Kind, &translations, &t.PosterID, &t.Seconds); err != nil {
 			return nil, err
@@ -118,14 +118,15 @@ func (s *Store) FavouriteGenre(ctx context.Context, userID int64) (string, error
 	return catalog.GenreLabel(name, httpx.LangFrom(ctx)), nil
 }
 
-// Activity is the calendar heatmap: a dense run of daily seconds ending today.
-type Activity struct {
-	From string  `json:"from"` // YYYY-MM-DD of days[0]
-	Days []int64 `json:"days"`
+// ProfileActivity is the calendar heatmap: a dense run of daily seconds ending
+// today.
+type ProfileActivity struct {
+	From string  `json:"from" format:"date" doc:"Day of days[0]."`
+	Days []int64 `json:"days" doc:"Watch seconds per day, oldest first, ending today."`
 }
 
-func (s *Store) Activity(ctx context.Context, userID int64) (Activity, error) {
-	out := Activity{Days: make([]int64, 0, activityDays)}
+func (s *Store) Activity(ctx context.Context, userID int64) (ProfileActivity, error) {
+	out := ProfileActivity{Days: make([]int64, 0, activityDays)}
 	rows, err := s.db.Query(ctx,
 		`SELECT d::date, COALESCE(sum(w.seconds), 0)::bigint
 		 FROM generate_series(current_date - ($2::int - 1), current_date, interval '1 day') d
@@ -149,15 +150,15 @@ func (s *Store) Activity(ctx context.Context, userID int64) (Activity, error) {
 	return out, rows.Err()
 }
 
-// HourBucket is one slice of the "when you watch" clock.
-type HourBucket struct {
-	Hour         int   `json:"hour"`
+// ProfileHourBucket is one slice of the "when you watch" clock.
+type ProfileHourBucket struct {
+	Hour         int   `json:"hour" minimum:"0" maximum:"23"`
 	VideoSeconds int64 `json:"videoSeconds"`
 }
 
 // HourBuckets always returns 24 entries so the clock never has to densify.
-func (s *Store) HourBuckets(ctx context.Context, userID int64) ([]HourBucket, error) {
-	out := make([]HourBucket, 24)
+func (s *Store) HourBuckets(ctx context.Context, userID int64) ([]ProfileHourBucket, error) {
+	out := make([]ProfileHourBucket, 24)
 	for i := range out {
 		out[i].Hour = i
 	}
