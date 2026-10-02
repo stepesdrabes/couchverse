@@ -8,6 +8,9 @@ publish.workspace = true
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+typeshare-core = "=1.13.4"
+wasm-bindgen-cli-support.workspace = true
+flate2 = "1.1"
 
 [lints]
 workspace = true

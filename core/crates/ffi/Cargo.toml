@@ -1,0 +1,19 @@
+[package]
+name = "couchverse-ffi"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "UniFFI exports of the core bridge for Swift and Kotlin."
+
+[lib]
+# "ffi" would produce libffi.a/.so, which collides with the system libffi
+name = "couchverse_ffi"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+couchverse-core.workspace = true
+uniffi.workspace = true
+
+[lints]
+workspace = true

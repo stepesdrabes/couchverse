@@ -1,4 +1,5 @@
-.PHONY: run-backend run-web build lint check format test contract sample-media clean
+.PHONY: run-backend run-web build lint check format test contract sample-media clean \
+	core-test core-apple core-android core-wasm apple-test
 
 # dev database (compose service `db` published on 5432)
 DEV_DB ?= postgres://couchverse:couchverse@localhost:5432/couchverse
@@ -42,6 +43,24 @@ contract:
 	cd backend && go run ./cmd/couchverse openapi > ../contract/openapi.json
 	cd backend && go run ./cmd/couchverse couch-schema > ../contract/couch-protocol.schema.json
 	cd core && cargo xtask codegen
+
+core-test:
+	cd core && cargo fmt --check
+	cd core && cargo clippy --workspace --all-targets -- -D warnings
+	cd core && cargo test --workspace
+
+# the core packaged for each shell (build output, gitignored)
+core-apple:
+	cd core && cargo xtask apple
+
+core-android:
+	cd core && cargo xtask android
+
+core-wasm:
+	cd core && cargo xtask wasm
+
+apple-test: core-apple
+	cd clients/apple/Packages/CouchverseCore && swift test
 
 sample-media:
 	./scripts/gen-sample-media.sh data/samples

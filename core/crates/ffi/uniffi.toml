@@ -1,0 +1,10 @@
+[bindings.swift]
+# the Swift module the generated file is compiled into, and the differently named Clang module
+# that carries the C header inside the xcframework
+module_name = "CouchverseCore"
+ffi_module_name = "CouchverseCoreFFI"
+ffi_module_filename = "CouchverseCoreFFI"
+
+[bindings.kotlin]
+package_name = "io.stepes.couchverse.core.ffi"
+cdylib_name = "couchverse_ffi"

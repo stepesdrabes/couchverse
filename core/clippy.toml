@@ -1,0 +1,2 @@
+# words the docs use that are names, not code
+doc-valid-idents = ["UniFFI", "WebAssembly", ".."]

@@ -9,3 +9,16 @@ data/
 .DS_Store
 *.log
 .claude/worktrees/
+
+# core build output for the shells (cargo xtask apple|android|wasm)
+clients/apple/Packages/CouchverseCore/CouchverseCoreFFI.xcframework/
+clients/apple/Packages/CouchverseCore/Sources/CouchverseCore/FFI/
+clients/android/core/src/main/jniLibs/
+clients/web/src/lib/core/pkg/
+.build/
+.swiftpm/
+xcuserdata/
+.gradle/
+.kotlin/
+clients/android/**/build/
+local.properties

@@ -1,0 +1,62 @@
+name: core
+
+# Packages the shared core for every shell and runs it there. Lint and unit tests of the Rust
+# workspace run in contract.yml.
+on:
+  push:
+    paths: [core/**, contract/**, clients/apple/Packages/CouchverseCore/**, .github/workflows/core.yml]
+  pull_request:
+    paths: [core/**, contract/**, clients/apple/Packages/CouchverseCore/**, .github/workflows/core.yml]
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARYEN_VERSION: "133"
+
+jobs:
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Install wasm-opt
+        run: |
+          curl -sSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" | tar xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/binaryen-version_${BINARYEN_VERSION}/bin" >> "$GITHUB_PATH"
+      # fails when the package is over its size budget
+      - run: make core-wasm
+
+  apple:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select the newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-tvos,aarch64-apple-tvos-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - run: make apple-test
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk@4.1.2
+      - run: make core-android
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}

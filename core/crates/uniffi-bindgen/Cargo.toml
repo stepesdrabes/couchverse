@@ -1,0 +1,21 @@
+[package]
+name = "couchverse-uniffi-bindgen"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "The UniFFI binding generators, pinned to the workspace's uniffi version."
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/main.rs"
+
+[[bin]]
+name = "uniffi-bindgen-swift"
+path = "src/swift.rs"
+
+[dependencies]
+uniffi = { workspace = true, features = ["cli", "cargo-metadata"] }
+
+[lints]
+workspace = true

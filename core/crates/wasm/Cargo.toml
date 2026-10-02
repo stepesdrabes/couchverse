@@ -1,0 +1,18 @@
+[package]
+name = "couchverse-wasm"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "wasm-bindgen exports of the core bridge for the web."
+
+[lib]
+name = "couchverse_wasm"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+couchverse-core.workspace = true
+wasm-bindgen.workspace = true
+
+[lints]
+workspace = true
