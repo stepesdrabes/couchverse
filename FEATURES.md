@@ -96,6 +96,15 @@ Bootstraps the master admin account on a fresh database.
   `ProfileContent` as `/u/you` with owner affordances, reading the same cache entry -
   there is no separate account page and no tabs. With rankings off it falls back to
   `AccountOnlyProfile`.
+- Web, devices: `/pair` (`PairPage`) approves or denies a pairing code, typed into the
+  segmented `PairCodeInput` (one real input under the cells) or prefilled from the
+  device's QR (`?code=`); signed-out visitors go through `/login?next=` and back. Both
+  profile variants end with `DevicesSection` (`ProfileContent` takes it as its owner-only
+  `children`): the account's sessions from `devicesCache`, revoke behind a confirm (this
+  browser's own row is a plain logout, which also clears the cookie), and
+  `ConnectDeviceModal`, which shows a one-time connect code as a QR (`ui/QrCode.svelte`
+  over `uqr`), replaces it when it expires and closes itself once a new device shows up
+  in the list.
 
 ### catalog
 The watchable catalog: movies and series with seasons/episodes and genres, the home
