@@ -481,9 +481,11 @@ messages and perform the effects it asks for.
 - **Packaging** (build output, gitignored): `make core-apple` (the five-slice
   `CouchverseCoreFFI.xcframework` plus Swift bindings into the CouchverseCore package; `make
   apple-test` runs its `swift test`), `make core-android` (per-ABI `libcouchverse_ffi.so`, a
-  host library for JVM tests and the Kotlin bindings) and `make core-wasm` (the web package in
+  host library for JVM tests and the Kotlin bindings for the Gradle `core` module; `make
+  android-test` runs its JVM tests, docs/android.md) and `make core-wasm` (the web package in
   `clients/web/src/lib/core/pkg`, built for size with opt-level "z" and `wasm-opt -Oz`, and
-  checked against a 400 KB gzip budget). `core.yml` builds all three in CI.
+  checked against a 400 KB gzip budget). In CI `core.yml` builds the wasm and Apple packages,
+  `android.yml` the Android one with the Gradle project.
 
 ## Media grants (cross-cutting)
 
