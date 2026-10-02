@@ -1,6 +1,7 @@
 package analytics
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -16,22 +17,24 @@ func NewModule(st *Store) *Module {
 	return &Module{store: st}
 }
 
+const tag httpx.Tag = "analytics"
+
 func (m *Module) Register(rt httpx.Routes) {
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminGetAnalytics", Method: http.MethodGet, Path: "/analytics/overview", Tags: []string{"analytics"}}, m.overview)
+	huma.Register(rt.Admin, tag.Op("adminGetAnalytics", http.MethodGet, "/analytics/overview"), m.overview)
 }
 
-func (m *Module) overview(w http.ResponseWriter, r *http.Request) {
-	days := httpx.QueryInt(r, "days", 30)
-	if days < 1 {
-		days = 1
-	}
-	if days > 365 {
-		days = 365
-	}
-	out, err := m.store.Overview(r.Context(), days)
+type overviewInput struct {
+	// Out-of-range windows are clamped rather than rejected, so the bounds are
+	// documented but not enforced as a schema constraint.
+	Days int `query:"days" default:"30" doc:"Window in days ending today, clamped to 1..365."`
+}
+
+type overviewOutput struct{ Body *AnalyticsOverview }
+
+func (m *Module) overview(ctx context.Context, in *overviewInput) (*overviewOutput, error) {
+	out, err := m.store.Overview(ctx, min(max(in.Days, 1), 365))
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, out)
+	return &overviewOutput{Body: out}, nil
 }

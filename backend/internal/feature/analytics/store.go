@@ -91,45 +91,51 @@ func (s *Store) PruneHourly(ctx context.Context, keepDays int) (int64, error) {
 	return tag.RowsAffected(), err
 }
 
-type Day struct {
-	Day          string `json:"day"` // YYYY-MM-DD
+// The overview types carry the feature name because API schema names share one
+// namespace, where names like Totals or TopTitle are already taken.
+
+type AnalyticsDay struct {
+	Day          string `json:"day" format:"date"`
 	VideoSeconds int64  `json:"videoSeconds"`
-	CouchSeconds int64  `json:"couchSeconds"`
+	CouchSeconds int64  `json:"couchSeconds" doc:"Seconds followers watched on a couch."`
 	ActiveUsers  int    `json:"activeUsers"`
 }
 
-type Totals struct {
+type AnalyticsTotals struct {
 	VideoSeconds int64 `json:"videoSeconds"`
-	CouchSeconds int64 `json:"couchSeconds"`
+	CouchSeconds int64 `json:"couchSeconds" doc:"Seconds followers watched on a couch."`
 	ActiveUsers  int   `json:"activeUsers"`
 }
 
-type TopTitle struct {
-	TitleID string `json:"titleId"`
+type AnalyticsTopTitle struct {
+	TitleID string `json:"titleId" format:"uuid"`
 	Slug    string `json:"slug"`
 	Name    string `json:"name"`
-	Kind    string `json:"kind"`
+	Kind    string `json:"kind" enum:"movie,series"`
 	Seconds int64  `json:"seconds"`
 }
 
-type TopUser struct {
+type AnalyticsTopUser struct {
 	UserID      int64   `json:"userId"`
 	DisplayName string  `json:"displayName"`
 	AvatarID    *string `json:"avatarId"`
 	Seconds     int64   `json:"seconds"`
 }
 
-type Overview struct {
-	Days           int        `json:"days"`
-	Daily          []Day      `json:"daily"`
-	Totals         Totals     `json:"totals"`
-	TopTitles      []TopTitle `json:"topTitles"`
-	TopCouchTitles []TopTitle `json:"topCouchTitles"`
-	TopUsers       []TopUser  `json:"topUsers"`
+// AnalyticsOverview covers the last Days days up to today; Daily has one entry
+// per day, oldest first.
+type AnalyticsOverview struct {
+	Days           int                 `json:"days"`
+	Daily          []AnalyticsDay      `json:"daily"`
+	Totals         AnalyticsTotals     `json:"totals"`
+	TopTitles      []AnalyticsTopTitle `json:"topTitles"`
+	TopCouchTitles []AnalyticsTopTitle `json:"topCouchTitles"`
+	TopUsers       []AnalyticsTopUser  `json:"topUsers"`
 }
 
-func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
-	out := &Overview{Days: days, Daily: []Day{}, TopTitles: []TopTitle{}, TopCouchTitles: []TopTitle{}, TopUsers: []TopUser{}}
+func (s *Store) Overview(ctx context.Context, days int) (*AnalyticsOverview, error) {
+	out := &AnalyticsOverview{Days: days, Daily: []AnalyticsDay{}, TopTitles: []AnalyticsTopTitle{},
+		TopCouchTitles: []AnalyticsTopTitle{}, TopUsers: []AnalyticsTopUser{}}
 
 	rows, err := s.db.Query(ctx,
 		`SELECT d::date,
@@ -144,7 +150,7 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var d Day
+		var d AnalyticsDay
 		var day time.Time
 		if err := rows.Scan(&day, &d.VideoSeconds, &d.ActiveUsers, &d.CouchSeconds); err != nil {
 			return nil, err
@@ -183,7 +189,7 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 	}
 	defer titles.Close()
 	for titles.Next() {
-		var t TopTitle
+		var t AnalyticsTopTitle
 		if err := titles.Scan(&t.TitleID, &t.Slug, &t.Name, &t.Kind, &t.Seconds); err != nil {
 			return nil, err
 		}
@@ -204,7 +210,7 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 	}
 	defer couchTitles.Close()
 	for couchTitles.Next() {
-		var t TopTitle
+		var t AnalyticsTopTitle
 		if err := couchTitles.Scan(&t.TitleID, &t.Slug, &t.Name, &t.Kind, &t.Seconds); err != nil {
 			return nil, err
 		}
@@ -226,7 +232,7 @@ func (s *Store) Overview(ctx context.Context, days int) (*Overview, error) {
 	}
 	defer users.Close()
 	for users.Next() {
-		var u TopUser
+		var u AnalyticsTopUser
 		if err := users.Scan(&u.UserID, &u.DisplayName, &u.AvatarID, &u.Seconds); err != nil {
 			return nil, err
 		}
