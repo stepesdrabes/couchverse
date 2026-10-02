@@ -110,7 +110,7 @@
 					border border-edge/60 bg-surface-2 shadow-2xl shadow-black/50 md:w-28"
 			>
 				{#if poster}
-					<img src="{artworkUrl(poster.id)}?size=w342" alt="" class="size-full object-cover" />
+					<img src={artworkUrl(poster.id, null, 'w342')} alt="" class="size-full object-cover" />
 				{:else}
 					<span class="flex size-full items-center justify-center">
 						<ImagePlus class="size-5 text-faint" />

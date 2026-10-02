@@ -21,7 +21,7 @@
 {#if avatarId}
 	<span class="flex items-center justify-center overflow-hidden {cls}">
 		<img
-			src="{artworkUrl(avatarId)}?size=w342"
+			src={artworkUrl(avatarId, null, 'w342')}
 			alt={name}
 			loading="lazy"
 			class="size-full object-cover"

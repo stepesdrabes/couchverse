@@ -19,7 +19,7 @@
 		{#if session.user?.bannerId}
 			<div class="absolute inset-0" aria-hidden="true">
 				<img
-					src="{artworkUrl(session.user.bannerId)}?size=w780"
+					src={artworkUrl(session.user.bannerId, null, 'w780')}
 					alt=""
 					class="size-full object-cover opacity-40"
 				/>

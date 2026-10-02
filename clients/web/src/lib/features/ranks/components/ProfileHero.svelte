@@ -46,7 +46,7 @@
 	{#if banner}
 		<div class="absolute inset-0" aria-hidden="true">
 			<img
-				src="{artworkUrl(banner)}?size=w780"
+				src={artworkUrl(banner, null, 'w780')}
 				alt=""
 				class="size-full scale-105 object-cover opacity-40 blur-[1px]"
 			/>

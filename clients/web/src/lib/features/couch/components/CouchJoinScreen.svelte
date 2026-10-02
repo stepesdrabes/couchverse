@@ -24,7 +24,7 @@
 >
 	{#if info.display?.backdropId}
 		<img
-			src="{artworkUrl(info.display.backdropId)}?size=w780"
+			src={artworkUrl(info.display.backdropId, null, 'w780')}
 			alt=""
 			class="absolute inset-0 size-full scale-105 object-cover opacity-30 blur-xl"
 		/>
