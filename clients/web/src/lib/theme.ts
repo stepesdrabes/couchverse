@@ -1,6 +1,8 @@
 // Runtime accent theming. The admin picks a single accent colour; the strong
 // and soft variants are derived from it so the whole palette shifts together.
 
+import { accent as tokens } from '$lib/generated/tokens';
+
 function clampByte(n: number): number {
 	return Math.max(0, Math.min(255, Math.round(n)));
 }
@@ -32,14 +34,11 @@ function luminance([r, g, b]: [number, number, number]): number {
 	return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
-const ON_ACCENT_LIGHT = '#ffffff';
-const ON_ACCENT_DARK = '#0b0c10';
-
 /** Pick the readable foreground (near-white or near-black) for text on `accent`. */
 export function readableTextOn(accent: string): string {
 	const rgb = parseHex(accent);
-	if (!rgb) return ON_ACCENT_LIGHT;
-	return luminance(rgb) > 0.42 ? ON_ACCENT_DARK : ON_ACCENT_LIGHT;
+	if (!rgb) return tokens.onAccentLight;
+	return luminance(rgb) > tokens.luminanceThreshold ? tokens.onAccentDark : tokens.onAccentLight;
 }
 
 /** Apply an accent colour by setting the palette CSS variables on :root. */
@@ -48,9 +47,12 @@ export function applyAccent(accent: string) {
 	if (!rgb) return;
 	const root = document.documentElement.style;
 	root.setProperty('--color-accent', toHex(...rgb));
-	root.setProperty('--color-accent-strong', shade(rgb, -0.22));
+	root.setProperty('--color-accent-strong', shade(rgb, tokens.strongShade));
 	// soft tint over the dark background - low-alpha accent
-	root.setProperty('--color-accent-soft', `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.16)`);
+	root.setProperty(
+		'--color-accent-soft',
+		`rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${tokens.softAlpha})`
+	);
 	root.setProperty('--color-on-accent', readableTextOn(accent));
 	// the site accent, never overridden by a scoped accent (e.g. the player's
 	// banner accent), so app-wide chrome like the couch can keep the site colour
@@ -67,8 +69,8 @@ export function accentVars(accent: string): string {
 	if (!rgb) return '';
 	return (
 		`--color-accent:${toHex(...rgb)};` +
-		`--color-accent-strong:${shade(rgb, -0.22)};` +
-		`--color-accent-soft:rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.16);` +
+		`--color-accent-strong:${shade(rgb, tokens.strongShade)};` +
+		`--color-accent-soft:rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${tokens.softAlpha});` +
 		`--color-on-accent:${readableTextOn(accent)}`
 	);
 }

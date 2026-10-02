@@ -1,23 +1,13 @@
+import { medals, tiers } from '$lib/generated/tokens';
 import type { AchievementTier, TierCode } from './types';
 
 /**
  * Rank colours are the storage/status palette re-spent as a ladder, so ranks read
- * as part of the same system rather than a bolted-on theme. The backend also
- * ships a colour per tier; this map is the client-side source so a tier can be
- * coloured before any payload has arrived (the nav ring on a cold load).
+ * as part of the same system rather than a bolted-on theme. The palette comes from
+ * the shared design tokens, so a tier is coloured before any payload has arrived
+ * (the nav ring on a cold load) and matches the native apps.
  */
-export const RANK_TIERS: Record<TierCode, { color: string; glow: string }> = {
-	rookie: { color: '#7c8496', glow: 'rgba(124,132,150,0.35)' },
-	remote: { color: '#60a5fa', glow: 'rgba(96,165,250,0.35)' },
-	snack: { color: '#22d3ee', glow: 'rgba(34,211,238,0.35)' },
-	binger: { color: '#34d399', glow: 'rgba(52,211,153,0.35)' },
-	popcorn: { color: '#a3e635', glow: 'rgba(163,230,53,0.35)' },
-	marathoner: { color: '#facc15', glow: 'rgba(250,204,21,0.38)' },
-	sage: { color: '#fb923c', glow: 'rgba(251,146,60,0.38)' },
-	cinephile: { color: '#f87171', glow: 'rgba(248,113,113,0.38)' },
-	master: { color: '#c084fc', glow: 'rgba(192,132,252,0.40)' },
-	legend: { color: '#e879f9', glow: 'rgba(232,121,249,0.42)' }
-};
+export const RANK_TIERS: Record<TierCode, { color: string; glow: string }> = tiers;
 
 export const rankColor = (code: TierCode) => RANK_TIERS[code]?.color ?? RANK_TIERS.rookie.color;
 export const rankGlow = (code: TierCode) => RANK_TIERS[code]?.glow ?? RANK_TIERS.rookie.glow;
@@ -26,12 +16,7 @@ export const rankGlow = (code: TierCode) => RANK_TIERS[code]?.glow ?? RANK_TIERS
 export const ACHIEVEMENT_TIERS: Record<
 	AchievementTier,
 	{ from: string; to: string; ring: string; glow: string }
-> = {
-	bronze: { from: '#d08b4e', to: '#8a4f22', ring: '#e0a066', glow: 'rgba(208,139,78,0.40)' },
-	silver: { from: '#d7dfee', to: '#8e97ab', ring: '#e4ebf7', glow: 'rgba(215,223,238,0.35)' },
-	gold: { from: '#f7cf63', to: '#c1861a', ring: '#ffdd80', glow: 'rgba(247,207,99,0.45)' },
-	platinum: { from: '#a8f0e4', to: '#7fb3ff', ring: '#c9f4ff', glow: 'rgba(168,240,228,0.45)' }
-};
+> = medals;
 
 /** Podium places reuse the medals, so one palette serves both surfaces. */
 export const PODIUM = [

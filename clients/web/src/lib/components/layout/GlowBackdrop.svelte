@@ -13,13 +13,13 @@
 		pointer-events: none;
 
 		&-violet {
-			background: radial-gradient(circle, #8b7cf0 0%, transparent 65%);
+			background: radial-gradient(circle, var(--color-glow-violet) 0%, transparent 65%);
 			top: -20rem;
 			left: -15rem;
 		}
 
 		&-teal {
-			background: radial-gradient(circle, #3dd6c4 0%, transparent 65%);
+			background: radial-gradient(circle, var(--color-glow-teal) 0%, transparent 65%);
 			bottom: -25rem;
 			right: -18rem;
 		}

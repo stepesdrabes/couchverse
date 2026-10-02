@@ -7,13 +7,14 @@
 	import type { FeaturedItem } from '$lib/features/catalog/types';
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import { heroIntervalMs } from '$lib/generated/tokens';
 	import { accentVars } from '$lib/theme';
 	import { isTV } from '$lib/tv/tv';
 	import * as m from '$lib/paraglide/messages';
 
 	let { items }: { items: FeaturedItem[] } = $props();
 
-	const SLIDE_MS = 8000;
+	const SLIDE_MS = heroIntervalMs;
 	const STEP_MS = 50;
 
 	let index = $state(0);

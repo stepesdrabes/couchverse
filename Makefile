@@ -1,4 +1,4 @@
-.PHONY: run-backend run-web build lint check format test sample-media clean
+.PHONY: run-backend run-web build lint check format test contract sample-media clean
 
 # dev database (compose service `db` published on 5432)
 DEV_DB ?= postgres://couchverse:couchverse@localhost:5432/couchverse
@@ -33,6 +33,11 @@ format:
 
 test:
 	cd backend && go test ./...
+
+# regenerate everything derived from contract/ (and the spec itself from the Go handlers)
+contract:
+	cd backend && go run ./cmd/couchverse openapi > ../contract/openapi.json
+	cd core && cargo xtask codegen
 
 sample-media:
 	./scripts/gen-sample-media.sh data/samples
