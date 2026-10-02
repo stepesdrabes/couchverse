@@ -2,7 +2,7 @@
 	import { Plus, ShieldCheck } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import * as usersApi from '$lib/features/users/api';
-	import type { User } from '$lib/features/auth/api';
+	import type { AdminUserUpdateRole, NewUserRole, User } from '$lib/features/users/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Confirm from '$lib/components/ui/Confirm.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -20,13 +20,13 @@
 	let createOpen = $state(false);
 	let newUsername = $state('');
 	let newPassword = $state('');
-	let newRole = $state('member');
+	let newRole = $state<NewUserRole>('member');
 	let busy = $state(false);
 
 	let editing = $state<User | null>(null);
 	let editOpen = $state(false);
 	let editDisplayName = $state('');
-	let editRole = $state('member');
+	let editRole = $state<AdminUserUpdateRole>('member');
 	let editDisabled = $state(false);
 	let editPassword = $state('');
 	const editForm = new FormState(() => ({ editDisplayName, editRole, editDisabled, editPassword }));
@@ -35,7 +35,7 @@
 	let confirmDelete = $state(false);
 
 	async function refresh() {
-		users = await usersApi.listUsers();
+		users = await usersApi.adminListUsers();
 	}
 	refresh();
 
@@ -43,7 +43,11 @@
 		e.preventDefault();
 		busy = true;
 		try {
-			await usersApi.createUser({ username: newUsername, password: newPassword, role: newRole });
+			await usersApi.adminCreateUser({
+				username: newUsername,
+				password: newPassword,
+				role: newRole
+			});
 			toast.success(m.users_created_account({ username: newUsername }));
 			createOpen = false;
 			newUsername = newPassword = '';
@@ -71,7 +75,7 @@
 		if (!editing) return;
 		busy = true;
 		try {
-			await usersApi.updateUser(editing.id, {
+			await usersApi.adminUpdateUser(editing.id, {
 				displayName: editDisplayName,
 				role: editRole,
 				disabled: editDisabled,
@@ -90,7 +94,7 @@
 	async function remove() {
 		if (!deleting) return;
 		try {
-			await usersApi.deleteUser(deleting.id);
+			await usersApi.adminDeleteUser(deleting.id);
 			toast.success(m.users_deleted({ username: deleting.username }));
 			refresh();
 		} catch (err) {

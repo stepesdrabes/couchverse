@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { Clapperboard, Trash2 } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
-	import type { MediaFile } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { TranscodeVariant } from '$lib/features/library/api';
+	import type { MediaFile, TranscodeVariant } from '$lib/features/library/api';
 	import { formatBytes } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
 
@@ -12,7 +11,7 @@
 	let variants = $state<TranscodeVariant[]>([]);
 
 	async function refresh() {
-		variants = await libraryApi.listVariants(file.id);
+		variants = await libraryApi.adminListVariants(file.id);
 	}
 
 	$effect(() => {
@@ -26,7 +25,7 @@
 
 	async function prepare() {
 		try {
-			const res = await libraryApi.enqueueTranscode(file.id);
+			const res = await libraryApi.adminEnqueueTranscode(file.id, {});
 			toast.success(m.library_queued({ items: res.queued.join(', ') }));
 			refresh();
 		} catch (err) {
@@ -36,7 +35,7 @@
 
 	async function remove(variant: TranscodeVariant) {
 		try {
-			await libraryApi.deleteVariant(variant.id);
+			await libraryApi.adminDeleteVariant(variant.id);
 			refresh();
 		} catch {
 			toast.error(m.library_delete_variant_failed());

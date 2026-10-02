@@ -3,9 +3,8 @@
 	import { Plus, Search } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { ApiError } from '$lib/api/client';
-	import type { TitleKind } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { TmdbResult } from '$lib/features/library/api';
+	import type { TitleInputKind, TmdbSearchResult } from '$lib/features/library/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
@@ -15,9 +14,9 @@
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
-	let kind = $state<string>('movie');
+	let kind = $state<TitleInputKind>('movie');
 	let query = $state('');
-	let results = $state<TmdbResult[]>([]);
+	let results = $state<TmdbSearchResult[]>([]);
 	let searching = $state(false);
 	let noTmdbKey = $state(false);
 	let adding = $state<number | null>(null);
@@ -33,7 +32,7 @@
 		if (!query.trim()) return;
 		searching = true;
 		try {
-			results = await libraryApi.searchTmdb(query.trim(), kind as TitleKind);
+			results = await libraryApi.adminSearchMetadata({ q: query.trim(), kind });
 			noTmdbKey = false;
 		} catch (err) {
 			results = [];
@@ -48,17 +47,17 @@
 	}
 
 	// create from a TMDB result and pull its full metadata + artwork
-	async function addFromTmdb(result: TmdbResult) {
+	async function addFromTmdb(result: TmdbSearchResult) {
 		adding = result.tmdbId;
 		try {
-			const title = await libraryApi.createTitle({
+			const title = await libraryApi.adminCreateTitle({
 				kind,
 				name: result.name,
 				year: result.year || null,
 				overview: result.overview,
 				metadataLanguages: languages
 			});
-			await libraryApi.applyTmdb(title.id, result.tmdbId);
+			await libraryApi.adminApplyMetadata(title.id, { tmdbId: result.tmdbId });
 			toast.success(m.library_added_fetching({ name: result.name }));
 			open = false;
 			goto(`/admin/library/${title.id}`);
@@ -73,7 +72,7 @@
 		e.preventDefault();
 		creating = true;
 		try {
-			const title = await libraryApi.createTitle({
+			const title = await libraryApi.adminCreateTitle({
 				kind,
 				name: manualName,
 				year: manualYear ? Number(manualYear) : null,

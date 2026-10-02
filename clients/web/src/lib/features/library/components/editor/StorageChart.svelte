@@ -2,16 +2,16 @@
 	import BarChart, { type Bar } from '$lib/features/admin/components/BarChart.svelte';
 	import { categoryStyle } from '$lib/features/admin/components/storageColors';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { TitleStorage } from '$lib/features/library/api';
+	import type { TitleStorageBreakdown } from '$lib/features/library/api';
 	import { formatBytes } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
 
-	let { titleId, kind }: { titleId: string; kind: 'movie' | 'series' } = $props();
+	let { titleId, kind }: { titleId: string; kind: string } = $props();
 
-	let data = $state<TitleStorage | null>(null);
+	let data = $state<TitleStorageBreakdown | null>(null);
 
 	$effect(() => {
-		libraryApi.getTitleStorage(titleId).then((s) => (data = s));
+		libraryApi.adminGetTitleStorage(titleId).then((s) => (data = s));
 	});
 
 	// source bars take the title's catalog colour, transcodes the storage emerald

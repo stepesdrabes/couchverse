@@ -2,7 +2,8 @@
 	import type { ContentStatus } from '$lib/features/catalog/types';
 	import * as m from '$lib/paraglide/messages';
 
-	let { status }: { status: ContentStatus } = $props();
+	// the API types a title's status as a plain string
+	let { status }: { status: string } = $props();
 
 	const styles: Record<ContentStatus, { dot: string; text: string; label: () => string }> = {
 		published: { dot: 'bg-success', text: 'text-success', label: m.common_published },
@@ -10,7 +11,7 @@
 		draft: { dot: 'bg-faint', text: 'text-muted', label: m.common_draft },
 		hidden: { dot: 'bg-faint', text: 'text-faint', label: m.common_hidden }
 	};
-	const style = $derived(styles[status]);
+	const style = $derived(styles[status as ContentStatus]);
 </script>
 
 <span

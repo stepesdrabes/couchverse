@@ -4,6 +4,7 @@
 	import { toast } from 'svelte-sonner';
 	import { waitForJob } from '$lib/features/jobs/api';
 	import * as libraryApi from '$lib/features/library/api';
+	import type { AdminTitle, TitleUpdate, TitleUpdateStatus } from '$lib/features/library/api';
 	import TmdbSearchModal from '$lib/features/library/components/TmdbSearchModal.svelte';
 	import EditorHero from '$lib/features/library/components/editor/EditorHero.svelte';
 	import EpisodesTable from '$lib/features/library/components/editor/EpisodesTable.svelte';
@@ -22,7 +23,7 @@
 	import { formatBytes } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
 
-	let { data }: { data: Awaited<ReturnType<typeof libraryApi.getTitle>> } = $props();
+	let { data }: { data: AdminTitle } = $props();
 
 	let name = $state('');
 	let year = $state('');
@@ -108,7 +109,7 @@
 		jobActive = true;
 		const pending = toast.loading(m.library_tmdb_fetching());
 		try {
-			const { jobId } = await libraryApi.applyTmdb(data.title.id, tmdbId);
+			const { jobId } = await libraryApi.adminApplyMetadata(data.title.id, { tmdbId });
 			const job = await waitForJob(jobId);
 			if (job?.status === 'failed') {
 				toast.error(m.library_tmdb_fetch_failed(), { id: pending });
@@ -148,7 +149,9 @@
 	// delayed reload pulls in thumbnails that land just afterwards (Artwork shows
 	// a letter fallback until then).
 	async function importEpisodeJob(toastId: string | number, seasons?: number[]) {
-		const { jobId } = await libraryApi.importEpisodes(data.title.id, seasons);
+		const { jobId } = await libraryApi.adminImportEpisodes(data.title.id, {
+			seasons: seasons ?? []
+		});
 		const job = await waitForJob(jobId);
 		await invalidateAll();
 		if (job?.status === 'failed') {
@@ -169,10 +172,10 @@
 			data.title.tmdbId != null &&
 			languages.some((l) => !(data.title.metadataLanguages ?? []).includes(l));
 		try {
-			const patch: libraryApi.TitlePatch = {
+			const patch: TitleUpdate = {
 				year: year ? Number(year) : null,
 				contentRating,
-				status,
+				status: status as TitleUpdateStatus,
 				runtimeMinutes: runtime ? Number(runtime) : null,
 				genres: genres
 					.split(',')
@@ -187,9 +190,9 @@
 				patch.name = name;
 				patch.overview = overview;
 			}
-			await libraryApi.updateTitle(data.title.id, patch);
+			await libraryApi.adminUpdateTitle(data.title.id, patch);
 			if (editLang !== baseLang && tDirty) {
-				await libraryApi.setTitleTranslation(data.title.id, editLang, {
+				await libraryApi.adminSetTitleTranslation(data.title.id, editLang, {
 					name: tName,
 					overview: tOverview
 				});
@@ -243,9 +246,9 @@
 		const code = removeLang;
 		if (!code) return;
 		try {
-			for (const s of removeSubs) await libraryApi.deleteSubtitle(s.id);
-			for (const f of removeAltFiles) await libraryApi.deleteMediaFile(f.id);
-			await libraryApi.removeContentLanguage(data.title.id, code);
+			for (const s of removeSubs) await libraryApi.adminDeleteSubtitle(s.id);
+			for (const f of removeAltFiles) await libraryApi.adminDeleteMediaFile(f.id);
+			await libraryApi.adminDeleteTitleLanguage(data.title.id, code);
 			languages = languages.filter((c) => c !== code);
 			if (editLang === code) editLang = languages[0] ?? 'en';
 			toast.success(m.library_language_removed());
@@ -259,7 +262,7 @@
 
 	async function deleteTitle() {
 		try {
-			await libraryApi.deleteTitle(data.title.id);
+			await libraryApi.adminDeleteTitle(data.title.id);
 			toast.success(m.library_title_deleted());
 			goto('/admin/library');
 		} catch {

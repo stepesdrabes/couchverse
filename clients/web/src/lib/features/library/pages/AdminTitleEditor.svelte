@@ -1,12 +1,11 @@
 <script lang="ts">
-	import type { getTitle } from '$lib/features/library/api';
+	import type { AdminTitle } from '$lib/features/library/api';
 	import StreamedView from '$lib/components/StreamedView.svelte';
 	import NotFound from '$lib/components/NotFound.svelte';
 	import AdminTitleEditorPage from './AdminTitleEditorPage.svelte';
 	import AdminEditorSkeleton from '$lib/features/library/components/AdminEditorSkeleton.svelte';
 
-	let { data }: { data: { id: string; fresh: Promise<Awaited<ReturnType<typeof getTitle>>> } } =
-		$props();
+	let { data }: { data: { id: string; fresh: Promise<AdminTitle> } } = $props();
 </script>
 
 <StreamedView key={data.id} data={data.fresh}>

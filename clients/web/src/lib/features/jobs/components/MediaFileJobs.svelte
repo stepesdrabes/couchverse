@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Job } from '$lib/features/jobs/api';
+	import type { AdminJob, AdminJobStatus } from '$lib/features/jobs/api';
 	import * as jobsApi from '$lib/features/jobs/api';
 	import { jobAction } from '$lib/features/jobs/job-label';
 	import { formatYearDate } from '$lib/utils/format';
@@ -10,10 +10,10 @@
 	let { mediaFileId, active = $bindable(false) }: { mediaFileId: string; active?: boolean } =
 		$props();
 
-	let jobs = $state<Job[]>([]);
+	let jobs = $state<AdminJob[]>([]);
 	let loaded = $state(false);
 
-	const statusColor: Record<Job['status'], string> = {
+	const statusColor: Record<AdminJobStatus, string> = {
 		pending: 'text-muted',
 		running: 'text-accent',
 		done: 'text-success',
@@ -21,7 +21,7 @@
 		cancelled: 'text-faint'
 	};
 
-	const statusLabel: Record<Job['status'], () => string> = {
+	const statusLabel: Record<AdminJobStatus, () => string> = {
 		pending: m.jobs_status_pending,
 		running: m.jobs_status_running,
 		done: m.jobs_status_done,
@@ -35,7 +35,7 @@
 		async function refresh() {
 			if (document.visibilityState === 'hidden') return;
 			try {
-				jobs = await jobsApi.listJobs({ mediaFileId: id, limit: 8 });
+				jobs = await jobsApi.adminListJobs({ mediaFileId: id, limit: 8 });
 				active = jobs.some((j) => j.status === 'pending' || j.status === 'running');
 				loaded = true;
 			} catch {

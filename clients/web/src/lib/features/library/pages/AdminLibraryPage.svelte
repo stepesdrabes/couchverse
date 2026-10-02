@@ -3,9 +3,14 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
-	import { listActiveTranscodes, type ActiveTranscode } from '$lib/features/jobs/api';
+	import { adminListActiveTranscodes, type ActiveTranscode } from '$lib/features/jobs/api';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { LibraryRow } from '$lib/features/library/api';
+	import type {
+		AdminListLibrarySort,
+		AdminListLibraryStatus,
+		AdminListLibraryType,
+		LibraryRow
+	} from '$lib/features/library/api';
 	import NewTitleModal from '$lib/features/library/components/NewTitleModal.svelte';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -24,9 +29,9 @@
 	let total = $state(0);
 	let loading = $state(true);
 
-	let kind = $state('');
-	let status = $state('');
-	let sort = $state('added');
+	let kind = $state<AdminListLibraryType | ''>('');
+	let status = $state<AdminListLibraryStatus | ''>('');
+	let sort = $state<AdminListLibrarySort>('added');
 	let query = $state('');
 	const selected = new SvelteSet<string>();
 
@@ -44,7 +49,12 @@
 	async function refresh() {
 		loading = true;
 		try {
-			const res = await libraryApi.listLibrary({ type: kind, status, sort, q: query });
+			const res = await libraryApi.adminListLibrary({
+				type: kind || undefined,
+				status: status || undefined,
+				sort,
+				q: query
+			});
 			items = res.items;
 			total = res.total;
 			for (const id of [...selected]) {
@@ -86,7 +96,7 @@
 			// after 5 empty responses in a row, slow down to every 5th tick
 			if (emptyStreak >= 5 && tick % 5 !== 0) return;
 			try {
-				const next = await listActiveTranscodes();
+				const next = await adminListActiveTranscodes();
 				const finished = activeTranscodes.some(
 					(t) => t.titleId && !next.some((n) => n.titleId === t.titleId)
 				);
@@ -126,7 +136,7 @@
 			rescan: m.library_bulk_rescanned({ count: selected.size })
 		};
 		try {
-			await libraryApi.bulkTitles([...selected], action);
+			await libraryApi.adminBulkTitles({ ids: [...selected], action });
 			toast.success(labels[action]);
 			selected.clear();
 			refresh();
@@ -138,7 +148,7 @@
 	async function quickToggleVisibility(row: LibraryRow) {
 		const next = row.status === 'published' ? 'hidden' : 'published';
 		try {
-			await libraryApi.updateTitle(row.id, { status: next });
+			await libraryApi.adminUpdateTitle(row.id, { status: next });
 			refresh();
 		} catch {
 			toast.error(m.library_status_update_failed());
@@ -147,7 +157,7 @@
 
 	async function deleteOne(row: LibraryRow) {
 		try {
-			await libraryApi.deleteTitle(row.id);
+			await libraryApi.adminDeleteTitle(row.id);
 			toast.success(m.library_deleted_named({ name: row.name }));
 			refresh();
 		} catch {

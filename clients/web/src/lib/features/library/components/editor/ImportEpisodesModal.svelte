@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ApiError } from '$lib/api/client';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { TmdbSeasonPreview } from '$lib/features/library/api';
+	import type { TmdbSeason } from '$lib/features/library/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
@@ -13,7 +13,7 @@
 		onImport
 	}: { open?: boolean; titleId: string; onImport: (seasons?: number[]) => void } = $props();
 
-	let seasons = $state<TmdbSeasonPreview[]>([]);
+	let seasons = $state<TmdbSeason[]>([]);
 	let picks = $state<Record<number, boolean>>({});
 	let allSeasons = $state(true);
 	let loading = $state(false);
@@ -29,7 +29,7 @@
 		seasons = [];
 		allSeasons = true;
 		try {
-			seasons = await libraryApi.getTmdbSeasons(titleId);
+			seasons = await libraryApi.adminListMetadataSeasons(titleId);
 			picks = Object.fromEntries(seasons.map((s) => [s.seasonNumber, s.seasonNumber !== 0]));
 		} catch (err) {
 			if (err instanceof ApiError && err.code === 'no_tmdb_id') {

@@ -2,12 +2,11 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
-	import type { MediaFile } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { SubtitleInfo } from '$lib/features/library/api';
+	import type { MediaFile, Subtitle } from '$lib/features/library/api';
 	import * as m from '$lib/paraglide/messages';
 
-	let { mediaFile, subtitles }: { mediaFile: MediaFile; subtitles: SubtitleInfo[] } = $props();
+	let { mediaFile, subtitles }: { mediaFile: MediaFile; subtitles: Subtitle[] } = $props();
 
 	let lang = $state('en');
 	let fileInput = $state<HTMLInputElement>();
@@ -24,9 +23,9 @@
 		}
 	}
 
-	async function remove(sub: SubtitleInfo) {
+	async function remove(sub: Subtitle) {
 		try {
-			await libraryApi.deleteSubtitle(sub.id);
+			await libraryApi.adminDeleteSubtitle(sub.id);
 			invalidateAll();
 		} catch {
 			toast.error(m.library_delete_subtitle_failed());

@@ -1,6 +1,5 @@
 <script lang="ts">
-	import type { MediaFile } from '$lib/features/catalog/types';
-	import type { SubtitleInfo } from '$lib/features/library/api';
+	import type { MediaFile, Subtitle } from '$lib/features/library/api';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import SubtitleManager from './SubtitleManager.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -12,7 +11,7 @@
 	}: {
 		open?: boolean;
 		mediaFile: MediaFile | null;
-		subtitles: SubtitleInfo[];
+		subtitles: Subtitle[];
 	} = $props();
 </script>
 

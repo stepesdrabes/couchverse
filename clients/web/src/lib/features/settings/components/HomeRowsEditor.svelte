@@ -19,7 +19,7 @@
 	const form = new FormState(() => rows);
 
 	$effect(() => {
-		jobsApi.getHomeRows().then((r) => {
+		jobsApi.adminGetHomeRows().then((r) => {
 			rows = r;
 			form.reset();
 		});
@@ -65,7 +65,7 @@
 	async function save() {
 		saving = true;
 		try {
-			rows = await jobsApi.putHomeRows(rows);
+			rows = await jobsApi.adminUpdateHomeRows(rows);
 			form.reset();
 			toast.success(m.settings_home_rows_saved());
 		} catch (err) {

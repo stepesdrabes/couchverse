@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { CircleCheck, Languages, UploadCloud, X } from 'lucide-svelte';
-	import type { MediaFile } from '$lib/features/catalog/types';
-	import type { SubtitleInfo } from '$lib/features/library/api';
+	import type { MediaFile, Subtitle } from '$lib/features/library/api';
 	import type { Upload } from '$lib/features/uploads/uploader.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
 	import MediaFileJobs from '$lib/features/jobs/components/MediaFileJobs.svelte';
@@ -21,7 +20,7 @@
 	}: {
 		titleId: string;
 		mediaFiles: MediaFile[];
-		subtitlesByFile: Record<string, SubtitleInfo[]>;
+		subtitlesByFile: Record<string, Subtitle[]>;
 	} = $props();
 
 	// only the uploads started from this panel

@@ -3,6 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import * as libraryApi from '$lib/features/library/api';
+	import type { TranscodeInfo } from '$lib/features/library/api';
 	import * as settingsApi from '$lib/features/settings/api';
 	import { features } from '$lib/features/settings/features.svelte';
 	import { applyAccent } from '$lib/theme';
@@ -58,7 +59,7 @@
 
 	const allRenditions = ['1080p', '720p', '480p'];
 
-	function applyTranscodeInfo(info: libraryApi.TranscodeInfo) {
+	function applyTranscodeInfo(info: TranscodeInfo) {
 		detectedEncoders = info.detectedEncoders;
 		detecting = info.detecting;
 		if (!transcodeForm.dirty) {
@@ -75,28 +76,23 @@
 
 	$effect(() => {
 		settingsApi
-			.getSettings()
+			.adminGetSettings()
 			.then((s) => {
 				if (!tmdbForm.dirty) {
-					tmdbKey = typeof s['tmdb.api_key'] === 'string' ? (s['tmdb.api_key'] as string) : '';
+					tmdbKey = s['tmdb.api_key'] ?? '';
 					tmdbForm.reset();
 				}
 				if (!featuresForm.dirty) {
-					const flags = s.features as
-						| { couchEnabled?: boolean; rankingsEnabled?: boolean }
-						| undefined;
-					couchEnabled = flags?.couchEnabled ?? true;
-					rankingsEnabled = flags?.rankingsEnabled ?? true;
+					couchEnabled = s.features?.couchEnabled ?? true;
+					rankingsEnabled = s.features?.rankingsEnabled ?? true;
 					featuresForm.reset();
 				}
 				if (!accentForm.dirty) {
-					const appearance = s.appearance as { accent?: string } | undefined;
-					accent = appearance?.accent ?? '#e50914';
+					accent = s.appearance?.accent ?? '#e50914';
 					accentForm.reset();
 				}
 				if (!homeForm.dirty) {
-					const homeCfg = s.home as { featuredCount?: number } | undefined;
-					featuredCount = String(homeCfg?.featuredCount ?? 3);
+					featuredCount = String(s.home?.featuredCount ?? 3);
 					homeForm.reset();
 				}
 			})
@@ -104,14 +100,14 @@
 
 		let refetch: ReturnType<typeof setTimeout> | undefined;
 		libraryApi
-			.transcodeInfo()
+			.adminGetTranscodeInfo()
 			.then((info) => {
 				applyTranscodeInfo(info);
 				if (info.detecting) {
 					// encoder detection runs in the background; pick up late arrivals
 					refetch = setTimeout(() => {
 						libraryApi
-							.transcodeInfo()
+							.adminGetTranscodeInfo()
 							.then(applyTranscodeInfo)
 							.catch(() => {});
 					}, 3000);
@@ -125,7 +121,7 @@
 		e.preventDefault();
 		savingTmdb = true;
 		try {
-			await settingsApi.putSettings({ 'tmdb.api_key': tmdbKey });
+			await settingsApi.adminUpdateSettings({ 'tmdb.api_key': tmdbKey });
 			tmdbForm.reset();
 			toast.success(m.settings_tmdb_saved());
 		} catch {
@@ -143,7 +139,7 @@
 		e.preventDefault();
 		savingTranscode = true;
 		try {
-			await settingsApi.putSettings({
+			await settingsApi.adminUpdateSettings({
 				transcode: {
 					hwAccel,
 					ladder,
@@ -168,7 +164,7 @@
 		savingHome = true;
 		try {
 			const count = Math.min(10, Math.max(1, Number(featuredCount) || 3));
-			await settingsApi.putSettings({ home: { featuredCount: count } });
+			await settingsApi.adminUpdateSettings({ home: { featuredCount: count } });
 			featuredCount = String(count);
 			homeForm.reset();
 			toast.success(m.settings_home_saved());
@@ -183,7 +179,7 @@
 		e.preventDefault();
 		savingFeatures = true;
 		try {
-			await settingsApi.putSettings({ features: { couchEnabled, rankingsEnabled } });
+			await settingsApi.adminUpdateSettings({ features: { couchEnabled, rankingsEnabled } });
 			features.couchEnabled = couchEnabled;
 			features.rankingsEnabled = rankingsEnabled;
 			featuresForm.reset();
@@ -202,7 +198,7 @@
 		e.preventDefault();
 		savingAccent = true;
 		try {
-			await settingsApi.putSettings({ appearance: { accent } });
+			await settingsApi.adminUpdateSettings({ appearance: { accent } });
 			accentForm.reset();
 			toast.success(m.settings_accent_saved());
 		} catch {

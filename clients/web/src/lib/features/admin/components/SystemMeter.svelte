@@ -11,7 +11,7 @@
 		async function poll() {
 			if (document.visibilityState === 'hidden') return;
 			try {
-				system = await jobsApi.getSystem();
+				system = await jobsApi.adminGetSystemStats();
 			} catch {
 				// transient
 			}

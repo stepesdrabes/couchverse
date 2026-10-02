@@ -1,194 +1,67 @@
-// Admin library curation: the library table, titles, seasons and episodes.
-import { api, qs } from '$lib/api/client';
-import type {
-	ArtworkRef,
-	ContentStatus,
+// Admin library curation: the library table, titles, seasons and episodes plus their
+// metadata, artwork, subtitles and transcodes.
+import type { Artwork, Subtitle } from '$lib/generated/api';
+
+export {
+	adminApplyMetadata,
+	adminBulkTitles,
+	adminCreateEpisode,
+	adminCreateSeason,
+	adminCreateTitle,
+	adminDeleteArtwork,
+	adminDeleteEpisode,
+	// hard-deletes a media file: its source, caches and subtitles on disk plus the row
+	adminDeleteMediaFile,
+	adminDeleteSeason,
+	adminDeleteSubtitle,
+	adminDeleteTitle,
+	// drops the language's translations across the title, seasons and episodes, promoting
+	// the next language to base when the base one goes; 400 on the last language
+	adminDeleteTitleLanguage,
+	adminDeleteVariant,
+	adminEnqueueTranscode,
+	adminGetEpisodeTranslations,
+	adminGetTitle,
+	adminGetTitleStorage,
+	adminGetTranscodeInfo,
+	adminImportEpisodes,
+	adminListLibrary,
+	adminListMetadataSeasons,
+	adminListVariants,
+	adminSearchMetadata,
+	adminSetEpisodeTranslation,
+	adminSetTitleTranslation,
+	adminUpdateEpisode,
+	adminUpdateMediaFile,
+	adminUpdateTitle
+} from '$lib/generated/api';
+
+export type {
+	AdminListLibrarySort,
+	AdminListLibraryStatus,
+	AdminListLibraryType,
+	AdminSearchMetadataKind,
+	AdminTitle,
+	Artwork,
 	Episode,
+	LibraryRow,
 	MediaFile,
+	MediaFileAudioAudioRole,
 	Season,
+	Subtitle,
 	Title,
-	TitleKind
-} from '$lib/features/catalog/types';
+	TitleInputKind,
+	TitleStorageBreakdown,
+	TitleUpdate,
+	TitleUpdateStatus,
+	TmdbSearchResult,
+	TmdbSeason,
+	TranscodeInfo,
+	TranscodeVariant,
+	Translation
+} from '$lib/generated/api';
 
-export interface LibraryRow {
-	id: string;
-	slug: string;
-	kind: TitleKind;
-	name: string;
-	year: number | null;
-	status: ContentStatus;
-	seasonCount: number;
-	episodeCount: number;
-	sizeBytes: number;
-	transcodedBytes: number;
-	maxHeight: number;
-	hdr: boolean;
-	posterId: string | null;
-	backdropId: string | null;
-	needsPrepare: boolean;
-	addedAt: string;
-}
-
-export interface LibraryQuery {
-	type?: string;
-	status?: string;
-	q?: string;
-	sort?: string;
-	page?: number;
-}
-
-export const listLibrary = (query: LibraryQuery) =>
-	api<{ items: LibraryRow[]; total: number; page: number }>(`/admin/library${qs({ ...query })}`);
-
-export interface TitleInput {
-	kind: string;
-	name: string;
-	overview?: string;
-	year?: number | null;
-	contentRating?: string;
-	runtimeMinutes?: number | null;
-	genres?: string[];
-	metadataLanguages?: string[];
-}
-
-export type TitlePatch = Partial<{
-	name: string;
-	sortName: string;
-	overview: string;
-	year: number | null;
-	contentRating: string;
-	runtimeMinutes: number | null;
-	status: string;
-	tmdbId: number | null;
-	genres: string[];
-	metadataLanguages: string[];
-	allowRandomPlayback: boolean;
-}>;
-
-export const createTitle = (input: TitleInput) =>
-	api<Title>('/admin/titles', { method: 'POST', body: input });
-
-export const getTitle = (id: string) =>
-	api<{
-		title: Title;
-		seasons?: Season[];
-		mediaFiles: MediaFile[];
-		artwork: ArtworkRef[];
-		subtitlesByFile: Record<string, SubtitleInfo[]>;
-		translations?: Record<string, { name?: string; overview?: string; tagline?: string }>;
-	}>(`/admin/titles/${id}`);
-
-// save a manually-edited name/overview for one language (non-base translations)
-export const setTitleTranslation = (
-	id: string,
-	lang: string,
-	patch: { name: string; overview: string }
-) => api<void>(`/admin/titles/${id}/translations/${lang}`, { method: 'PATCH', body: patch });
-
-export const getEpisodeTranslations = (id: string) =>
-	api<Record<string, { name?: string; overview?: string }>>(`/admin/episodes/${id}/translations`);
-
-export const setEpisodeTranslation = (
-	id: string,
-	lang: string,
-	patch: { name: string; overview: string }
-) => api<void>(`/admin/episodes/${id}/translations/${lang}`, { method: 'PATCH', body: patch });
-
-export const updateTitle = (id: string, patch: TitlePatch) =>
-	api<Title>(`/admin/titles/${id}`, { method: 'PATCH', body: patch });
-
-export const deleteTitle = (id: string) => api<void>(`/admin/titles/${id}`, { method: 'DELETE' });
-
-// remove a content language from a title: drops its translations across the
-// title/seasons/episodes and the code from metadataLanguages (promoting the next
-// language to base when the base one is removed). 400 on the last language.
-export const removeContentLanguage = (id: string, lang: string) =>
-	api<void>(`/admin/titles/${id}/languages/${lang}`, { method: 'DELETE' });
-
-// per-title disk-usage breakdown for the editor chart
-export interface TitleStorage {
-	items: { label: string; sourceBytes: number; transcodedBytes: number }[];
-	sourceBytes: number;
-	transcodedBytes: number;
-}
-
-export const getTitleStorage = (id: string) => api<TitleStorage>(`/admin/titles/${id}/storage`);
-
-// tag a media file's audio language / role (model-B multi-language audio)
-export const setMediaFileAudio = (
-	id: string,
-	audioLang: string,
-	audioRole: 'primary' | 'audio_alt'
-) => api<void>(`/admin/media-files/${id}`, { method: 'PATCH', body: { audioLang, audioRole } });
-
-// hard-delete a media file: its source, caches and subtitles on disk plus the row
-export const deleteMediaFile = (id: string) =>
-	api<void>(`/admin/media-files/${id}`, { method: 'DELETE' });
-
-export const bulkTitles = (
-	ids: string[],
-	action: 'publish' | 'hide' | 'draft' | 'delete' | 'rescan'
-) => api<void>('/admin/titles/bulk', { method: 'POST', body: { ids, action } });
-
-export const createSeason = (titleId: string, seasonNumber: number, name = '') =>
-	api<Season>(`/admin/titles/${titleId}/seasons`, {
-		method: 'POST',
-		body: { seasonNumber, name }
-	});
-
-export const deleteSeason = (id: string) => api<void>(`/admin/seasons/${id}`, { method: 'DELETE' });
-
-export interface EpisodeInput {
-	episodeNumber: number;
-	name: string;
-	overview?: string;
-	runtimeMinutes?: number | null;
-}
-
-export const createEpisode = (seasonId: string, input: EpisodeInput) =>
-	api<Episode>(`/admin/seasons/${seasonId}/episodes`, { method: 'POST', body: input });
-
-export const updateEpisode = (id: string, patch: Partial<EpisodeInput>) =>
-	api<Episode>(`/admin/episodes/${id}`, { method: 'PATCH', body: patch });
-
-export const deleteEpisode = (id: string) =>
-	api<void>(`/admin/episodes/${id}`, { method: 'DELETE' });
-
-// TMDB metadata
-export interface TmdbResult {
-	tmdbId: number;
-	name: string;
-	year: number;
-	overview: string;
-	posterUrl: string;
-}
-
-export const searchTmdb = (q: string, kind: TitleKind) =>
-	api<TmdbResult[]>(`/admin/metadata/search${qs({ q, kind })}`);
-
-export const applyTmdb = (titleId: string, tmdbId: number) =>
-	api<{ jobId: number }>(`/admin/titles/${titleId}/metadata/apply`, {
-		method: 'POST',
-		body: { tmdbId }
-	});
-
-export interface TmdbSeasonPreview {
-	seasonNumber: number;
-	name: string;
-	overview: string;
-	episodeCount: number;
-}
-
-export const getTmdbSeasons = (titleId: string) =>
-	api<TmdbSeasonPreview[]>(`/admin/titles/${titleId}/metadata/seasons`);
-
-export const importEpisodes = (titleId: string, seasons?: number[]) =>
-	api<{ jobId: number }>(`/admin/titles/${titleId}/metadata/import-episodes`, {
-		method: 'POST',
-		body: { seasons: seasons ?? [] }
-	});
-
-// artwork
+// The generated client only speaks JSON, so the multipart uploads stay hand-written.
 async function multipart<T>(path: string, form: FormData): Promise<T> {
 	const res = await fetch(`/api/v1${path}`, {
 		method: 'POST',
@@ -211,75 +84,12 @@ export function uploadArtwork(
 	form.set('ownerId', ownerId);
 	form.set('kind', kind);
 	form.set('file', file);
-	return multipart<ArtworkRef>('/admin/artwork', form);
+	return multipart<Artwork>('/admin/artwork', form);
 }
-
-export const deleteArtwork = (id: string) =>
-	api<void>(`/admin/artwork/${id}`, { method: 'DELETE' });
-
-// subtitles
-export interface SubtitleInfo {
-	id: string;
-	mediaFileId: string;
-	lang: string;
-	label: string;
-	source: 'embedded' | 'uploaded';
-	forced: boolean;
-	createdAt: string;
-}
-
-export const listSubtitles = (mediaFileId: string) =>
-	api<SubtitleInfo[]>(`/admin/media-files/${mediaFileId}/subtitles`);
 
 export function uploadSubtitle(mediaFileId: string, lang: string, file: File) {
 	const form = new FormData();
 	form.set('lang', lang);
 	form.set('file', file);
-	return multipart<SubtitleInfo>(`/admin/media-files/${mediaFileId}/subtitles`, form);
+	return multipart<Subtitle>(`/admin/media-files/${mediaFileId}/subtitles`, form);
 }
-
-export const deleteSubtitle = (id: string) =>
-	api<void>(`/admin/subtitles/${id}`, { method: 'DELETE' });
-
-// transcoding
-export interface TranscodeVariant {
-	id: string;
-	mediaFileId: string;
-	name: string;
-	width: number;
-	height: number;
-	mode: 'copy' | 'transcode';
-	status: 'queued' | 'processing' | 'ready' | 'failed';
-	sizeBytes: number;
-	createdAt: string;
-	completedAt: string | null;
-}
-
-export interface TranscodeInfo {
-	detectedEncoders: string[];
-	detecting: boolean;
-	renditions: string[];
-	settings: {
-		hwAccel: string;
-		ladder: string[];
-		preset: string;
-		maxConcurrent: number;
-		jitEnabled: boolean | null;
-		autoPrepare: boolean | null;
-		deleteSourceAfterTranscode: boolean | null;
-	};
-}
-
-export const transcodeInfo = () => api<TranscodeInfo>('/admin/transcode/info');
-
-export const enqueueTranscode = (mediaFileId: string, variants?: string[]) =>
-	api<{ queued: string[] }>(`/admin/media-files/${mediaFileId}/transcode`, {
-		method: 'POST',
-		body: { variants: variants ?? [] }
-	});
-
-export const listVariants = (mediaFileId: string) =>
-	api<TranscodeVariant[]>(`/admin/media-files/${mediaFileId}/variants`);
-
-export const deleteVariant = (id: string) =>
-	api<void>(`/admin/transcode-variants/${id}`, { method: 'DELETE' });

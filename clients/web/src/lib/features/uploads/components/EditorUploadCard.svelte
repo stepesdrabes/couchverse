@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { CircleCheck, UploadCloud, X } from 'lucide-svelte';
-	import type { LibraryKind } from '$lib/features/uploads/api';
+	import type { UploadAssignmentLibraryKind } from '$lib/features/uploads/api';
 	import type { Upload } from '$lib/features/uploads/uploader.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
 	import { formatBytes } from '$lib/utils/format';
@@ -11,7 +11,7 @@
 		kind,
 		titleId = null,
 		hint
-	}: { kind: LibraryKind; titleId?: string | null; hint: string } = $props();
+	}: { kind: UploadAssignmentLibraryKind; titleId?: string | null; hint: string } = $props();
 
 	// only the uploads started from this card
 	let mine = $state<Upload[]>([]);

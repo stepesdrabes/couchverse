@@ -2,9 +2,8 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Film, Info, Loader2, Plus, Search, Trash2, UploadCloud } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
-	import type { Episode, MediaFile, Season } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { SubtitleInfo } from '$lib/features/library/api';
+	import type { Episode, MediaFile, Season, Subtitle } from '$lib/features/library/api';
 	import type { Upload } from '$lib/features/uploads/uploader.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -26,7 +25,7 @@
 		titleId: string;
 		seasons: Season[];
 		mediaFiles: MediaFile[];
-		subtitlesByFile: Record<string, SubtitleInfo[]>;
+		subtitlesByFile: Record<string, Subtitle[]>;
 		importing?: boolean;
 		languages?: string[];
 	} = $props();
@@ -89,11 +88,10 @@
 	async function addSeason() {
 		const nextNumber = seasons.length + 1;
 		try {
-			await libraryApi.createSeason(
-				titleId,
-				nextNumber,
-				m.library_season_number({ number: nextNumber })
-			);
+			await libraryApi.adminCreateSeason(titleId, {
+				seasonNumber: nextNumber,
+				name: m.library_season_number({ number: nextNumber })
+			});
 			invalidateAll();
 		} catch {
 			toast.error(m.library_add_season_failed());
@@ -102,7 +100,7 @@
 
 	async function removeSeason(season: Season) {
 		try {
-			await libraryApi.deleteSeason(season.id);
+			await libraryApi.adminDeleteSeason(season.id);
 			invalidateAll();
 		} catch {
 			toast.error(m.library_delete_season_failed());
@@ -113,7 +111,7 @@
 		const episodeName = newEpisodeName[season.id]?.trim();
 		if (!episodeName) return;
 		try {
-			await libraryApi.createEpisode(season.id, {
+			await libraryApi.adminCreateEpisode(season.id, {
 				episodeNumber: season.episodes.length + 1,
 				name: episodeName
 			});
@@ -126,7 +124,7 @@
 
 	async function removeEpisode(id: string) {
 		try {
-			await libraryApi.deleteEpisode(id);
+			await libraryApi.adminDeleteEpisode(id);
 			invalidateAll();
 		} catch {
 			toast.error(m.library_delete_episode_failed());

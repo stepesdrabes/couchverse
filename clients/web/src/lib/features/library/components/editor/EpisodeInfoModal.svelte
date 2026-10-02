@@ -2,9 +2,8 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Loader2, UploadCloud } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
-	import type { Episode, MediaFile } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { SubtitleInfo } from '$lib/features/library/api';
+	import type { Episode, MediaFile, Subtitle, Translation } from '$lib/features/library/api';
 	import type { Upload } from '$lib/features/uploads/uploader.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
 	import MediaFileJobs from '$lib/features/jobs/components/MediaFileJobs.svelte';
@@ -33,7 +32,7 @@
 		titleId: string;
 		episode: Episode | null;
 		file: MediaFile | null;
-		subtitles: SubtitleInfo[];
+		subtitles: Subtitle[];
 		languages?: string[];
 	} = $props();
 
@@ -51,7 +50,7 @@
 	const baseLang = $derived(languages[0] ?? 'en');
 	const editLangs = $derived(languages.length ? languages : [baseLang]);
 	let editLang = $state('');
-	let translations = $state<Record<string, { name?: string; overview?: string }>>({});
+	let translations = $state<Record<string, Translation>>({});
 	let tName = $state('');
 	let tOverview = $state('');
 	let tLoadedName = $state('');
@@ -73,7 +72,7 @@
 		if (!episode) return;
 		saving = true;
 		try {
-			await libraryApi.setEpisodeTranslation(episode.id, editLang, {
+			await libraryApi.adminSetEpisodeTranslation(episode.id, editLang, {
 				name: tName,
 				overview: tOverview
 			});
@@ -102,7 +101,7 @@
 			tLoadedName = '';
 			tLoadedOverview = '';
 			libraryApi
-				.getEpisodeTranslations(episode.id)
+				.adminGetEpisodeTranslations(episode.id)
 				.then((t) => (translations = t ?? {}))
 				.catch(() => {});
 		}
@@ -112,7 +111,7 @@
 		if (!episode) return;
 		saving = true;
 		try {
-			await libraryApi.updateEpisode(episode.id, { name, overview });
+			await libraryApi.adminUpdateEpisode(episode.id, { name, overview });
 			form.reset();
 			toast.success(m.library_episode_saved());
 			invalidateAll();

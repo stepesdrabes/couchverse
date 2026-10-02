@@ -3,8 +3,8 @@
 	import { ArrowLeft, ImagePlus, ListPlus, Sparkles, Trash2 } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { artworkUrl } from '$lib/features/catalog/api';
-	import type { ArtworkRef, Title } from '$lib/features/catalog/types';
 	import * as libraryApi from '$lib/features/library/api';
+	import type { Artwork, Title } from '$lib/features/library/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import StatusPill from '$lib/components/ui/StatusPill.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -18,7 +18,7 @@
 		onDelete
 	}: {
 		title: Title;
-		artwork: ArtworkRef[];
+		artwork: Artwork[];
 		busy?: boolean;
 		onFetchTmdb: () => void;
 		onImportEpisodes: () => void;
@@ -43,9 +43,9 @@
 		}
 	}
 
-	async function remove(art: ArtworkRef) {
+	async function remove(art: Artwork) {
 		try {
-			await libraryApi.deleteArtwork(art.id);
+			await libraryApi.adminDeleteArtwork(art.id);
 			invalidateAll();
 		} catch {
 			toast.error(m.library_delete_artwork_failed());

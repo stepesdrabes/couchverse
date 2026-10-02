@@ -1,4 +1,4 @@
-import type { Job } from './api';
+import type { AdminJob } from './api';
 import * as m from '$lib/paraglide/messages';
 
 const actionByType: Record<string, () => string> = {
@@ -13,14 +13,14 @@ const actionByType: Record<string, () => string> = {
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** "Transcode 1080p", "Analyze", "Cleanup" */
-export function jobAction(job: Job): string {
+export function jobAction(job: AdminJob): string {
 	const base = actionByType[job.type]?.() ?? job.type.replaceAll('_', ' ');
 	const variant = job.subject?.variant;
 	return job.type === 'transcode_hls' && variant ? `${base} ${variant}` : base;
 }
 
 /** "The Simpsons S01E01", "Movie Name" - null when unknown */
-export function jobSubjectLabel(job: Job): string | null {
+export function jobSubjectLabel(job: AdminJob): string | null {
 	const s = job.subject;
 	if (!s?.titleName) return null;
 	if (s.seasonNumber != null && s.episodeNumber != null) {

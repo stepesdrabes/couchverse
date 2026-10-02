@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { RotateCcw, X } from 'lucide-svelte';
 	import * as jobsApi from '$lib/features/jobs/api';
-	import type { Job } from '$lib/features/jobs/api';
+	import type { AdminJob, AdminJobStatus } from '$lib/features/jobs/api';
 	import { jobAction, jobSubjectLabel } from '$lib/features/jobs/job-label';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import * as m from '$lib/paraglide/messages';
 
-	let jobs = $state<Job[]>([]);
+	let jobs = $state<AdminJob[]>([]);
 
 	async function refresh() {
-		jobs = await jobsApi.listJobs();
+		jobs = await jobsApi.adminListJobs();
 	}
 
 	$effect(() => {
@@ -19,7 +19,7 @@
 		return () => clearInterval(t);
 	});
 
-	const statusColor: Record<Job['status'], string> = {
+	const statusColor: Record<AdminJobStatus, string> = {
 		pending: 'text-muted',
 		running: 'text-accent',
 		done: 'text-success',
@@ -27,7 +27,7 @@
 		cancelled: 'text-faint'
 	};
 
-	const statusLabel: Record<Job['status'], () => string> = {
+	const statusLabel: Record<AdminJobStatus, () => string> = {
 		pending: m.jobs_status_pending,
 		running: m.jobs_status_running,
 		done: m.jobs_status_done,
@@ -36,7 +36,7 @@
 	};
 
 	// subject comes from the backend; older payload shapes are the fallback
-	const jobSubject = (job: Job) => {
+	const jobSubject = (job: AdminJob) => {
 		const subject = jobSubjectLabel(job);
 		if (subject) return subject;
 		if (typeof job.payload.mediaFileId === 'string')
@@ -46,7 +46,7 @@
 
 	// collapse jobs onto the content they belong to: all jobs for one media file
 	// (e.g. the 1080p/720p/480p transcodes of an episode) become one entry
-	const groupKey = (job: Job): string => {
+	const groupKey = (job: AdminJob): string => {
 		const s = job.subject;
 		if (s?.mediaFileId) return `mf:${s.mediaFileId}`;
 		if (s?.titleId) return `title:${s.titleId}`;
@@ -56,7 +56,7 @@
 	interface JobGroup {
 		key: string;
 		label: string | null;
-		jobs: Job[];
+		jobs: AdminJob[];
 		latestId: number;
 	}
 
@@ -81,7 +81,7 @@
 	const groupSummary = (group: JobGroup): string => {
 		const counts: Record<string, number> = {};
 		for (const job of group.jobs) counts[job.status] = (counts[job.status] ?? 0) + 1;
-		const order: Job['status'][] = ['running', 'pending', 'failed', 'cancelled', 'done'];
+		const order: AdminJobStatus[] = ['running', 'pending', 'failed', 'cancelled', 'done'];
 		return order
 			.filter((s) => counts[s])
 			.map((s) => m.jobs_status_count({ count: counts[s], status: statusLabel[s]() }))
@@ -95,7 +95,7 @@
 
 <h1 class="mb-6 text-2xl font-bold">{m.jobs_heading()}</h1>
 
-{#snippet jobRow(job: Job)}
+{#snippet jobRow(job: AdminJob)}
 	<div class="flex items-center gap-3 px-4 py-2.5 text-sm">
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-2">
@@ -127,12 +127,20 @@
 		</div>
 		<div class="w-24 shrink-0 text-right">
 			{#if job.status === 'failed' || job.status === 'cancelled'}
-				<Button variant="ghost" size="sm" onclick={() => jobsApi.retryJob(job.id).then(refresh)}>
+				<Button
+					variant="ghost"
+					size="sm"
+					onclick={() => jobsApi.adminRetryJob(job.id).then(refresh)}
+				>
 					<RotateCcw class="size-3.5" />
 					{m.common_retry()}
 				</Button>
 			{:else if job.status === 'pending' || job.status === 'running'}
-				<Button variant="ghost" size="sm" onclick={() => jobsApi.cancelJob(job.id).then(refresh)}>
+				<Button
+					variant="ghost"
+					size="sm"
+					onclick={() => jobsApi.adminCancelJob(job.id).then(refresh)}
+				>
 					<X class="size-3.5" />
 					{m.common_cancel()}
 				</Button>

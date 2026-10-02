@@ -18,10 +18,10 @@
 	import { fly } from 'svelte/transition';
 	import * as jobsApi from '$lib/features/jobs/api';
 	import type {
-		AnalyticsInfo,
+		AnalyticsOverview,
 		AnalyticsTopTitle,
+		DashboardOverview,
 		LiveStats,
-		OverviewInfo,
 		StorageInfo,
 		SystemStats
 	} from '$lib/features/jobs/api';
@@ -37,23 +37,23 @@
 	import { usageColor } from '$lib/utils/usage-color';
 	import * as m from '$lib/paraglide/messages';
 
-	let overview = $state<OverviewInfo | null>(null);
+	let overview = $state<DashboardOverview | null>(null);
 	let storage = $state<StorageInfo | null>(null);
 	let system = $state<SystemStats | null>(null);
-	let analytics = $state<AnalyticsInfo | null>(null);
+	let analytics = $state<AnalyticsOverview | null>(null);
 	let live = $state<LiveStats | null>(null);
 	let cpuHistory = $state<number[]>([]);
 	let memHistory = $state<number[]>([]);
 
 	$effect(() => {
-		jobsApi.getOverview().then((o) => (overview = o));
-		jobsApi.getStorage().then((s) => (storage = s));
-		jobsApi.getAnalytics(30).then((a) => (analytics = a));
+		jobsApi.adminGetOverview().then((o) => (overview = o));
+		jobsApi.adminGetStorage().then((s) => (storage = s));
+		jobsApi.adminGetAnalytics({ days: 30 }).then((a) => (analytics = a));
 
 		async function pollSystem() {
 			if (document.visibilityState === 'hidden') return;
 			try {
-				const [s, l] = await Promise.all([jobsApi.getSystem(), jobsApi.getLive()]);
+				const [s, l] = await Promise.all([jobsApi.adminGetSystemStats(), jobsApi.adminGetLive()]);
 				system = s;
 				live = l;
 				if (s.cpuPercent >= 0) {

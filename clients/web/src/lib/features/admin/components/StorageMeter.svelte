@@ -8,7 +8,7 @@
 	let storage = $state<StorageInfo | null>(null);
 
 	$effect(() => {
-		jobsApi.getStorage().then((s) => (storage = s));
+		jobsApi.adminGetStorage().then((s) => (storage = s));
 	});
 </script>
 

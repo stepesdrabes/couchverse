@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { Loader2, Search } from 'lucide-svelte';
 	import * as libraryApi from '$lib/features/library/api';
-	import type { TmdbResult } from '$lib/features/library/api';
-	import type { Title } from '$lib/features/catalog/types';
+	import type { AdminSearchMetadataKind, Title, TmdbSearchResult } from '$lib/features/library/api';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -14,7 +13,7 @@
 	}: { open?: boolean; title: Title; onApply: (tmdbId: number) => void } = $props();
 
 	let query = $state(title.name);
-	let results = $state<TmdbResult[]>([]);
+	let results = $state<TmdbSearchResult[]>([]);
 	let searching = $state(false);
 	let error = $state('');
 
@@ -23,7 +22,10 @@
 		searching = true;
 		error = '';
 		try {
-			results = await libraryApi.searchTmdb(query, title.kind);
+			results = await libraryApi.adminSearchMetadata({
+				q: query,
+				kind: title.kind as AdminSearchMetadataKind
+			});
 		} catch (err) {
 			error = err instanceof Error ? err.message : m.library_tmdb_search_failed();
 			results = [];
@@ -38,7 +40,7 @@
 
 	// the editor page runs the metadata job and, for a series, chains the episode
 	// import - so this modal just hands back the pick and closes
-	function apply(result: TmdbResult) {
+	function apply(result: TmdbSearchResult) {
 		open = false;
 		onApply(result.tmdbId);
 	}

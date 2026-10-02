@@ -11,14 +11,14 @@
 	import { achievementName, achievementTierName, tierName } from '../labels';
 	import { rankColor } from '../tiers';
 	import * as adminApi from '../admin-api';
-	import type { AdminRanksOverview, RankConfig } from '../admin-api';
+	import type { RankConfig, RanksOverview } from '../admin-api';
 	import { formatUptime } from '$lib/utils/format';
 	import { FormState } from '$lib/utils/form-state.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	type RateKey = keyof adminApi.RankRates;
 
-	let data = $state<AdminRanksOverview | null>(null);
+	let data = $state<RanksOverview | null>(null);
 	// number inputs are kept as strings and converted on save, matching the
 	// transcode settings form
 	let rates = $state<Record<RateKey, string> | null>(null);
@@ -27,7 +27,7 @@
 	const form = new FormState(() => ({ rates, tiers }));
 
 	async function load() {
-		data = await adminApi.getAdminRanks();
+		data = await adminApi.adminGetRanks();
 		adopt(data.config);
 	}
 
@@ -55,9 +55,9 @@
 				rates: numeric as unknown as adminApi.RankRates,
 				tiers: tiers.map((t) => Number(t) || 0)
 			};
-			adopt(await adminApi.putRankConfig(payload));
+			adopt(await adminApi.adminUpdateRanksConfig(payload));
 			toast.success(m.admin_ranks_saved());
-			data = await adminApi.getAdminRanks();
+			data = await adminApi.adminGetRanks();
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : m.common_save_failed());
 		} finally {
