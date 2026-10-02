@@ -1,14 +1,12 @@
 package library
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
-
-	"couchverse/internal/httpx"
 )
 
 type AdminLibraries struct {
@@ -20,53 +18,40 @@ func NewAdminLibraries(st *Store, dataDir string) *AdminLibraries {
 	return &AdminLibraries{store: st, dataDir: dataDir}
 }
 
+type idInput struct {
+	ID string `path:"id" format:"uuid"`
+}
+
+// MediaFileAudio tags a media file's audio. Both fields are written: an absent
+// audioLang clears the language.
+type MediaFileAudio struct {
+	AudioLang string `json:"audioLang" required:"false" doc:"Audio language code; empty for an untagged file."`
+	AudioRole string `json:"audioRole" required:"false" enum:"primary,audio_alt" default:"primary" doc:"audio_alt marks a separate-language sibling of the title's or episode's primary file."`
+}
+
+type setMediaFileAudioInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body MediaFileAudio
+}
+
 // SetMediaFileAudio tags a media file with an audio language and role so it can
 // act as an alternate-audio sibling (model B).
-func (h *AdminLibraries) SetMediaFileAudio(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	var req struct {
-		AudioLang string `json:"audioLang"`
-		AudioRole string `json:"audioRole"`
-	}
-	if err := httpx.Decode(r, &req); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	if req.AudioRole == "" {
-		req.AudioRole = "primary"
-	}
-	if req.AudioRole != "primary" && req.AudioRole != "audio_alt" {
-		httpx.BadRequest(w, "audioRole must be primary or audio_alt")
-		return
-	}
-	if err := h.store.SetMediaFileAudio(r.Context(), id, req.AudioLang, req.AudioRole); err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+func (h *AdminLibraries) SetMediaFileAudio(ctx context.Context, in *setMediaFileAudioInput) (*struct{}, error) {
+	return nil, h.store.SetMediaFileAudio(ctx, in.ID, in.Body.AudioLang, in.Body.AudioRole)
 }
 
 // DeleteMediaFile removes a media file: its source on disk, its HLS/frame caches
 // and subtitle files, then the row (which cascades the subtitle and transcode
 // variant rows). Disk removal is best-effort - the hourly cleanup sweeps any
 // leftovers - so a missing file never blocks the delete.
-func (h *AdminLibraries) DeleteMediaFile(w http.ResponseWriter, r *http.Request) {
-	id := httpx.UUID(r, "id")
-	if id == "" {
-		httpx.NotFound(w)
-		return
-	}
-	mf, err := h.store.MediaFileByID(r.Context(), id)
+func (h *AdminLibraries) DeleteMediaFile(ctx context.Context, in *idInput) (*struct{}, error) {
+	id := in.ID
+	mf, err := h.store.MediaFileByID(ctx, id)
 	if err != nil {
-		httpx.StoreErr(w, err)
-		return
+		return nil, err
 	}
 	if mf.SourceDeletedAt == nil {
-		if lib, lerr := h.store.LibraryByID(r.Context(), mf.LibraryID); lerr == nil {
+		if lib, lerr := h.store.LibraryByID(ctx, mf.LibraryID); lerr == nil {
 			src := filepath.Join(lib.Path, mf.Path)
 			if err := os.Remove(src); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				slog.Warn("delete media file: remove source", "path", src, "err", err)
@@ -84,9 +69,5 @@ func (h *AdminLibraries) DeleteMediaFile(w http.ResponseWriter, r *http.Request)
 			slog.Warn("delete media file: remove dir", "dir", dir, "err", err)
 		}
 	}
-	if err := h.store.DeleteMediaFile(r.Context(), id); err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+	return nil, h.store.DeleteMediaFile(ctx, id)
 }

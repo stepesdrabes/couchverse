@@ -17,7 +17,7 @@ type UploadSession struct {
 	DeclaredSize  int64     `json:"declaredSize"`
 	ReceivedBytes int64     `json:"receivedBytes"`
 	TempPath      string    `json:"-"`
-	Status        string    `json:"status"`
+	Status        string    `json:"status" enum:"active,complete,aborted"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
 	ExpiresAt     time.Time `json:"expiresAt"`

@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -20,41 +21,48 @@ func NewAdminUploads(st *Store, manager *Manager) *AdminUploads {
 	return &AdminUploads{store: st, manager: manager}
 }
 
-func (h *AdminUploads) List(w http.ResponseWriter, r *http.Request) {
-	sessions, err := h.store.ActiveUploadSessions(r.Context())
+type uploadsOutput struct{ Body []UploadSession }
+
+func (h *AdminUploads) List(ctx context.Context, _ *struct{}) (*uploadsOutput, error) {
+	sessions, err := h.store.ActiveUploadSessions(ctx)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, sessions)
+	return &uploadsOutput{Body: sessions}, nil
 }
 
-func (h *AdminUploads) Create(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Filename string `json:"filename"`
-		Size     int64  `json:"size"`
+type createUploadInput struct {
+	Body struct {
+		Filename string `json:"filename" minLength:"1"`
+		Size     int64  `json:"size" minimum:"1" doc:"Total file size in bytes."`
 	}
-	if err := httpx.Decode(r, &req); err != nil || req.Filename == "" || req.Size <= 0 {
-		httpx.BadRequest(w, "filename and a positive size are required")
-		return
-	}
-	session, err := h.manager.Create(r.Context(), auth.UserFrom(r.Context()).ID, req.Filename, req.Size)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusCreated, session)
 }
 
-func (h *AdminUploads) Get(w http.ResponseWriter, r *http.Request) {
-	session, err := h.store.UploadSession(r.Context(), chi.URLParam(r, "id"))
+type uploadOutput struct{ Body *UploadSession }
+
+func (h *AdminUploads) Create(ctx context.Context, in *createUploadInput) (*uploadOutput, error) {
+	session, err := h.manager.Create(ctx, auth.UserFrom(ctx).ID, in.Body.Filename, in.Body.Size)
 	if err != nil {
-		httpx.StoreErr(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, session)
+	return &uploadOutput{Body: session}, nil
 }
 
+func (h *AdminUploads) Get(ctx context.Context, in *idInput) (*uploadOutput, error) {
+	session, err := h.store.UploadSession(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &uploadOutput{Body: session}, nil
+}
+
+// UploadOffset is how many bytes of an upload the server holds; the next
+// chunk starts there.
+type UploadOffset struct {
+	Offset int64 `json:"offset"`
+}
+
+// Append is a raw handler: the chunk is the unparsed request body.
 func (h *AdminUploads) Append(w http.ResponseWriter, r *http.Request) {
 	offset, err := strconv.ParseInt(r.URL.Query().Get("offset"), 10, 64)
 	if err != nil || offset < 0 {
@@ -67,7 +75,7 @@ func (h *AdminUploads) Append(w http.ResponseWriter, r *http.Request) {
 		var mismatch *ErrOffsetMismatch
 		switch {
 		case errors.As(err, &mismatch):
-			httpx.JSON(w, http.StatusConflict, map[string]int64{"offset": mismatch.Offset})
+			httpx.JSON(w, http.StatusConflict, UploadOffset{Offset: mismatch.Offset})
 		case errors.Is(err, httpx.ErrNotFound):
 			httpx.NotFound(w)
 		default:
@@ -75,35 +83,32 @@ func (h *AdminUploads) Append(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]int64{"offset": newOffset})
+	httpx.JSON(w, http.StatusOK, UploadOffset{Offset: newOffset})
 }
 
-func (h *AdminUploads) Complete(w http.ResponseWriter, r *http.Request) {
-	var assign Assign
-	if err := httpx.Decode(r, &assign); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	if assign.LibraryKind != "movies" && assign.LibraryKind != "series" {
-		httpx.BadRequest(w, "libraryKind must be movies or series")
-		return
-	}
-	mediaFileID, err := h.manager.Complete(r.Context(), chi.URLParam(r, "id"), assign)
+type completeUploadInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body UploadAssignment
+}
+
+// CompletedUpload names the media file an upload became; it is probed next.
+type CompletedUpload struct {
+	MediaFileID string `json:"mediaFileId"`
+}
+
+type completeUploadOutput struct{ Body CompletedUpload }
+
+func (h *AdminUploads) Complete(ctx context.Context, in *completeUploadInput) (*completeUploadOutput, error) {
+	mediaFileID, err := h.manager.Complete(ctx, in.ID, in.Body)
 	if err != nil {
 		if errors.Is(err, httpx.ErrNotFound) {
-			httpx.NotFound(w)
-			return
+			return nil, httpx.NotFoundError()
 		}
-		httpx.Error(w, http.StatusBadRequest, "complete_failed", err.Error())
-		return
+		return nil, httpx.Fail(http.StatusBadRequest, "complete_failed", err.Error())
 	}
-	httpx.JSON(w, http.StatusOK, map[string]string{"mediaFileId": mediaFileID})
+	return &completeUploadOutput{Body: CompletedUpload{MediaFileID: mediaFileID}}, nil
 }
 
-func (h *AdminUploads) Abort(w http.ResponseWriter, r *http.Request) {
-	if err := h.manager.Abort(r.Context(), chi.URLParam(r, "id")); err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+func (h *AdminUploads) Abort(ctx context.Context, in *idInput) (*struct{}, error) {
+	return nil, h.manager.Abort(ctx, in.ID)
 }

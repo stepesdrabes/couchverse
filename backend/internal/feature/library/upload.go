@@ -109,15 +109,17 @@ func (m *Manager) Append(ctx context.Context, id string, offset int64, body io.R
 	return newOffset, nil
 }
 
-type Assign struct {
-	LibraryKind string  `json:"libraryKind"` // movies | series
-	TitleID     *string `json:"titleId"`
-	EpisodeID   *string `json:"episodeId"`
+// UploadAssignment says where a finished upload goes: a managed library and
+// optionally the title or episode it belongs to.
+type UploadAssignment struct {
+	LibraryKind string  `json:"libraryKind" enum:"movies,series"`
+	TitleID     *string `json:"titleId" required:"false" format:"uuid" doc:"The movie, or the series whose episode is resolved from the file name's SxxExx."`
+	EpisodeID   *string `json:"episodeId" required:"false" format:"uuid"`
 }
 
 // Complete moves the finished upload into its managed library (same
 // filesystem → rename) and queues a probe.
-func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (string, error) {
+func (m *Manager) Complete(ctx context.Context, id string, assign UploadAssignment) (string, error) {
 	session, err := m.Files.UploadSession(ctx, id)
 	if err != nil {
 		return "", err
@@ -183,7 +185,7 @@ func (m *Manager) Complete(ctx context.Context, id string, assign Assign) (strin
 }
 
 // destinationPath picks a tidy library-relative location for the upload.
-func (m *Manager) destinationPath(ctx context.Context, lib *Library, filename string, assign Assign) (string, error) {
+func (m *Manager) destinationPath(ctx context.Context, lib *Library, filename string, assign UploadAssignment) (string, error) {
 	switch lib.Kind {
 	case "movies":
 		folder := strings.TrimSuffix(filename, filepath.Ext(filename))

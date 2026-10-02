@@ -18,8 +18,8 @@ type TranscodeVariant struct {
 	Height       int        `json:"height"`
 	VideoBitrate int64      `json:"videoBitrate"`
 	AudioBitrate int64      `json:"audioBitrate"`
-	Mode         string     `json:"mode"`
-	Status       string     `json:"status"`
+	Mode         string     `json:"mode" enum:"transcode,copy" doc:"copy remuxes the source without re-encoding."`
+	Status       string     `json:"status" enum:"queued,processing,ready,failed"`
 	SizeBytes    int64      `json:"sizeBytes"`
 	PlaylistPath string     `json:"-"`
 	CreatedAt    time.Time  `json:"createdAt"`
