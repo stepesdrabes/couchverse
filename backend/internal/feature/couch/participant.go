@@ -18,10 +18,10 @@ type participant struct {
 	ID          string  `json:"id"`
 	DisplayName string  `json:"displayName"`
 	AvatarID    *string `json:"avatarId,omitempty"`
-	Seed        string  `json:"seed,omitempty"` // identicon seed (username, or a random seed for anon)
+	Seed        string  `json:"seed,omitempty" doc:"Identicon seed: the username, or a random seed for an anonymous viewer."`
 	IsHost      bool    `json:"isHost"`
 	IsAnonymous bool    `json:"isAnonymous"`
-	Paused      bool    `json:"paused"` // follower paused their own playback locally
+	Paused      bool    `json:"paused" doc:"A follower paused their own playback locally."`
 
 	tokenHash      string    // hex SHA-256 of the current cookie token
 	userID         int64     // 0 when anonymous

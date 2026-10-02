@@ -56,8 +56,8 @@ func randDigits(n int) string {
 	return string(b)
 }
 
-func setCouchCookie(w http.ResponseWriter, token string, secure bool) {
-	http.SetCookie(w, &http.Cookie{
+func couchCookie(token string, secure bool) http.Cookie {
+	return http.Cookie{
 		Name:     CouchCookie,
 		Value:    token,
 		Path:     "/",
@@ -65,17 +65,11 @@ func setCouchCookie(w http.ResponseWriter, token string, secure bool) {
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
-	})
+	}
 }
 
-func clearCouchCookie(w http.ResponseWriter, secure bool) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     CouchCookie,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
-	})
+func clearedCouchCookie(secure bool) http.Cookie {
+	c := couchCookie("", secure)
+	c.MaxAge = -1
+	return c
 }

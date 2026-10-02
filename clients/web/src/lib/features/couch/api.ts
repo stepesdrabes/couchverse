@@ -9,7 +9,7 @@ import type { MediaRef, Snapshot } from './types';
 
 export interface CouchPlaybackResp {
 	media: MediaRef;
-	player: PlaybackInfo | null; // null while the host is choosing
+	player?: PlaybackInfo; // absent while the host is choosing
 }
 
 export interface CouchInfo {
@@ -19,12 +19,13 @@ export interface CouchInfo {
 	hostSeed: string;
 	playing: boolean;
 	participants: number;
-	display: {
+	/** absent while the host is choosing */
+	display?: {
 		title: string;
 		subtitle: string;
 		backdropId: string | null;
 		backdropAccent: string;
-	} | null;
+	};
 }
 
 /** Preview a session for the pre-join screen, without joining. Public. */
@@ -53,7 +54,7 @@ export async function resolveCouchPlayer(
 	token: string
 ): Promise<{ player: PlaybackInfo | null; jitSessionId: string | null }> {
 	const resp = await getCouchPlayback(token);
-	let player = resp.player;
+	let player = resp.player ?? null;
 	let jitSessionId: string | null = null;
 	if (player && player.mode === 'jit') {
 		const session = await createJitSession(player.mediaFileId, 0);

@@ -222,7 +222,7 @@ func (h *Hub) nowMs() int64 { return time.Since(h.epoch).Milliseconds() }
 // mediaRef identifies what the host is watching. An empty Kind means the host
 // is on the browse screen ("choosing what to watch").
 type mediaRef struct {
-	Kind      string `json:"kind"`
+	Kind      string `json:"kind" enum:",movie,episode" doc:"Empty while the host is choosing what to watch."`
 	TitleID   string `json:"titleId,omitempty"`
 	EpisodeID string `json:"episodeId,omitempty"`
 }
@@ -241,9 +241,9 @@ type hostState struct {
 	Media             mediaRef `json:"media"`
 	Playing           bool     `json:"playing"`
 	PositionSeconds   float64  `json:"positionSeconds"`
-	ServerTimestampMs int64    `json:"serverTimestamp"`
-	Seq               uint64   `json:"seq"`
-	Away              bool     `json:"away"`
+	ServerTimestampMs int64    `json:"serverTimestamp" doc:"When the state was stamped, in milliseconds on the server's monotonic clock (the hello frame's serverTime)."`
+	Seq               uint64   `json:"seq" doc:"Increases with every state change; drop frames older than the last seen."`
+	Away              bool     `json:"away" doc:"The host lost its connection and the grace countdown is running."`
 }
 
 type room struct {
@@ -647,40 +647,40 @@ func (h *Hub) reapIdle() {
 	}
 }
 
-// snapshot is the session state returned by create/join. Participant unexported
-// fields are not serialized.
-type snapshot struct {
+// CouchSession is the session state returned by create/join. Participant
+// unexported fields are not serialized.
+type CouchSession struct {
 	SessionID       string        `json:"sessionId"`
-	ShareToken      string        `json:"shareToken"`
+	ShareToken      string        `json:"shareToken" doc:"The share code others join with."`
 	MyParticipantID string        `json:"myParticipantId"`
-	Role            string        `json:"role"`
+	Role            string        `json:"role" enum:"host,follower"`
 	IsAnonymous     bool          `json:"isAnonymous"`
 	State           hostState     `json:"state"`
 	Participants    []participant `json:"participants"`
 }
 
-// couchInfo previews a session for the pre-join screen (no participant created).
-type couchInfo struct {
+// CouchInfo previews a session for the pre-join screen (no participant created).
+type CouchInfo struct {
 	ShareCode    string            `json:"shareCode"`
 	HostName     string            `json:"hostName"`
 	HostAvatarID *string           `json:"hostAvatarId"`
-	HostSeed     string            `json:"hostSeed"`
+	HostSeed     string            `json:"hostSeed" doc:"Identicon seed for a host without an avatar."`
 	Playing      bool              `json:"playing"`
 	Participants int               `json:"participants"`
-	Display      *couchInfoDisplay `json:"display"` // nil while the host is choosing
+	Display      *CouchInfoDisplay `json:"display,omitempty" doc:"What is playing; absent while the host is choosing."`
 }
 
-type couchInfoDisplay struct {
+type CouchInfoDisplay struct {
 	Title          string  `json:"title"`
 	Subtitle       string  `json:"subtitle"`
 	BackdropID     *string `json:"backdropId"`
 	BackdropAccent string  `json:"backdropAccent"`
 }
 
-func (rm *room) infoPreview() (couchInfo, mediaRef) {
+func (rm *room) infoPreview() (CouchInfo, mediaRef) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	ci := couchInfo{
+	ci := CouchInfo{
 		ShareCode:    rm.shareToken,
 		Playing:      rm.state.Playing,
 		Participants: len(rm.participants),
@@ -693,7 +693,7 @@ func (rm *room) infoPreview() (couchInfo, mediaRef) {
 	return ci, rm.state.Media
 }
 
-func (rm *room) snapshotFor(pid, role string) snapshot {
+func (rm *room) snapshotFor(pid, role string) CouchSession {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 	parts := make([]participant, 0, len(rm.participants))
@@ -704,7 +704,7 @@ func (rm *room) snapshotFor(pid, role string) snapshot {
 	if p := rm.participants[pid]; p != nil {
 		isAnon = p.IsAnonymous
 	}
-	return snapshot{
+	return CouchSession{
 		SessionID:       rm.sessionID,
 		ShareToken:      rm.shareToken,
 		MyParticipantID: pid,
