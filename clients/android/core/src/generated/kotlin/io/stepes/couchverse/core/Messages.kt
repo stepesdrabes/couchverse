@@ -403,7 +403,7 @@ sealed class Inline {
 	/// A line break: a single newline in a bio breaks the line, as in a chat message.
 	@Serializable
 	@SerialName("break")
-	object Break: Inline()
+	data object Break: Inline()
 }
 
 @Serializable
@@ -599,13 +599,13 @@ data class LinkInline (
 sealed class Block {
 	@Serializable
 	@SerialName("paragraph")
-	data class Paragraph(val content: List<Inline>): Block()
+	data class Paragraph(val content: kotlin.collections.List<Inline>): Block()
 	@Serializable
 	@SerialName("heading")
 	data class Heading(val content: HeadingBlock): Block()
 	@Serializable
 	@SerialName("quote")
-	data class Quote(val content: List<Block>): Block()
+	data class Quote(val content: kotlin.collections.List<Block>): Block()
 	@Serializable
 	@SerialName("list")
 	data class List(val content: ListBlock): Block()
@@ -615,7 +615,7 @@ sealed class Block {
 	data class Code(val content: String): Block()
 	@Serializable
 	@SerialName("rule")
-	object Rule: Block()
+	data object Rule: Block()
 	@Serializable
 	@SerialName("table")
 	data class Table(val content: TableBlock): Block()
@@ -643,16 +643,16 @@ sealed class Event {
 	/// The shell is up; the core loads what it persisted.
 	@Serializable
 	@SerialName("appStarted")
-	object AppStarted: Event()
+	data object AppStarted: Event()
 	/// The app came to the foreground; stale data is refreshed.
 	@Serializable
 	@SerialName("appBecameActive")
-	object AppBecameActive: Event()
+	data object AppBecameActive: Event()
 	/// The web signed in through its own login form (`AuthMode::Cookie`); the core loads the
 	/// new session. Native clients sign in through the core and never send it.
 	@Serializable
 	@SerialName("sessionStarted")
-	object SessionStarted: Event()
+	data object SessionStarted: Event()
 	/// The user typed a server address on the add-server screen.
 	@Serializable
 	@SerialName("serverAddressSubmitted")
@@ -668,7 +668,7 @@ sealed class Event {
 	data class PairingStarted(val content: ServerRef): Event()
 	@Serializable
 	@SerialName("pairingCancelled")
-	object PairingCancelled: Event()
+	data object PairingCancelled: Event()
 	/// The shell opened a `couchverse://` link (a scanned QR code or a tapped link).
 	@Serializable
 	@SerialName("linkOpened")
@@ -681,7 +681,7 @@ sealed class Event {
 	data class SignOutRequested(val content: AccountRef): Event()
 	@Serializable
 	@SerialName("devicesOpened")
-	object DevicesOpened: Event()
+	data object DevicesOpened: Event()
 	@Serializable
 	@SerialName("deviceRevoked")
 	data class DeviceRevoked(val content: DeviceRef): Event()
@@ -730,7 +730,7 @@ sealed class Event {
 	/// The celebration on screen was seen.
 	@Serializable
 	@SerialName("celebrationDismissed")
-	object CelebrationDismissed: Event()
+	data object CelebrationDismissed: Event()
 	/// The viewer's profile appears on public pages and leaderboards, or not.
 	@Serializable
 	@SerialName("profileVisibilityChanged")
@@ -984,38 +984,38 @@ sealed class Surface {
 	/// Where the app is: which account is active and what the shell should show at the root.
 	@Serializable
 	@SerialName("app")
-	object App: Surface()
+	data object App: Surface()
 	/// The known servers and the add-server flow.
 	@Serializable
 	@SerialName("servers")
-	object Servers: Surface()
+	data object Servers: Surface()
 	/// Every account on every server: the "Who's watching?" picker and the account switcher.
 	@Serializable
 	@SerialName("accounts")
-	object Accounts: Surface()
+	data object Accounts: Surface()
 	/// Signing in to a server: password and pairing.
 	@Serializable
 	@SerialName("signIn")
-	object SignIn: Surface()
+	data object SignIn: Surface()
 	/// The signed-in account's devices.
 	@Serializable
 	@SerialName("devices")
-	object Devices: Surface()
+	data object Devices: Surface()
 	/// A pairing request this account is approving for another device.
 	@Serializable
 	@SerialName("pairingApproval")
-	object PairingApproval: Surface()
+	data object PairingApproval: Surface()
 	/// The active account's session: user, features, display language and theme.
 	@Serializable
 	@SerialName("session")
-	object Session: Surface()
+	data object Session: Surface()
 	/// A markdown document rendered safely; the content is the source.
 	@Serializable
 	@SerialName("markdown")
 	data class Markdown(val content: String): Surface()
 	@Serializable
 	@SerialName("home")
-	object Home: Surface()
+	data object Home: Surface()
 	/// A listing of movies, series or a genre.
 	@Serializable
 	@SerialName("browse")
@@ -1026,21 +1026,21 @@ sealed class Surface {
 	data class Title(val content: String): Surface()
 	@Serializable
 	@SerialName("genres")
-	object Genres: Surface()
+	data object Genres: Surface()
 	@Serializable
 	@SerialName("myList")
-	object MyList: Surface()
+	data object MyList: Surface()
 	@Serializable
 	@SerialName("search")
-	object Search: Surface()
+	data object Search: Surface()
 	/// Transient notices for a toast or banner.
 	@Serializable
 	@SerialName("notices")
-	object Notices: Surface()
+	data object Notices: Surface()
 	/// The viewer's rank badge and the achievement celebrations.
 	@Serializable
 	@SerialName("rank")
-	object Rank: Surface()
+	data object Rank: Surface()
 	/// A member's profile; the content is the username.
 	@Serializable
 	@SerialName("profile")
@@ -1051,7 +1051,7 @@ sealed class Surface {
 	/// The viewer's profile, password and image saves.
 	@Serializable
 	@SerialName("profileEditor")
-	object ProfileEditor: Surface()
+	data object ProfileEditor: Surface()
 }
 
 @Serializable
@@ -1070,7 +1070,7 @@ sealed class EffectOutput {
 	data class HttpFailed(val content: HttpFailure): EffectOutput()
 	@Serializable
 	@SerialName("timerFired")
-	object TimerFired: EffectOutput()
+	data object TimerFired: EffectOutput()
 	/// A store read; `None` when the key holds nothing.
 	@Serializable
 	@SerialName("stored")
@@ -1078,7 +1078,7 @@ sealed class EffectOutput {
 	/// A store write or delete finished.
 	@Serializable
 	@SerialName("storeDone")
-	object StoreDone: EffectOutput()
+	data object StoreDone: EffectOutput()
 	@Serializable
 	@SerialName("storeFailed")
 	data class StoreFailed(val content: StoreFailure): EffectOutput()
@@ -1185,13 +1185,13 @@ data class StoreFailure (
 sealed class StoreOp {
 	@Serializable
 	@SerialName("read")
-	object Read: StoreOp()
+	data object Read: StoreOp()
 	@Serializable
 	@SerialName("write")
 	data class Write(val content: String): StoreOp()
 	@Serializable
 	@SerialName("delete")
-	object Delete: StoreOp()
+	data object Delete: StoreOp()
 }
 
 @Serializable
