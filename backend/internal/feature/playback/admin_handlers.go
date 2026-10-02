@@ -65,11 +65,13 @@ type idInput struct {
 	ID string `path:"id" format:"uuid"`
 }
 
+type TranscodeRequest struct {
+	Variants []string `json:"variants" required:"false" enum:"1080p,720p,480p,source" doc:"Renditions to queue (source remuxes without re-encoding); the configured ladder when empty."`
+}
+
 type enqueueTranscodeInput struct {
 	ID   string `path:"id" format:"uuid"`
-	Body *struct {
-		Variants []string `json:"variants" required:"false" enum:"1080p,720p,480p,source" doc:"Renditions to queue (source remuxes without re-encoding); the configured ladder when empty."`
-	}
+	Body *TranscodeRequest
 }
 
 // QueuedTranscodes names the renditions that were queued; renditions taller

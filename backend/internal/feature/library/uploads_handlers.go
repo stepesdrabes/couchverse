@@ -31,12 +31,12 @@ func (h *AdminUploads) List(ctx context.Context, _ *struct{}) (*uploadsOutput, e
 	return &uploadsOutput{Body: sessions}, nil
 }
 
-type createUploadInput struct {
-	Body struct {
-		Filename string `json:"filename" minLength:"1"`
-		Size     int64  `json:"size" minimum:"1" doc:"Total file size in bytes."`
-	}
+type NewUpload struct {
+	Filename string `json:"filename" minLength:"1"`
+	Size     int64  `json:"size" minimum:"1" doc:"Total file size in bytes."`
 }
+
+type createUploadInput struct{ Body NewUpload }
 
 type uploadOutput struct{ Body *UploadSession }
 

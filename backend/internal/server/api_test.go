@@ -29,25 +29,26 @@ import (
 
 // Seeded ids (testdata/seed.sql).
 const (
-	movieID       = "00000000-0000-4000-8000-000000000101"
-	seriesID      = "00000000-0000-4000-8000-000000000102"
-	draftID       = "00000000-0000-4000-8000-000000000103"
-	season1ID     = "00000000-0000-4000-8000-000000000201"
-	season2ID     = "00000000-0000-4000-8000-000000000202"
-	pilotID       = "00000000-0000-4000-8000-000000000301"
-	episode2ID    = "00000000-0000-4000-8000-000000000302"
-	episode3ID    = "00000000-0000-4000-8000-000000000303"
-	unknownID     = "00000000-0000-4000-8000-000000000999"
-	movieFileID   = "00000000-0000-4000-8000-000000000501"
-	altAudioID    = "00000000-0000-4000-8000-000000000502"
-	hdrFileID     = "00000000-0000-4000-8000-000000000503"
-	ladderFileID  = "00000000-0000-4000-8000-000000000504"
-	thumbArtID    = "00000000-0000-4000-8000-000000000404"
-	movieSubID    = "00000000-0000-4000-8000-000000000701"
-	failedRungID  = "00000000-0000-4000-8000-000000000802"
-	readyRungID   = "00000000-0000-4000-8000-000000000801"
-	memberName    = "nora"
-	privateMember = "piet"
+	movieID        = "00000000-0000-4000-8000-000000000101"
+	seriesID       = "00000000-0000-4000-8000-000000000102"
+	draftID        = "00000000-0000-4000-8000-000000000103"
+	season1ID      = "00000000-0000-4000-8000-000000000201"
+	season2ID      = "00000000-0000-4000-8000-000000000202"
+	pilotID        = "00000000-0000-4000-8000-000000000301"
+	episode2ID     = "00000000-0000-4000-8000-000000000302"
+	episode3ID     = "00000000-0000-4000-8000-000000000303"
+	unknownID      = "00000000-0000-4000-8000-000000000999"
+	movieFileID    = "00000000-0000-4000-8000-000000000501"
+	hdrFileEpisode = pilotID
+	altAudioID     = "00000000-0000-4000-8000-000000000502"
+	hdrFileID      = "00000000-0000-4000-8000-000000000503"
+	ladderFileID   = "00000000-0000-4000-8000-000000000504"
+	thumbArtID     = "00000000-0000-4000-8000-000000000404"
+	movieSubID     = "00000000-0000-4000-8000-000000000701"
+	failedRungID   = "00000000-0000-4000-8000-000000000802"
+	readyRungID    = "00000000-0000-4000-8000-000000000801"
+	memberName     = "nora"
+	privateMember  = "piet"
 )
 
 // apiCase is one request in the conformance run. Cases run in order, so later
@@ -60,7 +61,12 @@ type apiCase struct {
 	body   any
 	// upload sends the body as multipart/form-data with this file in a "file" part
 	upload *upload
+	// raw sends these bytes as application/octet-stream
+	raw    []byte
 	status int
+	// save stores response fields for later paths: {"couch": "shareToken"}
+	// makes {{couch}} expand to that value
+	save map[string]string
 }
 
 type upload struct {
@@ -90,7 +96,11 @@ func TestAPIConformance(t *testing.T) {
 	ops := operations(doc)
 
 	covered := map[string]bool{}
+	vars := map[string]string{}
 	for i, c := range apiCases() {
+		for k, v := range vars {
+			c.path = strings.ReplaceAll(c.path, "{{"+k+"}}", v)
+		}
 		name := fmt.Sprintf("%02d %s %s %s", i, c.op, c.method, c.path)
 		op, ok := ops[c.op]
 		if !ok {
@@ -117,6 +127,11 @@ func TestAPIConformance(t *testing.T) {
 		if err := json.Unmarshal(body, &value); err != nil {
 			t.Errorf("%s: invalid JSON: %v", name, err)
 			continue
+		}
+		for k, field := range c.save {
+			if obj, ok := value.(map[string]any); ok {
+				vars[k] = fmt.Sprint(obj[field])
+			}
 		}
 		res := &huma.ValidateResult{}
 		huma.Validate(doc.Components.Schemas, schema, huma.NewPathBuffer([]byte{}, 0), huma.ModeReadFromServer, value, res)
@@ -177,7 +192,7 @@ func apiCases() []apiCase {
 		{op: "adminSetEpisodeTranslation", as: "admin", method: "PATCH", path: "/admin/episodes/" + pilotID + "/translations/cs", body: map[string]string{"name": "A", "overview": "B"}, status: 204},
 		{op: "adminBulkTitles", as: "admin", method: "POST", path: "/admin/titles/bulk", body: map[string]any{"ids": []string{draftID}, "action": "publish"}, status: 204},
 		{op: "adminBulkTitles", as: "admin", method: "POST", path: "/admin/titles/bulk", body: map[string]any{"ids": []string{}, "action": "publish"}, status: 400},
-		{op: "adminDeleteEpisode", as: "admin", method: "DELETE", path: "/admin/episodes/" + episode2ID, status: 204},
+		{op: "adminDeleteEpisode", as: "admin", method: "DELETE", path: "/admin/episodes/" + episode3ID, status: 204},
 		{op: "adminDeleteSeason", as: "admin", method: "DELETE", path: "/admin/seasons/" + season2ID, status: 204},
 		{op: "adminDeleteTitle", as: "admin", method: "DELETE", path: "/admin/titles/" + draftID, status: 204},
 
@@ -215,6 +230,37 @@ func apiCases() []apiCase {
 		{op: "adminCreateUser", as: "admin", method: "POST", path: "/admin/users", body: map[string]any{"username": "zed", "password": "secret"}, status: 409},
 		{op: "adminUpdateUser", as: "admin", method: "PATCH", path: "/admin/users/3", body: map[string]any{"displayName": "Piet P", "role": "member"}, status: 200},
 		{op: "adminDeleteUser", as: "admin", method: "DELETE", path: "/admin/users/4", status: 204},
+
+		{op: "getPlayback", as: "nora", method: "GET", path: "/playback/movie/" + movieID + "?caps=hevc,av1&lang=cs", status: 200},
+		{op: "getPlayback", as: "nora", method: "GET", path: "/playback/episode/" + hdrFileEpisode, status: 200},
+		{op: "getPlayback", as: "nora", method: "GET", path: "/playback/trailer/" + movieID, status: 404},
+		// no hardware encoder in tests, so instant play is off
+		{op: "createStreamSession", as: "nora", method: "POST", path: "/stream/" + hdrFileID + "/sessions", body: map[string]any{"startAt": 30}, status: 412},
+		{op: "keepStreamSessionAlive", as: "nora", method: "POST", path: "/stream/sessions/abcdef0123456789/keepalive", status: 404},
+		{op: "adminGetTranscodeInfo", as: "admin", method: "GET", path: "/admin/transcode/info", status: 200},
+		{op: "adminListActiveTranscodes", as: "admin", method: "GET", path: "/admin/transcode/active", status: 200},
+		{op: "adminListVariants", as: "admin", method: "GET", path: "/admin/media-files/" + ladderFileID + "/variants", status: 200},
+		{op: "adminEnqueueTranscode", as: "admin", method: "POST", path: "/admin/media-files/" + ladderFileID + "/transcode", body: map[string]any{"variants": []string{"480p"}}, status: 202},
+		{op: "adminDeleteVariant", as: "admin", method: "DELETE", path: "/admin/transcode-variants/" + failedRungID, status: 204},
+		{op: "adminUpdateMediaFile", as: "admin", method: "PATCH", path: "/admin/media-files/" + altAudioID, body: map[string]any{"audioLang": "de", "audioRole": "audio_alt"}, status: 204},
+		{op: "adminDeleteMediaFile", as: "admin", method: "DELETE", path: "/admin/media-files/" + altAudioID, status: 204},
+
+		{op: "adminCreateUpload", as: "admin", method: "POST", path: "/admin/uploads", body: map[string]any{"filename": "Paper Moon (1973).mp4", "size": 4}, status: 201, save: map[string]string{"upload": "id"}},
+		{op: "adminListUploads", as: "admin", method: "GET", path: "/admin/uploads", status: 200},
+		{op: "adminAppendUpload", as: "admin", method: "PUT", path: "/admin/uploads/{{upload}}?offset=0", raw: []byte("moov"), status: 200},
+		{op: "adminGetUpload", as: "admin", method: "GET", path: "/admin/uploads/{{upload}}", status: 200},
+		{op: "adminCompleteUpload", as: "admin", method: "POST", path: "/admin/uploads/{{upload}}/complete", body: map[string]any{"libraryKind": "movies"}, status: 200},
+		{op: "adminCreateUpload", as: "admin", method: "POST", path: "/admin/uploads", body: map[string]any{"filename": "Abandoned.mkv", "size": 10}, status: 201, save: map[string]string{"dropped": "id"}},
+		{op: "adminAbortUpload", as: "admin", method: "DELETE", path: "/admin/uploads/{{dropped}}", status: 204},
+
+		{op: "createCouch", as: "nora", method: "POST", path: "/couch", body: map[string]any{"kind": "movie", "id": movieID}, status: 201, save: map[string]string{"couch": "shareToken"}},
+		{op: "createCouch", method: "POST", path: "/couch", body: map[string]any{"kind": "movie", "id": movieID}, status: 401},
+		{op: "getCouchInfo", as: "guest", method: "GET", path: "/couch/{{couch}}/info?lang=cs", status: 200},
+		{op: "joinCouch", as: "guest", method: "POST", path: "/couch/{{couch}}/join", status: 200},
+		{op: "getCouchPlayback", as: "guest", method: "GET", path: "/couch/{{couch}}/playback", status: 200},
+		{op: "leaveCouch", as: "guest", method: "POST", path: "/couch/{{couch}}/leave", status: 204},
+		{op: "endCouch", as: "admin", method: "POST", path: "/couch/{{couch}}/end", status: 403},
+		{op: "endCouch", as: "nora", method: "POST", path: "/couch/{{couch}}/end", status: 204},
 
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "wrong", "newPassword": "long enough"}, status: 400},
 		{op: "changePassword", as: "nora", method: "PATCH", path: "/me/password", body: map[string]string{"currentPassword": "admin", "newPassword": "long enough"}, status: 204},
@@ -350,6 +396,9 @@ func newTestEnv(t *testing.T) *testEnv {
 	env := &testEnv{srv: httptest.NewServer(a.Handler()), clients: map[string]*http.Client{}}
 	t.Cleanup(env.srv.Close)
 	env.clients[""] = env.srv.Client()
+	// an anonymous viewer that keeps cookies, like a couch follower without an account
+	guestJar, _ := cookiejar.New(nil)
+	env.clients["guest"] = &http.Client{Jar: guestJar}
 	for _, user := range []string{"admin", memberName} {
 		jar, _ := cookiejar.New(nil)
 		c := &http.Client{Jar: jar}
@@ -363,6 +412,9 @@ func newTestEnv(t *testing.T) *testEnv {
 }
 
 func (e *testEnv) do(t *testing.T, c apiCase) (int, []byte, string) {
+	if c.raw != nil {
+		return e.send(t, e.clients[c.as], c.method, c.path, bytes.NewReader(c.raw), "application/octet-stream")
+	}
 	if c.upload == nil {
 		return e.request(t, e.clients[c.as], c.method, c.path, c.body)
 	}

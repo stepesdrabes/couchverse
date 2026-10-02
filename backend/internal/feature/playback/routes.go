@@ -26,8 +26,7 @@ func (m *Module) Register(rt httpx.Routes) {
 	stream := rt.Stream
 	huma.Register(stream, httpx.Localized(tag.Op("getPlayback", http.MethodGet, "/playback/{kind}/{id}")), m.stream.Playback)
 
-	session := tag.Op("createStreamSession", http.MethodPost, "/stream/{id}/sessions")
-	session.DefaultStatus = http.StatusCreated
+	session := tag.Created("createStreamSession", http.MethodPost, "/stream/{id}/sessions")
 	session.Middlewares = huma.Middlewares{httpx.Guard(stream, m.stream.requireJIT)}
 	huma.Register(stream, session, m.stream.CreateSession)
 	huma.Register(stream, tag.NoContent("keepStreamSessionAlive", http.MethodPost, "/stream/sessions/{sid}/keepalive"), m.stream.SessionKeepalive)

@@ -36,8 +36,7 @@ func (m *Module) Register(rt httpx.Routes) {
 	api := huma.NewGroup(rt.Public)
 	api.UseMiddleware(httpx.Guard(api, flags.CouchOn(m.settings)))
 
-	create := tag.Op("createCouch", http.MethodPost, "/couch")
-	create.DefaultStatus = http.StatusCreated
+	create := tag.Created("createCouch", http.MethodPost, "/couch")
 	create.Middlewares = huma.Middlewares{httpx.Guard(api, hostSignedIn)}
 	create.Security = []map[string][]string{{"cookieSession": {}}}
 	huma.Register(api, create, m.handlers.Create)

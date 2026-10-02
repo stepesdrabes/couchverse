@@ -540,11 +540,13 @@ func (h *Stream) requireJIT(ctx context.Context) error {
 	return nil
 }
 
+type StreamSessionStart struct {
+	StartAt float64 `json:"startAt" required:"false" doc:"Position in seconds to start transcoding from."`
+}
+
 type createStreamSessionInput struct {
 	ID   string `path:"id" format:"uuid"`
-	Body struct {
-		StartAt float64 `json:"startAt" required:"false" doc:"Position in seconds to start transcoding from."`
-	}
+	Body StreamSessionStart
 }
 
 // StreamSession is an open JIT transcode. Play PlaylistURL and keep the

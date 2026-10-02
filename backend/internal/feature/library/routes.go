@@ -29,9 +29,7 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.Admin, tag.NoContent("adminDeleteMediaFile", http.MethodDelete, "/media-files/{id}"), m.libraries.DeleteMediaFile)
 
 	huma.Register(rt.Admin, tag.Op("adminListUploads", http.MethodGet, "/uploads"), m.uploads.List)
-	create := tag.Op("adminCreateUpload", http.MethodPost, "/uploads")
-	create.DefaultStatus = http.StatusCreated
-	huma.Register(rt.Admin, create, m.uploads.Create)
+	huma.Register(rt.Admin, tag.Created("adminCreateUpload", http.MethodPost, "/uploads"), m.uploads.Create)
 	huma.Register(rt.Admin, tag.Op("adminGetUpload", http.MethodGet, "/uploads/{id}"), m.uploads.Get)
 	httpx.Raw(rt.Admin, appendUploadOp(rt.Admin), m.uploads.Append)
 	huma.Register(rt.Admin, tag.Op("adminCompleteUpload", http.MethodPost, "/uploads/{id}/complete"), m.uploads.Complete)

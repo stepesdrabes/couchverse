@@ -28,12 +28,13 @@ func hostSignedIn(ctx context.Context) error {
 	return nil
 }
 
-type createCouchInput struct {
-	Body struct {
-		Kind string `json:"kind" enum:"movie,episode"`
-		ID   string `json:"id" format:"uuid" doc:"The movie's title id or the episode id."`
-	}
+// CouchStart names what the host is watching when they open a couch.
+type CouchStart struct {
+	Kind string `json:"kind" enum:"movie,episode"`
+	ID   string `json:"id" format:"uuid" doc:"The movie's title id or the episode id."`
 }
+
+type createCouchInput struct{ Body CouchStart }
 
 // couchSessionOutput carries the participant's couch cookie, which
 // authorizes the socket, the follower payload and anonymous streaming.
