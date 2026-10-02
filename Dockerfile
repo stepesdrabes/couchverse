@@ -14,7 +14,8 @@ COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
 COPY --from=web /repo/clients/web/build ./web/dist
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /couchverse ./cmd/couchverse
+ARG VERSION=dev
+RUN CGO_ENABLED=0 go build -ldflags="-s -w -X couchverse/internal/version.Version=${VERSION}" -o /couchverse ./cmd/couchverse
 
 # ---- runtime ----
 FROM debian:bookworm-slim

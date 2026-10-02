@@ -3616,6 +3616,40 @@
         ],
         "type": "object"
       },
+      "ServerInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "accent": {
+            "description": "The site accent colour as a CSS hex value.",
+            "type": "string"
+          },
+          "apiLevel": {
+            "description": "Raised whenever clients need new server behaviour.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Stable for the server's lifetime; clients key their accounts by it.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "description": "The release the server was built from.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "apiLevel",
+          "accent"
+        ],
+        "type": "object"
+      },
       "ServerSettings": {
         "additionalProperties": false,
         "properties": {
@@ -3627,6 +3661,12 @@
           },
           "home": {
             "$ref": "#/components/schemas/HomeSettings"
+          },
+          "server.name": {
+            "description": "The name clients show for this server; the host name when unset.",
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
           },
           "tmdb.api_key": {
             "description": "TMDB v3 API key used for metadata search and fetches.",
@@ -9799,6 +9839,36 @@
         ],
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/server": {
+      "get": {
+        "operationId": "getServer",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerInfo"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "system"
         ]
       }
     },

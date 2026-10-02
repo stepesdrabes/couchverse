@@ -2,6 +2,8 @@
 
 # dev database (compose service `db` published on 5432)
 DEV_DB ?= postgres://couchverse:couchverse@localhost:5432/couchverse
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS := -s -w -X couchverse/internal/version.Version=$(VERSION)
 
 run-backend:
 	cd backend && DATABASE_URL=$(DEV_DB) DATA_DIR=../data \
@@ -16,7 +18,7 @@ build:
 	rm -rf backend/web/dist && mkdir -p backend/web/dist
 	cp -R clients/web/build/. backend/web/dist/
 	touch backend/web/dist/.gitkeep
-	cd backend && go build -ldflags="-s -w" -o bin/couchverse ./cmd/couchverse
+	cd backend && go build -ldflags="$(LDFLAGS)" -o bin/couchverse ./cmd/couchverse
 
 lint:
 	cd backend && go vet ./...

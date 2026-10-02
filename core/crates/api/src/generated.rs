@@ -2697,6 +2697,20 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct ServerInfo {
+        /// The site accent colour as a CSS hex value.
+        pub accent: String,
+        /// Raised whenever clients need new server behaviour.
+        pub api_level: i64,
+        /// Stable for the server's lifetime; clients key their accounts by it.
+        pub id: String,
+        pub name: String,
+        /// The release the server was built from.
+        pub version: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct ServerSettings {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub appearance: Option<AppearanceSettings>,
@@ -2704,6 +2718,10 @@ pub mod types {
         pub features: Option<FeatureFlags>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub home: Option<HomeSettings>,
+        /// The name clients show for this server; the host name when unset.
+        #[serde(rename = "server.name")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub server_name: Option<String>,
         /// TMDB v3 API key used for metadata search and fetches.
         #[serde(rename = "tmdb.api_key")]
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4613,6 +4631,17 @@ pub mod ops {
         build::json(build::request(
             Method::Get,
             format!("/users/{}/profile", build::segment(username)),
+            q,
+            None::<&()>,
+        ))
+    }
+
+    /// `GET /server`
+    pub fn get_server() -> Call<ServerInfo> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Get,
+            "/server".to_string(),
             q,
             None::<&()>,
         ))

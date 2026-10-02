@@ -50,6 +50,9 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 	if err := ensureManagedLibraries(ctx, libraryStore, cfg.DataDir); err != nil {
 		return nil, err
 	}
+	if err := system.EnsureServerID(ctx, set); err != nil {
+		return nil, err
+	}
 
 	artworkService := &artwork.Service{Store: artwork.NewStore(pool), DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	subtitleService := &subtitles.Service{Subs: subtitles.NewStore(pool), Files: libraryStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}

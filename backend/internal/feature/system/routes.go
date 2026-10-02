@@ -37,6 +37,7 @@ const tag httpx.Tag = "system"
 
 func (m *Module) Register(rt httpx.Routes) {
 	// public: the accent theme applies on the login screen too
+	huma.Register(rt.Public, tag.Op("getServer", http.MethodGet, "/server"), m.theme.Server)
 	huma.Register(rt.Public, tag.Op("getTheme", http.MethodGet, "/theme"), m.theme.Get)
 	huma.Register(rt.User, tag.Op("getFeatures", http.MethodGet, "/features"), m.Features)
 

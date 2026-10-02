@@ -18,12 +18,17 @@ const (
 	keyFeatures   = "features"
 	keyHome       = "home"
 	keyAppearance = "appearance"
+	keyServerName = "server.name"
+	// keyServerID is the server's identity, set once at first boot; it is not
+	// editable, or clients would mistake the server for a new one
+	keyServerID = "server.id"
 )
 
 // ServerSettings are the admin-editable server settings. Every key is stored
 // on its own: a key is absent until first saved, and an update replaces just
 // the keys it sends, each as a whole.
 type ServerSettings struct {
+	ServerName *string                  `json:"server.name,omitempty" minLength:"1" maxLength:"60" doc:"The name clients show for this server; the host name when unset."`
 	TMDBAPIKey *string                  `json:"tmdb.api_key,omitempty" doc:"TMDB v3 API key used for metadata search and fetches."`
 	Transcode  *media.TranscodeSettings `json:"transcode,omitempty"`
 	Features   *FeatureFlags            `json:"features,omitempty"`
@@ -62,6 +67,7 @@ func (h *AdminSettings) Get(ctx context.Context, _ *struct{}) (*settingsOutput, 
 		return nil, err
 	}
 	out := ServerSettings{
+		ServerName: decodeSetting[string](stored, keyServerName),
 		TMDBAPIKey: decodeSetting[string](stored, keyTMDB),
 		Transcode:  decodeSetting[media.TranscodeSettings](stored, keyTranscode),
 		Home:       decodeSetting[HomeSettings](stored, keyHome),

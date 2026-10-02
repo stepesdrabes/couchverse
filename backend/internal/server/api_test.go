@@ -170,6 +170,7 @@ func TestAPIConformance(t *testing.T) {
 
 func apiCases() []apiCase {
 	return []apiCase{
+		{op: "getServer", method: "GET", path: "/server", status: 200},
 		{op: "getTheme", method: "GET", path: "/theme", status: 200},
 		{op: "getMe", as: "nora", method: "GET", path: "/auth/me", status: 200},
 		{op: "getMe", method: "GET", path: "/auth/me", status: 401},

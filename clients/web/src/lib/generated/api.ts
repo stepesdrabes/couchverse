@@ -1022,10 +1022,24 @@ export interface SeriesEpisode {
 	thumbVer?: number;
 }
 
+export interface ServerInfo {
+	/** The site accent colour as a CSS hex value. */
+	accent: string;
+	/** Raised whenever clients need new server behaviour. */
+	apiLevel: number;
+	/** Stable for the server's lifetime; clients key their accounts by it. */
+	id: string;
+	name: string;
+	/** The release the server was built from. */
+	version: string;
+}
+
 export interface ServerSettings {
 	appearance?: AppearanceSettings;
 	features?: FeatureFlags;
 	home?: HomeSettings;
+	/** The name clients show for this server; the host name when unset. */
+	'server.name'?: string;
 	/** TMDB v3 API key used for metadata search and fetches. */
 	'tmdb.api_key'?: string;
 	transcode?: TranscodeSettings;
@@ -1804,6 +1818,10 @@ export const getPreferences = () =>
 /** `GET /users/{username}/profile` */
 export const getProfile = (username: string) =>
 	api<UserProfile>(`/users/${encodeURIComponent(username)}/profile`);
+
+/** `GET /server` */
+export const getServer = () =>
+	api<ServerInfo>(`/server`);
 
 export interface GetStreamFrameQuery {
 	/** Position in seconds, rounded down to its 5-second bucket and clamped to the duration. */
