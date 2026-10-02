@@ -1,9 +1,9 @@
-# ---- frontend ----
-FROM node:22-alpine AS frontend
+# ---- web ----
+FROM node:22-alpine AS web
 WORKDIR /src
-COPY frontend/package.json frontend/package-lock.json ./
+COPY clients/web/package.json clients/web/package-lock.json ./
 RUN npm ci
-COPY frontend/ ./
+COPY clients/web/ ./
 RUN npm run build
 
 # ---- backend ----
@@ -12,7 +12,7 @@ WORKDIR /src
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
-COPY --from=frontend /src/build ./web/dist
+COPY --from=web /src/build ./web/dist
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /couchverse ./cmd/couchverse
 
 # ---- runtime ----

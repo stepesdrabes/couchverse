@@ -159,7 +159,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// spaHandler serves the embedded frontend build, falling back to index.html
+// spaHandler serves the embedded web build, falling back to index.html
 // so client-side routes resolve on deep links and reloads.
 func spaHandler() http.HandlerFunc {
 	dist, err := fs.Sub(web.Dist, "dist")
@@ -183,7 +183,7 @@ func spaHandler() http.HandlerFunc {
 
 		index, err := fs.ReadFile(dist, "index.html")
 		if err != nil {
-			http.Error(w, "frontend not built - run `make build`", http.StatusInternalServerError)
+			http.Error(w, "web client not built - run `make build`", http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

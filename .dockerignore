@@ -1,8 +1,8 @@
 .git/
 node_modules/
-frontend/node_modules/
-frontend/build/
-frontend/.svelte-kit/
+clients/web/node_modules/
+clients/web/build/
+clients/web/.svelte-kit/
 backend/web/dist/*
 backend/bin/
 data/
