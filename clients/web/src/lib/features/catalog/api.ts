@@ -1,4 +1,5 @@
 import { api, qs } from '$lib/api/client';
+import { getArtworkPath, type GetArtworkSize } from '$lib/generated/api';
 import type { CardItem, Genre, HomeData, SearchResults, TitleDetail } from './types';
 
 export const listGenres = () => api<Genre[]>('/genres');
@@ -41,14 +42,8 @@ export const useArtworkGrant = (grant: string) => {
  * immutable browser caching - it busts automatically when the art is replaced.
  * `size` requests a resized variant (e.g. 'w342').
  */
-export const artworkUrl = (id: string, v?: number | string | null, size?: string) => {
-	const params = new URLSearchParams();
-	if (size) params.set('size', size);
-	if (v) params.set('v', String(v));
-	if (artworkGrant) params.set('g', artworkGrant);
-	const query = params.toString();
-	return `/api/v1/artwork/${id}${query ? `?${query}` : ''}`;
-};
+export const artworkUrl = (id: string, v?: number | string | null, size?: GetArtworkSize) =>
+	getArtworkPath(id, { size, v: v ? String(v) : undefined, g: artworkGrant ?? undefined });
 
 /** Version token (unix seconds) for a full artwork object's `createdAt`. */
 export const artworkVer = (createdAt: string) => Math.floor(new Date(createdAt).getTime() / 1000);

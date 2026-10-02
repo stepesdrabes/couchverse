@@ -34,8 +34,13 @@
 	async function upload(kind: 'poster' | 'backdrop', files: FileList | null) {
 		const file = files?.[0];
 		if (!file) return;
+		const form = new FormData();
+		form.set('ownerKind', 'title');
+		form.set('ownerId', title.id);
+		form.set('kind', kind);
+		form.set('file', file);
 		try {
-			await libraryApi.uploadArtwork('title', title.id, kind, file);
+			await libraryApi.adminUploadArtwork(form);
 			toast.success(kind === 'poster' ? m.library_poster_updated() : m.library_backdrop_updated());
 			invalidateAll();
 		} catch (err) {

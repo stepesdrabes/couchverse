@@ -25,7 +25,7 @@
 
 	async function prepare() {
 		try {
-			const res = await libraryApi.adminEnqueueTranscode(file.id, {});
+			const res = await libraryApi.adminEnqueueTranscode(file.id);
 			toast.success(m.library_queued({ items: res.queued.join(', ') }));
 			refresh();
 		} catch (err) {

@@ -53,9 +53,11 @@
 	async function pickImage(kind: 'avatar' | 'banner', files: FileList | null) {
 		const file = files?.[0];
 		if (!file) return;
+		const body = new FormData();
+		body.set('file', file);
 		try {
 			session.user =
-				kind === 'avatar' ? await authApi.uploadAvatar(file) : await authApi.uploadBanner(file);
+				kind === 'avatar' ? await authApi.uploadAvatar(body) : await authApi.uploadBanner(body);
 			toast.success(m.profile_picture_updated());
 			onsaved?.();
 		} catch (err) {

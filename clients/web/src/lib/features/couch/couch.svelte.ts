@@ -229,7 +229,7 @@ class Couch {
 		if (!this.token) return;
 		this.status = this.status === 'reconnecting' ? 'reconnecting' : 'connecting';
 		const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-		const ws = new WebSocket(`${proto}://${location.host}/api/v1/couch/${this.token}/ws`);
+		const ws = new WebSocket(`${proto}://${location.host}${couchApi.couchSocketPath(this.token)}`);
 		this.ws = ws;
 		ws.onopen = () => {
 			this.status = 'open';

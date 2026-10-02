@@ -16,22 +16,7 @@ export interface User {
 export const updateProfile = (displayName: string, bio?: string) =>
 	api<User>('/me/profile', { method: 'PATCH', body: { displayName, bio } });
 
-/** avatar and banner are the same multipart upload against different endpoints */
-async function uploadImage(kind: 'avatar' | 'banner', file: File): Promise<User> {
-	const form = new FormData();
-	form.set('file', file);
-	const res = await fetch(`/api/v1/me/${kind}`, {
-		method: 'POST',
-		body: form,
-		credentials: 'same-origin'
-	});
-	const data = await res.json().catch(() => null);
-	if (!res.ok) throw new Error(data?.error?.message ?? `${kind} upload failed`);
-	return data as User;
-}
-
-export const uploadAvatar = (file: File) => uploadImage('avatar', file);
-export const uploadBanner = (file: File) => uploadImage('banner', file);
+export { uploadAvatar, uploadBanner } from '$lib/generated/api';
 
 export const deleteAvatar = () => api<User>('/me/avatar', { method: 'DELETE' });
 export const deleteBanner = () => api<User>('/me/banner', { method: 'DELETE' });

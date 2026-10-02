@@ -14,8 +14,11 @@
 	async function upload(files: FileList | null) {
 		const file = files?.[0];
 		if (!file) return;
+		const form = new FormData();
+		form.set('lang', lang.trim() || 'und');
+		form.set('file', file);
 		try {
-			await libraryApi.uploadSubtitle(mediaFile.id, lang.trim() || 'und', file);
+			await libraryApi.adminUploadSubtitle(mediaFile.id, form);
 			toast.success(m.library_subtitle_added());
 			invalidateAll();
 		} catch (err) {

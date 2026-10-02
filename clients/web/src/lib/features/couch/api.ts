@@ -8,6 +8,8 @@ import {
 } from '$lib/features/playback/api';
 import type { MediaRef, Snapshot } from './types';
 
+export { couchSocketPath } from '$lib/generated/api';
+
 export interface CouchPlaybackResp {
 	media: MediaRef;
 	player?: PlaybackInfo; // absent while the host is choosing
