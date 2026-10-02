@@ -2,6 +2,35 @@
 
 // L10n.string(_:) and L10n.format(_:_:) resolve keys in the display language.
 extension L10n {
+    public static func a11yProfilePicture(name: String) -> String { format("a11y_profile_picture", [name]) }
+    public static func a11yQrCode(url: String) -> String { format("a11y_qr_code", [url]) }
+    public static var aboutAppVersion: String { string("about_app_version") }
+    public static var aboutServerVersion: String { string("about_server_version") }
+    public static var aboutTitle: String { string("about_title") }
+    public static var accountsAddAccount: String { string("accounts_add_account") }
+    public static var accountsChangeServer: String { string("accounts_change_server") }
+    public static var accountsChooseServer: String { string("accounts_choose_server") }
+    public static var accountsCurrent: String { string("accounts_current") }
+    public static var accountsManage: String { string("accounts_manage") }
+    public static var accountsOr: String { string("accounts_or") }
+    public static var accountsPairingDenied: String { string("accounts_pairing_denied") }
+    public static var accountsPairingExpired: String { string("accounts_pairing_expired") }
+    public static func accountsPairingExpiresIn(time: String) -> String { format("accounts_pairing_expires_in", [time]) }
+    public static var accountsPairingInstructions: String { string("accounts_pairing_instructions") }
+    public static var accountsPairingNewCode: String { string("accounts_pairing_new_code") }
+    public static func accountsPairingVisit(url: String) -> String { format("accounts_pairing_visit", [url]) }
+    public static var accountsPairingWaiting: String { string("accounts_pairing_waiting") }
+    public static var accountsSignInAgain: String { string("accounts_sign_in_again") }
+    public static func accountsSignInTitle(server: String) -> String { format("accounts_sign_in_title", [server]) }
+    public static var accountsSignInWithDevice: String { string("accounts_sign_in_with_device") }
+    public static var accountsSignOutConfirmMessage: String { string("accounts_sign_out_confirm_message") }
+    public static func accountsSignOutConfirmTitle(name: String) -> String { format("accounts_sign_out_confirm_title", [name]) }
+    public static var accountsSignedOut: String { string("accounts_signed_out") }
+    public static var accountsSigningIn: String { string("accounts_signing_in") }
+    public static var accountsSwitch: String { string("accounts_switch") }
+    public static var accountsTitle: String { string("accounts_title") }
+    public static var accountsUsePassword: String { string("accounts_use_password") }
+    public static var accountsWhosWatching: String { string("accounts_whos_watching") }
     public static var achievementAchievements10Desc: String { string("achievement_achievements_10_desc") }
     public static var achievementAchievements10Name: String { string("achievement_achievements_10_name") }
     public static var achievementAchievements20Desc: String { string("achievement_achievements_20_desc") }
@@ -135,6 +164,7 @@ extension L10n {
     public static var commonCreate: String { string("common_create") }
     public static var commonDelete: String { string("common_delete") }
     public static var commonDeleteFailed: String { string("common_delete_failed") }
+    public static var commonDone: String { string("common_done") }
     public static var commonDraft: String { string("common_draft") }
     public static var commonEdit: String { string("common_edit") }
     public static var commonFailed: String { string("common_failed") }
@@ -196,6 +226,7 @@ extension L10n {
     public static var devicesConnectRegenerate: String { string("devices_connect_regenerate") }
     public static var devicesConnectScan: String { string("devices_connect_scan") }
     public static var devicesConnectServer: String { string("devices_connect_server") }
+    public static var devicesEmpty: String { string("devices_empty") }
     public static var devicesEnterCode: String { string("devices_enter_code") }
     public static var devicesHeading: String { string("devices_heading") }
     public static var devicesHint: String { string("devices_hint") }
@@ -207,6 +238,9 @@ extension L10n {
     public static var devicesPlatformIpados: String { string("devices_platform_ipados") }
     public static var devicesPlatformTvos: String { string("devices_platform_tvos") }
     public static var devicesPlatformWeb: String { string("devices_platform_web") }
+    public static var devicesRevoke: String { string("devices_revoke") }
+    public static var devicesRevokeConfirmMessage: String { string("devices_revoke_confirm_message") }
+    public static func devicesRevokeConfirmTitle(device: String) -> String { format("devices_revoke_confirm_title", [device]) }
     public static var devicesSignOut: String { string("devices_sign_out") }
     public static var devicesSignOutCurrentMessage: String { string("devices_sign_out_current_message") }
     public static var devicesSignOutCurrentTitle: String { string("devices_sign_out_current_title") }
@@ -218,6 +252,8 @@ extension L10n {
     public static func devicesSignedOut(device: String) -> String { format("devices_signed_out", [device]) }
     public static func devicesSummary(count: Int) -> String { format("devices_summary", [count]) }
     public static var devicesThisBrowser: String { string("devices_this_browser") }
+    public static var devicesThisDevice: String { string("devices_this_device") }
+    public static var devicesTitle: String { string("devices_title") }
     public static var downloadAction: String { string("download_action") }
     public static var downloadChooseQuality: String { string("download_choose_quality") }
     public static var downloadFailedExpired: String { string("download_failed_expired") }
@@ -242,8 +278,12 @@ extension L10n {
     public static var errorGoHome: String { string("error_go_home") }
     public static var errorNotFound: String { string("error_not_found") }
     public static var errorPageTitle: String { string("error_page_title") }
+    public static func homeOffline(server: String) -> String { format("home_offline", [server]) }
+    public static var homePlaceholderMessage: String { string("home_placeholder_message") }
     public static var homeRowContinueWatching: String { string("home_row_continue_watching") }
     public static var homeRowRecentlyAdded: String { string("home_row_recently_added") }
+    public static var homeServerAccent: String { string("home_server_accent") }
+    public static func homeWelcomeBack(name: String) -> String { format("home_welcome_back", [name]) }
     public static var langCzech: String { string("lang_czech") }
     public static var langEnglish: String { string("lang_english") }
     public static var languageLabel: String { string("language_label") }
@@ -301,7 +341,14 @@ extension L10n {
     public static var navSearch: String { string("nav_search") }
     public static var navSeries: String { string("nav_series") }
     public static var navServerAdmin: String { string("nav_server_admin") }
+    public static var navSettings: String { string("nav_settings") }
     public static var navSignOut: String { string("nav_sign_out") }
+    public static var onboardingAddServer: String { string("onboarding_add_server") }
+    public static var onboardingConnecting: String { string("onboarding_connecting") }
+    public static var onboardingScanHint: String { string("onboarding_scan_hint") }
+    public static var onboardingScanQr: String { string("onboarding_scan_qr") }
+    public static var onboardingWelcomeMessage: String { string("onboarding_welcome_message") }
+    public static var onboardingWelcomeTitle: String { string("onboarding_welcome_title") }
     public static var pairAnotherCode: String { string("pair_another_code") }
     public static var pairApprove: String { string("pair_approve") }
     public static var pairApprovedBody: String { string("pair_approved_body") }
@@ -325,6 +372,18 @@ extension L10n {
     public static var pairPageTitle: String { string("pair_page_title") }
     public static func pairRequestTitle(device: String, name: String) -> String { format("pair_request_title", [device, name]) }
     public static var pairRequestWarning: String { string("pair_request_warning") }
+    public static var pairingApprove: String { string("pairing_approve") }
+    public static var pairingApproveTitle: String { string("pairing_approve_title") }
+    public static func pairingApproved(device: String) -> String { format("pairing_approved", [device]) }
+    public static var pairingCodeLabel: String { string("pairing_code_label") }
+    public static var pairingContinue: String { string("pairing_continue") }
+    public static func pairingDenied(device: String) -> String { format("pairing_denied", [device]) }
+    public static var pairingDeny: String { string("pairing_deny") }
+    public static var pairingDeviceNameLabel: String { string("pairing_device_name_label") }
+    public static var pairingNotFound: String { string("pairing_not_found") }
+    public static func pairingRequest(device: String, name: String) -> String { format("pairing_request", [device, name]) }
+    public static var pairingScanTv: String { string("pairing_scan_tv") }
+    public static var pairingSignInFirst: String { string("pairing_sign_in_first") }
     public static var playerAudio: String { string("player_audio") }
     public static var playerBack10Seconds: String { string("player_back_10_seconds") }
     public static var playerBackToTitle: String { string("player_back_to_title") }
@@ -360,6 +419,17 @@ extension L10n {
     public static var playerUnmute: String { string("player_unmute") }
     public static func playerUpNext(seconds: String) -> String { format("player_up_next", [seconds]) }
     public static var playerVolume: String { string("player_volume") }
+    public static var problemGeneric: String { string("problem_generic") }
+    public static var problemInvalidAddress: String { string("problem_invalid_address") }
+    public static var problemInvalidCode: String { string("problem_invalid_code") }
+    public static var problemInvalidCredentials: String { string("problem_invalid_credentials") }
+    public static var problemNotAServer: String { string("problem_not_a_server") }
+    public static var problemOffline: String { string("problem_offline") }
+    public static var problemRateLimited: String { string("problem_rate_limited") }
+    public static var problemServerOutdated: String { string("problem_server_outdated") }
+    public static var problemTimeout: String { string("problem_timeout") }
+    public static var problemTls: String { string("problem_tls") }
+    public static var problemUnauthorized: String { string("problem_unauthorized") }
     public static var profileAvatarRemoveFailed: String { string("profile_avatar_remove_failed") }
     public static var profileAvatarUploadFailed: String { string("profile_avatar_upload_failed") }
     public static var profileBanner: String { string("profile_banner") }
@@ -447,6 +517,22 @@ extension L10n {
     public static var rankXp: String { string("rank_xp") }
     public static func rankXpProgress(into: String, need: String) -> String { format("rank_xp_progress", [into, need]) }
     public static func rankXpValue(xp: String) -> String { format("rank_xp_value", [xp]) }
+    public static var scannerHint: String { string("scanner_hint") }
+    public static var scannerNotCouchverse: String { string("scanner_not_couchverse") }
+    public static var scannerTitle: String { string("scanner_title") }
+    public static var scannerUnavailable: String { string("scanner_unavailable") }
+    public static var serversAddTitle: String { string("servers_add_title") }
+    public static var serversAddressHint: String { string("servers_address_hint") }
+    public static var serversAddressLabel: String { string("servers_address_label") }
+    public static var serversAddressPlaceholder: String { string("servers_address_placeholder") }
+    public static var serversConnect: String { string("servers_connect") }
+    public static var serversNotEncrypted: String { string("servers_not_encrypted") }
+    public static var serversNotEncryptedHint: String { string("servers_not_encrypted_hint") }
+    public static var serversRemove: String { string("servers_remove") }
+    public static var serversRemoveConfirmMessage: String { string("servers_remove_confirm_message") }
+    public static func serversRemoveConfirmTitle(name: String) -> String { format("servers_remove_confirm_title", [name]) }
+    public static var serversTitle: String { string("servers_title") }
+    public static func serversVersion(version: String) -> String { format("servers_version", [version]) }
     public static var tvExitConfirm: String { string("tv_exit_confirm") }
     public static var tvExitMessage: String { string("tv_exit_message") }
     public static var tvExitTitle: String { string("tv_exit_title") }

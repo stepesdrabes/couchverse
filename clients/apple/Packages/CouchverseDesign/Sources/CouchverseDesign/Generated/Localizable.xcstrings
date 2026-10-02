@@ -1,6 +1,499 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "a11y_profile_picture": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profilový obrázek: %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile picture of %1$@"
+          }
+        }
+      }
+    },
+    "a11y_qr_code": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR kód pro %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR code for %1$@"
+          }
+        }
+      }
+    },
+    "about_app_version": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verze aplikace"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App version"
+          }
+        }
+      }
+    },
+    "about_server_version": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verze serveru"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server version"
+          }
+        }
+      }
+    },
+    "about_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O aplikaci"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About"
+          }
+        }
+      }
+    },
+    "accounts_add_account": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat účet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add account"
+          }
+        }
+      }
+    },
+    "accounts_change_server": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Použít jiný server"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use another server"
+          }
+        }
+      }
+    },
+    "accounts_choose_server": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyberte server"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a server"
+          }
+        }
+      }
+    },
+    "accounts_current": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuální"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current"
+          }
+        }
+      }
+    },
+    "accounts_manage": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spravovat účty"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage accounts"
+          }
+        }
+      }
+    },
+    "accounts_or": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nebo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "or"
+          }
+        }
+      }
+    },
+    "accounts_pairing_denied": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Žádost byla zamítnuta."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The request was declined."
+          }
+        }
+      }
+    },
+    "accounts_pairing_expired": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platnost kódu vypršela."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This code has expired."
+          }
+        }
+      }
+    },
+    "accounts_pairing_expires_in": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód vyprší za %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code expires in %1$@"
+          }
+        }
+      }
+    },
+    "accounts_pairing_instructions": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V telefonu otevřete Couchverse, přejděte do Nastavení a schvalte tento kód. Nebo naskenujte QR kód."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On your phone, open Couchverse, go to Settings and approve this code. Or scan the QR code."
+          }
+        }
+      }
+    },
+    "accounts_pairing_new_code": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Získat nový kód"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get a new code"
+          }
+        }
+      }
+    },
+    "accounts_pairing_visit": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nebo otevřete %1$@ v prohlížeči"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or open %1$@ in a browser"
+          }
+        }
+      }
+    },
+    "accounts_pairing_waiting": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čekám na schválení..."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for approval..."
+          }
+        }
+      }
+    },
+    "accounts_sign_in_again": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Znovu přihlásit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in again"
+          }
+        }
+      }
+    },
+    "accounts_sign_in_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přihlášení k serveru %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to %1$@"
+          }
+        }
+      }
+    },
+    "accounts_sign_in_with_device": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přihlásit se jiným zařízením"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with another device"
+          }
+        }
+      }
+    },
+    "accounts_sign_out_confirm_message": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kdykoli se můžete znovu přihlásit."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can sign in again at any time."
+          }
+        }
+      }
+    },
+    "accounts_sign_out_confirm_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odhlásit účet %1$@?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out %1$@?"
+          }
+        }
+      }
+    },
+    "accounts_signed_out": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odhlášeno"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed out"
+          }
+        }
+      }
+    },
+    "accounts_signing_in": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přihlašuji..."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing in..."
+          }
+        }
+      }
+    },
+    "accounts_switch": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přepnout účet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch account"
+          }
+        }
+      }
+    },
+    "accounts_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Účty"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts"
+          }
+        }
+      }
+    },
+    "accounts_use_password": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Použít heslo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use a password instead"
+          }
+        }
+      }
+    },
+    "accounts_whos_watching": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kdo se dívá?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who's watching?"
+          }
+        }
+      }
+    },
     "achievement_achievements_10_desc": {
       "extractionState": "manual",
       "localizations": {
@@ -2312,6 +2805,23 @@
         }
       }
     },
+    "common_done": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hotovo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
     "common_draft": {
       "extractionState": "manual",
       "localizations": {
@@ -3349,6 +3859,23 @@
         }
       }
     },
+    "devices_empty": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejsou přihlášena žádná zařízení."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No devices are signed in."
+          }
+        }
+      }
+    },
     "devices_enter_code": {
       "extractionState": "manual",
       "localizations": {
@@ -3532,6 +4059,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Web browser"
+          }
+        }
+      }
+    },
+    "devices_revoke": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odhlásit zařízení"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out device"
+          }
+        }
+      }
+    },
+    "devices_revoke_confirm_message": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zařízení se bude muset znovu přihlásit."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It will have to sign in again."
+          }
+        }
+      }
+    },
+    "devices_revoke_confirm_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odhlásit zařízení %1$@?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out %1$@?"
           }
         }
       }
@@ -3769,6 +4347,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "This browser"
+          }
+        }
+      }
+    },
+    "devices_this_device": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toto zařízení"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device"
+          }
+        }
+      }
+    },
+    "devices_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zařízení"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devices"
           }
         }
       }
@@ -4181,6 +4793,40 @@
         }
       }
     },
+    "home_offline": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server %1$@ je teď nedostupný."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't reach %1$@ right now."
+          }
+        }
+      }
+    },
+    "home_placeholder_message": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filmy a seriály do aplikace brzy dorazí. Do té doby na vás knihovna čeká na webu."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Movies and series arrive in this app soon. Until then, your library is waiting on the web."
+          }
+        }
+      }
+    },
     "home_row_continue_watching": {
       "extractionState": "manual",
       "localizations": {
@@ -4211,6 +4857,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Up on the Marquee"
+          }
+        }
+      }
+    },
+    "home_server_accent": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barva serveru"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server accent"
+          }
+        }
+      }
+    },
+    "home_welcome_back": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vítejte zpět, %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome back, %1$@"
           }
         }
       }
@@ -5234,6 +5914,23 @@
         }
       }
     },
+    "nav_settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nastavení"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        }
+      }
+    },
     "nav_sign_out": {
       "extractionState": "manual",
       "localizations": {
@@ -5247,6 +5944,108 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign out"
+          }
+        }
+      }
+    },
+    "onboarding_add_server": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat server"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a server"
+          }
+        }
+      }
+    },
+    "onboarding_connecting": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připojuji..."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting..."
+          }
+        }
+      }
+    },
+    "onboarding_scan_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jste přihlášeni na webu? Otevřete svůj profil, zvolte Připojit zařízení a naskenujte kód."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed in on the web? Open your profile, choose Connect a device and scan the code."
+          }
+        }
+      }
+    },
+    "onboarding_scan_qr": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naskenovat QR kód"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan a QR code"
+          }
+        }
+      }
+    },
+    "onboarding_welcome_message": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše filmy a seriály streamované z vlastního serveru. Připojte se k serveru Couchverse a začněte sledovat."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your movies and series, streamed from your own server. Connect to a Couchverse server to start watching."
+          }
+        }
+      }
+    },
+    "onboarding_welcome_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vítejte v Couchverse"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome to Couchverse"
           }
         }
       }
@@ -5638,6 +6437,210 @@
           "stringUnit": {
             "state": "translated",
             "value": "Only approve a device you are setting up right now."
+          }
+        }
+      }
+    },
+    "pairing_approve": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schválit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve"
+          }
+        }
+      }
+    },
+    "pairing_approve_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schválit zařízení"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve a device"
+          }
+        }
+      }
+    },
+    "pairing_approved": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schváleno. Zařízení %1$@ se přihlašuje."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approved. %1$@ is signing in."
+          }
+        }
+      }
+    },
+    "pairing_code_label": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód zobrazený na zařízení"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code shown on the device"
+          }
+        }
+      }
+    },
+    "pairing_continue": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokračovat"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        }
+      }
+    },
+    "pairing_denied": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamítnuto. Zařízení %1$@ se nepřihlásí."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Denied. %1$@ won't be signed in."
+          }
+        }
+      }
+    },
+    "pairing_deny": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamítnout"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deny"
+          }
+        }
+      }
+    },
+    "pairing_device_name_label": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Název zařízení"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device name"
+          }
+        }
+      }
+    },
+    "pairing_not_found": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na tento kód nečeká žádné zařízení. Zkontrolujte kód a zkuste to znovu."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No device is waiting for this code. Check the code and try again."
+          }
+        }
+      }
+    },
+    "pairing_request": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zařízení %1$@ se chce přihlásit jako %2$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ wants to sign in as %2$@."
+          }
+        }
+      }
+    },
+    "pairing_scan_tv": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naskenovat kód z televize"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan the code on the TV"
+          }
+        }
+      }
+    },
+    "pairing_sign_in_first": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejdřív se na tomto zařízení přihlaste, pak můžete schvalovat další zařízení."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in on this device first, then you can approve other devices."
           }
         }
       }
@@ -6233,6 +7236,193 @@
           "stringUnit": {
             "state": "translated",
             "value": "Volume"
+          }
+        }
+      }
+    },
+    "problem_generic": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Něco se pokazilo. Zkuste to znovu."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something went wrong. Try again."
+          }
+        }
+      }
+    },
+    "problem_invalid_address": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadejte adresu jako media.example.com nebo 192.168.1.5:8080."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an address like media.example.com or 192.168.1.5:8080."
+          }
+        }
+      }
+    },
+    "problem_invalid_code": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento kód je neznámý, použitý nebo neplatný."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This code is unknown, used or expired."
+          }
+        }
+      }
+    },
+    "problem_invalid_credentials": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nesprávné uživatelské jméno nebo heslo."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrong username or password."
+          }
+        }
+      }
+    },
+    "problem_not_a_server": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na této adrese něco odpovídá, ale není to server Couchverse."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something answered at this address, but it isn't a Couchverse server."
+          }
+        }
+      }
+    },
+    "problem_offline": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server je nedostupný. Zkontrolujte adresu a síť."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't reach the server. Check the address and your network."
+          }
+        }
+      }
+    },
+    "problem_rate_limited": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Příliš mnoho pokusů. Zkuste to znovu za minutu."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too many attempts. Try again in a minute."
+          }
+        }
+      }
+    },
+    "problem_server_outdated": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento server je pro aplikaci příliš starý. Aktualizujte Couchverse na serveru."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This server is too old for this app. Update Couchverse on the server."
+          }
+        }
+      }
+    },
+    "problem_timeout": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server neodpověděl včas."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server took too long to answer."
+          }
+        }
+      }
+    },
+    "problem_tls": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zabezpečené připojení k serveru selhalo."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A secure connection to the server failed."
+          }
+        }
+      }
+    },
+    "problem_unauthorized": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše přihlášení skončilo. Přihlaste se znovu."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your sign-in has ended. Sign in again."
           }
         }
       }
@@ -7862,6 +9052,278 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ XP"
+          }
+        }
+      }
+    },
+    "scanner_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Namiřte fotoaparát na QR kód Couchverse."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point the camera at a Couchverse QR code."
+          }
+        }
+      }
+    },
+    "scanner_not_couchverse": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento QR kód nepatří Couchverse."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That QR code isn't a Couchverse code."
+          }
+        }
+      }
+    },
+    "scanner_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naskenovat QR kód"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan QR code"
+          }
+        }
+      }
+    },
+    "scanner_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoaparát tu není k dispozici. Zadejte kód ručně."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The camera isn't available here. Type the code instead."
+          }
+        }
+      }
+    },
+    "servers_add_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat server"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a server"
+          }
+        }
+      }
+    },
+    "servers_address_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couchverse nejdřív zkusí zabezpečené připojení."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couchverse tries a secure connection first."
+          }
+        }
+      }
+    },
+    "servers_address_label": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adresa serveru"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server address"
+          }
+        }
+      }
+    },
+    "servers_address_placeholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "media.example.com nebo 192.168.1.5:8080"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "media.example.com or 192.168.1.5:8080"
+          }
+        }
+      }
+    },
+    "servers_connect": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připojit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect"
+          }
+        }
+      }
+    },
+    "servers_not_encrypted": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nešifrováno"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not encrypted"
+          }
+        }
+      }
+    },
+    "servers_not_encrypted_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento server používá nešifrované HTTP, takže ostatní ve vaší síti mohou vidět vaše heslo i to, co sledujete."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This server uses plain HTTP, so others on your network could see your password and what you watch."
+          }
+        }
+      }
+    },
+    "servers_remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrat server"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove server"
+          }
+        }
+      }
+    },
+    "servers_remove_confirm_message": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechny účty na tomto serveru budou na tomto zařízení odhlášeny."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every account on this server is signed out of this device."
+          }
+        }
+      }
+    },
+    "servers_remove_confirm_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrat server %1$@?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %1$@?"
+          }
+        }
+      }
+    },
+    "servers_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servery"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servers"
+          }
+        }
+      }
+    },
+    "servers_version": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verze %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %1$@"
           }
         }
       }
