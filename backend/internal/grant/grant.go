@@ -96,7 +96,9 @@ func (s *Signer) Issue(g Grant, ttl time.Duration) string {
 
 // Verify decodes a token and checks its signature and expiry.
 func (s *Signer) Verify(token string) (Grant, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(token)
+	// strict: the last character's spare bits must be zero, so a grant has
+	// exactly one spelling
+	raw, err := base64.RawURLEncoding.Strict().DecodeString(token)
 	if err != nil || len(raw) != payloadLen+macLen || raw[0] != formatVersion {
 		return Grant{}, ErrInvalid
 	}
