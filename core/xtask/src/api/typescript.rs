@@ -86,15 +86,8 @@ fn write_field(s: &mut String, field: &Field) {
     write_doc(s, "\t", field.doc.as_deref());
     let optional = if field.optional { "?" } else { "" };
     let null = if field.nullable { " | null" } else { "" };
-    let identifier = field
-        .json
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_');
-    let key = if identifier {
-        field.json.clone()
-    } else {
-        format!("'{}'", field.json)
-    };
+    let identifier = field.json.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+    let key = if identifier { field.json.clone() } else { format!("'{}'", field.json) };
     let _ = writeln!(s, "\t{key}{optional}: {}{null};", ty(&field.ty));
 }
 
@@ -114,10 +107,7 @@ fn write_frames(s: &mut String, union: &FrameUnion) {
 
 /// The web client appends `?lang=` to every request itself.
 fn query_params(op: &Operation) -> Vec<&Param> {
-    op.query()
-        .into_iter()
-        .filter(|p| p.name != "lang")
-        .collect()
+    op.query().into_iter().filter(|p| p.name != "lang").collect()
 }
 
 fn write_operation(s: &mut String, op: &Operation) {
@@ -133,11 +123,8 @@ fn write_operation(s: &mut String, op: &Operation) {
         s.push_str("}\n");
     }
 
-    let mut args: Vec<String> = op
-        .path_params()
-        .iter()
-        .map(|p| format!("{}: {}", p.name, ty(&p.ty)))
-        .collect();
+    let mut args: Vec<String> =
+        op.path_params().iter().map(|p| format!("{}: {}", p.name, ty(&p.ty))).collect();
     if !query.is_empty() {
         let all_optional = query.iter().all(|p| !p.required);
         args.push(if all_optional {
@@ -152,10 +139,8 @@ fn write_operation(s: &mut String, op: &Operation) {
 
     let mut path = op.path.clone();
     for p in op.path_params() {
-        path = path.replace(
-            &format!("{{{}}}", p.name),
-            &format!("${{encodeURIComponent({})}}", p.name),
-        );
+        path = path
+            .replace(&format!("{{{}}}", p.name), &format!("${{encodeURIComponent({})}}", p.name));
     }
     if !query.is_empty() {
         let fields: Vec<String> = query
@@ -165,10 +150,9 @@ fn write_operation(s: &mut String, op: &Operation) {
                     (Ty::List(_), true) => format!("query.{}.join(',')", p.name),
                     (Ty::List(_), false) => format!("query.{}?.join(',')", p.name),
                     (Ty::Bool, true) => format!("String(query.{})", p.name),
-                    (Ty::Bool, false) => format!(
-                        "query.{0} === undefined ? undefined : String(query.{0})",
-                        p.name
-                    ),
+                    (Ty::Bool, false) => {
+                        format!("query.{0} === undefined ? undefined : String(query.{0})", p.name)
+                    }
                     _ => format!("query.{}", p.name),
                 };
                 format!("{}: {value}", p.name)
@@ -206,10 +190,8 @@ fn write_operation(s: &mut String, op: &Operation) {
             } else {
                 format!(", {{ {} }}", opts.join(", "))
             };
-            let _ = writeln!(
-                s,
-                "export const {name} = ({args}) =>\n\tapi<{result}>(`{path}`{opts});"
-            );
+            let _ =
+                writeln!(s, "export const {name} = ({args}) =>\n\tapi<{result}>(`{path}`{opts});");
         }
     }
 }

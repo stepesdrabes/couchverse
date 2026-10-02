@@ -26,8 +26,11 @@ pub fn render(
 }
 
 fn rustfmt(code: &str) -> Result<String, String> {
+    // rustfmt reading stdin looks for its config from the working directory, not the file
+    let config = out::repo_root().join("core/rustfmt.toml");
     let mut child = Command::new("rustfmt")
-        .args(["--edition", "2024", "--emit", "stdout"])
+        .args(["--edition", "2024", "--emit", "stdout", "--config-path"])
+        .arg(config)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -39,9 +42,7 @@ fn rustfmt(code: &str) -> Result<String, String> {
         .expect("piped stdin")
         .write_all(code.as_bytes())
         .map_err(|e| format!("rustfmt: {e}"))?;
-    let output = child
-        .wait_with_output()
-        .map_err(|e| format!("rustfmt: {e}"))?;
+    let output = child.wait_with_output().map_err(|e| format!("rustfmt: {e}"))?;
     if !output.status.success() {
         return Err(format!(
             "rustfmt rejected the generated code:\n{}",
@@ -64,27 +65,16 @@ fn ty(t: &Ty) -> String {
     }
 }
 
-const KEYWORDS: [&str; 12] = [
-    "type", "ref", "match", "move", "use", "crate", "self", "mod", "fn", "impl", "loop", "where",
-];
+const KEYWORDS: [&str; 12] =
+    ["type", "ref", "match", "move", "use", "crate", "self", "mod", "fn", "impl", "loop", "where"];
 
 /// A Rust identifier for a JSON name; anything outside `[a-z0-9_]` (`tmdb.api_key`) becomes `_`.
 fn field_name(json: &str) -> String {
     let name: String = snake(json)
         .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '_' {
-                c
-            } else {
-                '_'
-            }
-        })
+        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
         .collect();
-    if KEYWORDS.contains(&name.as_str()) {
-        format!("r#{name}")
-    } else {
-        name
-    }
+    if KEYWORDS.contains(&name.as_str()) { format!("r#{name}") } else { name }
 }
 
 fn write_doc(s: &mut String, doc: Option<&str>) {
@@ -152,10 +142,7 @@ fn write_enum(s: &mut String, name: &str, doc: Option<&str>, values: &[String]) 
         let _ = writeln!(s, "#[serde(rename = \"{value}\")]\n{},", variant(value));
     }
     s.push_str("/// A value this client does not know yet.\n#[serde(other)]\nUnknown,\n}\n\n");
-    let _ = writeln!(
-        s,
-        "impl {name} {{\npub fn as_str(self) -> &'static str {{\nmatch self {{"
-    );
+    let _ = writeln!(s, "impl {name} {{\npub fn as_str(self) -> &'static str {{\nmatch self {{");
     for value in values {
         let _ = writeln!(s, "{name}::{} => \"{value}\",", variant(value));
     }
@@ -235,22 +222,14 @@ fn write_query_struct(s: &mut String, op: &Operation) {
     let _ = writeln!(s, "pub struct {}Query {{", pascal(&op.id));
     for p in &query {
         write_doc(s, p.doc.as_deref());
-        let t = if p.required {
-            ty(&p.ty)
-        } else {
-            format!("Option<{}>", ty(&p.ty))
-        };
+        let t = if p.required { ty(&p.ty) } else { format!("Option<{}>", ty(&p.ty)) };
         let _ = writeln!(s, "pub {}: {t},", field_name(&p.name));
     }
     s.push_str("}\n");
 }
 
 fn path_arg(p: &Param) -> String {
-    let t = if p.ty == Ty::String {
-        "&str".to_string()
-    } else {
-        ty(&p.ty)
-    };
+    let t = if p.ty == Ty::String { "&str".to_string() } else { ty(&p.ty) };
     format!("{}: {t}", field_name(&p.name))
 }
 
@@ -276,12 +255,7 @@ fn write_operation(s: &mut String, op: &Operation) {
         let _ = writeln!(s, "/// {summary}\n///");
     }
     let _ = writeln!(s, "/// `{} {}`", op.method.to_uppercase(), op.path);
-    let _ = writeln!(
-        s,
-        "pub fn {}({}) -> {ret} {{",
-        snake(&op.id),
-        args.join(", ")
-    );
+    let _ = writeln!(s, "pub fn {}({}) -> {ret} {{", snake(&op.id), args.join(", "));
 
     let mut path = op.path.clone();
     let mut path_args = Vec::new();
@@ -317,15 +291,8 @@ fn write_operation(s: &mut String, op: &Operation) {
         };
         let _ = writeln!(s, "build::push(&mut q, \"{}\", {value});", p.name);
     }
-    let body = if op.body.is_some() {
-        "Some(body)"
-    } else {
-        "None::<&()>"
-    };
-    let request = format!(
-        "build::request(Method::{}, {path_expr}, q, {body})",
-        op.method
-    );
+    let body = if op.body.is_some() { "Some(body)" } else { "None::<&()>" };
+    let request = format!("build::request(Method::{}, {path_expr}, q, {body})", op.method);
     if wrap.is_empty() {
         let _ = writeln!(s, "{request}\n}}");
     } else {

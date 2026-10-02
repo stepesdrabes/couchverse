@@ -17,14 +17,8 @@ use crate::out;
 
 const LOCALES: [&str; 2] = ["en", "cs"];
 const BASE: &str = "en";
-const ADMIN_PREFIXES: [&str; 6] = [
-    "admin_",
-    "jobs_",
-    "library_",
-    "settings_",
-    "uploads_",
-    "users_",
-];
+const ADMIN_PREFIXES: [&str; 6] =
+    ["admin_", "jobs_", "library_", "settings_", "uploads_", "users_"];
 const SOURCE: &str = "contract/i18n";
 
 const APPLE_DIR: &str =
@@ -91,35 +85,17 @@ pub fn generate(root: &Path, written: &mut Vec<PathBuf>) -> Result<(), String> {
         .keys()
         .filter(|key| !ADMIN_PREFIXES.iter().any(|p| key.starts_with(p)))
         .collect();
-    let layouts: BTreeMap<&String, Layout> = native
-        .iter()
-        .map(|key| (*key, Layout::of(&catalogs[BASE][*key])))
-        .collect();
+    let layouts: BTreeMap<&String, Layout> =
+        native.iter().map(|key| (*key, Layout::of(&catalogs[BASE][*key]))).collect();
 
     let apple = root.join(APPLE_DIR);
-    out::write(
-        &apple.join("Localizable.xcstrings"),
-        &xcstrings(&catalogs, &layouts),
-        written,
-    )?;
-    out::write(
-        &apple.join("L10n.swift"),
-        &swift_accessors(&layouts),
-        written,
-    )?;
+    out::write(&apple.join("Localizable.xcstrings"), &xcstrings(&catalogs, &layouts), written)?;
+    out::write(&apple.join("L10n.swift"), &swift_accessors(&layouts), written)?;
 
     for locale in LOCALES {
-        let dir = if locale == BASE {
-            "values".to_string()
-        } else {
-            format!("values-{locale}")
-        };
+        let dir = if locale == BASE { "values".to_string() } else { format!("values-{locale}") };
         let xml = android_strings(&catalogs[locale], &layouts);
-        out::write(
-            &root.join(ANDROID_RES).join(dir).join("strings.xml"),
-            &xml,
-            written,
-        )?;
+        out::write(&root.join(ANDROID_RES).join(dir).join("strings.xml"), &xml, written)?;
     }
     Ok(())
 }
@@ -145,12 +121,7 @@ fn parse_message(value: &Value) -> Result<Message, String> {
         return Err("expected a string or a one-element array".into());
     };
     let strings = |field: &str| -> Vec<&str> {
-        complex[field]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_str)
-            .collect()
+        complex[field].as_array().into_iter().flatten().filter_map(Value::as_str).collect()
     };
     let declarations = strings("declarations");
     let selectors = strings("selectors");
@@ -196,9 +167,7 @@ fn parse_pattern(text: &str) -> Result<Pattern, String> {
         if start > 0 {
             parts.push(Part::Text(rest[..start].to_string()));
         }
-        let end = rest[start..]
-            .find('}')
-            .ok_or_else(|| format!("unclosed {{ in {text:?}"))?;
+        let end = rest[start..].find('}').ok_or_else(|| format!("unclosed {{ in {text:?}"))?;
         let name = &rest[start + 1..start + end];
         if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
             return Err(format!("invalid parameter {{{name}}} in {text:?}"));
@@ -243,10 +212,7 @@ fn validate(catalogs: &BTreeMap<&str, Catalog>) -> Result<(), String> {
     if problems.is_empty() {
         Ok(())
     } else {
-        Err(format!(
-            "i18n catalogs disagree:\n  {}",
-            problems.join("\n  ")
-        ))
+        Err(format!("i18n catalogs disagree:\n  {}", problems.join("\n  ")))
     }
 }
 
@@ -276,18 +242,11 @@ impl Layout {
             Message::Plural { input, .. } => Some(input.clone()),
             Message::Text(_) => None,
         };
-        Self {
-            params,
-            plural_input,
-        }
+        Self { params, plural_input }
     }
 
     fn position(&self, name: &str) -> usize {
-        self.params
-            .iter()
-            .position(|p| p == name)
-            .expect("validated parameter")
-            + 1
+        self.params.iter().position(|p| p == name).expect("validated parameter") + 1
     }
 
     fn is_number(&self, name: &str) -> bool {
@@ -331,11 +290,7 @@ fn xcstrings(catalogs: &BTreeMap<&str, Catalog>, layouts: &BTreeMap<&String, Lay
                     let mut plural = Map::new();
                     for (category, pattern) in variants {
                         let text = format_pattern(pattern, layout, |n| {
-                            if n == input {
-                                "%arg".to_string()
-                            } else {
-                                apple_param(layout, n)
-                            }
+                            if n == input { "%arg".to_string() } else { apple_param(layout, n) }
                         });
                         plural.insert(category.clone(), unit(text));
                     }
@@ -371,10 +326,7 @@ fn swift_accessors(layouts: &BTreeMap<&String, Layout>) -> String {
     for (key, layout) in layouts {
         let name = out::camel(key);
         if layout.params.is_empty() {
-            let _ = writeln!(
-                s,
-                "    public static var {name}: String {{ string(\"{key}\") }}"
-            );
+            let _ = writeln!(s, "    public static var {name}: String {{ string(\"{key}\") }}");
             continue;
         }
         let args: Vec<String> = layout
@@ -485,14 +437,10 @@ mod tests {
 
     #[test]
     fn plurals_map_the_catch_all_to_other() {
-        let message = parse_message(&plural(
-            "count",
-            &[("one", "{count} den"), ("*", "{count} dní")],
-        ))
-        .unwrap();
-        let Message::Plural { input, variants } = message else {
-            panic!("not a plural")
-        };
+        let message =
+            parse_message(&plural("count", &[("one", "{count} den"), ("*", "{count} dní")]))
+                .unwrap();
+        let Message::Plural { input, variants } = message else { panic!("not a plural") };
         assert_eq!(input, "count");
         assert_eq!(variants.keys().collect::<Vec<_>>(), ["one", "other"]);
     }
@@ -515,26 +463,18 @@ mod tests {
     fn plural_strings_become_typed_positional_formats() {
         let message = parse_message(&plural(
             "count",
-            &[
-                ("one", "Delete {count} {kind}?"),
-                ("*", "Delete {count} {kind}s?"),
-            ],
+            &[("one", "Delete {count} {kind}?"), ("*", "Delete {count} {kind}s?")],
         ))
         .unwrap();
         let layout = Layout::of(&message);
         assert_eq!(layout.params, ["count", "kind"]);
-        let Message::Plural { variants, .. } = &message else {
-            unreachable!()
-        };
+        let Message::Plural { variants, .. } = &message else { unreachable!() };
         let text = format_pattern(&variants["one"], &layout, |n| apple_param(&layout, n));
         assert_eq!(text, "Delete %1$lld %2$@?");
     }
 
     #[test]
     fn android_escapes_quotes_and_leading_at() {
-        assert_eq!(
-            android_escape("@home it's \"x\" & y"),
-            "\\@home it\\'s \\\"x\\\" &amp; y"
-        );
+        assert_eq!(android_escape("@home it's \"x\" & y"), "\\@home it\\'s \\\"x\\\" &amp; y");
     }
 }

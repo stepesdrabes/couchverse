@@ -27,21 +27,9 @@ pub enum Ty {
 }
 
 pub enum Item {
-    Struct {
-        name: String,
-        doc: Option<String>,
-        fields: Vec<Field>,
-    },
-    Enum {
-        name: String,
-        doc: Option<String>,
-        values: Vec<String>,
-    },
-    Alias {
-        name: String,
-        doc: Option<String>,
-        target: Ty,
-    },
+    Struct { name: String, doc: Option<String>, fields: Vec<Field> },
+    Enum { name: String, doc: Option<String>, values: Vec<String> },
+    Alias { name: String, doc: Option<String>, target: Ty },
 }
 
 impl Item {
@@ -110,13 +98,8 @@ pub struct FrameUnion {
     pub variants: Vec<FrameVariant>,
 }
 
-const METHODS: [(&str, &str); 5] = [
-    ("get", "Get"),
-    ("post", "Post"),
-    ("put", "Put"),
-    ("patch", "Patch"),
-    ("delete", "Delete"),
-];
+const METHODS: [(&str, &str); 5] =
+    [("get", "Get"), ("post", "Post"), ("put", "Put"), ("patch", "Patch"), ("delete", "Delete")];
 
 /// Walks one set of named schemas into items; inline enums and objects become items named
 /// after their position (`HomeRow.kind` -> `HomeRowKind`).
@@ -128,11 +111,7 @@ pub struct Schemas<'a> {
 
 impl<'a> Schemas<'a> {
     pub fn parse(defs: &'a Map<String, Value>, ref_prefix: &'static str) -> Result<Self, String> {
-        let mut schemas = Self {
-            defs,
-            ref_prefix,
-            items: BTreeMap::new(),
-        };
+        let mut schemas = Self { defs, ref_prefix, items: BTreeMap::new() };
         for (name, schema) in schemas.defs {
             let rust = type_name(name);
             if schema.get("enum").is_some() {
@@ -142,26 +121,15 @@ impl<'a> Schemas<'a> {
             } else {
                 let target = schemas.type_of(schema, &rust)?;
                 let doc = description(schema);
-                schemas.items.insert(
-                    rust.clone(),
-                    Item::Alias {
-                        name: rust,
-                        doc,
-                        target,
-                    },
-                );
+                schemas.items.insert(rust.clone(), Item::Alias { name: rust, doc, target });
             }
         }
         Ok(schemas)
     }
 
     fn struct_item(&mut self, name: &str, schema: &Value) -> Result<(), String> {
-        let required: BTreeSet<&str> = schema["required"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_str)
-            .collect();
+        let required: BTreeSet<&str> =
+            schema["required"].as_array().into_iter().flatten().filter_map(Value::as_str).collect();
         let mut fields = Vec::new();
         for (json, prop) in schema["properties"].as_object().into_iter().flatten() {
             let ty = self.type_of(prop, &format!("{name}{}", pascal(json)))?;
@@ -174,14 +142,7 @@ impl<'a> Schemas<'a> {
             });
         }
         let doc = description(schema);
-        self.items.insert(
-            name.to_string(),
-            Item::Struct {
-                name: name.to_string(),
-                doc,
-                fields,
-            },
-        );
+        self.items.insert(name.to_string(), Item::Struct { name: name.to_string(), doc, fields });
         Ok(())
     }
 
@@ -190,22 +151,11 @@ impl<'a> Schemas<'a> {
             .as_array()
             .into_iter()
             .flatten()
-            .map(|v| {
-                v.as_str()
-                    .map(str::to_string)
-                    .ok_or("only string enums are supported")
-            })
+            .map(|v| v.as_str().map(str::to_string).ok_or("only string enums are supported"))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| format!("{name}: {e}"))?;
         let doc = description(schema);
-        self.items.insert(
-            name.to_string(),
-            Item::Enum {
-                name: name.to_string(),
-                doc,
-                values,
-            },
-        );
+        self.items.insert(name.to_string(), Item::Enum { name: name.to_string(), doc, values });
         Ok(())
     }
 
@@ -227,9 +177,9 @@ impl<'a> Schemas<'a> {
             Some("integer") if schema["format"] == "int32" => Ty::I32,
             Some("integer") => Ty::I64,
             Some("number") => Ty::F64,
-            Some("array") => Ty::List(Box::new(
-                self.type_of(&schema["items"], &format!("{hint}Item"))?,
-            )),
+            Some("array") => {
+                Ty::List(Box::new(self.type_of(&schema["items"], &format!("{hint}Item"))?))
+            }
             Some("object") if schema.get("properties").is_some() => {
                 self.struct_item(hint, schema)?;
                 Ty::Named(hint.to_string())
@@ -266,10 +216,7 @@ impl<'a> Schemas<'a> {
         let op_name = pascal(&id);
         let mut params = Vec::new();
         for param in op["parameters"].as_array().into_iter().flatten() {
-            let name = param["name"]
-                .as_str()
-                .ok_or("parameter without a name")?
-                .to_string();
+            let name = param["name"].as_str().ok_or("parameter without a name")?.to_string();
             let location = param["in"].as_str().unwrap_or_default();
             if location != "path" && location != "query" {
                 continue;
@@ -333,28 +280,19 @@ pub fn frame_union(name: &str, doc: &str, union: &Value) -> Result<FrameUnion, S
             doc: description(variant),
         });
     }
-    Ok(FrameUnion {
-        name: name.to_string(),
-        doc: doc.to_string(),
-        variants,
-    })
+    Ok(FrameUnion { name: name.to_string(), doc: doc.to_string(), variants })
 }
 
 fn base_type(schema: &Value) -> Option<&str> {
     match &schema["type"] {
         Value::String(t) => Some(t),
-        Value::Array(types) => types
-            .iter()
-            .filter_map(Value::as_str)
-            .find(|t| *t != "null"),
+        Value::Array(types) => types.iter().filter_map(Value::as_str).find(|t| *t != "null"),
         _ => None,
     }
 }
 
 fn nullable(schema: &Value) -> bool {
-    schema["type"]
-        .as_array()
-        .is_some_and(|types| types.iter().any(|t| t == "null"))
+    schema["type"].as_array().is_some_and(|types| types.iter().any(|t| t == "null"))
 }
 
 fn description(schema: &Value) -> Option<String> {
@@ -381,10 +319,7 @@ pub fn type_name(name: &str) -> String {
 pub fn pascal(name: &str) -> String {
     let camel = out::camel(name);
     let mut chars = camel.chars();
-    chars
-        .next()
-        .map(|c| c.to_uppercase().chain(chars).collect())
-        .unwrap_or_default()
+    chars.next().map(|c| c.to_uppercase().chain(chars).collect()).unwrap_or_default()
 }
 
 /// `getTitle` -> `get_title`, `playlistURL` -> `playlist_url`, `surface-2` -> `surface_2`.

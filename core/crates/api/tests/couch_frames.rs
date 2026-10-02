@@ -50,11 +50,9 @@ fn numbers_as_f64(value: Value) -> Value {
     match value {
         Value::Number(n) => Value::from(n.as_f64().expect("finite")),
         Value::Array(items) => Value::Array(items.into_iter().map(numbers_as_f64).collect()),
-        Value::Object(map) => Value::Object(
-            map.into_iter()
-                .map(|(k, v)| (k, numbers_as_f64(v)))
-                .collect(),
-        ),
+        Value::Object(map) => {
+            Value::Object(map.into_iter().map(|(k, v)| (k, numbers_as_f64(v))).collect())
+        }
         other => other,
     }
 }

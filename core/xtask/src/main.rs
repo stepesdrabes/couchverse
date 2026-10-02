@@ -38,10 +38,7 @@ fn codegen() -> Result<(), String> {
     tokens::generate(&root, &mut written)?;
     api::generate(&root, &mut written)?;
     for path in &written {
-        println!(
-            "wrote {}",
-            path.strip_prefix(&root).unwrap_or(path).display()
-        );
+        println!("wrote {}", path.strip_prefix(&root).unwrap_or(path).display());
     }
     Ok(())
 }

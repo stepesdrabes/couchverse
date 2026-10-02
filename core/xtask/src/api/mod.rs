@@ -26,9 +26,7 @@ pub fn generate(root: &Path, written: &mut Vec<PathBuf>) -> Result<(), String> {
     let ops = api.operations(&spec)?;
 
     let couch_doc = out::read_json(&root.join(COUCH))?;
-    let defs = couch_doc["$defs"]
-        .as_object()
-        .ok_or_else(|| format!("{COUCH}: no $defs"))?;
+    let defs = couch_doc["$defs"].as_object().ok_or_else(|| format!("{COUCH}: no $defs"))?;
     let payloads: Map<_, _> = defs
         .iter()
         .filter(|(name, _)| !name.ends_with("Frame"))
@@ -51,10 +49,8 @@ pub fn generate(root: &Path, written: &mut Vec<PathBuf>) -> Result<(), String> {
     let types: Vec<_> = api.items.values().collect();
     // payloads the HTTP API also returns (CouchSession embeds the host state) come from the
     // same Go types, so the couch module reuses those definitions
-    let (shared, couch_types): (Vec<_>, Vec<_>) = couch
-        .items
-        .values()
-        .partition(|item| api.items.contains_key(item.name()));
+    let (shared, couch_types): (Vec<_>, Vec<_>) =
+        couch.items.values().partition(|item| api.items.contains_key(item.name()));
     let shared: Vec<&str> = shared.iter().map(|item| item.name()).collect();
     let source = format!("{OPENAPI} and {COUCH}");
     let rust = rust::render(&source, &types, &ops, &couch_types, &shared, &frames)?;

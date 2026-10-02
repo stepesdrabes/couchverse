@@ -18,16 +18,8 @@ const ANDROID_FILE: &str =
 
 pub fn generate(root: &Path, written: &mut Vec<PathBuf>) -> Result<(), String> {
     let tokens = Tokens::read(&root.join(SOURCE))?;
-    out::write(
-        &root.join(WEB_DIR).join("tokens.css"),
-        &css(&tokens)?,
-        written,
-    )?;
-    out::write(
-        &root.join(WEB_DIR).join("tokens.ts"),
-        &typescript(&tokens)?,
-        written,
-    )?;
+    out::write(&root.join(WEB_DIR).join("tokens.css"), &css(&tokens)?, written)?;
+    out::write(&root.join(WEB_DIR).join("tokens.ts"), &typescript(&tokens)?, written)?;
     out::write(&root.join(APPLE_FILE), &swift(&tokens)?, written)?;
     out::write(&root.join(ANDROID_FILE), &kotlin(&tokens)?, written)?;
     Ok(())
@@ -44,9 +36,8 @@ impl Tokens {
     fn group(&self, path: &[&str]) -> Result<Vec<(&String, &Value)>, String> {
         let mut value = &self.0;
         for key in path {
-            value = value
-                .get(key)
-                .ok_or_else(|| format!("{SOURCE}: missing {}", path.join(".")))?;
+            value =
+                value.get(key).ok_or_else(|| format!("{SOURCE}: missing {}", path.join(".")))?;
         }
         let object: &Map<String, Value> = value
             .as_object()
@@ -65,21 +56,15 @@ impl Tokens {
 }
 
 fn num(value: &Value, what: &str) -> Result<f64, String> {
-    value
-        .as_f64()
-        .ok_or_else(|| format!("{SOURCE}: {what} must be a number"))
+    value.as_f64().ok_or_else(|| format!("{SOURCE}: {what} must be a number"))
 }
 
 fn int(value: &Value, what: &str) -> Result<u64, String> {
-    value
-        .as_u64()
-        .ok_or_else(|| format!("{SOURCE}: {what} must be a whole number"))
+    value.as_u64().ok_or_else(|| format!("{SOURCE}: {what} must be a whole number"))
 }
 
 fn text<'a>(value: &'a Value, what: &str) -> Result<&'a str, String> {
-    value
-        .as_str()
-        .ok_or_else(|| format!("{SOURCE}: {what} must be a string"))
+    value.as_str().ok_or_else(|| format!("{SOURCE}: {what} must be a string"))
 }
 
 /// `#rrggbb` or `#rrggbbaa` -> (rgb, alpha byte).
@@ -90,9 +75,7 @@ fn rgba(value: &Value, what: &str) -> Result<(u32, u8), String> {
     match (digits, parsed) {
         (Some(d), Some(v)) if d.len() == 6 => Ok((v, 0xff)),
         (Some(_), Some(v)) => Ok((v >> 8, (v & 0xff) as u8)),
-        _ => Err(format!(
-            "{SOURCE}: {what} must be #rrggbb or #rrggbbaa, got {hex}"
-        )),
+        _ => Err(format!("{SOURCE}: {what} must be #rrggbb or #rrggbbaa, got {hex}")),
     }
 }
 
@@ -160,10 +143,7 @@ fn swift_color(value: &Value, what: &str) -> Result<String, String> {
     if alpha == 0xff {
         Ok(format!("Color(hex: 0x{rgb:06X})"))
     } else {
-        Ok(format!(
-            "Color(hex: 0x{rgb:06X}, opacity: {})",
-            float(f64::from(alpha) / 255.0)
-        ))
+        Ok(format!("Color(hex: 0x{rgb:06X}, opacity: {})", float(f64::from(alpha) / 255.0)))
     }
 }
 
@@ -232,11 +212,7 @@ fn swift_values(t: &Tokens) -> Result<String, String> {
     let mut s = String::from("\n    public enum Palette {\n");
     for (name, value) in t.group(&["color"])? {
         let color = swift_color(value, name)?;
-        let _ = writeln!(
-            s,
-            "        public static let {} = {color}",
-            out::camel(name)
-        );
+        let _ = writeln!(s, "        public static let {} = {color}", out::camel(name));
     }
     s.push_str("    }\n\n    public enum Accent {\n");
     for (name, value) in t.group(&["accent"])? {
@@ -289,10 +265,8 @@ fn swift_motion(t: &Tokens) -> Result<String, String> {
         );
     }
     let interval = int(&t.0["motion"]["heroInterval"], "motion.heroInterval")?;
-    let _ = writeln!(
-        s,
-        "        public static let heroInterval: Duration = .milliseconds({interval})"
-    );
+    let _ =
+        writeln!(s, "        public static let heroInterval: Duration = .milliseconds({interval})");
     s.push_str("    }\n");
     Ok(s)
 }
@@ -315,10 +289,7 @@ fn swift_palettes(t: &Tokens) -> Result<String, String> {
     for (name, _) in &tiers {
         let _ = writeln!(s, "            case \"{name}\": {name}");
     }
-    let _ = writeln!(
-        s,
-        "            default: {first}\n            }}\n        }}\n    }}"
-    );
+    let _ = writeln!(s, "            default: {first}\n            }}\n        }}\n    }}");
 
     s.push_str("\n    public enum Medal {\n");
     for (name, medal) in t.group(&["medal"])? {
@@ -357,10 +328,7 @@ fn kotlin_float(v: f64) -> String {
 /// `displaySmall` -> `DisplaySmall`.
 fn pascal(name: &str) -> String {
     let mut chars = name.chars();
-    chars
-        .next()
-        .map(|c| c.to_uppercase().chain(chars).collect())
-        .unwrap_or_default()
+    chars.next().map(|c| c.to_uppercase().chain(chars).collect()).unwrap_or_default()
 }
 
 const KOTLIN_TYPES: &str = r"
@@ -392,12 +360,7 @@ fn kotlin(t: &Tokens) -> Result<String, String> {
 fn kotlin_values(t: &Tokens) -> Result<String, String> {
     let mut s = String::from("\n    object Palette {\n");
     for (name, value) in t.group(&["color"])? {
-        let _ = writeln!(
-            s,
-            "        val {} = {}",
-            out::camel(name),
-            kotlin_color(value, name)?
-        );
+        let _ = writeln!(s, "        val {} = {}", out::camel(name), kotlin_color(value, name)?);
     }
     s.push_str("    }\n\n    object Accent {\n");
     for (name, value) in t.group(&["accent"])? {
@@ -425,11 +388,7 @@ fn kotlin_values(t: &Tokens) -> Result<String, String> {
         }
     }
     s.push_str("\n    /** Material 3 type scale entries; the phone and TV themes map them to their typography. */\n");
-    let _ = writeln!(
-        s,
-        "    enum class MaterialRole {{ {} }}",
-        materials.join(", ")
-    );
+    let _ = writeln!(s, "    enum class MaterialRole {{ {} }}", materials.join(", "));
     s.push_str("\n    object TypeRamp {\n");
     for (name, role) in &roles {
         let _ = writeln!(

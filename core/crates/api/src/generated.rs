@@ -3631,34 +3631,19 @@ pub mod ops {
     /// `POST /admin/titles`
     pub fn admin_create_title(body: &TitleInput) -> Call<Title> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/admin/titles".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Post, "/admin/titles".to_string(), q, Some(body)))
     }
 
     /// `POST /admin/uploads`
     pub fn admin_create_upload(body: &NewUpload) -> Call<UploadSession> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/admin/uploads".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Post, "/admin/uploads".to_string(), q, Some(body)))
     }
 
     /// `POST /admin/users`
     pub fn admin_create_user(body: &NewUser) -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/admin/users".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Post, "/admin/users".to_string(), q, Some(body)))
     }
 
     /// `DELETE /admin/artwork/{id}`
@@ -3732,11 +3717,7 @@ pub mod ops {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Delete,
-            format!(
-                "/admin/titles/{}/languages/{}",
-                build::segment(id),
-                build::segment(lang)
-            ),
+            format!("/admin/titles/{}/languages/{}", build::segment(id), build::segment(lang)),
             q,
             None::<&()>,
         ))
@@ -3808,78 +3789,43 @@ pub mod ops {
     /// `GET /admin/home-rows`
     pub fn admin_get_home_rows() -> Call<Vec<HomeRowConfig>> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/admin/home-rows".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/home-rows".to_string(), q, None::<&()>))
     }
 
     /// `GET /admin/live`
     pub fn admin_get_live() -> Call<LiveStats> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/admin/live".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/live".to_string(), q, None::<&()>))
     }
 
     /// `GET /admin/overview`
     pub fn admin_get_overview() -> Call<DashboardOverview> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/admin/overview".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/overview".to_string(), q, None::<&()>))
     }
 
     /// `GET /admin/ranks`
     pub fn admin_get_ranks() -> Call<RanksOverview> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/admin/ranks".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/ranks".to_string(), q, None::<&()>))
     }
 
     /// `GET /admin/settings`
     pub fn admin_get_settings() -> Call<ServerSettings> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/admin/settings".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/settings".to_string(), q, None::<&()>))
     }
 
     /// `GET /admin/storage`
     pub fn admin_get_storage() -> Call<StorageInfo> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/admin/storage".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/storage".to_string(), q, None::<&()>))
     }
 
     /// `GET /admin/system`
     pub fn admin_get_system_stats() -> Call<SystemStats> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/admin/system".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/system".to_string(), q, None::<&()>))
     }
 
     /// `GET /admin/titles/{id}`
@@ -3931,10 +3877,7 @@ pub mod ops {
         let q = Vec::new();
         build::json(build::request(
             Method::Post,
-            format!(
-                "/admin/titles/{}/metadata/import-episodes",
-                build::segment(id)
-            ),
+            format!("/admin/titles/{}/metadata/import-episodes", build::segment(id)),
             q,
             Some(body),
         ))
@@ -3967,12 +3910,7 @@ pub mod ops {
         build::push(&mut q, "status", query.status.as_ref());
         build::push(&mut q, "mediaFileId", query.media_file_id.as_ref());
         build::push(&mut q, "limit", query.limit.as_ref());
-        build::json(build::request(
-            Method::Get,
-            "/admin/jobs".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/jobs".to_string(), q, None::<&()>))
     }
 
     /// Query parameters of [`admin_list_library`].
@@ -3995,12 +3933,7 @@ pub mod ops {
         build::push(&mut q, "sort", query.sort.as_ref());
         build::push(&mut q, "page", query.page.as_ref());
         build::push(&mut q, "pageSize", query.page_size.as_ref());
-        build::json(build::request(
-            Method::Get,
-            "/admin/library".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/library".to_string(), q, None::<&()>))
     }
 
     /// Query parameters of [`admin_list_metadata_seasons`].
@@ -4039,23 +3972,13 @@ pub mod ops {
     /// `GET /admin/uploads`
     pub fn admin_list_uploads() -> Call<Vec<UploadSession>> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/admin/uploads".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/uploads".to_string(), q, None::<&()>))
     }
 
     /// `GET /admin/users`
     pub fn admin_list_users() -> Call<Vec<User>> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/admin/users".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/admin/users".to_string(), q, None::<&()>))
     }
 
     /// `GET /admin/media-files/{id}/variants`
@@ -4112,11 +4035,7 @@ pub mod ops {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Patch,
-            format!(
-                "/admin/episodes/{}/translations/{}",
-                build::segment(id),
-                build::segment(lang)
-            ),
+            format!("/admin/episodes/{}/translations/{}", build::segment(id), build::segment(lang)),
             q,
             Some(body),
         ))
@@ -4131,11 +4050,7 @@ pub mod ops {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Patch,
-            format!(
-                "/admin/titles/{}/translations/{}",
-                build::segment(id),
-                build::segment(lang)
-            ),
+            format!("/admin/titles/{}/translations/{}", build::segment(id), build::segment(lang)),
             q,
             Some(body),
         ))
@@ -4155,12 +4070,7 @@ pub mod ops {
     /// `PUT /admin/home-rows`
     pub fn admin_update_home_rows(body: &Vec<HomeRowInput>) -> Call<Vec<HomeRowConfig>> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Put,
-            "/admin/home-rows".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Put, "/admin/home-rows".to_string(), q, Some(body)))
     }
 
     /// `PATCH /admin/media-files/{id}`
@@ -4177,23 +4087,13 @@ pub mod ops {
     /// `PUT /admin/ranks/config`
     pub fn admin_update_ranks_config(body: &RankConfig) -> Call<RankConfig> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Put,
-            "/admin/ranks/config".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Put, "/admin/ranks/config".to_string(), q, Some(body)))
     }
 
     /// `PUT /admin/settings`
     pub fn admin_update_settings(body: &ServerSettings) -> Call<ServerSettings> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Put,
-            "/admin/settings".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Put, "/admin/settings".to_string(), q, Some(body)))
     }
 
     /// `PATCH /admin/titles/{id}`
@@ -4221,12 +4121,7 @@ pub mod ops {
     /// `POST /admin/artwork`
     pub fn admin_upload_artwork() -> Call<Artwork> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/admin/artwork".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Post, "/admin/artwork".to_string(), q, None::<&()>))
     }
 
     /// `POST /admin/media-files/{id}/subtitles`
@@ -4276,23 +4171,13 @@ pub mod ops {
         build::push(&mut q, "q", query.q.as_ref());
         build::push(&mut q, "sort", query.sort.as_ref());
         build::push(&mut q, "page", query.page.as_ref());
-        build::json(build::request(
-            Method::Get,
-            "/titles".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/titles".to_string(), q, None::<&()>))
     }
 
     /// `PATCH /me/password`
     pub fn change_password(body: &PasswordChange) -> Call<NoContent> {
         let q = Vec::new();
-        build::no_content(build::request(
-            Method::Patch,
-            "/me/password".to_string(),
-            q,
-            Some(body),
-        ))
+        build::no_content(build::request(Method::Patch, "/me/password".to_string(), q, Some(body)))
     }
 
     /// `POST /me/achievements/check`
@@ -4309,12 +4194,7 @@ pub mod ops {
     /// `POST /auth/connect`
     pub fn connect_device(body: &ConnectRedemption) -> Call<DeviceToken> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/auth/connect".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Post, "/auth/connect".to_string(), q, Some(body)))
     }
 
     /// Open a couch session's WebSocket
@@ -4322,34 +4202,19 @@ pub mod ops {
     /// `GET /couch/{token}/ws`
     pub fn couch_socket(token: &str) -> Request {
         let q = Vec::new();
-        build::request(
-            Method::Get,
-            format!("/couch/{}/ws", build::segment(token)),
-            q,
-            None::<&()>,
-        )
+        build::request(Method::Get, format!("/couch/{}/ws", build::segment(token)), q, None::<&()>)
     }
 
     /// `POST /me/connect-codes`
     pub fn create_connect_code() -> Call<ConnectCode> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/me/connect-codes".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Post, "/me/connect-codes".to_string(), q, None::<&()>))
     }
 
     /// `POST /couch`
     pub fn create_couch(body: &CouchStart) -> Call<CouchSession> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/couch".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Post, "/couch".to_string(), q, Some(body)))
     }
 
     /// `POST /media/{grant}/jit`
@@ -4366,23 +4231,13 @@ pub mod ops {
     /// `DELETE /me/avatar`
     pub fn delete_avatar() -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Delete,
-            "/me/avatar".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Delete, "/me/avatar".to_string(), q, None::<&()>))
     }
 
     /// `DELETE /me/banner`
     pub fn delete_banner() -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Delete,
-            "/me/banner".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Delete, "/me/banner".to_string(), q, None::<&()>))
     }
 
     /// `POST /me/pairings/{code}/deny`
@@ -4426,23 +4281,13 @@ pub mod ops {
         build::push(&mut q, "size", query.size.as_ref());
         build::push(&mut q, "v", query.v.as_ref());
         build::push(&mut q, "g", query.g.as_ref());
-        build::request(
-            Method::Get,
-            format!("/artwork/{}", build::segment(id)),
-            q,
-            None::<&()>,
-        )
+        build::request(Method::Get, format!("/artwork/{}", build::segment(id)), q, None::<&()>)
     }
 
     /// `GET /me/artwork-grant`
     pub fn get_artwork_grant() -> Call<ArtworkGrant> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/me/artwork-grant".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/me/artwork-grant".to_string(), q, None::<&()>))
     }
 
     /// Query parameters of [`get_couch_info`].
@@ -4489,12 +4334,7 @@ pub mod ops {
     /// `GET /features`
     pub fn get_features() -> Call<FeatureFlags> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/features".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/features".to_string(), q, None::<&()>))
     }
 
     /// Get an HLS playlist or segment of a prepared variant
@@ -4539,12 +4379,7 @@ pub mod ops {
     pub fn get_home(query: &GetHomeQuery) -> Call<Home> {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
-        build::json(build::request(
-            Method::Get,
-            "/home".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/home".to_string(), q, None::<&()>))
     }
 
     /// Query parameters of [`get_leaderboard`].
@@ -4557,23 +4392,13 @@ pub mod ops {
     pub fn get_leaderboard(query: &GetLeaderboardQuery) -> Call<Leaderboard> {
         let mut q = Vec::new();
         build::push(&mut q, "period", query.period.as_ref());
-        build::json(build::request(
-            Method::Get,
-            "/leaderboard".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/leaderboard".to_string(), q, None::<&()>))
     }
 
     /// `GET /auth/me`
     pub fn get_me() -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/auth/me".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/auth/me".to_string(), q, None::<&()>))
     }
 
     /// Query parameters of [`get_my_stats`].
@@ -4587,12 +4412,7 @@ pub mod ops {
     pub fn get_my_stats(query: &GetMyStatsQuery) -> Call<UserProfile> {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
-        build::json(build::request(
-            Method::Get,
-            "/me/stats".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/me/stats".to_string(), q, None::<&()>))
     }
 
     /// `GET /me/pairings/{code}`
@@ -4626,11 +4446,7 @@ pub mod ops {
         build::push(&mut q, "caps", query.caps.as_deref().map(build::csv));
         build::json(build::request(
             Method::Get,
-            format!(
-                "/playback/{}/{}",
-                build::segment(&kind.to_string()),
-                build::segment(id)
-            ),
+            format!("/playback/{}/{}", build::segment(&kind.to_string()), build::segment(id)),
             q,
             None::<&()>,
         ))
@@ -4639,12 +4455,7 @@ pub mod ops {
     /// `GET /me/preferences`
     pub fn get_preferences() -> Call<Preferences> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/me/preferences".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/me/preferences".to_string(), q, None::<&()>))
     }
 
     /// Query parameters of [`get_profile`].
@@ -4669,12 +4480,7 @@ pub mod ops {
     /// `GET /server`
     pub fn get_server() -> Call<ServerInfo> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/server".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/server".to_string(), q, None::<&()>))
     }
 
     /// Query parameters of [`get_stream_frame`].
@@ -4723,11 +4529,7 @@ pub mod ops {
         let q = Vec::new();
         build::request(
             Method::Get,
-            format!(
-                "/media/{}/subtitles/{}.vtt",
-                build::segment(grant),
-                build::segment(id)
-            ),
+            format!("/media/{}/subtitles/{}.vtt", build::segment(grant), build::segment(id)),
             q,
             None::<&()>,
         )
@@ -4736,12 +4538,7 @@ pub mod ops {
     /// `GET /theme`
     pub fn get_theme() -> Call<ThemeInfo> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/theme".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/theme".to_string(), q, None::<&()>))
     }
 
     /// Query parameters of [`get_title`].
@@ -4779,11 +4576,7 @@ pub mod ops {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Post,
-            format!(
-                "/media/{}/jit/{}/keepalive",
-                build::segment(grant),
-                build::segment(sid)
-            ),
+            format!("/media/{}/jit/{}/keepalive", build::segment(grant), build::segment(sid)),
             q,
             None::<&()>,
         ))
@@ -4822,12 +4615,7 @@ pub mod ops {
     /// `GET /me/devices`
     pub fn list_devices() -> Call<Vec<Device>> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Get,
-            "/me/devices".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/me/devices".to_string(), q, None::<&()>))
     }
 
     /// Query parameters of [`list_genres`].
@@ -4841,12 +4629,7 @@ pub mod ops {
     pub fn list_genres(query: &ListGenresQuery) -> Call<Vec<Genre>> {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
-        build::json(build::request(
-            Method::Get,
-            "/genres".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/genres".to_string(), q, None::<&()>))
     }
 
     /// Query parameters of [`list_watchlist`].
@@ -4860,45 +4643,25 @@ pub mod ops {
     pub fn list_watchlist(query: &ListWatchlistQuery) -> Call<Vec<CardItem>> {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
-        build::json(build::request(
-            Method::Get,
-            "/me/watchlist".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/me/watchlist".to_string(), q, None::<&()>))
     }
 
     /// `POST /auth/login`
     pub fn login(body: &Credentials) -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/auth/login".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Post, "/auth/login".to_string(), q, Some(body)))
     }
 
     /// `POST /auth/logout`
     pub fn logout() -> Call<NoContent> {
         let q = Vec::new();
-        build::no_content(build::request(
-            Method::Post,
-            "/auth/logout".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::no_content(build::request(Method::Post, "/auth/logout".to_string(), q, None::<&()>))
     }
 
     /// `POST /auth/pairings/poll`
     pub fn poll_pairing(body: &PairingPoll) -> Call<PairingStatus> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/auth/pairings/poll".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Post, "/auth/pairings/poll".to_string(), q, Some(body)))
     }
 
     /// `DELETE /me/watchlist/{titleId}`
@@ -4926,23 +4689,13 @@ pub mod ops {
     /// `PUT /progress`
     pub fn save_progress(body: &ProgressReport) -> Call<NoContent> {
         let q = Vec::new();
-        build::no_content(build::request(
-            Method::Put,
-            "/progress".to_string(),
-            q,
-            Some(body),
-        ))
+        build::no_content(build::request(Method::Put, "/progress".to_string(), q, Some(body)))
     }
 
     /// `POST /progress`
     pub fn save_progress_beacon(body: &ProgressReport) -> Call<NoContent> {
         let q = Vec::new();
-        build::no_content(build::request(
-            Method::Post,
-            "/progress".to_string(),
-            q,
-            Some(body),
-        ))
+        build::no_content(build::request(Method::Post, "/progress".to_string(), q, Some(body)))
     }
 
     /// Query parameters of [`search`].
@@ -4958,34 +4711,19 @@ pub mod ops {
         let mut q = Vec::new();
         build::push(&mut q, "lang", query.lang.as_ref());
         build::push(&mut q, "q", query.q.as_ref());
-        build::json(build::request(
-            Method::Get,
-            "/search".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Get, "/search".to_string(), q, None::<&()>))
     }
 
     /// `POST /auth/token`
     pub fn sign_in_device(body: &DeviceSignIn) -> Call<DeviceToken> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/auth/token".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Post, "/auth/token".to_string(), q, Some(body)))
     }
 
     /// `POST /auth/pairings`
     pub fn start_pairing(body: &DeviceInfo) -> Call<Pairing> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/auth/pairings".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Post, "/auth/pairings".to_string(), q, Some(body)))
     }
 
     /// `DELETE /media/{grant}/jit/{sid}`
@@ -4993,11 +4731,7 @@ pub mod ops {
         let q = Vec::new();
         build::no_content(build::request(
             Method::Delete,
-            format!(
-                "/media/{}/jit/{}",
-                build::segment(grant),
-                build::segment(sid)
-            ),
+            format!("/media/{}/jit/{}", build::segment(grant), build::segment(sid)),
             q,
             None::<&()>,
         ))
@@ -5019,45 +4753,25 @@ pub mod ops {
     /// `PUT /me/preferences`
     pub fn update_preferences(body: &Preferences) -> Call<Preferences> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Put,
-            "/me/preferences".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Put, "/me/preferences".to_string(), q, Some(body)))
     }
 
     /// `PATCH /me/profile`
     pub fn update_profile(body: &ProfileUpdate) -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Patch,
-            "/me/profile".to_string(),
-            q,
-            Some(body),
-        ))
+        build::json(build::request(Method::Patch, "/me/profile".to_string(), q, Some(body)))
     }
 
     /// `POST /me/avatar`
     pub fn upload_avatar() -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/me/avatar".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Post, "/me/avatar".to_string(), q, None::<&()>))
     }
 
     /// `POST /me/banner`
     pub fn upload_banner() -> Call<User> {
         let q = Vec::new();
-        build::json(build::request(
-            Method::Post,
-            "/me/banner".to_string(),
-            q,
-            None::<&()>,
-        ))
+        build::json(build::request(Method::Post, "/me/banner".to_string(), q, None::<&()>))
     }
 }
 
