@@ -25,23 +25,24 @@ func NewModule(st *Store, cfg config.Config, art *artwork.Service) *Module {
 	}
 }
 
+const tag httpx.Tag = "auth"
+
 func (m *Module) Register(rt httpx.Routes) {
-	tags := []string{"auth"}
-	httpx.Raw(rt.Public, huma.Operation{OperationID: "login", Method: http.MethodPost, Path: "/auth/login", Tags: tags}, m.handlers.Login)
-	httpx.Raw(rt.Public, huma.Operation{OperationID: "logout", Method: http.MethodPost, Path: "/auth/logout", Tags: tags}, m.handlers.Logout)
+	huma.Register(rt.Public, tag.Op("login", http.MethodPost, "/auth/login"), m.handlers.Login)
+	huma.Register(rt.Public, tag.NoContent("logout", http.MethodPost, "/auth/logout"), m.handlers.Logout)
 
-	httpx.Raw(rt.User, huma.Operation{OperationID: "getMe", Method: http.MethodGet, Path: "/auth/me", Tags: tags}, m.handlers.Me)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "updateProfile", Method: http.MethodPatch, Path: "/me/profile", Tags: tags}, m.profile.Update)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "changePassword", Method: http.MethodPatch, Path: "/me/password", Tags: tags}, m.profile.ChangePassword)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "getPreferences", Method: http.MethodGet, Path: "/me/preferences", Tags: tags}, m.profile.Preferences)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "updatePreferences", Method: http.MethodPut, Path: "/me/preferences", Tags: tags}, m.profile.UpdatePreferences)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "uploadAvatar", Method: http.MethodPost, Path: "/me/avatar", Tags: tags}, m.profile.SetAvatar)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "deleteAvatar", Method: http.MethodDelete, Path: "/me/avatar", Tags: tags}, m.profile.DeleteAvatar)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "uploadBanner", Method: http.MethodPost, Path: "/me/banner", Tags: tags}, m.profile.SetBanner)
-	httpx.Raw(rt.User, huma.Operation{OperationID: "deleteBanner", Method: http.MethodDelete, Path: "/me/banner", Tags: tags}, m.profile.DeleteBanner)
+	huma.Register(rt.User, tag.Op("getMe", http.MethodGet, "/auth/me"), m.handlers.Me)
+	huma.Register(rt.User, tag.Op("updateProfile", http.MethodPatch, "/me/profile"), m.profile.Update)
+	huma.Register(rt.User, tag.NoContent("changePassword", http.MethodPatch, "/me/password"), m.profile.ChangePassword)
+	huma.Register(rt.User, tag.Op("getPreferences", http.MethodGet, "/me/preferences"), m.profile.Preferences)
+	huma.Register(rt.User, tag.Op("updatePreferences", http.MethodPut, "/me/preferences"), m.profile.UpdatePreferences)
+	huma.Register(rt.User, tag.Op("uploadAvatar", http.MethodPost, "/me/avatar"), m.profile.SetAvatar)
+	huma.Register(rt.User, tag.Op("deleteAvatar", http.MethodDelete, "/me/avatar"), m.profile.DeleteAvatar)
+	huma.Register(rt.User, tag.Op("uploadBanner", http.MethodPost, "/me/banner"), m.profile.SetBanner)
+	huma.Register(rt.User, tag.Op("deleteBanner", http.MethodDelete, "/me/banner"), m.profile.DeleteBanner)
 
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminListUsers", Method: http.MethodGet, Path: "/users", Tags: tags}, m.admin.List)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminCreateUser", Method: http.MethodPost, Path: "/users", Tags: tags}, m.admin.Create)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminUpdateUser", Method: http.MethodPatch, Path: "/users/{id}", Tags: tags}, m.admin.Update)
-	httpx.Raw(rt.Admin, huma.Operation{OperationID: "adminDeleteUser", Method: http.MethodDelete, Path: "/users/{id}", Tags: tags}, m.admin.Delete)
+	huma.Register(rt.Admin, tag.Op("adminListUsers", http.MethodGet, "/users"), m.admin.List)
+	huma.Register(rt.Admin, tag.Op("adminCreateUser", http.MethodPost, "/users"), m.admin.Create)
+	huma.Register(rt.Admin, tag.Op("adminUpdateUser", http.MethodPatch, "/users/{id}"), m.admin.Update)
+	huma.Register(rt.Admin, tag.NoContent("adminDeleteUser", http.MethodDelete, "/users/{id}"), m.admin.Delete)
 }

@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"context"
+	"errors"
 	"net/http"
 
 	"couchverse/internal/httpx"
@@ -14,110 +16,97 @@ func NewAdminUsers(st *Store) *AdminUsers {
 	return &AdminUsers{store: st}
 }
 
-func (h *AdminUsers) List(w http.ResponseWriter, r *http.Request) {
-	users, err := h.store.ListUsers(r.Context())
+type usersOutput struct{ Body []User }
+
+func (h *AdminUsers) List(ctx context.Context, _ *struct{}) (*usersOutput, error) {
+	users, err := h.store.ListUsers(ctx)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusOK, users)
+	return &usersOutput{Body: users}, nil
 }
 
-func (h *AdminUsers) Create(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Username    string `json:"username"`
-		DisplayName string `json:"displayName"`
-		Password    string `json:"password"`
-		Role        string `json:"role"`
-	}
-	if err := httpx.Decode(r, &req); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
-	if req.Username == "" || len(req.Password) < 4 {
-		httpx.BadRequest(w, "username and a password of at least 4 characters are required")
-		return
-	}
-	if req.Role != "admin" {
-		req.Role = "member"
-	}
+// NewUser is an account an admin creates.
+type NewUser struct {
+	Username    string `json:"username" minLength:"1"`
+	DisplayName string `json:"displayName" required:"false" doc:"Defaults to the username."`
+	Password    string `json:"password" minLength:"4"`
+	Role        string `json:"role" required:"false" enum:"admin,member" default:"member"`
+}
+
+type createUserInput struct{ Body NewUser }
+
+type userCreatedOutput struct {
+	Status int
+	Body   *User
+}
+
+func (h *AdminUsers) Create(ctx context.Context, in *createUserInput) (*userCreatedOutput, error) {
+	req := in.Body
 	if req.DisplayName == "" {
 		req.DisplayName = req.Username
 	}
 	hash, err := HashPassword(req.Password)
 	if err != nil {
-		httpx.Internal(w, err)
-		return
+		return nil, err
 	}
-	user, err := h.store.CreateUser(r.Context(), req.Username, req.DisplayName, hash, req.Role)
+	user, err := h.store.CreateUser(ctx, req.Username, req.DisplayName, hash, req.Role)
+	if errors.Is(err, ErrUsernameTaken) {
+		return nil, httpx.Fail(http.StatusConflict, "conflict", "username already exists")
+	}
 	if err != nil {
-		httpx.Error(w, http.StatusConflict, "conflict", "username already exists")
-		return
+		return nil, err
 	}
-	httpx.JSON(w, http.StatusCreated, user)
+	return &userCreatedOutput{Status: http.StatusCreated, Body: user}, nil
 }
 
-func (h *AdminUsers) Update(w http.ResponseWriter, r *http.Request) {
-	id := httpx.ID(r, "id")
-	self := UserFrom(r.Context())
+// AdminUserUpdate is a partial update: absent fields keep their value.
+type AdminUserUpdate struct {
+	DisplayName *string `json:"displayName" required:"false"`
+	Role        *string `json:"role" required:"false" enum:"admin,member"`
+	Disabled    *bool   `json:"disabled" required:"false" doc:"Disabling an account also signs it out everywhere."`
+	Password    *string `json:"password" required:"false" minLength:"4"`
+}
 
-	var req struct {
-		DisplayName *string `json:"displayName"`
-		Role        *string `json:"role"`
-		Disabled    *bool   `json:"disabled"`
-		Password    *string `json:"password"`
-	}
-	if err := httpx.Decode(r, &req); err != nil {
-		httpx.BadRequest(w, "invalid request body")
-		return
-	}
+type userIDInput struct {
+	ID int64 `path:"id"`
+}
 
-	if id == self.ID && ((req.Disabled != nil && *req.Disabled) || (req.Role != nil && *req.Role != "admin")) {
-		httpx.BadRequest(w, "you cannot disable or demote your own account")
-		return
-	}
-	if req.Role != nil && *req.Role != "admin" && *req.Role != "member" {
-		httpx.BadRequest(w, "invalid role")
-		return
+type updateUserInput struct {
+	ID   int64 `path:"id"`
+	Body AdminUserUpdate
+}
+
+func (h *AdminUsers) Update(ctx context.Context, in *updateUserInput) (*userOutput, error) {
+	req := in.Body
+	if in.ID == UserFrom(ctx).ID && ((req.Disabled != nil && *req.Disabled) || (req.Role != nil && *req.Role != "admin")) {
+		return nil, httpx.BadRequestError("you cannot disable or demote your own account")
 	}
 
 	up := UserUpdate{DisplayName: req.DisplayName, Role: req.Role, Disabled: req.Disabled}
 	if req.Password != nil {
-		if len(*req.Password) < 4 {
-			httpx.BadRequest(w, "password must be at least 4 characters")
-			return
-		}
 		hash, err := HashPassword(*req.Password)
 		if err != nil {
-			httpx.Internal(w, err)
-			return
+			return nil, err
 		}
 		up.PasswordHash = &hash
 	}
 
-	user, err := h.store.UpdateUser(r.Context(), id, up)
+	user, err := h.store.UpdateUser(ctx, in.ID, up)
 	if err != nil {
-		httpx.StoreErr(w, err)
-		return
+		return nil, err
 	}
 	if req.Disabled != nil && *req.Disabled {
-		if err := h.store.DeleteUserSessions(r.Context(), id); err != nil {
-			httpx.Internal(w, err)
-			return
+		if err := h.store.DeleteUserSessions(ctx, in.ID); err != nil {
+			return nil, err
 		}
 	}
-	httpx.JSON(w, http.StatusOK, user)
+	return &userOutput{Body: user}, nil
 }
 
-func (h *AdminUsers) Delete(w http.ResponseWriter, r *http.Request) {
-	id := httpx.ID(r, "id")
-	if id == UserFrom(r.Context()).ID {
-		httpx.BadRequest(w, "you cannot delete your own account")
-		return
+func (h *AdminUsers) Delete(ctx context.Context, in *userIDInput) (*struct{}, error) {
+	if in.ID == UserFrom(ctx).ID {
+		return nil, httpx.BadRequestError("you cannot delete your own account")
 	}
-	if err := h.store.DeleteUser(r.Context(), id); err != nil {
-		httpx.StoreErr(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusNoContent, nil)
+	return nil, h.store.DeleteUser(ctx, in.ID)
 }

@@ -63,6 +63,11 @@ the master admin account on a fresh database.
   HTML is escaped rather than parsed and no separate sanitizer is needed; markdown-it
   also rejects unsafe link protocols, images are disabled and every link gets
   `rel="nofollow noopener noreferrer"`.
+- **Preferences** are a jsonb blob served through a typed shape (`Preferences`:
+  `subtitles`, `language`, `publicProfile`). `PUT /me/preferences` merges the posted
+  keys, and object values (`subtitles`) merge field by field, so keys the server does
+  not model stay stored across a client's read-modify-write; they are just not
+  served. A stored value of the wrong type reads as unset.
 - Web: `features/auth` (session singleton + 401 handler, LoginPage, ProfilePage +
   the Edit-profile and Change-password modals), `features/users` (AdminUsersPage),
   `features/preferences` (subtitle settings store). `/profile` renders the *same*

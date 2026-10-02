@@ -29,8 +29,8 @@ func HashToken(token string) []byte {
 	return h[:]
 }
 
-func SetSessionCookie(w http.ResponseWriter, token string, secure bool) {
-	http.SetCookie(w, &http.Cookie{
+func sessionCookie(token string, secure bool) http.Cookie {
+	return http.Cookie{
 		Name:     SessionCookie,
 		Value:    token,
 		Path:     "/",
@@ -38,11 +38,11 @@ func SetSessionCookie(w http.ResponseWriter, token string, secure bool) {
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
-	})
+	}
 }
 
-func ClearSessionCookie(w http.ResponseWriter, secure bool) {
-	http.SetCookie(w, &http.Cookie{
+func clearedSessionCookie(secure bool) http.Cookie {
+	return http.Cookie{
 		Name:     SessionCookie,
 		Value:    "",
 		Path:     "/",
@@ -50,5 +50,5 @@ func ClearSessionCookie(w http.ResponseWriter, secure bool) {
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
-	})
+	}
 }

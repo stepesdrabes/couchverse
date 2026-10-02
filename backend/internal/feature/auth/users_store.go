@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"couchverse/internal/db"
@@ -27,11 +28,11 @@ type User struct {
 	Username     string    `json:"username"`
 	DisplayName  string    `json:"displayName"`
 	PasswordHash string    `json:"-"`
-	Role         string    `json:"role"`
+	Role         string    `json:"role" enum:"admin,member"`
 	Disabled     bool      `json:"disabled"`
-	AvatarID     *string   `json:"avatarId"`
-	BannerID     *string   `json:"bannerId"`
-	Bio          string    `json:"bio"`
+	AvatarID     *string   `json:"avatarId" doc:"Artwork id of the profile picture."`
+	BannerID     *string   `json:"bannerId" doc:"Artwork id of the profile banner."`
+	Bio          string    `json:"bio" doc:"Markdown, rendered with raw HTML disabled."`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
@@ -69,6 +70,9 @@ func (s *Store) CountUsers(ctx context.Context) (int, error) {
 	return n, err
 }
 
+// ErrUsernameTaken is returned by CreateUser for a username already in use.
+var ErrUsernameTaken = errors.New("username already exists")
+
 func (s *Store) CreateUser(ctx context.Context, username, displayName, passwordHash, role string) (*User, error) {
 	var id int64
 	err := s.db.QueryRow(ctx,
@@ -76,6 +80,10 @@ func (s *Store) CreateUser(ctx context.Context, username, displayName, passwordH
 		 VALUES ($1, $2, $3, $4)
 		 RETURNING id`,
 		username, displayName, passwordHash, role).Scan(&id)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return nil, ErrUsernameTaken
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +97,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	}
 	defer rows.Close()
 
-	var users []User
+	users := []User{}
 	for rows.Next() {
 		u, err := scanUser(rows)
 		if err != nil {
@@ -138,30 +146,92 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *Store) UserPreferences(ctx context.Context, id int64) (json.RawMessage, error) {
-	var v json.RawMessage
-	err := s.db.QueryRow(ctx, `SELECT preferences FROM users WHERE id = $1`, id).Scan(&v)
+// Preferences are a user's client settings, stored as a jsonb blob. Only the
+// keys modelled here are served; any other stored key stays in the blob
+// untouched.
+type Preferences struct {
+	Subtitles     *SubtitlePreferences `json:"subtitles,omitempty"`
+	Language      *string              `json:"language,omitempty" doc:"Saved display language (ISO 639-1), restored on sign-in."`
+	PublicProfile *bool                `json:"publicProfile,omitempty" doc:"Appear on public profiles and leaderboards; absent means yes."`
+}
+
+// SubtitlePreferences style the player's subtitles. Absent fields fall back to
+// the player's defaults.
+type SubtitlePreferences struct {
+	FontSizePct       *int    `json:"fontSizePct,omitempty" minimum:"50" maximum:"200" doc:"Text size as a percentage of the default."`
+	Color             *string `json:"color,omitempty" doc:"Text colour as #rrggbb."`
+	FontFamily        *string `json:"fontFamily,omitempty" enum:"sans,serif,mono,rounded"`
+	BackgroundOpacity *int    `json:"backgroundOpacity,omitempty" minimum:"0" maximum:"100" doc:"Opacity of the box behind the text, in percent."`
+}
+
+// decodePreferences reads the stored blob key by key: the blob predates this
+// shape, so a value stored with another type reads as unset rather than
+// failing the whole read.
+func decodePreferences(raw []byte) *Preferences {
+	var keys map[string]json.RawMessage
+	_ = json.Unmarshal(raw, &keys)
+	p := &Preferences{
+		Language:      jsonValue[string](keys["language"]),
+		PublicProfile: jsonValue[bool](keys["publicProfile"]),
+	}
+	var sub map[string]json.RawMessage
+	if json.Unmarshal(keys["subtitles"], &sub) == nil && sub != nil {
+		p.Subtitles = &SubtitlePreferences{
+			FontSizePct:       jsonValue[int](sub["fontSizePct"]),
+			Color:             jsonValue[string](sub["color"]),
+			FontFamily:        jsonValue[string](sub["fontFamily"]),
+			BackgroundOpacity: jsonValue[int](sub["backgroundOpacity"]),
+		}
+	}
+	return p
+}
+
+// jsonValue decodes raw as a T, or nil when it is absent, null or another type.
+func jsonValue[T any](raw json.RawMessage) *T {
+	var v *T
+	if json.Unmarshal(raw, &v) != nil {
+		return nil
+	}
+	return v
+}
+
+func (s *Store) UserPreferences(ctx context.Context, id int64) (*Preferences, error) {
+	var raw []byte
+	err := s.db.QueryRow(ctx, `SELECT preferences FROM users WHERE id = $1`, id).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
-	return v, err
+	if err != nil {
+		return nil, err
+	}
+	return decodePreferences(raw), nil
 }
 
-// MergeUserPreferences shallow-merges the given top-level keys into the user's
-// preferences blob (a null value removes its key).
-func (s *Store) MergeUserPreferences(ctx context.Context, id int64, patch map[string]json.RawMessage) (json.RawMessage, error) {
+// MergeUserPreferences writes the keys set in patch. An object value (subtitles)
+// merges into the stored object rather than replacing it, so keys this server
+// does not model survive a client's read-modify-write.
+func (s *Store) MergeUserPreferences(ctx context.Context, id int64, patch Preferences) (*Preferences, error) {
 	body, err := json.Marshal(patch)
 	if err != nil {
 		return nil, err
 	}
-	var v json.RawMessage
+	var raw []byte
 	err = s.db.QueryRow(ctx,
-		`UPDATE users SET preferences = preferences || $2::jsonb WHERE id = $1
-		 RETURNING preferences`, id, body).Scan(&v)
+		`UPDATE users u SET preferences = u.preferences || (
+			SELECT COALESCE(jsonb_object_agg(p.key, CASE
+				WHEN jsonb_typeof(p.value) = 'object' AND jsonb_typeof(u.preferences -> p.key) = 'object'
+				THEN (u.preferences -> p.key) || p.value
+				ELSE p.value END), '{}'::jsonb)
+			FROM jsonb_each($2::jsonb) p)
+		 WHERE u.id = $1
+		 RETURNING u.preferences`, id, body).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
-	return v, err
+	if err != nil {
+		return nil, err
+	}
+	return decodePreferences(raw), nil
 }
 
 // DeleteUserSessions removes all sessions of a disabled user.
