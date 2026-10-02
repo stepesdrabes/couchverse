@@ -98,6 +98,12 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     on an `invalidateAll` save). `preloadData` only for side-effect-free routes - never
     `/watch/...` (starts a JIT transcode); watch links use `data-sveltekit-preload-data="tap"`.
     Prefer targeted `invalidate` over `invalidateAll`. Full design in FEATURES.md.
+  - **TV mode** (Titan OS smart TVs; `lib/tv/`, full design in FEATURES.md): the same SPA
+    with remote-control spatial navigation, Back handling and a 10-foot scale, switched on
+    by the `TitanOS/` user agent or `?tv=1`. New viewer UI must stay reachable by arrows:
+    use real links/buttons, give hover-only styles a `focus-visible` twin, mark a page's
+    starting control `data-tv-autofocus` and fixed chrome `data-tv-pin`, and call
+    `preventDefault` on keys a component handles itself.
 
 ## Stack
 

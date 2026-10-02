@@ -39,7 +39,8 @@ Shared frontend: `lib/api/client.ts` (fetch wrapper - never hand-write URLs in
 components) and `lib/api/cache.svelte.ts` (SWR cache), `lib/components/ui/` (bits-ui
 primitives), `lib/components/layout/` (TopNav, GlowBackdrop, NavProgress),
 `lib/components/{CachedView,StreamedView,NotFound}.svelte` (optimistic page shells),
-`lib/theme.ts` (accent), `lib/utils/`. See "Optimistic navigation & caching".
+`lib/theme.ts` (accent), `lib/utils/`, `lib/tv/` (TV mode). See "Optimistic navigation &
+caching" and "TV mode".
 
 ## Features
 
@@ -405,6 +406,58 @@ fills in behind a cached value or a skeleton.
   episode navigation dropped `invalidateAll` (the `[id]` change already re-runs the watch
   load; the layout's session/features/preferences fetch stays put), and the transcode poll
   uses a targeted `invalidate('app:playback')`.
+
+## TV mode (cross-cutting)
+
+The same SPA runs as a Titan OS app (Philips/JVC smart TVs): the TV loads the hosted URL
+in its Chromium browser, there is no separate build. `lib/tv/` switches the UI to a
+remote-controlled, 10-foot mode when the user agent has `TitanOS/` (or `WhaleTV/`,
+`SmartTvA/` on older Philips Linux TVs). `?tv=1` forces it in a desktop browser for
+development (persisted in localStorage `cv.tv`; `?tv=0` clears it).
+
+- **Detection + styling** (`lib/tv/tv.ts`): `isTV` is fixed per page load and sets
+  `data-tv` on `<html>`. `app.css` scales the root font with the viewport width
+  (`1.125vw`, so the layout reads the same at the TV's 720p or 1080p app resolution),
+  thickens the focus ring and turns off `backdrop-filter` (TV GPUs stutter on blur);
+  `GlowBackdrop` drops its blur too. View transitions are skipped. The TV hides admin
+  entry points (nav menu item, upload dock) and the player's volume, fullscreen and
+  picture-in-picture controls (the TV remote owns volume; the app is always full screen).
+- **Spatial navigation** (`lib/tv/spatial-nav.ts`): arrows move focus to the nearest
+  focusable element that way. Vertical moves prefer an element straight ahead unless the
+  nearest row is clearly closer (so a short row is never skipped); sideways moves stay in
+  the row and stop at its end. Focus scrolls real scroll containers and centres the page
+  by hand, never via `scrollIntoView` (that also scrolls overflow-hidden boxes like the
+  hero and shifts their art). Opt-in attributes: `data-tv-autofocus` (where a page starts:
+  hero/title Play, login username, player seek bar), `data-tv-pin` (fixed chrome: the nav
+  bar, music bar, corner stack - reached only by leaving the page past its top/bottom
+  edge, so it never competes with content scrolling under it), `data-tv-layer` (a custom
+  overlay that confines focus like a bits-ui dialog; the music queue), `data-tv-skip`.
+  Open bits-ui overlays (`role=dialog|alertdialog|menu|listbox`) confine focus too.
+  Elements fading in count as visible (checked through `document.getAnimations()`), but
+  transparent hover-revealed controls do not.
+- **`TvShell`** (`lib/tv/TvShell.svelte`, mounted by the root layout on TVs only): owns
+  the window keydown listener, which runs last and skips anything a feature already
+  handled (`preventDefault`). Back (`Backspace`, keyCode 8 on Philips, 461 on JVC/Vestel)
+  closes the open overlay (synthesised Escape), deletes in a non-empty text field, goes
+  back in history, and on the main screen (home, login) asks to exit - Titan OS requires
+  that confirmation; `exitApp` calls `SmartTvA_API.exit()` or `window.close()`. It tracks
+  in-app history depth so Back never leaves the app, restores focus to the card a page
+  was left from on popstate, places arrival focus (retrying briefly while content lands),
+  moves focus from a freshly opened dialog's container to its first control, keeps arrow
+  keys on select/menu triggers from opening them (OK opens), and preloads a focused link
+  after 300 ms with the same opt-in as hover (watch links stay `tap`).
+- **Player** (`VideoPlayer`): on TVs its keydown listener sits on `document` so it runs
+  before the shell. With the controls hidden or the seek bar focused, OK plays/pauses and
+  left/right skip 10 s; other keys bring the controls up on the seek bar; once a control
+  button has focus the arrows are spatial navigation. Media keys work any time. Controls
+  stay up while a player menu is open. HLS always goes through hls.js on TVs (their
+  browsers claim native HLS, which would lose the quality and audio menus).
+- **Cards** mirror their hover look with `group-focus-visible:` (ring on the artwork, so
+  the anchor drops its own outline); the hero carousel holds its slide while focus is
+  inside it (advancing would re-create the focused button).
+- Getting it onto a TV: Titan OS apps are hosted URLs registered in the Titan OS Partner
+  Portal; DevView on the TV launches unpublished ones, and Chrome DevTools attaches to
+  `<tv-ip>:9222` or `:7001` with Debug Mode on (docs.titanos.tv).
 
 ## Backend dependency graph
 
