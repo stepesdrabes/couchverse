@@ -402,21 +402,29 @@ with every playback-info request (8.5).
 
 - Apple: static libraries for `aarch64-apple-ios`, `aarch64-apple-ios-sim`,
   `aarch64-apple-tvos`, `aarch64-apple-tvos-sim` and `aarch64-apple-darwin` (host-side Swift
-  tests), Swift bindings from `uniffi-bindgen-swift` (run with `--no-format`; piping through
-  swift-format hangs under Xcode 27), combined with `xcodebuild -create-xcframework` into
-  `CouchverseCoreFFI.xcframework` with a uniquely named module map (Xcode 27 rejects duplicate
-  Clang module names). Wrapped by the `CouchverseCore` Swift package together with the
-  typeshare-generated Swift types. cargo-swift is not used (no tvOS support).
+  tests), Swift bindings from `uniffi-bindgen-swift` (which never formats, so the swift-format
+  hang does not apply), combined with `xcodebuild -create-xcframework` into
+  `CouchverseCoreFFI.xcframework`. Xcode 27 merges every xcframework's headers into one include
+  directory, so the headers and a plain `module` map (not `--xcframework`'s `framework module`)
+  live in `Headers/CouchverseCoreFFI/`, and the Clang module name differs from the Swift module
+  (`CouchverseCoreFFI` vs `CouchverseCore`). The ffi crate depends on `uniffi` with
+  `default-features = false`; only the bindgen crate enables `cli`. Wrapped by the
+  `CouchverseCore` Swift package together with the typeshare-generated Swift types. cargo-swift
+  is not used (no tvOS support). Recipe and gotchas: `docs/spikes/s2-core-bridge.md`.
 - Android: `cargo-ndk` for `arm64-v8a`, `armeabi-v7a`, `x86_64`; UniFFI Kotlin bindings (JNA)
   and typeshare-generated Kotlin types in the `core` Gradle module.
 - Web: `wasm32-unknown-unknown` with `wasm-bindgen` (CLI version pinned to the crate) and
-  `wasm-opt -Oz`, emitted as a local package that `clients/web` imports, plus typeshare
-  TypeScript types. Release profile: `opt-level = "z"`, LTO, `panic = "abort"`; no `regex`.
+  `wasm-opt -O3`, emitted as a local package that `clients/web` imports, plus typeshare
+  TypeScript types. Profile `release-wasm`: opt-level 3 (S2: it halves `view` latency for
+  ~28 KB more gzip, still far under budget), LTO, `panic = "abort"`; no `regex`.
 - `cargo xtask` builds all three; `make core-apple|core-android|core-wasm` wrap it. A clean
   clone builds with `rustup` plus the documented targets; no prebuilt binaries are committed.
   The Docker image gains a Rust stage that builds the wasm package for the web build.
 - Budgets enforced in CI: wasm under 250 KB gzip, `send`/`resolve` under 1 ms for typical
-  messages, home view model serialization under 2 ms on an Apple TV 4K (2nd gen).
+  messages, home view model serialization under 2 ms on an Apple TV 4K (2nd gen). The budget
+  covers the core's side; the shell's JSON decode is measured separately (S2: Swift
+  `JSONDecoder` is the dominant cost, so shells decode off the main actor and `Render` names
+  rows rather than whole screens).
 
 ### 7.8 Core testing
 
@@ -573,7 +581,9 @@ menu keeps working from the new master playlist attributes.
 
 - Phase 0: move to `clients/web/`; delete music.
 - Contract phase: Paraglide reads `contract/i18n`; plural variants; theme tokens include;
-  admin API calls move to a typed `openapi-fetch` client generated from `openapi.json`.
+  admin API calls move to a typed client generated from `openapi.json` by `cargo xtask
+  codegen` (the same model that emits the core's Rust types, so names match across clients;
+  `openapi-typescript` was dropped because it requires TypeScript 5 and the web is on 6).
 - Auth phase: `/pair` approval page, "Connect a device" QR, Devices list on the profile.
 - Core adoption, slice by slice (D28): a `lib/core/` runtime loads the wasm core during the root
   layout load, executes effects (fetch with cookies, WebSocket, timers, localStorage, the
@@ -830,7 +840,7 @@ ship together, with the TV layout designed first.
 - huma on the router; all viewer operations migrated, admin operations migrated; error envelope
   preserved; `couchverse openapi`; `contract/openapi.json`; couch protocol schema; fixtures.
 - i18n moved to `contract/i18n` with plural variants; xcstrings and Android generators;
-  design tokens and generators; web admin on `openapi-fetch` types.
+  design tokens and generators; web admin on the generated typed client.
 - **Exit**: spec covers every route; drift check in CI; web unchanged in behaviour.
 
 ### Phase 2: Backend platform for devices

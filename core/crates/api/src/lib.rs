@@ -11,7 +11,7 @@ mod generated;
 use std::fmt::{self, Write as _};
 use std::marker::PhantomData;
 
-pub use generated::{ops, types};
+pub use generated::{couch, ops, types};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Method {
@@ -170,6 +170,15 @@ mod build {
     /// One path segment, percent-encoded.
     pub(crate) fn segment(value: &str) -> String {
         super::encode(value)
+    }
+
+    /// A list query parameter as one comma-separated value.
+    pub(crate) fn csv<T: ToString>(items: &[T]) -> String {
+        items
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(",")
     }
 
     /// Adds `name=value` when the optional parameter is set.

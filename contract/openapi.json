@@ -151,6 +151,140 @@
         ],
         "type": "object"
       },
+      "ActiveTranscode": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "jobId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "mediaFileId": {
+            "type": "string"
+          },
+          "progress": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "titleId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "variant": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "mediaFileId",
+          "titleId",
+          "episodeId",
+          "variant",
+          "status",
+          "progress"
+        ],
+        "type": "object"
+      },
+      "AdminJob": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "claimedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "finishedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "lastError": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "maxAttempts": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/JobPayload"
+          },
+          "priority": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "progress": {
+            "description": "Percent complete, 0-100.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "runAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "failed",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/JobSubject"
+          },
+          "type": {
+            "description": "probe, extract_subtitles, transcode_hls, fetch_metadata, import_episodes or cleanup; rows left by older versions may carry retired types.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "payload",
+          "status",
+          "priority",
+          "runAt",
+          "attempts",
+          "maxAttempts",
+          "progress",
+          "lastError",
+          "claimedAt",
+          "createdAt",
+          "finishedAt"
+        ],
+        "type": "object"
+      },
       "AdminTitle": {
         "additionalProperties": false,
         "properties": {
@@ -398,10 +532,24 @@
         ],
         "type": "object"
       },
+      "AppearanceSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "accent": {
+            "description": "Accent colour as a CSS hex value such as #e50914.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accent"
+        ],
+        "type": "object"
+      },
       "Artwork": {
         "additionalProperties": false,
         "properties": {
           "accent": {
+            "description": "Dominant vibrant colour as #rrggbb; - when the image yielded none.",
             "type": "string"
           },
           "createdAt": {
@@ -409,6 +557,7 @@
             "type": "string"
           },
           "height": {
+            "description": "0 when not measured.",
             "format": "int64",
             "type": "integer"
           },
@@ -416,21 +565,42 @@
             "type": "string"
           },
           "kind": {
+            "enum": [
+              "poster",
+              "backdrop",
+              "thumb",
+              "avatar",
+              "banner"
+            ],
             "type": "string"
           },
           "ownerId": {
+            "description": "The owner's uuid, or the numeric user id for user artwork.",
             "type": "string"
           },
           "ownerKind": {
+            "enum": [
+              "title",
+              "season",
+              "episode",
+              "user"
+            ],
             "type": "string"
           },
           "path": {
+            "description": "Location under the server's data directory.",
             "type": "string"
           },
           "source": {
+            "enum": [
+              "tmdb",
+              "uploaded",
+              "embedded"
+            ],
             "type": "string"
           },
           "width": {
+            "description": "0 when not measured.",
             "format": "int64",
             "type": "integer"
           }
@@ -599,6 +769,18 @@
           "null"
         ]
       },
+      "CompletedUpload": {
+        "additionalProperties": false,
+        "properties": {
+          "mediaFileId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mediaFileId"
+        ],
+        "type": "object"
+      },
       "ContinueItem": {
         "additionalProperties": false,
         "properties": {
@@ -693,6 +875,255 @@
         ],
         "type": "object"
       },
+      "CouchHostState": {
+        "additionalProperties": false,
+        "properties": {
+          "away": {
+            "description": "The host lost its connection and the grace countdown is running.",
+            "type": "boolean"
+          },
+          "media": {
+            "$ref": "#/components/schemas/CouchMediaRef"
+          },
+          "playing": {
+            "type": "boolean"
+          },
+          "positionSeconds": {
+            "format": "double",
+            "type": "number"
+          },
+          "seq": {
+            "description": "Increases with every state change; drop frames older than the last seen.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "serverTimestamp": {
+            "description": "When the state was stamped, in milliseconds on the server's monotonic clock (the hello frame's serverTime).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "media",
+          "playing",
+          "positionSeconds",
+          "serverTimestamp",
+          "seq",
+          "away"
+        ],
+        "type": "object"
+      },
+      "CouchInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "display": {
+            "$ref": "#/components/schemas/CouchInfoDisplay",
+            "description": "What is playing; absent while the host is choosing."
+          },
+          "hostAvatarId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hostName": {
+            "type": "string"
+          },
+          "hostSeed": {
+            "description": "Identicon seed for a host without an avatar.",
+            "type": "string"
+          },
+          "participants": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "playing": {
+            "type": "boolean"
+          },
+          "shareCode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "shareCode",
+          "hostName",
+          "hostAvatarId",
+          "hostSeed",
+          "playing",
+          "participants"
+        ],
+        "type": "object"
+      },
+      "CouchInfoDisplay": {
+        "additionalProperties": false,
+        "properties": {
+          "backdropAccent": {
+            "type": "string"
+          },
+          "backdropId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "subtitle",
+          "backdropId",
+          "backdropAccent"
+        ],
+        "type": "object"
+      },
+      "CouchMediaRef": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeId": {
+            "type": "string"
+          },
+          "kind": {
+            "description": "Empty while the host is choosing what to watch.",
+            "enum": [
+              "",
+              "movie",
+              "episode"
+            ],
+            "type": "string"
+          },
+          "titleId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "CouchParticipant": {
+        "additionalProperties": false,
+        "properties": {
+          "avatarId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "isAnonymous": {
+            "type": "boolean"
+          },
+          "isHost": {
+            "type": "boolean"
+          },
+          "paused": {
+            "description": "A follower paused their own playback locally.",
+            "type": "boolean"
+          },
+          "seed": {
+            "description": "Identicon seed: the username, or a random seed for an anonymous viewer.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "isHost",
+          "isAnonymous",
+          "paused"
+        ],
+        "type": "object"
+      },
+      "CouchPlayback": {
+        "additionalProperties": false,
+        "properties": {
+          "media": {
+            "$ref": "#/components/schemas/CouchMediaRef"
+          },
+          "player": {
+            "$ref": "#/components/schemas/PlaybackInfo",
+            "description": "Absent while the host is choosing what to watch."
+          }
+        },
+        "required": [
+          "media"
+        ],
+        "type": "object"
+      },
+      "CouchSession": {
+        "additionalProperties": false,
+        "properties": {
+          "isAnonymous": {
+            "type": "boolean"
+          },
+          "myParticipantId": {
+            "type": "string"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/CouchParticipant"
+            },
+            "type": "array"
+          },
+          "role": {
+            "enum": [
+              "host",
+              "follower"
+            ],
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "shareToken": {
+            "description": "The share code others join with.",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CouchHostState"
+          }
+        },
+        "required": [
+          "sessionId",
+          "shareToken",
+          "myParticipantId",
+          "role",
+          "isAnonymous",
+          "state",
+          "participants"
+        ],
+        "type": "object"
+      },
+      "CouchStart": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The movie's title id or the episode id.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "movie",
+              "episode"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "type": "object"
+      },
       "Credentials": {
         "additionalProperties": false,
         "properties": {
@@ -708,6 +1139,64 @@
         "required": [
           "username",
           "password"
+        ],
+        "type": "object"
+      },
+      "DashboardCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "episodes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "movies": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "series": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "users": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "movies",
+          "series",
+          "episodes",
+          "users"
+        ],
+        "type": "object"
+      },
+      "DashboardOverview": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/DashboardCounts"
+          },
+          "library": {
+            "$ref": "#/components/schemas/LibraryInsights"
+          },
+          "pendingJobs": {
+            "description": "Jobs pending or running.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "recentJobs": {
+            "description": "The newest jobs, newest first.",
+            "items": {
+              "$ref": "#/components/schemas/AdminJob"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "counts",
+          "library",
+          "pendingJobs",
+          "recentJobs"
         ],
         "type": "object"
       },
@@ -767,6 +1256,20 @@
         ],
         "type": "object"
       },
+      "EpisodeImport": {
+        "additionalProperties": false,
+        "properties": {
+          "seasons": {
+            "description": "Season numbers to import; empty imports every season except specials.",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "EpisodeInput": {
         "additionalProperties": false,
         "properties": {
@@ -816,6 +1319,44 @@
         ],
         "type": "object"
       },
+      "EpisodeRef": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeId": {
+            "type": "string"
+          },
+          "episodeNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "seasonNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "titleId": {
+            "type": "string"
+          },
+          "titleName": {
+            "type": "string"
+          },
+          "titleSlug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "episodeId",
+          "seasonNumber",
+          "episodeNumber",
+          "name",
+          "titleId",
+          "titleName",
+          "titleSlug"
+        ],
+        "type": "object"
+      },
       "EpisodeUpdate": {
         "additionalProperties": false,
         "properties": {
@@ -861,6 +1402,49 @@
         "required": [
           "code",
           "message"
+        ],
+        "type": "object"
+      },
+      "FFmpegUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "cpuPercent": {
+            "description": "Share of the whole machine's CPU capacity; -1 when unavailable.",
+            "format": "double",
+            "type": "number"
+          },
+          "memBytes": {
+            "description": "Resident memory; 0 when unavailable.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "processes": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "processes",
+          "cpuPercent",
+          "memBytes"
+        ],
+        "type": "object"
+      },
+      "FeatureFlags": {
+        "additionalProperties": false,
+        "properties": {
+          "couchEnabled": {
+            "description": "Couch sessions (synced watch parties).",
+            "type": "boolean"
+          },
+          "rankingsEnabled": {
+            "description": "Ranks, achievements, public profiles and leaderboards.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "couchEnabled",
+          "rankingsEnabled"
         ],
         "type": "object"
       },
@@ -1067,6 +1651,168 @@
         ],
         "type": "object"
       },
+      "HomeRowConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "genreId": {
+            "description": "The genre a genre row lists; null for other kinds.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "continue_watching",
+              "recently_added",
+              "genre"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "position": {
+            "description": "1-based order on the home page.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "position",
+          "kind",
+          "genreId",
+          "label",
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "HomeRowInput": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "genreId": {
+            "description": "Required for genre rows.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "continue_watching",
+              "recently_added",
+              "genre"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "position": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "HomeSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "featuredCount": {
+            "description": "Titles the home hero cycles through, read as 1-10 (3 when unset).",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "featuredCount"
+        ],
+        "type": "object"
+      },
+      "JobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "mediaFileId": {
+            "type": "string"
+          },
+          "seasons": {
+            "description": "Season numbers to import; empty imports every season.",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "titleId": {
+            "type": "string"
+          },
+          "tmdbId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "variant": {
+            "description": "Transcode output: source, multiaudio or a rendition such as 720p.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "JobSubject": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeName": {
+            "type": "string"
+          },
+          "episodeNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "mediaFileId": {
+            "type": "string"
+          },
+          "seasonNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "titleId": {
+            "type": "string"
+          },
+          "titleKind": {
+            "enum": [
+              "movie",
+              "series"
+            ],
+            "type": "string"
+          },
+          "titleName": {
+            "type": "string"
+          },
+          "variant": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "Leaderboard": {
         "additionalProperties": false,
         "properties": {
@@ -1167,6 +1913,35 @@
           "watchSeconds",
           "achievements",
           "isSelf"
+        ],
+        "type": "object"
+      },
+      "LibraryInsights": {
+        "additionalProperties": false,
+        "properties": {
+          "addedLast30Days": {
+            "description": "Titles added in the last 30 days.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "hdr": {
+            "description": "Media files with a high dynamic range video stream.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/ResolutionCounts"
+          },
+          "totalRuntimeSeconds": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalRuntimeSeconds",
+          "quality",
+          "hdr",
+          "addedLast30Days"
         ],
         "type": "object"
       },
@@ -1280,6 +2055,36 @@
           "backdropId",
           "needsPrepare",
           "addedAt"
+        ],
+        "type": "object"
+      },
+      "LiveStats": {
+        "additionalProperties": false,
+        "properties": {
+          "couchSessions": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "couchViewers": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "streams": {
+            "description": "Players that reported progress in the last minute.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "transcodes": {
+            "description": "Active instant-play transcode sessions.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "streams",
+          "couchSessions",
+          "couchViewers",
+          "transcodes"
         ],
         "type": "object"
       },
@@ -1410,6 +2215,25 @@
         ],
         "type": "object"
       },
+      "MediaFileAudio": {
+        "additionalProperties": false,
+        "properties": {
+          "audioLang": {
+            "description": "Audio language code; empty for an untagged file.",
+            "type": "string"
+          },
+          "audioRole": {
+            "default": "primary",
+            "description": "audio_alt marks a separate-language sibling of the title's or episode's primary file.",
+            "enum": [
+              "primary",
+              "audio_alt"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "MemberRank": {
         "additionalProperties": false,
         "properties": {
@@ -1480,6 +2304,39 @@
           "watchSeconds",
           "couchHosted",
           "public"
+        ],
+        "type": "object"
+      },
+      "MetadataJob": {
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jobId"
+        ],
+        "type": "object"
+      },
+      "NewUpload": {
+        "additionalProperties": false,
+        "properties": {
+          "filename": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "size": {
+            "description": "Total file size in bytes.",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filename",
+          "size"
         ],
         "type": "object"
       },
@@ -1571,6 +2428,206 @@
         ],
         "type": "object"
       },
+      "PlaybackAudioTrack": {
+        "additionalProperties": false,
+        "properties": {
+          "default": {
+            "type": "boolean"
+          },
+          "hlsUrl": {
+            "description": "HLS master of a file track that does not direct-play.",
+            "type": "string"
+          },
+          "id": {
+            "description": "The media file id of a file track; embedded:\u003cstream index\u003e for an embedded one.",
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "file",
+              "embedded"
+            ],
+            "type": "string"
+          },
+          "streamUrl": {
+            "description": "Direct stream of a file track that direct-plays.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lang",
+          "label",
+          "default",
+          "source"
+        ],
+        "type": "object"
+      },
+      "PlaybackDisplay": {
+        "additionalProperties": false,
+        "properties": {
+          "backdropAccent": {
+            "type": "string"
+          },
+          "backdropId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "backdropVer": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "subtitle": {
+            "description": "The episode line (season, episode and name); empty for movies.",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "titleId": {
+            "type": "string"
+          },
+          "titleSlug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "subtitle",
+          "titleId",
+          "titleSlug",
+          "backdropId"
+        ],
+        "type": "object"
+      },
+      "PlaybackInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "allowRandomPlayback": {
+            "type": "boolean"
+          },
+          "audio": {
+            "description": "Selectable audio languages; absent when there is only one.",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackAudioTrack"
+            },
+            "type": "array"
+          },
+          "currentEpisodeId": {
+            "type": "string"
+          },
+          "display": {
+            "$ref": "#/components/schemas/PlaybackDisplay"
+          },
+          "durationSeconds": {
+            "format": "double",
+            "type": "number"
+          },
+          "episodes": {
+            "description": "The series' playable episodes, for the in-player switcher.",
+            "items": {
+              "$ref": "#/components/schemas/SeriesEpisode"
+            },
+            "type": "array"
+          },
+          "hlsUrl": {
+            "description": "HLS master of the ready transcodes, offered even when the source direct-plays.",
+            "type": "string"
+          },
+          "jobProgress": {
+            "description": "Transcode progress in percent while mode is preparing.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "mediaFileId": {
+            "type": "string"
+          },
+          "mode": {
+            "description": "How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession; unsupported cannot play.",
+            "enum": [
+              "direct",
+              "hls",
+              "preparing",
+              "jit",
+              "unsupported"
+            ],
+            "type": "string"
+          },
+          "nextEpisode": {
+            "$ref": "#/components/schemas/EpisodeRef",
+            "description": "The episode after this one; absent for movies and series finales."
+          },
+          "resumePosition": {
+            "description": "Saved position in seconds; 0 for couch followers, who sync to the host.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "streamUrl": {
+            "description": "The source file (mode direct) or the HLS master (mode hls) to load.",
+            "type": "string"
+          },
+          "subtitles": {
+            "items": {
+              "$ref": "#/components/schemas/PlaybackSubtitleTrack"
+            },
+            "type": "array"
+          },
+          "variants": {
+            "description": "Ready renditions for the quality menu.",
+            "items": {
+              "$ref": "#/components/schemas/QualityVariant"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "mediaFileId",
+          "durationSeconds",
+          "resumePosition",
+          "display",
+          "subtitles",
+          "allowRandomPlayback"
+        ],
+        "type": "object"
+      },
+      "PlaybackSubtitleTrack": {
+        "additionalProperties": false,
+        "properties": {
+          "forced": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "url": {
+            "description": "The track as WebVTT.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lang",
+          "label",
+          "forced",
+          "url"
+        ],
+        "type": "object"
+      },
       "Preferences": {
         "additionalProperties": false,
         "properties": {
@@ -1586,6 +2643,26 @@
             "$ref": "#/components/schemas/SubtitlePreferences"
           }
         },
+        "type": "object"
+      },
+      "ProcessUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "cpuPercent": {
+            "description": "Share of the whole machine's CPU capacity; -1 when unavailable.",
+            "format": "double",
+            "type": "number"
+          },
+          "memBytes": {
+            "description": "Resident memory; 0 when unavailable.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cpuPercent",
+          "memBytes"
+        ],
         "type": "object"
       },
       "ProfileActivity": {
@@ -1847,6 +2924,38 @@
         ],
         "type": "object"
       },
+      "QualityVariant": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "height"
+        ],
+        "type": "object"
+      },
+      "QueuedTranscodes": {
+        "additionalProperties": false,
+        "properties": {
+          "queued": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "queued"
+        ],
+        "type": "object"
+      },
       "RankConfig": {
         "additionalProperties": false,
         "properties": {
@@ -2073,6 +3182,38 @@
         ],
         "type": "object"
       },
+      "ResolutionCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "fhd": {
+            "description": "1080p up to 2160p.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "hd": {
+            "description": "720p up to 1080p.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "sd": {
+            "description": "Below 720p.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "uhd": {
+            "description": "2160p and up.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uhd",
+          "fhd",
+          "hd",
+          "sd"
+        ],
+        "type": "object"
+      },
       "SearchResults": {
         "additionalProperties": false,
         "properties": {
@@ -2141,6 +3282,127 @@
         ],
         "type": "object"
       },
+      "SeriesEpisode": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeId": {
+            "type": "string"
+          },
+          "episodeNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "seasonNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "thumbId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "thumbVer": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "episodeId",
+          "seasonNumber",
+          "episodeNumber",
+          "name",
+          "thumbId"
+        ],
+        "type": "object"
+      },
+      "ServerSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/AppearanceSettings"
+          },
+          "features": {
+            "$ref": "#/components/schemas/FeatureFlags"
+          },
+          "home": {
+            "$ref": "#/components/schemas/HomeSettings"
+          },
+          "tmdb.api_key": {
+            "description": "TMDB v3 API key used for metadata search and fetches.",
+            "type": "string"
+          },
+          "transcode": {
+            "$ref": "#/components/schemas/TranscodeSettings"
+          }
+        },
+        "type": "object"
+      },
+      "StorageCategory": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "movies",
+              "series",
+              "transcodes",
+              "cache"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "bytes"
+        ],
+        "type": "object"
+      },
+      "StorageInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "budget": {
+            "description": "used + free: the space available to Couchverse.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/StorageCategory"
+            },
+            "type": "array"
+          },
+          "diskTotal": {
+            "description": "Size of the disk holding the data directory; 0 when unknown.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "free": {
+            "description": "Free bytes on that disk; 0 when unknown.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "used": {
+            "description": "Bytes Couchverse occupies, the sum of the categories.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "diskTotal",
+          "free",
+          "used",
+          "budget",
+          "categories"
+        ],
+        "type": "object"
+      },
       "StorageSegment": {
         "additionalProperties": false,
         "properties": {
@@ -2161,6 +3423,33 @@
           "sourceBytes",
           "transcodedBytes"
         ],
+        "type": "object"
+      },
+      "StreamSession": {
+        "additionalProperties": false,
+        "properties": {
+          "playlistUrl": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "playlistUrl"
+        ],
+        "type": "object"
+      },
+      "StreamSessionStart": {
+        "additionalProperties": false,
+        "properties": {
+          "startAt": {
+            "description": "Position in seconds to start transcoding from.",
+            "format": "double",
+            "type": "number"
+          }
+        },
         "type": "object"
       },
       "Subtitle": {
@@ -2231,6 +3520,83 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "SystemStats": {
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "$ref": "#/components/schemas/ProcessUsage",
+            "description": "This server process."
+          },
+          "cpuCores": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "cpuPercent": {
+            "description": "Whole-host CPU use; -1 when unavailable.",
+            "format": "double",
+            "type": "number"
+          },
+          "ffmpeg": {
+            "$ref": "#/components/schemas/FFmpegUsage",
+            "description": "Every ffmpeg process: transcodes, instant-play sessions, artwork resizes."
+          },
+          "goHeapBytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "goroutines": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "load1": {
+            "description": "One-minute load average; -1 when unavailable.",
+            "format": "double",
+            "type": "number"
+          },
+          "memTotal": {
+            "description": "Host RAM in bytes; 0 when unavailable.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "memUsed": {
+            "description": "Host RAM in use, in bytes; 0 when unavailable.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "uptimeSeconds": {
+            "description": "Seconds since the server started.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cpuPercent",
+          "cpuCores",
+          "memUsed",
+          "memTotal",
+          "load1",
+          "goHeapBytes",
+          "goroutines",
+          "uptimeSeconds",
+          "app",
+          "ffmpeg"
+        ],
+        "type": "object"
+      },
+      "ThemeInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "accent": {
+            "description": "Accent colour as a CSS hex value such as #e50914.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accent"
+        ],
         "type": "object"
       },
       "TierBucket": {
@@ -2589,6 +3955,255 @@
         },
         "type": "object"
       },
+      "TmdbLink": {
+        "additionalProperties": false,
+        "properties": {
+          "tmdbId": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tmdbId"
+        ],
+        "type": "object"
+      },
+      "TmdbSearchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "overview": {
+            "type": "string"
+          },
+          "posterUrl": {
+            "description": "Small TMDB poster URL; empty when there is none.",
+            "type": "string"
+          },
+          "tmdbId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "year": {
+            "description": "Release or first-air year; 0 when TMDB has no date.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tmdbId",
+          "name",
+          "year",
+          "overview",
+          "posterUrl"
+        ],
+        "type": "object"
+      },
+      "TmdbSeason": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "overview": {
+            "type": "string"
+          },
+          "seasonNumber": {
+            "description": "0 is TMDB's specials season.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seasonNumber",
+          "name",
+          "overview",
+          "episodeCount"
+        ],
+        "type": "object"
+      },
+      "TranscodeInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "detectedEncoders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "detecting": {
+            "description": "Encoder detection is still running; detectedEncoders may grow.",
+            "type": "boolean"
+          },
+          "renditions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/TranscodeSettings"
+          }
+        },
+        "required": [
+          "detectedEncoders",
+          "detecting",
+          "settings",
+          "renditions"
+        ],
+        "type": "object"
+      },
+      "TranscodeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "variants": {
+            "description": "Renditions to queue (source remuxes without re-encoding); the configured ladder when empty.",
+            "items": {
+              "enum": [
+                "1080p",
+                "720p",
+                "480p",
+                "source"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "TranscodeSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "autoPrepare": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "deleteSourceAfterTranscode": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "hwAccel": {
+            "type": "string"
+          },
+          "jitEnabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "ladder": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "maxConcurrent": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "preset": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "hwAccel",
+          "ladder",
+          "preset",
+          "maxConcurrent",
+          "jitEnabled",
+          "autoPrepare",
+          "deleteSourceAfterTranscode"
+        ],
+        "type": "object"
+      },
+      "TranscodeVariant": {
+        "additionalProperties": false,
+        "properties": {
+          "audioBitrate": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "completedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mediaFileId": {
+            "type": "string"
+          },
+          "mode": {
+            "description": "copy remuxes the source without re-encoding.",
+            "enum": [
+              "transcode",
+              "copy"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "processing",
+              "ready",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "videoBitrate": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "width": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "mediaFileId",
+          "name",
+          "width",
+          "height",
+          "videoBitrate",
+          "audioBitrate",
+          "mode",
+          "status",
+          "sizeBytes",
+          "createdAt",
+          "completedAt"
+        ],
+        "type": "object"
+      },
       "Translation": {
         "additionalProperties": false,
         "properties": {
@@ -2602,6 +4217,105 @@
         "required": [
           "name",
           "overview"
+        ],
+        "type": "object"
+      },
+      "UploadAssignment": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "libraryKind": {
+            "enum": [
+              "movies",
+              "series"
+            ],
+            "type": "string"
+          },
+          "titleId": {
+            "description": "The movie, or the series whose episode is resolved from the file name's SxxExx.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "libraryKind"
+        ],
+        "type": "object"
+      },
+      "UploadOffset": {
+        "additionalProperties": false,
+        "properties": {
+          "offset": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "offset"
+        ],
+        "type": "object"
+      },
+      "UploadSession": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "declaredSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "receivedBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "complete",
+              "aborted"
+            ],
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "userId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "filename",
+          "declaredSize",
+          "receivedBytes",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "expiresAt"
         ],
         "type": "object"
       },
@@ -2864,6 +4578,85 @@
     "/admin/artwork": {
       "post": {
         "operationId": "adminUploadArtwork",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream"
+                },
+                "kind": {
+                  "contentType": "text/plain"
+                },
+                "ownerId": {
+                  "contentType": "text/plain"
+                },
+                "ownerKind": {
+                  "contentType": "text/plain"
+                }
+              },
+              "schema": {
+                "properties": {
+                  "file": {
+                    "contentEncoding": "binary",
+                    "contentMediaType": "application/octet-stream",
+                    "description": "A .jpg, .jpeg, .png or .webp image (checked by extension).",
+                    "format": "binary",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "poster",
+                      "backdrop",
+                      "thumb"
+                    ],
+                    "type": "string"
+                  },
+                  "ownerId": {
+                    "type": "string"
+                  },
+                  "ownerKind": {
+                    "enum": [
+                      "title",
+                      "season",
+                      "episode"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "ownerKind",
+                  "ownerId",
+                  "kind",
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Artwork"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -2877,6 +4670,32 @@
     "/admin/artwork/{id}": {
       "delete": {
         "operationId": "adminDeleteArtwork",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3091,6 +4910,31 @@
     "/admin/home-rows": {
       "get": {
         "operationId": "adminGetHomeRows",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HomeRowConfig"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3102,6 +4946,44 @@
       },
       "put": {
         "operationId": "adminUpdateHomeRows",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/HomeRowInput"
+                },
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HomeRowConfig"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3115,6 +4997,73 @@
     "/admin/jobs": {
       "get": {
         "operationId": "adminListJobs",
+        "parameters": [
+          {
+            "description": "Only jobs in this state; all when omitted.",
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "description": "Only jobs in this state; all when omitted.",
+              "enum": [
+                "pending",
+                "running",
+                "done",
+                "failed",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only jobs working on this media file.",
+            "explode": false,
+            "in": "query",
+            "name": "mediaFileId",
+            "schema": {
+              "description": "Only jobs working on this media file.",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminJob"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3128,6 +5077,32 @@
     "/admin/jobs/{id}/cancel": {
       "post": {
         "operationId": "adminCancelJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3141,6 +5116,32 @@
     "/admin/jobs/{id}/retry": {
       "post": {
         "operationId": "adminRetryJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3262,6 +5263,28 @@
     "/admin/live": {
       "get": {
         "operationId": "adminGetLive",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveStats"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3275,6 +5298,32 @@
     "/admin/media-files/{id}": {
       "delete": {
         "operationId": "adminDeleteMediaFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3286,6 +5335,42 @@
       },
       "patch": {
         "operationId": "adminUpdateMediaFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaFileAudio"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3299,6 +5384,42 @@
     "/admin/media-files/{id}/subtitles": {
       "get": {
         "operationId": "adminListSubtitles",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Subtitle"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3310,6 +5431,79 @@
       },
       "post": {
         "operationId": "adminUploadSubtitle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream"
+                },
+                "label": {
+                  "contentType": "text/plain"
+                },
+                "lang": {
+                  "contentType": "text/plain"
+                }
+              },
+              "schema": {
+                "properties": {
+                  "file": {
+                    "contentEncoding": "binary",
+                    "contentMediaType": "application/octet-stream",
+                    "description": "A .srt or .vtt file (checked by extension); .srt is converted to WebVTT.",
+                    "format": "binary",
+                    "type": "string"
+                  },
+                  "label": {
+                    "description": "Track name in the player; the upper-cased language when omitted.",
+                    "type": "string"
+                  },
+                  "lang": {
+                    "description": "Language code; und when omitted.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subtitle"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3323,6 +5517,48 @@
     "/admin/media-files/{id}/transcode": {
       "post": {
         "operationId": "adminEnqueueTranscode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranscodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuedTranscodes"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3336,6 +5572,42 @@
     "/admin/media-files/{id}/variants": {
       "get": {
         "operationId": "adminListVariants",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TranscodeVariant"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3349,6 +5621,66 @@
     "/admin/metadata/search": {
       "get": {
         "operationId": "adminSearchMetadata",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "movie",
+                "series"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Language (ISO 639-1) of the returned names and overviews; TMDB's default (English) when empty.",
+            "explode": false,
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "description": "Language (ISO 639-1) of the returned names and overviews; TMDB's default (English) when empty.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TmdbSearchResult"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3362,6 +5694,28 @@
     "/admin/overview": {
       "get": {
         "operationId": "adminGetOverview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOverview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3550,6 +5904,28 @@
     "/admin/settings": {
       "get": {
         "operationId": "adminGetSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3561,6 +5937,38 @@
       },
       "put": {
         "operationId": "adminUpdateSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3574,6 +5982,28 @@
     "/admin/storage": {
       "get": {
         "operationId": "adminGetStorage",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageInfo"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3587,6 +6017,32 @@
     "/admin/subtitles/{id}": {
       "delete": {
         "operationId": "adminDeleteSubtitle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3600,6 +6056,28 @@
     "/admin/system": {
       "get": {
         "operationId": "adminGetSystemStats",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStats"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3882,6 +6360,49 @@
     "/admin/titles/{id}/metadata/apply": {
       "post": {
         "operationId": "adminApplyMetadata",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TmdbLink"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataJob"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3895,6 +6416,48 @@
     "/admin/titles/{id}/metadata/import-episodes": {
       "post": {
         "operationId": "adminImportEpisodes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EpisodeImport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataJob"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -3908,6 +6471,52 @@
     "/admin/titles/{id}/metadata/seasons": {
       "get": {
         "operationId": "adminListMetadataSeasons",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Language (ISO 639-1) of the season names and overviews; TMDB's default (English) when empty.",
+            "explode": false,
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "description": "Language (ISO 639-1) of the season names and overviews; TMDB's default (English) when empty.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TmdbSeason"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -4082,6 +6691,32 @@
     "/admin/transcode-variants/{id}": {
       "delete": {
         "operationId": "adminDeleteVariant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -4095,6 +6730,31 @@
     "/admin/transcode/active": {
       "get": {
         "operationId": "adminListActiveTranscodes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ActiveTranscode"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -4108,6 +6768,28 @@
     "/admin/transcode/info": {
       "get": {
         "operationId": "adminGetTranscodeInfo",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscodeInfo"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -4121,6 +6803,31 @@
     "/admin/uploads": {
       "get": {
         "operationId": "adminListUploads",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UploadSession"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -4132,6 +6839,38 @@
       },
       "post": {
         "operationId": "adminCreateUpload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewUpload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSession"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -4145,6 +6884,32 @@
     "/admin/uploads/{id}": {
       "delete": {
         "operationId": "adminAbortUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -4156,6 +6921,39 @@
       },
       "get": {
         "operationId": "adminGetUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSession"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -4166,12 +6964,81 @@
         ]
       },
       "put": {
+        "description": "Chunks are sequential: offset must equal the bytes the server already holds, otherwise 409 answers that offset so the client can resume from it. 400 codes: bad_request (missing offset), append_failed (session not active, chunk too large, more bytes than declared).",
         "operationId": "adminAppendUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Byte offset this chunk starts at.",
+            "in": "query",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "description": "The chunk, at most 64 MiB.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadOffset"
+                }
+              }
+            },
+            "description": "The new offset after the chunk."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadOffset"
+                }
+              }
+            },
+            "description": "The offset did not match; resume from the returned one."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
           }
         ],
+        "summary": "Append a chunk to an upload",
         "tags": [
           "library"
         ]
@@ -4180,6 +7047,49 @@
     "/admin/uploads/{id}/complete": {
       "post": {
         "operationId": "adminCompleteUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadAssignment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletedUpload"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -4366,12 +7276,86 @@
     },
     "/artwork/{id}": {
       "get": {
+        "description": "The stored original (JPEG, PNG or WebP), or with size a cached JPEG resize.",
         "operationId": "getArtwork",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Resize to this width; the original when omitted.",
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "enum": [
+                "w342",
+                "w780"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Version token (the artwork's createdAt); a versioned URL is cached as immutable.",
+            "in": "query",
+            "name": "v",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The image"
+          },
+          "304": {
+            "description": "Not modified since If-Modified-Since"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
           }
         ],
+        "summary": "Get an artwork image",
         "tags": [
           "artwork"
         ]
@@ -4501,6 +7485,50 @@
     "/couch": {
       "post": {
         "operationId": "createCouch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CouchStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchSession"
+                }
+              }
+            },
+            "description": "Created",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          }
+        ],
         "tags": [
           "couch"
         ]
@@ -4509,6 +7537,49 @@
     "/couch/{token}/end": {
       "post": {
         "operationId": "endCouch",
+        "parameters": [
+          {
+            "description": "The session's share code.",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The session's share code.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The participant cookie set by createCouch or joinCouch.",
+            "in": "cookie",
+            "name": "couchverse_couch",
+            "schema": {
+              "description": "The participant cookie set by createCouch or joinCouch.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "tags": [
           "couch"
         ]
@@ -4517,6 +7588,48 @@
     "/couch/{token}/info": {
       "get": {
         "operationId": "getCouchInfo",
+        "parameters": [
+          {
+            "description": "Display language (ISO 639-1). Empty serves the base text.",
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The session's share code.",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The session's share code.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchInfo"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "tags": [
           "couch"
         ]
@@ -4525,6 +7638,47 @@
     "/couch/{token}/join": {
       "post": {
         "operationId": "joinCouch",
+        "parameters": [
+          {
+            "description": "The session's share code.",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The session's share code.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchSession"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "tags": [
           "couch"
         ]
@@ -4533,6 +7687,49 @@
     "/couch/{token}/leave": {
       "post": {
         "operationId": "leaveCouch",
+        "parameters": [
+          {
+            "description": "The session's share code.",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The session's share code.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The participant cookie set by createCouch or joinCouch.",
+            "in": "cookie",
+            "name": "couchverse_couch",
+            "schema": {
+              "description": "The participant cookie set by createCouch or joinCouch.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "tags": [
           "couch"
         ]
@@ -4541,6 +7738,70 @@
     "/couch/{token}/playback": {
       "get": {
         "operationId": "getCouchPlayback",
+        "parameters": [
+          {
+            "description": "Display language (ISO 639-1). Empty serves the base text.",
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The session's share code.",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The session's share code.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The participant cookie set by createCouch or joinCouch.",
+            "in": "cookie",
+            "name": "couchverse_couch",
+            "schema": {
+              "description": "The participant cookie set by createCouch or joinCouch.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision.",
+            "explode": false,
+            "in": "query",
+            "name": "caps",
+            "schema": {
+              "description": "Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchPlayback"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "tags": [
           "couch"
         ]
@@ -4548,7 +7809,43 @@
     },
     "/couch/{token}/ws": {
       "get": {
+        "description": "Upgrades to the session's sync channel, authenticated by the couch cookie from createCouch or joinCouch (401 no_couch_session without one). Cross-origin upgrades are refused.",
         "operationId": "couchSocket",
+        "parameters": [
+          {
+            "description": "The session's share code.",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The participant cookie set by createCouch or joinCouch.",
+            "in": "cookie",
+            "name": "couchverse_couch",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "Switched to the WebSocket protocol."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Open a couch session's WebSocket",
         "tags": [
           "couch"
         ]
@@ -4557,6 +7854,28 @@
     "/features": {
       "get": {
         "operationId": "getFeatures",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureFlags"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -5315,6 +8634,74 @@
     "/playback/{kind}/{id}": {
       "get": {
         "operationId": "getPlayback",
+        "parameters": [
+          {
+            "description": "Display language (ISO 639-1). Empty serves the base text.",
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "movie",
+                "episode"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The movie's title id or the episode id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The movie's title id or the episode id.",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision.",
+            "explode": false,
+            "in": "query",
+            "name": "caps",
+            "schema": {
+              "description": "Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackInfo"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -5455,6 +8842,32 @@
     "/stream/sessions/{sid}/keepalive": {
       "post": {
         "operationId": "keepStreamSessionAlive",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{24}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -5467,12 +8880,67 @@
     },
     "/stream/sessions/{sid}/{file}": {
       "get": {
+        "description": "index.m3u8 lists the whole duration up front; a segment request waits until it is encoded, restarting the encoder on a far seek. 400 for a malformed session id; 404 codes: not_found (no such session), segment_unavailable.",
         "operationId": "getStreamSessionFile",
+        "parameters": [
+          {
+            "description": "Session id from createStreamSession.",
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{24}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "index.m3u8 or a segment name.",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "pattern": "^(index\\.m3u8|seg_\\d{5}\\.ts)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp2t": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The playlist or a segment."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
           }
         ],
+        "summary": "Get a JIT session's playlist or segment",
         "tags": [
           "playback"
         ]
@@ -5480,12 +8948,171 @@
     },
     "/stream/{id}": {
       "get": {
+        "description": "Serves the source file with HTTP range support: a Range header answers 206 with that byte range. 404 codes: not_found, source_deleted (the source was removed after transcoding), file_missing.",
         "operationId": "streamMediaFile",
+        "parameters": [
+          {
+            "description": "Media file id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Byte range to read, e.g. bytes=0-1048575.",
+            "in": "header",
+            "name": "Range",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/flac": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/ogg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/wav": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/x-matroska": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The whole file."
+          },
+          "206": {
+            "content": {
+              "audio/flac": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/ogg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/wav": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/x-matroska": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The requested byte range."
+          },
+          "416": {
+            "description": "The range lies outside the file."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
           }
         ],
+        "summary": "Stream a media file for direct play",
         "tags": [
           "playback"
         ]
@@ -5493,12 +9120,60 @@
     },
     "/stream/{id}/frame": {
       "get": {
+        "description": "A 240px-wide JPEG of the source video, cached per 5-second bucket. 404 codes: not_found (no video source on disk), frame_failed.",
         "operationId": "getStreamFrame",
+        "parameters": [
+          {
+            "description": "Media file id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Position in seconds, rounded down to its 5-second bucket and clamped to the duration.",
+            "in": "query",
+            "name": "t",
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The frame."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
           }
         ],
+        "summary": "Get a seek-preview still from a video",
         "tags": [
           "playback"
         ]
@@ -5506,12 +9181,48 @@
     },
     "/stream/{id}/hls/master.m3u8": {
       "get": {
+        "description": "404 when no variant is ready.",
         "operationId": "getHlsMaster",
+        "parameters": [
+          {
+            "description": "Media file id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The master playlist."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
           }
         ],
+        "summary": "Get the HLS master playlist of a media file's ready variants",
         "tags": [
           "playback"
         ]
@@ -5519,12 +9230,77 @@
     },
     "/stream/{id}/hls/{variant}/{file}": {
       "get": {
+        "description": "Serves the transcode cache: a variant's index.m3u8 and its MPEG-TS segments, and the multiaudio variant's own master.m3u8. 400 for names outside the allowed characters.",
         "operationId": "getHlsFile",
+        "parameters": [
+          {
+            "description": "Media file id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Rendition name (e.g. 720p), source or multiaudio.",
+            "in": "path",
+            "name": "variant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Playlist or segment file name.",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp2t": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "A playlist or a segment."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
           }
         ],
+        "summary": "Get an HLS playlist or segment of a prepared variant",
         "tags": [
           "playback"
         ]
@@ -5533,6 +9309,49 @@
     "/stream/{id}/sessions": {
       "post": {
         "operationId": "createStreamSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StreamSessionStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamSession"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
@@ -5545,12 +9364,50 @@
     },
     "/subtitles/{id}.vtt": {
       "get": {
+        "description": "The track as a WebVTT side-car file for the player.",
         "operationId": "getSubtitle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/vtt": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The WebVTT file"
+          },
+          "304": {
+            "description": "Not modified since If-Modified-Since"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "security": [
           {
             "cookieSession": []
           }
         ],
+        "summary": "Get a subtitle track",
         "tags": [
           "subtitles"
         ]
@@ -5559,6 +9416,28 @@
     "/theme": {
       "get": {
         "operationId": "getTheme",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThemeInfo"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "tags": [
           "system"
         ]
