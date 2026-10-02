@@ -79,14 +79,74 @@
 	"achievement_watchlist_10_name": "Kurátor",
 	"admin_activity": "Aktivita",
 	"admin_added_recently": "Přidáno (30 d)",
-	"admin_analytics_last_days": "Analytika - posledních {days} dní",
-	"admin_avg_active_users": "průměrně {count} aktivních uživatelů/den",
+	"admin_analytics_last_days": [
+		{
+			"declarations": [
+				"input days",
+				"local daysPlural = days: plural"
+			],
+			"selectors": [
+				"daysPlural"
+			],
+			"match": {
+				"daysPlural=one": "Analytika - poslední {days} den",
+				"daysPlural=few": "Analytika - poslední {days} dny",
+				"daysPlural=*": "Analytika - posledních {days} dní"
+			}
+		}
+	],
+	"admin_avg_active_users": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "průměrně {count} aktivní uživatel/den",
+				"countPlural=few": "průměrně {count} aktivní uživatelé/den",
+				"countPlural=many": "průměrně {count} aktivního uživatele/den",
+				"countPlural=*": "průměrně {count} aktivních uživatelů/den"
+			}
+		}
+	],
 	"admin_back_to_app": "Zpět do aplikace",
 	"admin_content_runtime": "Obsah",
-	"admin_cores": "{count} jader",
+	"admin_cores": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} jádro",
+				"countPlural=few": "{count} jádra",
+				"countPlural=*": "{count} jader"
+			}
+		}
+	],
 	"admin_couch_watch_hint": "Čas, který diváci stráví společným sledováním na gauči, podle titulu - sledováno odděleně od běžného času sledování.",
 	"admin_couch_watch_time": "Čas sledování na gauči",
-	"admin_couch_watching": "{count} sleduje",
+	"admin_couch_watching": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=few": "{count} sledují",
+				"countPlural=*": "{count} sleduje"
+			}
+		}
+	],
 	"admin_cpu": "CPU",
 	"admin_cpu_unavailable": "Statistiky CPU hostitele nejsou na této platformě dostupné.",
 	"admin_episodes": "Epizody",
@@ -97,7 +157,22 @@
 	"admin_goroutines": "Goroutiny",
 	"admin_hdr": "HDR {count}",
 	"admin_instant_play": "Okamžité přehrávání",
-	"admin_jobs_in_queue": "{count} úloh ve frontě",
+	"admin_jobs_in_queue": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} úloha ve frontě",
+				"countPlural=few": "{count} úlohy ve frontě",
+				"countPlural=*": "{count} úloh ve frontě"
+			}
+		}
+	],
 	"admin_library": "Knihovna",
 	"admin_live": "Živě",
 	"admin_load_1m": "Zátěž (1 min)",
@@ -125,7 +200,22 @@
 	"admin_ranks_config": "Nastavení XP",
 	"admin_ranks_distribution": "Rozložení úrovní",
 	"admin_ranks_hidden": "skrytý",
-	"admin_ranks_holders": "{count} členů",
+	"admin_ranks_holders": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} člen",
+				"countPlural=few": "{count} členové",
+				"countPlural=*": "{count} členů"
+			}
+		}
+	],
 	"admin_ranks_members": "Členové",
 	"admin_ranks_no_members": "Zatím nikdo nezískal žádné XP.",
 	"admin_ranks_page_title": "Úrovně - Couchverse",
@@ -192,7 +282,22 @@
 	"catalog_search_placeholder": "Hledat filmy a seriály…",
 	"catalog_search_title": "Hledat - Couchverse",
 	"catalog_season": "Sezóna",
-	"catalog_season_count": "{count} sezón",
+	"catalog_season_count": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} sezóna",
+				"countPlural=few": "{count} sezóny",
+				"countPlural=*": "{count} sezón"
+			}
+		}
+	],
 	"catalog_season_number": "Sezóna {number}",
 	"catalog_series_title": "Seriály - Couchverse",
 	"catalog_show_featured": "Zobrazit doporučený {index}: {name}",
@@ -272,7 +377,22 @@
 	"jobs_empty_title": "Zatím žádné úlohy",
 	"jobs_file_fallback": "soubor č. {id}",
 	"jobs_heading": "Úlohy",
-	"jobs_job_count": "{count} úloh",
+	"jobs_job_count": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} úloha",
+				"countPlural=few": "{count} úlohy",
+				"countPlural=*": "{count} úloh"
+			}
+		}
+	],
 	"jobs_no_file_jobs": "Pro tento soubor zatím nejsou žádné úlohy.",
 	"jobs_page_title": "Úlohy - Couchverse admin",
 	"jobs_queue": "Fronta úloh",
@@ -294,7 +414,22 @@
 	"leaderboard_heading": "Žebříček",
 	"leaderboard_hidden_action": "Změnit soukromí",
 	"leaderboard_hidden_notice": "V žebříčku se nezobrazuješ.",
-	"leaderboard_members": "{count} členů",
+	"leaderboard_members": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} člen",
+				"countPlural=few": "{count} členové",
+				"countPlural=*": "{count} členů"
+			}
+		}
+	],
 	"leaderboard_metric_achievements": "Úspěchy",
 	"leaderboard_metric_empty": "V tomto období není nic zaznamenáno.",
 	"leaderboard_metric_watch": "Čas sledování",
@@ -330,11 +465,71 @@
 	"library_audio_saved": "Jazyk zvuku uložen",
 	"library_back_to_library": "Knihovna",
 	"library_backdrop_updated": "Pozadí bylo aktualizováno",
-	"library_bulk_deleted": "{count} titulů smazáno",
+	"library_bulk_deleted": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} titul smazán",
+				"countPlural=few": "{count} tituly smazány",
+				"countPlural=*": "{count} titulů smazáno"
+			}
+		}
+	],
 	"library_bulk_failed": "Hromadná akce se nezdařila",
-	"library_bulk_hidden": "{count} titulů skryto",
-	"library_bulk_published": "{count} titulů publikováno",
-	"library_bulk_rescanned": "{count} titulů zařazeno k opětovnému naskenování",
+	"library_bulk_hidden": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} titul skryt",
+				"countPlural=few": "{count} tituly skryty",
+				"countPlural=*": "{count} titulů skryto"
+			}
+		}
+	],
+	"library_bulk_published": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} titul publikován",
+				"countPlural=few": "{count} tituly publikovány",
+				"countPlural=*": "{count} titulů publikováno"
+			}
+		}
+	],
+	"library_bulk_rescanned": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} titul zařazen k opětovnému naskenování",
+				"countPlural=few": "{count} tituly zařazeny k opětovnému naskenování",
+				"countPlural=*": "{count} titulů zařazeno k opětovnému naskenování"
+			}
+		}
+	],
 	"library_cancel_upload": "Zrušit nahrávání",
 	"library_col_added": "Přidáno",
 	"library_col_quality": "Kvalita",
@@ -346,7 +541,22 @@
 	"library_create_title_failed": "Vytvoření titulu se nezdařilo",
 	"library_delete_artwork_failed": "smazání obrázku se nezdařilo",
 	"library_delete_bulk_message": "Tímto odstraníte tituly a jejich metadata z knihovny. Soubory s médii na disku zůstanou nedotčené.",
-	"library_delete_confirm_title": "Smazat {count} titulů?",
+	"library_delete_confirm_title": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "Smazat {count} titul?",
+				"countPlural=few": "Smazat {count} tituly?",
+				"countPlural=*": "Smazat {count} titulů?"
+			}
+		}
+	],
 	"library_delete_episode": "Smazat epizodu",
 	"library_delete_episode_failed": "Smazání epizody se nezdařilo",
 	"library_delete_named_title": "Smazat „{name}“?",
@@ -365,7 +575,38 @@
 	"library_empty_message": "Vytvořte titul nebo naskenujte složku s médii a knihovna se naplní.",
 	"library_empty_title": "Zatím je tu prázdno",
 	"library_episode_aired": "Odvysíláno {date}",
-	"library_episode_count": "{count} epizod",
+	"library_episode_count": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} epizoda",
+				"countPlural=few": "{count} epizody",
+				"countPlural=*": "{count} epizod"
+			}
+		}
+	],
+	"library_episode_count_short": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} epizoda",
+				"countPlural=few": "{count} epizody",
+				"countPlural=*": "{count} epizod"
+			}
+		}
+	],
 	"library_episode_details": "Podrobnosti epizody",
 	"library_episode_import_failed": "Import epizod se nezdařil",
 	"library_episode_number": "Epizoda {number}",
@@ -431,7 +672,39 @@
 	"library_remove_backdrop": "Odebrat pozadí",
 	"library_remove_language": "Odebrat jazyk",
 	"library_remove_language_confirm": "Odebrat jazyk {lang}?",
-	"library_remove_language_message": "Odebráním jazyka {lang} se trvale smažou jeho překlady pro tento titul a všechny jeho řady a epizody a také {files} zvukových souborů ({size}) a {subs} stop titulků z disku. Tuto akci nelze vrátit zpět.",
+	"library_remove_language_files": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} zvukový soubor",
+				"countPlural=few": "{count} zvukové soubory",
+				"countPlural=*": "{count} zvukových souborů"
+			}
+		}
+	],
+	"library_remove_language_message": "Odebráním jazyka {lang} se trvale smažou jeho překlady pro tento titul a všechny jeho řady a epizody a také {files} ({size}) a {subs} z disku. Tuto akci nelze vrátit zpět.",
+	"library_remove_language_subs": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} stopa titulků",
+				"countPlural=few": "{count} stopy titulků",
+				"countPlural=*": "{count} stop titulků"
+			}
+		}
+	],
 	"library_remove_poster": "Odebrat plakát",
 	"library_replace_backdrop": "Nahradit pozadí",
 	"library_replace_poster": "Nahradit plakát",
@@ -446,7 +719,7 @@
 	"library_season_number": "Řada {number}",
 	"library_seasons_episodes": "Řady a epizody",
 	"library_selected_count": "Vybráno: {count}",
-	"library_series_subtitle": "{seasons} sezón · {episodes} epizod",
+	"library_series_subtitle": "{seasons} · {episodes}",
 	"library_settings_link": "Nastavení",
 	"library_sort_label": "Řazení",
 	"library_sort_recently_added": "Naposledy přidané",
@@ -463,7 +736,22 @@
 	"library_storage_transcoded": "Překódováno",
 	"library_subtitle_added": "Titulky přidány",
 	"library_subtitles": "Titulky",
-	"library_title_count": "{count} titulů",
+	"library_title_count": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} titul",
+				"countPlural=few": "{count} tituly",
+				"countPlural=*": "{count} titulů"
+			}
+		}
+	],
 	"library_title_deleted": "Titul byl smazán",
 	"library_tmdb_applied": "Metadata a obrázky byly použity",
 	"library_tmdb_apply_failed": "použití se nezdařilo",
@@ -471,7 +759,22 @@
 	"library_tmdb_fetching": "Načítání metadat a obrázků z TMDB…",
 	"library_tmdb_pull_description": "Načte popis, rok, žánry a obrázky.",
 	"library_tmdb_search_failed": "Vyhledávání na TMDB se nezdařilo",
-	"library_transcode_jobs_suffix": " · {count} úloh",
+	"library_transcode_jobs_suffix": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": " · {count} úloha",
+				"countPlural=few": " · {count} úlohy",
+				"countPlural=*": " · {count} úloh"
+			}
+		}
+	],
 	"library_transcoding": "Překódování",
 	"library_translation_hint": "Úpravy jazyka {lang} - prázdná pole se vrátí k výchozímu jazyku.",
 	"library_upload_episode_file": "Nahrát soubor epizody",
@@ -566,7 +869,22 @@
 	"profile_password_changed": "Heslo bylo změněno",
 	"profile_password_heading": "Změnit heslo",
 	"profile_password_mismatch": "Hesla se neshodují",
-	"profile_password_too_short": "Heslo musí mít alespoň {count} znaků",
+	"profile_password_too_short": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "Heslo musí mít alespoň {count} znak",
+				"countPlural=few": "Heslo musí mít alespoň {count} znaky",
+				"countPlural=*": "Heslo musí mít alespoň {count} znaků"
+			}
+		}
+	],
 	"profile_picture_updated": "Profilový obrázek aktualizován",
 	"profile_remove_picture": "Odebrat obrázek",
 	"profile_role_admin": "Administrátor",
@@ -581,7 +899,22 @@
 	"profiles_activity_heading": "Aktivita",
 	"profiles_activity_less": "Méně",
 	"profiles_activity_more": "Více",
-	"profiles_activity_summary": "{hours} h během {days} aktivních dní za poslední rok",
+	"profiles_activity_summary": [
+		{
+			"declarations": [
+				"input days",
+				"local daysPlural = days: plural"
+			],
+			"selectors": [
+				"daysPlural"
+			],
+			"match": {
+				"daysPlural=one": "{hours} h během {days} aktivního dne za poslední rok",
+				"daysPlural=few": "{hours} h během {days} aktivních dnů za poslední rok",
+				"daysPlural=*": "{hours} h během {days} aktivních dní za poslední rok"
+			}
+		}
+	],
 	"profiles_clock_empty": "Zatím není dost historie.",
 	"profiles_clock_heading": "Kdy sleduješ",
 	"profiles_clock_hour": "{hour}:00",
@@ -606,7 +939,22 @@
 	"profiles_stat_longest_streak": "Nejdelší série",
 	"profiles_stat_titles": "Dokoukané tituly",
 	"profiles_stat_watch_time": "Čas sledování",
-	"profiles_streak_days": "{count} dní",
+	"profiles_streak_days": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} den",
+				"countPlural=few": "{count} dny",
+				"countPlural=*": "{count} dní"
+			}
+		}
+	],
 	"profiles_top_titles_heading": "Nejvíce sledované",
 	"profiles_view_public_profile": "Zobrazit veřejný profil",
 	"rank_level": "Úroveň {level}",
@@ -693,7 +1041,22 @@
 	"tv_exit_title": "Už odcházíte?",
 	"uploads_cancel": "Zrušit nahrávání",
 	"uploads_collapse": "Sbalit nahrávání",
-	"uploads_complete_many": "{count} nahrávání dokončeno",
+	"uploads_complete_many": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} nahrávání dokončeno",
+				"countPlural=few": "{count} nahrávání dokončena",
+				"countPlural=*": "{count} nahrávání dokončeno"
+			}
+		}
+	],
 	"uploads_complete_one": "Nahrávání dokončeno",
 	"uploads_dismiss": "Zavřít",
 	"uploads_drop_files": "Přetáhněte soubory nebo klikněte",

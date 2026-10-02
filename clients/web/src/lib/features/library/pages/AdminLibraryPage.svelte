@@ -160,7 +160,10 @@
 
 	const subtitle = (row: LibraryRow) =>
 		row.kind === 'series'
-			? m.library_series_subtitle({ seasons: row.seasonCount, episodes: row.episodeCount })
+			? m.library_series_subtitle({
+					seasons: m.catalog_season_count({ count: row.seasonCount }),
+					episodes: m.library_episode_count_short({ count: row.episodeCount })
+				})
 			: m.library_kind_movie();
 </script>
 

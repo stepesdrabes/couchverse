@@ -79,14 +79,69 @@
 	"achievement_watchlist_10_name": "Curator",
 	"admin_activity": "Activity",
 	"admin_added_recently": "Added (30d)",
-	"admin_analytics_last_days": "Analytics - last {days} days",
-	"admin_avg_active_users": "avg {count} active users/day",
+	"admin_analytics_last_days": [
+		{
+			"declarations": [
+				"input days",
+				"local daysPlural = days: plural"
+			],
+			"selectors": [
+				"daysPlural"
+			],
+			"match": {
+				"daysPlural=one": "Analytics - last {days} day",
+				"daysPlural=*": "Analytics - last {days} days"
+			}
+		}
+	],
+	"admin_avg_active_users": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "avg {count} active user/day",
+				"countPlural=*": "avg {count} active users/day"
+			}
+		}
+	],
 	"admin_back_to_app": "Back to app",
 	"admin_content_runtime": "Content",
-	"admin_cores": "{count} cores",
+	"admin_cores": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} core",
+				"countPlural=*": "{count} cores"
+			}
+		}
+	],
 	"admin_couch_watch_hint": "Time followers spend watching together in couch sessions, per title - tracked separately from normal watch-time.",
 	"admin_couch_watch_time": "On Couch watch-time",
-	"admin_couch_watching": "{count} watching",
+	"admin_couch_watching": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=*": "{count} watching"
+			}
+		}
+	],
 	"admin_cpu": "CPU",
 	"admin_cpu_unavailable": "Host CPU stats are unavailable on this platform.",
 	"admin_episodes": "Episodes",
@@ -97,7 +152,21 @@
 	"admin_goroutines": "Goroutines",
 	"admin_hdr": "HDR {count}",
 	"admin_instant_play": "Instant play",
-	"admin_jobs_in_queue": "{count} jobs in queue",
+	"admin_jobs_in_queue": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} job in queue",
+				"countPlural=*": "{count} jobs in queue"
+			}
+		}
+	],
 	"admin_library": "Library",
 	"admin_live": "Live",
 	"admin_load_1m": "Load (1m)",
@@ -125,7 +194,21 @@
 	"admin_ranks_config": "XP settings",
 	"admin_ranks_distribution": "Level distribution",
 	"admin_ranks_hidden": "hidden",
-	"admin_ranks_holders": "{count} members",
+	"admin_ranks_holders": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} member",
+				"countPlural=*": "{count} members"
+			}
+		}
+	],
 	"admin_ranks_members": "Members",
 	"admin_ranks_no_members": "Nobody has earned any XP yet.",
 	"admin_ranks_page_title": "Ranks - Couchverse",
@@ -192,7 +275,21 @@
 	"catalog_search_placeholder": "Search movies and series…",
 	"catalog_search_title": "Search - Couchverse",
 	"catalog_season": "Season",
-	"catalog_season_count": "{count} seasons",
+	"catalog_season_count": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} season",
+				"countPlural=*": "{count} seasons"
+			}
+		}
+	],
 	"catalog_season_number": "Season {number}",
 	"catalog_series_title": "Series - Couchverse",
 	"catalog_show_featured": "Show featured {index}: {name}",
@@ -272,7 +369,21 @@
 	"jobs_empty_title": "No jobs yet",
 	"jobs_file_fallback": "file #{id}",
 	"jobs_heading": "Jobs",
-	"jobs_job_count": "{count} jobs",
+	"jobs_job_count": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} job",
+				"countPlural=*": "{count} jobs"
+			}
+		}
+	],
 	"jobs_no_file_jobs": "No jobs for this file yet.",
 	"jobs_page_title": "Jobs - Couchverse admin",
 	"jobs_queue": "Job queue",
@@ -294,7 +405,21 @@
 	"leaderboard_heading": "Leaderboard",
 	"leaderboard_hidden_action": "Change privacy",
 	"leaderboard_hidden_notice": "You are hidden from the leaderboard.",
-	"leaderboard_members": "{count} members",
+	"leaderboard_members": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} member",
+				"countPlural=*": "{count} members"
+			}
+		}
+	],
 	"leaderboard_metric_achievements": "Achievements",
 	"leaderboard_metric_empty": "Nothing recorded in this period.",
 	"leaderboard_metric_watch": "Watch time",
@@ -330,11 +455,67 @@
 	"library_audio_saved": "Audio language saved",
 	"library_back_to_library": "Library",
 	"library_backdrop_updated": "Backdrop updated",
-	"library_bulk_deleted": "{count} titles deleted",
+	"library_bulk_deleted": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} title deleted",
+				"countPlural=*": "{count} titles deleted"
+			}
+		}
+	],
 	"library_bulk_failed": "Bulk action failed",
-	"library_bulk_hidden": "{count} titles hidden",
-	"library_bulk_published": "{count} titles published",
-	"library_bulk_rescanned": "{count} titles queued for re-scan",
+	"library_bulk_hidden": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} title hidden",
+				"countPlural=*": "{count} titles hidden"
+			}
+		}
+	],
+	"library_bulk_published": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} title published",
+				"countPlural=*": "{count} titles published"
+			}
+		}
+	],
+	"library_bulk_rescanned": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} title queued for re-scan",
+				"countPlural=*": "{count} titles queued for re-scan"
+			}
+		}
+	],
 	"library_cancel_upload": "Cancel upload",
 	"library_col_added": "Added",
 	"library_col_quality": "Quality",
@@ -346,7 +527,21 @@
 	"library_create_title_failed": "Failed to create title",
 	"library_delete_artwork_failed": "failed to delete artwork",
 	"library_delete_bulk_message": "This removes the titles and their metadata from the library. Media files on disk are not touched.",
-	"library_delete_confirm_title": "Delete {count} titles?",
+	"library_delete_confirm_title": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "Delete {count} title?",
+				"countPlural=*": "Delete {count} titles?"
+			}
+		}
+	],
 	"library_delete_episode": "Delete episode",
 	"library_delete_episode_failed": "Failed to delete episode",
 	"library_delete_named_title": "Delete “{name}”?",
@@ -365,7 +560,36 @@
 	"library_empty_message": "Create a title or scan a media folder to fill the library.",
 	"library_empty_title": "Nothing here yet",
 	"library_episode_aired": "Aired {date}",
-	"library_episode_count": "{count} episodes",
+	"library_episode_count": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} episode",
+				"countPlural=*": "{count} episodes"
+			}
+		}
+	],
+	"library_episode_count_short": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} ep",
+				"countPlural=*": "{count} eps"
+			}
+		}
+	],
 	"library_episode_details": "Episode details",
 	"library_episode_import_failed": "Episode import failed",
 	"library_episode_number": "Episode {number}",
@@ -431,7 +655,37 @@
 	"library_remove_backdrop": "Remove backdrop",
 	"library_remove_language": "Remove language",
 	"library_remove_language_confirm": "Remove {lang}?",
-	"library_remove_language_message": "Removing {lang} permanently deletes its translations for this title and all its seasons and episodes, plus {files} audio file(s) ({size}) and {subs} subtitle track(s) from disk. This cannot be undone.",
+	"library_remove_language_files": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} audio file",
+				"countPlural=*": "{count} audio files"
+			}
+		}
+	],
+	"library_remove_language_message": "Removing {lang} permanently deletes its translations for this title and all its seasons and episodes, plus {files} ({size}) and {subs} from disk. This cannot be undone.",
+	"library_remove_language_subs": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} subtitle track",
+				"countPlural=*": "{count} subtitle tracks"
+			}
+		}
+	],
 	"library_remove_poster": "Remove poster",
 	"library_replace_backdrop": "Replace backdrop",
 	"library_replace_poster": "Replace poster",
@@ -446,7 +700,7 @@
 	"library_season_number": "Season {number}",
 	"library_seasons_episodes": "Seasons & episodes",
 	"library_selected_count": "{count} selected",
-	"library_series_subtitle": "{seasons} seasons · {episodes} eps",
+	"library_series_subtitle": "{seasons} · {episodes}",
 	"library_settings_link": "Settings",
 	"library_sort_label": "Sort",
 	"library_sort_recently_added": "Recently added",
@@ -463,7 +717,21 @@
 	"library_storage_transcoded": "Transcoded",
 	"library_subtitle_added": "Subtitle added",
 	"library_subtitles": "Subtitles",
-	"library_title_count": "{count} titles",
+	"library_title_count": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} title",
+				"countPlural=*": "{count} titles"
+			}
+		}
+	],
 	"library_title_deleted": "Title deleted",
 	"library_tmdb_applied": "Metadata & artwork applied",
 	"library_tmdb_apply_failed": "failed to apply",
@@ -471,7 +739,21 @@
 	"library_tmdb_fetching": "Fetching metadata & artwork from TMDB…",
 	"library_tmdb_pull_description": "Pulls overview, year, genres and artwork.",
 	"library_tmdb_search_failed": "TMDB search failed",
-	"library_transcode_jobs_suffix": " · {count} jobs",
+	"library_transcode_jobs_suffix": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": " · {count} job",
+				"countPlural=*": " · {count} jobs"
+			}
+		}
+	],
 	"library_transcoding": "Transcoding",
 	"library_translation_hint": "Editing {lang} - empty fields fall back to the default language.",
 	"library_upload_episode_file": "Upload episode file",
@@ -566,7 +848,21 @@
 	"profile_password_changed": "Password changed",
 	"profile_password_heading": "Change password",
 	"profile_password_mismatch": "Passwords do not match",
-	"profile_password_too_short": "Password must be at least {count} characters",
+	"profile_password_too_short": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "Password must be at least {count} character",
+				"countPlural=*": "Password must be at least {count} characters"
+			}
+		}
+	],
 	"profile_picture_updated": "Profile picture updated",
 	"profile_remove_picture": "Remove picture",
 	"profile_role_admin": "Admin",
@@ -581,7 +877,21 @@
 	"profiles_activity_heading": "Activity",
 	"profiles_activity_less": "Less",
 	"profiles_activity_more": "More",
-	"profiles_activity_summary": "{hours} h across {days} active days in the last year",
+	"profiles_activity_summary": [
+		{
+			"declarations": [
+				"input days",
+				"local daysPlural = days: plural"
+			],
+			"selectors": [
+				"daysPlural"
+			],
+			"match": {
+				"daysPlural=one": "{hours} h across {days} active day in the last year",
+				"daysPlural=*": "{hours} h across {days} active days in the last year"
+			}
+		}
+	],
 	"profiles_clock_empty": "Not enough history yet.",
 	"profiles_clock_heading": "When you watch",
 	"profiles_clock_hour": "{hour}:00",
@@ -606,7 +916,21 @@
 	"profiles_stat_longest_streak": "Longest streak",
 	"profiles_stat_titles": "Titles finished",
 	"profiles_stat_watch_time": "Watch time",
-	"profiles_streak_days": "{count} days",
+	"profiles_streak_days": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} day",
+				"countPlural=*": "{count} days"
+			}
+		}
+	],
 	"profiles_top_titles_heading": "Most watched",
 	"profiles_view_public_profile": "View your public profile",
 	"rank_level": "Level {level}",
@@ -693,7 +1017,21 @@
 	"tv_exit_title": "Leaving already?",
 	"uploads_cancel": "Cancel upload",
 	"uploads_collapse": "Collapse uploads",
-	"uploads_complete_many": "{count} uploads complete",
+	"uploads_complete_many": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} upload complete",
+				"countPlural=*": "{count} uploads complete"
+			}
+		}
+	],
 	"uploads_complete_one": "Upload complete",
 	"uploads_dismiss": "Dismiss",
 	"uploads_drop_files": "Drop files or click",

@@ -2,9 +2,9 @@ name: web
 
 on:
   push:
-    paths: [clients/web/**, .github/workflows/web.yml]
+    paths: [clients/web/**, contract/i18n/**, .github/workflows/web.yml]
   pull_request:
-    paths: [clients/web/**, .github/workflows/web.yml]
+    paths: [clients/web/**, contract/i18n/**, .github/workflows/web.yml]
 
 defaults:
   run:

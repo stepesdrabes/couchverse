@@ -401,9 +401,9 @@
 	title={m.library_remove_language_confirm({ lang: langLabel(removeLang) })}
 	message={m.library_remove_language_message({
 		lang: langLabel(removeLang),
-		files: removeAltFiles.length,
+		files: m.library_remove_language_files({ count: removeAltFiles.length }),
 		size: formatBytes(removeBytes),
-		subs: removeSubs.length
+		subs: m.library_remove_language_subs({ count: removeSubs.length })
 	})}
 	confirmLabel={m.library_remove_language()}
 	onconfirm={confirmRemoveLang}

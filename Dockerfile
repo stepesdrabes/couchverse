@@ -1,8 +1,9 @@
 # ---- web ----
 FROM node:22-alpine AS web
-WORKDIR /src
+WORKDIR /repo/clients/web
 COPY clients/web/package.json clients/web/package-lock.json ./
 RUN npm ci
+COPY contract/i18n /repo/contract/i18n
 COPY clients/web/ ./
 RUN npm run build
 
@@ -12,7 +13,7 @@ WORKDIR /src
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
-COPY --from=web /src/build ./web/dist
+COPY --from=web /repo/clients/web/build ./web/dist
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /couchverse ./cmd/couchverse
 
 # ---- runtime ----
