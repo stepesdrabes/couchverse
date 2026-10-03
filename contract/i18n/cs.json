@@ -423,6 +423,7 @@
 	"jobs_action_fetch_metadata": "Načíst metadata",
 	"jobs_action_import_episodes": "Importovat epizody",
 	"jobs_action_probe": "Analyzovat",
+	"jobs_action_reprobe": "Znovu analyzovat knihovnu",
 	"jobs_action_transcode": "Překódovat",
 	"jobs_attempt": "pokus {n}",
 	"jobs_empty_message": "Analýza souborů se objeví zde.",

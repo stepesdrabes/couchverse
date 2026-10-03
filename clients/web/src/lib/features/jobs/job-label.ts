@@ -3,6 +3,7 @@ import * as m from '$lib/paraglide/messages';
 
 const actionByType: Record<string, () => string> = {
 	probe: m.jobs_action_probe,
+	reprobe: m.jobs_action_reprobe,
 	transcode_hls: m.jobs_action_transcode,
 	extract_subtitles: m.jobs_action_extract_subtitles,
 	fetch_metadata: m.jobs_action_fetch_metadata,

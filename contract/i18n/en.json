@@ -414,6 +414,7 @@
 	"jobs_action_fetch_metadata": "Fetch metadata",
 	"jobs_action_import_episodes": "Import episodes",
 	"jobs_action_probe": "Analyze",
+	"jobs_action_reprobe": "Re-analyze the library",
 	"jobs_action_transcode": "Transcode",
 	"jobs_attempt": "attempt {n}",
 	"jobs_empty_message": "File analysis shows up here.",
