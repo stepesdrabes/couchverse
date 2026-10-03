@@ -75,6 +75,21 @@ test('an anonymous viewer joins a couch session by its code and follows the host
 	await expect(guest.getByRole('button', { name: t('couch_leave') })).toBeVisible();
 	await guest.keyboard.press('Escape');
 
+	// a reaction floats up from the sender's seat on everyone's couch
+	await guest.mouse.move(400, 300);
+	await guest.getByRole('button', { name: t('couch_react') }).click();
+	const emoji = guest.locator('emoji-picker [role="menuitem"]').first();
+	const sent = (await emoji.textContent())?.trim() ?? '';
+	// it floats for two seconds, so the host watches for it before it is sent: a sender's
+	// click can take longer than that to return on a busy machine
+	const floated = host
+		.locator('.couch-reaction')
+		.filter({ hasText: sent })
+		.waitFor({ state: 'attached' });
+	await emoji.click();
+	await floated;
+	await guest.keyboard.press('Escape');
+
 	// the host resumes and the follower plays along, in step with the host
 	await host.keyboard.press('Escape');
 	await host.getByRole('button', { name: t('player_play_pause') }).click();
@@ -82,11 +97,15 @@ test('an anonymous viewer joins a couch session by its code and follows the host
 	await expect
 		.poll(() => videoTime(guest), { timeout: MEDIA_TIMEOUT })
 		.toBeGreaterThan(pausedAt + 0.5);
-	await expect
-		.poll(async () => Math.abs((await videoTime(guest)) - (await videoTime(host))), {
-			timeout: MEDIA_TIMEOUT
-		})
-		.toBeLessThan(3);
+	const drift = async () => Math.abs((await videoTime(guest)) - (await videoTime(host)));
+	await expect.poll(drift, { timeout: MEDIA_TIMEOUT }).toBeLessThan(3);
+
+	// a follower that falls behind is put back on the host's timeline, and told so
+	await guest
+		.locator('video')
+		.evaluate((v: HTMLVideoElement) => (v.currentTime = Math.max(0, v.currentTime - 15)));
+	await expect(guest.getByText(t('couch_resynced'))).toBeVisible();
+	await expect.poll(drift, { timeout: MEDIA_TIMEOUT }).toBeLessThan(3);
 
 	// Ending the session sends the follower, who has nowhere left to be, to the login page.
 	// The host pauses first so its progress stays clear of the end of the clip, which

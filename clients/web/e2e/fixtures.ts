@@ -38,7 +38,9 @@ export const movie = {
 export const series = {
 	id: '00000000-0000-4000-8000-000000000102',
 	slug: 'static-bloom-2024',
-	name: 'Static Bloom'
+	name: 'Static Bloom',
+	/** short clips in the e2e server (scripts/e2e-server.sh), season 1 */
+	episodes: ['00000000-0000-4000-8000-000000000301', '00000000-0000-4000-8000-000000000302']
 };
 
 export const draft = { id: '00000000-0000-4000-8000-000000000103', name: 'Unfinished' };

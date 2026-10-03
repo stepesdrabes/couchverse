@@ -86,15 +86,30 @@ psql_ "$db_url" <"$root/backend/internal/server/testdata/seed.sql" >/dev/null
 # A real clip for the direct-play movie, in the Movies library the server created on
 # boot. It runs long enough for the player to pass its 5 s reporting threshold and a
 # 10 s skip without reaching the end.
+clip() { # seconds, tone in Hz, output
+  mkdir -p "$(dirname "$3")"
+  ffmpeg -hide_banner -loglevel error -y \
+    -f lavfi -i "testsrc2=size=320x180:rate=12:duration=$1" \
+    -f lavfi -i "sine=frequency=$2:sample_rate=48000:duration=$1" \
+    -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -b:a 64k \
+    -movflags +faststart -shortest "$3"
+}
+size() { wc -c <"$1" | tr -d ' '; }
 movies_dir=$(psql_ "$db_url" -At -c "SELECT path FROM libraries WHERE kind = 'movies' ORDER BY id LIMIT 1")
+series_dir=$(psql_ "$db_url" -At -c "SELECT path FROM libraries WHERE kind = 'series' ORDER BY id LIMIT 1")
 movie='Glass Harbor (2025)/Glass Harbor (2025).mp4'
-mkdir -p "$movies_dir/$(dirname "$movie")"
-ffmpeg -hide_banner -loglevel error -y \
-  -f lavfi -i "testsrc2=size=320x180:rate=12:duration=60" \
-  -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=60" \
-  -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -b:a 64k \
-  -movflags +faststart -shortest "$movies_dir/$movie"
-psql_ "$db_url" -v movie="$movie" -v movie_size="$(wc -c <"$movies_dir/$movie" | tr -d ' ')" \
+clip 60 440 "$movies_dir/$movie"
+# the movie's Czech audio is a file of its own (a second language, model B)
+alt='Glass Harbor (2025)/Glass Harbor (2025).cs.mp4'
+clip 60 660 "$movies_dir/$alt"
+# the series' first episodes are short, so the next one comes up within a test
+episode1='Static Bloom/Season 01/Static Bloom S01E01.mp4'
+episode2='Static Bloom/Season 01/Static Bloom S01E02.mp4'
+clip 25 330 "$series_dir/$episode1"
+cp "$series_dir/$episode1" "$series_dir/$episode2"
+psql_ "$db_url" -v movie="$movie" -v movie_size="$(size "$movies_dir/$movie")" \
+  -v alt="$alt" -v alt_size="$(size "$movies_dir/$alt")" \
+  -v episode1="$episode1" -v episode2="$episode2" -v episode_size="$(size "$series_dir/$episode2")" \
   <"$root/clients/web/e2e/setup.sql" >/dev/null
 
 placeholder=$data_dir/placeholder.jpg
