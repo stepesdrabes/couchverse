@@ -156,7 +156,8 @@ internal fun PlayerStatus(view: PlayerView?, buffering: Boolean, actions: Player
         status == LoadStatus.Failed || status == LoadStatus.NotFound -> StatusMessage(
             title = stringResource(R.string.error_page_title),
             message = problemMessage(view.problem),
-            modifier = modifier,
+            // readable over whatever frame the player stopped on
+            modifier = modifier.clip(RoundedCornerShape(Tokens.Radius.card)).background(Tokens.Palette.bg.copy(alpha = 0.85f)),
             action = {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(onClick = actions.onBack) { Text(stringResource(R.string.common_back)) }

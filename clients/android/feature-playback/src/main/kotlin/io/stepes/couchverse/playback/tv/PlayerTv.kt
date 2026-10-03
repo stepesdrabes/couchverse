@@ -58,6 +58,7 @@ import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import io.stepes.couchverse.core.CouchView
+import io.stepes.couchverse.core.LoadStatus
 import io.stepes.couchverse.core.PlayKind
 import io.stepes.couchverse.core.PlayTarget
 import io.stepes.couchverse.core.PlayerView
@@ -69,7 +70,9 @@ import io.stepes.couchverse.couch.reactionChoices
 import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.CouchverseIcons
+import io.stepes.couchverse.design.components.StatusMessage
 import io.stepes.couchverse.design.text.formatClock
+import io.stepes.couchverse.design.text.problemMessage
 import io.stepes.couchverse.design.theme.LocalAccent
 import io.stepes.couchverse.design.tv.TvActionButton
 import io.stepes.couchverse.design.tv.TvSafe
@@ -100,15 +103,16 @@ internal fun PlayerTv(state: PlayerState, actions: PlayerActions) {
     var panel by remember { mutableStateOf<Panel?>(null) }
     val root = remember { FocusRequester() }
     val play = remember { FocusRequester() }
+    val failed = view?.status == LoadStatus.Failed || view?.status == LoadStatus.NotFound
     LaunchedEffect(visible, progress.playing, touches, panel) {
         if (visible && progress.playing && panel == null) {
             delay(CONTROLS_TIMEOUT_MS)
             visible = false
         }
     }
-    LaunchedEffect(visible, panel) {
+    LaunchedEffect(visible, panel, failed) {
         // the controls take focus when they appear; hidden, the screen itself listens to the remote
-        if (panel == null) runCatching { if (visible) play.requestFocus() else root.requestFocus() }
+        if (panel == null && !failed) runCatching { if (visible) play.requestFocus() else root.requestFocus() }
     }
     BackHandler(enabled = panel != null) { panel = null }
     BackHandler(enabled = panel == null && visible && progress.playing) { visible = false }
@@ -136,8 +140,8 @@ internal fun PlayerTv(state: PlayerState, actions: PlayerActions) {
             }
             .focusable(),
     ) {
-        PlayerStatus(view, buffering = progress.buffering, actions = actions, modifier = Modifier.align(Alignment.Center))
-        AnimatedVisibility(visible, enter = fadeIn(), exit = fadeOut()) {
+        if (!failed) PlayerStatus(view, buffering = progress.buffering, actions = actions, modifier = Modifier.align(Alignment.Center))
+        AnimatedVisibility(visible && !failed, enter = fadeIn(), exit = fadeOut()) {
             Controls(state, progress, linear, actions, play, skip, onPanel = { panel = it })
         }
         view?.nextUp?.let { next ->
@@ -184,6 +188,26 @@ internal fun PlayerTv(state: PlayerState, actions: PlayerActions) {
                 }
             }
         }
+        if (failed) Failure(view, actions)
+    }
+}
+
+/** A failed load over a dimmed frame, the remote starting on Retry. */
+@Composable
+private fun Failure(view: PlayerView?, actions: PlayerActions) {
+    val retry = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { retry.requestFocus() } }
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.8f)), contentAlignment = Alignment.Center) {
+        StatusMessage(
+            title = stringResource(R.string.error_page_title),
+            message = problemMessage(view?.problem),
+            action = {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    TvActionButton(stringResource(R.string.common_back), onClick = actions.onBack)
+                    TvActionButton(stringResource(R.string.common_retry), onClick = actions.onRetry, primary = true, modifier = Modifier.focusRequester(retry))
+                }
+            },
+        )
     }
 }
 
