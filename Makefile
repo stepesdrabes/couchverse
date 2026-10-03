@@ -5,16 +5,21 @@
 DEV_DB ?= postgres://couchverse:couchverse@localhost:5432/couchverse
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X couchverse/internal/version.Version=$(VERSION)
+# the wasm core the web runs (build output); dev targets build it once, `make core-wasm` refreshes it
+WEB_CORE := clients/web/src/lib/core/pkg
 
 run-backend:
 	cd backend && DATABASE_URL=$(DEV_DB) DATA_DIR=../data \
 		ADMIN_USERNAME=admin ADMIN_PASSWORD=admin \
 		go run ./cmd/couchverse
 
-run-web:
+run-web: $(WEB_CORE)
 	cd clients/web && npm run dev
 
-build:
+$(WEB_CORE):
+	cd core && cargo xtask wasm
+
+build: core-wasm
 	cd clients/web && npm run build
 	rm -rf backend/web/dist && mkdir -p backend/web/dist
 	cp -R clients/web/build/. backend/web/dist/
@@ -26,9 +31,10 @@ lint:
 	@if command -v golangci-lint >/dev/null; then cd backend && golangci-lint run; \
 	else echo "golangci-lint not installed, ran go vet only"; fi
 
-check:
+check: $(WEB_CORE)
 	cd clients/web && npm run check
 	cd clients/web && npm run lint
+	cd clients/web && npm test
 
 format:
 	cd clients/web && npx prettier --write src
