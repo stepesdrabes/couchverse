@@ -661,14 +661,14 @@ export interface JitPlan {
 	audio: JitPlanAudio;
 	/** Source stream index of the audio track to play; -1 for none. */
 	audioStream: number;
-	/** copy keeps the source video (remux); transcode makes H.264 SDR. */
+	/** transcode makes H.264 SDR; copy (keeping the source video) is reserved for a later server. */
 	video: JitPlanVideo;
 }
 
 /** copy keeps the track's codec; aac makes stereo, eac3 5.1. */
 export type JitPlanAudio = 'copy' | 'aac' | 'eac3';
 
-/** copy keeps the source video (remux); transcode makes H.264 SDR. */
+/** transcode makes H.264 SDR; copy (keeping the source video) is reserved for a later server. */
 export type JitPlanVideo = 'copy' | 'transcode';
 
 export interface JobPayload {

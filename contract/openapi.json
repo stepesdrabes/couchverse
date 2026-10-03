@@ -2170,7 +2170,7 @@
             "type": "integer"
           },
           "video": {
-            "description": "copy keeps the source video (remux); transcode makes H.264 SDR.",
+            "description": "transcode makes H.264 SDR; copy (keeping the source video) is reserved for a later server.",
             "enum": [
               "copy",
               "transcode"

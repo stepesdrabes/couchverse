@@ -74,7 +74,7 @@ type Master struct {
 
 // JITPlan is the instant-play session to open for a file nothing is prepared for.
 type JITPlan struct {
-	Video       string `json:"video" enum:"copy,transcode" doc:"copy keeps the source video (remux); transcode makes H.264 SDR."`
+	Video       string `json:"video" enum:"copy,transcode" doc:"transcode makes H.264 SDR; copy (keeping the source video) is reserved for a later server."`
 	AudioStream int    `json:"audioStream" doc:"Source stream index of the audio track to play; -1 for none."`
 	Audio       string `json:"audio" enum:"copy,aac,eac3" doc:"copy keeps the track's codec; aac makes stereo, eac3 5.1."`
 }
@@ -125,13 +125,9 @@ func Decide(p DeviceProfile, s Source, prep Prepared, srv Server) Decision {
 		return Decision{Tier: TierDirect, Mode: "direct"}
 	case pending:
 		return Decision{Mode: "preparing"}
-	case s.Available && srv.JIT && p.playsHLS() && (video.original || transcoded):
-		plan := jitPlan(p, s, video.original)
-		tier := TierTranscode
-		if plan.Video == "copy" {
-			tier = TierRemux
-		}
-		return Decision{Tier: tier, Mode: "jit", JIT: &plan}
+	case s.Available && srv.JIT && p.playsHLS() && transcoded:
+		plan := jitPlan(p, s)
+		return Decision{Tier: TierTranscode, Mode: "jit", JIT: &plan}
 	}
 	return Decision{Mode: "unsupported"}
 }
@@ -267,11 +263,12 @@ func surroundCodecs(p DeviceProfile) []string {
 	return out
 }
 
-func jitPlan(p DeviceProfile, s Source, copyVideo bool) JITPlan {
+// jitPlan always encodes the video: a copied stream would cut its segments at
+// the source's keyframes, which are not known before ffmpeg reads them, and the
+// session playlist lists every segment up front. The audio is copied when the
+// client takes it.
+func jitPlan(p DeviceProfile, s Source) JITPlan {
 	plan := JITPlan{Video: "transcode", AudioStream: -1, Audio: "aac"}
-	if copyVideo {
-		plan.Video = "copy"
-	}
 	a := defaultAudio(s)
 	if a == nil {
 		return plan

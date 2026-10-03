@@ -142,8 +142,9 @@ func TestDecide(t *testing.T) {
 		{"chrome hdr10 preparing", chrome, hevcHDR10MKV, preparing, jitOn, Decision{Mode: "preparing"}},
 		{"chrome hdr10 jit", chrome, hevcHDR10MKV, nothing, jitOn,
 			Decision{Tier: TierTranscode, Mode: "jit", JIT: &JITPlan{Video: "transcode", AudioStream: 1, Audio: "aac"}}},
-		{"apple tv hdr10 jit copies", appleTV, hevcHDR10MKV, nothing, jitOn,
-			Decision{Tier: TierRemux, Mode: "jit", JIT: &JITPlan{Video: "copy", AudioStream: 1, Audio: "copy"}}},
+		// instant play encodes the video but passes E-AC-3 through to the Apple TV
+		{"apple tv hdr10 jit keeps the audio", appleTV, hevcHDR10MKV, nothing, jitOn,
+			Decision{Tier: TierTranscode, Mode: "jit", JIT: &JITPlan{Video: "transcode", AudioStream: 1, Audio: "copy"}}},
 		{"chrome hdr10 nothing", chrome, hevcHDR10MKV, nothing, jitOff, Decision{Mode: "unsupported"}},
 		// HLG needs an HLG display
 		{"apple tv hlg", appleTV, hlgMKV, packaged, jitOff,

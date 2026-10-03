@@ -2152,7 +2152,7 @@ pub mod types {
         pub audio: JitPlanAudio,
         /// Source stream index of the audio track to play; -1 for none.
         pub audio_stream: i64,
-        /// copy keeps the source video (remux); transcode makes H.264 SDR.
+        /// transcode makes H.264 SDR; copy (keeping the source video) is reserved for a later server.
         pub video: JitPlanVideo,
     }
 
@@ -2187,7 +2187,7 @@ pub mod types {
         }
     }
 
-    /// copy keeps the source video (remux); transcode makes H.264 SDR.
+    /// transcode makes H.264 SDR; copy (keeping the source video) is reserved for a later server.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum JitPlanVideo {
         #[serde(rename = "copy")]
