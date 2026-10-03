@@ -456,6 +456,10 @@ on the row, and records failures (`requestDownload` again re-queues a failed fil
   were last requested, failed ones after a day, files nobody has in their list anymore,
   and MP4s on disk without a row. A device keeps its own copy; deleting a download only
   removes it from the server list.
+- Gated by the admin `downloadsEnabled` flag (`flags.DownloadsOn` on `requestDownload`, the
+  job refuses while it is off; listing, fetching and deleting keep working so devices can
+  finish and tidy up). The core reads it as `SessionView.features.downloads` and answers a
+  request with the `downloads_disabled` notice while it is off.
 - Offline progress: `saveProgress` takes an optional `watchedAt`; a replayed report older
   than the saved position does not replace it.
 - Tests: `playback/download_test.go` (plans and ffmpeg arguments), `TestDownloads`

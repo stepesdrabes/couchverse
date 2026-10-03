@@ -766,7 +766,9 @@ data class FeaturedCard (
 @Serializable
 data class Features (
 	val couch: Boolean,
-	val rankings: Boolean
+	val rankings: Boolean,
+	/// Downloads for offline viewing (native apps).
+	val downloads: Boolean
 )
 
 @Serializable

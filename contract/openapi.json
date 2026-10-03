@@ -2071,6 +2071,10 @@
             "description": "Couch sessions (synced watch parties).",
             "type": "boolean"
           },
+          "downloadsEnabled": {
+            "description": "Downloads for offline viewing in the native apps (prepared MP4s use server disk and CPU).",
+            "type": "boolean"
+          },
           "rankingsEnabled": {
             "description": "Ranks, achievements, public profiles and leaderboards.",
             "type": "boolean"
@@ -2078,7 +2082,8 @@
         },
         "required": [
           "couchEnabled",
-          "rankingsEnabled"
+          "rankingsEnabled",
+          "downloadsEnabled"
         ],
         "type": "object"
       },
@@ -10089,7 +10094,7 @@
         ]
       },
       "post": {
-        "description": "Plans a device-ready MP4 (faststart; the source video when the profile decodes it, else H.264 at the quality; the audio languages asked for, copied when the device takes them and AAC otherwise; text subtitles as mov_text) and queues its preparation, or reuses the MP4 another request already made. Asking again returns the same download and prepares a failed one again. Poll getDownload until it is ready, then fetch url. Codes: no_media (404), source_deleted (409), unsupported (422, the device plays no download of this file).",
+        "description": "Plans a device-ready MP4 (faststart; the source video when the profile decodes it, else H.264 at the quality; the audio languages asked for, copied when the device takes them and AAC otherwise; text subtitles as mov_text) and queues its preparation, or reuses the MP4 another request already made. Asking again returns the same download and prepares a failed one again. Poll getDownload until it is ready, then fetch url. Codes: no_media (404), source_deleted (409), unsupported (422, the device plays no download of this file), feature_disabled (404, the admin turned downloads off; those already prepared can still be fetched).",
         "operationId": "requestDownload",
         "parameters": [
           {

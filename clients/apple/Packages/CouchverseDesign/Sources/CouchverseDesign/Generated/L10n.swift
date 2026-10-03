@@ -275,6 +275,7 @@ extension L10n {
     public static func downloadStatePreparing(percent: String) -> String { format("download_state_preparing", [percent]) }
     public static var downloadStateQueued: String { string("download_state_queued") }
     public static var downloadStateReady: String { string("download_state_ready") }
+    public static var downloadsDisabled: String { string("downloads_disabled") }
     public static var downloadsEmpty: String { string("downloads_empty") }
     public static var downloadsEmptyHint: String { string("downloads_empty_hint") }
     public static var downloadsOfflineBanner: String { string("downloads_offline_banner") }

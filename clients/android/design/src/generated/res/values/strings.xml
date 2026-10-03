@@ -280,6 +280,7 @@
     <string name="download_state_preparing">Preparing · %1$s%%</string>
     <string name="download_state_queued">Waiting for the server</string>
     <string name="download_state_ready">Downloaded</string>
+    <string name="downloads_disabled">Downloads are turned off on this server</string>
     <string name="downloads_empty">Nothing downloaded yet</string>
     <string name="downloads_empty_hint">Download movies and episodes to watch them without a connection.</string>
     <string name="downloads_offline_banner">You\'re offline - your downloads still play.</string>

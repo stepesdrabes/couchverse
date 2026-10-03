@@ -5,6 +5,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"couchverse/internal/flags"
 	"couchverse/internal/httpx"
 )
 
@@ -17,7 +18,9 @@ func (h *Handlers) Register(rt httpx.Routes) {
 		"the audio languages asked for, copied when the device takes them and AAC otherwise; text subtitles as mov_text) " +
 		"and queues its preparation, or reuses the MP4 another request already made. Asking again returns the same download " +
 		"and prepares a failed one again. Poll getDownload until it is ready, then fetch url. " +
-		"Codes: no_media (404), source_deleted (409), unsupported (422, the device plays no download of this file)."
+		"Codes: no_media (404), source_deleted (409), unsupported (422, the device plays no download of this file), " +
+		"feature_disabled (404, the admin turned downloads off; those already prepared can still be fetched)."
+	request.Middlewares = huma.Middlewares{httpx.Guard(rt.User, flags.DownloadsOn(h.settings))}
 	huma.Register(rt.User, httpx.Localized(request), h.Request)
 	huma.Register(rt.User, httpx.Localized(tag.Op("listDownloads", http.MethodGet, "/me/downloads")), h.List)
 	huma.Register(rt.User, httpx.Localized(tag.Op("getDownload", http.MethodGet, "/me/downloads/{id}")), h.Get)

@@ -282,6 +282,7 @@
     <string name="download_state_preparing">Připravuje se · %1$s %%</string>
     <string name="download_state_queued">Čeká na server</string>
     <string name="download_state_ready">Staženo</string>
+    <string name="downloads_disabled">Stahování je na tomto serveru vypnuté</string>
     <string name="downloads_empty">Zatím nic staženého</string>
     <string name="downloads_empty_hint">Stáhněte si filmy a díly a sledujte je i bez připojení.</string>
     <string name="downloads_offline_banner">Jste offline - stažené tituly můžete přehrávat dál.</string>

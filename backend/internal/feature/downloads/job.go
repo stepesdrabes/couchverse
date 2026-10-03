@@ -17,6 +17,7 @@ import (
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/feature/subtitles"
+	"couchverse/internal/flags"
 	"couchverse/internal/media"
 	"couchverse/internal/settings"
 )
@@ -46,6 +47,9 @@ func (p *Preparer) Handle(ctx context.Context, j *jobs.Job, report func(int)) er
 	out := FilePath(p.DataDir, f.ID)
 	if _, serr := os.Stat(out); f.Status == "ready" && serr == nil {
 		return nil
+	}
+	if !flags.Load(ctx, p.Settings).DownloadsEnabled {
+		return p.Store.SetFailed(ctx, f.ID, "failed", "downloads are disabled")
 	}
 	if wanted, err := p.Store.Wanted(ctx, f.ID); err != nil || !wanted {
 		if err != nil {

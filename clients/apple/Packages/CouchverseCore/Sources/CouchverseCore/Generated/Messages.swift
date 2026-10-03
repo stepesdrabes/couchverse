@@ -1025,10 +1025,13 @@ public struct FeaturedCard: Codable, Sendable, Hashable {
 public struct Features: Codable, Sendable, Hashable {
 	public let couch: Bool
 	public let rankings: Bool
+	/// Downloads for offline viewing (native apps).
+	public let downloads: Bool
 
-	public init(couch: Bool, rankings: Bool) {
+	public init(couch: Bool, rankings: Bool, downloads: Bool) {
 		self.couch = couch
 		self.rankings = rankings
+		self.downloads = downloads
 	}
 }
 

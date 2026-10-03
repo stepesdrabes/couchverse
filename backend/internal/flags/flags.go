@@ -11,14 +11,15 @@ import (
 )
 
 type Flags struct {
-	CouchEnabled    bool `json:"couchEnabled"`
-	RankingsEnabled bool `json:"rankingsEnabled"`
+	CouchEnabled     bool `json:"couchEnabled"`
+	RankingsEnabled  bool `json:"rankingsEnabled"`
+	DownloadsEnabled bool `json:"downloadsEnabled"`
 }
 
 // Load reads the "features" settings key; absent or malformed means everything
 // is enabled (backwards compatible).
 func Load(ctx context.Context, st *settings.Store) Flags {
-	f := Flags{CouchEnabled: true, RankingsEnabled: true}
+	f := Flags{CouchEnabled: true, RankingsEnabled: true, DownloadsEnabled: true}
 	raw, err := st.Get(ctx, "features")
 	if err == nil && raw != nil {
 		_ = json.Unmarshal(raw, &f)
@@ -44,6 +45,17 @@ func RankingsOn(st *settings.Store) func(context.Context) error {
 	return func(ctx context.Context) error {
 		if !Load(ctx, st).RankingsEnabled {
 			return httpx.Fail(http.StatusNotFound, "feature_disabled", "rankings are disabled")
+		}
+		return nil
+	}
+}
+
+// DownloadsOn is an httpx.Guard check for asking for downloads: preparing them costs the
+// server disk and CPU. Downloads already prepared can still be fetched and removed.
+func DownloadsOn(st *settings.Store) func(context.Context) error {
+	return func(ctx context.Context) error {
+		if !Load(ctx, st).DownloadsEnabled {
+			return httpx.Fail(http.StatusNotFound, "feature_disabled", "downloads are disabled")
 		}
 		return nil
 	}

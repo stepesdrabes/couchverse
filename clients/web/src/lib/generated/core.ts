@@ -615,6 +615,8 @@ export interface FeaturedCard {
 export interface Features {
 	couch: boolean;
 	rankings: boolean;
+	/** Downloads for offline viewing (native apps). */
+	downloads: boolean;
 }
 
 export interface GenreView {

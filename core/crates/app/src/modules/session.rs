@@ -68,11 +68,13 @@ pub struct SessionUser {
 pub struct Features {
     pub couch: bool,
     pub rankings: bool,
+    /// Downloads for offline viewing (native apps).
+    pub downloads: bool,
 }
 
 impl Default for Features {
     fn default() -> Self {
-        Self { couch: true, rankings: true }
+        Self { couch: true, rankings: true, downloads: true }
     }
 }
 
@@ -149,6 +151,10 @@ impl Session {
     }
 
     /// Whether the server has rankings on (assumed until it says otherwise).
+    pub fn downloads(&self) -> bool {
+        self.view.features.downloads
+    }
+
     pub fn rankings(&self) -> bool {
         self.view.features.rankings
     }
@@ -303,8 +309,11 @@ impl Session {
             },
             SessionCall::Features(call) => {
                 if let Ok(flags) = decode(&call, output) {
-                    self.view.features =
-                        Features { couch: flags.couch_enabled, rankings: flags.rankings_enabled };
+                    self.view.features = Features {
+                        couch: flags.couch_enabled,
+                        rankings: flags.rankings_enabled,
+                        downloads: flags.downloads_enabled,
+                    };
                     SessionChange::Features
                 } else {
                     SessionChange::None

@@ -636,6 +636,8 @@ export interface FFmpegUsage {
 export interface FeatureFlags {
 	/** Couch sessions (synced watch parties). */
 	couchEnabled: boolean;
+	/** Downloads for offline viewing in the native apps (prepared MP4s use server disk and CPU). */
+	downloadsEnabled: boolean;
 	/** Ranks, achievements, public profiles and leaderboards. */
 	rankingsEnabled: boolean;
 }

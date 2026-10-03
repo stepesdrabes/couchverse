@@ -174,7 +174,7 @@ fn the_web_reads_its_session_again_after_changing_it() {
     assert_eq!(user.bio, "# Hi");
     assert_eq!(user.created_at, "2026-01-01T00:00:00Z");
 
-    let flags = json!({"couchEnabled": false, "rankingsEnabled": true});
+    let flags = json!({"couchEnabled": false, "rankingsEnabled": true, "downloadsEnabled": true});
     shell.respond("GET", "/api/v1/features", 200, flags);
     assert!(!shell.view::<SessionView>(&Surface::Session).features.couch);
 }
@@ -183,7 +183,7 @@ fn the_web_reads_its_session_again_after_changing_it() {
 fn the_web_leaves_achievement_checks_to_its_own_ranks_store() {
     let mut shell = web();
     shell.respond("GET", "/api/v1/auth/me", 200, user(1, "admin"));
-    let flags = json!({"couchEnabled": true, "rankingsEnabled": true});
+    let flags = json!({"couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": true});
     shell.respond("GET", "/api/v1/features", 200, flags);
     shell.send(Event::AppBecameActive);
     assert!(shell.find_request("POST", "/api/v1/me/achievements/check").is_none());

@@ -195,6 +195,23 @@ fn failures_tell_the_user() {
 }
 
 #[test]
+fn a_server_with_downloads_off_says_so() {
+    let mut shell = launched(returning(Platform::Ios, &[(1, "admin", Some("tok-1"))], 1));
+    shell.respond("GET", &format!("{API}/auth/me"), 200, user(1, "admin"));
+    shell.respond(
+        "GET",
+        &format!("{API}/features"),
+        200,
+        json!({"couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": false}),
+    );
+    assert!(!shell.view::<SessionView>(&Surface::Session).features.downloads);
+    shell.send(ask(DownloadQuality::Original));
+    assert!(shell.find_request("POST", &format!("{API}/me/downloads?lang=cs")).is_none());
+    let notices: NoticesView = shell.view(&Surface::Notices);
+    assert_eq!(notices.notices[0].code, "downloads_disabled");
+}
+
+#[test]
 fn a_transfer_that_failed_or_expired_can_be_asked_for_again() {
     let mut shell = signed_in();
     shell.send(ask(DownloadQuality::Original));

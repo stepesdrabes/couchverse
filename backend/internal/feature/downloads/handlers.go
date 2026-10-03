@@ -24,6 +24,7 @@ import (
 	"couchverse/internal/grant"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
+	"couchverse/internal/settings"
 )
 
 // Retention is how long a prepared file stays on the server after it was last
@@ -47,13 +48,14 @@ type Handlers struct {
 	library   *library.Store
 	subtitles *subtitles.Store
 	jobs      *jobs.Store
+	settings  *settings.Store
 	grants    *grant.Signer
 	ffmpeg    string
 	dataDir   string
 }
 
-func NewHandlers(st *Store, cat *catalog.Store, lib *library.Store, subs *subtitles.Store, jb *jobs.Store, grants *grant.Signer, ffmpegPath, dataDir string) *Handlers {
-	return &Handlers{store: st, catalog: cat, library: lib, subtitles: subs, jobs: jb, grants: grants, ffmpeg: ffmpegPath, dataDir: dataDir}
+func NewHandlers(st *Store, cat *catalog.Store, lib *library.Store, subs *subtitles.Store, jb *jobs.Store, set *settings.Store, grants *grant.Signer, ffmpegPath, dataDir string) *Handlers {
+	return &Handlers{store: st, catalog: cat, library: lib, subtitles: subs, jobs: jb, settings: set, grants: grants, ffmpeg: ffmpegPath, dataDir: dataDir}
 }
 
 // FilePath is where a prepared download lives.

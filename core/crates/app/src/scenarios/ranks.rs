@@ -22,7 +22,7 @@ fn ranked() -> Shell {
         "GET",
         &format!("{API}/features"),
         200,
-        json!({ "couchEnabled": true, "rankingsEnabled": true }),
+        json!({ "couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": true }),
     );
     shell.respond("GET", &format!("{API}/me/preferences"), 200, json!({ "language": "en" }));
     shell.respond("GET", &format!("{API}/server"), 200, server_info("#3a6ea5"));

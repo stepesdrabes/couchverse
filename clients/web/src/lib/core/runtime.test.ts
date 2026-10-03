@@ -122,7 +122,11 @@ function user(username: string, admin = false) {
 
 function signedIn(shell: FakeShell, language = 'en') {
 	shell.route('GET', '/api/v1/auth/me', 200, user('admin', true));
-	shell.route('GET', '/api/v1/features', 200, { couchEnabled: true, rankingsEnabled: false });
+	shell.route('GET', '/api/v1/features', 200, {
+		couchEnabled: true,
+		rankingsEnabled: false,
+		downloadsEnabled: true
+	});
 	shell.route('GET', '/api/v1/me/preferences', 200, { language });
 	shell.route('GET', '/api/v1/server', 200, {
 		id: 'srv',
@@ -201,7 +205,11 @@ describe('the core runtime', () => {
 		expect(core.session.user).toBe(before.user);
 		expect(core.session.features).toBe(before.features);
 
-		shell.route('GET', '/api/v1/features', 200, { couchEnabled: false, rankingsEnabled: false });
+		shell.route('GET', '/api/v1/features', 200, {
+			couchEnabled: false,
+			rankingsEnabled: false,
+			downloadsEnabled: true
+		});
 		await core.send({ type: 'sessionChanged' });
 		expect(core.session.features.couch).toBe(false);
 		expect(core.session.user).toBe(before.user);

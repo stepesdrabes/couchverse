@@ -308,7 +308,7 @@ impl Shell {
             "GET",
             &format!("{base}/api/v1/features"),
             200,
-            json!({"couchEnabled": true, "rankingsEnabled": false}),
+            json!({"couchEnabled": true, "rankingsEnabled": false, "downloadsEnabled": true}),
         );
         let prefs = language.map_or_else(|| json!({}), |l| json!({ "language": l }));
         self.respond("GET", &format!("{base}/api/v1/me/preferences"), 200, prefs);

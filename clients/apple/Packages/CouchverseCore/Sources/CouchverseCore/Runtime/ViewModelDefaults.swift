@@ -36,7 +36,7 @@ extension SessionView {
     public static func signedOut(language: String) -> SessionView {
         SessionView(
             status: .idle, accountId: nil, user: nil,
-            features: Features(couch: true, rankings: true), language: language,
+            features: Features(couch: true, rankings: true, downloads: true), language: language,
             accent: .fallback, problem: nil, offline: false)
     }
 }

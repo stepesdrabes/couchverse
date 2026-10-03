@@ -219,7 +219,7 @@ class WireFormatTest {
             assertEquals(LoadStatus.Loaded, session.status)
             assertEquals("nora", session.user?.username)
             assertEquals("cs", session.language)
-            assertEquals(Features(couch = true, rankings = false), session.features)
+            assertEquals(Features(couch = true, rankings = false, downloads = true), session.features)
             assertEquals("#3a6ea5", session.accent.accent)
             assertEquals(ACCOUNT, shell.view<AccountsView>(Surface.Accounts).accounts.single().id)
             assertEquals(BASE, shell.view<ServersView>(Surface.Servers).servers.single().url)
@@ -440,7 +440,7 @@ class WireFormatTest {
                 """{"id":2,"username":"nora","displayName":"Nora","role":"user","bio":"",""" +
                     """"disabled":false,"createdAt":"2026-01-01T00:00:00Z","avatarId":"av-2"}""",
             )
-            shell.respond("GET", "$API/features", """{"couchEnabled":true,"rankingsEnabled":$rankings}""")
+            shell.respond("GET", "$API/features", """{"couchEnabled":true,"rankingsEnabled":$rankings,"downloadsEnabled":true}""")
             shell.respond("GET", "$API/me/preferences", """{"language":"cs"}""")
             shell.respond(
                 "GET",

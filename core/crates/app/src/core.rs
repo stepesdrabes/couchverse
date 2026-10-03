@@ -683,6 +683,11 @@ impl Model {
         }
         let Some(env) = downloads_env(&self.session, &self.playback, images) else { return };
         let change = match event {
+            Event::DownloadRequested(_) | Event::DownloadRetried(_)
+                if !self.session.downloads() =>
+            {
+                DownloadsChange::Notice("downloads_disabled")
+            }
             Event::DownloadRequested(ask) => self.downloads.ask(ctx, &env, ask),
             Event::DownloadRetried(download) => self.downloads.retry(ctx, &env, &download.id),
             _ => DownloadsChange::None,

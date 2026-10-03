@@ -2019,6 +2019,8 @@ pub mod types {
     pub struct FeatureFlags {
         /// Couch sessions (synced watch parties).
         pub couch_enabled: bool,
+        /// Downloads for offline viewing in the native apps (prepared MP4s use server disk and CPU).
+        pub downloads_enabled: bool,
         /// Ranks, achievements, public profiles and leaderboards.
         pub rankings_enabled: bool,
     }

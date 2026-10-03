@@ -401,9 +401,15 @@ func apiCases() []apiCase {
 			"tmdb.api_key": "",
 			"transcode": map[string]any{"hwAccel": "auto", "ladder": []string{"720p", "480p"}, "preset": "veryfast",
 				"maxConcurrent": 1, "jitEnabled": nil, "autoPrepare": true, "deleteSourceAfterTranscode": false},
-			"features":   map[string]bool{"couchEnabled": true, "rankingsEnabled": true},
+			"features":   map[string]bool{"couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": false},
 			"home":       map[string]int{"featuredCount": 4},
 			"appearance": map[string]string{"accent": "#3b82f6"},
+		}, status: 200},
+		// downloads off: nothing new is prepared, the list stays readable
+		{op: "requestDownload", as: "nora", method: "POST", path: "/me/downloads", body: map[string]any{"kind": "movie", "id": movieID, "quality": "original", "profile": appleProfile}, status: 404},
+		{op: "listDownloads", as: "nora", method: "GET", path: "/me/downloads", status: 200},
+		{op: "adminUpdateSettings", as: "admin", method: "PUT", path: "/admin/settings", body: map[string]any{
+			"features": map[string]bool{"couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": true},
 		}, status: 200},
 		{op: "adminUpdateSettings", as: "admin", method: "PUT", path: "/admin/settings", body: map[string]any{
 			"transcode": map[string]any{"hwAccel": "auto", "ladder": []string{"4k"}, "preset": "veryfast",
