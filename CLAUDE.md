@@ -176,6 +176,9 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   - The viewer's catalog shapes are the core's generated view types; `features/catalog/types.ts`
     keeps only the admin-shared `Genre` and `ContentStatus`. The bare fetch wrapper
     stays in `src/lib/api/client.ts`. Never hand-write URLs: use the generated functions or `xxxPath` builders.
+    Errors reach the user through `problemMessage(err, fallback)` (`lib/api/problem.ts`: a
+    documented error code's `problem_<code>` string, else the localized fallback), never the
+    server's English `err.message`; a new user-facing code gets a `problem_` key.
   - Forms that edit existing data track dirtiness with `FormState`
     (`lib/utils/form-state.svelte.ts`); Save buttons are `disabled={!form.dirty}`
     (disabled, not hidden).
