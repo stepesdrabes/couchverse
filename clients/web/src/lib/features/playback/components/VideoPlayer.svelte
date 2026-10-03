@@ -529,25 +529,27 @@
 		poke();
 	}
 
-	// playback source + quality. The source can direct-play the original or
-	// stream the transcoded HLS ladder; the quality menu switches between them.
+	// playback source + quality. "Original" is the source as is (a file, or its
+	// video remuxed into HLS) and stays outside the adaptive ladder; "Auto" and the
+	// rungs play the transcoded ladder; the quality menu switches between them.
 	let hls: Hls | null = null;
 	let videoSrc = $state<string | undefined>(info.mode === 'direct' ? info.streamUrl : undefined);
-	const directUrl = info.mode === 'direct' ? (info.streamUrl ?? null) : null;
+	const originalUrl = info.originalUrl ?? null;
 	// initial HLS load uses streamUrl (also the JIT session playlist); quality
-	// switches from direct-play use the variants master at hlsUrl
+	// switches use the ladder master at hlsUrl
 	const initialHlsUrl = info.mode === 'hls' ? (info.streamUrl ?? null) : null;
-	const switchHlsUrl = info.hlsUrl ?? initialHlsUrl;
+	const ladderUrl = info.hlsUrl ?? null;
+	const isPlaylist = (url: string) => url.includes('.m3u8');
 
-	// 'direct' | 'auto' | a rendition name ("1080p")
-	let quality = $state(info.mode === 'direct' ? 'direct' : 'auto');
+	// 'original' | 'auto' | a rendition name ("1080p")
+	let quality = $state(originalUrl && info.streamUrl === originalUrl ? 'original' : 'auto');
 	let didRestoreSub = false;
 	let pendingResume: { at: number; play: boolean } | null = null;
 
 	const qualityOptions = $derived.by(() => {
 		const opts: { key: string; label: string }[] = [];
-		if (directUrl) opts.push({ key: 'direct', label: m.player_quality_original() });
-		if (switchHlsUrl && (info.variants?.length ?? 0) > 0)
+		if (originalUrl) opts.push({ key: 'original', label: m.player_quality_original() });
+		if (ladderUrl && (info.variants?.length ?? 0) > 0)
 			opts.push({ key: 'auto', label: m.player_quality_auto() });
 		for (const v of info.variants ?? []) opts.push({ key: v.name, label: `${v.height}p` });
 		return opts;
@@ -555,10 +557,11 @@
 
 	async function attachHls(url: string, pinName: string | null) {
 		if (!video) return;
-		// Safari plays HLS natively but exposes no level API - adaptive only. TV browsers
-		// claim native HLS too, but there hls.js keeps the quality and audio menus working.
+		// Safari plays HLS natively (adaptive only, no level API) and switches its audio
+		// renditions through video.audioTracks. Chrome and TV browsers claim native HLS
+		// too but have no audioTracks, so there hls.js keeps the quality and audio menus.
 		const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') !== '';
-		if (nativeHls && !isTV) {
+		if (nativeHls && !isTV && 'audioTracks' in video) {
 			videoSrc = url;
 			return;
 		}
@@ -567,7 +570,9 @@
 			if (nativeHls) videoSrc = url;
 			return;
 		}
-		hls = new HlsCtor();
+		// the player draws the sidecar WebVTT tracks itself (with the account's
+		// subtitle style), so hls.js adds no text tracks for the playlist's renditions
+		hls = new HlsCtor({ renderTextTracksNatively: false });
 		hls.loadSource(url);
 		hls.attachMedia(video);
 		hls.on(HlsCtor.Events.MANIFEST_PARSED, () => {
@@ -583,11 +588,16 @@
 		quality = key;
 		hls?.destroy();
 		hls = null;
-		if (key === 'direct' && directUrl) {
-			videoSrc = directUrl;
+		if (key === 'original' && originalUrl) {
+			if (isPlaylist(originalUrl)) {
+				videoSrc = undefined;
+				attachHls(originalUrl, null);
+			} else {
+				videoSrc = originalUrl;
+			}
 		} else {
 			videoSrc = undefined;
-			attachHls(switchHlsUrl!, key === 'auto' ? null : key);
+			attachHls(ladderUrl ?? initialHlsUrl!, key === 'auto' ? null : key);
 		}
 	}
 
@@ -606,7 +616,13 @@
 
 		if (track.source === 'embedded') {
 			if (hls) {
-				const idx = hls.audioTracks.findIndex((t) => t.lang === track.lang);
+				// the playlist's audio group lists the tracks in the payload's order
+				const embedded = audioTracks.filter((t) => t.source === 'embedded');
+				const position = embedded.findIndex((t) => t.id === track.id);
+				const idx =
+					hls.audioTracks.length === embedded.length
+						? position
+						: hls.audioTracks.findIndex((t) => t.lang === track.lang);
 				if (idx >= 0) hls.audioTrack = idx;
 			} else {
 				// Safari plays HLS natively and exposes the audio group here
@@ -627,7 +643,7 @@
 		hls?.destroy();
 		hls = null;
 		if (track.streamUrl) {
-			quality = 'direct';
+			quality = 'original';
 			videoSrc = track.streamUrl;
 		} else if (track.hlsUrl) {
 			quality = 'auto';

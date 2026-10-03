@@ -1,11 +1,12 @@
 import { api } from '$lib/api/client';
 import { useArtworkGrant } from '$lib/features/catalog/api';
 import {
-	clientCaps,
 	createJitSession,
+	deviceProfile,
 	type PlaybackInfo,
 	type PlaybackKind
 } from '$lib/features/playback/api';
+import { resolveCouchPlayback } from '$lib/generated/api';
 import type { MediaRef, Snapshot } from './types';
 
 export { couchSocketPath } from '$lib/generated/api';
@@ -55,10 +56,8 @@ export async function joinCouch(token: string) {
 }
 
 /** The follower player payload for the session's current media (couch-authorized). */
-export const getCouchPlayback = (token: string) =>
-	api<CouchPlaybackResp>(`/couch/${token}/playback?caps=${clientCaps().join(',')}`, {
-		skipAuthRedirect: true
-	});
+export const getCouchPlayback = (token: string): Promise<CouchPlaybackResp> =>
+	resolveCouchPlayback(token, deviceProfile(), { skipAuthRedirect: true });
 
 /** Fetch the follower's current media payload and, when it needs on-demand
  * transcoding, open a per-viewer JIT session (the payload's media grant, bound to
@@ -70,7 +69,7 @@ export async function resolveCouchPlayer(
 	let player = resp.player ?? null;
 	let jitSessionId: string | null = null;
 	if (player && player.mode === 'jit') {
-		const session = await createJitSession(player.grant, 0);
+		const session = await createJitSession(player, 0);
 		player = { ...player, mode: 'hls', streamUrl: session.playlistUrl };
 		jitSessionId = session.sessionId;
 	}

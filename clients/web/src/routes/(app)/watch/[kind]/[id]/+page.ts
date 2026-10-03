@@ -15,7 +15,7 @@ async function loadPlayback(
 
 	if (info.mode === 'jit') {
 		// open an instant-play session and treat it as a regular HLS stream
-		const session = await createJitSession(info.grant, info.resumePosition);
+		const session = await createJitSession(info, info.resumePosition);
 		info.mode = 'hls';
 		info.streamUrl = session.playlistUrl;
 		jitSessionId = session.sessionId;
