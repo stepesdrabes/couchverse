@@ -1,6 +1,7 @@
 use serde_json::json;
 
 use super::*;
+use crate::modules::accounts::AccountRef;
 use crate::modules::catalog::{
     BrowseKey, BrowseSort, BrowseView, GenresView, HomeRowKind, HomeView, MyListView, PlayKind,
     Quality, SearchText, SearchView, TitleKind, TitleView, WatchlistChange,
@@ -203,6 +204,40 @@ fn a_cold_start_paints_the_last_home_before_the_network_answers() {
     assert_eq!(home.status, LoadStatus::Stale);
     assert_eq!(home.featured[0].name, "Glass Harbor");
     shell.request("GET", &format!("{API}/home?lang=cs"));
+}
+
+#[test]
+fn signing_out_forgets_the_last_home() {
+    // every web account shares one key, so the next visitor must not see this one's home
+    let mut web = Shell::new(Platform::Web);
+    web.send(Event::AppStarted);
+    web.answer_session("", user(1, "admin"), Some("en"));
+    open(&mut web, Surface::Home);
+    web.respond("GET", "/api/v1/home?lang=en", 200, home_payload());
+    assert!(web.store.contains_key("warm.web.home"));
+    web.send(Event::SignOutRequested(AccountRef { account_id: "web".into() }));
+    assert!(!web.store.contains_key("warm.web.home"));
+
+    // nor after the cookie expired
+    web.send(Event::SessionStarted);
+    web.respond("GET", "/api/v1/auth/me", 200, user(2, "nora"));
+    web.send(Event::RefreshRequested(Surface::Home));
+    web.respond("GET", "/api/v1/home?lang=en", 200, home_payload());
+    assert!(web.store.contains_key("warm.web.home"));
+    web.send(Event::SessionChanged);
+    let expired = json!({ "error": { "code": "unauthorized", "message": "sign in" } });
+    web.respond("GET", "/api/v1/auth/me", 401, expired);
+    assert_eq!(web.phase(), AppPhase::SignIn);
+    assert!(!web.store.contains_key("warm.web.home"));
+
+    // a phone forgets the account it signs out of
+    let mut phone = signed_in();
+    open(&mut phone, Surface::Home);
+    phone.respond("GET", &format!("{API}/home?lang=en"), 200, home_payload());
+    let key = format!("warm.{}.home", account_id(1));
+    assert!(phone.store.contains_key(&key));
+    phone.send(Event::SignOutRequested(AccountRef { account_id: account_id(1) }));
+    assert!(!phone.store.contains_key(&key));
 }
 
 #[test]

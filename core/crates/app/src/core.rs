@@ -293,6 +293,7 @@ impl Model {
             Event::SignOutRequested(_) if self.config.auth_mode == AuthMode::Cookie => {
                 self.session.log_out(ctx);
                 self.catalog.reset(ctx);
+                Catalog::forget(ctx, WEB_ACCOUNT);
                 self.phase = AppPhase::SignIn;
                 ctx.render(Surface::App);
             }
@@ -303,6 +304,7 @@ impl Model {
                     self.end_session(ctx);
                 }
                 self.accounts.sign_out(ctx, &self.servers, &account.account_id);
+                Catalog::forget(ctx, &account.account_id);
                 if self.session.account_id().is_none() {
                     self.settle(ctx);
                 }
@@ -814,6 +816,7 @@ impl Model {
         if self.config.auth_mode == AuthMode::Cookie {
             // the web's own login page takes over
             self.end_session(ctx);
+            Catalog::forget(ctx, account_id);
             self.phase = AppPhase::SignIn;
             ctx.render(Surface::App);
             return;

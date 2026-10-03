@@ -270,6 +270,10 @@ fn fill<T>(slot: &mut Slot<T>, result: Result<T, Failure>, now: U53) -> Option<F
     }
 }
 
+fn warm_key(account_id: &str) -> String {
+    format!("warm.{account_id}.home")
+}
+
 /// Whether a surface belongs to the catalog.
 pub fn owns(surface: &Surface) -> bool {
     matches!(
@@ -287,9 +291,15 @@ impl Catalog {
     /// Starts over for a newly active account, reading its warm-start home.
     pub fn activate(&mut self, ctx: &mut Ctx, account_id: &str) {
         self.reset(ctx);
-        let key = format!("warm.{account_id}.home");
+        let key = warm_key(account_id);
         ctx.store_read(&key, self.pending(Request::WarmHome));
         self.warm_key = Some(key);
+    }
+
+    /// The account signed out: its last home, with its progress and its list, must not paint
+    /// for whoever signs in next (on the web every account shares one key).
+    pub fn forget(ctx: &mut Ctx, account_id: &str) {
+        ctx.store_delete(&warm_key(account_id));
     }
 
     /// Forgets everything; open surfaces stay open and show as loading.
