@@ -129,15 +129,23 @@ library table, title/season/episode CRUD and bulk actions.
   so a client lays the hero out before the PNG loads), all absent without a logo. The logo is
   picked for the request's display language (`httpx.LangFrom`), else the title's base
   language (`metadataLanguages[0]`), else a language-neutral one, else any (`PickLogo`). Title
-  detail's `artwork` list still carries every logo, with its `lang`. Viewer pages do not show
-  logos yet; they will read them from the core's catalog.
+  detail's `artwork` list still carries every logo, with its `lang`. The core's catalog turns
+  them into `Logo { url, aspect }`; the home hero and the title page show the logo in place
+  of the name (kept as screen-reader text in the `h1`), and fall back to the name when it
+  does not load.
 - Web pages: HomePage, MoviesPage, SeriesPage, GenresPage, GenrePage, MyListPage,
   SearchPage, TitleDetailPage; components HeroMarquee, MediaRow, PosterCard, TitleCard,
-  ContinueWatchingCard, BrowseGrid, Artwork. `features/catalog/types.ts` is the shared
-  type hub for card/row shapes. The home hero and the title pages are accented from the
-  banner palette (`lib/utils/palette.svelte` `bannerAccent` + `lib/theme.accentVars`,
-  which also emits a contrast-aware `--color-on-accent`). Episode rows show thumbnails
-  (`Episode.thumbId`, from TMDB stills).
+  ContinueWatchingCard, BrowseGrid (infinite scroll), Artwork, LoadFailed. The viewer
+  pages read the core's catalog view models (`HomeView`, `TitleView`, `BrowseView`,
+  `GenresView`, `MyListView`, `SearchView` in `lib/generated/core.ts`; see "Shared core on
+  the web"), with image URLs, play/resume decisions, playable seasons only and quality
+  ready-made; `features/catalog/labels.ts` localizes the codes they carry (kinds, quality,
+  built-in home row labels). `features/catalog/types.ts` keeps only what the admin shares
+  (`Genre`, `ContentStatus`); `artworkUrl` remains for the admin, couch and profile images.
+  The home hero is accented from its backdrop's accent (`lib/theme.accentVars`) and the
+  title page from the palette the core derives (`TitleDetailView.accent`,
+  `lib/theme.paletteVars`), both with a contrast-aware `--color-on-accent`. Episode rows
+  show stills, progress and the file's length (`EpisodeView.durationSeconds`).
 
 ### playback
 Everything that turns a media file into pixels: the per-device playback decision, direct
@@ -584,8 +592,10 @@ messages and perform the effects it asks for.
   `accounts` (password, pairing with polling and expiry, connect and pair links, approvals,
   devices, tokens), `session` (user, features, display language, accent; a 401 anywhere signs
   the account out but keeps it), `catalog` (stale-while-revalidate home, listings, titles,
-  genres, My List, search with debounce and supersede, warm-start home per account, image URLs
-  per role with the artwork grant), `ranks` (rank badge and level-ups, throttled achievement
+  genres, My List, search with debounce and supersede, warm-start home per account, deleted
+  when that account signs out, image URLs per role with the artwork grant; confirmed My List
+  changes are numbered and folded into answers requested before them, so a slow refetch never
+  undoes one), `ranks` (rank badge and level-ups, throttled achievement
   checks, celebration queue, profiles with the heatmap, leaderboards), `profile` (edits,
   password, avatar/banner uploads), `playback` (the device profile and `resolvePlayback`,
   sources by tier, resume, watched-time accounting and progress saves, JIT keepalive,
@@ -756,20 +766,34 @@ browser and used to block the page swap on a network round-trip - visibly slow o
 Raspberry Pi. Data pages are now **optimistic**: navigation swaps in at once and data
 fills in behind a cached value or a skeleton.
 
-- **SWR cache** (`lib/api/cache.svelte.ts`): a reactive stale-while-revalidate store over
-  `svelte/reactivity` `SvelteMap`. `createSwrCache<T>()` registers an instance (LRU-capped);
-  `get(key)` is a reactive read, `revalidate(key, fetcher)` fetches + stores, and
-  `resetAllCaches()` (called by `session` on logout/401) drops everything. Per-feature
-  instances live in `features/<name>/cache.svelte.ts` (`titleCache`, `homeCache`,
-  `browseCache`).
-- **Page pattern**: a page's `+page.ts` is non-blocking - it returns the cache key plus the
-  un-awaited `fresh` revalidation promise. The route shell still renders `XxxPage.svelte`,
-  now a thin wrapper around **`CachedView`** (`lib/components/`) which derives the cached
-  value and renders one of three snippets: `content` (cached value paints instantly and
-  updates silently when revalidation lands - stale beats blank), `skeleton` (cold visit),
-  or `notFound`. The old page body moved verbatim into `XxxContent.svelte`. Skeletons reuse
-  `ui/Skeleton.svelte` + `animate-shimmer` and mirror each real layout. Applies to home,
-  title and browse (movies/series/genres/my-list).
+- **The catalog is core-backed** (home, title, movies, series, genres, a genre, My List,
+  search): the core's `catalog` module is the cache (stale-while-revalidate, LRU-capped,
+  reset by the core itself on sign-out or an account change, a warm-start home in
+  `localStorage`). A page's `+page.ts` only starts loading its screen and returns it
+  (`features/catalog/api.ts`): `revisit(screen)` (home, title, My List: `RefreshRequested`,
+  so every visit catches up with progress and list changes made elsewhere, as the SWR cache
+  always did) or `preload(screen)`/`preloadListing(key)` (genres, listings: `ScreenOpened`
+  then `ScreenClosed`, loading only what the core does not hold as fresh, 60 s). The page
+  holds the screen open while mounted (`useScreen` from `lib/core/screen.svelte.ts`:
+  `ScreenOpened`/`ScreenClosed`, with `revalidate` it reloads unless its load just did) and
+  reads the view model reactively. A load cannot own the open/close pair: hover, TV-focus
+  and the player's preloads run loads for pages that never mount, and SvelteKit reuses a
+  preload's result without running the load again.
+- **SWR cache** (`lib/api/cache.svelte.ts`): what the web still fetches itself (a public
+  profile and the leaderboard in `ranks`, the devices list) uses a reactive
+  stale-while-revalidate store over `svelte/reactivity` `SvelteMap`. `createSwrCache<T>()`
+  registers an instance (LRU-capped); `get(key)` is a reactive read, `revalidate(key,
+  fetcher)` fetches + stores (only the newest fetch, and only if nothing was written since
+  it started), and `resetAllCaches()` (called by `session` on logout/401) drops everything.
+  Instances live in `features/<name>/cache.svelte.ts`.
+- **Page pattern**: the route shell renders `XxxPage.svelte`, a thin wrapper around
+  **`CachedView`** (`lib/components/`), which renders one of its snippets: `content` (the
+  cached value paints instantly and updates silently when revalidation lands - stale beats
+  blank), `skeleton` (cold visit), `notFound`, or `failed` (a cold visit that could not
+  load, with a Retry: `LoadFailed`). Core-backed pages pass the view's content (`shown(view)`,
+  or `TitleView.detail`) and its `LoadStatus`; SWR pages their cache value and the load's
+  un-awaited `fresh` promise. The page body lives in `XxxContent.svelte`. Skeletons reuse
+  `ui/Skeleton.svelte` + `animate-shimmer` and mirror each real layout.
 - **`StreamedView`** (`lib/components/`): the same three states but promise-backed and
   **uncached** - it keeps the last resolved value during a same-`key` revalidation
   (`invalidateAll` after a save) so it never flashes the skeleton mid-edit. Used by the
@@ -789,9 +813,9 @@ fills in behind a cached value or a skeleton.
 
 ## Shared core on the web (cross-cutting)
 
-The web runs the shared client core (see "Shared client core") as wasm, so far for the
-session and bio markdown. Its catalog, ranks and profile modules wait for their slices, so the
-rest of the viewer still calls the API itself.
+The web runs the shared client core (see "Shared client core") as wasm for the session, bio
+markdown and the viewer's catalog. Its ranks, profile, playback and couch modules wait for
+their slices, so the rest of the viewer still calls the API itself.
 
 - **Runtime** (`lib/core/`): `index.ts` creates the one `core` (`CoreRuntime`,
   `runtime.svelte.ts`) in cookie mode and starts downloading and compiling the wasm
@@ -805,6 +829,21 @@ rest of the viewer still calls the API itself.
   re-reading only the surfaces a `render` names and reusing the unchanged parts of a view so
   effects reading them stay quiet. `send(event)` settles once every effect it led to has
   finished (timers aside).
+- **Screens**: `core.view(surface)` reads any surface's view model; it stays current (a
+  `SvelteMap` entry re-read on every `render` naming it, unchanged parts and array items
+  kept) while something watches it: `open(surface)` (a screen: `ScreenOpened` now,
+  `ScreenClosed` from the returned close; pages use `useScreen`) or `watch(surface)` (no
+  events, for the notices). `revalidate` sends `RefreshRequested`, `prefetch` an open and
+  close pair. Surfaces are matched by `surfaceKey` (JSON with sorted keys), since the core's
+  renders order a `BrowseKey`'s fields its own way. A restarted core is sent `ScreenOpened`
+  for every screen still open.
+- **Catalog**: `+page.ts` loads and pages as in "Optimistic navigation & caching". Infinite
+  scroll sends `BrowseMoreRequested` when a sentinel under the grid comes within 800 px, the
+  search box sends `SearchChanged` on every keystroke (the core debounces, supersedes and
+  keeps the last query, so coming back to `/search` shows it again), My List toggles send
+  `WatchlistChanged` (shown at once, rolled back by the core). `lib/core/Notices.svelte`
+  (root layout) turns the `notices` view into svelte-sonner toasts, localizing each code,
+  and sends `NoticeDismissed` when a toast closes.
 - **Traps**: a Rust panic aborts the wasm instance. The wasm-bindgen glue keeps its instance
   in module scope, so each core evaluates its own copy of the glue; after a trap a new core
   sends `AppStarted` again while the old views stay up. Markdown that trapped it renders as
