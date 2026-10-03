@@ -166,10 +166,17 @@ engine (ffmpeg, hardware encoder detection/probing) and transcode admin. Full de
 - Job handler: `transcode_hls` (per-type concurrency = `maxConcurrent` setting) with the
   variants `package` (the copied source and every audio rendition in one read), `trickplay`
   and a ladder rendition name.
-- Web: WatchPage + VideoPlayer (HLS.js, subtitles, shortcuts, progress beacons incl.
-  watched-seconds deltas, JIT keepalive, banner-accented chrome, bits-ui control tooltips,
-  seek-bar time + frame preview - splitting it is a known follow-up). `deviceProfile()` in
-  `playback/api.ts` measures the browser once per page load.
+- Web: the core's `playback` module plays (see "Shared core on the web"). `WatchPage` asks it
+  to play what `/watch/{kind}/{id}` names and follows the URL when the core moves on (next
+  up, a remote); `VideoPlayer` draws the core's `PlayerView` (qualities, audio and subtitle
+  choices, the episode switcher, shuffle, the next-episode countdown, frame previews, a
+  follower's linear player) with banner-accented chrome, bits-ui tooltips, shortcuts and the
+  TV remote, and sends the viewer's choices as events. `ElementPlayer`
+  (`playback/element-player.svelte.ts`) runs the core's player commands on the `<video>`: a
+  file, HLS through hls.js (Safari's own where it has audio menus), a pinned quality, sidecar
+  WebVTT drawn in the page's own overlay, audio renditions; it reports about once a second and
+  on every change. The watch route's load only names the title, so preloading it cannot start
+  a transcode. `lib/core/device-profile.ts` measures the browser once per launch.
 - Transcode ladder/settings policy and the auto-prepare policy (`media.AutoPrepare`) live in
   the `media` kernel and `library.Prepare` queues the jobs, so library's prober can prepare
   renditions without importing playback. Rendition bitrates are capped at the source bitrate
@@ -346,13 +353,16 @@ admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
   carrying such a grant, which revokes it the moment the follower leaves, the host
   switches media or the session ends. The couch payloads also carry an artwork grant
   (`artworkGrant`) so anonymous guests can load avatars and backdrops.
-- Web (`features/couch`): a singleton rune store (WebSocket + follower sync +
-  host broadcast), a public `/couch/[token]` route that
-  joins anonymous viewers without tripping the 401 redirect, the assembled
-  accent-recoloured `Couch` (seated avatars + host remote), a management popover and
-  couch buttons in the player control bar + TopNav, and a bundled (no-CDN) emoji
-  picker. `VideoPlayer` composes follower/host modes via the store at its seams; it
-  is not forked.
+- Web (`features/couch`): the core's `couch` module runs the session (the socket with
+  reconnect, the host's broadcasts from its player reports, the follower's drift correction
+  through player commands, reactions, remote commands) and plays the host's media for a
+  follower. The `couch` store reads its `CouchView` and sends the couch events; a public
+  `/couch/[token]` route previews the session (`GET /couch/{token}/info`, the web's only
+  couch call) and joins on the viewer's click, so the video may autoplay, for guests without
+  an account too (the core rides on the couch cookie and the session's artwork grant). The
+  assembled accent-recoloured `Couch` (seated avatars + host remote), a management popover,
+  couch buttons in the player control bar + TopNav and a bundled (no-CDN) emoji picker
+  complete it. `VideoPlayer` is the same for hosts and followers; a follower's is linear.
 
 ### ranks
 Player progression: XP, rank tiers, achievements, public profiles and the global
@@ -838,19 +848,19 @@ fills in behind a cached value or a skeleton.
   (`$app/state`), mounted once in the root layout with a `view-transition-name` opt-out -
   instant click feedback for any navigation the skeletons do not already cover.
 - **Preload rule**: `preloadData` is only ever called for **side-effect-free** routes (the
-  player warms `/title/{slug}` on mount so "back" is instant). A `/watch/...` load starts a
-  JIT transcode, so watch routes are **never** data-preloaded - links to them use
-  `data-sveltekit-preload-data="tap"` (not the global `hover`), so merely hovering an
-  episode row or continue-watching card cannot spawn a transcode on the Pi. In-player
-  episode navigation dropped `invalidateAll` (the `[id]` change already re-runs the watch
-  load; the root layout's core start and preferences fetch stay put), and the transcode poll
-  uses a targeted `invalidate('app:playback')`.
+  player warms `/title/{slug}` on mount so "back" is instant). Playing starts a stream (a
+  JIT transcode on the Pi), so the watch page asks the core to play only once it is on
+  screen and its load just names the title; links to it still use
+  `data-sveltekit-preload-data="tap"` (not the global `hover`), so hovering an episode row
+  or continue-watching card does not even fetch its code. The core polls a transcode being
+  prepared itself.
 
 ## Shared core on the web (cross-cutting)
 
 The web runs the shared client core (see "Shared client core") as wasm for the session, bio
-markdown and the viewer's catalog. Its ranks, profile, playback and couch modules wait for
-their slices, so the rest of the viewer still calls the API itself.
+markdown, the viewer's catalog, the player and the couch. Its ranks and profile modules wait
+for their slice, so profiles, leaderboards and the profile editor still call the API
+themselves.
 
 - **Runtime** (`lib/core/`): `index.ts` creates the one `core` (`CoreRuntime`,
   `runtime.svelte.ts`) in cookie mode and starts downloading and compiling the wasm
@@ -858,12 +868,18 @@ their slices, so the rest of the viewer still calls the API itself.
   `core.start()` (the wasm plus the session's first load, alongside the web's preferences);
   the guards (`(app)` and `admin` layouts, login, the rankings pages) `await parent()`, so they
   run with the session known. The runtime stamps `nowMs` from `performance.now()`, performs
-  effects through `executor.ts` (`fetch` with the cookie, `localStorage` under `cv.core.`,
-  timers; secure-store reads are empty and writes refused, the web keeps no secrets; `upload`
-  fails, the web still uploads images itself) and keeps `app` and `session` in `$state.raw`,
+  effects through `executor.ts` (`fetch` with the cookie, keepalive for everything but GETs
+  so what the player saves as the tab closes arrives; `localStorage` under `cv.core.`;
+  timers; WebSockets, the page's origin picking ws or wss; secure-store reads are empty and
+  writes refused, the web keeps no secrets; `upload` fails, the web still uploads images
+  itself) and keeps `app` and `session` in `$state.raw`,
   re-reading only the surfaces a `render` names and reusing the unchanged parts of a view so
   effects reading them stay quiet. `send(event)` settles once every effect it led to has
-  finished (timers aside).
+  finished (timers aside). Every new core first hears `CapabilitiesReported` with the device
+  profile (`device-profile.ts`, tested against `contract/fixtures/device-profiles`), so
+  playback resolves by POST. Player commands go to the player a page attached
+  (`attachPlayer`); those that came while none was, from the last load on, are replayed to
+  it.
 - **Screens**: `core.view(surface)` reads any surface's view model; it stays current (a
   `SvelteMap` entry re-read on every `render` naming it, unchanged parts and array items
   kept) while something watches it: `open(surface)` (a screen: `ScreenOpened` now,
@@ -879,9 +895,13 @@ their slices, so the rest of the viewer still calls the API itself.
   `WatchlistChanged` (shown at once, rolled back by the core). `lib/core/Notices.svelte`
   (root layout) turns the `notices` view into svelte-sonner toasts, localizing each code,
   and sends `NoticeDismissed` when a toast closes.
+- **Player and couch**: see playback and couch above. The player's state lives in the core
+  (`PlayerView`, `CouchView`); the page owns only the element and its chrome (volume,
+  fullscreen, picture-in-picture, the subtitle style). In cookie mode the core plays and
+  follows a couch without a signed-in session too, for guests on the couch cookie.
 - **Traps**: a Rust panic aborts the wasm instance. The wasm-bindgen glue keeps its instance
   in module scope, so each core evaluates its own copy of the glue; after a trap a new core
-  sends `AppStarted` again while the old views stay up. Markdown that trapped it renders as
+  sends `AppStarted` again while the old views stay up, and its sockets are closed. Markdown that trapped it renders as
   plain text from then on; a second trap while restarting gives up.
 - **Session**: `features/auth/session.svelte.ts` reads `core.session` (user, flags via
   `features/settings/features.svelte.ts`, language, accent). The login form posts
