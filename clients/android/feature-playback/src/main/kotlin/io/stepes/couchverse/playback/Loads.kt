@@ -8,6 +8,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
+import io.stepes.couchverse.core.AudioRendition
 import io.stepes.couchverse.core.PlayerLoad
 import io.stepes.couchverse.core.PlayerSource
 import io.stepes.couchverse.core.PlayerSubtitle
@@ -82,6 +83,17 @@ fun TrackSelectionParameters.Builder.selectSubtitles(
     setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
     setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, 0))
     return true
+}
+
+/**
+ * Switches to the audio rendition [rendition] names: by its place among the stream's audio
+ * when given (two can share a language), else by its language.
+ */
+fun TrackSelectionParameters.Builder.selectAudio(rendition: AudioRendition, tracks: Tracks): TrackSelectionParameters.Builder {
+    setPreferredAudioLanguage(rendition.lang)
+    val group = rendition.index?.toInt()?.let { index -> tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }.getOrNull(index) }
+    if (group != null) setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, 0)) else clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+    return this
 }
 
 private fun baseLanguage(tag: String): String = tag.substringBefore('-').lowercase()

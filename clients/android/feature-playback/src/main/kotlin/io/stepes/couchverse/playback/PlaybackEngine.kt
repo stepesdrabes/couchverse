@@ -68,6 +68,7 @@ class PlaybackEngine(
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.containsAny(
                     Player.EVENT_IS_PLAYING_CHANGED,
+                    Player.EVENT_PLAY_WHEN_READY_CHANGED,
                     Player.EVENT_PLAYBACK_STATE_CHANGED,
                     Player.EVENT_PLAYER_ERROR,
                     Player.EVENT_POSITION_DISCONTINUITY,
@@ -76,7 +77,7 @@ class PlaybackEngine(
             ) {
                 send()
             }
-            if (events.contains(Player.EVENT_IS_PLAYING_CHANGED)) ticking(player.isPlaying)
+            ticking(meansPlaying(player))
         }
 
         override fun onTracksChanged(tracks: Tracks) {
@@ -103,7 +104,7 @@ class PlaybackEngine(
             is PlayerCommand.Seek -> current.value?.seekTo((command.content.seconds * 1000).toLong())
             is PlayerCommand.SelectAudio -> current.value?.let { player ->
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-                    .setPreferredAudioLanguage(command.content.lang)
+                    .selectAudio(command.content, player.currentTracks)
                     .build()
             }
             is PlayerCommand.SelectSubtitles -> {
@@ -139,6 +140,7 @@ class PlaybackEngine(
 
     private fun stop() {
         main.removeCallbacks(tick)
+        ticking = false
         current.value?.let {
             it.removeListener(listener)
             it.release()
@@ -149,9 +151,13 @@ class PlaybackEngine(
     }
 
     private fun ticking(playing: Boolean) {
+        if (playing == ticking) return
+        ticking = playing
         main.removeCallbacks(tick)
         if (playing) main.postDelayed(tick, TICK_MS)
     }
+
+    private var ticking = false
 
     private fun send(always: Boolean = false) {
         val player = current.value ?: return
@@ -174,12 +180,19 @@ fun reportOf(player: Player, load: PlayerLoad?): PlayerReport {
     return PlayerReport(
         positionSeconds = player.currentPosition.coerceAtLeast(0) / 1000.0,
         durationSeconds = duration,
-        playing = player.isPlaying,
+        playing = meansPlaying(player),
         buffering = player.playbackState == Player.STATE_BUFFERING,
         ended = player.playbackState == Player.STATE_ENDED,
         failed = player.playerError?.let(::reason),
     )
 }
+
+/**
+ * Playing as a viewer means it, as the web's element does: buffering is still playing (a couch
+ * host that stalls must not pause its followers); a pause, the end and a failure are not.
+ */
+fun meansPlaying(player: Player): Boolean =
+    player.playWhenReady && (player.playbackState == Player.STATE_READY || player.playbackState == Player.STATE_BUFFERING)
 
 /** A short reason for a failure: the HTTP status when the server refused, else Media3's code. */
 fun reason(error: PlaybackException): String {
