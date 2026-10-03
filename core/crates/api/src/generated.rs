@@ -3625,77 +3625,12 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct StreamSessionStart {
-        /// From jit.audio.
+        /// The payload's jit object; without it the session makes AAC of the default audio track.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub audio: Option<StreamSessionStartAudio>,
-        /// From jit.audioStream: the source stream index of the audio track.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub audio_stream: Option<i64>,
+        pub plan: Option<JitPlan>,
         /// Position in seconds to start transcoding from.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub start_at: Option<f64>,
-        /// From jit.video; the session transcodes when it cannot copy.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub video: Option<StreamSessionStartVideo>,
-    }
-
-    /// From jit.audio.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-    pub enum StreamSessionStartAudio {
-        #[serde(rename = "copy")]
-        Copy,
-        #[serde(rename = "aac")]
-        Aac,
-        #[serde(rename = "eac3")]
-        Eac3,
-        /// A value this client does not know yet.
-        #[serde(other)]
-        Unknown,
-    }
-
-    impl StreamSessionStartAudio {
-        pub fn as_str(self) -> &'static str {
-            match self {
-                StreamSessionStartAudio::Copy => "copy",
-                StreamSessionStartAudio::Aac => "aac",
-                StreamSessionStartAudio::Eac3 => "eac3",
-                StreamSessionStartAudio::Unknown => "unknown",
-            }
-        }
-    }
-
-    impl std::fmt::Display for StreamSessionStartAudio {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str(self.as_str())
-        }
-    }
-
-    /// From jit.video; the session transcodes when it cannot copy.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-    pub enum StreamSessionStartVideo {
-        #[serde(rename = "copy")]
-        Copy,
-        #[serde(rename = "transcode")]
-        Transcode,
-        /// A value this client does not know yet.
-        #[serde(other)]
-        Unknown,
-    }
-
-    impl StreamSessionStartVideo {
-        pub fn as_str(self) -> &'static str {
-            match self {
-                StreamSessionStartVideo::Copy => "copy",
-                StreamSessionStartVideo::Transcode => "transcode",
-                StreamSessionStartVideo::Unknown => "unknown",
-            }
-        }
-    }
-
-    impl std::fmt::Display for StreamSessionStartVideo {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str(self.as_str())
-        }
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

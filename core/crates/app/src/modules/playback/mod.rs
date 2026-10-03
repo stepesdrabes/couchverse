@@ -562,7 +562,10 @@ impl Playback {
             PlaybackInfoMode::Jit => {
                 let call = ops::create_stream_session(
                     &info.grant,
-                    &StreamSessionStart { start_at: Some(resume) },
+                    &StreamSessionStart {
+                        start_at: Some(resume),
+                        plan: info.jit.clone(),
+                    },
                 );
                 session.position = resume;
                 session.info = Some(info);

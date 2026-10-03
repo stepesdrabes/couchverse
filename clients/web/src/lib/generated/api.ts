@@ -1288,21 +1288,11 @@ export interface StreamSession {
 }
 
 export interface StreamSessionStart {
-	/** From jit.audio. */
-	audio?: StreamSessionStartAudio;
-	/** From jit.audioStream: the source stream index of the audio track. */
-	audioStream?: number;
+	/** The payload's jit object; without it the session makes AAC of the default audio track. */
+	plan?: JitPlan;
 	/** Position in seconds to start transcoding from. */
 	startAt?: number;
-	/** From jit.video; the session transcodes when it cannot copy. */
-	video?: StreamSessionStartVideo;
 }
-
-/** From jit.audio. */
-export type StreamSessionStartAudio = 'copy' | 'aac' | 'eac3';
-
-/** From jit.video; the session transcodes when it cannot copy. */
-export type StreamSessionStartVideo = 'copy' | 'transcode';
 
 export interface Subtitle {
 	createdAt: string;

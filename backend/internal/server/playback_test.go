@@ -166,7 +166,7 @@ func TestPlaybackTiers(t *testing.T) {
 		t.Fatalf("jit: %d %s", status, body)
 	}
 	status, body, _ = env.request(t, member, "POST", "/media/"+info.Grant+"/jit",
-		map[string]any{"startAt": 0, "video": info.JIT.Video, "audioStream": info.JIT.AudioStream, "audio": info.JIT.Audio})
+		map[string]any{"startAt": 0, "plan": info.JIT})
 	var session playback.StreamSession
 	if err := json.Unmarshal(body, &session); status != 201 || err != nil {
 		t.Fatalf("jit session: %d %s", status, body)

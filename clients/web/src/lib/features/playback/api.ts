@@ -145,7 +145,7 @@ export const continueWatching = () => api<ContinueItem[]>('/me/continue-watching
 
 /** Open the instant-play session the payload planned (mode jit), authorized by its media grant. */
 export const createJitSession = (info: PlaybackInfo, startAt: number) =>
-	createStreamSession(info.grant, { startAt, ...info.jit }, { skipAuthRedirect: true });
+	createStreamSession(info.grant, { startAt, plan: info.jit }, { skipAuthRedirect: true });
 
 export const jitKeepalive = (grant: string, sessionId: string) =>
 	keepStreamSessionAlive(grant, sessionId, { skipAuthRedirect: true });

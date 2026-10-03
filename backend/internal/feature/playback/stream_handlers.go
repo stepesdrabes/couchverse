@@ -703,14 +703,10 @@ func (h *Stream) requireJIT(ctx context.Context) error {
 	return nil
 }
 
-// StreamSessionStart opens an instant-play session; the plan fields come from
-// the payload's jit object and default to an H.264 transcode with AAC of the
-// default audio track.
+// StreamSessionStart opens an instant-play session.
 type StreamSessionStart struct {
-	StartAt     float64 `json:"startAt" required:"false" doc:"Position in seconds to start transcoding from."`
-	Video       string  `json:"video,omitempty" required:"false" enum:"copy,transcode" doc:"From jit.video; the session transcodes when it cannot copy."`
-	AudioStream *int    `json:"audioStream,omitempty" required:"false" doc:"From jit.audioStream: the source stream index of the audio track."`
-	Audio       string  `json:"audio,omitempty" required:"false" enum:"copy,aac,eac3" doc:"From jit.audio."`
+	StartAt float64  `json:"startAt" required:"false" doc:"Position in seconds to start transcoding from."`
+	Plan    *JITPlan `json:"plan,omitempty" required:"false" doc:"The payload's jit object; without it the session makes AAC of the default audio track."`
 }
 
 type createStreamSessionInput struct {
@@ -734,9 +730,9 @@ func (h *Stream) CreateSession(ctx context.Context, in *createStreamSessionInput
 	if mf, merr := h.library.MediaFileByID(ctx, mediaFileID); merr == nil && mf.SourceDeletedAt != nil {
 		return nil, httpx.Fail(http.StatusNotFound, "source_deleted", "the original file was removed after transcoding")
 	}
-	plan := JITPlan{Video: in.Body.Video, AudioStream: -1, Audio: in.Body.Audio}
-	if in.Body.AudioStream != nil {
-		plan.AudioStream = *in.Body.AudioStream
+	plan := JITPlan{Video: "transcode", AudioStream: -1, Audio: "aac"}
+	if in.Body.Plan != nil {
+		plan = *in.Body.Plan
 	}
 	owner := sessionOwner{Subject: g.Subject, Couch: g.Couch}
 	session, err := h.sessions.Create(ctx, context.Background(), mediaFileID, owner, plan, max(0, in.Body.StartAt))

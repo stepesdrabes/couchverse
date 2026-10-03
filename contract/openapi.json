@@ -4085,32 +4085,14 @@
       "StreamSessionStart": {
         "additionalProperties": false,
         "properties": {
-          "audio": {
-            "description": "From jit.audio.",
-            "enum": [
-              "copy",
-              "aac",
-              "eac3"
-            ],
-            "type": "string"
-          },
-          "audioStream": {
-            "description": "From jit.audioStream: the source stream index of the audio track.",
-            "format": "int64",
-            "type": "integer"
+          "plan": {
+            "$ref": "#/components/schemas/JITPlan",
+            "description": "The payload's jit object; without it the session makes AAC of the default audio track."
           },
           "startAt": {
             "description": "Position in seconds to start transcoding from.",
             "format": "double",
             "type": "number"
-          },
-          "video": {
-            "description": "From jit.video; the session transcodes when it cannot copy.",
-            "enum": [
-              "copy",
-              "transcode"
-            ],
-            "type": "string"
           }
         },
         "type": "object"
