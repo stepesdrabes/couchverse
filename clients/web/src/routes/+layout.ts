@@ -9,9 +9,10 @@ export const ssr = false;
 export const prerender = false;
 
 export async function load() {
-	// the core loads the session (user, flags, language, accent) while the web's own
-	// preferences load alongside; a visitor without a session just gets a 401 for those
-	await Promise.all([core.start(), preferences.init()]);
+	// the core loads the session (user, flags, language, accent); the web's own preferences
+	// follow for a signed-in visitor only, so a signed-out page asks the server once
+	await core.start();
+	if (session.user) await preferences.init();
 	if (session.user && followAccountLang()) {
 		// reloading into the account's language: rendering now would flash the old one
 		await new Promise(() => {});
