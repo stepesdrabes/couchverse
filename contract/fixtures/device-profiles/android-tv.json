@@ -1,0 +1,19 @@
+{
+  "containers": ["mp4", "mkv", "webm"],
+  "video": [
+    { "codec": "h264" },
+    { "codec": "hevc", "maxBitDepth": 10 },
+    { "codec": "vp9", "maxBitDepth": 10 },
+    { "codec": "av1", "maxBitDepth": 10 }
+  ],
+  "audio": [
+    { "codec": "aac", "maxChannels": 6 },
+    { "codec": "ac3", "maxChannels": 6 },
+    { "codec": "eac3", "maxChannels": 6 },
+    { "codec": "opus", "maxChannels": 6 }
+  ],
+  "hdr": ["hdr10", "hdr10plus", "hlg", "dolbyVision7", "dolbyVision8"],
+  "hls": ["fmp4"],
+  "sidecarSubtitles": ["webvtt"],
+  "audioTrackSwitching": true
+}

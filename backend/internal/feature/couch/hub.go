@@ -45,7 +45,7 @@ type MediaResolver interface {
 }
 
 type PlaybackBuilder interface {
-	BuildPlayback(ctx context.Context, kind, id string, viewer playback.Viewer, caps []string) (*playback.PlaybackInfo, error)
+	BuildPlayback(ctx context.Context, kind, id string, viewer playback.Viewer, profile playback.DeviceProfile) (*playback.PlaybackInfo, error)
 }
 
 // CouchWatchRecorder persists the separate on-couch watch-time stat (satisfied

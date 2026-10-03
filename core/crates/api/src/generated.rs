@@ -716,6 +716,72 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct AudioSupport {
+        /// Dolby Atmos (E-AC-3 JOC, TrueHD) reaches the output as Atmos.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub atmos: Option<bool>,
+        pub codec: AudioSupportCodec,
+        /// Most channels the client outputs; 0 means 2.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub max_channels: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum AudioSupportCodec {
+        #[serde(rename = "aac")]
+        Aac,
+        #[serde(rename = "mp3")]
+        Mp3,
+        #[serde(rename = "ac3")]
+        Ac3,
+        #[serde(rename = "eac3")]
+        Eac3,
+        #[serde(rename = "truehd")]
+        Truehd,
+        #[serde(rename = "dts")]
+        Dts,
+        #[serde(rename = "flac")]
+        Flac,
+        #[serde(rename = "opus")]
+        Opus,
+        #[serde(rename = "vorbis")]
+        Vorbis,
+        #[serde(rename = "alac")]
+        Alac,
+        #[serde(rename = "pcm")]
+        Pcm,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl AudioSupportCodec {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                AudioSupportCodec::Aac => "aac",
+                AudioSupportCodec::Mp3 => "mp3",
+                AudioSupportCodec::Ac3 => "ac3",
+                AudioSupportCodec::Eac3 => "eac3",
+                AudioSupportCodec::Truehd => "truehd",
+                AudioSupportCodec::Dts => "dts",
+                AudioSupportCodec::Flac => "flac",
+                AudioSupportCodec::Opus => "opus",
+                AudioSupportCodec::Vorbis => "vorbis",
+                AudioSupportCodec::Alac => "alac",
+                AudioSupportCodec::Pcm => "pcm",
+                AudioSupportCodec::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for AudioSupportCodec {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct BrowsePage {
         pub items: Vec<CardItem>,
         pub total: i64,
@@ -1403,6 +1469,169 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct DeviceProfile {
+        /// Audio codecs the client decodes or passes through to the receiver.
+        pub audio: Vec<AudioSupport>,
+        /// The client switches between the audio tracks inside a direct-played file; without it, a file with several audio tracks plays through HLS.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub audio_track_switching: Option<bool>,
+        /// Progressive containers the client direct-plays.
+        pub containers: Vec<DeviceProfileContainersItem>,
+        /// HDR formats the client presents, Dolby Vision per profile; SDR is always assumed. HDR video outside the list plays its compatible base layer or is tone-mapped to SDR.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub hdr: Option<Vec<DeviceProfileHdrItem>>,
+        /// HLS segment formats the client plays; empty when it cannot play HLS.
+        pub hls: Vec<DeviceProfileHlsItem>,
+        /// Bits per second the client can stream; 0 for no limit.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub max_bitrate: Option<i64>,
+        /// Highest frame rate the client plays; 0 for no limit.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub max_frame_rate: Option<f64>,
+        /// Tallest video the client plays; 0 for no limit.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub max_height: Option<i64>,
+        /// Widest video the client plays; 0 for no limit.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub max_width: Option<i64>,
+        /// Subtitle formats the client renders beside a direct-played file; without one, subtitles need HLS renditions.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub sidecar_subtitles: Option<Vec<DeviceProfileSidecarSubtitlesItem>>,
+        /// Video codecs the client decodes.
+        pub video: Vec<VideoSupport>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DeviceProfileContainersItem {
+        #[serde(rename = "mp4")]
+        Mp4,
+        #[serde(rename = "mov")]
+        Mov,
+        #[serde(rename = "mkv")]
+        Mkv,
+        #[serde(rename = "webm")]
+        Webm,
+        #[serde(rename = "ts")]
+        Ts,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DeviceProfileContainersItem {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DeviceProfileContainersItem::Mp4 => "mp4",
+                DeviceProfileContainersItem::Mov => "mov",
+                DeviceProfileContainersItem::Mkv => "mkv",
+                DeviceProfileContainersItem::Webm => "webm",
+                DeviceProfileContainersItem::Ts => "ts",
+                DeviceProfileContainersItem::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DeviceProfileContainersItem {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DeviceProfileHdrItem {
+        #[serde(rename = "hdr10")]
+        Hdr10,
+        #[serde(rename = "hdr10plus")]
+        Hdr10plus,
+        #[serde(rename = "hlg")]
+        Hlg,
+        #[serde(rename = "dolbyVision5")]
+        DolbyVision5,
+        #[serde(rename = "dolbyVision7")]
+        DolbyVision7,
+        #[serde(rename = "dolbyVision8")]
+        DolbyVision8,
+        #[serde(rename = "dolbyVision10")]
+        DolbyVision10,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DeviceProfileHdrItem {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DeviceProfileHdrItem::Hdr10 => "hdr10",
+                DeviceProfileHdrItem::Hdr10plus => "hdr10plus",
+                DeviceProfileHdrItem::Hlg => "hlg",
+                DeviceProfileHdrItem::DolbyVision5 => "dolbyVision5",
+                DeviceProfileHdrItem::DolbyVision7 => "dolbyVision7",
+                DeviceProfileHdrItem::DolbyVision8 => "dolbyVision8",
+                DeviceProfileHdrItem::DolbyVision10 => "dolbyVision10",
+                DeviceProfileHdrItem::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DeviceProfileHdrItem {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DeviceProfileHlsItem {
+        #[serde(rename = "ts")]
+        Ts,
+        #[serde(rename = "fmp4")]
+        Fmp4,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DeviceProfileHlsItem {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DeviceProfileHlsItem::Ts => "ts",
+                DeviceProfileHlsItem::Fmp4 => "fmp4",
+                DeviceProfileHlsItem::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DeviceProfileHlsItem {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DeviceProfileSidecarSubtitlesItem {
+        #[serde(rename = "webvtt")]
+        Webvtt,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DeviceProfileSidecarSubtitlesItem {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DeviceProfileSidecarSubtitlesItem::Webvtt => "webvtt",
+                DeviceProfileSidecarSubtitlesItem::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DeviceProfileSidecarSubtitlesItem {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct DeviceSignIn {
         /// Shown in the account's devices list, e.g. "Living room Apple TV".
         /// From 1 to 60 characters.
@@ -1687,6 +1916,36 @@ pub mod types {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum GetHlsMasterVideo {
+        #[serde(rename = "original")]
+        Original,
+        #[serde(rename = "ladder")]
+        Ladder,
+        #[serde(rename = "legacy")]
+        Legacy,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl GetHlsMasterVideo {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                GetHlsMasterVideo::Original => "original",
+                GetHlsMasterVideo::Ladder => "ladder",
+                GetHlsMasterVideo::Legacy => "legacy",
+                GetHlsMasterVideo::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for GetHlsMasterVideo {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum GetLeaderboardPeriod {
         #[serde(rename = "all")]
         All,
@@ -1884,6 +2143,76 @@ pub mod types {
     pub struct HomeSettings {
         /// Titles the home hero cycles through, read as 1-10 (3 when unset).
         pub featured_count: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct JitPlan {
+        /// copy keeps the track's codec; aac makes stereo, eac3 5.1.
+        pub audio: JitPlanAudio,
+        /// Source stream index of the audio track to play; -1 for none.
+        pub audio_stream: i64,
+        /// copy keeps the source video (remux); transcode makes H.264 SDR.
+        pub video: JitPlanVideo,
+    }
+
+    /// copy keeps the track's codec; aac makes stereo, eac3 5.1.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum JitPlanAudio {
+        #[serde(rename = "copy")]
+        Copy,
+        #[serde(rename = "aac")]
+        Aac,
+        #[serde(rename = "eac3")]
+        Eac3,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl JitPlanAudio {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                JitPlanAudio::Copy => "copy",
+                JitPlanAudio::Aac => "aac",
+                JitPlanAudio::Eac3 => "eac3",
+                JitPlanAudio::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for JitPlanAudio {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// copy keeps the source video (remux); transcode makes H.264 SDR.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum JitPlanVideo {
+        #[serde(rename = "copy")]
+        Copy,
+        #[serde(rename = "transcode")]
+        Transcode,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl JitPlanVideo {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                JitPlanVideo::Copy => "copy",
+                JitPlanVideo::Transcode => "transcode",
+                JitPlanVideo::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for JitPlanVideo {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2223,6 +2552,7 @@ pub mod types {
         pub size_bytes: i64,
         pub source_deleted_at: Option<String>,
         pub title_id: Option<String>,
+        pub video: VideoStream,
         pub video_codec: String,
         pub video_range: MediaFileVideoRange,
         pub width: i64,
@@ -2642,12 +2972,13 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct PlaybackAudioTrack {
         pub default: bool,
-        /// HLS master of a file track that does not direct-play.
+        /// HLS multivariant playlist of a file track that does not direct-play.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub hls_url: Option<String>,
         /// The media file id of a file track; embedded:<stream index> for an embedded one.
         pub id: String,
         pub label: String,
+        /// Language code (en, cs), as in the HLS audio renditions; und when unknown.
         pub lang: String,
         pub source: PlaybackAudioTrackSource,
         /// Direct stream of a file track that direct-plays.
@@ -2715,30 +3046,39 @@ pub mod types {
         pub frame_url: String,
         /// The media grant every URL in this payload carries; it expires, so fetch the payload again on grant_expired.
         pub grant: String,
-        /// HLS master of the ready transcodes, offered even when the source direct-plays.
+        /// Multivariant playlist of the transcoded ladder when it is ready and suits the client, offered even when another tier plays.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub hls_url: Option<String>,
+        /// The instant-play session to open (mode jit).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub jit: Option<JitPlan>,
         /// Transcode progress in percent while mode is preparing.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub job_progress: Option<i64>,
         pub media_file_id: String,
-        /// How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession; unsupported cannot play.
+        /// How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession and the plan in jit; unsupported cannot play.
         pub mode: PlaybackInfoMode,
         /// The episode after this one; absent for movies and series finales.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub next_episode: Option<EpisodeRef>,
+        /// The "Original" quality: the source file (tier direct) or the multivariant playlist of the copied source video (tier remux). It stays outside the adaptive ladder.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub original_url: Option<String>,
         /// Saved position in seconds; 0 for couch followers, who sync to the host.
         pub resume_position: i64,
-        /// The source file (mode direct) or the HLS master (mode hls) to load.
+        /// The source file (mode direct) or the HLS multivariant playlist (mode hls) to load.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub stream_url: Option<String>,
         pub subtitles: Vec<PlaybackSubtitleTrack>,
-        /// Ready renditions for the quality menu.
+        /// What reaches the client: the source file, the source video remuxed into HLS, or a transcode. Absent while preparing or unsupported.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub tier: Option<PlaybackInfoTier>,
+        /// Ladder renditions in hlsUrl, for the quality menu.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub variants: Option<Vec<QualityVariant>>,
     }
 
-    /// How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession; unsupported cannot play.
+    /// How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession and the plan in jit; unsupported cannot play.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum PlaybackInfoMode {
         #[serde(rename = "direct")]
@@ -2770,6 +3110,37 @@ pub mod types {
     }
 
     impl std::fmt::Display for PlaybackInfoMode {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// What reaches the client: the source file, the source video remuxed into HLS, or a transcode. Absent while preparing or unsupported.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum PlaybackInfoTier {
+        #[serde(rename = "direct")]
+        Direct,
+        #[serde(rename = "remux")]
+        Remux,
+        #[serde(rename = "transcode")]
+        Transcode,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl PlaybackInfoTier {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                PlaybackInfoTier::Direct => "direct",
+                PlaybackInfoTier::Remux => "remux",
+                PlaybackInfoTier::Transcode => "transcode",
+                PlaybackInfoTier::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for PlaybackInfoTier {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -3080,6 +3451,33 @@ pub mod types {
         pub uhd: i64,
     }
 
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum ResolvePlaybackKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "episode")]
+        Episode,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl ResolvePlaybackKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                ResolvePlaybackKind::Movie => "movie",
+                ResolvePlaybackKind::Episode => "episode",
+                ResolvePlaybackKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for ResolvePlaybackKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SearchResults {
@@ -3219,6 +3617,7 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct StreamSession {
+        /// The session's multivariant playlist (with the subtitle renditions).
         pub playlist_url: String,
         pub session_id: String,
     }
@@ -3226,9 +3625,77 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct StreamSessionStart {
+        /// From jit.audio.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub audio: Option<StreamSessionStartAudio>,
+        /// From jit.audioStream: the source stream index of the audio track.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub audio_stream: Option<i64>,
         /// Position in seconds to start transcoding from.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub start_at: Option<f64>,
+        /// From jit.video; the session transcodes when it cannot copy.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub video: Option<StreamSessionStartVideo>,
+    }
+
+    /// From jit.audio.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum StreamSessionStartAudio {
+        #[serde(rename = "copy")]
+        Copy,
+        #[serde(rename = "aac")]
+        Aac,
+        #[serde(rename = "eac3")]
+        Eac3,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl StreamSessionStartAudio {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                StreamSessionStartAudio::Copy => "copy",
+                StreamSessionStartAudio::Aac => "aac",
+                StreamSessionStartAudio::Eac3 => "eac3",
+                StreamSessionStartAudio::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for StreamSessionStartAudio {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// From jit.video; the session transcodes when it cannot copy.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum StreamSessionStartVideo {
+        #[serde(rename = "copy")]
+        Copy,
+        #[serde(rename = "transcode")]
+        Transcode,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl StreamSessionStartVideo {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                StreamSessionStartVideo::Copy => "copy",
+                StreamSessionStartVideo::Transcode => "transcode",
+                StreamSessionStartVideo::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for StreamSessionStartVideo {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -3731,6 +4198,8 @@ pub mod types {
         pub audio_bitrate: i64,
         pub completed_at: Option<String>,
         pub created_at: String,
+        /// fmp4 is HLS v2 (video, audio and subtitles as separate renditions); ts was prepared before it, with the audio muxed in.
+        pub format: TranscodeVariantFormat,
         pub height: i64,
         pub id: String,
         pub media_file_id: String,
@@ -3741,6 +4210,34 @@ pub mod types {
         pub status: TranscodeVariantStatus,
         pub video_bitrate: i64,
         pub width: i64,
+    }
+
+    /// fmp4 is HLS v2 (video, audio and subtitles as separate renditions); ts was prepared before it, with the audio muxed in.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum TranscodeVariantFormat {
+        #[serde(rename = "ts")]
+        Ts,
+        #[serde(rename = "fmp4")]
+        Fmp4,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl TranscodeVariantFormat {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                TranscodeVariantFormat::Ts => "ts",
+                TranscodeVariantFormat::Fmp4 => "fmp4",
+                TranscodeVariantFormat::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for TranscodeVariantFormat {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     /// copy remuxes the source without re-encoding.
@@ -3960,6 +4457,168 @@ pub mod types {
     }
 
     impl std::fmt::Display for UserRole {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct VideoStream {
+        pub bit_depth: i64,
+        /// The container's codec tag (hvc1, hev1, dvh1, avc1); empty when the container has none (Matroska).
+        pub codec_tag: String,
+        /// Dolby Vision base-layer compatibility id: 1 HDR10, 2 SDR, 4 HLG, 6 Blu-ray HDR10, 0 none.
+        pub dovi_compatibility: i64,
+        /// Dolby Vision profile (5, 7, 8); 0 without Dolby Vision.
+        pub dovi_profile: i64,
+        pub frame_rate: f64,
+        pub hdr: VideoStreamHdr,
+        /// Codec level as written, e.g. 4.1 or 5.1; 0 when unknown.
+        pub level: f64,
+        /// Normalized codec profile: baseline, main, high, high10, main10, rext...
+        pub profile: String,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum VideoStreamHdr {
+        #[serde(rename = "sdr")]
+        Sdr,
+        #[serde(rename = "hdr10")]
+        Hdr10,
+        #[serde(rename = "hdr10plus")]
+        Hdr10plus,
+        #[serde(rename = "hlg")]
+        Hlg,
+        #[serde(rename = "dolbyVision")]
+        DolbyVision,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl VideoStreamHdr {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                VideoStreamHdr::Sdr => "sdr",
+                VideoStreamHdr::Hdr10 => "hdr10",
+                VideoStreamHdr::Hdr10plus => "hdr10plus",
+                VideoStreamHdr::Hlg => "hlg",
+                VideoStreamHdr::DolbyVision => "dolbyVision",
+                VideoStreamHdr::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for VideoStreamHdr {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct VideoSupport {
+        pub codec: VideoSupportCodec,
+        /// Deepest decodable bit depth (8, 10, 12); 0 means 8.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub max_bit_depth: Option<i64>,
+        /// Highest level as written (4.1, 5.1); 0 for any.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub max_level: Option<f64>,
+        /// Decodable profiles; empty for every profile within maxBitDepth.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub profiles: Option<Vec<VideoSupportProfilesItem>>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum VideoSupportCodec {
+        #[serde(rename = "h264")]
+        H264,
+        #[serde(rename = "hevc")]
+        Hevc,
+        #[serde(rename = "av1")]
+        Av1,
+        #[serde(rename = "vp9")]
+        Vp9,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl VideoSupportCodec {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                VideoSupportCodec::H264 => "h264",
+                VideoSupportCodec::Hevc => "hevc",
+                VideoSupportCodec::Av1 => "av1",
+                VideoSupportCodec::Vp9 => "vp9",
+                VideoSupportCodec::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for VideoSupportCodec {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum VideoSupportProfilesItem {
+        #[serde(rename = "baseline")]
+        Baseline,
+        #[serde(rename = "main")]
+        Main,
+        #[serde(rename = "high")]
+        High,
+        #[serde(rename = "high10")]
+        High10,
+        #[serde(rename = "high422")]
+        High422,
+        #[serde(rename = "high444")]
+        High444,
+        #[serde(rename = "main10")]
+        Main10,
+        #[serde(rename = "rext")]
+        Rext,
+        #[serde(rename = "professional")]
+        Professional,
+        #[serde(rename = "profile0")]
+        Profile0,
+        #[serde(rename = "profile1")]
+        Profile1,
+        #[serde(rename = "profile2")]
+        Profile2,
+        #[serde(rename = "profile3")]
+        Profile3,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl VideoSupportProfilesItem {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                VideoSupportProfilesItem::Baseline => "baseline",
+                VideoSupportProfilesItem::Main => "main",
+                VideoSupportProfilesItem::High => "high",
+                VideoSupportProfilesItem::High10 => "high10",
+                VideoSupportProfilesItem::High422 => "high422",
+                VideoSupportProfilesItem::High444 => "high444",
+                VideoSupportProfilesItem::Main10 => "main10",
+                VideoSupportProfilesItem::Rext => "rext",
+                VideoSupportProfilesItem::Professional => "professional",
+                VideoSupportProfilesItem::Profile0 => "profile0",
+                VideoSupportProfilesItem::Profile1 => "profile1",
+                VideoSupportProfilesItem::Profile2 => "profile2",
+                VideoSupportProfilesItem::Profile3 => "profile3",
+                VideoSupportProfilesItem::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for VideoSupportProfilesItem {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -4928,7 +5587,7 @@ pub mod ops {
     pub struct GetCouchPlaybackQuery {
         /// Display language (ISO 639-1). Empty serves the base text.
         pub lang: Option<String>,
-        /// Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision.
+        /// Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc). Superseded by resolveCouchPlayback, which takes a full device profile.
         pub caps: Option<Vec<String>>,
     }
 
@@ -4953,13 +5612,13 @@ pub mod ops {
         build::json(build::request(Method::Get, "/features".to_string(), q, Body::Empty))
     }
 
-    /// Get an HLS playlist or segment of a prepared variant
+    /// Get an HLS playlist, init section or segment of a prepared rendition
     ///
     /// `GET /media/{grant}/hls/{variant}/{file}`
     ///
     /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
-    /// - `variant`: Rendition name (e.g. 720p), source or multiaudio.
-    /// - `file`: Playlist or segment file name.
+    /// - `variant`: Rendition: source, a ladder rung (e.g. 720p), audio-<stream>-<codec>, trickplay or multiaudio.
+    /// - `file`: Playlist, init section or segment file name.
     pub fn get_hls_file(grant: &str, variant: &str, file: &str) -> Request {
         let q = Vec::new();
         build::request(
@@ -4975,16 +5634,50 @@ pub mod ops {
         )
     }
 
-    /// Get the HLS master playlist of a media file's ready variants
+    /// Query parameters of [`get_hls_master`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct GetHlsMasterQuery {
+        /// original: the copied source video (outside the adaptive ladder); ladder: the transcoded renditions; legacy: MPEG-TS variants prepared before HLS v2.
+        /// Default `ladder`.
+        pub video: Option<GetHlsMasterVideo>,
+        /// Comma-separated multichannel codecs the client takes (ac3, eac3) for the surround audio group.
+        pub surround: Option<String>,
+    }
+
+    /// Get a multivariant playlist of a media file's prepared renditions
     ///
     /// `GET /media/{grant}/hls/master.m3u8`
     ///
     /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
-    pub fn get_hls_master(grant: &str) -> Request {
-        let q = Vec::new();
+    pub fn get_hls_master(grant: &str, query: &GetHlsMasterQuery) -> Request {
+        let mut q = Vec::new();
+        build::push(&mut q, "video", query.video.as_ref());
+        build::push(&mut q, "surround", query.surround.as_ref());
         build::request(
             Method::Get,
             format!("/media/{}/hls/master.m3u8", build::segment(grant)),
+            q,
+            Body::Empty,
+        )
+    }
+
+    /// Get a subtitle track as an HLS rendition
+    ///
+    /// `GET /media/{grant}/hls/subtitles/{id}/{file}`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
+    /// - `id`: Subtitle track id.
+    /// - `file`: index.m3u8 or a segment.
+    pub fn get_hls_subtitle_file(grant: &str, id: &str, file: &str) -> Request {
+        let q = Vec::new();
+        build::request(
+            Method::Get,
+            format!(
+                "/media/{}/hls/subtitles/{}/{}",
+                build::segment(grant),
+                build::segment(id),
+                build::segment(file)
+            ),
             q,
             Body::Empty,
         )
@@ -5056,7 +5749,7 @@ pub mod ops {
     pub struct GetPlaybackQuery {
         /// Display language (ISO 639-1). Empty serves the base text.
         pub lang: Option<String>,
-        /// Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision.
+        /// Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc). Superseded by resolvePlayback, which takes a full device profile.
         pub caps: Option<Vec<String>>,
     }
 
@@ -5134,13 +5827,13 @@ pub mod ops {
         )
     }
 
-    /// Get a JIT session's playlist or segment
+    /// Get a JIT session's playlist, init section or segment
     ///
     /// `GET /media/{grant}/jit/{sid}/{file}`
     ///
     /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
     /// - `sid`: Session id from createStreamSession.
-    /// - `file`: index.m3u8 or a segment name.
+    /// - `file`: master.m3u8, index.m3u8, init.mp4 or a segment name.
     pub fn get_stream_session_file(grant: &str, sid: &str, file: &str) -> Request {
         let q = Vec::new();
         build::request(
@@ -5336,6 +6029,59 @@ pub mod ops {
             format!("/me/watchlist/{}", build::segment(title_id)),
             q,
             Body::Empty,
+        ))
+    }
+
+    /// Query parameters of [`resolve_couch_playback`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct ResolveCouchPlaybackQuery {
+        /// Display language (ISO 639-1). Empty serves the base text.
+        pub lang: Option<String>,
+    }
+
+    /// `POST /couch/{token}/playback`
+    ///
+    /// - `token`: The session's share code.
+    pub fn resolve_couch_playback(
+        token: &str,
+        query: &ResolveCouchPlaybackQuery,
+        body: &DeviceProfile,
+    ) -> Call<CouchPlayback> {
+        let mut q = Vec::new();
+        build::push(&mut q, "lang", query.lang.as_ref());
+        build::json(build::request(
+            Method::Post,
+            format!("/couch/{}/playback", build::segment(token)),
+            q,
+            build::json_body(Some(body)),
+        ))
+    }
+
+    /// Query parameters of [`resolve_playback`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct ResolvePlaybackQuery {
+        /// Display language (ISO 639-1). Empty serves the base text.
+        pub lang: Option<String>,
+    }
+
+    /// Decide how a device plays a movie or an episode
+    ///
+    /// `POST /playback/{kind}/{id}`
+    ///
+    /// - `id`: The movie's title id or the episode id.
+    pub fn resolve_playback(
+        kind: ResolvePlaybackKind,
+        id: &str,
+        query: &ResolvePlaybackQuery,
+        body: &DeviceProfile,
+    ) -> Call<PlaybackInfo> {
+        let mut q = Vec::new();
+        build::push(&mut q, "lang", query.lang.as_ref());
+        build::json(build::request(
+            Method::Post,
+            format!("/playback/{}/{}", build::segment(&kind.to_string()), build::segment(id)),
+            q,
+            build::json_body(Some(body)),
         ))
     }
 

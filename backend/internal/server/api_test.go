@@ -276,6 +276,15 @@ func apiCases() []apiCase {
 		{op: "getSubtitle", method: "GET", path: "/media/{{movieGrant}}/subtitles/" + movieSubID + ".vtt", status: 404},
 		{op: "getSubtitle", method: "GET", path: "/media/{{hdrGrant}}/subtitles/" + movieSubID + ".vtt", status: 404},
 		{op: "getPlayback", as: "nora", method: "GET", path: "/playback/trailer/" + movieID, status: 404},
+		{op: "resolvePlayback", as: "nora", method: "POST", path: "/playback/episode/" + hdrFileEpisode + "?lang=cs", body: appleProfile, status: 200},
+		{op: "resolvePlayback", as: "nora", method: "POST", path: "/playback/movie/" + movieID, body: chromeProfile, status: 200},
+		{op: "resolvePlayback", as: "nora", method: "POST", path: "/playback/movie/" + movieID, body: map[string]any{"containers": []string{"avi"}, "video": []any{}, "audio": []any{}, "hls": []any{}}, status: 400},
+		{op: "resolvePlayback", method: "POST", path: "/playback/movie/" + movieID, body: chromeProfile, status: 401},
+		{op: "getHlsMaster", method: "GET", path: "/media/{{hdrGrant}}/hls/master.m3u8?video=original&surround=eac3", status: 404},
+		// a subtitle track becomes an HLS rendition of its own file only
+		{op: "getHlsSubtitleFile", method: "GET", path: "/media/{{movieGrant}}/hls/subtitles/" + movieSubID + "/index.m3u8", status: 200},
+		{op: "getHlsSubtitleFile", method: "GET", path: "/media/{{movieGrant}}/hls/subtitles/" + movieSubID + "/0.vtt", status: 404},
+		{op: "getHlsSubtitleFile", method: "GET", path: "/media/{{hdrGrant}}/hls/subtitles/" + movieSubID + "/index.m3u8", status: 404},
 		// no hardware encoder in tests, so instant play is off
 		{op: "createStreamSession", method: "POST", path: "/media/{{hdrGrant}}/jit", body: map[string]any{"startAt": 30}, status: 412},
 		{op: "keepStreamSessionAlive", method: "POST", path: "/media/{{hdrGrant}}/jit/abcdef0123456789abcdef01/keepalive", status: 404},
@@ -302,6 +311,8 @@ func apiCases() []apiCase {
 		{op: "joinCouch", as: "guest", method: "POST", path: "/couch/{{couch}}/join", status: 200},
 		{op: "getCouchPlayback", as: "guest", method: "GET", path: "/couch/{{couch}}/playback", status: 200, save: map[string]string{"guestGrant": "player.grant"}},
 		{op: "streamMediaFile", method: "GET", path: "/media/{{guestGrant}}/stream", status: 404},
+		{op: "resolveCouchPlayback", as: "guest", method: "POST", path: "/couch/{{couch}}/playback", body: appleProfile, status: 200},
+		{op: "resolveCouchPlayback", method: "POST", path: "/couch/{{couch}}/playback", body: appleProfile, status: 401},
 		{op: "leaveCouch", as: "guest", method: "POST", path: "/couch/{{couch}}/leave", status: 204},
 		// leaving the couch revokes the guest's grant at once
 		{op: "streamMediaFile", method: "GET", path: "/media/{{guestGrant}}/stream", status: 403},
@@ -527,6 +538,7 @@ func (o operation) responseSchema(doc *huma.OpenAPI, status int) *huma.Schema {
 type testEnv struct {
 	srv     *httptest.Server
 	pool    *pgxpool.Pool
+	cfg     config.Config
 	clients map[string]*http.Client
 }
 
@@ -535,7 +547,7 @@ var testDatabases atomic.Int32
 // newTestEnv migrates and seeds a throwaway database and serves the real app
 // on it. It needs TEST_DATABASE_URL (a Postgres the test may create databases
 // on) and skips without it.
-func newTestEnv(t *testing.T) *testEnv {
+func newTestEnv(t *testing.T, configure ...func(*config.Config)) *testEnv {
 	t.Helper()
 	base := os.Getenv("TEST_DATABASE_URL")
 	if base == "" {
@@ -574,6 +586,9 @@ func newTestEnv(t *testing.T) *testEnv {
 	}
 
 	cfg := config.Config{AdminUsername: "admin", AdminPassword: "admin", DataDir: t.TempDir(), JobWorkers: 1}
+	for _, c := range configure {
+		c(&cfg)
+	}
 	a, err := app.New(ctx, cfg, pool)
 	if err != nil {
 		t.Fatalf("app: %v", err)
@@ -587,7 +602,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatalf("seed: %v", err)
 	}
 
-	env := &testEnv{srv: httptest.NewServer(a.Handler()), pool: pool, clients: map[string]*http.Client{}}
+	env := &testEnv{srv: httptest.NewServer(a.Handler()), pool: pool, cfg: cfg, clients: map[string]*http.Client{}}
 	t.Cleanup(env.srv.Close)
 	env.clients[""] = env.srv.Client()
 	// an anonymous viewer that keeps cookies, like a couch follower without an account

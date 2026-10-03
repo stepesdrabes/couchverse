@@ -3,6 +3,7 @@ package media
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -43,19 +44,25 @@ type MediaFile struct {
 	ScannedAt       *time.Time      `json:"scannedAt"`
 	SourceDeletedAt *time.Time      `json:"sourceDeletedAt"`
 	CreatedAt       time.Time       `json:"createdAt"`
+	Video           VideoStream     `json:"video"`
+	// ProbeVersion is the Probe that last read the file (see media.ProbeVersion).
+	ProbeVersion int `json:"-"`
 }
 
 const MediaFileCols = `id, library_id, title_id, episode_id, path, size_bytes, container,
 	video_codec, audio_codec, width, height, duration_seconds, bitrate, channels, sample_rate,
 	video_range, direct_play, probe, file_mtime, scanned_at, source_deleted_at, created_at,
-	audio_lang, audio_role`
+	audio_lang, audio_role, video_codec_tag, video_profile, video_level, bit_depth, frame_rate,
+	hdr_format, dovi_profile, dovi_compatibility, probe_version`
 
 func ScanMediaFile(row pgx.Row) (*MediaFile, error) {
 	var m MediaFile
 	err := row.Scan(&m.ID, &m.LibraryID, &m.TitleID, &m.EpisodeID, &m.Path, &m.SizeBytes,
 		&m.Container, &m.VideoCodec, &m.AudioCodec, &m.Width, &m.Height, &m.DurationSeconds,
 		&m.Bitrate, &m.Channels, &m.SampleRate, &m.VideoRange, &m.DirectPlay, &m.Probe,
-		&m.FileMtime, &m.ScannedAt, &m.SourceDeletedAt, &m.CreatedAt, &m.AudioLang, &m.AudioRole)
+		&m.FileMtime, &m.ScannedAt, &m.SourceDeletedAt, &m.CreatedAt, &m.AudioLang, &m.AudioRole,
+		&m.Video.CodecTag, &m.Video.Profile, &m.Video.Level, &m.Video.BitDepth, &m.Video.FrameRate,
+		&m.Video.HDR, &m.Video.DoviProfile, &m.Video.DoviCompatibility, &m.ProbeVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -75,6 +82,15 @@ type AudioStream struct {
 	Title    string `json:"title"`
 	Channels int    `json:"channels"`
 	Default  bool   `json:"default"`
+	// Profile is ffprobe's profile name, e.g. "Dolby Digital Plus + Dolby Atmos".
+	Profile       string `json:"profile"`
+	ChannelLayout string `json:"channelLayout"`
+	SampleRate    int    `json:"sampleRate"`
+}
+
+// Atmos reports Dolby Atmos (E-AC-3 with joint object coding, or TrueHD with objects).
+func (a AudioStream) Atmos() bool {
+	return strings.Contains(a.Profile, "Atmos")
 }
 
 type Subtitle struct {

@@ -112,7 +112,7 @@ func (h *Handlers) Info(ctx context.Context, in *shareInput) (*couchInfoOutput, 
 	}
 	info, ref := rm.infoPreview()
 	if ref.Kind != "" {
-		if pi, err := h.hub.deps.Playback.BuildPlayback(ctx, ref.Kind, ref.playbackID(), playback.Viewer{}, nil); err == nil {
+		if pi, err := h.hub.deps.Playback.BuildPlayback(ctx, ref.Kind, ref.playbackID(), playback.Viewer{}, playback.LegacyProfile(nil)); err == nil {
 			info.Display = &CouchInfoDisplay{
 				Title:          pi.Display.Title,
 				Subtitle:       pi.Display.Subtitle,
@@ -217,7 +217,14 @@ type couchPlaybackInput struct {
 	Token      string   `path:"token" doc:"The session's share code."`
 	Cookie     string   `cookie:"couchverse_couch" doc:"The participant cookie set by createCouch or joinCouch."`
 	CouchToken string   `header:"X-Couch-Token" doc:"The participant token from createCouch or joinCouch with delivery=body."`
-	Caps       []string `query:"caps" doc:"Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision."`
+	Caps       []string `query:"caps" doc:"Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc). Superseded by resolveCouchPlayback, which takes a full device profile."`
+}
+
+type resolveCouchPlaybackInput struct {
+	Token      string `path:"token" doc:"The session's share code."`
+	Cookie     string `cookie:"couchverse_couch" doc:"The participant cookie set by createCouch or joinCouch."`
+	CouchToken string `header:"X-Couch-Token" doc:"The participant token from createCouch or joinCouch with delivery=body."`
+	Body       playback.DeviceProfile
 }
 
 type couchPlaybackOutput struct{ Body CouchPlayback }
@@ -226,11 +233,21 @@ func errNoCouchSession() error {
 	return httpx.Fail(http.StatusUnauthorized, "no_couch_session", "join the couch session first")
 }
 
-// Playback returns the follower player payload for the session's current media,
-// authorized by the couch cookie. This is how a follower (incl. anonymous) gets
-// its media grants, bound to the session, without the auth-only /playback.
+// Playback returns the follower player payload for the browser baseline plus ?caps.
 func (h *Handlers) Playback(ctx context.Context, in *couchPlaybackInput) (*couchPlaybackOutput, error) {
-	who, ok := h.hub.lookup(participantToken(in.CouchToken, in.Cookie))
+	return h.playback(ctx, participantToken(in.CouchToken, in.Cookie), playback.LegacyProfile(in.Caps))
+}
+
+// ResolvePlayback returns the follower player payload for the device profile in the body.
+func (h *Handlers) ResolvePlayback(ctx context.Context, in *resolveCouchPlaybackInput) (*couchPlaybackOutput, error) {
+	return h.playback(ctx, participantToken(in.CouchToken, in.Cookie), in.Body)
+}
+
+// playback builds the follower player payload for the session's current media,
+// authorized by the participant token. This is how a follower (incl. anonymous) gets
+// its media grants, bound to the session, without the auth-only /playback.
+func (h *Handlers) playback(ctx context.Context, token string, profile playback.DeviceProfile) (*couchPlaybackOutput, error) {
+	who, ok := h.hub.lookup(token)
 	if !ok {
 		return nil, errNoCouchSession()
 	}
@@ -249,7 +266,7 @@ func (h *Handlers) Playback(ctx context.Context, in *couchPlaybackInput) (*couch
 	}
 	resp := CouchPlayback{Media: ref}
 	if ref.Kind != "" {
-		info, err := h.hub.deps.Playback.BuildPlayback(ctx, ref.Kind, ref.playbackID(), viewer, in.Caps)
+		info, err := h.hub.deps.Playback.BuildPlayback(ctx, ref.Kind, ref.playbackID(), viewer, profile)
 		if err != nil {
 			return nil, err
 		}

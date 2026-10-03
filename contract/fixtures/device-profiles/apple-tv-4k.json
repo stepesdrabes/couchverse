@@ -1,0 +1,20 @@
+{
+  "containers": ["mp4", "mov"],
+  "video": [
+    { "codec": "h264", "maxLevel": 5.2 },
+    { "codec": "hevc", "profiles": ["main", "main10"], "maxLevel": 5.1, "maxBitDepth": 10 }
+  ],
+  "audio": [
+    { "codec": "aac", "maxChannels": 6 },
+    { "codec": "ac3", "maxChannels": 6 },
+    { "codec": "eac3", "maxChannels": 8, "atmos": true },
+    { "codec": "flac", "maxChannels": 8 },
+    { "codec": "alac", "maxChannels": 8 }
+  ],
+  "hdr": ["hdr10", "hlg", "dolbyVision5", "dolbyVision8"],
+  "maxWidth": 3840,
+  "maxHeight": 2160,
+  "maxFrameRate": 60,
+  "hls": ["ts", "fmp4"],
+  "audioTrackSwitching": true
+}

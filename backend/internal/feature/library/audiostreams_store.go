@@ -27,9 +27,11 @@ func (s *Store) ReplaceAudioStreams(ctx context.Context, mediaFileID string, str
 			label = lang
 		}
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO audio_streams (media_file_id, stream_index, codec, lang, label, channels, is_default)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-			mediaFileID, a.Index, a.Codec, lang, label, a.Channels, a.Default); err != nil {
+			`INSERT INTO audio_streams (media_file_id, stream_index, codec, lang, label, channels, is_default,
+				profile, channel_layout, sample_rate)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			mediaFileID, a.Index, a.Codec, lang, label, a.Channels, a.Default,
+			a.Profile, a.ChannelLayout, a.SampleRate); err != nil {
 			return err
 		}
 	}
@@ -40,7 +42,7 @@ func (s *Store) ReplaceAudioStreams(ctx context.Context, mediaFileID string, str
 // stream index (label is returned in the Title field).
 func (s *Store) AudioStreamsForFile(ctx context.Context, mediaFileID string) ([]media.AudioStream, error) {
 	rows, err := s.db.Query(ctx,
-		`SELECT stream_index, codec, lang, label, channels, is_default
+		`SELECT stream_index, codec, lang, label, channels, is_default, profile, channel_layout, sample_rate
 		 FROM audio_streams WHERE media_file_id = $1 ORDER BY stream_index`, mediaFileID)
 	if err != nil {
 		return nil, err
@@ -49,7 +51,8 @@ func (s *Store) AudioStreamsForFile(ctx context.Context, mediaFileID string) ([]
 	out := []media.AudioStream{}
 	for rows.Next() {
 		var a media.AudioStream
-		if err := rows.Scan(&a.Index, &a.Codec, &a.Lang, &a.Title, &a.Channels, &a.Default); err != nil {
+		if err := rows.Scan(&a.Index, &a.Codec, &a.Lang, &a.Title, &a.Channels, &a.Default,
+			&a.Profile, &a.ChannelLayout, &a.SampleRate); err != nil {
 			return nil, err
 		}
 		out = append(out, a)

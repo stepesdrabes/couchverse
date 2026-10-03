@@ -1,0 +1,19 @@
+{
+  "containers": ["mp4", "webm"],
+  "video": [
+    { "codec": "h264", "profiles": ["baseline", "main", "high"], "maxLevel": 5.2 },
+    { "codec": "vp9", "profiles": ["profile0"], "maxBitDepth": 8 },
+    { "codec": "av1", "profiles": ["main"], "maxBitDepth": 8 }
+  ],
+  "audio": [
+    { "codec": "aac", "maxChannels": 6 },
+    { "codec": "mp3", "maxChannels": 2 },
+    { "codec": "opus", "maxChannels": 6 },
+    { "codec": "vorbis", "maxChannels": 2 },
+    { "codec": "flac", "maxChannels": 6 }
+  ],
+  "hdr": [],
+  "hls": ["fmp4", "ts"],
+  "sidecarSubtitles": ["webvtt"],
+  "audioTrackSwitching": false
+}

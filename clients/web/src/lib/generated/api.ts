@@ -191,6 +191,16 @@ export type ArtworkOwnerKind = 'title' | 'season' | 'episode' | 'user';
 
 export type ArtworkSource = 'tmdb' | 'uploaded' | 'embedded';
 
+export interface AudioSupport {
+	/** Dolby Atmos (E-AC-3 JOC, TrueHD) reaches the output as Atmos. */
+	atmos?: boolean;
+	codec: AudioSupportCodec;
+	/** Most channels the client outputs; 0 means 2. */
+	maxChannels?: number;
+}
+
+export type AudioSupportCodec = 'aac' | 'mp3' | 'ac3' | 'eac3' | 'truehd' | 'dts' | 'flac' | 'opus' | 'vorbis' | 'alac' | 'pcm';
+
 export interface BrowsePage {
 	items: CardItem[];
 	total: number;
@@ -431,6 +441,39 @@ export type DeviceKind = 'browser' | 'device';
 
 export type DevicePlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv' | 'web';
 
+export interface DeviceProfile {
+	/** Audio codecs the client decodes or passes through to the receiver. */
+	audio: AudioSupport[];
+	/** The client switches between the audio tracks inside a direct-played file; without it, a file with several audio tracks plays through HLS. */
+	audioTrackSwitching?: boolean;
+	/** Progressive containers the client direct-plays. */
+	containers: DeviceProfileContainersItem[];
+	/** HDR formats the client presents, Dolby Vision per profile; SDR is always assumed. HDR video outside the list plays its compatible base layer or is tone-mapped to SDR. */
+	hdr?: DeviceProfileHdrItem[];
+	/** HLS segment formats the client plays; empty when it cannot play HLS. */
+	hls: DeviceProfileHlsItem[];
+	/** Bits per second the client can stream; 0 for no limit. */
+	maxBitrate?: number;
+	/** Highest frame rate the client plays; 0 for no limit. */
+	maxFrameRate?: number;
+	/** Tallest video the client plays; 0 for no limit. */
+	maxHeight?: number;
+	/** Widest video the client plays; 0 for no limit. */
+	maxWidth?: number;
+	/** Subtitle formats the client renders beside a direct-played file; without one, subtitles need HLS renditions. */
+	sidecarSubtitles?: DeviceProfileSidecarSubtitlesItem[];
+	/** Video codecs the client decodes. */
+	video: VideoSupport[];
+}
+
+export type DeviceProfileContainersItem = 'mp4' | 'mov' | 'mkv' | 'webm' | 'ts';
+
+export type DeviceProfileHdrItem = 'hdr10' | 'hdr10plus' | 'hlg' | 'dolbyVision5' | 'dolbyVision7' | 'dolbyVision8' | 'dolbyVision10';
+
+export type DeviceProfileHlsItem = 'ts' | 'fmp4';
+
+export type DeviceProfileSidecarSubtitlesItem = 'webvtt';
+
 export interface DeviceSignIn {
 	/**
 	 * Shown in the account's devices list, e.g. "Living room Apple TV".
@@ -563,6 +606,8 @@ export interface Genre {
 
 export type GetArtworkSize = 'w342' | 'w780';
 
+export type GetHlsMasterVideo = 'original' | 'ladder' | 'legacy';
+
 export type GetLeaderboardPeriod = 'all' | 'week' | 'month';
 
 export type GetPlaybackKind = 'movie' | 'episode';
@@ -610,6 +655,21 @@ export interface HomeSettings {
 	/** Titles the home hero cycles through, read as 1-10 (3 when unset). */
 	featuredCount: number;
 }
+
+export interface JitPlan {
+	/** copy keeps the track's codec; aac makes stereo, eac3 5.1. */
+	audio: JitPlanAudio;
+	/** Source stream index of the audio track to play; -1 for none. */
+	audioStream: number;
+	/** copy keeps the source video (remux); transcode makes H.264 SDR. */
+	video: JitPlanVideo;
+}
+
+/** copy keeps the track's codec; aac makes stereo, eac3 5.1. */
+export type JitPlanAudio = 'copy' | 'aac' | 'eac3';
+
+/** copy keeps the source video (remux); transcode makes H.264 SDR. */
+export type JitPlanVideo = 'copy' | 'transcode';
 
 export interface JobPayload {
 	mediaFileId?: string;
@@ -733,6 +793,7 @@ export interface MediaFile {
 	sizeBytes: number;
 	sourceDeletedAt: string | null;
 	titleId: string | null;
+	video: VideoStream;
 	videoCodec: string;
 	videoRange: MediaFileVideoRange;
 	width: number;
@@ -857,11 +918,12 @@ export interface PasswordChange {
 
 export interface PlaybackAudioTrack {
 	default: boolean;
-	/** HLS master of a file track that does not direct-play. */
+	/** HLS multivariant playlist of a file track that does not direct-play. */
 	hlsUrl?: string;
 	/** The media file id of a file track; embedded:<stream index> for an embedded one. */
 	id: string;
 	label: string;
+	/** Language code (en, cs), as in the HLS audio renditions; und when unknown. */
 	lang: string;
 	source: PlaybackAudioTrackSource;
 	/** Direct stream of a file track that direct-plays. */
@@ -894,26 +956,35 @@ export interface PlaybackInfo {
 	frameUrl: string;
 	/** The media grant every URL in this payload carries; it expires, so fetch the payload again on grant_expired. */
 	grant: string;
-	/** HLS master of the ready transcodes, offered even when the source direct-plays. */
+	/** Multivariant playlist of the transcoded ladder when it is ready and suits the client, offered even when another tier plays. */
 	hlsUrl?: string;
+	/** The instant-play session to open (mode jit). */
+	jit?: JitPlan;
 	/** Transcode progress in percent while mode is preparing. */
 	jobProgress?: number;
 	mediaFileId: string;
-	/** How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession; unsupported cannot play. */
+	/** How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession and the plan in jit; unsupported cannot play. */
 	mode: PlaybackInfoMode;
 	/** The episode after this one; absent for movies and series finales. */
 	nextEpisode?: EpisodeRef;
+	/** The "Original" quality: the source file (tier direct) or the multivariant playlist of the copied source video (tier remux). It stays outside the adaptive ladder. */
+	originalUrl?: string;
 	/** Saved position in seconds; 0 for couch followers, who sync to the host. */
 	resumePosition: number;
-	/** The source file (mode direct) or the HLS master (mode hls) to load. */
+	/** The source file (mode direct) or the HLS multivariant playlist (mode hls) to load. */
 	streamUrl?: string;
 	subtitles: PlaybackSubtitleTrack[];
-	/** Ready renditions for the quality menu. */
+	/** What reaches the client: the source file, the source video remuxed into HLS, or a transcode. Absent while preparing or unsupported. */
+	tier?: PlaybackInfoTier;
+	/** Ladder renditions in hlsUrl, for the quality menu. */
 	variants?: QualityVariant[];
 }
 
-/** How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession; unsupported cannot play. */
+/** How to play: direct and hls load streamUrl; preparing waits for a running transcode (see jobProgress); jit opens a session with createStreamSession and the plan in jit; unsupported cannot play. */
 export type PlaybackInfoMode = 'direct' | 'hls' | 'preparing' | 'jit' | 'unsupported';
+
+/** What reaches the client: the source file, the source video remuxed into HLS, or a transcode. Absent while preparing or unsupported. */
+export type PlaybackInfoTier = 'direct' | 'remux' | 'transcode';
 
 export interface PlaybackSubtitleTrack {
 	forced: boolean;
@@ -1129,6 +1200,8 @@ export interface ResolutionCounts {
 	uhd: number;
 }
 
+export type ResolvePlaybackKind = 'movie' | 'episode';
+
 export interface SearchResults {
 	titles: CardItem[];
 }
@@ -1209,14 +1282,27 @@ export interface StorageSegment {
 }
 
 export interface StreamSession {
+	/** The session's multivariant playlist (with the subtitle renditions). */
 	playlistUrl: string;
 	sessionId: string;
 }
 
 export interface StreamSessionStart {
+	/** From jit.audio. */
+	audio?: StreamSessionStartAudio;
+	/** From jit.audioStream: the source stream index of the audio track. */
+	audioStream?: number;
 	/** Position in seconds to start transcoding from. */
 	startAt?: number;
+	/** From jit.video; the session transcodes when it cannot copy. */
+	video?: StreamSessionStartVideo;
 }
+
+/** From jit.audio. */
+export type StreamSessionStartAudio = 'copy' | 'aac' | 'eac3';
+
+/** From jit.video; the session transcodes when it cannot copy. */
+export type StreamSessionStartVideo = 'copy' | 'transcode';
 
 export interface Subtitle {
 	createdAt: string;
@@ -1414,6 +1500,8 @@ export interface TranscodeVariant {
 	audioBitrate: number;
 	completedAt: string | null;
 	createdAt: string;
+	/** fmp4 is HLS v2 (video, audio and subtitles as separate renditions); ts was prepared before it, with the audio muxed in. */
+	format: TranscodeVariantFormat;
 	height: number;
 	id: string;
 	mediaFileId: string;
@@ -1425,6 +1513,9 @@ export interface TranscodeVariant {
 	videoBitrate: number;
 	width: number;
 }
+
+/** fmp4 is HLS v2 (video, audio and subtitles as separate renditions); ts was prepared before it, with the audio muxed in. */
+export type TranscodeVariantFormat = 'ts' | 'fmp4';
 
 /** copy remuxes the source without re-encoding. */
 export type TranscodeVariantMode = 'transcode' | 'copy';
@@ -1499,6 +1590,38 @@ export interface UserProfile {
 }
 
 export type UserRole = 'admin' | 'member';
+
+export interface VideoStream {
+	bitDepth: number;
+	/** The container's codec tag (hvc1, hev1, dvh1, avc1); empty when the container has none (Matroska). */
+	codecTag: string;
+	/** Dolby Vision base-layer compatibility id: 1 HDR10, 2 SDR, 4 HLG, 6 Blu-ray HDR10, 0 none. */
+	doviCompatibility: number;
+	/** Dolby Vision profile (5, 7, 8); 0 without Dolby Vision. */
+	doviProfile: number;
+	frameRate: number;
+	hdr: VideoStreamHdr;
+	/** Codec level as written, e.g. 4.1 or 5.1; 0 when unknown. */
+	level: number;
+	/** Normalized codec profile: baseline, main, high, high10, main10, rext... */
+	profile: string;
+}
+
+export type VideoStreamHdr = 'sdr' | 'hdr10' | 'hdr10plus' | 'hlg' | 'dolbyVision';
+
+export interface VideoSupport {
+	codec: VideoSupportCodec;
+	/** Deepest decodable bit depth (8, 10, 12); 0 means 8. */
+	maxBitDepth?: number;
+	/** Highest level as written (4.1, 5.1); 0 for any. */
+	maxLevel?: number;
+	/** Decodable profiles; empty for every profile within maxBitDepth. */
+	profiles?: VideoSupportProfilesItem[];
+}
+
+export type VideoSupportCodec = 'h264' | 'hevc' | 'av1' | 'vp9';
+
+export type VideoSupportProfilesItem = 'baseline' | 'main' | 'high' | 'high10' | 'high422' | 'high444' | 'main10' | 'rext' | 'professional' | 'profile0' | 'profile1' | 'profile2' | 'profile3';
 
 export interface XpResult {
 	sources: XpSource[];
@@ -2112,7 +2235,7 @@ export const getCouchInfo = (token: string, opts?: CallOptions) =>
 	api<CouchInfo>(`/couch/${encodeURIComponent(token)}/info`, opts);
 
 export interface GetCouchPlaybackQuery {
-	/** Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision. */
+	/** Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc). Superseded by resolveCouchPlayback, which takes a full device profile. */
 	caps?: string[];
 }
 
@@ -2129,20 +2252,39 @@ export const getFeatures = (opts?: CallOptions) =>
 	api<FeatureFlags>(`/features`, opts);
 
 /**
- * Get an HLS playlist or segment of a prepared variant (`GET /media/{grant}/hls/{variant}/{file}`)
+ * Get an HLS playlist, init section or segment of a prepared rendition (`GET /media/{grant}/hls/{variant}/{file}`)
  *
  * @param grant The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
- * @param variant Rendition name (e.g. 720p), source or multiaudio.
- * @param file Playlist or segment file name.
+ * @param variant Rendition: source, a ladder rung (e.g. 720p), audio-<stream>-<codec>, trickplay or multiaudio.
+ * @param file Playlist, init section or segment file name.
  */
 export const getHlsFilePath = (grant: string, variant: string, file: string) => `/api/v1/media/${encodeURIComponent(grant)}/hls/${encodeURIComponent(variant)}/${encodeURIComponent(file)}`;
 
+export interface GetHlsMasterQuery {
+	/**
+	 * original: the copied source video (outside the adaptive ladder); ladder: the transcoded renditions; legacy: MPEG-TS variants prepared before HLS v2.
+	 * Default `ladder`.
+	 */
+	video?: GetHlsMasterVideo;
+	/** Comma-separated multichannel codecs the client takes (ac3, eac3) for the surround audio group. */
+	surround?: string;
+}
+
 /**
- * Get the HLS master playlist of a media file's ready variants (`GET /media/{grant}/hls/master.m3u8`)
+ * Get a multivariant playlist of a media file's prepared renditions (`GET /media/{grant}/hls/master.m3u8`)
  *
  * @param grant The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
  */
-export const getHlsMasterPath = (grant: string) => `/api/v1/media/${encodeURIComponent(grant)}/hls/master.m3u8`;
+export const getHlsMasterPath = (grant: string, query: GetHlsMasterQuery = {}) => `/api/v1/media/${encodeURIComponent(grant)}/hls/master.m3u8${qs({ video: query.video, surround: query.surround })}`;
+
+/**
+ * Get a subtitle track as an HLS rendition (`GET /media/{grant}/hls/subtitles/{id}/{file}`)
+ *
+ * @param grant The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
+ * @param id Subtitle track id.
+ * @param file index.m3u8 or a segment.
+ */
+export const getHlsSubtitleFilePath = (grant: string, id: string, file: string) => `/api/v1/media/${encodeURIComponent(grant)}/hls/subtitles/${encodeURIComponent(id)}/${encodeURIComponent(file)}`;
 
 /** `GET /home` */
 export const getHome = (opts?: CallOptions) =>
@@ -2174,7 +2316,7 @@ export const getPairingRequest = (code: string, opts?: CallOptions) =>
 	api<PairingRequest>(`/me/pairings/${encodeURIComponent(code)}`, opts);
 
 export interface GetPlaybackQuery {
-	/** Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc), for the direct-play decision. */
+	/** Video codecs the client decodes beyond the h264/vp9/av1 baseline (e.g. hevc). Superseded by resolvePlayback, which takes a full device profile. */
 	caps?: string[];
 }
 
@@ -2214,11 +2356,11 @@ export interface GetStreamFrameQuery {
 export const getStreamFramePath = (grant: string, query: GetStreamFrameQuery = {}) => `/api/v1/media/${encodeURIComponent(grant)}/frame${qs({ t: query.t })}`;
 
 /**
- * Get a JIT session's playlist or segment (`GET /media/{grant}/jit/{sid}/{file}`)
+ * Get a JIT session's playlist, init section or segment (`GET /media/{grant}/jit/{sid}/{file}`)
  *
  * @param grant The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
  * @param sid Session id from createStreamSession.
- * @param file index.m3u8 or a segment name.
+ * @param file master.m3u8, index.m3u8, init.mp4 or a segment name.
  */
 export const getStreamSessionFilePath = (grant: string, sid: string, file: string) => `/api/v1/media/${encodeURIComponent(grant)}/jit/${encodeURIComponent(sid)}/${encodeURIComponent(file)}`;
 
@@ -2310,6 +2452,24 @@ export const pollPairing = (body: PairingPoll, opts?: CallOptions) =>
 /** `DELETE /me/watchlist/{titleId}` */
 export const removeFromWatchlist = (titleId: string, opts?: CallOptions) =>
 	api<void>(`/me/watchlist/${encodeURIComponent(titleId)}`, { ...opts, method: 'DELETE' });
+
+/**
+ * `POST /couch/{token}/playback`
+ *
+ * @param token The session's share code.
+ * @param body
+ */
+export const resolveCouchPlayback = (token: string, body: DeviceProfile, opts?: CallOptions) =>
+	api<CouchPlayback>(`/couch/${encodeURIComponent(token)}/playback`, { ...opts, method: 'POST', body });
+
+/**
+ * Decide how a device plays a movie or an episode (`POST /playback/{kind}/{id}`)
+ *
+ * @param id The movie's title id or the episode id.
+ * @param body
+ */
+export const resolvePlayback = (kind: ResolvePlaybackKind, id: string, body: DeviceProfile, opts?: CallOptions) =>
+	api<PlaybackInfo>(`/playback/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`, { ...opts, method: 'POST', body });
 
 /** `DELETE /me/devices/{id}` */
 export const revokeDevice = (id: string, opts?: CallOptions) =>

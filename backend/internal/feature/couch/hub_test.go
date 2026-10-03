@@ -34,7 +34,7 @@ func (f *fakeMedia) AudioSiblings(_ context.Context, _, _ *string, _ string) ([]
 
 type fakePlayback struct{}
 
-func (fakePlayback) BuildPlayback(_ context.Context, _, _ string, _ playback.Viewer, _ []string) (*playback.PlaybackInfo, error) {
+func (fakePlayback) BuildPlayback(_ context.Context, _, _ string, _ playback.Viewer, _ playback.DeviceProfile) (*playback.PlaybackInfo, error) {
 	return &playback.PlaybackInfo{}, nil
 }
 

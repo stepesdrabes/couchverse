@@ -24,15 +24,16 @@ type TranscodeVariant struct {
 	PlaylistPath string     `json:"-"`
 	CreatedAt    time.Time  `json:"createdAt"`
 	CompletedAt  *time.Time `json:"completedAt"`
+	Format       string     `json:"format" enum:"ts,fmp4" doc:"fmp4 is HLS v2 (video, audio and subtitles as separate renditions); ts was prepared before it, with the audio muxed in."`
 }
 
 const variantCols = `id, media_file_id, name, width, height, video_bitrate, audio_bitrate,
-	mode, status, size_bytes, playlist_path, created_at, completed_at`
+	mode, status, size_bytes, playlist_path, created_at, completed_at, format`
 
 func scanVariant(row pgx.Row) (*TranscodeVariant, error) {
 	var v TranscodeVariant
 	err := row.Scan(&v.ID, &v.MediaFileID, &v.Name, &v.Width, &v.Height, &v.VideoBitrate,
-		&v.AudioBitrate, &v.Mode, &v.Status, &v.SizeBytes, &v.PlaylistPath, &v.CreatedAt, &v.CompletedAt)
+		&v.AudioBitrate, &v.Mode, &v.Status, &v.SizeBytes, &v.PlaylistPath, &v.CreatedAt, &v.CompletedAt, &v.Format)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -50,7 +51,7 @@ func (s *Store) UpsertVariant(ctx context.Context, mediaFileID string, name stri
 		 ON CONFLICT (media_file_id, name) DO UPDATE
 			SET status = 'queued', mode = EXCLUDED.mode, height = EXCLUDED.height,
 				video_bitrate = EXCLUDED.video_bitrate, audio_bitrate = EXCLUDED.audio_bitrate,
-				size_bytes = 0, playlist_path = '', completed_at = NULL
+				size_bytes = 0, playlist_path = '', completed_at = NULL, format = 'fmp4'
 		 RETURNING `+variantCols,
 		mediaFileID, name, height, videoBitrate, audioBitrate, mode))
 }
@@ -125,6 +126,13 @@ func (s *Store) AllVariantsReady(ctx context.Context, mediaFileID string) (bool,
 func (s *Store) VariantByID(ctx context.Context, id string) (*TranscodeVariant, error) {
 	return scanVariant(s.db.QueryRow(ctx,
 		`SELECT `+variantCols+` FROM transcode_variants WHERE id = $1`, id))
+}
+
+// DeleteVariantByName drops a variant row that turned out not to be producible.
+func (s *Store) DeleteVariantByName(ctx context.Context, mediaFileID, name string) error {
+	_, err := s.db.Exec(ctx,
+		`DELETE FROM transcode_variants WHERE media_file_id = $1 AND name = $2`, mediaFileID, name)
+	return err
 }
 
 func (s *Store) DeleteVariant(ctx context.Context, id string) (*TranscodeVariant, error) {

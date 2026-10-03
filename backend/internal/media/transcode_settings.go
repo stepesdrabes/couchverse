@@ -9,6 +9,45 @@ import (
 	"couchverse/internal/settings"
 )
 
+// HLS v2 variant names (transcode_variants.name); ladder rungs use their
+// rendition names.
+const (
+	VariantSource    = "source"    // the source video copied into fMP4, the "Original" quality
+	VariantAudio     = "audio"     // every audio rendition of the file
+	VariantTrickplay = "trickplay" // the I-frame rendition behind trick play
+	// VariantPackage is the job that writes source and audio in one read.
+	VariantPackage = "package"
+)
+
+// AutoPrepare picks the HLS renditions to prepare for a freshly probed video:
+// none for a file every client direct-plays (H.264/AAC in MP4, one audio
+// track, no subtitles); otherwise the copied source (cheap, and what remuxing
+// clients play) and, with auto-prepare on, the transcoded ladder - the full
+// ladder when some clients cannot decode the source video (HEVC, AV1, 10-bit,
+// HDR), else only the rungs below it for adaptive streaming.
+func AutoPrepare(p *ProbeResult, s TranscodeSettings) []string {
+	sdr8 := p.VideoCodec == "h264" && p.Video.BitDepth <= 8 && (p.Video.HDR == "" || p.Video.HDR == HDRNone)
+	universal := sdr8 && (p.Container == "mp4" || p.Container == "m4v") && len(p.AudioStreams) <= 1 &&
+		(p.AudioCodec == "" || p.AudioCodec == "aac") && !HasTextSubtitles(p)
+	if universal {
+		return nil
+	}
+	names := []string{}
+	if p.VideoCodec == "h264" || p.VideoCodec == "hevc" || p.VideoCodec == "av1" {
+		names = append(names, VariantSource)
+	}
+	if !s.AutoPrepareEnabled() {
+		return names
+	}
+	for _, r := range PrepareRenditions(s.Ladder, p.Height) {
+		if sdr8 && r.Height >= p.Height {
+			continue // the copied source covers the top
+		}
+		names = append(names, r.Name)
+	}
+	return names
+}
+
 type Rendition struct {
 	Name         string
 	Height       int

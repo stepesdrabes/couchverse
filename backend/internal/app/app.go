@@ -115,6 +115,7 @@ func (a *App) Handler() http.Handler {
 func (a *App) Start(ctx context.Context) error {
 	d := a.deps
 	go playback.DetectEncoders(d.Config.FFmpegPath)
+	go playback.DetectFeatures(d.Config.FFmpegPath)
 
 	// transcodes can occupy their full concurrency budget and still leave
 	// workers free for quick jobs (probes, scans, metadata) - otherwise a
@@ -123,13 +124,19 @@ func (a *App) Start(ctx context.Context) error {
 	workers := max(d.Config.JobWorkers, transcodeSlots+2)
 
 	runner := jobs.NewRunner(d.Jobs, workers)
-	runner.Register("probe", 2, (&library.Prober{Files: d.Library, Catalog: d.Catalog, Settings: d.Settings, Jobs: d.Jobs, FFprobePath: d.Config.FFprobePath}).Handle)
+	prober := &library.Prober{Files: d.Library, Catalog: d.Catalog, Settings: d.Settings, Jobs: d.Jobs, FFprobePath: d.Config.FFprobePath}
+	runner.Register("probe", 2, prober.Handle)
+	runner.Register("reprobe", 1, prober.Reprobe)
 	runner.Register("extract_subtitles", 1, d.Subtitles.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&metadata.FetchJob{Catalog: d.Catalog, Settings: d.Settings, Artwork: d.Artwork}).Handle)
 	runner.Register("import_episodes", 1, (&metadata.ImportEpisodesJob{Catalog: d.Catalog, Settings: d.Settings, Artwork: d.Artwork}).Handle)
 	runner.Register("transcode_hls", transcodeSlots, d.Transcode.Handle)
 	runner.Register("cleanup", 1, cleanupHandler(d.Library, d.Auth, d.Jobs, d.Analytics, d.Uploads, d.Config.DataDir))
 	if _, err := d.Jobs.EnqueueJobOnce(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{}); err != nil {
+		return err
+	}
+	// files an older prober read are brought up to date in the background
+	if _, err := d.Jobs.EnqueueJobOnce(ctx, "reprobe", struct{}{}, jobs.EnqueueOpts{}); err != nil {
 		return err
 	}
 	go runner.Run(ctx)

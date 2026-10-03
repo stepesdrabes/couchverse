@@ -104,32 +104,18 @@ func (h *AdminTranscode) Enqueue(ctx context.Context, in *enqueueTranscodeInput)
 		variants = media.LoadTranscodeSettings(ctx, h.settings).Ladder
 	}
 
-	queued := []string{}
 	for _, name := range variants {
-		rendition, ok := media.Renditions[name]
-		if !ok && name != "source" {
+		if _, ok := media.Renditions[name]; !ok && name != media.VariantSource {
 			return nil, httpx.BadRequestError("unknown rendition " + name)
 		}
-		// skip upscaling renditions taller than the source
-		if ok && mf.Height > 0 && rendition.Height > mf.Height {
-			continue
-		}
-		rendition = rendition.CappedAt(mf.Bitrate)
-		mode := "transcode"
-		height := rendition.Height
-		vbr, abr := rendition.VideoBitrate, rendition.AudioBitrate
-		if name == "source" {
-			mode, height, vbr, abr = "copy", mf.Height, mf.Bitrate, 192_000
-		}
-		if _, err := h.library.UpsertVariant(ctx, mf.ID, name, height, vbr, abr, mode); err != nil {
-			return nil, err
-		}
-		if _, err := h.jobs.EnqueueJobOnce(ctx, "transcode_hls",
-			Payload{MediaFileID: mf.ID, Variant: name},
-			jobs.EnqueueOpts{MaxAttempts: 2}); err != nil {
-			return nil, err
-		}
-		queued = append(queued, name)
+	}
+	tracks, err := h.library.AudioStreamsForFile(ctx, mf.ID)
+	if err != nil {
+		return nil, err
+	}
+	queued, err := library.Prepare(ctx, h.library, h.jobs, mf, len(tracks) > 0, variants)
+	if err != nil {
+		return nil, err
 	}
 	return &enqueueTranscodeOutput{Body: QueuedTranscodes{Queued: queued}}, nil
 }

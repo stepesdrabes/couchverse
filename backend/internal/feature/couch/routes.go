@@ -44,6 +44,7 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(api, tag.NoContent("leaveCouch", http.MethodPost, "/couch/{token}/leave"), m.handlers.Leave)
 	huma.Register(api, tag.NoContent("endCouch", http.MethodPost, "/couch/{token}/end"), m.handlers.End)
 	huma.Register(api, httpx.Localized(tag.Op("getCouchPlayback", http.MethodGet, "/couch/{token}/playback")), m.handlers.Playback)
+	huma.Register(api, httpx.Localized(tag.Op("resolveCouchPlayback", http.MethodPost, "/couch/{token}/playback")), m.handlers.ResolvePlayback)
 	httpx.Raw(api, socketOp(api), m.handlers.WS)
 }
 

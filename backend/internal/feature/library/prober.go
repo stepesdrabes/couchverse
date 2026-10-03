@@ -3,7 +3,11 @@ package library
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
+	"log/slog"
+	"os"
 	"path/filepath"
 
 	"couchverse/internal/feature/catalog"
@@ -39,45 +43,24 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 	if err != nil {
 		return err
 	}
-	abs := filepath.Join(lib.Path, mf.Path)
 
-	res, err := media.Probe(ctx, p.FFprobePath, abs)
+	res, err := media.Probe(ctx, p.FFprobePath, filepath.Join(lib.Path, mf.Path))
 	if err != nil {
 		return err
 	}
 	report(50)
 
-	up := ProbeUpdate{
-		Container:       res.Container,
-		VideoCodec:      res.VideoCodec,
-		AudioCodec:      res.AudioCodec,
-		Width:           res.Width,
-		Height:          res.Height,
-		DurationSeconds: res.DurationSeconds,
-		Bitrate:         res.Bitrate,
-		Channels:        res.Channels,
-		SampleRate:      res.SampleRate,
-		VideoRange:      res.VideoRange,
-		DirectPlay:      media.DirectPlay(res),
-		Probe:           res.Raw,
-		// manual assignments (e.g. from uploads) are kept
-		TitleID:   mf.TitleID,
-		EpisodeID: mf.EpisodeID,
-	}
-
+	up := ProbeUpdateFrom(res)
+	// manual assignments (e.g. from uploads) are kept
+	up.TitleID, up.EpisodeID = mf.TitleID, mf.EpisodeID
 	if mf.TitleID == nil && mf.EpisodeID == nil && res.HasVideo {
 		if err := p.assignVideo(ctx, lib, mf.Path, &up); err != nil {
 			return err
 		}
 	}
 
-	if err := p.Files.ApplyProbe(ctx, mf.ID, up); err != nil {
+	if err := p.store(ctx, mf.ID, up, res); err != nil {
 		return err
-	}
-	if res.HasVideo {
-		if err := p.Files.ReplaceAudioStreams(ctx, mf.ID, res.AudioStreams); err != nil {
-			return err
-		}
 	}
 
 	if res.HasVideo && media.HasTextSubtitles(res) {
@@ -87,65 +70,108 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 		}
 	}
 
-	// make non-browser-playable files streamable without admin intervention.
-	// Variant rows are created up front so the admin library shows "Processing".
-	// multi-audio h264 files always go through a single var_stream_map HLS remux
-	// (copied video + every audio language) so the player can switch audio -
-	// browsers can't switch the audio of a progressive file. Single-audio files
-	// keep the normal path: direct play, or a copy-remux + ladder when needed.
-	switch {
-	case res.HasVideo && res.VideoCodec == "h264" && len(res.AudioStreams) >= 2:
-		if _, err := p.Files.UpsertVariant(ctx, mf.ID, "multiaudio", res.Height, res.Bitrate, 0, "copy"); err != nil {
-			return err
-		}
-		if _, err := p.Jobs.EnqueueJobOnce(ctx, "transcode_hls",
-			map[string]any{"mediaFileId": mf.ID, "variant": "multiaudio"}, jobs.EnqueueOpts{}); err != nil {
-			return err
-		}
-	case res.HasVideo && !up.DirectPlay:
-		settings := media.LoadTranscodeSettings(ctx, p.Settings)
-		if res.VideoCodec == "h264" {
-			// h264 streams as-is via a cheap copy-remux (full source quality)...
-			source := media.Rendition{Name: "source", Height: res.Height, VideoBitrate: res.Bitrate, AudioBitrate: 192_000}
-			if err := p.prepareVariant(ctx, mf.ID, source, "copy"); err != nil {
-				return err
-			}
-			// ...plus lower ladder rungs for adaptive streaming when auto-prepare
-			// is on. The source already covers the top tier, so skip rungs at or
-			// above its height.
-			if settings.AutoPrepareEnabled() {
-				for _, r := range media.PrepareRenditions(settings.Ladder, res.Height) {
-					if r.Height >= res.Height {
-						continue
-					}
-					if err := p.prepareVariant(ctx, mf.ID, r.CappedAt(res.Bitrate), "transcode"); err != nil {
-						return err
-					}
-				}
-			}
-		} else if settings.AutoPrepareEnabled() {
-			for _, r := range media.PrepareRenditions(settings.Ladder, res.Height) {
-				if err := p.prepareVariant(ctx, mf.ID, r.CappedAt(res.Bitrate), "transcode"); err != nil {
-					return err
-				}
-			}
-		}
+	// make the file streamable for every client without admin intervention
+	if !res.HasVideo {
+		return nil
+	}
+	probed, err := p.Files.MediaFileByID(ctx, mf.ID)
+	if err != nil {
+		return err
+	}
+	names := media.AutoPrepare(res, media.LoadTranscodeSettings(ctx, p.Settings))
+	_, err = Prepare(ctx, p.Files, p.Jobs, probed, len(res.AudioStreams) > 0, names)
+	return err
+}
+
+func (p *Prober) store(ctx context.Context, id string, up ProbeUpdate, res *media.ProbeResult) error {
+	if err := p.Files.ApplyProbe(ctx, id, up); err != nil {
+		return err
+	}
+	if res.HasVideo {
+		return p.Files.ReplaceAudioStreams(ctx, id, res.AudioStreams)
 	}
 	return nil
 }
 
-// prepareVariant registers a variant row and enqueues its HLS job.
-func (p *Prober) prepareVariant(ctx context.Context, mediaFileID string, r media.Rendition, mode string) error {
-	if _, err := p.Files.UpsertVariant(ctx, mediaFileID, r.Name, r.Height, r.VideoBitrate, r.AudioBitrate, mode); err != nil {
+// Reprobe brings files an older prober read up to media.ProbeVersion: ffprobe
+// again, or the stored probe output once the source is gone (losing only what
+// needs a decoded frame, HDR10+). Files that have no HLS v2 package yet get the
+// cheap one (the copied source and audio renditions) when auto-prepare is on;
+// their ladder is left alone, so an upgrade never re-encodes a library.
+func (p *Prober) Reprobe(ctx context.Context, _ *jobs.Job, report func(int)) error {
+	settings := media.LoadTranscodeSettings(ctx, p.Settings)
+	done := 0
+	for {
+		files, err := p.Files.StaleProbes(ctx, 50)
+		if err != nil {
+			return err
+		}
+		if len(files) == 0 {
+			return nil
+		}
+		for i := range files {
+			if err := p.reprobe(ctx, &files[i], settings); err != nil {
+				// a file that cannot be read keeps its old facts; mark it so
+				// the loop moves on
+				slog.Warn("reprobe", "mediaFile", files[i].ID, "err", err)
+				if err := p.Files.SetProbeVersion(ctx, files[i].ID, media.ProbeVersion); err != nil {
+					return err
+				}
+			}
+			done++
+			report(min(99, done))
+		}
+	}
+}
+
+func (p *Prober) reprobe(ctx context.Context, mf *media.MediaFile, settings media.TranscodeSettings) error {
+	lib, err := p.Files.LibraryByID(ctx, mf.LibraryID)
+	if err != nil {
 		return err
 	}
-	opts := jobs.EnqueueOpts{}
-	if mode == "transcode" {
-		opts.MaxAttempts = 2
+	path := filepath.Join(lib.Path, mf.Path)
+	var res *media.ProbeResult
+	if _, statErr := os.Stat(path); mf.SourceDeletedAt == nil && statErr == nil {
+		res, err = media.Probe(ctx, p.FFprobePath, path)
+	} else if errors.Is(statErr, fs.ErrNotExist) || mf.SourceDeletedAt != nil {
+		res, err = media.ParseProbe(mf.Probe, mf.Path)
+	} else {
+		err = statErr
 	}
-	_, err := p.Jobs.EnqueueJobOnce(ctx, "transcode_hls",
-		map[string]any{"mediaFileId": mediaFileID, "variant": r.Name}, opts)
-	return err
+	if err != nil {
+		return err
+	}
+	up := ProbeUpdateFrom(res)
+	up.TitleID, up.EpisodeID = mf.TitleID, mf.EpisodeID
+	if mf.SourceDeletedAt != nil {
+		up.DirectPlay = false
+	}
+	if err := p.store(ctx, mf.ID, up, res); err != nil {
+		return err
+	}
+	if mf.SourceDeletedAt != nil || !settings.AutoPrepareEnabled() {
+		return nil
+	}
+	variants, err := p.Files.VariantsForMediaFile(ctx, mf.ID)
+	if err != nil {
+		return err
+	}
+	for _, v := range variants {
+		if v.Format == "fmp4" {
+			return nil
+		}
+	}
+	for _, name := range media.AutoPrepare(res, settings) {
+		if name == media.VariantSource {
+			probed, err := p.Files.MediaFileByID(ctx, mf.ID)
+			if err != nil {
+				return err
+			}
+			_, err = Prepare(ctx, p.Files, p.Jobs, probed, len(res.AudioStreams) > 0, []string{name})
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *Prober) assignVideo(ctx context.Context, lib *Library, relPath string, up *ProbeUpdate) error {
