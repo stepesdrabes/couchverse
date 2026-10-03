@@ -113,6 +113,9 @@ pub struct Session {
     endpoint: Option<Endpoint>,
     /// The device's language, for seeding a new account's preference.
     locale: String,
+    /// The server has answered with its flags since the session began; until then they are
+    /// assumed on.
+    features_known: bool,
 }
 
 impl Session {
@@ -130,6 +133,7 @@ impl Session {
             },
             endpoint: None,
             locale: locale.to_string(),
+            features_known: false,
         }
     }
 
@@ -150,13 +154,20 @@ impl Session {
         self.view.features.couch
     }
 
-    /// Whether the server has rankings on (assumed until it says otherwise).
+    /// Whether the server has downloads on (assumed until it says otherwise).
     pub fn downloads(&self) -> bool {
         self.view.features.downloads
     }
 
+    /// Whether the server has rankings on (assumed until it says otherwise).
     pub fn rankings(&self) -> bool {
         self.view.features.rankings
+    }
+
+    /// Whether the server has said it has rankings on, which assuming is not enough for asking
+    /// it about achievements.
+    pub fn rankings_confirmed(&self) -> bool {
+        self.features_known && self.view.features.rankings
     }
 
     /// The signed-in user changed their profile.
@@ -205,6 +216,7 @@ impl Session {
             offline: false,
         };
         self.endpoint = Some(endpoint);
+        self.features_known = false;
         self.load(ctx);
         ctx.render(Surface::Session);
     }
@@ -314,6 +326,7 @@ impl Session {
                         rankings: flags.rankings_enabled,
                         downloads: flags.downloads_enabled,
                     };
+                    self.features_known = true;
                     SessionChange::Features
                 } else {
                     SessionChange::None

@@ -111,6 +111,35 @@ fn the_top_of_the_ladder_has_no_next_tier() {
 }
 
 #[test]
+fn the_web_checks_once_someone_is_signed_in() {
+    let features =
+        json!({ "couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": true });
+
+    // a visitor without a session has nothing to check, even with rankings on
+    let mut shell = Shell::new(Platform::Web);
+    shell.send(Event::AppStarted);
+    shell.respond("GET", "/api/v1/features", 200, features.clone());
+    let signed_out = json!({ "error": { "code": "unauthorized", "message": "sign in" } });
+    shell.respond("GET", "/api/v1/auth/me", 401, signed_out);
+    shell.send(Event::AchievementsCheckRequested(CheckRequest { force: true }));
+    assert!(shell.find_request("POST", "/api/v1/me/achievements/check").is_none());
+
+    // signed in, the check waits for the user and the flags, whichever comes last
+    shell.send(Event::SessionStarted);
+    shell.respond("GET", "/api/v1/features", 200, features);
+    assert!(shell.find_request("POST", "/api/v1/me/achievements/check").is_none());
+    shell.respond("GET", "/api/v1/auth/me", 200, user(1, "admin"));
+    shell.respond(
+        "POST",
+        "/api/v1/me/achievements/check",
+        200,
+        json!({ "throttled": false, "rank": rank(1, 40), "unlocked": [achievement("first_play", true)] }),
+    );
+    let view: RankView = shell.view(&Surface::Rank);
+    assert_eq!(view.celebration.expect("celebration").code, "first_play");
+}
+
+#[test]
 fn nothing_is_checked_while_rankings_are_off() {
     let mut shell = launched(returning(Platform::Ios, &[(1, "admin", Some("tok-1"))], 1));
     shell.answer_session(HTTPS, user(1, "admin"), Some("en"));

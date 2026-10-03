@@ -463,8 +463,10 @@ impl Model {
                             self.phase = AppPhase::Ready;
                             ctx.render(Surface::App);
                         }
+                        // the first check waits for both the user and the flags, whichever
+                        // answers last
+                        self.check_achievements(ctx, false);
                     }
-                    // the first check waits until the server says rankings are on
                     SessionChange::Features => self.check_achievements(ctx, false),
                     SessionChange::Unauthorized(id) => self.signed_out(ctx, &id),
                     SessionChange::None => {}
@@ -728,13 +730,11 @@ impl Model {
         }
     }
 
+    /// Asks whether anything new was earned, once the server has said rankings are on and only
+    /// for a signed-in viewer: the web's cookie session can learn its flags while nobody is.
     fn check_achievements(&mut self, ctx: &mut Ctx, force: bool) {
-        // the web still checks through its own ranks store until it renders the core's (plan
-        // Phase 8); a check here would take the unlocks that store celebrates
-        if self.config.auth_mode == AuthMode::Cookie {
-            return;
-        }
-        if self.session.rankings()
+        if self.session.rankings_confirmed()
+            && self.session.username().is_some()
             && let Some(endpoint) = self.session.endpoint()
         {
             self.ranks.check(ctx, endpoint, force);

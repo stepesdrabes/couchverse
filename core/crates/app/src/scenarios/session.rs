@@ -180,16 +180,6 @@ fn the_web_reads_its_session_again_after_changing_it() {
 }
 
 #[test]
-fn the_web_leaves_achievement_checks_to_its_own_ranks_store() {
-    let mut shell = web();
-    shell.respond("GET", "/api/v1/auth/me", 200, user(1, "admin"));
-    let flags = json!({"couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": true});
-    shell.respond("GET", "/api/v1/features", 200, flags);
-    shell.send(Event::AppBecameActive);
-    assert!(shell.find_request("POST", "/api/v1/me/achievements/check").is_none());
-}
-
-#[test]
 fn a_web_call_rejected_as_signed_out_ends_the_session_once_the_core_agrees() {
     let mut shell = web();
     shell.answer_session("", user(1, "admin"), Some("en"));
