@@ -415,3 +415,42 @@ fn hosting_needs_something_playing() {
     );
     assert!(shell.find_request("POST", &format!("{API}/couch?delivery=body")).is_none());
 }
+
+#[test]
+fn a_web_guest_without_an_account_follows_on_its_couch_cookie() {
+    let mut shell = Shell::new(Platform::Web);
+    shell.send(Event::AppStarted);
+    let signed_out = json!({ "error": { "code": "unauthorized", "message": "sign in" } });
+    shell.respond("GET", "/api/v1/auth/me", 401, signed_out);
+    assert_eq!(shell.phase(), AppPhase::SignIn);
+
+    // the flags are unknown without an account, so the server decides
+    shell.send(Event::CouchJoinRequested(CouchCode { code: "123456".into() }));
+    let mut joined = session("follower", "unused");
+    joined["participantToken"] = Value::Null;
+    joined["isAnonymous"] = json!(true);
+    joined["artworkGrant"] = json!("g-guest");
+    // the couch cookie identifies the guest: no token in the body, none in a header
+    shell.respond("POST", "/api/v1/couch/123456/join", 200, joined);
+    let playback = "/api/v1/couch/123456/playback?lang=cs";
+    assert_eq!(header(&shell.request("GET", playback).1, "X-Couch-Token"), None);
+    shell.respond(
+        "GET",
+        playback,
+        200,
+        json!({ "media": { "kind": "movie", "titleId": "m1" }, "player": player_info() }),
+    );
+    let socket = shell.socket("/api/v1/couch/123456/ws");
+    opened(&mut shell, socket);
+
+    assert!(shell.player.iter().any(|c| matches!(c, PlayerCommand::Load(l) if l.linear)));
+    let view = couch(&shell);
+    assert_eq!((view.status, view.role), (CouchStatus::Open, Some(CouchRole::Follower)));
+    // artwork carries the session's grant in place of a session cookie
+    let avatar = view.members[0].avatar.as_ref().expect("avatar");
+    assert_eq!(avatar.url, "/api/v1/artwork/av?size=w342&g=g-guest");
+
+    shell.send(Event::CouchLeft);
+    shell.request("POST", "/api/v1/couch/123456/leave");
+    assert_eq!(shell.player.last(), Some(&PlayerCommand::Stop));
+}

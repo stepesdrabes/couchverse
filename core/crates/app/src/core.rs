@@ -90,11 +90,16 @@ struct Model {
     phase: AppPhase,
     /// Persisted reads still outstanding at start-up; the phase is decided when they land.
     boot_reads: usize,
+    /// The web's requests without a signed-in session: a couch guest rides on the couch
+    /// cookie alone. `None` for native clients, which need an account for everything.
+    guest: Option<Endpoint>,
 }
 
 impl Core {
     pub fn new(config: CoreConfig) -> Self {
         let session = Session::new(&config.locale);
+        let guest = (config.auth_mode == AuthMode::Cookie)
+            .then(|| Endpoint { base: String::new(), token: None });
         let model = Model {
             config,
             servers: Servers::default(),
@@ -109,6 +114,7 @@ impl Core {
             notices: Notices::default(),
             phase: AppPhase::Starting,
             boot_reads: 0,
+            guest,
         };
         Self { registry: Registry::default(), model }
     }
@@ -150,8 +156,12 @@ fn env(session: &Session) -> Option<Env<'_>> {
     session.endpoint().map(|endpoint| Env { endpoint, language: session.language() })
 }
 
-fn playback_env(session: &Session, images: Images) -> Option<playback::Env<'_>> {
-    session.endpoint().map(|endpoint| playback::Env {
+fn playback_env<'a>(
+    session: &'a Session,
+    guest: Option<&'a Endpoint>,
+    images: Images,
+) -> Option<playback::Env<'a>> {
+    session.endpoint().or(guest).map(|endpoint| playback::Env {
         endpoint,
         language: session.language(),
         images,
@@ -160,10 +170,11 @@ fn playback_env(session: &Session, images: Images) -> Option<playback::Env<'_>> 
 
 fn couch_env<'a>(
     session: &'a Session,
+    guest: Option<&'a Endpoint>,
     config: &'a CoreConfig,
     playback: &'a Playback,
 ) -> Option<couch::Env<'a>> {
-    session.endpoint().map(|endpoint| couch::Env {
+    session.endpoint().or(guest).map(|endpoint| couch::Env {
         endpoint,
         language: session.language(),
         cookie: config.auth_mode == AuthMode::Cookie,
@@ -476,12 +487,13 @@ impl Model {
             },
             Pending::Playback(p) => {
                 let images = self.images();
-                let env = playback_env(&self.session, images);
+                let env = playback_env(&self.session, self.guest.as_ref(), images);
                 let change = self.playback.resolve(ctx, env.as_ref(), p, output);
                 self.playback_changed(ctx, change);
             }
             Pending::Couch(p) => {
-                let env = couch_env(&self.session, &self.config, &self.playback);
+                let env =
+                    couch_env(&self.session, self.guest.as_ref(), &self.config, &self.playback);
                 let change = self.couch.resolve(ctx, env.as_ref(), &self.playback, p, output);
                 self.couch_changed(ctx, change);
             }
@@ -532,7 +544,7 @@ impl Model {
         let reported = matches!(event, Event::PlayerReported(_));
         let switched = matches!(event, Event::PlayRequested(_) | Event::PlayerClosed);
         let images = self.images();
-        let Some(env) = playback_env(&self.session, images) else {
+        let Some(env) = playback_env(&self.session, self.guest.as_ref(), images) else {
             if let Event::CapabilitiesReported(profile) = event {
                 self.playback.set_profile(&profile);
             }
@@ -600,7 +612,10 @@ impl Model {
 
     /// Couch sessions: hosting, joining, leaving, reactions and remote control.
     fn couch_event(&mut self, ctx: &mut Ctx, event: Event) {
-        let Some(env) = couch_env(&self.session, &self.config, &self.playback) else { return };
+        let Some(env) = couch_env(&self.session, self.guest.as_ref(), &self.config, &self.playback)
+        else {
+            return;
+        };
         let change = match event {
             Event::CouchStartRequested => {
                 match self.playback.target().cloned() {
@@ -610,8 +625,9 @@ impl Model {
                 }
                 CouchChange::None
             }
+            // a guest without an account has no flags to go by: the server refuses for it
             Event::CouchJoinRequested(_) | Event::CouchRemoteRequested(_)
-                if !self.session.couch() =>
+                if self.session.account_id().is_some() && !self.session.couch() =>
             {
                 self.notices.push(ctx, "couch_disabled");
                 CouchChange::None
@@ -645,7 +661,7 @@ impl Model {
 
     fn couch_changed(&mut self, ctx: &mut Ctx, change: CouchChange) {
         let images = self.images();
-        let Some(env) = playback_env(&self.session, images) else { return };
+        let Some(env) = playback_env(&self.session, self.guest.as_ref(), images) else { return };
         match change {
             CouchChange::Follow(target, info) => self.playback.follow(ctx, &env, target, *info),
             CouchChange::StopFollowing => self.playback.close(ctx, env.endpoint),
@@ -672,7 +688,9 @@ impl Model {
         let images = self.images();
         if let Event::DownloadPlayRequested(download) = &event {
             let local = self.downloads.local(&download.id);
-            if let (Some(local), Some(env)) = (local, playback_env(&self.session, images)) {
+            if let (Some(local), Some(env)) =
+                (local, playback_env(&self.session, self.guest.as_ref(), images))
+            {
                 self.playback.play_download(ctx, &env, &local);
             }
             return;
@@ -836,7 +854,9 @@ impl Model {
     /// Where artwork comes from for the active account: its server, with its grant.
     fn images(&self) -> Images {
         let Some(account) = self.session.account_id() else {
-            return Images::default();
+            // a couch guest without an account loads artwork with the session's grant
+            let grant = self.couch.artwork_grant().map(str::to_string);
+            return Images { base: String::new(), grant };
         };
         let server = self.accounts.server_of(account).and_then(|s| self.servers.get(s));
         Images {

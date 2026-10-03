@@ -243,6 +243,8 @@ struct Live {
     heartbeat: Option<U53>,
     local_paused: bool,
     resync_timer: Option<U53>,
+    /// Lets a guest without an account load the session's artwork.
+    artwork_grant: String,
 }
 
 #[derive(Default)]
@@ -266,6 +268,11 @@ impl Couch {
 
     pub fn is_host(&self) -> bool {
         self.live.as_ref().is_some_and(|l| l.role == CouchRole::Host)
+    }
+
+    /// The session's artwork grant, for a guest without an account.
+    pub fn artwork_grant(&self) -> Option<&str> {
+        self.live.as_ref().map(|l| l.artwork_grant.as_str()).filter(|g| !g.is_empty())
     }
 
     fn pending(&self, request: Request) -> Pending {
@@ -566,6 +573,7 @@ impl Couch {
             heartbeat: None,
             local_paused: false,
             resync_timer: None,
+            artwork_grant: session.artwork_grant,
         });
         ctx.render(Surface::Couch);
         let Some(env) = env else { return CouchChange::None };
