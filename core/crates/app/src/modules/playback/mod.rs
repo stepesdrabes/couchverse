@@ -529,7 +529,7 @@ impl Playback {
         if report.ended || paused || due {
             change = self.save(ctx, env.endpoint, report.ended);
         }
-        if self.next_up(ctx) {
+        if self.next_up(ctx, report.ended) {
             ctx.render(Surface::Player);
         }
         if report.ended {
@@ -552,11 +552,12 @@ impl Playback {
     }
 
     /// Shows the next episode near the end; returns whether the countdown changed.
-    fn next_up(&mut self, _ctx: &mut Ctx) -> bool {
+    fn next_up(&mut self, _ctx: &mut Ctx, ended: bool) -> bool {
         let Some(session) = self.session.as_mut() else { return false };
         let Some(info) = &session.info else { return false };
         let remaining = session.duration - session.position;
-        let near_end = remaining > 0.0 && remaining <= NEXT_UP_SECONDS;
+        // a viewer who skipped straight to the end still gets the next episode
+        let near_end = ended || (remaining > 0.0 && remaining <= NEXT_UP_SECONDS);
         if session.linear || session.next == Next::Cancelled || !near_end {
             return false;
         }
@@ -605,7 +606,7 @@ impl Playback {
                 session.next = Next::Undecided;
             }
         }
-        self.next_up(ctx);
+        self.next_up(ctx, false);
         self.save_prefs(ctx);
         ctx.render(Surface::Player);
     }

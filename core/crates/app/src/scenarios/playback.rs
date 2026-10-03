@@ -298,6 +298,23 @@ fn the_next_episode_counts_down_and_plays_at_the_end() {
 }
 
 #[test]
+fn skipping_to_the_end_still_plays_the_next_episode() {
+    let mut shell = signed_in();
+    play(&mut shell, episode("e1"), series_info("e1", Some("e2")));
+    report(&mut shell, 100.0, true);
+    assert_eq!(shell.view::<PlayerView>(&Surface::Player).next_up, None);
+    shell.send(Event::PlayerReported(PlayerReport {
+        position_seconds: 2400.0,
+        duration_seconds: 2400.0,
+        playing: false,
+        buffering: false,
+        ended: true,
+        failed: None,
+    }));
+    shell.request("GET", &format!("{API}/playback/episode/e2?lang=en"));
+}
+
+#[test]
 fn a_dismissed_countdown_stops_at_the_end() {
     let mut shell = signed_in();
     play(&mut shell, episode("e1"), series_info("e1", Some("e2")));
