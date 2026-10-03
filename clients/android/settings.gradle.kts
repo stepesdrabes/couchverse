@@ -28,6 +28,7 @@ include(
     ":design",
     ":feature-accounts",
     ":feature-catalog",
+    ":feature-downloads",
     ":feature-settings",
     ":testing",
 )

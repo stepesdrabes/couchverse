@@ -3,7 +3,6 @@ package io.stepes.couchverse.core.runtime
 import io.stepes.couchverse.core.CoreEngine
 import io.stepes.couchverse.core.CoreJson
 import io.stepes.couchverse.core.DownloadCommand
-import io.stepes.couchverse.core.DownloadFailure
 import io.stepes.couchverse.core.Effect
 import io.stepes.couchverse.core.EffectOutput
 import io.stepes.couchverse.core.EffectRequest
@@ -59,6 +58,9 @@ class CoreRuntime(
 
     /** Open sockets by the id of their open effect; only touched on the core's dispatcher. */
     private val sockets = HashMap<ULong, SocketConnection>()
+
+    /** Running downloads by the id of their start effect; only touched on the core's dispatcher. */
+    private val transfers = HashMap<ULong, DownloadTransfer>()
 
     /** Store effects run one at a time and in order, so a read always sees earlier writes. */
     private val storeQueue = Channel<suspend () -> Unit>(Channel.UNLIMITED)
@@ -125,10 +127,21 @@ class CoreRuntime(
         }
     }
 
-    /** Downloads arrive with the offline slice: until then a start fails, and nothing runs to cancel or remove. */
     private fun download(id: ULong, command: DownloadCommand) {
-        if (command is DownloadCommand.Start) {
-            scope.launch { resolve(id, EffectOutput.DownloadFailed(DownloadFailure("downloads are not supported yet"))) }
+        when (command) {
+            is DownloadCommand.Start -> {
+                transfers[id] = executors.downloads.start(command.content) { output ->
+                    // progress arrives on the transfer's thread; the serial dispatcher keeps the order
+                    scope.launch {
+                        val done = output is EffectOutput.DownloadFinished || output is EffectOutput.DownloadFailed
+                        if (done && transfers.remove(id) == null) return@launch
+                        if (!done && id !in transfers) return@launch
+                        resolve(id, output)
+                    }
+                }
+            }
+            is DownloadCommand.Cancel -> transfers.remove(command.content.id)?.cancel()
+            is DownloadCommand.Remove -> scope.launch(ioDispatcher) { executors.downloads.remove(command.content.name) }
         }
     }
 
