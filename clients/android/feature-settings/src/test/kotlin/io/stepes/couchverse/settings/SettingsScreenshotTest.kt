@@ -60,7 +60,7 @@ class SettingsScreenshotTest {
         accountId = "s1/2",
         features = Features(couch = true, rankings = true, downloads = true),
         language = "en",
-        accent = AccentPalette("#e50914", "#b30710", "#e5091429", "#ffffff"),
+        accent = AccentPalette("#e50914", "#b30710", "#e5091429", "#ffffff", "#ec474f"),
         offline = false,
     )
     private val state = SettingsState(session, accounts, servers, "1.4.0")

@@ -36,7 +36,7 @@ class DesignTest {
         assertEquals(Color(0x29E50914), colorOf("#e5091429"))
         assertNull(colorOf("red"))
         assertNull(colorOf(null))
-        val palette = AccentColors.of(AccentPalette("#3a6ea5", "#2d5681", "#3a6ea529", "#ffffff"))
+        val palette = AccentColors.of(AccentPalette("#3a6ea5", "#2d5681", "#3a6ea529", "#ffffff", "#5b87b4"))
         assertEquals(Color(0xFF3A6EA5), palette.accent)
         assertEquals(AccentColors.Default, AccentColors.of(null))
     }

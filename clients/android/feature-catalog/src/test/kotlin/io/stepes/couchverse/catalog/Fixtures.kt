@@ -115,7 +115,7 @@ object Fixtures {
         overview = "Three siblings run a remote weather station through the longest winter on record.",
         genres = listOf("Drama", "Mystery"), contentRating = "TV-14",
         backdrop = backdrop("northern-lights", null), logo = Logo("${ART}logo-northern-lights?size=w780", 3.6),
-        accent = AccentPalette("#2f8f9d", "#25707a", "#2f8f9d29", "#ffffff"),
+        accent = AccentPalette("#2f8f9d", "#25707a", "#2f8f9d29", "#ffffff", "#31909e"),
         quality = Quality.Uhd, hdr = true, inList = true,
         play = PlayAction(PlayTarget(PlayKind.Episode, "e3"), resumeSeconds = 1260u, episode = EpisodeNumber(1u, 3u)),
         shuffle = true,
