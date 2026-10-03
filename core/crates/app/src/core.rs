@@ -498,6 +498,11 @@ impl Model {
     }
 
     fn check_achievements(&mut self, ctx: &mut Ctx, force: bool) {
+        // the web still checks through its own ranks store until it renders the core's (plan
+        // Phase 8); a check here would take the unlocks that store celebrates
+        if self.config.auth_mode == AuthMode::Cookie {
+            return;
+        }
         if self.session.rankings()
             && let Some(endpoint) = self.session.endpoint()
         {
