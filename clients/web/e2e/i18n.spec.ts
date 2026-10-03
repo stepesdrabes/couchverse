@@ -24,11 +24,15 @@ test('switching to Czech translates the UI and the catalog, and back', async ({ 
 	await expect(page.getByRole('heading', { level: 1, name: movie.nameCs })).toBeVisible();
 	await expect(page.getByText(movie.overviewCs)).toBeVisible();
 	await expect(page.getByRole('button', { name: t('common_play', {}, 'cs') })).toBeVisible();
+	// the title's wordmark in the display language stands in for its name
+	const logo = (name: string) => page.getByRole('heading', { level: 1, name }).locator('img');
+	await expect(logo(movie.nameCs)).toHaveAttribute('src', new RegExp(movie.logos.cs));
 
 	await page.getByRole('button', { name: t('language_label', {}, 'cs') }).click();
 	await page.getByRole('menuitem', { name: 'English' }).click();
 
 	await expect(page.getByRole('heading', { level: 1, name: movie.name })).toBeVisible();
 	await expect(page.getByText(movie.overview)).toBeVisible();
+	await expect(logo(movie.name)).toHaveAttribute('src', new RegExp(movie.logos.en));
 	await expect(nav.getByRole('link', { name: t('nav_movies') })).toBeVisible();
 });

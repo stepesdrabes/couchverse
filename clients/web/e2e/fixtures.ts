@@ -27,7 +27,12 @@ export const movie = {
 	name: 'Glass Harbor',
 	nameCs: 'Skleněný přístav',
 	overview: 'A lighthouse keeper finds a door in the sea.',
-	overviewCs: 'Strážce majáku najde dveře v moři.'
+	overviewCs: 'Strážce majáku najde dveře v moři.',
+	/** its logo artwork per display language */
+	logos: {
+		en: '00000000-0000-4000-8000-000000000407',
+		cs: '00000000-0000-4000-8000-000000000408'
+	}
 };
 
 export const series = {

@@ -46,6 +46,19 @@ test('search finds a title and opens its page', async ({ page }) => {
 	await expect(page.getByRole('button', { name: resume })).toBeVisible();
 });
 
+test('coming back to search shows the last search again', async ({ page }) => {
+	const box = page.getByPlaceholder(t('catalog_search_placeholder'));
+	await page.goto('/search');
+	await box.fill('bloom');
+	await page.getByRole('link', { name: series.name }).click();
+	await expect(page.getByRole('heading', { level: 1, name: series.name })).toBeVisible();
+
+	await page.goBack();
+	await expect(box).toHaveValue('bloom');
+	await expect(page.getByRole('link', { name: series.name })).toBeVisible();
+	await expect(page.getByRole('link', { name: movie.name })).toHaveCount(0);
+});
+
 test('a series page lists its seasons and episodes', async ({ page }) => {
 	await page.goto(`/title/${series.slug}`);
 	await expect(page.getByRole('heading', { level: 1, name: series.name })).toBeVisible();
@@ -102,6 +115,37 @@ test('My List adds and removes a title', async ({ page }) => {
 	await myList.click();
 	await expect(page.getByRole('link', { name: movie.name })).toBeVisible();
 	await expect(page.getByRole('link', { name: series.name })).toHaveCount(0);
+});
+
+test.describe(() => {
+	// the change never lands, so vera's list stays as it was
+	test.use({ storageState: authFile('vera') });
+
+	test('a My List change the server refuses is rolled back with a notice', async ({
+		page,
+		errors
+	}) => {
+		errors.allow(/status of 503 .*\/api\/v1\/me\/watchlist\//);
+		const toggle = page.getByRole('button', { name: t('nav_my_list') });
+		await page.goto(`/title/${series.slug}`);
+		await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+		let release = () => {};
+		const held = new Promise<void>((resolve) => (release = resolve));
+		await page.route(`**/api/v1/me/watchlist/${series.id}`, async (route) => {
+			await held;
+			await route.fulfill({
+				status: 503,
+				json: { error: { code: 'unavailable', message: 'try later' } }
+			});
+		});
+		await toggle.click();
+		// shown at once, before the server has answered
+		await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+		release();
+		await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+		await expect(page.getByText(t('catalog_list_update_failed'))).toBeVisible();
+	});
 });
 
 test.describe(() => {
