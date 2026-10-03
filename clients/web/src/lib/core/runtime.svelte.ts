@@ -294,7 +294,8 @@ export class CoreRuntime {
 	async #dispatch(event: CoreEvent) {
 		const bridge = this.#bridge;
 		if (!bridge) return;
-		const message = JSON.stringify({ nowMs: this.#now(), event });
+		// the monotonic clock times things, the wall clock dates them
+		const message = JSON.stringify({ nowMs: this.#now(), wallMs: Date.now(), event });
 		await this.#call(bridge, () => bridge.send(message));
 	}
 
