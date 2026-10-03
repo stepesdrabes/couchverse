@@ -27,6 +27,8 @@ use crate::modules::playback::LocalTitle;
 const KEY_PREFIX: &str = "downloads.";
 /// How often the server is asked about downloads it is still preparing.
 const POLL_MS: U53 = 5_000;
+/// The most watched seconds the server counts from one progress report.
+const MAX_REPORT_WATCHED: i64 = 600;
 
 /// A movie or an episode to keep on the device.
 #[typeshare]
@@ -508,9 +510,26 @@ impl Downloads {
 
     /// Keeps progress that never reached the server; only the latest per title counts.
     pub fn keep(&mut self, ctx: &mut Ctx, report: ProgressReport) {
-        self.unsaved.retain(|r| r.title_id != report.title_id || r.episode_id != report.episode_id);
-        self.unsaved.push(report);
+        self.merge(report);
         self.save(ctx);
+    }
+
+    fn merge(&mut self, mut report: ProgressReport) {
+        // the latest report for a title carries its position; the watched time of the ones it
+        // replaces rides along, up to what the server takes from one report
+        let last = self
+            .unsaved
+            .iter()
+            .rposition(|r| r.title_id == report.title_id && r.episode_id == report.episode_id);
+        if let Some(index) = last {
+            let watched = self.unsaved[index].watched_seconds.unwrap_or(0)
+                + report.watched_seconds.unwrap_or(0);
+            if watched <= MAX_REPORT_WATCHED {
+                report.watched_seconds = Some(watched);
+                self.unsaved.remove(index);
+            }
+        }
+        self.unsaved.push(report);
     }
 
     /// The server answers again: sends the kept progress and catches up on what it prepared.
@@ -647,9 +666,7 @@ impl Downloads {
         let later = std::mem::take(&mut self.unsaved);
         self.unsaved = saved.unsaved;
         for report in later {
-            self.unsaved
-                .retain(|r| r.title_id != report.title_id || r.episode_id != report.episode_id);
-            self.unsaved.push(report);
+            self.merge(report);
         }
         self.loaded = true;
         if let Some(env) = env {
@@ -865,5 +882,40 @@ fn local(entry: &Entry) -> LocalTitle {
         resume: entry.position,
         audio: entry.audio.clone(),
         subtitles: entry.subtitles.clone(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn report(episode: &str, position: i64, watched: i64) -> ProgressReport {
+        ProgressReport {
+            title_id: None,
+            episode_id: Some(episode.into()),
+            position_seconds: position,
+            duration_seconds: 2400,
+            watched_seconds: Some(watched),
+            watched_at: Some(format!("2026-10-02T12:{:02}:00Z", position / 60)),
+        }
+    }
+
+    #[test]
+    fn kept_progress_folds_per_title_without_losing_watched_time() {
+        let mut downloads = Downloads::default();
+        downloads.merge(report("e1", 100, 10));
+        downloads.merge(report("e2", 50, 10));
+        downloads.merge(report("e1", 110, 10));
+        let kept: Vec<_> = downloads
+            .unsaved
+            .iter()
+            .map(|r| (r.episode_id.clone().unwrap(), r.position_seconds, r.watched_seconds))
+            .collect();
+        assert_eq!(kept, [("e2".into(), 50, Some(10)), ("e1".into(), 110, Some(20))]);
+
+        // past what one report may carry, a new one starts
+        downloads.merge(report("e1", 700, 590));
+        assert_eq!(downloads.unsaved.len(), 3);
+        assert_eq!(downloads.unsaved[2].watched_seconds, Some(590));
     }
 }
