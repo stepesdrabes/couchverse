@@ -34,13 +34,24 @@ jobs:
           workspaces: core
       - name: Build the core
         run: make core-apple
-      - name: Pick simulators
+      # the apps target iOS/tvOS 27; a runner image can carry the Xcode without its runtimes
+      - name: Simulator runtimes
         run: |
-          devices=$(xcrun simctl list devices available -j)
-          pick() { echo "$devices" | jq -r --arg os "$1" --arg name "$2" \
-            '[.devices | to_entries[] | select(.key | contains($os)) | .value[] | select(.name | startswith($name))][0].name'; }
-          echo "IOS_SIM=$(pick iOS iPhone)" >> "$GITHUB_ENV"
-          echo "TV_SIM=$(pick tvOS 'Apple TV')" >> "$GITHUB_ENV"
+          for platform in iOS tvOS; do
+            have=$(xcrun simctl list runtimes -j | jq --arg p "$platform" \
+              '[.runtimes[] | select(.platform == $p and .isAvailable and (.version | startswith("27")))] | length')
+            [ "$have" -gt 0 ] || xcodebuild -downloadPlatform "$platform"
+          done
+          xcrun simctl list runtimes
+      - name: Create simulators
+        run: |
+          runtime() { xcrun simctl list runtimes -j | jq -r --arg p "$1" \
+            '[.runtimes[] | select(.platform == $p and .isAvailable and (.version | startswith("27")))] | last | .identifier'; }
+          # the devices the snapshot references were recorded on (the Makefile's defaults)
+          xcrun simctl create "CI iPhone" "iPhone 17" "$(runtime iOS)"
+          xcrun simctl create "CI Apple TV" "Apple TV 4K (3rd generation)" "$(runtime tvOS)"
+          echo "IOS_SIM=CI iPhone" >> "$GITHUB_ENV"
+          echo "TV_SIM=CI Apple TV" >> "$GITHUB_ENV"
       - name: Package tests
         run: make apple-test
         env:
