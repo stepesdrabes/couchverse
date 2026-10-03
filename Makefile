@@ -1,6 +1,6 @@
 .PHONY: run-backend run-web build lint check format test e2e contract sample-media clean \
-	core-test core-apple core-android core-wasm apple-test android-test \
-	hls-check hls-apple ingest-samples hls-server-check e2e-playback
+	core-test core-apple core-android core-wasm apple-test apple-uitest apple-lint apple-format \
+	android-test hls-check hls-apple ingest-samples hls-server-check e2e-playback
 
 # dev database (compose service `db` published on 5432)
 DEV_DB ?= postgres://couchverse:couchverse@localhost:5432/couchverse
@@ -74,8 +74,37 @@ core-android:
 core-wasm:
 	cd core && cargo xtask wasm
 
+# Apple clients (docs/apple.md). Simulators are picked by name; override them for other Xcodes.
+IOS_SIM ?= iPhone 17
+TV_SIM ?= Apple TV 4K (3rd generation)
+APPLE_DD := $(CURDIR)/clients/apple/.build/DerivedData
+IOS_DEST := -destination 'platform=iOS Simulator,name=$(IOS_SIM)'
+TV_DEST := -destination 'platform=tvOS Simulator,name=$(TV_SIM)'
+APPLE_SOURCES = find clients/apple -name '*.swift' -not -path '*/Generated/*' -not -path '*/FFI/*' \
+	-not -path '*/.build/*' -print0
+
+# runtime and executors on the host; design and screens (incl. snapshots) on iOS and tvOS
 apple-test: core-apple
 	cd clients/apple/Packages/CouchverseCore && swift test
+	cd clients/apple/Packages/CouchverseDesign && xcodebuild test -quiet -scheme CouchverseDesign \
+		-derivedDataPath $(APPLE_DD) $(IOS_DEST)
+	cd clients/apple/Packages/CouchverseFeatures && xcodebuild test -quiet -scheme CouchverseFeatures \
+		-derivedDataPath $(APPLE_DD) $(IOS_DEST)
+	cd clients/apple/Packages/CouchverseFeatures && xcodebuild test -quiet -scheme CouchverseFeatures \
+		-derivedDataPath $(APPLE_DD) $(TV_DEST)
+
+# smoke UI tests of both apps on simulators
+apple-uitest: core-apple
+	xcodebuild test -quiet -project clients/apple/Couchverse.xcodeproj -scheme Couchverse \
+		-derivedDataPath $(APPLE_DD) $(IOS_DEST)
+	xcodebuild test -quiet -project clients/apple/Couchverse.xcodeproj -scheme 'Couchverse TV' \
+		-derivedDataPath $(APPLE_DD) $(TV_DEST)
+
+apple-lint:
+	$(APPLE_SOURCES) | xargs -0 xcrun swift-format lint --strict --configuration clients/apple/.swift-format
+
+apple-format:
+	$(APPLE_SOURCES) | xargs -0 xcrun swift-format format --in-place --configuration clients/apple/.swift-format
 
 android-test: core-android
 	cd clients/android && ./gradlew :core:testDebugUnitTest

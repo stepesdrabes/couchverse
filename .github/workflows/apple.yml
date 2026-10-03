@@ -1,0 +1,57 @@
+name: apple
+
+# The iOS, iPadOS and tvOS apps: swift-format, the core packaged for Apple, the package tests
+# (runtime and executors on the host; design and screens, snapshots included, on iOS and tvOS
+# simulators) and a smoke UI test of each app.
+on:
+  push:
+    paths: [core/**, contract/**, clients/apple/**, Makefile, .github/workflows/apple.yml]
+  pull_request:
+    paths: [core/**, contract/**, clients/apple/**, Makefile, .github/workflows/apple.yml]
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  apple:
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select the newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+      - name: Lint Swift
+        run: make apple-lint
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-tvos,aarch64-apple-tvos-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Build the core
+        run: make core-apple
+      - name: Pick simulators
+        run: |
+          devices=$(xcrun simctl list devices available -j)
+          pick() { echo "$devices" | jq -r --arg os "$1" --arg name "$2" \
+            '[.devices | to_entries[] | select(.key | contains($os)) | .value[] | select(.name | startswith($name))][0].name'; }
+          echo "IOS_SIM=$(pick iOS iPhone)" >> "$GITHUB_ENV"
+          echo "TV_SIM=$(pick tvOS 'Apple TV')" >> "$GITHUB_ENV"
+      - name: Package tests
+        run: make apple-test
+        env:
+          # snapshot failures are written here (xcodebuild strips the prefix for the test runner)
+          TEST_RUNNER_SNAPSHOT_ARTIFACTS: ${{ runner.temp }}/snapshots
+      - name: Smoke UI tests
+        run: make apple-uitest
+      - name: Keep failed snapshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-failures
+          path: ${{ runner.temp }}/snapshots
+          if-no-files-found: ignore
