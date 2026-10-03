@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { problemMessage } from '$lib/api/problem';
 	import { untrack } from 'svelte';
 	import { Camera, ImageUp, Trash2 } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
@@ -61,7 +62,7 @@
 			toast.success(m.profile_picture_updated());
 			onsaved?.();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : m.profile_avatar_upload_failed());
+			toast.error(problemMessage(err, m.profile_avatar_upload_failed()));
 		}
 	}
 
@@ -100,7 +101,7 @@
 			onsaved?.();
 			open = false;
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : m.profile_save_failed());
+			toast.error(problemMessage(err, m.profile_save_failed()));
 		} finally {
 			saving = false;
 		}

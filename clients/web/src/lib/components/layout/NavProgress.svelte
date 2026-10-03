@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { navigating } from '$app/state';
+	import * as m from '$lib/paraglide/messages';
 </script>
 
 {#if navigating.to}
-	<div class="nav-progress" role="progressbar" aria-label="Loading" aria-busy="true"></div>
+	<div
+		class="nav-progress"
+		role="progressbar"
+		aria-label={m.common_loading()}
+		aria-busy="true"
+	></div>
 {/if}
 
 <style lang="scss">

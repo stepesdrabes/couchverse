@@ -1,8 +1,8 @@
 <script lang="ts">
+	import { problemMessage } from '$lib/api/problem';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { fade } from 'svelte/transition';
-	import { ApiError } from '$lib/api/client';
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -20,19 +20,6 @@
 	// someone who scanned a device's sign-in QR lands here first; say why
 	const pairing = $derived(next.startsWith('/pair'));
 
-	// the server's codes, in the display language; its English text is never shown
-	function loginProblem(err: unknown): string {
-		if (!(err instanceof ApiError)) return m.problem_offline();
-		switch (err.code) {
-			case 'invalid_credentials':
-				return m.problem_invalid_credentials();
-			case 'rate_limited':
-				return m.problem_rate_limited();
-			default:
-				return m.login_error_generic();
-		}
-	}
-
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
 		if (busy) return;
@@ -43,7 +30,7 @@
 			// a reload into the account's language lands on `next` through the login redirect
 			if (!followAccountLang()) goto(next);
 		} catch (err) {
-			error = loginProblem(err);
+			error = problemMessage(err, m.login_error_generic());
 		} finally {
 			busy = false;
 		}

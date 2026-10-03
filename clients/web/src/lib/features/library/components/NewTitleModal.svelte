@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { problemMessage } from '$lib/api/problem';
 	import { goto } from '$app/navigation';
 	import { Plus, Search } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
@@ -39,7 +40,7 @@
 			if (err instanceof ApiError && err.status === 412) {
 				noTmdbKey = true;
 			} else {
-				toast.error(err instanceof Error ? err.message : m.library_tmdb_search_failed());
+				toast.error(problemMessage(err, m.library_tmdb_search_failed()));
 			}
 		} finally {
 			searching = false;

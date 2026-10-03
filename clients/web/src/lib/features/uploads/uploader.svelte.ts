@@ -1,3 +1,5 @@
+import * as m from '$lib/paraglide/messages';
+import { problemMessage } from '$lib/api/problem';
 import * as uploadsApi from './api';
 import type { UploadAssignment, UploadAssignmentLibraryKind, UploadSession } from './api';
 
@@ -95,7 +97,7 @@ export class Upload {
 		} catch (err) {
 			if (this.aborter?.signal.aborted) return; // paused, not an error
 			this.status = 'error';
-			this.error = err instanceof Error ? err.message : 'upload failed';
+			this.error = problemMessage(err, m.library_upload_failed());
 		}
 	}
 

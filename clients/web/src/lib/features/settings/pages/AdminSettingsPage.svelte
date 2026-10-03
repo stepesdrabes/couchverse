@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { problemMessage } from '$lib/api/problem';
 	import { page } from '$app/state';
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
@@ -157,7 +158,7 @@
 			transcodeForm.reset();
 			toast.success(m.settings_transcoding_saved());
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : m.settings_save_failed());
+			toast.error(problemMessage(err, m.settings_save_failed()));
 		} finally {
 			savingTranscode = false;
 		}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { problemMessage } from '$lib/api/problem';
 	import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-svelte';
 	import { flip } from 'svelte/animate';
 	import { toast } from 'svelte-sonner';
@@ -69,7 +70,7 @@
 			form.reset();
 			toast.success(m.settings_home_rows_saved());
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : m.settings_home_rows_save_failed());
+			toast.error(problemMessage(err, m.settings_home_rows_save_failed()));
 		} finally {
 			saving = false;
 		}

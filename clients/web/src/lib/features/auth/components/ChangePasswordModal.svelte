@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { problemMessage } from '$lib/api/problem';
 	import { toast } from 'svelte-sonner';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -45,7 +46,7 @@
 			toast.success(m.profile_password_changed());
 			open = false;
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : m.profile_password_change_failed());
+			toast.error(problemMessage(err, m.profile_password_change_failed()));
 		} finally {
 			busy = false;
 		}

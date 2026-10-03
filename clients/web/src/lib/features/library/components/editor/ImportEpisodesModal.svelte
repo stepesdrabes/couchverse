@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { problemMessage } from '$lib/api/problem';
 	import { ApiError } from '$lib/api/client';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { TmdbSeason } from '$lib/features/library/api';
@@ -37,7 +38,7 @@
 			} else if (err instanceof ApiError && err.code === 'no_tmdb_key') {
 				errorMsg = m.library_import_no_tmdb_key();
 			} else {
-				errorMsg = err instanceof Error ? err.message : m.library_load_seasons_failed();
+				errorMsg = problemMessage(err, m.library_load_seasons_failed());
 			}
 		} finally {
 			loading = false;

@@ -7614,6 +7614,40 @@
         }
       }
     },
+    "problem_conflict": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toto uživatelské jméno je už obsazené."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That username is already taken."
+          }
+        }
+      }
+    },
+    "problem_forbidden": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "K tomu nemáte přístup."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You don't have access to that."
+          }
+        }
+      }
+    },
     "problem_generic": {
       "extractionState": "manual",
       "localizations": {
@@ -7678,6 +7712,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wrong username or password."
+          }
+        }
+      }
+    },
+    "problem_invalid_password": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Současné heslo není správné."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current password is wrong."
+          }
+        }
+      }
+    },
+    "problem_no_tmdb_id": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejdřív tento titul propojte s TMDB."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link this title to TMDB first."
+          }
+        }
+      }
+    },
+    "problem_no_tmdb_key": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejdřív v Nastavení zadejte klíč k TMDB API."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a TMDB API key in Settings first."
           }
         }
       }
@@ -7780,6 +7865,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "A secure connection to the server failed."
+          }
+        }
+      }
+    },
+    "problem_tmdb_error": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TMDB neodpovídá. Zkuste to později."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TMDB didn't answer. Try again later."
           }
         }
       }

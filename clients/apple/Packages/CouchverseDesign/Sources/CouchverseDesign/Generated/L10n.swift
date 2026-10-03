@@ -441,16 +441,22 @@ extension L10n {
     public static var playerUnmute: String { string("player_unmute") }
     public static func playerUpNext(seconds: String) -> String { format("player_up_next", [seconds]) }
     public static var playerVolume: String { string("player_volume") }
+    public static var problemConflict: String { string("problem_conflict") }
+    public static var problemForbidden: String { string("problem_forbidden") }
     public static var problemGeneric: String { string("problem_generic") }
     public static var problemInvalidAddress: String { string("problem_invalid_address") }
     public static var problemInvalidCode: String { string("problem_invalid_code") }
     public static var problemInvalidCredentials: String { string("problem_invalid_credentials") }
+    public static var problemInvalidPassword: String { string("problem_invalid_password") }
+    public static var problemNoTmdbId: String { string("problem_no_tmdb_id") }
+    public static var problemNoTmdbKey: String { string("problem_no_tmdb_key") }
     public static var problemNotAServer: String { string("problem_not_a_server") }
     public static var problemOffline: String { string("problem_offline") }
     public static var problemRateLimited: String { string("problem_rate_limited") }
     public static var problemServerOutdated: String { string("problem_server_outdated") }
     public static var problemTimeout: String { string("problem_timeout") }
     public static var problemTls: String { string("problem_tls") }
+    public static var problemTmdbError: String { string("problem_tmdb_error") }
     public static var problemUnauthorized: String { string("problem_unauthorized") }
     public static var profileAvatarRemoveFailed: String { string("profile_avatar_remove_failed") }
     public static var profileAvatarUploadFailed: String { string("profile_avatar_upload_failed") }

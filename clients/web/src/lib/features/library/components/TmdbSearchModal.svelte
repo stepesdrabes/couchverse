@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { problemMessage } from '$lib/api/problem';
 	import { Loader2, Search } from 'lucide-svelte';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { Title, TmdbSearchResult } from '$lib/features/library/api';
@@ -24,7 +25,7 @@
 		try {
 			results = await libraryApi.adminSearchMetadata({ q: query, kind: title.kind });
 		} catch (err) {
-			error = err instanceof Error ? err.message : m.library_tmdb_search_failed();
+			error = problemMessage(err, m.library_tmdb_search_failed());
 			results = [];
 		} finally {
 			searching = false;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { problemMessage } from '$lib/api/problem';
 	import { invalidateAll } from '$app/navigation';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
@@ -22,7 +23,7 @@
 			toast.success(m.library_subtitle_added());
 			invalidateAll();
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : m.library_upload_failed());
+			toast.error(problemMessage(err, m.library_upload_failed()));
 		}
 	}
 
