@@ -384,6 +384,7 @@ extension L10n {
     public static func pairingRequest(device: String, name: String) -> String { format("pairing_request", [device, name]) }
     public static var pairingScanTv: String { string("pairing_scan_tv") }
     public static var pairingSignInFirst: String { string("pairing_sign_in_first") }
+    public static var pairingTryAnother: String { string("pairing_try_another") }
     public static var playerAudio: String { string("player_audio") }
     public static var playerBack10Seconds: String { string("player_back_10_seconds") }
     public static var playerBackToTitle: String { string("player_back_to_title") }
@@ -525,6 +526,7 @@ extension L10n {
     public static var serversAddressHint: String { string("servers_address_hint") }
     public static var serversAddressLabel: String { string("servers_address_label") }
     public static var serversAddressPlaceholder: String { string("servers_address_placeholder") }
+    public static var serversChecking: String { string("servers_checking") }
     public static var serversConnect: String { string("servers_connect") }
     public static var serversNotEncrypted: String { string("servers_not_encrypted") }
     public static var serversNotEncryptedHint: String { string("servers_not_encrypted_hint") }

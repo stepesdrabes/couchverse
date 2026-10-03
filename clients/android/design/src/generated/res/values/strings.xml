@@ -392,6 +392,7 @@
     <string name="pairing_request">%1$s wants to sign in as %2$s.</string>
     <string name="pairing_scan_tv">Scan the code on the TV</string>
     <string name="pairing_sign_in_first">Sign in on this device first, then you can approve other devices.</string>
+    <string name="pairing_try_another">Enter another code</string>
     <string name="player_audio">Audio</string>
     <string name="player_back_10_seconds">Back 10 seconds</string>
     <string name="player_back_to_title">Back to title</string>
@@ -542,6 +543,7 @@
     <string name="servers_address_hint">Couchverse tries a secure connection first.</string>
     <string name="servers_address_label">Server address</string>
     <string name="servers_address_placeholder">media.example.com or 192.168.1.5:8080</string>
+    <string name="servers_checking">Checking the server...</string>
     <string name="servers_connect">Connect</string>
     <string name="servers_not_encrypted">Not encrypted</string>
     <string name="servers_not_encrypted_hint">This server uses plain HTTP, so others on your network could see your password and what you watch.</string>

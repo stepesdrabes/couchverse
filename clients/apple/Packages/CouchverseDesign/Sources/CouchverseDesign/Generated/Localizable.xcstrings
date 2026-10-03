@@ -6645,6 +6645,23 @@
         }
       }
     },
+    "pairing_try_another": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadat jiný kód"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter another code"
+          }
+        }
+      }
+    },
     "player_audio": {
       "extractionState": "manual",
       "localizations": {
@@ -9188,6 +9205,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "media.example.com or 192.168.1.5:8080"
+          }
+        }
+      }
+    },
+    "servers_checking": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ověřuji server..."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking the server..."
           }
         }
       }

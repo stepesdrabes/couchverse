@@ -395,6 +395,7 @@
     <string name="pairing_request">Zařízení %1$s se chce přihlásit jako %2$s.</string>
     <string name="pairing_scan_tv">Naskenovat kód z televize</string>
     <string name="pairing_sign_in_first">Nejdřív se na tomto zařízení přihlaste, pak můžete schvalovat další zařízení.</string>
+    <string name="pairing_try_another">Zadat jiný kód</string>
     <string name="player_audio">Zvuk</string>
     <string name="player_back_10_seconds">Zpět o 10 sekund</string>
     <string name="player_back_to_title">Zpět na titul</string>
@@ -548,6 +549,7 @@
     <string name="servers_address_hint">Couchverse nejdřív zkusí zabezpečené připojení.</string>
     <string name="servers_address_label">Adresa serveru</string>
     <string name="servers_address_placeholder">media.example.com nebo 192.168.1.5:8080</string>
+    <string name="servers_checking">Ověřuji server...</string>
     <string name="servers_connect">Připojit</string>
     <string name="servers_not_encrypted">Nešifrováno</string>
     <string name="servers_not_encrypted_hint">Tento server používá nešifrované HTTP, takže ostatní ve vaší síti mohou vidět vaše heslo i to, co sledujete.</string>
