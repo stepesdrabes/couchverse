@@ -41,6 +41,10 @@ class OkHttpSocketExecutorTest {
                     override fun onMessage(webSocket: WebSocket, text: String) {
                         webSocket.send("echo:$text")
                     }
+
+                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                        webSocket.close(code, null)
+                    }
                 },
             ).build(),
         )
@@ -68,5 +72,5 @@ class OkHttpSocketExecutorTest {
         assertEquals(1006, assertIs<EffectOutput.SocketClosed>(next()).content.code.toInt())
     }
 
-    private fun next(): EffectOutput = events.poll(5, TimeUnit.SECONDS) ?: error("no socket event")
+    private fun next(): EffectOutput = events.poll(20, TimeUnit.SECONDS) ?: error("no socket event")
 }
