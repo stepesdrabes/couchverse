@@ -19,14 +19,12 @@ import io.stepes.couchverse.catalog.CatalogNavigation
 import io.stepes.couchverse.catalog.GenresRoute
 import io.stepes.couchverse.catalog.HomeRoute
 import io.stepes.couchverse.catalog.MyListRoute
-import io.stepes.couchverse.catalog.PlayPlaceholderScreen
 import io.stepes.couchverse.catalog.SearchRoute
 import io.stepes.couchverse.catalog.TitleRoute
 import io.stepes.couchverse.core.TitleKind
 import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.theme.LocalIsTv
 import io.stepes.couchverse.navigation.Genre
-import io.stepes.couchverse.navigation.Play
 import io.stepes.couchverse.navigation.Title
 import io.stepes.couchverse.ui.phone.PhoneMain
 import io.stepes.couchverse.ui.tv.TvMain
@@ -41,7 +39,7 @@ fun MainScreen(accountId: String, version: String, openTitle: String?, onTitleOp
     val catalog = remember(nav) {
         CatalogNavigation(
             openTitle = { nav.navigate(Title(it)) },
-            play = { nav.navigate(Play(it.kind.string, it.id)) },
+            play = root.onPlay,
             openGenre = { name, label -> nav.navigate(Genre(name, label)) },
         )
     }
@@ -54,7 +52,7 @@ fun MainScreen(accountId: String, version: String, openTitle: String?, onTitleOp
     if (LocalIsTv.current) TvMain(nav, catalog, accountId, version, root) else PhoneMain(nav, catalog, accountId, version, root)
 }
 
-/** The screens every idiom reaches from anywhere: a title, a genre, the player. */
+/** The screens every idiom reaches from anywhere: a title and a genre. */
 fun NavGraphBuilder.detailScreens(nav: NavHostController, catalog: CatalogNavigation) {
     val back: () -> Unit = { nav.popBackStack() }
     composable<Title> { entry -> TitleRoute(entry.toRoute<Title>().slug, catalog, onBack = back) }
@@ -62,7 +60,6 @@ fun NavGraphBuilder.detailScreens(nav: NavHostController, catalog: CatalogNaviga
         val genre = entry.toRoute<Genre>()
         Page { BrowseRoute(kind = null, genre = genre.name, label = genre.label, navigation = catalog, onBack = back) }
     }
-    composable<Play> { PlayPlaceholderScreen(onBack = back) }
 }
 
 fun NavGraphBuilder.browseScreens(catalog: CatalogNavigation) {

@@ -5,3 +5,7 @@ plugins {
 android {
     namespace = "io.stepes.couchverse.catalog"
 }
+
+dependencies {
+    implementation(project(":feature-downloads"))
+}

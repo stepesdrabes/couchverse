@@ -21,10 +21,14 @@
         android:theme="@style/Theme.Couchverse"
         tools:targetApi="33">
 
+        <!-- the player rotates and shrinks into picture-in-picture without the activity restarting -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:exported="true"
             android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -40,6 +44,7 @@
                 <data android:host="connect" />
                 <data android:host="pair" />
                 <data android:host="title" />
+                <data android:host="couch" />
             </intent-filter>
         </activity>
     </application>

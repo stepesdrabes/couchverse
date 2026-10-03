@@ -19,8 +19,15 @@ import io.stepes.couchverse.catalog.phone.TitlePhone
 import io.stepes.couchverse.catalog.phone.TitleSkeletonPhone
 import io.stepes.couchverse.catalog.tv.TitleSkeletonTv
 import io.stepes.couchverse.catalog.tv.TitleTv
+import io.stepes.couchverse.core.DownloadAsk
+import io.stepes.couchverse.core.DownloadItem
+import io.stepes.couchverse.core.DownloadQuality
+import io.stepes.couchverse.core.DownloadRef
+import io.stepes.couchverse.core.DownloadsView
 import io.stepes.couchverse.core.Event
 import io.stepes.couchverse.core.PlayAction
+import io.stepes.couchverse.core.PlayTarget
+import io.stepes.couchverse.core.SessionView
 import io.stepes.couchverse.core.Surface
 import io.stepes.couchverse.core.TitleDetailView
 import io.stepes.couchverse.core.TitleKind
@@ -42,6 +49,14 @@ class TitleActions(
     val onListChange: (listed: Boolean) -> Unit,
     val onRefresh: () -> Unit,
     val onBack: (() -> Unit)?,
+    /** Keeping the movie or its episodes on the phone; absent on TVs and where downloads are off. */
+    val downloads: TitleDownloads? = null,
+)
+
+class TitleDownloads(
+    val items: List<DownloadItem>,
+    val onDownload: (PlayTarget, DownloadQuality) -> Unit,
+    val onRetry: (DownloadItem) -> Unit,
 )
 
 /** A title page: backdrop and logo, the play or resume button, My List, seasons and episodes. */
@@ -68,6 +83,9 @@ fun TitleScreen(view: TitleView?, actions: TitleActions) {
 fun TitleRoute(slug: String, navigation: CatalogNavigation, onBack: (() -> Unit)?) {
     val send = rememberSend()
     val view by rememberSurface<TitleView>(Surface.Title(slug), open = true)
+    val session by rememberSurface<SessionView>(Surface.Session)
+    val downloadable = !LocalIsTv.current && session?.features?.downloads == true
+    val downloads = if (downloadable) rememberSurface<DownloadsView>(Surface.Downloads, open = true).value else null
     TitleScreen(
         view,
         TitleActions(
@@ -77,6 +95,15 @@ fun TitleRoute(slug: String, navigation: CatalogNavigation, onBack: (() -> Unit)
             },
             onRefresh = { send(Event.RefreshRequested(Surface.Title(slug))) },
             onBack = onBack,
+            downloads = if (downloadable) {
+                TitleDownloads(
+                    items = downloads?.items.orEmpty(),
+                    onDownload = { target, quality -> send(Event.DownloadRequested(DownloadAsk(target, quality))) },
+                    onRetry = { send(Event.DownloadRetried(DownloadRef(it.id))) },
+                )
+            } else {
+                null
+            },
         ),
     )
 }

@@ -52,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.stepes.couchverse.catalog.StaleNotice
 import io.stepes.couchverse.catalog.TitleActions
+import io.stepes.couchverse.catalog.TitleDownloads
 import io.stepes.couchverse.catalog.label
 import io.stepes.couchverse.catalog.metaLine
 import io.stepes.couchverse.catalog.playLabel
@@ -62,6 +63,7 @@ import io.stepes.couchverse.core.PlayTarget
 import io.stepes.couchverse.core.Problem
 import io.stepes.couchverse.core.SeasonView
 import io.stepes.couchverse.core.TitleDetailView
+import io.stepes.couchverse.core.TitleKind
 import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.Artwork
@@ -75,6 +77,7 @@ import io.stepes.couchverse.design.phone.PhoneGutter
 import io.stepes.couchverse.design.text.displayLocale
 import io.stepes.couchverse.design.text.formatRuntime
 import io.stepes.couchverse.design.theme.LocalAccent
+import io.stepes.couchverse.downloads.DownloadButton
 
 @Composable
 internal fun TitlePhone(detail: TitleDetailView, status: LoadStatus, problem: Problem?, actions: TitleActions) {
@@ -92,7 +95,7 @@ internal fun TitlePhone(detail: TitleDetailView, status: LoadStatus, problem: Pr
             item(key = "seasons") { SeasonPicker(seasons, seasonIndex) { seasonIndex = it } }
             if (season != null) {
                 items(season.episodes, key = { it.id }) { episode ->
-                    EpisodeRow(episode) { actions.navigation.play(PlayTarget(PlayKind.Episode, episode.id)) }
+                    EpisodeRow(episode, actions.downloads) { actions.navigation.play(PlayTarget(PlayKind.Episode, episode.id)) }
                 }
             }
         }
@@ -153,7 +156,11 @@ private fun Summary(detail: TitleDetailView, status: LoadStatus, problem: Proble
                 Text(playLabel(play))
             }
         }
-        ListButton(detail.inList) { actions.onListChange(!detail.inList) }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ListButton(detail.inList) { actions.onListChange(!detail.inList) }
+            // a series keeps its episodes one by one, beside each episode
+            detail.play?.target?.takeIf { detail.kind == TitleKind.Movie }?.let { Download(it, actions.downloads) }
+        }
         if (detail.overview.isNotBlank()) {
             Text(detail.overview, style = MaterialTheme.typography.bodyLarge, color = Tokens.Palette.text.copy(alpha = 0.9f))
         }
@@ -198,7 +205,7 @@ internal fun seasonName(season: SeasonView): String =
     season.name.ifBlank { stringResource(R.string.catalog_season_number, season.number.toString()) }
 
 @Composable
-private fun EpisodeRow(episode: EpisodeView, onClick: () -> Unit) {
+private fun EpisodeRow(episode: EpisodeView, downloads: TitleDownloads?, onClick: () -> Unit) {
     val locale = displayLocale()
     val watched = stringResource(R.string.catalog_watched)
     val label = stringResource(R.string.catalog_play_episode, "${episode.number}. ${episode.name}")
@@ -249,7 +256,18 @@ private fun EpisodeRow(episode: EpisodeView, onClick: () -> Unit) {
                 )
             }
         }
+        Download(PlayTarget(PlayKind.Episode, episode.id), downloads)
     }
+}
+
+@Composable
+private fun Download(target: PlayTarget, downloads: TitleDownloads?) {
+    downloads ?: return
+    DownloadButton(
+        item = downloads.items.firstOrNull { it.target == target },
+        onDownload = { downloads.onDownload(target, it) },
+        onRetry = downloads.onRetry,
+    )
 }
 
 @Composable

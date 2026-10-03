@@ -9,6 +9,7 @@ import android.provider.Settings
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.work.WorkManager
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -16,12 +17,25 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import io.stepes.couchverse.core.AuthMode
 import io.stepes.couchverse.core.CoreConfig
+import io.stepes.couchverse.core.CouchView
 import io.stepes.couchverse.core.Event
 import io.stepes.couchverse.core.Platform
+import io.stepes.couchverse.core.SessionView
+import io.stepes.couchverse.core.Surface
 import io.stepes.couchverse.core.device.deviceProfile
 import io.stepes.couchverse.core.device.measureDevice
 import io.stepes.couchverse.core.runtime.CoreRuntime
+import io.stepes.couchverse.core.runtime.NoDownloads
 import io.stepes.couchverse.core.runtime.androidCoreRuntime
+import io.stepes.couchverse.couch.CoreHost
+import io.stepes.couchverse.couch.CouchNotification
+import io.stepes.couchverse.downloads.WorkDownloads
+import io.stepes.couchverse.downloads.downloadsDirectory
+import io.stepes.couchverse.playback.PlaybackEngine
+import io.stepes.couchverse.playback.PlaybackHost
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -31,9 +45,15 @@ import kotlin.concurrent.thread
  * The process's one core runtime, image loader and HTTP client. The runtime outlives
  * activities, so a rotation or a trip through the TV's home screen keeps every view model.
  */
-class CouchverseApp : Application(), SingletonImageLoader.Factory {
-    lateinit var runtime: CoreRuntime
+class CouchverseApp : Application(), SingletonImageLoader.Factory, PlaybackHost, CoreHost {
+    override lateinit var runtime: CoreRuntime
         private set
+
+    private val scope = MainScope()
+
+    override lateinit var playback: PlaybackEngine
+        private set
+
 
     /** The TV interface, picked once at launch from the UI mode. */
     val tv: Boolean by lazy { isTelevision(this) }
@@ -53,8 +73,17 @@ class CouchverseApp : Application(), SingletonImageLoader.Factory {
             deviceName = deviceName(),
             locale = Locale.getDefault().toLanguageTag(),
         )
-        runtime = androidCoreRuntime(this, config, http)
+        playback = PlaybackEngine(this, http, downloadsDirectory(this)) { runtime.send(Event.PlayerReported(it)) }
+        // downloads are for phones; a TV streams
+        val downloads = if (tv) NoDownloads else WorkDownloads(WorkManager.getInstance(this), downloadsDirectory(this))
+        runtime = androidCoreRuntime(this, config, http, player = playback, downloads = downloads)
         runtime.send(Event.AppStarted)
+        if (!tv) {
+            val notification = CouchNotification(this)
+            val couch = runtime.view<CouchView>(Surface.Couch)
+            val session = runtime.view<SessionView>(Surface.Session)
+            scope.launch { couch.combine(session) { c, s -> c to (s?.language ?: "en") }.collect { (c, language) -> notification.show(c, language) } }
+        }
         // listing the decoders takes a moment; the profile is only needed once something plays
         thread(name = "device-profile") {
             runtime.send(Event.CapabilitiesReported(deviceProfile(measureDevice(this))))

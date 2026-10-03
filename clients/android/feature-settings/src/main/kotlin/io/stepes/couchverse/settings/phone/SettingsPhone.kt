@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -73,6 +74,18 @@ internal fun SettingsPhone(state: SettingsState, actions: SettingsActions) {
         }
         state.current?.let { current ->
             item(key = "current") { CurrentAccount(current, actions.onSwitchAccount) }
+        }
+        actions.onProfile?.let { open ->
+            item(key = "profile") { ActionRow(Icons.Filled.Person, stringResource(R.string.nav_public_profile), open, chevron = true) }
+        }
+        actions.onLeaderboard?.let { open ->
+            item(key = "leaderboard") { ActionRow(CouchverseIcons.Leaderboard, stringResource(R.string.nav_leaderboard), open, chevron = true) }
+        }
+        actions.onDownloads?.let { open ->
+            item(key = "downloads") { ActionRow(CouchverseIcons.Download, stringResource(R.string.downloads_title), open, chevron = true) }
+        }
+        actions.onJoinCouch?.let { open ->
+            item(key = "join-couch") { ActionRow(CouchverseIcons.Couch, stringResource(R.string.couch_join_title), open, chevron = true) }
         }
 
         section("accounts", R.string.accounts_title)

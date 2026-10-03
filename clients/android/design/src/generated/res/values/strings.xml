@@ -138,8 +138,6 @@
     <string name="catalog_next_featured">Next featured</string>
     <string name="catalog_no_file">no file</string>
     <string name="catalog_play_episode">Play %1$s</string>
-    <string name="catalog_play_unavailable_message">This version of the app cannot play titles yet. Watch on the web for now.</string>
-    <string name="catalog_play_unavailable_title">Playback is on its way</string>
     <string name="catalog_previous_featured">Previous featured</string>
     <string name="catalog_progress">%1$s%% watched</string>
     <string name="catalog_quality_hd1080">1080p</string>

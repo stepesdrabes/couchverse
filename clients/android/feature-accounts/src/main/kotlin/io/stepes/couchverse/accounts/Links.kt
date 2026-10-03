@@ -10,8 +10,9 @@ import android.net.Uri
 fun isCouchverseLink(text: String): Boolean {
     val uri = runCatching { Uri.parse(text.trim()) }.getOrNull() ?: return false
     return when (uri.scheme?.lowercase()) {
-        "couchverse" -> uri.host == "connect" || uri.host == "pair"
-        "http", "https" -> uri.path?.trimEnd('/') == "/pair" && uri.getQueryParameter("code") != null
+        "couchverse" -> uri.host == "connect" || uri.host == "pair" || uri.host == "couch"
+        "http", "https" -> uri.path?.trimEnd('/') == "/pair" && uri.getQueryParameter("code") != null ||
+            uri.path?.trimEnd('/')?.matches(Regex("/couch/\\d{6}")) == true
         else -> false
     }
 }

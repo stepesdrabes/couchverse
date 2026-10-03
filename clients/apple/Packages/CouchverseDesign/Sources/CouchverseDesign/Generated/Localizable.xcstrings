@@ -2330,40 +2330,6 @@
         }
       }
     },
-    "catalog_play_unavailable_message": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tato verze aplikace zatím neumí titul přehrát. Zatím se dívejte na webu."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This version of the app cannot play titles yet. Watch on the web for now."
-          }
-        }
-      }
-    },
-    "catalog_play_unavailable_title": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přehrávání je na cestě"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playback is on its way"
-          }
-        }
-      }
-    },
     "catalog_previous_featured": {
       "extractionState": "manual",
       "localizations": {

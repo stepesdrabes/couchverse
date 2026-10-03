@@ -30,6 +30,7 @@ include(
     ":feature-catalog",
     ":feature-couch",
     ":feature-downloads",
+    ":feature-playback",
     ":feature-settings",
     ":testing",
 )

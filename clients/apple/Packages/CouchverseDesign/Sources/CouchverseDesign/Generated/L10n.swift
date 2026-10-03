@@ -139,8 +139,6 @@ extension L10n {
     public static var catalogNextFeatured: String { string("catalog_next_featured") }
     public static var catalogNoFile: String { string("catalog_no_file") }
     public static func catalogPlayEpisode(label: String) -> String { format("catalog_play_episode", [label]) }
-    public static var catalogPlayUnavailableMessage: String { string("catalog_play_unavailable_message") }
-    public static var catalogPlayUnavailableTitle: String { string("catalog_play_unavailable_title") }
     public static var catalogPreviousFeatured: String { string("catalog_previous_featured") }
     public static func catalogProgress(percent: String) -> String { format("catalog_progress", [percent]) }
     public static var catalogQualityHd1080: String { string("catalog_quality_hd1080") }

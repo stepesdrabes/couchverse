@@ -68,11 +68,33 @@ object Search
 @Serializable
 object Account
 
+/** The phone's downloads, from the account tab. */
+@Serializable
+object Downloads
+
 @Serializable
 data class Title(val slug: String)
 
 @Serializable
 data class Genre(val name: String, val label: String)
 
+// The player, full screen above the main screens.
+
 @Serializable
-data class Play(val kind: String, val id: String)
+data class Watch(val kind: String, val id: String)
+
+/** A finished download, played from the phone. */
+@Serializable
+data class WatchDownload(val id: String)
+
+/** A couch follower's player, which plays whatever the host does. */
+@Serializable
+object WatchCouch
+
+/** Joining a couch session; a link or a scanned code fills in [code]. */
+@Serializable
+data class JoinCouch(val code: String = "")
+
+/** A phone steering this account's player on another device. */
+@Serializable
+object CouchRemote

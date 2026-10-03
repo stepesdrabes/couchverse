@@ -162,6 +162,7 @@ internal fun TvMain(nav: NavHostController, catalog: CatalogNavigation, accountI
                         onAddServer = root.onAddServer,
                         onDevices = root.onDevices,
                         onApprove = root.onApprove,
+                        onJoinCouch = root.onJoinCouch,
                     )
                 }
                 detailScreens(nav, catalog)

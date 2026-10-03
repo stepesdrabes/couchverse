@@ -138,8 +138,6 @@
     <string name="catalog_next_featured">Další doporučený</string>
     <string name="catalog_no_file">žádný soubor</string>
     <string name="catalog_play_episode">Přehrát %1$s</string>
-    <string name="catalog_play_unavailable_message">Tato verze aplikace zatím neumí titul přehrát. Zatím se dívejte na webu.</string>
-    <string name="catalog_play_unavailable_title">Přehrávání je na cestě</string>
     <string name="catalog_previous_featured">Předchozí doporučený</string>
     <string name="catalog_progress">Zhlédnuto %1$s %%</string>
     <string name="catalog_quality_hd1080">1080p</string>

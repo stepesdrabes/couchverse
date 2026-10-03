@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -83,6 +84,15 @@ internal fun SettingsTv(state: SettingsState, actions: SettingsActions) {
                 supportingContent = { Text(stringResource(R.string.accounts_switch)) },
                 trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
             )
+        }
+        actions.onProfile?.let { open ->
+            item(key = "profile") { Action(Icons.Filled.Person, stringResource(R.string.nav_public_profile), open) }
+        }
+        actions.onLeaderboard?.let { open ->
+            item(key = "leaderboard") { Action(CouchverseIcons.Leaderboard, stringResource(R.string.nav_leaderboard), open) }
+        }
+        actions.onJoinCouch?.let { open ->
+            item(key = "join-couch") { Action(CouchverseIcons.Couch, stringResource(R.string.couch_join_title), open) }
         }
 
         section("accounts", R.string.accounts_title)

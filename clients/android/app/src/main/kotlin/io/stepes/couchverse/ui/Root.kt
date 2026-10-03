@@ -39,12 +39,22 @@ import io.stepes.couchverse.accounts.isConnectLink
 import io.stepes.couchverse.accounts.phone.QrScannerScreen
 import io.stepes.couchverse.core.AppPhase
 import io.stepes.couchverse.core.AppView
+import io.stepes.couchverse.core.CouchRole
+import io.stepes.couchverse.core.CouchStatus
+import io.stepes.couchverse.core.CouchView
 import io.stepes.couchverse.core.Event
 import io.stepes.couchverse.core.Link
+import io.stepes.couchverse.core.LoadStatus
+import io.stepes.couchverse.core.PlayKind
+import io.stepes.couchverse.core.PlayTarget
 import io.stepes.couchverse.core.ServersView
 import io.stepes.couchverse.core.SessionView
 import io.stepes.couchverse.core.Surface
 import io.stepes.couchverse.core.runtime.CoreRuntime
+import io.stepes.couchverse.couch.CouchRemoteRoute
+import io.stepes.couchverse.couch.JoinCouchRoute
+import io.stepes.couchverse.couch.active
+import io.stepes.couchverse.couch.couchCode
 import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.LogoMark
@@ -63,16 +73,26 @@ import io.stepes.couchverse.navigation.AppLink
 import io.stepes.couchverse.navigation.Approve
 import io.stepes.couchverse.navigation.ChooseServer
 import io.stepes.couchverse.navigation.Connecting
+import io.stepes.couchverse.navigation.CouchRemote
 import io.stepes.couchverse.navigation.Devices
+import io.stepes.couchverse.navigation.JoinCouch
 import io.stepes.couchverse.navigation.Main
 import io.stepes.couchverse.navigation.PendingLinks
 import io.stepes.couchverse.navigation.Scan
 import io.stepes.couchverse.navigation.SignIn
 import io.stepes.couchverse.navigation.Splash
+import io.stepes.couchverse.navigation.Watch
+import io.stepes.couchverse.navigation.WatchCouch
+import io.stepes.couchverse.navigation.WatchDownload
 import io.stepes.couchverse.navigation.Welcome
 import io.stepes.couchverse.navigation.WhosWatching
+import io.stepes.couchverse.playback.LocalPlaybackEngine
+import io.stepes.couchverse.playback.PlaybackEngine
+import io.stepes.couchverse.playback.PlayerRoute
+import io.stepes.couchverse.playback.PlayerStart
 import io.stepes.couchverse.settings.ApproveRoute
 import io.stepes.couchverse.settings.DevicesRoute
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.platform.LocalConfiguration
@@ -82,14 +102,15 @@ import androidx.compose.ui.platform.LocalConfiguration
  * follows the core's phase (welcome, sign in, who's watching, the signed-in screens).
  */
 @Composable
-fun CouchverseRoot(runtime: CoreRuntime, tv: Boolean, links: PendingLinks, version: String) {
-    CompositionLocalProvider(LocalCoreRuntime provides runtime) {
+fun CouchverseRoot(runtime: CoreRuntime, playback: PlaybackEngine?, tv: Boolean, links: PendingLinks, version: String) {
+    CompositionLocalProvider(LocalCoreRuntime provides runtime, LocalPlaybackEngine provides playback) {
         val session by rememberSurface<SessionView>(Surface.Session)
         CouchverseTheme(accent = AccentColors.of(session?.accent), tv = tv) {
             ProvideDisplayLanguage(session?.language ?: LocalConfiguration.current.locales[0].language) {
                 Box(Modifier.fillMaxSize().background(Tokens.Palette.bg)) {
                     RootNavigation(links, version)
                     Notices()
+                    if (session?.status == LoadStatus.Loaded) NotificationPermission()
                 }
             }
         }
@@ -143,11 +164,16 @@ private fun RootNavigation(links: PendingLinks, version: String) {
                 links.consume()
                 pendingTitle = link.slug
             }
+            is AppLink.Couch -> if (phase == AppPhase.Ready) {
+                links.consume()
+                nav.navigate(JoinCouch(link.code))
+            }
             null -> {}
         }
     }
 
     val back: () -> Unit = { nav.popBackStack() }
+    CouchNavigation(nav, phase == AppPhase.Ready)
     val reduced = LocalReducedMotion.current
     val enter = Motion.enter<Float>()
     val rise = Motion.smooth<IntOffset>()
@@ -189,8 +215,13 @@ private fun RootNavigation(links: PendingLinks, version: String) {
                     QrScannerScreen(
                         hint = stringResource(if (approve) R.string.scanner_hint else R.string.onboarding_scan_hint),
                         onLink = { url ->
-                            runtime.send(Event.LinkOpened(Link(url)))
-                            val next: Any = if (isConnectLink(url)) Connecting else Approve(opened = true)
+                            val couch = couchCode(url)
+                            if (couch == null) runtime.send(Event.LinkOpened(Link(url)))
+                            val next: Any = when {
+                                couch != null -> JoinCouch(couch)
+                                isConnectLink(url) -> Connecting
+                                else -> Approve(opened = true)
+                            }
                             nav.navigate(next) { popUpTo<Scan> { inclusive = true } }
                         },
                         onBack = back,
@@ -232,6 +263,9 @@ private fun RootNavigation(links: PendingLinks, version: String) {
                             onSignInAgain = { nav.navigate(SignIn(it.serverId, it.username)) },
                             onDevices = { nav.navigate(Devices) },
                             onApprove = { nav.navigate(Approve()) },
+                            onPlay = { nav.navigate(Watch(it.kind.string, it.id)) },
+                            onPlayDownload = { nav.navigate(WatchDownload(it)) },
+                            onJoinCouch = { nav.navigate(JoinCouch()) },
                         ),
                     )
                 }
@@ -243,10 +277,66 @@ private fun RootNavigation(links: PendingLinks, version: String) {
                     )
                 }
                 screen<Devices> { DevicesRoute(onBack = back) }
+                screen<Watch> { entry ->
+                    val route = entry.toRoute<Watch>()
+                    val kind = PlayKind.entries.first { it.string == route.kind }
+                    PlayerRoute(PlayerStart.Title(PlayTarget(kind, route.id)), onBack = back)
+                }
+                screen<WatchDownload> { entry ->
+                    PlayerRoute(PlayerStart.Download(entry.toRoute<WatchDownload>().id), onBack = back)
+                }
+                screen<WatchCouch> {
+                    PlayerRoute(
+                        PlayerStart.Couch,
+                        onBack = {
+                            runtime.send(Event.CouchLeft)
+                            back()
+                        },
+                    )
+                }
+                screen<JoinCouch> { entry ->
+                    JoinCouchRoute(
+                        initialCode = entry.toRoute<JoinCouch>().code,
+                        onScan = if (tv) null else ({ nav.navigate(Scan()) }),
+                        onBack = back,
+                    )
+                }
+                screen<CouchRemote> { CouchRemoteRoute(onLeft = back) }
             }
         }
     }
 }
+
+/**
+ * Follows this device's couch role: a follower watches in the player, a remote steers from
+ * the remote screen, and both come back a moment after the session ends.
+ */
+@Composable
+private fun CouchNavigation(nav: androidx.navigation.NavHostController, ready: Boolean) {
+    val session by rememberSurface<SessionView>(Surface.Session)
+    if (!ready || session?.features?.couch != true) return
+    val couch by rememberSurface<CouchView>(Surface.Couch)
+    val view = couch ?: return
+    LaunchedEffect(view.role, view.status) {
+        val here = nav.currentBackStackEntry
+        val target: Any? = when (view.role) {
+            CouchRole.Follower -> WatchCouch
+            CouchRole.Remote -> CouchRemote
+            else -> null
+        }
+        when {
+            view.status == CouchStatus.Ended -> if (here?.isRoute<WatchCouch>() == true || here?.isRoute<CouchRemote>() == true) {
+                delay(ENDED_NOTE_MS)
+                nav.popBackStack()
+            }
+            target != null && view.active && here?.isRoute<WatchCouch>() != true && here?.isRoute<CouchRemote>() != true ->
+                nav.navigate(target) { popUpTo<JoinCouch> { inclusive = true } }
+        }
+    }
+}
+
+/** How long the end of a couch session stays on screen. */
+private const val ENDED_NOTE_MS = 3_000L
 
 /** What the signed-in screens ask of the root navigation. */
 class RootActions(
@@ -256,6 +346,9 @@ class RootActions(
     val onSignInAgain: (io.stepes.couchverse.core.AccountCard) -> Unit,
     val onDevices: () -> Unit,
     val onApprove: () -> Unit,
+    val onPlay: (PlayTarget) -> Unit,
+    val onPlayDownload: (String) -> Unit,
+    val onJoinCouch: () -> Unit,
 )
 
 /** A root destination that tells its content which animated scope it is in, for shared avatars. */

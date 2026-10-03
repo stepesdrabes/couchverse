@@ -55,6 +55,9 @@ dependencies {
     implementation(project(":design"))
     implementation(project(":feature-accounts"))
     implementation(project(":feature-catalog"))
+    implementation(project(":feature-couch"))
+    implementation(project(":feature-downloads"))
+    implementation(project(":feature-playback"))
     implementation(project(":feature-settings"))
 
     implementation(libs.androidx.core.ktx)
@@ -63,6 +66,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.androidx.work.runtime)
 
     testImplementation(project(":testing"))
     testImplementation(libs.kotlin.test.junit)

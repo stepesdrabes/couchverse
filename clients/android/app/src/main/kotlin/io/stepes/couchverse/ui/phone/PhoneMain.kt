@@ -28,6 +28,7 @@ import io.stepes.couchverse.accounts.AccountSwitcherRoute
 import io.stepes.couchverse.catalog.CatalogNavigation
 import io.stepes.couchverse.catalog.phone.BrowseHubPhone
 import io.stepes.couchverse.core.AccountsView
+import io.stepes.couchverse.core.SessionView
 import io.stepes.couchverse.core.Surface
 import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.Tokens
@@ -36,8 +37,10 @@ import io.stepes.couchverse.design.components.CouchverseIcons
 import io.stepes.couchverse.design.runtime.rememberSurface
 import io.stepes.couchverse.design.theme.Motion
 import io.stepes.couchverse.design.theme.sharedAvatar
+import io.stepes.couchverse.downloads.DownloadsRoute
 import io.stepes.couchverse.navigation.Account
 import io.stepes.couchverse.navigation.Browse
+import io.stepes.couchverse.navigation.Downloads
 import io.stepes.couchverse.navigation.Home
 import io.stepes.couchverse.navigation.MyList
 import io.stepes.couchverse.navigation.Search
@@ -55,6 +58,12 @@ private class Tab(val route: Any, val label: Int, val icon: ImageVector?)
 /** Tabs along the bottom (Home, Browse, Search, My List, the account), hidden on detail screens. */
 @Composable
 internal fun PhoneMain(nav: NavHostController, catalog: CatalogNavigation, accountId: String, version: String, root: RootActions) {
+    val session by rememberSurface<SessionView>(Surface.Session)
+    if (session?.offline == true) {
+        // with the server out of reach, what is on the phone is all there is to watch
+        DownloadsRoute(onPlay = root.onPlayDownload, onBack = null)
+        return
+    }
     var switching by remember { mutableStateOf(false) }
     val accounts by rememberSurface<AccountsView>(Surface.Accounts)
     val current = accounts?.accounts?.firstOrNull { it.id == accountId }
@@ -118,8 +127,11 @@ internal fun PhoneMain(nav: NavHostController, catalog: CatalogNavigation, accou
                     onAddServer = root.onAddServer,
                     onDevices = root.onDevices,
                     onApprove = root.onApprove,
+                    onDownloads = { nav.navigate(Downloads) },
+                    onJoinCouch = root.onJoinCouch,
                 )
             }
+            composable<Downloads> { DownloadsRoute(onPlay = root.onPlayDownload, onBack = { nav.popBackStack() }) }
             detailScreens(nav, catalog)
         }
     }

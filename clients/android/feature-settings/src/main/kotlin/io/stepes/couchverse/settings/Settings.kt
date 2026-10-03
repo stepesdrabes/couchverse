@@ -37,6 +37,13 @@ class SettingsActions(
     val onLanguage: (String) -> Unit,
     val onDevices: () -> Unit,
     val onApprove: () -> Unit,
+    /** The viewer's own profile and the leaderboard, with rankings on. */
+    val onProfile: (() -> Unit)? = null,
+    val onLeaderboard: (() -> Unit)? = null,
+    /** The downloads on this phone, with downloads on. */
+    val onDownloads: (() -> Unit)? = null,
+    /** Joining someone's couch session by its code, with couch sessions on. */
+    val onJoinCouch: (() -> Unit)? = null,
 )
 
 /** The display languages the app ships, as their own names call them. */
@@ -56,6 +63,10 @@ fun SettingsRoute(
     onAddServer: () -> Unit,
     onDevices: () -> Unit,
     onApprove: () -> Unit,
+    onProfile: ((username: String) -> Unit)? = null,
+    onLeaderboard: (() -> Unit)? = null,
+    onDownloads: (() -> Unit)? = null,
+    onJoinCouch: (() -> Unit)? = null,
 ) {
     val send = rememberSend()
     val session by rememberSurface<SessionView>(Surface.Session)
@@ -72,6 +83,11 @@ fun SettingsRoute(
             onLanguage = { send(Event.DisplayLanguageChanged(LanguageChoice(it))) },
             onDevices = onDevices,
             onApprove = onApprove,
+            onProfile = session?.user?.username?.let { me -> onProfile?.let { open -> { open(me) } } }
+                ?.takeIf { session?.features?.rankings == true },
+            onLeaderboard = onLeaderboard?.takeIf { session?.features?.rankings == true },
+            onDownloads = onDownloads?.takeIf { session?.features?.downloads == true },
+            onJoinCouch = onJoinCouch?.takeIf { session?.features?.couch == true },
         ),
     )
 }

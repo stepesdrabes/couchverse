@@ -19,7 +19,7 @@ class MainActivity : ComponentActivity() {
         // a recreated activity already handled the link it was started with
         if (savedInstanceState == null) links.offer(intent)
         val app = application as CouchverseApp
-        setContent { CouchverseRoot(app.runtime, app.tv, links, BuildConfig.VERSION_NAME) }
+        setContent { CouchverseRoot(app.runtime, app.playback, app.tv, links, BuildConfig.VERSION_NAME) }
     }
 
     override fun onNewIntent(intent: Intent) {
