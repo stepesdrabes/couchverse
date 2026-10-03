@@ -5,6 +5,7 @@ import {
 	AuthMode,
 	BrowseSort,
 	HttpFailureKind,
+	ImageSlot,
 	LoadStatus,
 	PlayKind,
 	Platform,
@@ -21,6 +22,7 @@ import type {
 	NoticesView,
 	PlayerCommand,
 	PlayerView,
+	ProfileEditorView,
 	SocketOpen,
 	StoreRequest,
 	Surface,
@@ -28,6 +30,7 @@ import type {
 } from '$lib/generated/core';
 import { palette } from '$lib/theme';
 import { browserExecutor } from './executor';
+import { holdFile } from './files';
 import { CoreRuntime, surfaceKey, type Bridge, type Executor, type Spawn } from './runtime.svelte';
 import { spawner } from './wasm';
 
@@ -239,6 +242,27 @@ describe('the core runtime', () => {
 		expect(core.session.features.couch).toBe(false);
 		expect(core.session.user).toBe(before.user);
 		expect(core.session.accent).toBe(before.accent);
+	});
+
+	it('uploads the image picked for the core and shows the new one', async () => {
+		const shell = new FakeShell();
+		signedIn(shell);
+		const core = runtime(shell);
+		await core.start();
+		const updated = { ...user('admin', true), avatarId: 'av-2' };
+		const fetch = vi.fn(async () => new Response(JSON.stringify(updated), { status: 200 }));
+		vi.stubGlobal('fetch', fetch);
+
+		const file = holdFile(new File(['png'], 'me.png', { type: 'image/png' }));
+		await core.send({ type: 'imageChosen', content: { slot: ImageSlot.Avatar, file } });
+
+		const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+		expect([url, init.method]).toEqual(['/api/v1/me/avatar', 'POST']);
+		expect(((init.body as FormData).get('file') as File).name).toBe('me.png');
+		const editor = core.view<ProfileEditorView>({ type: 'profileEditor' });
+		expect(editor?.avatar.status).toBe(LoadStatus.Loaded);
+		expect(core.session.user?.avatarId).toBe('av-2');
+		vi.unstubAllGlobals();
 	});
 
 	it('signs out on the server and drops the user', async () => {
@@ -679,6 +703,34 @@ describe('the browser executor', () => {
 			content: {}
 		});
 		expect(items.size).toBe(1);
+		vi.unstubAllGlobals();
+	});
+
+	it('uploads a picked file once, as a form part under its own name', async () => {
+		const fetch = vi.fn(async () => new Response('{"id":1}', { status: 200 }));
+		vi.stubGlobal('fetch', fetch);
+		const handle = holdFile(new File(['png'], 'me.png', { type: 'image/png' }));
+		const request = {
+			method: 'POST',
+			url: '/api/v1/me/avatar',
+			headers: [
+				{ name: 'Accept', value: 'application/json' },
+				{ name: 'Content-Type', value: 'application/json' }
+			]
+		};
+
+		const output = await browserExecutor.upload({ request, file: handle, field: 'file' });
+		expect(output).toEqual({ type: 'http', content: { status: 200, body: '{"id":1}' } });
+		const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+		expect(url).toBe('/api/v1/me/avatar');
+		expect(init.headers).toEqual([['Accept', 'application/json']]);
+		const sent = (init.body as FormData).get('file') as File;
+		expect([sent.name, await sent.text()]).toEqual(['me.png', 'png']);
+
+		// the handle is let go with the upload
+		const again = await browserExecutor.upload({ request, file: handle, field: 'file' });
+		expect(again.type).toBe('httpFailed');
+		expect(fetch).toHaveBeenCalledTimes(1);
 		vi.unstubAllGlobals();
 	});
 });

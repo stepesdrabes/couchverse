@@ -1,18 +1,31 @@
 import { HttpFailureKind } from '$lib/generated/core';
-import type { EffectOutput, HttpRequest, SocketOpen, StoreRequest } from '$lib/generated/core';
+import type {
+	EffectOutput,
+	HttpRequest,
+	SocketOpen,
+	StoreRequest,
+	UploadRequest
+} from '$lib/generated/core';
+import { takeFile } from './files';
 import type { Executor, Socket } from './runtime.svelte';
 
 // generous for a Raspberry Pi busy transcoding, but a hung request must not hold the app
 const HTTP_TIMEOUT_MS = 30_000;
+// a phone photo over a slow uplink
+const UPLOAD_TIMEOUT_MS = 5 * 60_000;
 
 // next to the app's own `cv.*` keys
 const STORE_PREFIX = 'cv.core.';
 
 const KEEPALIVE_MAX_BODY = 60_000;
 
-async function http({ method, url, headers, body }: HttpRequest): Promise<EffectOutput> {
+async function send(
+	{ method, url, headers }: HttpRequest,
+	body: string | FormData | undefined,
+	options: { timeoutMs: number; keepalive: boolean }
+): Promise<EffectOutput> {
 	const abort = new AbortController();
-	const timeout = setTimeout(() => abort.abort(), HTTP_TIMEOUT_MS);
+	const timeout = setTimeout(() => abort.abort(), options.timeoutMs);
 	try {
 		// same-origin like every other API call: the session cookie rides along and the
 		// browser's Origin header satisfies the server's CSRF check
@@ -22,9 +35,7 @@ async function http({ method, url, headers, body }: HttpRequest): Promise<Effect
 			body,
 			credentials: 'same-origin',
 			signal: abort.signal,
-			// what the player saves as the page goes away (progress, stopping a transcode)
-			// must outlive it; the browser caps such requests at 64 KB of body
-			keepalive: method !== 'GET' && (body?.length ?? 0) < KEEPALIVE_MAX_BODY
+			keepalive: options.keepalive
 		});
 		return { type: 'http', content: { status: response.status, body: await response.text() } };
 	} catch (err) {
@@ -39,13 +50,28 @@ async function http({ method, url, headers, body }: HttpRequest): Promise<Effect
 	}
 }
 
-// The web uploads images through its own profile editor until it adopts the core's (plan
-// Phase 8), so the core never holds a file handle from it.
-async function upload(): Promise<EffectOutput> {
-	return {
-		type: 'httpFailed',
-		content: { kind: HttpFailureKind.Other, message: 'the web has handed the core no files' }
-	};
+function http(request: HttpRequest): Promise<EffectOutput> {
+	const body = request.body;
+	return send(request, body, {
+		timeoutMs: HTTP_TIMEOUT_MS,
+		// what the player saves as the page goes away (progress, stopping a transcode) must
+		// outlive it; the browser caps such requests at 64 KB of body
+		keepalive: request.method !== 'GET' && (body?.length ?? 0) < KEEPALIVE_MAX_BODY
+	});
+}
+
+/** The picked file as a form's one part, under its own name: the server types images by it. */
+async function upload({ request, file, field }: UploadRequest): Promise<EffectOutput> {
+	const picked = takeFile(file);
+	if (!picked) {
+		const message = `no picked file ${file}`;
+		return { type: 'httpFailed', content: { kind: HttpFailureKind.Other, message } };
+	}
+	const form = new FormData();
+	form.set(field, picked, picked.name);
+	// the browser writes the multipart content type, boundary included
+	const headers = request.headers.filter((h) => h.name.toLowerCase() !== 'content-type');
+	return send({ ...request, headers }, form, { timeoutMs: UPLOAD_TIMEOUT_MS, keepalive: false });
 }
 
 function store({ key, op }: StoreRequest): EffectOutput {
