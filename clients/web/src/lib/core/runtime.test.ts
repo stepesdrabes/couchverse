@@ -156,7 +156,7 @@ describe('the core runtime', () => {
 		expect(core.app.phase).toBe(AppPhase.Ready);
 		expect(core.session.status).toBe(LoadStatus.Loaded);
 		expect(core.session.user).toMatchObject({ username: 'admin', admin: true, bio: '# Hi' });
-		expect(core.session.features).toEqual({ couch: true, rankings: false });
+		expect(core.session.features).toEqual({ couch: true, rankings: false, downloads: true });
 		// the web still derives scoped accents itself, so the two derivations must agree
 		expect(core.session.accent).toEqual(palette('#3a6ea5'));
 		// origin-relative, no bearer: the browser's cookie authenticates
