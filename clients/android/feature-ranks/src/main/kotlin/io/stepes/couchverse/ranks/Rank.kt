@@ -58,13 +58,17 @@ fun achievementDescription(code: String): String? = AchievementDescriptions[code
 @Composable
 fun xpSourceName(key: String): String = XpSources[key]?.let { stringResource(it) } ?: key
 
+/** The tier and level, "Gold · Level 12". */
+@Composable
+fun rankLine(badge: RankBadge): String = "${tierName(badge.tier.code)} · ${stringResource(R.string.rank_level, badge.tier.level.toString())}"
+
 /** The rank in a line: tier and level, and how far into the tier, in the tier's colour. */
 @Composable
 fun RankChip(badge: RankBadge, modifier: Modifier = Modifier) {
     val colour = colorOf(badge.tier.colour) ?: Tokens.Palette.accent
     Column(modifier.widthIn(max = 280.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            "${tierName(badge.tier.code)} · ${stringResource(R.string.rank_level, badge.tier.level.toString())}",
+            rankLine(badge),
             style = MaterialTheme.typography.labelLarge,
             color = Tokens.Palette.text,
         )

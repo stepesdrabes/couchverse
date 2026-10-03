@@ -18,9 +18,11 @@ import io.stepes.couchverse.core.DevicesView
 import io.stepes.couchverse.core.Features
 import io.stepes.couchverse.core.LoadStatus
 import io.stepes.couchverse.core.PairingApprovalView
+import io.stepes.couchverse.core.RankBadge
 import io.stepes.couchverse.core.Server
 import io.stepes.couchverse.core.ServersView
 import io.stepes.couchverse.core.SessionView
+import io.stepes.couchverse.core.Tier
 import io.stepes.couchverse.testing.Device
 import io.stepes.couchverse.testing.Fixture
 import io.stepes.couchverse.testing.Languages
@@ -63,8 +65,9 @@ class SettingsScreenshotTest {
         accent = AccentPalette("#e50914", "#b30710", "#e5091429", "#ffffff", "#ec474f"),
         offline = false,
     )
-    private val state = SettingsState(session, accounts, servers, "1.4.0")
-    private val actions = SettingsActions({}, {}, {}, {}, {}, {}, {}, {})
+    private val rank = RankBadge(Tier("binger", 4u, "#34d399", 1500u), Tier("popcorn", 5u, "#fbbf24", 3000u), 2140u, 43u)
+    private val state = SettingsState(session, accounts, servers, "1.4.0", rank)
+    private val actions = SettingsActions({}, {}, {}, {}, {}, {}, {}, {}, onProfile = {}, onLeaderboard = {}, onDownloads = {}, onJoinCouch = {})
     private val approve = ApproveActions({}, { _, _ -> }, {}, {}, {}, {})
 
     @Test

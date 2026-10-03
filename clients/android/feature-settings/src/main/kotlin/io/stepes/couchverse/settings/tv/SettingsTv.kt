@@ -47,6 +47,7 @@ import io.stepes.couchverse.design.components.CouchverseIcons
 import io.stepes.couchverse.design.components.InsecureBadge
 import io.stepes.couchverse.design.theme.LocalAccent
 import io.stepes.couchverse.design.tv.TvSafe
+import io.stepes.couchverse.ranks.rankLine
 import io.stepes.couchverse.settings.ConfirmDialog
 import io.stepes.couchverse.settings.DisplayLanguages
 import io.stepes.couchverse.settings.SettingsActions
@@ -86,7 +87,7 @@ internal fun SettingsTv(state: SettingsState, actions: SettingsActions) {
             )
         }
         actions.onProfile?.let { open ->
-            item(key = "profile") { Action(Icons.Filled.Person, stringResource(R.string.nav_public_profile), open) }
+            item(key = "profile") { Action(Icons.Filled.Person, stringResource(R.string.nav_public_profile), open, supporting = state.rank?.let { rankLine(it) }) }
         }
         actions.onLeaderboard?.let { open ->
             item(key = "leaderboard") { Action(CouchverseIcons.Leaderboard, stringResource(R.string.nav_leaderboard), open) }
@@ -186,11 +187,12 @@ private fun LazyListScope.section(key: String, title: Int) {
 }
 
 @Composable
-private fun Action(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun Action(icon: ImageVector, label: String, onClick: () -> Unit, supporting: String? = null) {
     ListItem(
         selected = false,
         onClick = onClick,
         leadingContent = { Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp)) },
         headlineContent = { Text(label) },
+        supportingContent = supporting?.let { { Text(it) } },
     )
 }

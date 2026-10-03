@@ -9,4 +9,6 @@ android {
 dependencies {
     // approving a device reuses the accounts feature's QR scanner
     implementation(project(":feature-accounts"))
+    // the rank beside the profile row
+    implementation(project(":feature-ranks"))
 }

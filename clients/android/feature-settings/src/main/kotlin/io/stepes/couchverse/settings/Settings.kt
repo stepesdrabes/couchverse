@@ -7,6 +7,8 @@ import io.stepes.couchverse.core.AccountRef
 import io.stepes.couchverse.core.AccountsView
 import io.stepes.couchverse.core.Event
 import io.stepes.couchverse.core.LanguageChoice
+import io.stepes.couchverse.core.RankBadge
+import io.stepes.couchverse.core.RankView
 import io.stepes.couchverse.core.Server
 import io.stepes.couchverse.core.ServerRef
 import io.stepes.couchverse.core.ServersView
@@ -24,6 +26,8 @@ class SettingsState(
     val servers: ServersView?,
     /** The app's version, for About. */
     val version: String,
+    /** The viewer's rank, beside their profile, with rankings on. */
+    val rank: RankBadge? = null,
 ) {
     val current: AccountCard? get() = accounts?.accounts?.firstOrNull { it.id == accounts.active }
 }
@@ -72,8 +76,9 @@ fun SettingsRoute(
     val session by rememberSurface<SessionView>(Surface.Session)
     val accounts by rememberSurface<AccountsView>(Surface.Accounts)
     val servers by rememberSurface<ServersView>(Surface.Servers)
+    val rank by rememberSurface<RankView>(Surface.Rank)
     SettingsScreen(
-        SettingsState(session, accounts, servers, version),
+        SettingsState(session, accounts, servers, version, rank?.rank?.takeIf { session?.features?.rankings == true }),
         SettingsActions(
             onSwitchAccount = onSwitchAccount,
             onAddAccount = onAddAccount,

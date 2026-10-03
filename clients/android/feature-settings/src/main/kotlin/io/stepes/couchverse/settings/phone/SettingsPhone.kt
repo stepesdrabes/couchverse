@@ -53,6 +53,7 @@ import io.stepes.couchverse.design.components.CouchverseIcons
 import io.stepes.couchverse.design.components.InsecureBadge
 import io.stepes.couchverse.design.phone.PhoneGutter
 import io.stepes.couchverse.design.theme.LocalAccent
+import io.stepes.couchverse.ranks.rankLine
 import io.stepes.couchverse.settings.ConfirmDialog
 import io.stepes.couchverse.settings.DisplayLanguages
 import io.stepes.couchverse.settings.SettingsActions
@@ -76,7 +77,9 @@ internal fun SettingsPhone(state: SettingsState, actions: SettingsActions) {
             item(key = "current") { CurrentAccount(current, actions.onSwitchAccount) }
         }
         actions.onProfile?.let { open ->
-            item(key = "profile") { ActionRow(Icons.Filled.Person, stringResource(R.string.nav_public_profile), open, chevron = true) }
+            item(key = "profile") {
+                ActionRow(Icons.Filled.Person, stringResource(R.string.nav_public_profile), open, chevron = true, supporting = state.rank?.let { rankLine(it) })
+            }
         }
         actions.onLeaderboard?.let { open ->
             item(key = "leaderboard") { ActionRow(CouchverseIcons.Leaderboard, stringResource(R.string.nav_leaderboard), open, chevron = true) }
@@ -225,12 +228,13 @@ private fun SettingRow(
 }
 
 @Composable
-private fun ActionRow(icon: ImageVector, label: String, onClick: () -> Unit, chevron: Boolean = false) {
+private fun ActionRow(icon: ImageVector, label: String, onClick: () -> Unit, chevron: Boolean = false, supporting: String? = null) {
     ListItem(
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
         leadingContent = { Icon(icon, contentDescription = null) },
         headlineContent = { Text(label) },
+        supportingContent = supporting?.let { { Text(it) } },
         trailingContent = if (chevron) {
             { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) }
         } else {
