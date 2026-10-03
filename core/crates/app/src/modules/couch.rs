@@ -781,6 +781,12 @@ impl Couch {
             if playing {
                 playback.command(ctx, PlayerCommand::Pause);
             }
+            // a paused host still shows where it stopped: a follower who joined meanwhile, or
+            // drifted before the pause, waits on the same frame
+            let expected = expected_position(state, live.received_at, ctx.now);
+            if !state.away && (hard || (position - expected).abs() > DRIFT_SECONDS) {
+                playback.command(ctx, PlayerCommand::Seek(PlayerSeek { seconds: expected }));
+            }
             return;
         }
         if !playing {

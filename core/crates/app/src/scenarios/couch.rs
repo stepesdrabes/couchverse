@@ -345,6 +345,19 @@ fn a_follower_waits_out_the_host_and_pauses_on_its_own() {
 }
 
 #[test]
+fn a_follower_joining_a_paused_host_waits_on_the_same_frame() {
+    let (mut shell, socket) = following();
+    report(&mut shell, 0.0, false);
+    shell.frame(socket, &state_frame(5, false, 754.0));
+    assert_eq!(shell.player.last(), Some(&PlayerCommand::Seek(PlayerSeek { seconds: 754.0 })));
+    // already there: the host's heartbeat moves nothing
+    report(&mut shell, 754.0, false);
+    let before = shell.player.len();
+    shell.frame(socket, &state_frame(6, false, 754.0));
+    assert_eq!(shell.player.len(), before);
+}
+
+#[test]
 fn a_follower_switches_with_the_host_and_stops_when_it_ends() {
     let (mut shell, socket) = following();
     shell.frame(socket, &json!({ "type": "media_changed", "data": { "media": { "kind": "episode", "episodeId": "e2" }, "seq": 9 } }));
