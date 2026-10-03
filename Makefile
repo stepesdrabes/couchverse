@@ -107,7 +107,7 @@ apple-format:
 	$(APPLE_SOURCES) | xargs -0 xcrun swift-format format --in-place --configuration clients/apple/.swift-format
 
 android-test: core-android
-	cd clients/android && ./gradlew :core:testDebugUnitTest
+	cd clients/android && ./gradlew testDebugUnitTest verifyRoborazziDebug
 
 sample-media:
 	./scripts/gen-sample-media.sh data/samples

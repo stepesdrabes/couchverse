@@ -39,14 +39,10 @@ dependencies {
     testImplementation(libs.okhttp.mockwebserver)
 }
 
-val checkRustCore = tasks.register("checkRustCore") {
-    description = "Fails early, with the fix, when the outputs of `make core-android` are missing."
-    val required = listOf("arm64-v8a", "armeabi-v7a", "x86_64").map {
-        file("src/main/jniLibs/$it/libcouchverse_ffi.so")
-    } + uniffiBindings.get().file("io/stepes/couchverse/core/ffi/couchverse_ffi.kt").asFile +
-        hostLibrary.get().file(System.mapLibraryName("couchverse_ffi")).asFile
+fun checkOutputs(name: String, files: List<File>) = tasks.register(name) {
+    description = "Fails early, with the fix, when outputs of `make core-android` are missing."
     doLast {
-        val missing = required.filterNot { it.exists() }
+        val missing = files.filterNot { it.exists() }
         if (missing.isNotEmpty()) {
             throw GradleException(
                 "The Rust core is not built for Android; run `make core-android` from the " +
@@ -56,8 +52,20 @@ val checkRustCore = tasks.register("checkRustCore") {
     }
 }
 
+// the app needs the libraries and the bindings; only this module's JVM tests need the host build
+val checkRustCore = checkOutputs(
+    "checkRustCore",
+    listOf("arm64-v8a", "armeabi-v7a", "x86_64").map { file("src/main/jniLibs/$it/libcouchverse_ffi.so") } +
+        uniffiBindings.get().file("io/stepes/couchverse/core/ffi/couchverse_ffi.kt").asFile,
+)
+val checkRustHost = checkOutputs(
+    "checkRustHost",
+    listOf(hostLibrary.get().file(System.mapLibraryName("couchverse_ffi")).asFile),
+)
+
 tasks.named("preBuild") { dependsOn(checkRustCore) }
 
 tasks.withType<Test>().configureEach {
+    dependsOn(checkRustHost)
     systemProperty("jna.library.path", hostLibrary.get().asFile.path)
 }

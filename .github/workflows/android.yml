@@ -1,7 +1,8 @@
 name: android
 
-# The Gradle project: the core built for every ABI, its Kotlin bindings run on the JVM against
-# the host build, and every module assembled.
+# The Gradle project: the core built for every ABI with its Kotlin bindings tested on the JVM,
+# the app's unit and Compose UI tests, Android lint and a debug APK on Linux; the Roborazzi
+# screenshots are verified on macOS, where they are recorded (font rasterization differs by OS).
 on:
   push:
     paths: [core/**, contract/**, clients/android/**, .github/workflows/android.yml]
@@ -37,6 +38,42 @@ jobs:
           ndk=$(sed -n 's/^ndk = "\(.*\)"$/\1/p' clients/android/gradle/libs.versions.toml)
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" > /dev/null
           ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$ndk" make core-android
-      - name: Test and assemble
+      # the screenshot job builds against the same libraries and bindings without Rust
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-core
+          path: |
+            clients/android/core/src/main/jniLibs
+            clients/android/core/build/generated/uniffi
+          retention-days: 1
+      - name: Test, lint and assemble
         working-directory: clients/android
-        run: ./gradlew :core:testDebugUnitTest :core:assembleDebug :design:assembleDebug
+        run: ./gradlew testDebugUnitTest lintDebug :app:assembleDebug
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-reports
+          path: clients/android/**/build/reports
+
+  screenshots:
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/download-artifact@v5
+        with:
+          name: android-core
+          path: clients/android/core
+      - name: Verify the screenshots
+        working-directory: clients/android
+        run: ./gradlew verifyRoborazziDebug
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-diffs
+          path: clients/android/**/build/outputs/roborazzi
