@@ -247,7 +247,7 @@ class CoreRuntimeTest {
         /** The calls a freshly active account makes. */
         fun session(request: HttpRequest): EffectOutput? = when (request.url) {
             "$BASE/api/v1/auth/me" -> ok(USER)
-            "$BASE/api/v1/features" -> ok("""{"couchEnabled":true,"rankingsEnabled":false}""")
+            "$BASE/api/v1/features" -> ok("""{"couchEnabled":true,"rankingsEnabled":false,"downloadsEnabled":true}""")
             "$BASE/api/v1/me/preferences" -> ok("""{"language":"en"}""")
             "$BASE/api/v1/server" -> ok(IDENTITY)
             "$BASE/api/v1/me/artwork-grant" -> ok("""{"grant":"g-art","expiresIn":604800}""")

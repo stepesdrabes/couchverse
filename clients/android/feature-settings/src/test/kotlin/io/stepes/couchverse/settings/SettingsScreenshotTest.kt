@@ -58,7 +58,7 @@ class SettingsScreenshotTest {
     private val session = SessionView(
         status = LoadStatus.Loaded,
         accountId = "s1/2",
-        features = Features(couch = true, rankings = true),
+        features = Features(couch = true, rankings = true, downloads = true),
         language = "en",
         accent = AccentPalette("#e50914", "#b30710", "#e5091429", "#ffffff"),
         offline = false,
