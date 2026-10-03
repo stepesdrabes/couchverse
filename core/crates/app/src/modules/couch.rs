@@ -584,6 +584,13 @@ impl Couch {
         CouchChange::None
     }
 
+    /// A follower's player failed: fetch the host's media again (its grants may have expired).
+    pub fn refetch_player(&mut self, ctx: &mut Ctx, env: &Env) {
+        if self.is_follower() {
+            self.fetch_player(ctx, env);
+        }
+    }
+
     fn fetch_player(&mut self, ctx: &mut Ctx, env: &Env) {
         let Some(live) = &self.live else { return };
         let lang = Some(env.language.to_string());

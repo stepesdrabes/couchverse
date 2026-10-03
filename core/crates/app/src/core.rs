@@ -679,6 +679,13 @@ impl Model {
             PlaybackChange::Watched { finished } => self.check_achievements(ctx, finished),
             PlaybackChange::Unauthorized => self.session_rejected(ctx),
             PlaybackChange::Unsaved(report) => self.downloads.keep(ctx, *report),
+            PlaybackChange::Refollow => {
+                let env =
+                    couch_env(&self.session, self.guest.as_ref(), &self.config, &self.playback);
+                if let Some(env) = env {
+                    self.couch.refetch_player(ctx, &env);
+                }
+            }
             PlaybackChange::None => {}
         }
     }

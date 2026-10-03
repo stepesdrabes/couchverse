@@ -365,6 +365,36 @@ fn a_follower_switches_with_the_host_and_stops_when_it_ends() {
 }
 
 #[test]
+fn a_followers_failed_player_reloads_the_hosts_media_from_the_couch() {
+    let (mut shell, _) = following();
+    let failed = |shell: &mut Shell| {
+        shell.send(Event::PlayerReported(PlayerReport {
+            position_seconds: 30.0,
+            duration_seconds: 2400.0,
+            playing: false,
+            buffering: false,
+            ended: false,
+            failed: Some("decode".into()),
+        }));
+    };
+    let playback = format!("{API}/couch/123456/playback?lang=en");
+    let media = json!({ "media": { "kind": "movie", "titleId": "m1" }, "player": player_info() });
+
+    // the follower's own payload is the couch's, never the account's
+    failed(&mut shell);
+    shell.respond("GET", &playback, 200, media.clone());
+    assert!(shell.http_summary().iter().all(|r| !r.contains("/playback/movie/")));
+    let loads = shell.player.iter().filter(|c| matches!(c, PlayerCommand::Load(_))).count();
+    assert_eq!(loads, 2);
+
+    // a second failure is reported rather than retried
+    failed(&mut shell);
+    assert!(shell.find_request("GET", &playback).is_none());
+    let view: crate::modules::playback::PlayerView = shell.view(&Surface::Player);
+    assert_eq!(view.status, LoadStatus::Failed);
+}
+
+#[test]
 fn the_hosts_phone_steers_as_a_remote() {
     let mut shell = signed_in();
     shell.send(Event::CouchRemoteRequested(CouchCode { code: "123456".into() }));

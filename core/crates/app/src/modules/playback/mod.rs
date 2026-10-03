@@ -263,6 +263,9 @@ pub enum PlaybackChange {
     },
     /// A progress save never reached the server (offline): keep it and send it later.
     Unsaved(Box<ProgressReport>),
+    /// A couch follower's player failed: its payload comes from the couch, which fetches a
+    /// fresh one.
+    Refollow,
 }
 
 /// A finished download, played from the device.
@@ -954,6 +957,11 @@ impl Playback {
             return PlaybackChange::None;
         }
         session.retries += 1;
+        if session.linear {
+            session.status = LoadStatus::Stale;
+            ctx.render(Surface::Player);
+            return PlaybackChange::Refollow;
+        }
         if session.local.is_some() {
             // nothing to fetch: the file is on the device
             let start = session.position;
@@ -1002,9 +1010,13 @@ impl Playback {
     /// A couch follower plays what the host plays, from the payload the couch fetched, locked
     /// to the host's timeline.
     pub fn follow(&mut self, ctx: &mut Ctx, env: &Env, target: PlayTarget, info: PlaybackInfo) {
+        // a fresh payload after a failure keeps the count, so a second failure is reported
+        let retries = self.session.as_ref().filter(|s| s.target == target).map_or(0, |s| s.retries);
         self.end(ctx, env.endpoint);
         self.generation += 1;
-        self.session = Some(Session::new(target, env.images.clone(), true));
+        let mut session = Session::new(target, env.images.clone(), true);
+        session.retries = retries;
+        self.session = Some(session);
         self.info(ctx, Some(env), info);
         ctx.render(Surface::Player);
     }
