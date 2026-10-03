@@ -62,7 +62,8 @@ public enum Fixtures {
 
     public static func session(_ status: LoadStatus, language: String = "en") -> SessionView {
         let user = SessionUser(
-            username: "nora", displayName: "Nora", admin: false, avatarId: nil, bannerId: nil)
+            username: "nora", displayName: "Nora", admin: false, avatarId: nil, bannerId: nil,
+            bio: "Mostly **sci-fi**.", createdAt: "2026-01-01T00:00:00Z")
         let hasUser = status == .loaded || status == .stale
         return SessionView(
             status: status, accountId: "\(serverId)/nora", user: hasUser ? user : nil,
