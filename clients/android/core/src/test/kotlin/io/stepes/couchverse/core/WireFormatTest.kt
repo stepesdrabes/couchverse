@@ -29,6 +29,7 @@ class WireFormatTest {
             Event.AppStarted to """{"type":"appStarted"}""",
             Event.AppBecameActive to """{"type":"appBecameActive"}""",
             Event.SessionStarted to """{"type":"sessionStarted"}""",
+            Event.SessionChanged to """{"type":"sessionChanged"}""",
             Event.ServerAddressSubmitted(ServerAddress("tv.home")) to
                 """{"type":"serverAddressSubmitted","content":{"address":"tv.home"}}""",
             Event.ServerRemoved(ServerRef(SERVER)) to
