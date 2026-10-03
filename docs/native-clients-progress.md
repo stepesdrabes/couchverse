@@ -89,7 +89,11 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
 
 - Done: core `ranks` and `profile` (rank badge, celebrations, profiles with heatmap,
   leaderboards, edits, uploads through the upload effect).
-- Pending: web and Apple adoption.
+- Done: the web on the core's ranks, profiles, leaderboards (the viewer's own row and the
+  board's size), profile edits with uploads through the upload effect, achievement checks
+  (a forced check the server throttled is asked once more) and the devices list over the
+  cookie; the web's SWR cache is gone, the core is its only cache.
+- Pending: Apple adoption.
 
 ## Phase 9: Apple system integration - pending
 

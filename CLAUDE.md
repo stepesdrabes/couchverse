@@ -83,7 +83,7 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   Both are `sessions` rows with a public id (`GET/DELETE /me/devices`); every session's expiry
   slides on use. `auth.SessionFrom(ctx)` is the authenticating session. On the web, `/pair`
   approves pairing codes (signed-out visitors go through `/login?next=`) and the owner's
-  profile ends with `DevicesSection` (cached list, revoke, Connect-a-device QR); revoking this
+  profile ends with `DevicesSection` (the core's devices list, revoke, Connect-a-device QR); revoking this
   browser's own row is `session.logout()`, not `DELETE /me/devices/{id}`, so the cookie is
   cleared. Per-IP limits (login 5/min, pairing and connect 10/min) apply to scripted tests too.
 - **Media grants** (`internal/grant`): media is authorized by a signed, expiring capability in
@@ -201,16 +201,14 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     uses `text-muted`/`text-faint`, both AA on every surface; `e2e/a11y.spec.ts` runs axe on
     the main pages. Tooltips use `ui/Tooltip.svelte`.
   - **Optimistic navigation** (client-only SPA; must feel snappy on a Pi): data pages never
-    block the swap. Catalog pages are core-backed: `+page.ts` calls `features/catalog/api.ts`
-    `revisit`/`preload`/`preloadListing` and returns the screen; the page uses `useScreen` and
-    passes `shown(view)` and `status` to `CachedView` (content -> skeleton -> notFound ->
-    failed with Retry). Other data pages return the cache key + an un-awaited `fresh` promise
-    and the feature's `XxxPage.svelte` is a thin `CachedView` wrapper with the body moved to
-    `XxxContent.svelte`. The SWR cache (`lib/api/cache.svelte.ts`, `createSwrCache`, cleared on
-    logout via `resetAllCaches`; instances in `features/<name>/cache.svelte.ts`) now serves only
-    the ranks profile, the leaderboard and the devices list. Skeletons reuse `ui/Skeleton.svelte`.
-    `StreamedView` is the uncached keep-last-value variant (admin editors: no skeleton flash
-    on an `invalidateAll` save). `preloadData` only for side-effect-free routes - never
+    block the swap. Viewer pages are core-backed and the core is their only cache: catalog
+    `+page.ts` files call `features/catalog/api.ts` `revisit`/`preload`/`preloadListing`, the
+    profile and leaderboard ones `core.prefetch(screen)`, and return the screen; the page uses
+    `useScreen` and passes the view and its `status` to `CachedView` (content -> skeleton ->
+    notFound -> failed with Retry), with the body in `XxxContent.svelte`. Skeletons reuse
+    `ui/Skeleton.svelte`. `StreamedView` is the uncached keep-last-value variant for admin
+    editors, whose loads return an un-awaited `fresh` promise (no skeleton flash on an
+    `invalidateAll` save). `preloadData` only for side-effect-free routes - never
     `/watch/...` (starts a JIT transcode); watch links use `data-sveltekit-preload-data="tap"`.
     Prefer targeted `invalidate` over `invalidateAll`. Full design in FEATURES.md.
   - **E2E specs** (`clients/web/e2e/`, Playwright) find elements by role and label, with UI

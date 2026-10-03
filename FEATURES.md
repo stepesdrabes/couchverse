@@ -42,7 +42,7 @@ grants), `internal/slug`, `internal/version`
 feature registration, SPA fallback).
 
 Shared web: `lib/api/client.ts` (fetch wrapper - never hand-write URLs in
-components) and `lib/api/cache.svelte.ts` (SWR cache), `lib/components/ui/` (bits-ui
+components) and `lib/api/problem.ts` (an error in the display language), `lib/components/ui/` (bits-ui
 primitives), `lib/components/layout/` (TopNav, GlowBackdrop, NavProgress),
 `lib/components/{CachedView,StreamedView,NotFound}.svelte` (optimistic page shells),
 `lib/theme.ts` (accent), `lib/utils/`, `lib/tv/` (TV mode), `lib/core/` (the shared core
@@ -99,20 +99,26 @@ Bootstraps the master admin account on a fresh database.
   served. A stored value of the wrong type reads as unset.
 - Web: `features/auth` (`session`, a thin view of the core's session view, plus the 401
   handler, LoginPage, ProfilePage + the Edit-profile and Change-password modals),
-  `features/users` (AdminUsersPage), `features/preferences` (the web-only subtitle style and
-  the privacy switch; the display language is the core's). `/profile` renders the *same*
-  `ProfileContent` as `/u/you` with owner affordances, reading the same cache entry -
-  there is no separate account page and no tabs. With rankings off it falls back to
-  `AccountOnlyProfile`.
+  `features/users` (AdminUsersPage), `features/preferences` (the web-only subtitle style;
+  the display language is the core's). `/profile` renders the *same* `ProfileContent` as
+  `/u/you` with owner affordances, off the same core screen (`profile(you)`) - there is no
+  separate account page and no tabs. With rankings off it falls back to
+  `AccountOnlyProfile`. The modals save through the core's profile events
+  (`ProfileEditSubmitted`, `PasswordChangeSubmitted`, `ImageChosen` with a handle to the
+  picked file, `ImageRemoved`, and `ProfileVisibilityChanged` for the privacy switch, which
+  shows your profile's `public` as the core holds it), await the send and read how it went
+  from the `profileEditor` view; the core then shows the new profile everywhere (session,
+  nav, profile) without the web reloading anything.
 - Web, devices: `/pair` (`PairPage`) approves or denies a pairing code, typed into the
   segmented `PairCodeInput` (one real input under the cells) or prefilled from the
   device's QR (`?code=`); signed-out visitors go through `/login?next=` and back. Both
   profile variants end with `DevicesSection` (`ProfileContent` takes it as its owner-only
-  `children`): the account's sessions from `devicesCache`, revoke behind a confirm (this
-  browser's own row is a plain logout, which also clears the cookie), and
-  `ConnectDeviceModal`, which shows a one-time connect code as a QR (`ui/QrCode.svelte`
-  over `uqr`), replaces it when it expires and closes itself once a new device shows up
-  in the list.
+  `children`): the account's sessions from the core's `devices` view (`DevicesOpened`,
+  `DeviceRevoked`; `features/auth/devices.ts`), revoke behind a confirm (this browser's own
+  row is a plain logout, which also clears the cookie), and `ConnectDeviceModal`, which shows
+  a one-time connect code as a QR (`ui/QrCode.svelte` over `uqr`), replaces it when it
+  expires and closes itself once a new device shows up in the core's list, which it reads
+  again every 3 s.
 
 ### catalog
 The watchable catalog: movies and series with seasons/episodes and genres, the home
@@ -400,8 +406,11 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
   and a throttled call returns `rank: null` so the client keeps the rank it has
   rather than painting a zero. `INSERT ... ON CONFLICT DO NOTHING RETURNING` yields
   exactly the rows actually inserted, so two tabs racing produce one celebration
-  between them with no read-then-write window. The client calls it on app load, every
-  5 minutes of playback and on playback end.
+  between them with no read-then-write window. The core's `ranks` module asks once the
+  session's user and flags are in, on the player's progress saves (at most every 5 minutes
+  unless forced), forced at the end of a title and after a profile edit (a first avatar is
+  a badge), and asks once more when the server throttled a forced check; the web also asks
+  (throttled) on every navigation.
 - **Privacy**: the `publicProfile` boolean in the existing `users.preferences` jsonb
   (absent means public), written through `PUT /me/preferences` - **zero new write
   surface**. Reads filter with `preferences -> 'publicProfile' IS DISTINCT FROM
@@ -409,9 +418,9 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
   leaderboard down if any client ever wrote a non-boolean there. An opted-out member
   is a **404, not a 403** (admins included), so "private" is indistinguishable from
   "no such member"; the owner always sees their own.
-- Endpoints (all `RequireAuth` + `flags.RequireRankings`): `GET /me/stats` (the only
-  progression fetch on app load - it feeds the nav ring *and* the profile page from
-  one SWR entry), `GET /users/{username}/profile`, `GET /leaderboard?period=all|week|month`,
+- Endpoints (all `RequireAuth` + `flags.RequireRankings`): `GET /me/stats` (your own
+  profile, which also gives the nav ring its rank), `GET /users/{username}/profile`,
+  `GET /leaderboard?period=all|week|month`,
   `POST /me/achievements/check`. The leaderboard returns **every metric per row**
   (xp, watch, achievements) unsorted, so the client's metric switcher sorts in
   place with no refetch and `period` is the only cache key; XP is lifetime whatever
@@ -435,15 +444,20 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
   via `accentVars`, falling back to the tier colour; markdown bio; 8 stat tiles; a
   53x7 activity heatmap scrolled to today; a 24-slice "when you watch" clock; the XP
   breakdown; most-watched; the achievement grid) and `/leaderboard` (2-1-3 podium in
-  1-2-3 DOM order, table, sticky "you are #N"). `/profile` renders the same content
-  with edit affordances off the same cache entry. `/admin/ranks` holds the admin
-  stats and the XP settings form. The nav avatar gains a rank ring + level chip that
-  pulse on level-up. Unlock celebrations use `svelte-sonner` off-player and a bespoke
-  overlay **mounted inside the player wrapper** on `/watch` - the root Toaster is a
-  fixed root-layout element and would vanish in fullscreen, the same trap `CouchBar`
-  documents. Both celebration paths drain the queue in a deferred callback rather
-  than inside the effect flush: creating a toast writes sonner's own reactive state,
-  and doing that mid-flush corrupts its height bookkeeping.
+  1-2-3 DOM order, table, sticky "you are #N"), both read from the core's `profile(username)`
+  and `leaderboard({period, metric})` views (the core sorts a board by its metric and rates
+  each heatmap day). `/profile` renders the same content with edit affordances off the
+  same core screen. `/admin/ranks` holds the admin stats and the XP settings form, on the
+  typed client. The nav avatar gains a rank ring + level chip (the core's `rank` view) that
+  pulse on level-up (`levelUps`). Unlock celebrations use `svelte-sonner` off-player
+  (`AchievementWatcher`) and a bespoke overlay **mounted inside the player wrapper** on
+  `/watch` (`AchievementOverlay`) - the root Toaster is a fixed root-layout element and
+  would vanish in fullscreen, the same trap `CouchBar` documents; the toasts stand down
+  while an overlay is mounted. Whichever shows one takes the core's `celebration`
+  (`rank.take()`, which sends `CelebrationDismissed`) and the core moves on to the next;
+  the toast is created once the take settles, out of the effect flush, since creating one
+  writes sonner's own reactive state and doing that mid-flush corrupts its height
+  bookkeeping.
 
 ### downloads
 Device-ready MP4s that the native clients keep for offline viewing (plan 8.6).
@@ -816,28 +830,25 @@ fills in behind a cached value or a skeleton.
   reset by the core itself on sign-out or an account change, a warm-start home in
   `localStorage`). A page's `+page.ts` only starts loading its screen and returns it
   (`features/catalog/api.ts`): `revisit(screen)` (home, title, My List: `RefreshRequested`,
-  so every visit catches up with progress and list changes made elsewhere, as the SWR cache
-  always did) or `preload(screen)`/`preloadListing(key)` (genres, listings: `ScreenOpened`
+  so every visit catches up with progress and list changes made elsewhere) or
+  `preload(screen)`/`preloadListing(key)` (genres, listings: `ScreenOpened`
   then `ScreenClosed`, loading only what the core does not hold as fresh, 60 s). The page
   holds the screen open while mounted (`useScreen` from `lib/core/screen.svelte.ts`:
   `ScreenOpened`/`ScreenClosed`, with `revalidate` it reloads unless its load just did) and
   reads the view model reactively. A load cannot own the open/close pair: hover, TV-focus
   and the player's preloads run loads for pages that never mount, and SvelteKit reuses a
   preload's result without running the load again.
-- **SWR cache** (`lib/api/cache.svelte.ts`): what the web still fetches itself (a public
-  profile and the leaderboard in `ranks`, the devices list) uses a reactive
-  stale-while-revalidate store over `svelte/reactivity` `SvelteMap`. `createSwrCache<T>()`
-  registers an instance (LRU-capped); `get(key)` is a reactive read, `revalidate(key,
-  fetcher)` fetches + stores (only the newest fetch, and only if nothing was written since
-  it started), and `resetAllCaches()` (called by `session` on logout/401) drops everything.
-  Instances live in `features/<name>/cache.svelte.ts`.
+- **Ranks and profiles are core-backed** the same way: a profile's and the leaderboard's
+  loads `prefetch` their screen (the core holds both fresh for 60 s; one leaderboard payload
+  per period serves every metric), and the `(app)` layout prefetches your own profile,
+  which keeps the nav's rank ring current. The viewer-side pages keep no cache of their own.
 - **Page pattern**: the route shell renders `XxxPage.svelte`, a thin wrapper around
   **`CachedView`** (`lib/components/`), which renders one of its snippets: `content` (the
   cached value paints instantly and updates silently when revalidation lands - stale beats
   blank), `skeleton` (cold visit), `notFound`, or `failed` (a cold visit that could not
-  load, with a Retry: `LoadFailed`). Core-backed pages pass the view's content (`shown(view)`,
-  or `TitleView.detail`) and its `LoadStatus`; SWR pages their cache value and the load's
-  un-awaited `fresh` promise. The page body lives in `XxxContent.svelte`. Skeletons reuse
+  load, with a Retry: `LoadFailed`). Pages pass the view's content (`shown(view)`,
+  `TitleView.detail`, `ProfileView.profile`) and its `LoadStatus`. The page body lives in
+  `XxxContent.svelte`. Skeletons reuse
   `ui/Skeleton.svelte` + `animate-shimmer` and mirror each real layout.
 - **`StreamedView`** (`lib/components/`): the same three states but promise-backed and
   **uncached** - it keeps the last resolved value during a same-`key` revalidation
@@ -858,9 +869,9 @@ fills in behind a cached value or a skeleton.
 ## Shared core on the web (cross-cutting)
 
 The web runs the shared client core (see "Shared client core") as wasm for the session, bio
-markdown, the viewer's catalog, the player and the couch. Its ranks and profile modules wait
-for their slice, so profiles, leaderboards and the profile editor still call the API
-themselves.
+markdown, the viewer's catalog, the player, the couch, ranks and profiles, the profile editor
+and the devices list. The admin pages, sign-in, pairing approval and the connect code stay on
+the typed client.
 
 - **Runtime** (`lib/core/`): `index.ts` creates the one `core` (`CoreRuntime`,
   `runtime.svelte.ts`) in cookie mode and starts downloading and compiling the wasm
@@ -871,8 +882,10 @@ themselves.
   effects through `executor.ts` (`fetch` with the cookie, keepalive for everything but GETs
   so what the player saves as the tab closes arrives; `localStorage` under `cv.core.`;
   timers; WebSockets, the page's origin picking ws or wss; secure-store reads are empty and
-  writes refused, the web keeps no secrets; `upload` fails, the web still uploads images
-  itself) and keeps `app` and `session` in `$state.raw`,
+  writes refused, the web keeps no secrets; `upload` sends a picked file as the one part of a
+  multipart form, under its own name: the page holds the file by a handle
+  (`lib/core/files.ts`, `holdFile`) and the event names the handle, so the core never holds
+  bytes) and keeps `app` and `session` in `$state.raw`,
   re-reading only the surfaces a `render` names and reusing the unchanged parts of a view so
   effects reading them stay quiet. `send(event)` settles once every effect it led to has
   finished (timers aside). Every new core first hears `CapabilitiesReported` with the device
@@ -905,17 +918,16 @@ themselves.
   plain text from then on; a second trap while restarting gives up.
 - **Session**: `features/auth/session.svelte.ts` reads `core.session` (user, flags via
   `features/settings/features.svelte.ts`, language, accent). The login form posts
-  `/auth/login` itself and sends `SessionStarted`; logout sends `SignOutRequested`; a profile
-  edit or admin settings save sends `SessionChanged`, and so does a 401 from a web API call
+  `/auth/login` itself and sends `SessionStarted`; logout sends `SignOutRequested`; an admin
+  settings save sends `SessionChanged`, and so does a 401 from a web API call
   (the core confirms with its own `/auth/me`); a tab coming back into view sends
   `AppBecameActive`. The session store watches the core's user: when it goes away without a
   sign-out (that confirmation, or a 401 on one of the core's own requests such as the
-  catalog's), the web clears its caches and, once the navigation under way has landed, sends
-  session-only routes to `/login?next=`. The root layout applies `session.accent` to `:root`
+  catalog's), the web, once the navigation under way has landed, sends session-only routes
+  to `/login?next=`; the core forgets the last session's catalog, ranks, profile and devices
+  itself. The root layout applies `session.accent` to `:root`
   (`lib/theme.ts` `applyPalette`); scoped accents (`accentVars`) are still derived in TS, the
-  same way (a test checks the two agree). In cookie mode the core leaves achievement checks to
-  the web's `rank` store, which celebrates the unlocks a check returns, until the web renders
-  the core's ranks views.
+  same way (a test checks the two agree).
 - **Build**: `make core-wasm` writes `lib/core/pkg/` (gitignored); `make build`, the
   Dockerfile (a `$BUILDPLATFORM` Rust stage with binaryen) and `web.yml` build it before the
   web, and `make check` runs vitest (`npm test`) against the real wasm with a scripted
