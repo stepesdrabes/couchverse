@@ -32,6 +32,8 @@
 	const screen = $derived(catalog.browseScreen(key));
 	const browse = useScreen<BrowseView>(() => screen);
 	const view = $derived(catalog.shown(browse.view));
+	// a genre's page is headed by its name in the display language once the core knows it
+	const title = $derived(listing.genre ? (view?.genreLabel ?? heading) : heading);
 	// the genre filter only shows on a kind's page
 	const genres = useScreen<GenresView>(() => (listing.genre ? undefined : catalog.genresScreen));
 
@@ -50,9 +52,15 @@
 	}
 </script>
 
+<svelte:head>
+	{#if listing.genre}
+		<title>{m.catalog_genre_title({ genre: title })}</title>
+	{/if}
+</svelte:head>
+
 <div class="mx-auto max-w-[1700px] px-6 pt-24 pb-16 lg:px-12">
 	<div class="mb-8 flex flex-wrap items-center gap-4">
-		<h1 class="text-2xl font-bold">{heading}</h1>
+		<h1 class="text-2xl font-bold">{title}</h1>
 		<div class="ml-auto flex items-center gap-3">
 			{#if !listing.genre}
 				<Select
