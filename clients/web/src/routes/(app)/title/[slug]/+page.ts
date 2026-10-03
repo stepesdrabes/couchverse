@@ -1,12 +1,7 @@
 import * as catalog from '$lib/features/catalog/api';
-import { titleCache } from '$lib/features/catalog/cache.svelte';
 
-// Non-blocking: navigation swaps in immediately. The page paints cached data at
-// once (or a skeleton on a cold visit); this revalidation fills in behind it and
-// the 404 case is handled in the component from the rejected `fresh` promise.
+// Non-blocking: navigation swaps in immediately. The page paints the core's cached title at
+// once (or a skeleton on a cold visit) and this reload fills in behind it.
 export function load({ params }) {
-	return {
-		slug: params.slug,
-		fresh: titleCache.revalidate(params.slug, () => catalog.getTitle(params.slug))
-	};
+	return { screen: catalog.revisit(catalog.titleScreen(params.slug)) };
 }

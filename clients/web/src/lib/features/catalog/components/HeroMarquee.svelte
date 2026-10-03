@@ -2,17 +2,18 @@
 	import { goto } from '$app/navigation';
 	import { Check, Play, Plus } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { toast } from 'svelte-sonner';
+	import { SvelteSet } from 'svelte/reactivity';
 	import * as catalog from '$lib/features/catalog/api';
-	import type { FeaturedItem } from '$lib/features/catalog/types';
+	import { TitleKind, type FeaturedCard } from '$lib/generated/core';
 	import GlowBackdrop from '$lib/components/layout/GlowBackdrop.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { heroIntervalMs } from '$lib/generated/tokens';
 	import { accentVars } from '$lib/theme';
 	import { isTV } from '$lib/tv/tv';
+	import { kindLabel } from '../labels';
 	import * as m from '$lib/paraglide/messages';
 
-	let { items }: { items: FeaturedItem[] } = $props();
+	let { items }: { items: FeaturedCard[] } = $props();
 
 	const SLIDE_MS = heroIntervalMs;
 	const STEP_MS = 50;
@@ -21,6 +22,8 @@
 	let progress = $state(0); // 0..1 within the current slide
 	let hovered = $state(false);
 	let region = $state<HTMLDivElement>();
+	// logos that would not load give way to the name
+	const brokenLogos = new SvelteSet<string>();
 
 	// Hovering or keyboard focus (a TV remote) holds the slide: advancing re-creates the
 	// buttons and would drop the focus. A mouse click focuses too but should not hold it.
@@ -33,8 +36,6 @@
 	// slight scroll parallax: the banner drifts slower than the page
 	let scrollY = $state(0);
 	const parallax = $derived(`translate3d(0, ${scrollY * 0.18}px, 0) scale(1.12)`);
-	// optimistic My List state per slide, keyed by title id
-	let listedOverrides = $state<Record<string, boolean>>({});
 
 	// clamp the index if the featured set shrinks between loads
 	$effect(() => {
@@ -42,8 +43,8 @@
 	});
 
 	const active = $derived(items[index] ?? items[0]);
-	const listed = $derived(listedOverrides[active.id] ?? active.inList);
-	const eyebrow = $derived([m.catalog_featured(), ...active.genreLabels.slice(0, 2)].join(' · '));
+	const eyebrow = $derived([m.catalog_featured(), ...active.genres.slice(0, 2)].join(' · '));
+	const logo = $derived(active.logo && !brokenLogos.has(active.logo.url) ? active.logo : undefined);
 
 	// single ticking timer drives both the progress indicator and auto-advance,
 	// so they never drift apart
@@ -67,23 +68,11 @@
 
 	// accent the hero subtree from the active banner's server-extracted colour,
 	// so the eyebrow and buttons echo the featured artwork
-	const accentStyle = $derived(active.backdropAccent ? accentVars(active.backdropAccent) : '');
+	const accentStyle = $derived(active.backdrop?.accent ? accentVars(active.backdrop.accent) : '');
 
 	function play() {
-		if (active.kind === 'movie') goto(`/watch/movie/${active.id}`);
+		if (active.kind === TitleKind.Movie) goto(`/watch/movie/${active.titleId}`);
 		else goto(`/title/${active.slug}`);
-	}
-
-	async function toggleList() {
-		const id = active.id;
-		const next = !listed;
-		try {
-			if (next) await catalog.addToList(id);
-			else await catalog.removeFromList(id);
-			listedOverrides = { ...listedOverrides, [id]: next };
-		} catch {
-			toast.error(m.catalog_my_list_update_failed());
-		}
 	}
 </script>
 
@@ -100,11 +89,11 @@
 	onpointerleave={() => (hovered = false)}
 >
 	<!-- backdrops crossfade between slides -->
-	{#if items.some((it) => it.backdropId)}
-		{#each items as item, i (item.id)}
-			{#if item.backdropId}
+	{#if items.some((it) => it.backdrop)}
+		{#each items as item, i (item.titleId)}
+			{#if item.backdrop}
 				<img
-					src={catalog.artworkUrl(item.backdropId, item.backdropVer)}
+					src={item.backdrop.url}
 					alt=""
 					class="absolute inset-0 size-full object-cover transition-opacity duration-700
 						{i === index ? 'opacity-100' : 'opacity-0'}"
@@ -123,17 +112,30 @@
 		<GlowBackdrop />
 	{/if}
 
-	{#key active.id}
+	{#key active.titleId}
 		<div
 			class="relative mx-auto max-w-3xl px-6 pt-24 pb-20 text-center
-				{active.backdropId ? '[text-shadow:0_2px_18px_rgb(0_0_0/0.55)]' : ''}"
+				{active.backdrop ? '[text-shadow:0_2px_18px_rgb(0_0_0/0.55)]' : ''}"
 		>
 			<p in:fly={{ y: 12, duration: 400, delay: 100 }} class="eyebrow mb-6">{eyebrow}</p>
 			<h1
 				in:fly={{ y: 16, duration: 450, delay: 200 }}
 				class="text-[clamp(2.2rem,7vw,5.5rem)] leading-[1.05] font-extrabold tracking-tight"
 			>
-				{active.name}
+				{#if logo}
+					<!-- the wordmark in the display language; its aspect holds the space until it loads -->
+					<img
+						src={logo.url}
+						alt=""
+						class="mx-auto h-[clamp(4.5rem,12vw,9rem)] w-auto max-w-[min(34rem,85vw)] object-contain
+							{isTV ? '' : 'drop-shadow-[0_2px_18px_rgb(0_0_0/0.55)]'}"
+						style:aspect-ratio={logo.aspect}
+						onerror={() => brokenLogos.add(logo.url)}
+					/>
+					<span class="sr-only">{active.name}</span>
+				{:else}
+					{active.name}
+				{/if}
 			</h1>
 			{#if active.overview}
 				<p
@@ -155,8 +157,8 @@
 						class="rounded-md border border-edge bg-surface/60 px-2 py-1"
 						>{active.contentRating}</span
 					>{/if}
-				<span class="rounded-md border border-edge bg-surface/60 px-2 py-1 capitalize"
-					>{active.kind}</span
+				<span class="rounded-md border border-edge bg-surface/60 px-2 py-1"
+					>{kindLabel(active.kind)}</span
 				>
 			</div>
 
@@ -168,8 +170,13 @@
 					<Play class="size-4 fill-current" />
 					{m.common_play()}
 				</Button>
-				<Button variant="secondary" size="lg" onclick={toggleList} aria-pressed={listed}>
-					{#if listed}
+				<Button
+					variant="secondary"
+					size="lg"
+					onclick={() => catalog.setListed(active.titleId, !active.inList)}
+					aria-pressed={active.inList}
+				>
+					{#if active.inList}
 						<Check class="size-4" />
 					{:else}
 						<Plus class="size-4" />
@@ -195,7 +202,7 @@
 			</button>
 
 			<div class="flex items-center gap-2">
-				{#each items as item, i (item.id)}
+				{#each items as item, i (item.titleId)}
 					<button
 						type="button"
 						class="group/seg flex h-6 items-center"

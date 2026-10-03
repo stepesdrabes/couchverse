@@ -2,119 +2,65 @@
 	import { goto } from '$app/navigation';
 	import { Check, Play, Plus, Shuffle } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { toast } from 'svelte-sonner';
 	import * as catalog from '$lib/features/catalog/api';
-	import { titleCache } from '$lib/features/catalog/cache.svelte';
-	import type { Episode, MediaFile } from '$lib/features/catalog/types';
+	import { TitleKind, type TitleDetailView } from '$lib/generated/core';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
-	import { accentVars } from '$lib/theme';
-	import { formatClock, formatRuntime, qualityLabel } from '$lib/utils/format';
+	import { paletteVars } from '$lib/theme';
+	import { formatClock, formatRuntime } from '$lib/utils/format';
+	import { qualityLabel } from '../labels';
 	import * as m from '$lib/paraglide/messages';
 
-	let { data }: { data: Awaited<ReturnType<typeof catalog.getTitle>> } = $props();
+	let { detail }: { detail: TitleDetailView } = $props();
 
-	// The first copy painted may be a stale cached one, so this follows the cache (seeding
-	// a $state from it would never catch up), and a toggle writes its result there too.
-	const listed = $derived(data.inWatchlist);
 	let seasonValue = $state('');
+	// a logo that would not load gives way to the name
+	let brokenLogo = $state<string>();
 
-	const poster = $derived(data.artwork.find((a) => a.kind === 'poster'));
-	const backdrop = $derived(data.artwork.find((a) => a.kind === 'backdrop'));
-
-	// accent the whole page from the title's backdrop (server-extracted colour)
-	const accentStyle = $derived(backdrop?.accent ? accentVars(backdrop.accent) : '');
-
-	const fileByEpisode = $derived(
-		new Map(data.mediaFiles.filter((f) => f.episodeId).map((f) => [f.episodeId as string, f]))
-	);
-	const maxHeight = $derived(Math.max(0, ...data.mediaFiles.map((f) => f.height)));
-	const hdr = $derived(data.mediaFiles.some((f) => f.videoRange !== 'sdr'));
-
-	// watch mode only surfaces episodes that actually have a playable file, and
-	// drops seasons left empty by that filter
-	const seasons = $derived(
-		(data.seasons ?? [])
-			.map((s) => ({ ...s, episodes: s.episodes.filter((ep) => fileByEpisode.has(ep.id)) }))
-			.filter((s) => s.episodes.length > 0)
-	);
+	const logo = $derived(detail.logo?.url === brokenLogo ? undefined : detail.logo);
+	// the page takes its colours from the title's backdrop
+	const accentStyle = $derived(detail.accent ? paletteVars(detail.accent) : '');
+	const series = $derived(detail.kind === TitleKind.Series);
 	const currentSeason = $derived(
-		seasons.find((s) => String(s.seasonNumber) === seasonValue) ?? seasons[0]
+		detail.seasons.find((s) => String(s.number) === seasonValue) ?? detail.seasons[0]
 	);
-
-	// every playable episode across seasons, for the shuffle/random pick
-	const allEpisodes = $derived(seasons.flatMap((s) => s.episodes));
-
-	const movieResume = $derived(
-		data.title.kind === 'movie' && (data.progress?.positionSeconds ?? 0) > 10
-			? data.progress!.positionSeconds
-			: 0
-	);
-
-	// first not-completed episode, for the series Play button
-	const nextUp = $derived.by(() => {
-		for (const season of seasons) {
-			for (const ep of season.episodes) {
-				const p = data.episodeProgress?.[ep.id];
-				if (!p?.completed && fileByEpisode.has(ep.id)) return ep;
-			}
-		}
-		return null;
-	});
 
 	function play() {
-		if (data.title.kind === 'movie') goto(`/watch/movie/${data.title.id}`);
-		else if (nextUp) goto(`/watch/episode/${nextUp.id}`);
+		if (detail.play) goto(`/watch/${detail.play.target.kind}/${detail.play.target.id}`);
 	}
 
 	function playRandom() {
-		if (!allEpisodes.length) return;
+		const episodes = detail.seasons.flatMap((s) => s.episodes);
+		if (!episodes.length) return;
 		localStorage.setItem('cv.shuffle', '1'); // keep playing randomly in the player
-		const ep = allEpisodes[Math.floor(Math.random() * allEpisodes.length)];
-		goto(`/watch/episode/${ep.id}`);
+		const episode = episodes[Math.floor(Math.random() * episodes.length)];
+		goto(`/watch/episode/${episode.id}`);
 	}
 
-	async function toggleList() {
-		const next = !listed;
-		try {
-			if (next) await catalog.addToList(data.title.id);
-			else await catalog.removeFromList(data.title.id);
-			titleCache.set(data.title.slug, { ...data, inWatchlist: next });
-		} catch {
-			toast.error(m.catalog_list_update_failed());
+	const playLabel = $derived.by(() => {
+		const action = detail.play;
+		if (action?.resumeSeconds && !series) {
+			return m.catalog_resume_from({ time: formatClock(action.resumeSeconds) });
 		}
-	}
-
-	const episodeProgressPct = (ep: Episode) => {
-		const p = data.episodeProgress?.[ep.id];
-		if (!p || p.durationSeconds === 0) return 0;
-		if (p.completed) return 100;
-		return (p.positionSeconds / p.durationSeconds) * 100;
-	};
-
-	const playable = (ep: Episode): MediaFile | undefined => fileByEpisode.get(ep.id);
-
-	const nextUpLabel = $derived.by(() => {
-		if (!nextUp) return '';
-		const season = seasons.find((s) => s.id === nextUp.seasonId);
-		return `S${season?.seasonNumber ?? 1} E${nextUp.episodeNumber}`;
+		if (action?.episode) {
+			return m.catalog_play_episode({
+				label: `S${action.episode.season} E${action.episode.episode}`
+			});
+		}
+		return m.common_play();
 	});
 </script>
 
 <svelte:head>
-	<title>{m.catalog_title_page_title({ name: data.title.name })}</title>
+	<title>{m.catalog_title_page_title({ name: detail.name })}</title>
 </svelte:head>
 
 <div class="relative" style={accentStyle}>
 	<div class="absolute inset-x-0 top-0 h-[480px] overflow-hidden">
-		{#if backdrop}
-			<img
-				src={catalog.artworkUrl(backdrop.id, catalog.artworkVer(backdrop.createdAt))}
-				alt=""
-				class="size-full object-cover opacity-35"
-			/>
+		{#if detail.backdrop}
+			<img src={detail.backdrop.url} alt="" class="size-full object-cover opacity-35" />
 		{:else}
 			<div class="size-full bg-gradient-to-br from-accent-soft/40 via-bg to-bg"></div>
 		{/if}
@@ -127,69 +73,73 @@
 				class="hidden h-64 w-44 shrink-0 animate-slide-up overflow-hidden rounded-card border
 					border-edge/60 shadow-2xl shadow-black/50 md:block"
 			>
-				<Artwork
-					artworkId={poster?.id ?? null}
-					v={poster ? catalog.artworkVer(poster.createdAt) : null}
-					name={data.title.name}
-				/>
+				<Artwork src={detail.poster?.url} name={detail.name} />
 			</div>
 
 			<div class="min-w-0 animate-slide-up">
-				<h1 class="text-3xl font-extrabold tracking-tight md:text-5xl">{data.title.name}</h1>
+				<h1 class="text-3xl font-extrabold tracking-tight md:text-5xl">
+					{#if logo}
+						<!-- the wordmark in the display language; its aspect holds the space until it loads -->
+						<img
+							src={logo.url}
+							alt=""
+							class="h-20 w-auto max-w-full object-contain object-left md:h-28"
+							style:aspect-ratio={logo.aspect}
+							onerror={() => (brokenLogo = logo.url)}
+						/>
+						<span class="sr-only">{detail.name}</span>
+					{:else}
+						{detail.name}
+					{/if}
+				</h1>
 
 				<div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted">
-					{#if data.title.year}<span>{data.title.year}</span>{/if}
-					{#if data.title.kind === 'series'}
-						<span>· {m.catalog_season_count({ count: seasons.length })}</span>
-					{:else if data.title.runtimeMinutes}
-						<span>· {formatRuntime(data.title.runtimeMinutes)}</span>
+					{#if detail.year}<span>{detail.year}</span>{/if}
+					{#if series}
+						<span>· {m.catalog_season_count({ count: detail.seasons.length })}</span>
+					{:else if detail.runtimeMinutes}
+						<span>· {formatRuntime(detail.runtimeMinutes)}</span>
 					{/if}
-					{#if data.title.contentRating}
-						<Badge>{data.title.contentRating}</Badge>
+					{#if detail.contentRating}
+						<Badge>{detail.contentRating}</Badge>
 					{/if}
-					{#if qualityLabel(maxHeight)}
-						<Badge>{qualityLabel(maxHeight)}</Badge>
+					{#if detail.quality}
+						<Badge>{qualityLabel(detail.quality)}</Badge>
 					{/if}
-					{#if hdr}
-						<Badge>HDR</Badge>
+					{#if detail.hdr}
+						<Badge>{m.catalog_hdr()}</Badge>
 					{/if}
 				</div>
 
-				{#if data.title.overview}
+				{#if detail.overview}
 					<p class="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted">
-						{data.title.overview}
+						{detail.overview}
 					</p>
 				{/if}
 
-				{#if data.title.genreLabels.length}
-					<p class="mt-3 text-xs text-faint">{data.title.genreLabels.join(' · ')}</p>
+				{#if detail.genres.length}
+					<p class="mt-3 text-xs text-faint">{detail.genres.join(' · ')}</p>
 				{/if}
 
 				<div class="mt-6 flex items-center gap-3">
-					<Button
-						size="lg"
-						onclick={play}
-						disabled={data.title.kind === 'series' && !nextUp}
-						data-tv-autofocus
-					>
+					<Button size="lg" onclick={play} disabled={!detail.play} data-tv-autofocus>
 						<Play class="size-4 fill-current" />
-						{#if movieResume}
-							{m.catalog_resume_from({ time: formatClock(movieResume) })}
-						{:else if data.title.kind === 'series' && nextUp}
-							{m.catalog_play_episode({ label: nextUpLabel })}
-						{:else}
-							{m.common_play()}
-						{/if}
+						{playLabel}
 					</Button>
-					<Button variant="secondary" size="lg" onclick={toggleList} aria-pressed={listed}>
-						{#if listed}
+					<Button
+						variant="secondary"
+						size="lg"
+						onclick={() => catalog.setListed(detail.id, !detail.inList)}
+						aria-pressed={detail.inList}
+					>
+						{#if detail.inList}
 							<Check class="size-4" />
 						{:else}
 							<Plus class="size-4" />
 						{/if}
 						{m.nav_my_list()}
 					</Button>
-					{#if data.title.kind === 'series' && data.title.allowRandomPlayback && allEpisodes.length > 0}
+					{#if detail.shuffle}
 						<Button variant="secondary" size="lg" onclick={playRandom}>
 							<Shuffle class="size-4" />
 							{m.catalog_random_episode()}
@@ -199,18 +149,18 @@
 			</div>
 		</div>
 
-		{#if data.title.kind === 'series' && seasons.length > 0}
+		{#if series && detail.seasons.length > 0}
 			<section class="mt-12">
 				<div class="mb-4 flex items-center justify-between">
 					<h2 class="eyebrow">{m.catalog_episodes()}</h2>
-					{#if seasons.length > 1}
+					{#if detail.seasons.length > 1}
 						<Select
 							bind:value={seasonValue}
 							label={m.catalog_season()}
-							placeholder={String(currentSeason?.seasonNumber ?? 1)}
-							items={seasons.map((s) => ({
-								value: String(s.seasonNumber),
-								label: s.name || m.catalog_season_number({ number: s.seasonNumber })
+							placeholder={String(currentSeason?.number ?? 1)}
+							items={detail.seasons.map((s) => ({
+								value: String(s.number),
+								label: s.name || m.catalog_season_number({ number: s.number })
 							}))}
 						/>
 					{/if}
@@ -218,55 +168,44 @@
 
 				<ul class="space-y-2">
 					{#each currentSeason?.episodes ?? [] as ep, i (ep.id)}
-						{@const file = playable(ep)}
-						{@const pct = episodeProgressPct(ep)}
+						{@const name = ep.name || m.catalog_episode_number({ number: ep.number })}
 						<li in:fly|global={{ y: 14, duration: 300, delay: Math.min(i * 40, 360) }}>
-							<svelte:element
-								this={file ? 'a' : 'div'}
-								href={file ? `/watch/episode/${ep.id}` : undefined}
+							<a
+								href="/watch/episode/{ep.id}"
 								data-sveltekit-preload-data="tap"
-								class="group flex gap-4 rounded-card border border-edge bg-surface/40 p-3 transition-colors
-									{file
-									? 'cursor-pointer hover:border-accent/40 hover:bg-surface-2/60 focus-visible:border-accent/40 focus-visible:bg-surface-2/60'
-									: 'opacity-50'}"
+								class="group flex cursor-pointer gap-4 rounded-card border border-edge bg-surface/40 p-3
+									transition-colors hover:border-accent/40 hover:bg-surface-2/60
+									focus-visible:border-accent/40 focus-visible:bg-surface-2/60"
 							>
 								<div
 									class="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg border
 										border-edge/60 bg-surface-2 sm:w-44"
 								>
-									<Artwork
-										artworkId={ep.thumbId ?? null}
-										v={ep.thumbVer}
-										name={ep.name || m.catalog_episode_number({ number: ep.episodeNumber })}
-									/>
-									{#if file}
-										<div
-											class="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0
-												transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+									<Artwork src={ep.still?.url} {name} />
+									<div
+										class="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0
+											transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+									>
+										<span
+											class="rounded-full bg-accent p-2.5 text-[var(--color-on-accent)] shadow-lg"
 										>
-											<span
-												class="rounded-full bg-accent p-2.5 text-[var(--color-on-accent)] shadow-lg"
-											>
-												<Play class="size-4 fill-current" />
-											</span>
-										</div>
-									{/if}
-									{#if pct > 0}
+											<Play class="size-4 fill-current" />
+										</span>
+									</div>
+									{#if ep.progress > 0}
 										<div class="absolute inset-x-0 bottom-0 h-1 bg-black/50">
-											<div class="h-full bg-accent" style="width: {pct}%"></div>
+											<div class="h-full bg-accent" style="width: {ep.progress * 100}%"></div>
 										</div>
 									{/if}
 								</div>
 
 								<div class="min-w-0 flex-1 py-0.5">
 									<div class="flex items-baseline gap-2">
-										<span class="shrink-0 text-sm font-semibold text-faint tnum"
-											>{ep.episodeNumber}</span
-										>
+										<span class="shrink-0 text-sm font-semibold text-faint tnum">{ep.number}</span>
 										<p
 											class="truncate text-sm font-semibold group-hover:text-accent group-focus-visible:text-accent"
 										>
-											{ep.name || m.catalog_episode_number({ number: ep.episodeNumber })}
+											{name}
 										</p>
 									</div>
 									{#if ep.overview}
@@ -277,15 +216,11 @@
 								</div>
 
 								<div class="shrink-0 py-0.5 text-right">
-									{#if file}
-										<span class="text-xs text-faint tnum">
-											{file.durationSeconds ? formatClock(file.durationSeconds) : ''}
-										</span>
-									{:else}
-										<span class="text-[11px] text-faint">{m.catalog_no_file()}</span>
-									{/if}
+									<span class="text-xs text-faint tnum">
+										{ep.durationSeconds ? formatClock(ep.durationSeconds) : ''}
+									</span>
 								</div>
-							</svelte:element>
+							</a>
 						</li>
 					{/each}
 				</ul>

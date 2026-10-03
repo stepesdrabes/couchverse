@@ -121,6 +121,7 @@ extension L10n {
     public static var catalogGenresEmptyMessage: String { string("catalog_genres_empty_message") }
     public static var catalogGenresEmptyTitle: String { string("catalog_genres_empty_title") }
     public static var catalogGenresTitle: String { string("catalog_genres_title") }
+    public static var catalogHdr: String { string("catalog_hdr") }
     public static var catalogHomeTitle: String { string("catalog_home_title") }
     public static var catalogKindMovie: String { string("catalog_kind_movie") }
     public static var catalogKindSeries: String { string("catalog_kind_series") }
@@ -136,6 +137,10 @@ extension L10n {
     public static var catalogNoFile: String { string("catalog_no_file") }
     public static func catalogPlayEpisode(label: String) -> String { format("catalog_play_episode", [label]) }
     public static var catalogPreviousFeatured: String { string("catalog_previous_featured") }
+    public static var catalogQualityHd1080: String { string("catalog_quality_hd1080") }
+    public static var catalogQualityHd720: String { string("catalog_quality_hd720") }
+    public static var catalogQualitySd: String { string("catalog_quality_sd") }
+    public static var catalogQualityUhd: String { string("catalog_quality_uhd") }
     public static var catalogRandomEpisode: String { string("catalog_random_episode") }
     public static func catalogResumeFrom(time: String) -> String { format("catalog_resume_from", [time]) }
     public static var catalogScrollLeft: String { string("catalog_scroll_left") }

@@ -1,27 +1,17 @@
 <script lang="ts">
-	import type { CardItem } from '$lib/features/catalog/types';
+	import type { Card } from '$lib/generated/core';
 	import Artwork from './Artwork.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import { kindLabel } from '../labels';
 
-	let { item }: { item: CardItem } = $props();
+	let { card }: { card: Card } = $props();
 
-	const meta = $derived(
-		[item.kind === 'series' ? m.catalog_kind_series() : m.catalog_kind_movie(), item.year]
-			.filter(Boolean)
-			.join(' · ')
-	);
-
-	const art = $derived(
-		item.backdropId
-			? { id: item.backdropId, v: item.backdropVer, accent: item.backdropAccent }
-			: { id: item.posterId, v: item.posterVer, accent: item.posterAccent }
-	);
-
-	const cardAccent = $derived(art.accent?.startsWith('#') ? `--card-accent:${art.accent}` : '');
+	const meta = $derived([kindLabel(card.kind), card.year].filter(Boolean).join(' · '));
+	const art = $derived(card.backdrop ?? card.poster);
+	const cardAccent = $derived(art?.accent?.startsWith('#') ? `--card-accent:${art.accent}` : '');
 </script>
 
 <a
-	href="/title/{item.slug}"
+	href="/title/{card.slug}"
 	class="group w-48 shrink-0 snap-start outline-none sm:w-56"
 	style={cardAccent}
 >
@@ -32,12 +22,12 @@
 			group-focus-visible:shadow-black/40 group-focus-visible:ring-3 group-focus-visible:ring-offset-2"
 		style="--tw-ring-color:var(--card-accent,var(--color-accent));--tw-ring-offset-color:var(--color-bg)"
 	>
-		<Artwork artworkId={art.id} v={art.v} name={item.name} />
+		<Artwork src={art?.url} name={card.name} />
 	</div>
 	<p
 		class="mt-2 truncate text-sm font-semibold transition-colors group-hover:text-accent group-focus-visible:text-accent"
 	>
-		{item.name}
+		{card.name}
 	</p>
 	<p class="text-xs text-faint">{meta}</p>
 </a>

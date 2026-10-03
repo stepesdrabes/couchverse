@@ -75,7 +75,11 @@ export function applyPalette(p: AccentPalette) {
  */
 export function accentVars(accent: string): string {
 	const p = palette(accent);
-	if (!p) return '';
+	return p ? paletteVars(p) : '';
+}
+
+/** `accentVars` for a palette the core already derived (a title page's). */
+export function paletteVars(p: AccentPalette): string {
 	return (
 		`--color-accent:${p.accent};` +
 		`--color-accent-strong:${p.strong};` +

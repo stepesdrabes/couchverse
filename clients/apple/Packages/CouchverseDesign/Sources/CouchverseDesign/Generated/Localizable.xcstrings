@@ -2024,6 +2024,23 @@
         }
       }
     },
+    "catalog_hdr": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HDR"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HDR"
+          }
+        }
+      }
+    },
     "catalog_home_title": {
       "extractionState": "manual",
       "localizations": {
@@ -2275,6 +2292,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "Previous featured"
+          }
+        }
+      }
+    },
+    "catalog_quality_hd1080": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1080p"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1080p"
+          }
+        }
+      }
+    },
+    "catalog_quality_hd720": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "720p"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "720p"
+          }
+        }
+      }
+    },
+    "catalog_quality_sd": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SD"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SD"
+          }
+        }
+      }
+    },
+    "catalog_quality_uhd": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4K"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4K"
           }
         }
       }

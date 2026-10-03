@@ -1,22 +1,28 @@
 <script lang="ts">
-	import type { TitleDetail } from '$lib/features/catalog/types';
-	import { titleCache } from '$lib/features/catalog/cache.svelte';
+	import type { Surface, TitleView } from '$lib/generated/core';
+	import { useScreen } from '$lib/core/screen.svelte';
 	import CachedView from '$lib/components/CachedView.svelte';
 	import NotFound from '$lib/components/NotFound.svelte';
 	import TitleDetailContent from './TitleDetailContent.svelte';
+	import LoadFailed from '$lib/features/catalog/components/LoadFailed.svelte';
 	import TitleDetailSkeleton from '$lib/features/catalog/components/TitleDetailSkeleton.svelte';
 
-	let { data }: { data: { slug: string; fresh: Promise<TitleDetail> } } = $props();
+	let { data }: { data: { screen: Surface } } = $props();
+
+	const title = useScreen<TitleView>(() => data.screen, { revalidate: true });
 </script>
 
-<CachedView value={titleCache.get(data.slug)} fresh={data.fresh}>
+<CachedView value={title.view?.detail} status={title.view?.status}>
 	{#snippet content(detail)}
-		<TitleDetailContent data={detail} />
+		<TitleDetailContent {detail} />
 	{/snippet}
 	{#snippet skeleton()}
 		<TitleDetailSkeleton />
 	{/snippet}
 	{#snippet notFound()}
 		<NotFound />
+	{/snippet}
+	{#snippet failed()}
+		<LoadFailed screen={data.screen} />
 	{/snippet}
 </CachedView>

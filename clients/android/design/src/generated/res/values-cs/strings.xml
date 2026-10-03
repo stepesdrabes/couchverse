@@ -120,6 +120,7 @@
     <string name="catalog_genres_empty_message">Žánry se objeví, jakmile budou tituly otagované.</string>
     <string name="catalog_genres_empty_title">Zatím žádné žánry</string>
     <string name="catalog_genres_title">Žánry - Couchverse</string>
+    <string name="catalog_hdr">HDR</string>
     <string name="catalog_home_title">Domů - Couchverse</string>
     <string name="catalog_kind_movie">Film</string>
     <string name="catalog_kind_series">Seriál</string>
@@ -135,6 +136,10 @@
     <string name="catalog_no_file">žádný soubor</string>
     <string name="catalog_play_episode">Přehrát %1$s</string>
     <string name="catalog_previous_featured">Předchozí doporučený</string>
+    <string name="catalog_quality_hd1080">1080p</string>
+    <string name="catalog_quality_hd720">720p</string>
+    <string name="catalog_quality_sd">SD</string>
+    <string name="catalog_quality_uhd">4K</string>
     <string name="catalog_random_episode">Náhodná epizoda</string>
     <string name="catalog_resume_from">Pokračovat od %1$s</string>
     <string name="catalog_scroll_left">Posunout doleva</string>

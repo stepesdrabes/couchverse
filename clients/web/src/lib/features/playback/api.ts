@@ -1,5 +1,4 @@
 import { api } from '$lib/api/client';
-import type { ContinueItem } from '$lib/features/catalog/types';
 import {
 	createStreamSession,
 	keepStreamSessionAlive,
@@ -140,8 +139,6 @@ export function beaconProgress(report: ProgressReport) {
 		new Blob([JSON.stringify(report)], { type: 'application/json' })
 	);
 }
-
-export const continueWatching = () => api<ContinueItem[]>('/me/continue-watching');
 
 /** Open the instant-play session the payload planned (mode jit), authorized by its media grant. */
 export const createJitSession = (info: PlaybackInfo, startAt: number) =>

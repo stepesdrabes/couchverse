@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { Toaster } from 'svelte-sonner';
 	import { core } from '$lib/core';
+	import Notices from '$lib/core/Notices.svelte';
 	import { couch } from '$lib/features/couch/couch.svelte';
 	import CouchBar from '$lib/features/couch/components/CouchBar.svelte';
 	import NavProgress from '$lib/components/layout/NavProgress.svelte';
@@ -95,6 +96,7 @@
 	</div>
 {/if}
 
+<Notices />
 <Toaster
 	theme="dark"
 	position="bottom-right"

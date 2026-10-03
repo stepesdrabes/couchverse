@@ -1,9 +1,12 @@
 <script lang="ts">
-	import { page } from '$app/state';
+	import type { BrowseKey } from '$lib/generated/core';
 	import BrowseGrid from '$lib/features/catalog/components/BrowseGrid.svelte';
 	import * as m from '$lib/paraglide/messages';
 
-	const genre = $derived(decodeURIComponent(page.params.slug ?? ''));
+	let { data }: { data: { key: BrowseKey } } = $props();
+
+	// the URL carries the genre's English name, as the grid's heading always has
+	const genre = $derived(data.key.genre ?? '');
 </script>
 
 <svelte:head>
@@ -11,5 +14,5 @@
 </svelte:head>
 
 {#key genre}
-	<BrowseGrid heading={genre} {genre} />
+	<BrowseGrid heading={genre} listing={data.key} />
 {/key}

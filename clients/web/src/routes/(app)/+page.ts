@@ -1,11 +1,7 @@
 import * as catalog from '$lib/features/catalog/api';
-import { homeCache } from '$lib/features/catalog/cache.svelte';
-import { currentLang } from '$lib/i18n/locale.svelte';
 
-// Non-blocking: Home paints from cache at once (or a skeleton on a cold visit) and
-// this revalidation refreshes continue-watching behind it. Keyed by display
-// language, matching the ?lang= the fetch carries.
+// Non-blocking: Home paints what the core holds (on a cold start the last home it kept)
+// or a skeleton, while this reload brings continue watching up to date behind it.
 export function load() {
-	const lang = currentLang();
-	return { lang, fresh: homeCache.revalidate(lang, () => catalog.home()) };
+	return { screen: catalog.revisit(catalog.homeScreen) };
 }
