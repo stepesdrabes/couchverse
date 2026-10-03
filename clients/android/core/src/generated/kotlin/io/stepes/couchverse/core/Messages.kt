@@ -268,6 +268,100 @@ data class CoreConfig (
 )
 
 @Serializable
+data class CouchCode (
+	/// The six-digit share code.
+	val code: String
+)
+
+@Serializable
+data class CouchMember (
+	val id: String,
+	val displayName: String,
+	val avatar: Image? = null,
+	/// Seeds a generated avatar for members without one.
+	val seed: String,
+	val host: Boolean,
+	val anonymous: Boolean,
+	/// Paused their own playback.
+	val paused: Boolean,
+	val me: Boolean
+)
+
+@Serializable
+data class CouchPause (
+	val paused: Boolean
+)
+
+@Serializable
+data class CouchReaction (
+	val emoji: String
+)
+
+@Serializable
+enum class CouchStatus(val string: String) {
+	@SerialName("idle")
+	Idle("idle"),
+	/// Creating or joining, or opening the socket for the first time.
+	@SerialName("connecting")
+	Connecting("connecting"),
+	@SerialName("open")
+	Open("open"),
+	/// The socket dropped; the core retries with backoff.
+	@SerialName("reconnecting")
+	Reconnecting("reconnecting"),
+	/// The session is over (`CouchView.ended` says why).
+	@SerialName("ended")
+	Ended("ended"),
+}
+
+@Serializable
+enum class CouchRole(val string: String) {
+	@SerialName("host")
+	Host("host"),
+	@SerialName("follower")
+	Follower("follower"),
+	/// The host's account on another device, steering the host's player.
+	@SerialName("remote")
+	Remote("remote"),
+}
+
+@Serializable
+data class Reaction (
+	val id: ULong,
+	val participantId: String,
+	val emoji: String
+)
+
+@Serializable
+data class CouchView (
+	val status: CouchStatus,
+	val role: CouchRole? = null,
+	val code: String? = null,
+	/// The public join page, for the QR a host shows.
+	val shareUrl: String? = null,
+	val members: List<CouchMember>,
+	/// What the host is watching; absent while they choose.
+	val media: PlayTarget? = null,
+	val playing: Boolean,
+	/// The host's position when last heard, at `positionAtMs` on the shell's clock: a remote's
+	/// scrubber extrapolates from it while `playing`.
+	val positionSeconds: Double,
+	val positionAtMs: ULong,
+	val hostAway: Boolean,
+	/// A follower waits: the host is choosing what to watch, or away.
+	val waiting: Boolean,
+	val localPaused: Boolean,
+	val reactions: List<Reaction>,
+	val recentEmojis: List<String>,
+	/// Briefly true after a follower was snapped back to the host.
+	val resynced: Boolean,
+	/// Why the session ended: `host_ended`, `host_left`, `host_timeout`, `idle`,
+	/// `server_shutdown` or `left` (this device left).
+	val ended: String? = null,
+	val problem: Problem? = null
+)
+
+@Serializable
 data class DeviceCard (
 	val id: String,
 	val name: String,
@@ -1205,6 +1299,27 @@ data class RankView (
 	val celebration: AchievementCard? = null,
 	/// How many more are queued behind it.
 	val queued: UInt
+)
+
+@Serializable
+enum class RemoteAction(val string: String) {
+	@SerialName("play")
+	Play("play"),
+	@SerialName("pause")
+	Pause("pause"),
+	@SerialName("seek")
+	Seek("seek"),
+	@SerialName("next")
+	Next("next"),
+	@SerialName("previous")
+	Previous("previous"),
+}
+
+@Serializable
+data class RemoteControl (
+	val action: RemoteAction,
+	/// Where to seek; only for `seek`.
+	val positionSeconds: Double? = null
 )
 
 /// A screen, panel or piece of state a shell renders from a view model.

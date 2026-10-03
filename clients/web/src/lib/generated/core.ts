@@ -215,6 +215,88 @@ export interface CoreConfig {
 	origin?: string;
 }
 
+export interface CouchCode {
+	/** The six-digit share code. */
+	code: string;
+}
+
+export interface CouchMember {
+	id: string;
+	displayName: string;
+	avatar?: Image;
+	/** Seeds a generated avatar for members without one. */
+	seed: string;
+	host: boolean;
+	anonymous: boolean;
+	/** Paused their own playback. */
+	paused: boolean;
+	me: boolean;
+}
+
+export interface CouchPause {
+	paused: boolean;
+}
+
+export interface CouchReaction {
+	emoji: string;
+}
+
+export enum CouchStatus {
+	Idle = "idle",
+	/** Creating or joining, or opening the socket for the first time. */
+	Connecting = "connecting",
+	Open = "open",
+	/** The socket dropped; the core retries with backoff. */
+	Reconnecting = "reconnecting",
+	/** The session is over (`CouchView.ended` says why). */
+	Ended = "ended",
+}
+
+export enum CouchRole {
+	Host = "host",
+	Follower = "follower",
+	/** The host's account on another device, steering the host's player. */
+	Remote = "remote",
+}
+
+export interface Reaction {
+	id: number;
+	participantId: string;
+	emoji: string;
+}
+
+export interface CouchView {
+	status: CouchStatus;
+	role?: CouchRole;
+	code?: string;
+	/** The public join page, for the QR a host shows. */
+	shareUrl?: string;
+	members: CouchMember[];
+	/** What the host is watching; absent while they choose. */
+	media?: PlayTarget;
+	playing: boolean;
+	/**
+	 * The host's position when last heard, at `positionAtMs` on the shell's clock: a remote's
+	 * scrubber extrapolates from it while `playing`.
+	 */
+	positionSeconds: number;
+	positionAtMs: number;
+	hostAway: boolean;
+	/** A follower waits: the host is choosing what to watch, or away. */
+	waiting: boolean;
+	localPaused: boolean;
+	reactions: Reaction[];
+	recentEmojis: string[];
+	/** Briefly true after a follower was snapped back to the host. */
+	resynced: boolean;
+	/**
+	 * Why the session ended: `host_ended`, `host_left`, `host_timeout`, `idle`,
+	 * `server_shutdown` or `left` (this device left).
+	 */
+	ended?: string;
+	problem?: Problem;
+}
+
 export interface DeviceCard {
 	id: string;
 	name: string;
@@ -928,6 +1010,20 @@ export interface RankView {
 	celebration?: AchievementCard;
 	/** How many more are queued behind it. */
 	queued: number;
+}
+
+export enum RemoteAction {
+	Play = "play",
+	Pause = "pause",
+	Seek = "seek",
+	Next = "next",
+	Previous = "previous",
+}
+
+export interface RemoteControl {
+	action: RemoteAction;
+	/** Where to seek; only for `seek`. */
+	positionSeconds?: number;
 }
 
 /** A screen, panel or piece of state a shell renders from a view model. */

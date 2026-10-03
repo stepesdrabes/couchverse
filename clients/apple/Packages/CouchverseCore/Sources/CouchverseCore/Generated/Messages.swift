@@ -339,6 +339,133 @@ public struct CoreConfig: Codable, Sendable, Hashable {
 	}
 }
 
+public struct CouchCode: Codable, Sendable, Hashable {
+	/// The six-digit share code.
+	public let code: String
+
+	public init(code: String) {
+		self.code = code
+	}
+}
+
+public struct CouchMember: Codable, Sendable, Hashable {
+	public let id: String
+	public let displayName: String
+	public let avatar: Image?
+	/// Seeds a generated avatar for members without one.
+	public let seed: String
+	public let host: Bool
+	public let anonymous: Bool
+	/// Paused their own playback.
+	public let paused: Bool
+	public let me: Bool
+
+	public init(id: String, displayName: String, avatar: Image?, seed: String, host: Bool, anonymous: Bool, paused: Bool, me: Bool) {
+		self.id = id
+		self.displayName = displayName
+		self.avatar = avatar
+		self.seed = seed
+		self.host = host
+		self.anonymous = anonymous
+		self.paused = paused
+		self.me = me
+	}
+}
+
+public struct CouchPause: Codable, Sendable, Hashable {
+	public let paused: Bool
+
+	public init(paused: Bool) {
+		self.paused = paused
+	}
+}
+
+public struct CouchReaction: Codable, Sendable, Hashable {
+	public let emoji: String
+
+	public init(emoji: String) {
+		self.emoji = emoji
+	}
+}
+
+public enum CouchStatus: String, Codable, Sendable, Hashable {
+	case idle
+	/// Creating or joining, or opening the socket for the first time.
+	case connecting
+	case open
+	/// The socket dropped; the core retries with backoff.
+	case reconnecting
+	/// The session is over (`CouchView.ended` says why).
+	case ended
+}
+
+public enum CouchRole: String, Codable, Sendable, Hashable {
+	case host
+	case follower
+	/// The host's account on another device, steering the host's player.
+	case remote
+}
+
+public struct Reaction: Codable, Sendable, Hashable {
+	public let id: UInt64
+	public let participantId: String
+	public let emoji: String
+
+	public init(id: UInt64, participantId: String, emoji: String) {
+		self.id = id
+		self.participantId = participantId
+		self.emoji = emoji
+	}
+}
+
+public struct CouchView: Codable, Sendable, Hashable {
+	public let status: CouchStatus
+	public let role: CouchRole?
+	public let code: String?
+	/// The public join page, for the QR a host shows.
+	public let shareUrl: String?
+	public let members: [CouchMember]
+	/// What the host is watching; absent while they choose.
+	public let media: PlayTarget?
+	public let playing: Bool
+	/// The host's position when last heard, at `positionAtMs` on the shell's clock: a remote's
+	/// scrubber extrapolates from it while `playing`.
+	public let positionSeconds: Double
+	public let positionAtMs: UInt64
+	public let hostAway: Bool
+	/// A follower waits: the host is choosing what to watch, or away.
+	public let waiting: Bool
+	public let localPaused: Bool
+	public let reactions: [Reaction]
+	public let recentEmojis: [String]
+	/// Briefly true after a follower was snapped back to the host.
+	public let resynced: Bool
+	/// Why the session ended: `host_ended`, `host_left`, `host_timeout`, `idle`,
+	/// `server_shutdown` or `left` (this device left).
+	public let ended: String?
+	public let problem: Problem?
+
+	public init(status: CouchStatus, role: CouchRole?, code: String?, shareUrl: String?, members: [CouchMember], media: PlayTarget?, playing: Bool, positionSeconds: Double, positionAtMs: UInt64, hostAway: Bool, waiting: Bool, localPaused: Bool, reactions: [Reaction], recentEmojis: [String], resynced: Bool, ended: String?, problem: Problem?) {
+		self.status = status
+		self.role = role
+		self.code = code
+		self.shareUrl = shareUrl
+		self.members = members
+		self.media = media
+		self.playing = playing
+		self.positionSeconds = positionSeconds
+		self.positionAtMs = positionAtMs
+		self.hostAway = hostAway
+		self.waiting = waiting
+		self.localPaused = localPaused
+		self.reactions = reactions
+		self.recentEmojis = recentEmojis
+		self.resynced = resynced
+		self.ended = ended
+		self.problem = problem
+	}
+}
+
 public struct DeviceCard: Codable, Sendable, Hashable {
 	public let id: String
 	public let name: String
@@ -2134,6 +2261,25 @@ public struct RankView: Codable, Sendable, Hashable {
 		self.levelUps = levelUps
 		self.celebration = celebration
 		self.queued = queued
+	}
+}
+
+public enum RemoteAction: String, Codable, Sendable, Hashable {
+	case play
+	case pause
+	case seek
+	case next
+	case previous
+}
+
+public struct RemoteControl: Codable, Sendable, Hashable {
+	public let action: RemoteAction
+	/// Where to seek; only for `seek`.
+	public let positionSeconds: Double?
+
+	public init(action: RemoteAction, positionSeconds: Double?) {
+		self.action = action
+		self.positionSeconds = positionSeconds
 	}
 }
 
