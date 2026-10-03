@@ -2,6 +2,8 @@ package io.stepes.couchverse.core.runtime
 
 import io.stepes.couchverse.core.CoreEngine
 import io.stepes.couchverse.core.CoreJson
+import io.stepes.couchverse.core.DownloadCommand
+import io.stepes.couchverse.core.DownloadFailure
 import io.stepes.couchverse.core.Effect
 import io.stepes.couchverse.core.EffectOutput
 import io.stepes.couchverse.core.EffectRequest
@@ -33,7 +35,7 @@ import kotlinx.serialization.serializer
 
 /**
  * Runs the shared core for the app: every call into the bridge happens on [coreDispatcher] (it
- * must be serial), stamped with the monotonic [clock]; the effects it asks for are performed by
+ * must be serial), stamped with the monotonic [clock] (messages also with the [wallClock]); the effects it asks for are performed by
  * [executors] (I/O on [ioDispatcher]) and by the runtime's own timers, and their outputs, a
  * socket's frames included, are fed back in order. View models are decoded on the core's thread
  * and published as one [StateFlow] per surface, re-read only when a `render` effect names it.
@@ -45,6 +47,7 @@ class CoreRuntime(
     private val coreDispatcher: CoroutineDispatcher,
     private val ioDispatcher: CoroutineDispatcher,
     private val log: (String, Throwable?) -> Unit = { _, _ -> },
+    private val wallClock: () -> Long = System::currentTimeMillis,
 ) : AutoCloseable {
     private val job = SupervisorJob()
     private val scope = CoroutineScope(
@@ -73,7 +76,7 @@ class CoreRuntime(
     fun nowMs(): Long = clock()
 
     fun send(event: Event) {
-        scope.launch { perform(engine.send(now(), event)) }
+        scope.launch { perform(engine.send(now(), wallClock().toULong(), event)) }
     }
 
     /**
@@ -117,7 +120,15 @@ class CoreRuntime(
                 is Effect.Render -> render(effect.content.surfaces)
                 is Effect.Socket -> socket(request.id, effect.content)
                 is Effect.Player -> executors.player.perform(effect.content)
+                is Effect.Download -> download(request.id, effect.content)
             }
+        }
+    }
+
+    /** Downloads arrive with the offline slice: until then a start fails, and nothing runs to cancel or remove. */
+    private fun download(id: ULong, command: DownloadCommand) {
+        if (command is DownloadCommand.Start) {
+            scope.launch { resolve(id, EffectOutput.DownloadFailed(DownloadFailure("downloads are not supported yet"))) }
         }
     }
 

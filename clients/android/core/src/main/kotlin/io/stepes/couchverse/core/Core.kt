@@ -18,7 +18,8 @@ val CoreJson: Json = Json {
 
 /** The core as the runtime drives it; [Core] is the real one, tests may wrap it. */
 interface CoreEngine : AutoCloseable {
-    fun send(nowMs: ULong, event: Event): List<EffectRequest>
+    /** [wallMs] is the Unix time, for what depends on the date; [nowMs] the monotonic clock. */
+    fun send(nowMs: ULong, wallMs: ULong, event: Event): List<EffectRequest>
 
     fun resolve(nowMs: ULong, id: ULong, output: EffectOutput): List<EffectRequest>
 
@@ -34,8 +35,8 @@ class Core(config: CoreConfig) : CoreEngine {
     private val bridge = CoreBridge(CoreJson.encodeToString(config))
 
     /** Delivers a shell event; returns the effects to perform. */
-    override fun send(nowMs: ULong, event: Event): List<EffectRequest> =
-        effects(bridge.send(CoreJson.encodeToString(Message(nowMs, event))))
+    override fun send(nowMs: ULong, wallMs: ULong, event: Event): List<EffectRequest> =
+        effects(bridge.send(CoreJson.encodeToString(Message(nowMs, event, wallMs))))
 
     /** Hands back the output of effect [id]; returns the effects to perform. */
     override fun resolve(nowMs: ULong, id: ULong, output: EffectOutput): List<EffectRequest> =

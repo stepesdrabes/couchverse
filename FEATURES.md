@@ -695,9 +695,10 @@ One app for phones and Google TV (`clients/android/`, docs/android.md), the TV U
 launch from the UI mode, on the shared core.
 
 - **Runtime** (`core/runtime/`): `CoreRuntime` owns the bridge on one serial thread for the
-  process's life, stamps `SystemClock.elapsedRealtime`, performs every effect (OkHttp for
-  `http`/`upload`/`socket`, coroutine timers, files for `store`, Keystore-sealed files for
-  `secureStore`, a no-op `player` until Phase 12) and publishes one `StateFlow` per surface,
+  process's life, stamps `SystemClock.elapsedRealtime` (and `wallMs` on messages), performs
+  every effect (OkHttp for `http`/`upload`/`socket`, coroutine timers, files for `store`,
+  Keystore-sealed files for `secureStore`, a no-op `player` until Phase 12, `download` starts
+  failing until the downloads slice) and publishes one `StateFlow` per surface,
   re-read only when a `render` names it. At launch it reports `CapabilitiesReported` from
   `MediaCodecList`, the display's HDR types and HDMI passthrough (`core/device/`).
 - **Screens** read view models (`rememberSurface`, which also opens catalog surfaces) and send

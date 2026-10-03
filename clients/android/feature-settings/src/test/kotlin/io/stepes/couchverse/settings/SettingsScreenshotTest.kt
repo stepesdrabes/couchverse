@@ -61,6 +61,7 @@ class SettingsScreenshotTest {
         features = Features(couch = true, rankings = true),
         language = "en",
         accent = AccentPalette("#e50914", "#b30710", "#e5091429", "#ffffff"),
+        offline = false,
     )
     private val state = SettingsState(session, accounts, servers, "1.4.0")
     private val actions = SettingsActions({}, {}, {}, {}, {}, {}, {}, {})

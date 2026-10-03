@@ -16,11 +16,12 @@ class CoreTest {
         deviceName = "Pixel",
         locale = "cs-CZ",
     )
+    private val wallMs = 1_790_000_000_000uL
 
     @Test
     fun `a first launch reads both stores and welcomes`() {
         Core(config).use { core ->
-            val reads = core.send(1u, Event.AppStarted).map { assertIs<Effect.Store>(it.effect).content to it.id }
+            val reads = core.send(1u, wallMs, Event.AppStarted).map { assertIs<Effect.Store>(it.effect).content to it.id }
             assertEquals(listOf("servers", "accounts", "player.prefs"), reads.map { (store, _) -> store.key })
             assertEquals(listOf(StoreOp.Read, StoreOp.Read, StoreOp.Read), reads.map { (store, _) -> store.op })
 
@@ -34,7 +35,7 @@ class CoreTest {
     @Test
     fun `adding a server asks it who it is`() {
         Core(config).use { core ->
-            val effects = core.send(5u, Event.ServerAddressSubmitted(ServerAddress("tv.home")))
+            val effects = core.send(5u, wallMs, Event.ServerAddressSubmitted(ServerAddress("tv.home")))
             val identify = effects.single { it.effect is Effect.Http }
             val accept = HttpHeader("Accept", "application/json")
             assertEquals(

@@ -29,15 +29,18 @@ model.
 
 - Every bridge call runs on one serial dispatcher (a dedicated thread), stamped with
   `SystemClock.elapsedRealtime`. `nowMs()` is that clock, for countdowns against deadlines in
-  view models (a pairing code's `expiresAtMs`).
+  view models (a pairing code's `expiresAtMs`). Messages also carry `wallMs`, the Unix time,
+  for what depends on the date.
 - Effects: `http` and `upload` over OkHttp (the picked file's content URI is the handle;
   `ContentUploadFiles` names the form part with an extension that matches its type), `socket`
   over OkHttp's WebSocket (frames reach the core in order; exactly one `socketClosed`),
   coroutine timers (one-shot and repeating, cancelled by `cancelTimer`), `store` as one file
   per key under `files/core/store`, `secureStore` sealed with AES-GCM under an Android Keystore
   key (`files/core/secure`; a value that no longer opens reads as missing, so the account asks
-  to sign in again), and `player`, a no-op until Phase 12's Media3 player. Store effects run one
-  at a time in order, so a read always sees earlier writes.
+  to sign in again), `player`, a no-op until Phase 12's Media3 player, and `download`, whose
+  start fails ("downloads are not supported yet") until the downloads slice, with nothing to
+  cancel or remove meanwhile. Store effects run one at a time in order, so a read always sees
+  earlier writes.
 - View models are decoded on the core's thread and published as one `StateFlow` per surface,
   re-read only when a `render` names it; idle parametric surfaces are dropped after a while.
   Screens read them with `rememberSurface<T>(surface, open = true)`, which also sends

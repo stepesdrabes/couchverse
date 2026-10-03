@@ -81,7 +81,7 @@ private fun BrowseGrid(view: BrowseView, actions: BrowseActions) {
     }
 }
 
-/** Movies or series ([kind]), or one genre's titles ([genre] with its [label]). */
+/** Movies or series ([kind]), or one genre's titles ([genre], headed [label] until the core names it). */
 @Composable
 fun BrowseRoute(
     kind: TitleKind?,
@@ -99,7 +99,8 @@ fun BrowseRoute(
     // a kind's listing can be narrowed to a genre
     val genres = if (genre == null) rememberSurface<GenresView>(Surface.Genres, open = true).value else null
     BrowseScreen(
-        BrowseState(label, view, sort, genres, filter, showTitle),
+        // the core names a genre in the current display language; the label it was opened with is a stand-in
+        BrowseState(view?.genreLabel?.takeIf { genre != null } ?: label, view, sort, genres, filter, showTitle),
         BrowseActions(
             navigation = navigation,
             onSort = { sort = it },

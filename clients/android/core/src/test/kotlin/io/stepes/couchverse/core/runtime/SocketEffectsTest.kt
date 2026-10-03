@@ -1,6 +1,10 @@
 package io.stepes.couchverse.core.runtime
 
 import io.stepes.couchverse.core.CoreEngine
+import io.stepes.couchverse.core.DownloadCommand
+import io.stepes.couchverse.core.DownloadName
+import io.stepes.couchverse.core.DownloadRef
+import io.stepes.couchverse.core.DownloadStart
 import io.stepes.couchverse.core.Effect
 import io.stepes.couchverse.core.EffectOutput
 import io.stepes.couchverse.core.EffectRef
@@ -22,7 +26,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Socket and player effects through the runtime, with a scripted core standing in. */
+/** Socket, player and download effects through the runtime, with a scripted core standing in. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SocketEffectsTest {
     @Test
@@ -67,6 +71,19 @@ class SocketEffectsTest {
         runtime.close()
     }
 
+    @Test
+    fun `downloads fail until they are supported and messages carry the wall clock`() = runTest {
+        val engine = ScriptedEngine()
+        val runtime = runtime(engine, FakeConnection())
+
+        runtime.send(Event.DownloadRetried(DownloadRef("d1")))
+        advanceUntilIdle()
+
+        assertEquals(listOf("downloadFailed downloads are not supported yet"), engine.seen, "only the start answers")
+        assertEquals(listOf(WALL_MS), engine.wall)
+        runtime.close()
+    }
+
     private fun kotlinx.coroutines.test.TestScope.runtime(engine: ScriptedEngine, socket: FakeConnection): CoreRuntime {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val unused = EffectOutput.HttpFailed(HttpFailure(HttpFailureKind.Other, "unused"))
@@ -81,6 +98,7 @@ class SocketEffectsTest {
                 player = { engine.played += it },
             ),
             clock = { testScheduler.currentTime },
+            wallClock = { WALL_MS.toLong() },
             coreDispatcher = dispatcher,
             ioDispatcher = dispatcher,
         )
@@ -91,12 +109,22 @@ class SocketEffectsTest {
         val seen = mutableListOf<String>()
         val played = mutableListOf<PlayerCommand>()
 
-        override fun send(nowMs: ULong, event: Event): List<EffectRequest> = when (event) {
+        val wall = mutableListOf<ULong>()
+
+        override fun send(nowMs: ULong, wallMs: ULong, event: Event): List<EffectRequest> = when (event) {
             Event.AppStarted -> listOf(EffectRequest(SOCKET, Effect.Socket(SocketCommand.Open(SocketOpen("wss://tv.home/api/v1/couch/ws", emptyList())))))
             Event.AppBecameActive -> listOf(
                 EffectRequest(8u, Effect.Socket(SocketCommand.Close(EffectRef(SOCKET)))),
                 EffectRequest(9u, Effect.Player(PlayerCommand.Pause)),
             )
+            is Event.DownloadRetried -> {
+                wall += wallMs
+                listOf(
+                    EffectRequest(10u, Effect.Download(DownloadCommand.Start(DownloadStart("https://tv.home/d1.mp4", "d1.mp4")))),
+                    EffectRequest(11u, Effect.Download(DownloadCommand.Cancel(EffectRef(10u)))),
+                    EffectRequest(12u, Effect.Download(DownloadCommand.Remove(DownloadName("d0.mp4")))),
+                )
+            }
             else -> emptyList()
         }
 
@@ -105,6 +133,7 @@ class SocketEffectsTest {
                 EffectOutput.SocketOpened -> "socketOpened"
                 is EffectOutput.SocketText -> "text ${output.content.text}"
                 is EffectOutput.SocketClosed -> "closed ${output.content.code}"
+                is EffectOutput.DownloadFailed -> "downloadFailed ${output.content.message}"
                 else -> output.toString()
             }
             val ping = output is EffectOutput.SocketText && output.content.text == "ping"
@@ -149,5 +178,6 @@ class SocketEffectsTest {
 
     private companion object {
         const val SOCKET: ULong = 5u
+        const val WALL_MS: ULong = 1_790_000_000_000u
     }
 }

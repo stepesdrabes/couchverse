@@ -198,9 +198,9 @@ class WireFormatTest {
     @Test
     fun `ids and clocks cross as unsigned 64-bit numbers`() {
         val lastSafe = (1uL shl 53) - 1u
-        val message = Message(lastSafe, Event.AppStarted)
+        val message = Message(lastSafe, Event.AppStarted, wallMs = 1_790_000_000_000u)
         assertSameJson(
-            """{"nowMs":9007199254740991,"event":{"type":"appStarted"}}""",
+            """{"nowMs":9007199254740991,"event":{"type":"appStarted"},"wallMs":1790000000000}""",
             CoreJson.encodeToString(message),
         )
         bridge().use { bridge ->
