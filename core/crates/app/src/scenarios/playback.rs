@@ -428,6 +428,37 @@ fn a_remux_plays_the_copied_source_and_keeps_the_ladder_for_auto() {
     assert_eq!(load.max_height, None);
 }
 
+/// The server writes media URLs as paths, which a native player cannot resolve on its own.
+#[test]
+fn a_native_player_gets_whole_urls_for_the_paths_the_server_writes() {
+    let mut shell = signed_in();
+    let path = format!("/api/v1/media/{GRANT}");
+    let mut payload = info("direct");
+    payload["streamUrl"] = json!(format!("{path}/stream"));
+    payload["frameUrl"] = json!(format!("{path}/frame"));
+    payload["subtitles"][0]["url"] = json!(format!("{path}/subtitles/s-en.vtt"));
+    play(&mut shell, movie(), payload);
+
+    let load = last_load(&shell);
+    assert_eq!(load.url, format!("{API}/media/{GRANT}/stream"));
+    assert_eq!(load.subtitles[0].url, Some(format!("{API}/media/{GRANT}/subtitles/s-en.vtt")));
+    let view: PlayerView = shell.view(&Surface::Player);
+    assert_eq!(view.frame_url, Some(format!("{API}/media/{GRANT}/frame")));
+
+    // an instant-play session's playlist too
+    shell.send(Event::PlayerClosed);
+    let mut jit = info("jit");
+    jit["streamUrl"] = json!(format!("{path}/stream"));
+    play(&mut shell, movie(), jit);
+    shell.respond(
+        "POST",
+        &format!("{API}/media/{GRANT}/jit"),
+        201,
+        json!({ "sessionId": "sid1", "playlistUrl": format!("{path}/jit/sid1/index.m3u8") }),
+    );
+    assert_eq!(last_load(&shell).url, format!("{API}/media/{GRANT}/jit/sid1/index.m3u8"));
+}
+
 #[test]
 fn a_transcode_starts_on_auto_without_an_original() {
     let mut shell = signed_in();

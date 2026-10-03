@@ -734,7 +734,7 @@ impl Playback {
                 Err(failure) => return self.load_failed(ctx, &failure),
             },
             Request::Jit(call) => match decode(&call, output) {
-                Ok(started) => self.jit_started(ctx, started),
+                Ok(started) => self.jit_started(ctx, env, started),
                 Err(failure) => return self.load_failed(ctx, &failure),
             },
             Request::PreparingTick => {
@@ -757,8 +757,11 @@ impl Playback {
         PlaybackChange::None
     }
 
-    fn info(&mut self, ctx: &mut Ctx, env: Option<&Env>, info: PlaybackInfo) {
+    fn info(&mut self, ctx: &mut Ctx, env: Option<&Env>, mut info: PlaybackInfo) {
         let Some(session) = self.session.as_mut() else { return };
+        if let Some(env) = env {
+            absolutize(&mut info, env.endpoint);
+        }
         ctx.render(Surface::Player);
         // a fresh payload for a title already playing (an expired grant) picks up where it was
         let refresh = session.info.is_some()
@@ -825,7 +828,7 @@ impl Playback {
         }
     }
 
-    fn jit_started(&mut self, ctx: &mut Ctx, started: StreamSession) {
+    fn jit_started(&mut self, ctx: &mut Ctx, env: Option<&Env>, started: StreamSession) {
         let pending = self.pending(Request::KeepaliveTick);
         let Some(session) = self.session.as_mut() else { return };
         let Some(info) = &session.info else { return };
@@ -839,7 +842,10 @@ impl Playback {
         let saved = info.resume_position as f64;
         session.saved_position = saved;
         session.duration = info.duration_seconds;
-        let url = started.playlist_url;
+        let url = env.map_or_else(
+            || started.playlist_url.clone(),
+            |e| e.endpoint.absolute(&started.playlist_url),
+        );
         let start = session.position;
         let load = self.player_load(url, PlayerSource::Hls, None, start, true);
         if let Some(load) = load {
@@ -1109,6 +1115,20 @@ fn local_info(local: &LocalTitle) -> Option<PlaybackInfo> {
         "audio": if audio.len() > 1 { Value::Array(audio) } else { Value::Null },
     });
     serde_json::from_value(info).ok()
+}
+
+/// Every media URL of [info] in full, for players that cannot resolve a path themselves.
+fn absolutize(info: &mut PlaybackInfo, endpoint: &Endpoint) {
+    let full = |url: &mut String| *url = endpoint.absolute(url);
+    info.stream_url.iter_mut().for_each(full);
+    info.original_url.iter_mut().for_each(full);
+    info.hls_url.iter_mut().for_each(full);
+    full(&mut info.frame_url);
+    info.subtitles.iter_mut().for_each(|s| full(&mut s.url));
+    for track in info.audio.iter_mut().flatten() {
+        track.stream_url.iter_mut().for_each(full);
+        track.hls_url.iter_mut().for_each(full);
+    }
 }
 
 /// The source as it is: the file for the direct tier, the copied source video in HLS for the

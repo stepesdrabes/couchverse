@@ -753,7 +753,7 @@ impl Downloads {
             generation: self.generation,
             request: Request::Fetch(id.to_string()),
         });
-        let transfer = ctx.download_start(absolute(env.endpoint, url), entry.file(), pending);
+        let transfer = ctx.download_start(env.endpoint.absolute(url), entry.file(), pending);
         self.fetching.insert(id.to_string(), transfer);
     }
 
@@ -851,15 +851,6 @@ impl Downloads {
 
 fn key(account_id: &str) -> String {
     format!("{KEY_PREFIX}{account_id}")
-}
-
-/// The server hands out paths; transfers need the whole URL.
-fn absolute(endpoint: &Endpoint, url: &str) -> String {
-    if url.starts_with("http://") || url.starts_with("https://") {
-        url.to_string()
-    } else {
-        format!("{}{url}", endpoint.base)
-    }
 }
 
 fn local(entry: &Entry) -> LocalTitle {

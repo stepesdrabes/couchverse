@@ -21,6 +21,16 @@ impl Endpoint {
         Self { base: base.to_string(), token: None }
     }
 
+    /// The server hands out media and artwork as paths; a player or a transfer needs the
+    /// whole URL (the web's empty base keeps them origin-relative).
+    pub fn absolute(&self, url: &str) -> String {
+        if url.is_empty() || url.starts_with("http://") || url.starts_with("https://") {
+            url.to_string()
+        } else {
+            format!("{}{url}", self.base)
+        }
+    }
+
     /// The HTTP effect for `request`. An upload's file never passes through the core, so a
     /// multipart or binary request comes out without a body for the shell to attach it.
     pub fn request(&self, request: &Request) -> HttpRequest {
