@@ -82,7 +82,7 @@
 						<span
 							class="rounded px-1.5 py-0.5 text-[10px] font-bold whitespace-nowrap"
 							style="background: color-mix(in srgb, {rankColor(row.tierCode)} 18%, transparent);
-								color: {rankColor(row.tierCode)}"
+								color: color-mix(in srgb, {rankColor(row.tierCode)} 70%, white)"
 						>
 							{m.rank_level({ level: row.level })} · {tierName(row.tierCode)}
 						</span>

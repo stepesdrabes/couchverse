@@ -185,7 +185,11 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     `--color-accent[-strong|-soft]` globally, `accentVars(hex)` returns a scoped `style`
     string and `paletteVars(p)` does the same for a palette the core already derived (the
     title page's `TitleDetailView.accent`); all include a contrast-aware `--color-on-accent` (use
-    `text-[var(--color-on-accent)]` on `bg-accent`). Tooltips use `ui/Tooltip.svelte`.
+    `text-[var(--color-on-accent)]` on `bg-accent`) and `--color-accent-ink`, the accent
+    lightened to WCAG AA on every surface (the palette's `ink`, derived the same way by the
+    core): accent-coloured text is always `text-accent-ink`, never `text-accent`. Muted text
+    uses `text-muted`/`text-faint`, both AA on every surface; `e2e/a11y.spec.ts` runs axe on
+    the main pages. Tooltips use `ui/Tooltip.svelte`.
   - **Optimistic navigation** (client-only SPA; must feel snappy on a Pi): data pages never
     block the swap. Catalog pages are core-backed: `+page.ts` calls `features/catalog/api.ts`
     `revisit`/`preload`/`preloadListing` and returns the screen; the page uses `useScreen` and
@@ -239,6 +243,15 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   through `L10n`. TV screens must stay reachable by the remote (focus sections,
   `defaultFocus`). Snapshot references are re-recorded by deleting the old ones after an
   intended visual change; `make apple-lint` before committing.
+  Android (`clients/android/`, build guide docs/android.md): Compose for phones and Compose for
+  TV for Google TV; modules `core` (bridge, `CoreRuntime`, executors, the device profile
+  builder), `design`, `feature-*` (each with `phone/` and `tv/` packages behind one entry
+  point and an `XxxRoute` using `rememberSurface`/`rememberSend`), `app`, `testing`.
+  `CoreRuntime.perform` must handle every `Effect` variant. TV screens set their starting
+  focus with `focusOnStart`, or `rememberScreenFocus()` + `Modifier.screenFocus(...)` wherever
+  Back returns to them; TV text fields take `remoteLeavesField`. Roborazzi screenshots are
+  recorded on macOS (`./gradlew recordRoborazziDebug` after an intended UI change; `make
+  android-test` verifies them); Robolectric is pinned to SDK 36.
 - `contract/` - the API spec, couch protocol schema, i18n catalogs, design tokens, fixtures.
 - Postgres 17; job queue is a Postgres table (no Redis). ffmpeg/ffprobe shelled out.
 
