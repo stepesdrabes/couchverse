@@ -255,6 +255,7 @@ fn devices_are_listed_and_revoked() {
     assert_eq!(view.status, LoadStatus::Loaded);
     assert_eq!(view.devices.len(), 2);
     assert!(view.devices[0].current);
+    assert_eq!(view.devices[0].signed_in_at.as_deref(), Some("2026-09-01T10:00:00Z"));
 
     shell.send(Event::DeviceRevoked(DeviceRef { device_id: "d2".into() }));
     assert_eq!(shell.view::<DevicesView>(&Surface::Devices).devices.len(), 1, "optimistic");
@@ -263,4 +264,38 @@ fn devices_are_listed_and_revoked() {
     assert_eq!(shell.view::<DevicesView>(&Surface::Devices).status, LoadStatus::Stale);
     shell.respond("GET", &url, 200, json!([device("d1", "iPhone", "ios", true)]));
     assert_eq!(shell.view::<DevicesView>(&Surface::Devices).status, LoadStatus::Loaded);
+}
+
+#[test]
+fn the_web_lists_and_revokes_its_devices_over_its_cookie() {
+    let mut shell = Shell::new(Platform::Web);
+    shell.send(Event::AppStarted);
+    shell.answer_session("", user(1, "admin"), Some("en"));
+    let devices = "/api/v1/me/devices";
+    let device = |id: &str, kind: &str, platform: &str, current: bool| {
+        json!({
+            "id": id, "name": id, "platform": platform, "kind": kind, "current": current,
+            "createdAt": "2026-09-01T10:00:00Z", "lastSeenAt": "2026-10-02T09:00:00Z",
+        })
+    };
+
+    shell.send(Event::DevicesOpened);
+    let (_, list) = shell.request("GET", devices);
+    assert_eq!(header(&list, "Authorization"), None);
+    let both =
+        json!([device("firefox", "browser", "web", true), device("tv", "device", "tvos", false)]);
+    shell.respond("GET", devices, 200, both);
+    assert_eq!(shell.view::<DevicesView>(&Surface::Devices).devices.len(), 2);
+
+    shell.send(Event::DeviceRevoked(DeviceRef { device_id: "tv".into() }));
+    shell.respond("DELETE", &format!("{devices}/tv"), 204, serde_json::Value::Null);
+    shell.respond("GET", devices, 200, json!([device("firefox", "browser", "web", true)]));
+    let view: DevicesView = shell.view(&Surface::Devices);
+    assert_eq!((view.status, view.devices.len()), (LoadStatus::Loaded, 1));
+
+    // a list refused as signed out ends the web's session
+    shell.send(Event::DevicesOpened);
+    let signed_out = json!({ "error": { "code": "unauthorized", "message": "sign in" } });
+    shell.respond("GET", devices, 401, signed_out);
+    assert_eq!(shell.phase(), AppPhase::SignIn);
 }

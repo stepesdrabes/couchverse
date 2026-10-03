@@ -304,6 +304,15 @@ impl Model {
         }
     }
 
+    /// Where the signed-in account's own calls go: the web's cookie session, or the active
+    /// account's server with its token.
+    fn account_endpoint(&self) -> Option<Endpoint> {
+        if self.config.auth_mode == AuthMode::Cookie {
+            return self.session.endpoint().cloned();
+        }
+        self.accounts.active().and_then(|a| self.accounts.endpoint(&self.servers, a))
+    }
+
     /// The signed-in account: signing out, its devices, approving another device.
     fn manage_account(&mut self, ctx: &mut Ctx, event: Event) {
         match event {
@@ -326,9 +335,15 @@ impl Model {
                     self.settle(ctx);
                 }
             }
-            Event::DevicesOpened => self.accounts.open_devices(ctx, &self.servers),
+            Event::DevicesOpened => {
+                if let Some(endpoint) = self.account_endpoint() {
+                    self.accounts.open_devices(ctx, &endpoint);
+                }
+            }
             Event::DeviceRevoked(device) => {
-                self.accounts.revoke_device(ctx, &self.servers, &device.device_id);
+                if let Some(endpoint) = self.account_endpoint() {
+                    self.accounts.revoke_device(ctx, &endpoint, &device.device_id);
+                }
             }
             Event::PairingApprovalOpened(code) => {
                 self.accounts.open_approval(ctx, &self.servers, &code.code);
@@ -444,6 +459,7 @@ impl Model {
                 match self.accounts.resolve(ctx, &self.servers, p, output) {
                     AccountsChange::SignedIn(id) => self.activate(ctx, &id),
                     AccountsChange::SignedOut(id) => self.signed_out(ctx, &id),
+                    AccountsChange::SessionRejected => self.session_rejected(ctx),
                     AccountsChange::None => {}
                 }
                 if boot {

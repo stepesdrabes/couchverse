@@ -407,7 +407,9 @@ data class DeviceCard (
 	val platform: String,
 	/// RFC 3339.
 	val lastSeenAt: String,
-	val current: Boolean
+	val current: Boolean,
+	/// When it signed in, RFC 3339.
+	val signedInAt: String? = null
 )
 
 @Serializable

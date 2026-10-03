@@ -337,6 +337,8 @@ export interface DeviceCard {
 	/** RFC 3339. */
 	lastSeenAt: string;
 	current: boolean;
+	/** When it signed in, RFC 3339. */
+	signedInAt?: string;
 }
 
 export enum Container {

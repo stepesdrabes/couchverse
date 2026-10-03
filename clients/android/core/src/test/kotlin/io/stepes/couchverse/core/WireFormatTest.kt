@@ -232,7 +232,7 @@ class WireFormatTest {
                     """"createdAt":"2026-09-01T10:00:00Z","lastSeenAt":"2026-10-02T09:00:00Z"}]""",
             )
             assertEquals(
-                DeviceCard("d1", "Pixel", "android", "2026-10-02T09:00:00Z", current = true),
+                DeviceCard("d1", "Pixel", "android", "2026-10-02T09:00:00Z", current = true, signedInAt = "2026-09-01T10:00:00Z"),
                 shell.view<DevicesView>(Surface.Devices).devices.single(),
             )
         }

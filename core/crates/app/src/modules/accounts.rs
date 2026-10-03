@@ -184,6 +184,9 @@ pub struct DeviceCard {
     /// RFC 3339.
     pub last_seen_at: String,
     pub current: bool,
+    /// When it signed in, RFC 3339.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signed_in_at: Option<String>,
 }
 
 #[typeshare]
@@ -267,6 +270,8 @@ pub enum AccountsChange {
     SignedIn(String),
     /// The server rejected an account's token.
     SignedOut(String),
+    /// The server rejected the session of the web, which keeps no accounts.
+    SessionRejected,
 }
 
 #[derive(Default)]
@@ -276,6 +281,8 @@ pub struct Accounts {
     sign_in: SignInView,
     pairing: Option<PairingFlow>,
     devices: DevicesView,
+    /// Where the devices list was last read from, to read it again after a revoke.
+    devices_endpoint: Option<Endpoint>,
     approval: PairingApprovalView,
     /// A connect link waiting for its server to be identified: (server URL, code).
     connect: Option<(String, String)>,
@@ -562,10 +569,9 @@ impl Accounts {
         );
     }
 
-    pub fn open_devices(&mut self, ctx: &mut Ctx, servers: &Servers) {
-        let Some(endpoint) = self.active().and_then(|a| self.endpoint(servers, a)) else {
-            return;
-        };
+    /// The signed-in session's devices, read through `endpoint` (the active account's server,
+    /// or the web's cookie session).
+    pub fn open_devices(&mut self, ctx: &mut Ctx, endpoint: &Endpoint) {
         let call = ops::list_devices();
         self.devices.status =
             if self.devices.devices.is_empty() { LoadStatus::Loading } else { LoadStatus::Stale };
@@ -573,13 +579,11 @@ impl Accounts {
             endpoint.request(&call.request),
             Pending::Accounts(AccountsPending::Devices { call }),
         );
+        self.devices_endpoint = Some(endpoint.clone());
         ctx.render(Surface::Devices);
     }
 
-    pub fn revoke_device(&mut self, ctx: &mut Ctx, servers: &Servers, device_id: &str) {
-        let Some(endpoint) = self.active().and_then(|a| self.endpoint(servers, a)) else {
-            return;
-        };
+    pub fn revoke_device(&mut self, ctx: &mut Ctx, endpoint: &Endpoint, device_id: &str) {
         let call = ops::revoke_device(device_id);
         self.devices.devices.retain(|d| d.id != device_id);
         ctx.http(
@@ -689,7 +693,9 @@ impl Accounts {
                 if let Err(failure) = decode(&call, output) {
                     self.devices.problem = Some(failure.problem());
                 }
-                self.open_devices(ctx, servers);
+                if let Some(endpoint) = self.devices_endpoint.clone() {
+                    self.open_devices(ctx, &endpoint);
+                }
             }
             AccountsPending::ApprovalLoaded { call } => {
                 self.approval_loaded(ctx, decode(&call, output));
@@ -792,10 +798,11 @@ impl Accounts {
                 };
             }
             Err(failure) => {
-                if failure.unauthorized()
-                    && let Some(active) = self.persisted.active.clone()
-                {
-                    return AccountsChange::SignedOut(active);
+                if failure.unauthorized() {
+                    return match self.persisted.active.clone() {
+                        Some(active) => AccountsChange::SignedOut(active),
+                        None => AccountsChange::SessionRejected,
+                    };
                 }
                 self.devices.status = LoadStatus::Failed;
                 self.devices.problem = Some(failure.problem());
@@ -923,6 +930,7 @@ fn device_card(d: Device) -> DeviceCard {
         platform: d.platform.as_str().to_string(),
         last_seen_at: d.last_seen_at,
         current: d.current,
+        signed_in_at: Some(d.created_at),
     }
 }
 

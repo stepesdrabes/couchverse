@@ -505,13 +505,16 @@ public struct DeviceCard: Codable, Sendable, Hashable {
 	/// RFC 3339.
 	public let lastSeenAt: String
 	public let current: Bool
+	/// When it signed in, RFC 3339.
+	public let signedInAt: String?
 
-	public init(id: String, name: String, platform: String, lastSeenAt: String, current: Bool) {
+	public init(id: String, name: String, platform: String, lastSeenAt: String, current: Bool, signedInAt: String? = nil) {
 		self.id = id
 		self.name = name
 		self.platform = platform
 		self.lastSeenAt = lastSeenAt
 		self.current = current
+		self.signedInAt = signedInAt
 	}
 }
 
