@@ -1,0 +1,90 @@
+name: e2e
+
+# The smoke suite drives the web client against the real server, so a change on
+# either side (or in the contract and core between them) runs it.
+on:
+  push:
+    paths:
+      - backend/**
+      - clients/web/**
+      - contract/**
+      - core/**
+      - scripts/e2e-server.sh
+      - Makefile
+      - .github/workflows/e2e.yml
+  pull_request:
+    paths:
+      - backend/**
+      - clients/web/**
+      - contract/**
+      - core/**
+      - scripts/e2e-server.sh
+      - Makefile
+      - .github/workflows/e2e.yml
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARYEN_VERSION: "133"
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: couchverse
+          POSTGRES_USER: couchverse
+          POSTGRES_PASSWORD: couchverse
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U couchverse"
+          --health-interval 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: clients/web/package-lock.json
+      # make build compiles the wasm core the web runs
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Install wasm-opt, ffmpeg and psql
+        run: |
+          curl -sSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" | tar xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/binaryen-version_${BINARYEN_VERSION}/bin" >> "$GITHUB_PATH"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg postgresql-client
+      - name: Install web dependencies and browsers
+        working-directory: clients/web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - run: make build
+      - name: Playwright smoke suite
+        working-directory: clients/web
+        env:
+          E2E_DATABASE_URL: postgres://couchverse:couchverse@localhost:5432/couchverse
+          E2E_SKIP_BUILD: "1"
+          E2E_SERVER_LOG: ${{ runner.temp }}/e2e-server.log
+        run: npx playwright test --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            clients/web/playwright-report
+            clients/web/test-results
+            ${{ runner.temp }}/e2e-server.log
+          retention-days: 14
