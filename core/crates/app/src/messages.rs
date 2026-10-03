@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
 
-use crate::modules::{accounts, catalog, notices, profile, ranks, servers, session};
+use crate::modules::{accounts, catalog, notices, playback, profile, ranks, servers, session};
 
 /// Effect ids and monotonic milliseconds: typeshare maps the name to a 53-bit-safe integer in
 /// every language.
@@ -135,6 +135,23 @@ pub enum Event {
     /// The user picked an image; the core asks the shell to upload it.
     ImageChosen(profile::ImageChoice),
     ImageRemoved(profile::ImageSlotRef),
+    /// The player screen opened for a movie or an episode (or switched to another episode).
+    PlayRequested(catalog::PlayTarget),
+    /// What the shell's player is doing: sent on every state change and about once a second
+    /// while playing.
+    PlayerReported(PlayerReport),
+    /// The player screen went away; the core saves progress and stops the stream.
+    PlayerClosed,
+    QualityChosen(playback::QualityChoice),
+    AudioChosen(playback::TrackChoice),
+    SubtitlesChosen(playback::TrackChoice),
+    /// Play the next episode now instead of waiting for the countdown.
+    NextEpisodeRequested,
+    /// Hide the next-episode countdown; playback stops at the end.
+    NextEpisodeCancelled,
+    ShuffleToggled,
+    /// What this device can play, measured by the shell once per launch.
+    CapabilitiesReported(playback::Capabilities),
 }
 
 /// A screen, panel or piece of state a shell renders from a view model.
@@ -175,6 +192,8 @@ pub enum Surface {
     Leaderboard(ranks::LeaderboardKey),
     /// The viewer's profile, password and image saves.
     ProfileEditor,
+    /// The player screen: sources, tracks, qualities, episodes and the next-episode countdown.
+    Player,
 }
 
 /// Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -204,6 +223,121 @@ pub enum Effect {
     Render(RenderRequest),
     /// Upload a file the shell holds as a multipart form; resolves like `Http`.
     Upload(UploadRequest),
+    /// Drive the shell's video player; fire-and-forget. It reports back with `PlayerReported`.
+    Player(PlayerCommand),
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "content", rename_all = "camelCase")]
+pub enum PlayerCommand {
+    /// Replace what is playing. Sent again for a quality or audio-file switch, starting where
+    /// playback was.
+    Load(PlayerLoad),
+    Play,
+    Pause,
+    Seek(PlayerSeek),
+    /// Switch to the stream's embedded audio rendition in this language.
+    SelectAudio(AudioRendition),
+    /// Show this subtitle track, or none.
+    SelectSubtitles(SubtitleSelection),
+    /// Stop and release the player.
+    Stop,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerLoad {
+    pub url: String,
+    pub source: PlayerSource,
+    pub start_seconds: f64,
+    pub autoplay: bool,
+    /// Caps an HLS stream at this height (a quality the user pinned); absent to adapt freely.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<u32>,
+    /// Sidecar WebVTT tracks the player can show.
+    pub subtitles: Vec<PlayerSubtitle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtitle: Option<String>,
+    /// The embedded audio rendition to start with.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_lang: Option<String>,
+    /// A couch follower's player: no seeking or pausing of the shared timeline.
+    pub linear: bool,
+    /// For the system's Now Playing and lock-screen controls.
+    pub now_playing: NowPlaying,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PlayerSource {
+    /// A media file the player reads progressively.
+    File,
+    /// An HLS multivariant playlist.
+    Hls,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerSubtitle {
+    pub id: String,
+    pub lang: String,
+    pub label: String,
+    pub url: String,
+    pub forced: bool,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NowPlaying {
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtitle: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artwork: Option<String>,
+    pub duration_seconds: f64,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerSeek {
+    pub seconds: f64,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioRendition {
+    pub lang: String,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubtitleSelection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+}
+
+/// The shell's player state. `failed` carries a short reason when the player gave up.
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerReport {
+    pub position_seconds: f64,
+    pub duration_seconds: f64,
+    pub playing: bool,
+    #[serde(default)]
+    pub buffering: bool,
+    #[serde(default)]
+    pub ended: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failed: Option<String>,
 }
 
 #[typeshare]

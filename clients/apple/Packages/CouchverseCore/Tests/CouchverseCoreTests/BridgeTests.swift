@@ -41,18 +41,15 @@ struct BridgeTests {
             guard case .store(let store) = request.effect, store.op == .read else { return nil }
             return store.key
         }
-        #expect(reads == ["servers", "accounts"])
+        #expect(reads == ["servers", "accounts", "player.prefs"])
 
-        var last: [EffectRequest] = []
+        var renders: [Surface] = []
         for request in effects {
-            last = try resolve(core, request.id, .stored(StoredValue(value: nil)), at: 2)
+            for answer in try resolve(core, request.id, .stored(StoredValue(value: nil)), at: 2) {
+                if case .render(let render) = answer.effect { renders += render.surfaces }
+            }
         }
-        let render = try #require(last.last)
-        guard case .render(let surfaces) = render.effect else {
-            Issue.record("expected a render, got \(render.effect)")
-            return
-        }
-        #expect(surfaces.surfaces.contains(.app))
+        #expect(renders.contains(.app))
         #expect(try view(core, .app, as: AppView.self).phase == .welcome)
     }
 

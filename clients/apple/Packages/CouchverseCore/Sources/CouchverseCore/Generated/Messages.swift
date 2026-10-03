@@ -152,6 +152,14 @@ public struct AppView: Codable, Sendable, Hashable {
 	}
 }
 
+public struct AudioRendition: Codable, Sendable, Hashable {
+	public let lang: String
+
+	public init(lang: String) {
+		self.lang = lang
+	}
+}
+
 public enum TitleKind: String, Codable, Sendable, Hashable {
 	case movie
 	case series
@@ -226,6 +234,16 @@ public struct BrowseView: Codable, Sendable, Hashable {
 		self.more = more
 		self.loadingMore = loadingMore
 		self.problem = problem
+	}
+}
+
+/// What this device can play. Shells report it once per launch.
+public struct Capabilities: Codable, Sendable, Hashable {
+	/// Video codecs decoded beyond the h264/vp9/av1 baseline, e.g. `hevc`.
+	public let videoCodecs: [String]
+
+	public init(videoCodecs: [String]) {
+		self.videoCodecs = videoCodecs
 	}
 }
 
@@ -381,6 +399,8 @@ public enum Effect: Codable, Sendable, Hashable {
 	case render(RenderRequest)
 	/// Upload a file the shell holds as a multipart form; resolves like `Http`.
 	case upload(UploadRequest)
+	/// Drive the shell's video player; fire-and-forget. It reports back with `PlayerReported`.
+	case player(PlayerCommand)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case http,
@@ -389,7 +409,8 @@ public enum Effect: Codable, Sendable, Hashable {
 			secureStore,
 			store,
 			render,
-			upload
+			upload,
+			player
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -435,6 +456,11 @@ public enum Effect: Codable, Sendable, Hashable {
 					self = .upload(content)
 					return
 				}
+			case .player:
+				if let content = try? container.decode(PlayerCommand.self, forKey: .content) {
+					self = .player(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(Effect.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Effect"))
@@ -463,6 +489,9 @@ public enum Effect: Codable, Sendable, Hashable {
 			try container.encode(content, forKey: .content)
 		case .upload(let content):
 			try container.encode(CodingKeys.upload, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .player(let content):
+			try container.encode(CodingKeys.player, forKey: .type)
 			try container.encode(content, forKey: .content)
 		}
 	}
@@ -1113,6 +1142,23 @@ public enum Event: Codable, Sendable, Hashable {
 	/// The user picked an image; the core asks the shell to upload it.
 	case imageChosen(ImageChoice)
 	case imageRemoved(ImageSlotRef)
+	/// The player screen opened for a movie or an episode (or switched to another episode).
+	case playRequested(PlayTarget)
+	/// What the shell's player is doing: sent on every state change and about once a second
+	/// while playing.
+	case playerReported(PlayerReport)
+	/// The player screen went away; the core saves progress and stops the stream.
+	case playerClosed
+	case qualityChosen(QualityChoice)
+	case audioChosen(TrackChoice)
+	case subtitlesChosen(TrackChoice)
+	/// Play the next episode now instead of waiting for the countdown.
+	case nextEpisodeRequested
+	/// Hide the next-episode countdown; playback stops at the end.
+	case nextEpisodeCancelled
+	case shuffleToggled
+	/// What this device can play, measured by the shell once per launch.
+	case capabilitiesReported(Capabilities)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case appStarted,
@@ -1145,7 +1191,17 @@ public enum Event: Codable, Sendable, Hashable {
 			profileEditSubmitted,
 			passwordChangeSubmitted,
 			imageChosen,
-			imageRemoved
+			imageRemoved,
+			playRequested,
+			playerReported,
+			playerClosed,
+			qualityChosen,
+			audioChosen,
+			subtitlesChosen,
+			nextEpisodeRequested,
+			nextEpisodeCancelled,
+			shuffleToggled,
+			capabilitiesReported
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -1299,6 +1355,48 @@ public enum Event: Codable, Sendable, Hashable {
 					self = .imageRemoved(content)
 					return
 				}
+			case .playRequested:
+				if let content = try? container.decode(PlayTarget.self, forKey: .content) {
+					self = .playRequested(content)
+					return
+				}
+			case .playerReported:
+				if let content = try? container.decode(PlayerReport.self, forKey: .content) {
+					self = .playerReported(content)
+					return
+				}
+			case .playerClosed:
+				self = .playerClosed
+				return
+			case .qualityChosen:
+				if let content = try? container.decode(QualityChoice.self, forKey: .content) {
+					self = .qualityChosen(content)
+					return
+				}
+			case .audioChosen:
+				if let content = try? container.decode(TrackChoice.self, forKey: .content) {
+					self = .audioChosen(content)
+					return
+				}
+			case .subtitlesChosen:
+				if let content = try? container.decode(TrackChoice.self, forKey: .content) {
+					self = .subtitlesChosen(content)
+					return
+				}
+			case .nextEpisodeRequested:
+				self = .nextEpisodeRequested
+				return
+			case .nextEpisodeCancelled:
+				self = .nextEpisodeCancelled
+				return
+			case .shuffleToggled:
+				self = .shuffleToggled
+				return
+			case .capabilitiesReported:
+				if let content = try? container.decode(Capabilities.self, forKey: .content) {
+					self = .capabilitiesReported(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(Event.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Event"))
@@ -1394,6 +1492,32 @@ public enum Event: Codable, Sendable, Hashable {
 		case .imageRemoved(let content):
 			try container.encode(CodingKeys.imageRemoved, forKey: .type)
 			try container.encode(content, forKey: .content)
+		case .playRequested(let content):
+			try container.encode(CodingKeys.playRequested, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .playerReported(let content):
+			try container.encode(CodingKeys.playerReported, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .playerClosed:
+			try container.encode(CodingKeys.playerClosed, forKey: .type)
+		case .qualityChosen(let content):
+			try container.encode(CodingKeys.qualityChosen, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .audioChosen(let content):
+			try container.encode(CodingKeys.audioChosen, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .subtitlesChosen(let content):
+			try container.encode(CodingKeys.subtitlesChosen, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .nextEpisodeRequested:
+			try container.encode(CodingKeys.nextEpisodeRequested, forKey: .type)
+		case .nextEpisodeCancelled:
+			try container.encode(CodingKeys.nextEpisodeCancelled, forKey: .type)
+		case .shuffleToggled:
+			try container.encode(CodingKeys.shuffleToggled, forKey: .type)
+		case .capabilitiesReported(let content):
+			try container.encode(CodingKeys.capabilitiesReported, forKey: .type)
+			try container.encode(content, forKey: .content)
 		}
 	}
 }
@@ -1421,6 +1545,27 @@ public struct MyListView: Codable, Sendable, Hashable {
 	}
 }
 
+/// The episode that plays when this one ends.
+public struct NextUp: Codable, Sendable, Hashable {
+	public let target: PlayTarget
+	public let season: UInt32
+	public let episode: UInt32
+	public let name: String
+	/// Seconds until it starts; shown in the last stretch of the current one.
+	public let countdownSeconds: UInt32
+	/// Picked at random among the series' episodes.
+	public let shuffled: Bool
+
+	public init(target: PlayTarget, season: UInt32, episode: UInt32, name: String, countdownSeconds: UInt32, shuffled: Bool) {
+		self.target = target
+		self.season = season
+		self.episode = episode
+		self.name = name
+		self.countdownSeconds = countdownSeconds
+		self.shuffled = shuffled
+	}
+}
+
 public struct Notice: Codable, Sendable, Hashable {
 	public let id: UInt64
 	/// Stable and localized by the shell, like `Problem.code`.
@@ -1445,6 +1590,20 @@ public struct NoticesView: Codable, Sendable, Hashable {
 
 	public init(notices: [Notice]) {
 		self.notices = notices
+	}
+}
+
+public struct NowPlaying: Codable, Sendable, Hashable {
+	public let title: String
+	public let subtitle: String?
+	public let artwork: String?
+	public let durationSeconds: Double
+
+	public init(title: String, subtitle: String?, artwork: String?, durationSeconds: Double) {
+		self.title = title
+		self.subtitle = subtitle
+		self.artwork = artwork
+		self.durationSeconds = durationSeconds
 	}
 }
 
@@ -1539,6 +1698,204 @@ public struct PlayAction: Codable, Sendable, Hashable {
 		self.target = target
 		self.resumeSeconds = resumeSeconds
 		self.episode = episode
+	}
+}
+
+public struct PlayerEpisode: Codable, Sendable, Hashable {
+	public let id: String
+	public let number: UInt32
+	public let name: String
+	public let still: Image?
+	public let current: Bool
+
+	public init(id: String, number: UInt32, name: String, still: Image?, current: Bool) {
+		self.id = id
+		self.number = number
+		self.name = name
+		self.still = still
+		self.current = current
+	}
+}
+
+public enum PlayerSource: String, Codable, Sendable, Hashable {
+	/// A media file the player reads progressively.
+	case file
+	/// An HLS multivariant playlist.
+	case hls
+}
+
+public struct PlayerSubtitle: Codable, Sendable, Hashable {
+	public let id: String
+	public let lang: String
+	public let label: String
+	public let url: String
+	public let forced: Bool
+
+	public init(id: String, lang: String, label: String, url: String, forced: Bool) {
+		self.id = id
+		self.lang = lang
+		self.label = label
+		self.url = url
+		self.forced = forced
+	}
+}
+
+public struct PlayerLoad: Codable, Sendable, Hashable {
+	public let url: String
+	public let source: PlayerSource
+	public let startSeconds: Double
+	public let autoplay: Bool
+	/// Caps an HLS stream at this height (a quality the user pinned); absent to adapt freely.
+	public let maxHeight: UInt32?
+	/// Sidecar WebVTT tracks the player can show.
+	public let subtitles: [PlayerSubtitle]
+	public let subtitle: String?
+	/// The embedded audio rendition to start with.
+	public let audioLang: String?
+	/// A couch follower's player: no seeking or pausing of the shared timeline.
+	public let linear: Bool
+	/// For the system's Now Playing and lock-screen controls.
+	public let nowPlaying: NowPlaying
+
+	public init(url: String, source: PlayerSource, startSeconds: Double, autoplay: Bool, maxHeight: UInt32?, subtitles: [PlayerSubtitle], subtitle: String?, audioLang: String?, linear: Bool, nowPlaying: NowPlaying) {
+		self.url = url
+		self.source = source
+		self.startSeconds = startSeconds
+		self.autoplay = autoplay
+		self.maxHeight = maxHeight
+		self.subtitles = subtitles
+		self.subtitle = subtitle
+		self.audioLang = audioLang
+		self.linear = linear
+		self.nowPlaying = nowPlaying
+	}
+}
+
+/// The shell's player state. `failed` carries a short reason when the player gave up.
+public struct PlayerReport: Codable, Sendable, Hashable {
+	public let positionSeconds: Double
+	public let durationSeconds: Double
+	public let playing: Bool
+	public let buffering: Bool?
+	public let ended: Bool?
+	public let failed: String?
+
+	public init(positionSeconds: Double, durationSeconds: Double, playing: Bool, buffering: Bool?, ended: Bool?, failed: String?) {
+		self.positionSeconds = positionSeconds
+		self.durationSeconds = durationSeconds
+		self.playing = playing
+		self.buffering = buffering
+		self.ended = ended
+		self.failed = failed
+	}
+}
+
+public struct PlayerSeason: Codable, Sendable, Hashable {
+	public let number: UInt32
+	public let episodes: [PlayerEpisode]
+
+	public init(number: UInt32, episodes: [PlayerEpisode]) {
+		self.number = number
+		self.episodes = episodes
+	}
+}
+
+public struct PlayerSeek: Codable, Sendable, Hashable {
+	public let seconds: Double
+
+	public init(seconds: Double) {
+		self.seconds = seconds
+	}
+}
+
+public enum QualityKind: String, Codable, Sendable, Hashable {
+	/// The source as it is, outside the adaptive ladder.
+	case original
+	/// The ladder, adapting to the connection.
+	case auto
+	/// One rung of the ladder, pinned.
+	case rendition
+}
+
+public struct QualityOption: Codable, Sendable, Hashable {
+	/// What `QualityChosen` takes.
+	public let key: String
+	public let kind: QualityKind
+	/// The rendition's height, for its label (`1080p`).
+	public let height: UInt32?
+
+	public init(key: String, kind: QualityKind, height: UInt32?) {
+		self.key = key
+		self.kind = kind
+		self.height = height
+	}
+}
+
+public struct TrackOption: Codable, Sendable, Hashable {
+	public let id: String
+	public let lang: String
+	public let label: String
+
+	public init(id: String, lang: String, label: String) {
+		self.id = id
+		self.lang = lang
+		self.label = label
+	}
+}
+
+public struct PlayerView: Codable, Sendable, Hashable {
+	/// `loading` while fetching or preparing, `loaded` once the player has a source, `stale`
+	/// while a failed player reloads, `notFound`/`failed` with a problem.
+	public let status: LoadStatus
+	/// What is on screen; absent with the player closed. The web keeps its URL in step.
+	public let target: PlayTarget?
+	public let title: String
+	/// The episode's label, empty for a movie.
+	public let subtitle: String
+	/// The title page to go back to.
+	public let titleSlug: String
+	public let backdrop: Image?
+	/// A transcode is being prepared; its progress in percent.
+	public let preparing: UInt32?
+	public let qualities: [QualityOption]
+	public let quality: String
+	public let audio: [TrackOption]
+	public let audioSelected: String?
+	public let subtitles: [TrackOption]
+	public let subtitleSelected: String?
+	/// The series' playable episodes for the switcher, by season.
+	public let seasons: [PlayerSeason]
+	public let nextUp: NextUp?
+	/// The series allows random playback, so a shuffle switch makes sense.
+	public let shuffleAvailable: Bool
+	public let shuffle: Bool
+	/// A still for the seek-bar preview: append `?t=<seconds>`.
+	public let frameUrl: String?
+	/// A couch follower's player: hide timeline controls.
+	public let linear: Bool
+	public let problem: Problem?
+
+	public init(status: LoadStatus, target: PlayTarget?, title: String, subtitle: String, titleSlug: String, backdrop: Image?, preparing: UInt32?, qualities: [QualityOption], quality: String, audio: [TrackOption], audioSelected: String?, subtitles: [TrackOption], subtitleSelected: String?, seasons: [PlayerSeason], nextUp: NextUp?, shuffleAvailable: Bool, shuffle: Bool, frameUrl: String?, linear: Bool, problem: Problem?) {
+		self.status = status
+		self.target = target
+		self.title = title
+		self.subtitle = subtitle
+		self.titleSlug = titleSlug
+		self.backdrop = backdrop
+		self.preparing = preparing
+		self.qualities = qualities
+		self.quality = quality
+		self.audio = audio
+		self.audioSelected = audioSelected
+		self.subtitles = subtitles
+		self.subtitleSelected = subtitleSelected
+		self.seasons = seasons
+		self.nextUp = nextUp
+		self.shuffleAvailable = shuffleAvailable
+		self.shuffle = shuffle
+		self.frameUrl = frameUrl
+		self.linear = linear
+		self.problem = problem
 	}
 }
 
@@ -1743,6 +2100,15 @@ public struct PublicChoice: Codable, Sendable, Hashable {
 	}
 }
 
+/// A quality from `PlayerView.qualities`, by its key.
+public struct QualityChoice: Codable, Sendable, Hashable {
+	public let key: String
+
+	public init(key: String) {
+		self.key = key
+	}
+}
+
 public struct RankView: Codable, Sendable, Hashable {
 	/// Absent until the first check, or with rankings off.
 	public let rank: RankBadge?
@@ -1796,6 +2162,8 @@ public enum Surface: Codable, Sendable, Hashable {
 	case leaderboard(LeaderboardKey)
 	/// The viewer's profile, password and image saves.
 	case profileEditor
+	/// The player screen: sources, tracks, qualities, episodes and the next-episode countdown.
+	case player
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case app,
@@ -1816,7 +2184,8 @@ public enum Surface: Codable, Sendable, Hashable {
 			rank,
 			profile,
 			leaderboard,
-			profileEditor
+			profileEditor,
+			player
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -1894,6 +2263,9 @@ public enum Surface: Codable, Sendable, Hashable {
 			case .profileEditor:
 				self = .profileEditor
 				return
+			case .player:
+				self = .player
+				return
 			}
 		}
 		throw DecodingError.typeMismatch(Surface.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Surface"))
@@ -1945,6 +2317,8 @@ public enum Surface: Codable, Sendable, Hashable {
 			try container.encode(content, forKey: .content)
 		case .profileEditor:
 			try container.encode(CodingKeys.profileEditor, forKey: .type)
+		case .player:
+			try container.encode(CodingKeys.player, forKey: .type)
 		}
 	}
 }
@@ -2269,6 +2643,14 @@ public struct StoredValue: Codable, Sendable, Hashable {
 	}
 }
 
+public struct SubtitleSelection: Codable, Sendable, Hashable {
+	public let id: String?
+
+	public init(id: String?) {
+		self.id = id
+	}
+}
+
 public struct TableCell: Codable, Sendable, Hashable {
 	public let inlines: [Inline]
 
@@ -2376,6 +2758,15 @@ public struct TitleView: Codable, Sendable, Hashable {
 	}
 }
 
+/// A track by id; no id turns subtitles off.
+public struct TrackChoice: Codable, Sendable, Hashable {
+	public let id: String?
+
+	public init(id: String?) {
+		self.id = id
+	}
+}
+
 public struct UploadRequest: Codable, Sendable, Hashable {
 	/// The request without a body; the shell sends the form as its body.
 	public let request: HttpRequest
@@ -2408,5 +2799,96 @@ public struct WatchlistChange: Codable, Sendable, Hashable {
 	public init(titleId: String, listed: Bool) {
 		self.titleId = titleId
 		self.listed = listed
+	}
+}
+
+public enum PlayerCommand: Codable, Sendable, Hashable {
+	/// Replace what is playing. Sent again for a quality or audio-file switch, starting where
+	/// playback was.
+	case load(PlayerLoad)
+	case play
+	case pause
+	case seek(PlayerSeek)
+	/// Switch to the stream's embedded audio rendition in this language.
+	case selectAudio(AudioRendition)
+	/// Show this subtitle track, or none.
+	case selectSubtitles(SubtitleSelection)
+	/// Stop and release the player.
+	case stop
+
+	enum CodingKeys: String, CodingKey, Codable {
+		case load,
+			play,
+			pause,
+			seek,
+			selectAudio,
+			selectSubtitles,
+			stop
+	}
+
+	private enum ContainerCodingKeys: String, CodingKey {
+		case type, content
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: ContainerCodingKeys.self)
+		if let type = try? container.decode(CodingKeys.self, forKey: .type) {
+			switch type {
+			case .load:
+				if let content = try? container.decode(PlayerLoad.self, forKey: .content) {
+					self = .load(content)
+					return
+				}
+			case .play:
+				self = .play
+				return
+			case .pause:
+				self = .pause
+				return
+			case .seek:
+				if let content = try? container.decode(PlayerSeek.self, forKey: .content) {
+					self = .seek(content)
+					return
+				}
+			case .selectAudio:
+				if let content = try? container.decode(AudioRendition.self, forKey: .content) {
+					self = .selectAudio(content)
+					return
+				}
+			case .selectSubtitles:
+				if let content = try? container.decode(SubtitleSelection.self, forKey: .content) {
+					self = .selectSubtitles(content)
+					return
+				}
+			case .stop:
+				self = .stop
+				return
+			}
+		}
+		throw DecodingError.typeMismatch(PlayerCommand.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for PlayerCommand"))
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: ContainerCodingKeys.self)
+		switch self {
+		case .load(let content):
+			try container.encode(CodingKeys.load, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .play:
+			try container.encode(CodingKeys.play, forKey: .type)
+		case .pause:
+			try container.encode(CodingKeys.pause, forKey: .type)
+		case .seek(let content):
+			try container.encode(CodingKeys.seek, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .selectAudio(let content):
+			try container.encode(CodingKeys.selectAudio, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .selectSubtitles(let content):
+			try container.encode(CodingKeys.selectSubtitles, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .stop:
+			try container.encode(CodingKeys.stop, forKey: .type)
+		}
 	}
 }

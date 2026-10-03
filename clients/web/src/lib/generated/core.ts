@@ -98,6 +98,10 @@ export interface AppView {
 	activeAccount?: string;
 }
 
+export interface AudioRendition {
+	lang: string;
+}
+
 export enum TitleKind {
 	Movie = "movie",
 	Series = "series",
@@ -142,6 +146,12 @@ export interface BrowseView {
 	more: boolean;
 	loadingMore: boolean;
 	problem?: Problem;
+}
+
+/** What this device can play. Shells report it once per launch. */
+export interface Capabilities {
+	/** Video codecs decoded beyond the h264/vp9/av1 baseline, e.g. `hevc`. */
+	videoCodecs: string[];
 }
 
 export interface CheckRequest {
@@ -242,7 +252,9 @@ export type Effect =
 	/** These view models changed; re-read them with `view`. Fire-and-forget. */
 	| { type: "render", content: RenderRequest }
 	/** Upload a file the shell holds as a multipart form; resolves like `Http`. */
-	| { type: "upload", content: UploadRequest };
+	| { type: "upload", content: UploadRequest }
+	/** Drive the shell's video player; fire-and-forget. It reports back with `PlayerReported`. */
+	| { type: "player", content: PlayerCommand };
 
 /**
  * Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -551,7 +563,26 @@ export type Event =
 	| { type: "passwordChangeSubmitted", content: PasswordForm }
 	/** The user picked an image; the core asks the shell to upload it. */
 	| { type: "imageChosen", content: ImageChoice }
-	| { type: "imageRemoved", content: ImageSlotRef };
+	| { type: "imageRemoved", content: ImageSlotRef }
+	/** The player screen opened for a movie or an episode (or switched to another episode). */
+	| { type: "playRequested", content: PlayTarget }
+	/**
+	 * What the shell's player is doing: sent on every state change and about once a second
+	 * while playing.
+	 */
+	| { type: "playerReported", content: PlayerReport }
+	/** The player screen went away; the core saves progress and stops the stream. */
+	| { type: "playerClosed", content?: undefined }
+	| { type: "qualityChosen", content: QualityChoice }
+	| { type: "audioChosen", content: TrackChoice }
+	| { type: "subtitlesChosen", content: TrackChoice }
+	/** Play the next episode now instead of waiting for the countdown. */
+	| { type: "nextEpisodeRequested", content?: undefined }
+	/** Hide the next-episode countdown; playback stops at the end. */
+	| { type: "nextEpisodeCancelled", content?: undefined }
+	| { type: "shuffleToggled", content?: undefined }
+	/** What this device can play, measured by the shell once per launch. */
+	| { type: "capabilitiesReported", content: Capabilities };
 
 /** Something that happened in the shell: a user intent or a lifecycle change. */
 export interface Message {
@@ -563,6 +594,18 @@ export interface MyListView {
 	status: LoadStatus;
 	cards: Card[];
 	problem?: Problem;
+}
+
+/** The episode that plays when this one ends. */
+export interface NextUp {
+	target: PlayTarget;
+	season: number;
+	episode: number;
+	name: string;
+	/** Seconds until it starts; shown in the last stretch of the current one. */
+	countdownSeconds: number;
+	/** Picked at random among the series' episodes. */
+	shuffled: boolean;
 }
 
 export interface Notice {
@@ -577,6 +620,13 @@ export interface NoticeRef {
 
 export interface NoticesView {
 	notices: Notice[];
+}
+
+export interface NowPlaying {
+	title: string;
+	subtitle?: string;
+	artwork?: string;
+	durationSeconds: number;
 }
 
 export interface PairingApproval {
@@ -633,6 +683,124 @@ export interface PlayAction {
 	resumeSeconds?: number;
 	/** The episode the button plays, for its label. */
 	episode?: EpisodeNumber;
+}
+
+export interface PlayerEpisode {
+	id: string;
+	number: number;
+	name: string;
+	still?: Image;
+	current: boolean;
+}
+
+export enum PlayerSource {
+	/** A media file the player reads progressively. */
+	File = "file",
+	/** An HLS multivariant playlist. */
+	Hls = "hls",
+}
+
+export interface PlayerSubtitle {
+	id: string;
+	lang: string;
+	label: string;
+	url: string;
+	forced: boolean;
+}
+
+export interface PlayerLoad {
+	url: string;
+	source: PlayerSource;
+	startSeconds: number;
+	autoplay: boolean;
+	/** Caps an HLS stream at this height (a quality the user pinned); absent to adapt freely. */
+	maxHeight?: number;
+	/** Sidecar WebVTT tracks the player can show. */
+	subtitles: PlayerSubtitle[];
+	subtitle?: string;
+	/** The embedded audio rendition to start with. */
+	audioLang?: string;
+	/** A couch follower's player: no seeking or pausing of the shared timeline. */
+	linear: boolean;
+	/** For the system's Now Playing and lock-screen controls. */
+	nowPlaying: NowPlaying;
+}
+
+/** The shell's player state. `failed` carries a short reason when the player gave up. */
+export interface PlayerReport {
+	positionSeconds: number;
+	durationSeconds: number;
+	playing: boolean;
+	buffering?: boolean;
+	ended?: boolean;
+	failed?: string;
+}
+
+export interface PlayerSeason {
+	number: number;
+	episodes: PlayerEpisode[];
+}
+
+export interface PlayerSeek {
+	seconds: number;
+}
+
+export enum QualityKind {
+	/** The source as it is, outside the adaptive ladder. */
+	Original = "original",
+	/** The ladder, adapting to the connection. */
+	Auto = "auto",
+	/** One rung of the ladder, pinned. */
+	Rendition = "rendition",
+}
+
+export interface QualityOption {
+	/** What `QualityChosen` takes. */
+	key: string;
+	kind: QualityKind;
+	/** The rendition's height, for its label (`1080p`). */
+	height?: number;
+}
+
+export interface TrackOption {
+	id: string;
+	lang: string;
+	label: string;
+}
+
+export interface PlayerView {
+	/**
+	 * `loading` while fetching or preparing, `loaded` once the player has a source, `stale`
+	 * while a failed player reloads, `notFound`/`failed` with a problem.
+	 */
+	status: LoadStatus;
+	/** What is on screen; absent with the player closed. The web keeps its URL in step. */
+	target?: PlayTarget;
+	title: string;
+	/** The episode's label, empty for a movie. */
+	subtitle: string;
+	/** The title page to go back to. */
+	titleSlug: string;
+	backdrop?: Image;
+	/** A transcode is being prepared; its progress in percent. */
+	preparing?: number;
+	qualities: QualityOption[];
+	quality: string;
+	audio: TrackOption[];
+	audioSelected?: string;
+	subtitles: TrackOption[];
+	subtitleSelected?: string;
+	/** The series' playable episodes for the switcher, by season. */
+	seasons: PlayerSeason[];
+	nextUp?: NextUp;
+	/** The series allows random playback, so a shuffle switch makes sense. */
+	shuffleAvailable: boolean;
+	shuffle: boolean;
+	/** A still for the seek-bar preview: append `?t=<seconds>`. */
+	frameUrl?: string;
+	/** A couch follower's player: hide timeline controls. */
+	linear: boolean;
+	problem?: Problem;
 }
 
 /** A rank tier; `code` is localized by the shell (`rank_tier_<code>`). */
@@ -740,6 +908,11 @@ export interface PublicChoice {
 	public: boolean;
 }
 
+/** A quality from `PlayerView.qualities`, by its key. */
+export interface QualityChoice {
+	key: string;
+}
+
 export interface RankView {
 	/** Absent until the first check, or with rankings off. */
 	rank?: RankBadge;
@@ -785,7 +958,9 @@ export type Surface =
 	| { type: "profile", content: string }
 	| { type: "leaderboard", content: LeaderboardKey }
 	/** The viewer's profile, password and image saves. */
-	| { type: "profileEditor", content?: undefined };
+	| { type: "profileEditor", content?: undefined }
+	/** The player screen: sources, tracks, qualities, episodes and the next-episode countdown. */
+	| { type: "player", content?: undefined };
 
 export interface RenderRequest {
 	surfaces: Surface[];
@@ -903,6 +1078,10 @@ export interface StoredValue {
 	value?: string;
 }
 
+export interface SubtitleSelection {
+	id?: string;
+}
+
 export interface TableCell {
 	inlines: Inline[];
 }
@@ -963,6 +1142,11 @@ export interface TitleView {
 	problem?: Problem;
 }
 
+/** A track by id; no id turns subtitles off. */
+export interface TrackChoice {
+	id?: string;
+}
+
 export interface UploadRequest {
 	/** The request without a body; the shell sends the form as its body. */
 	request: HttpRequest;
@@ -984,4 +1168,20 @@ export interface WatchlistChange {
 	/** True to add the title to My List, false to remove it. */
 	listed: boolean;
 }
+
+export type PlayerCommand = 
+	/**
+	 * Replace what is playing. Sent again for a quality or audio-file switch, starting where
+	 * playback was.
+	 */
+	| { type: "load", content: PlayerLoad }
+	| { type: "play", content?: undefined }
+	| { type: "pause", content?: undefined }
+	| { type: "seek", content: PlayerSeek }
+	/** Switch to the stream's embedded audio rendition in this language. */
+	| { type: "selectAudio", content: AudioRendition }
+	/** Show this subtitle track, or none. */
+	| { type: "selectSubtitles", content: SubtitleSelection }
+	/** Stop and release the player. */
+	| { type: "stop", content?: undefined };
 

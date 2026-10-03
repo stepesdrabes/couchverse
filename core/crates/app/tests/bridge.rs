@@ -26,6 +26,7 @@ fn messages_and_effects_are_adjacently_tagged_json() {
         [
             json!({"id": 1, "effect": {"type": "store", "content": {"key": "servers", "op": {"type": "read"}}}}),
             json!({"id": 2, "effect": {"type": "store", "content": {"key": "accounts", "op": {"type": "read"}}}}),
+            json!({"id": 3, "effect": {"type": "store", "content": {"key": "player.prefs", "op": {"type": "read"}}}}),
         ]
     );
 

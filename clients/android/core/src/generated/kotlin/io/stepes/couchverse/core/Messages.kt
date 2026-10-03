@@ -121,6 +121,11 @@ data class AppView (
 )
 
 @Serializable
+data class AudioRendition (
+	val lang: String
+)
+
+@Serializable
 enum class TitleKind(val string: String) {
 	@SerialName("movie")
 	Movie("movie"),
@@ -175,6 +180,13 @@ data class BrowseView (
 	val more: Boolean,
 	val loadingMore: Boolean,
 	val problem: Problem? = null
+)
+
+/// What this device can play. Shells report it once per launch.
+@Serializable
+data class Capabilities (
+	/// Video codecs decoded beyond the h264/vp9/av1 baseline, e.g. `hevc`.
+	val videoCodecs: List<String>
 )
 
 @Serializable
@@ -312,6 +324,10 @@ sealed class Effect {
 	@Serializable
 	@SerialName("upload")
 	data class Upload(val content: UploadRequest): Effect()
+	/// Drive the shell's video player; fire-and-forget. It reports back with `PlayerReported`.
+	@Serializable
+	@SerialName("player")
+	data class Player(val content: PlayerCommand): Effect()
 }
 
 /// Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -759,6 +775,43 @@ sealed class Event {
 	@Serializable
 	@SerialName("imageRemoved")
 	data class ImageRemoved(val content: ImageSlotRef): Event()
+	/// The player screen opened for a movie or an episode (or switched to another episode).
+	@Serializable
+	@SerialName("playRequested")
+	data class PlayRequested(val content: PlayTarget): Event()
+	/// What the shell's player is doing: sent on every state change and about once a second
+	/// while playing.
+	@Serializable
+	@SerialName("playerReported")
+	data class PlayerReported(val content: PlayerReport): Event()
+	/// The player screen went away; the core saves progress and stops the stream.
+	@Serializable
+	@SerialName("playerClosed")
+	data object PlayerClosed: Event()
+	@Serializable
+	@SerialName("qualityChosen")
+	data class QualityChosen(val content: QualityChoice): Event()
+	@Serializable
+	@SerialName("audioChosen")
+	data class AudioChosen(val content: TrackChoice): Event()
+	@Serializable
+	@SerialName("subtitlesChosen")
+	data class SubtitlesChosen(val content: TrackChoice): Event()
+	/// Play the next episode now instead of waiting for the countdown.
+	@Serializable
+	@SerialName("nextEpisodeRequested")
+	data object NextEpisodeRequested: Event()
+	/// Hide the next-episode countdown; playback stops at the end.
+	@Serializable
+	@SerialName("nextEpisodeCancelled")
+	data object NextEpisodeCancelled: Event()
+	@Serializable
+	@SerialName("shuffleToggled")
+	data object ShuffleToggled: Event()
+	/// What this device can play, measured by the shell once per launch.
+	@Serializable
+	@SerialName("capabilitiesReported")
+	data class CapabilitiesReported(val content: Capabilities): Event()
 }
 
 /// Something that happened in the shell: a user intent or a lifecycle change.
@@ -773,6 +826,19 @@ data class MyListView (
 	val status: LoadStatus,
 	val cards: List<Card>,
 	val problem: Problem? = null
+)
+
+/// The episode that plays when this one ends.
+@Serializable
+data class NextUp (
+	val target: PlayTarget,
+	val season: UInt,
+	val episode: UInt,
+	val name: String,
+	/// Seconds until it starts; shown in the last stretch of the current one.
+	val countdownSeconds: UInt,
+	/// Picked at random among the series' episodes.
+	val shuffled: Boolean
 )
 
 @Serializable
@@ -790,6 +856,14 @@ data class NoticeRef (
 @Serializable
 data class NoticesView (
 	val notices: List<Notice>
+)
+
+@Serializable
+data class NowPlaying (
+	val title: String,
+	val subtitle: String? = null,
+	val artwork: String? = null,
+	val durationSeconds: Double
 )
 
 @Serializable
@@ -859,6 +933,138 @@ data class PlayAction (
 	val resumeSeconds: ULong? = null,
 	/// The episode the button plays, for its label.
 	val episode: EpisodeNumber? = null
+)
+
+@Serializable
+data class PlayerEpisode (
+	val id: String,
+	val number: UInt,
+	val name: String,
+	val still: Image? = null,
+	val current: Boolean
+)
+
+@Serializable
+enum class PlayerSource(val string: String) {
+	/// A media file the player reads progressively.
+	@SerialName("file")
+	File("file"),
+	/// An HLS multivariant playlist.
+	@SerialName("hls")
+	Hls("hls"),
+}
+
+@Serializable
+data class PlayerSubtitle (
+	val id: String,
+	val lang: String,
+	val label: String,
+	val url: String,
+	val forced: Boolean
+)
+
+@Serializable
+data class PlayerLoad (
+	val url: String,
+	val source: PlayerSource,
+	val startSeconds: Double,
+	val autoplay: Boolean,
+	/// Caps an HLS stream at this height (a quality the user pinned); absent to adapt freely.
+	val maxHeight: UInt? = null,
+	/// Sidecar WebVTT tracks the player can show.
+	val subtitles: List<PlayerSubtitle>,
+	val subtitle: String? = null,
+	/// The embedded audio rendition to start with.
+	val audioLang: String? = null,
+	/// A couch follower's player: no seeking or pausing of the shared timeline.
+	val linear: Boolean,
+	/// For the system's Now Playing and lock-screen controls.
+	val nowPlaying: NowPlaying
+)
+
+/// The shell's player state. `failed` carries a short reason when the player gave up.
+@Serializable
+data class PlayerReport (
+	val positionSeconds: Double,
+	val durationSeconds: Double,
+	val playing: Boolean,
+	val buffering: Boolean? = null,
+	val ended: Boolean? = null,
+	val failed: String? = null
+)
+
+@Serializable
+data class PlayerSeason (
+	val number: UInt,
+	val episodes: List<PlayerEpisode>
+)
+
+@Serializable
+data class PlayerSeek (
+	val seconds: Double
+)
+
+@Serializable
+enum class QualityKind(val string: String) {
+	/// The source as it is, outside the adaptive ladder.
+	@SerialName("original")
+	Original("original"),
+	/// The ladder, adapting to the connection.
+	@SerialName("auto")
+	Auto("auto"),
+	/// One rung of the ladder, pinned.
+	@SerialName("rendition")
+	Rendition("rendition"),
+}
+
+@Serializable
+data class QualityOption (
+	/// What `QualityChosen` takes.
+	val key: String,
+	val kind: QualityKind,
+	/// The rendition's height, for its label (`1080p`).
+	val height: UInt? = null
+)
+
+@Serializable
+data class TrackOption (
+	val id: String,
+	val lang: String,
+	val label: String
+)
+
+@Serializable
+data class PlayerView (
+	/// `loading` while fetching or preparing, `loaded` once the player has a source, `stale`
+	/// while a failed player reloads, `notFound`/`failed` with a problem.
+	val status: LoadStatus,
+	/// What is on screen; absent with the player closed. The web keeps its URL in step.
+	val target: PlayTarget? = null,
+	val title: String,
+	/// The episode's label, empty for a movie.
+	val subtitle: String,
+	/// The title page to go back to.
+	val titleSlug: String,
+	val backdrop: Image? = null,
+	/// A transcode is being prepared; its progress in percent.
+	val preparing: UInt? = null,
+	val qualities: List<QualityOption>,
+	val quality: String,
+	val audio: List<TrackOption>,
+	val audioSelected: String? = null,
+	val subtitles: List<TrackOption>,
+	val subtitleSelected: String? = null,
+	/// The series' playable episodes for the switcher, by season.
+	val seasons: List<PlayerSeason>,
+	val nextUp: NextUp? = null,
+	/// The series allows random playback, so a shuffle switch makes sense.
+	val shuffleAvailable: Boolean,
+	val shuffle: Boolean,
+	/// A still for the seek-bar preview: append `?t=<seconds>`.
+	val frameUrl: String? = null,
+	/// A couch follower's player: hide timeline controls.
+	val linear: Boolean,
+	val problem: Problem? = null
 )
 
 /// A rank tier; `code` is localized by the shell (`rank_tier_<code>`).
@@ -977,6 +1183,12 @@ data class PublicChoice (
 	val public: Boolean
 )
 
+/// A quality from `PlayerView.qualities`, by its key.
+@Serializable
+data class QualityChoice (
+	val key: String
+)
+
 @Serializable
 data class RankView (
 	/// Absent until the first check, or with rankings off.
@@ -1063,6 +1275,10 @@ sealed class Surface {
 	@Serializable
 	@SerialName("profileEditor")
 	data object ProfileEditor: Surface()
+	/// The player screen: sources, tracks, qualities, episodes and the next-episode countdown.
+	@Serializable
+	@SerialName("player")
+	data object Player: Surface()
 }
 
 @Serializable
@@ -1217,6 +1433,11 @@ data class StoredValue (
 )
 
 @Serializable
+data class SubtitleSelection (
+	val id: String? = null
+)
+
+@Serializable
 data class TableCell (
 	val inlines: List<Inline>
 )
@@ -1287,6 +1508,12 @@ data class TitleView (
 	val problem: Problem? = null
 )
 
+/// A track by id; no id turns subtitles off.
+@Serializable
+data class TrackChoice (
+	val id: String? = null
+)
+
 @Serializable
 data class UploadRequest (
 	/// The request without a body; the shell sends the form as its body.
@@ -1309,4 +1536,34 @@ data class WatchlistChange (
 	/// True to add the title to My List, false to remove it.
 	val listed: Boolean
 )
+
+@Serializable
+sealed class PlayerCommand {
+	/// Replace what is playing. Sent again for a quality or audio-file switch, starting where
+	/// playback was.
+	@Serializable
+	@SerialName("load")
+	data class Load(val content: PlayerLoad): PlayerCommand()
+	@Serializable
+	@SerialName("play")
+	data object Play: PlayerCommand()
+	@Serializable
+	@SerialName("pause")
+	data object Pause: PlayerCommand()
+	@Serializable
+	@SerialName("seek")
+	data class Seek(val content: PlayerSeek): PlayerCommand()
+	/// Switch to the stream's embedded audio rendition in this language.
+	@Serializable
+	@SerialName("selectAudio")
+	data class SelectAudio(val content: AudioRendition): PlayerCommand()
+	/// Show this subtitle track, or none.
+	@Serializable
+	@SerialName("selectSubtitles")
+	data class SelectSubtitles(val content: SubtitleSelection): PlayerCommand()
+	/// Stop and release the player.
+	@Serializable
+	@SerialName("stop")
+	data object Stop: PlayerCommand()
+}
 

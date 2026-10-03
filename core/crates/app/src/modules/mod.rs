@@ -5,6 +5,7 @@ pub mod catalog;
 pub mod images;
 pub mod markdown;
 pub mod notices;
+pub mod playback;
 pub mod profile;
 pub mod ranks;
 pub mod servers;

@@ -5,8 +5,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::core::Pending;
 use crate::messages::{
-    Effect, EffectRef, EffectRequest, HttpRequest, RenderRequest, StoreOp, StoreRequest, Surface,
-    TimerRequest, U53, UploadRequest,
+    Effect, EffectRef, EffectRequest, HttpRequest, PlayerCommand, RenderRequest, StoreOp,
+    StoreRequest, Surface, TimerRequest, U53, UploadRequest,
 };
 
 /// Effects issued so far in this call and the continuations still waiting for outputs.
@@ -93,6 +93,11 @@ impl<'a> Ctx<'a> {
     ) -> U53 {
         let upload = UploadRequest { request, file: file.to_string(), field: field.to_string() };
         self.registry.issue(Effect::Upload(upload), Some(pending), false)
+    }
+
+    /// Drives the shell's player; fire-and-forget.
+    pub fn player(&mut self, command: PlayerCommand) {
+        self.registry.issue(Effect::Player(command), None, false);
     }
 
     pub fn after(&mut self, ms: U53, pending: Pending) -> U53 {

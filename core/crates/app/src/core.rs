@@ -16,6 +16,7 @@ use crate::modules::catalog::{self, Catalog, CatalogChange, CatalogPending, Env}
 use crate::modules::images::Images;
 use crate::modules::markdown;
 use crate::modules::notices::Notices;
+use crate::modules::playback::{self, Playback, PlaybackChange, PlaybackPending};
 use crate::modules::profile::{Profile, ProfileChange, ProfilePending};
 use crate::modules::ranks::{self, Ranks, RanksChange, RanksPending};
 use crate::modules::servers::{Servers, ServersPending};
@@ -31,6 +32,7 @@ pub enum Pending {
     Catalog(CatalogPending),
     Ranks(RanksPending),
     Profile(ProfilePending),
+    Playback(PlaybackPending),
 }
 
 /// Where the app is, so a shell knows which root screen to show.
@@ -77,6 +79,7 @@ struct Model {
     catalog: Catalog,
     ranks: Ranks,
     profile: Profile,
+    playback: Playback,
     notices: Notices,
     phase: AppPhase,
     /// Persisted reads still outstanding at start-up; the phase is decided when they land.
@@ -94,6 +97,7 @@ impl Core {
             catalog: Catalog::default(),
             ranks: Ranks::default(),
             profile: Profile::default(),
+            playback: Playback::default(),
             notices: Notices::default(),
             phase: AppPhase::Starting,
             boot_reads: 0,
@@ -133,6 +137,14 @@ fn env(session: &Session) -> Option<Env<'_>> {
     session.endpoint().map(|endpoint| Env { endpoint, language: session.language() })
 }
 
+fn playback_env(session: &Session, images: Images) -> Option<playback::Env<'_>> {
+    session.endpoint().map(|endpoint| playback::Env {
+        endpoint,
+        language: session.language(),
+        images,
+    })
+}
+
 fn ranks_env(session: &Session) -> Option<ranks::Env<'_>> {
     session.endpoint().map(|endpoint| ranks::Env {
         endpoint,
@@ -152,6 +164,8 @@ impl Model {
                     self.accounts.load(ctx);
                     self.boot_reads = 2;
                 }
+                // not a boot read: nothing waits for it
+                self.playback.load_prefs(ctx);
             }
             Event::AppBecameActive => {
                 if self.phase == AppPhase::Ready {
@@ -220,6 +234,16 @@ impl Model {
             | Event::PasswordChangeSubmitted(_)
             | Event::ImageChosen(_)
             | Event::ImageRemoved(_)) => self.edit_profile(ctx, progress),
+            watching @ (Event::PlayRequested(_)
+            | Event::PlayerReported(_)
+            | Event::PlayerClosed
+            | Event::QualityChosen(_)
+            | Event::AudioChosen(_)
+            | Event::SubtitlesChosen(_)
+            | Event::NextEpisodeRequested
+            | Event::NextEpisodeCancelled
+            | Event::ShuffleToggled
+            | Event::CapabilitiesReported(_)) => self.watch(ctx, watching),
             browsing @ (Event::ScreenOpened(_)
             | Event::ScreenClosed(_)
             | Event::RefreshRequested(_)
@@ -364,6 +388,12 @@ impl Model {
                 RanksChange::VisibilityFailed => self.notices.push(ctx, "visibility_failed"),
                 RanksChange::None => {}
             },
+            Pending::Playback(p) => {
+                let images = self.images();
+                let env = playback_env(&self.session, images);
+                let change = self.playback.resolve(ctx, env.as_ref(), p, output);
+                self.playback_changed(ctx, change);
+            }
             Pending::Profile(p) => match self.profile.resolve(ctx, p, output) {
                 ProfileChange::Updated(user) => {
                     self.session.user_updated(ctx, &user);
@@ -397,6 +427,68 @@ impl Model {
             Event::ImageChosen(choice) => self.profile.upload(ctx, endpoint, &choice),
             Event::ImageRemoved(slot) => self.profile.remove(ctx, endpoint, slot.slot),
             _ => {}
+        }
+    }
+
+    /// The player: what plays, what the shell's player reports, tracks and what comes next.
+    fn watch(&mut self, ctx: &mut Ctx, event: Event) {
+        let images = self.images();
+        let Some(env) = playback_env(&self.session, images) else {
+            if let Event::CapabilitiesReported(caps) = event {
+                self.playback.set_capabilities(caps);
+            }
+            return;
+        };
+        let change = match event {
+            Event::PlayRequested(target) => {
+                self.playback.play(ctx, &env, target, false);
+                PlaybackChange::None
+            }
+            Event::PlayerReported(report) => self.playback.report(ctx, &env, &report),
+            Event::PlayerClosed => {
+                self.playback.close(ctx, env.endpoint);
+                PlaybackChange::None
+            }
+            Event::QualityChosen(choice) => {
+                self.playback.choose_quality(ctx, &choice.key);
+                PlaybackChange::None
+            }
+            Event::AudioChosen(choice) => {
+                self.playback.choose_audio(ctx, choice.id.as_deref());
+                PlaybackChange::None
+            }
+            Event::SubtitlesChosen(choice) => {
+                self.playback.choose_subtitles(ctx, choice.id.as_deref());
+                PlaybackChange::None
+            }
+            Event::NextEpisodeRequested => {
+                self.playback.next_now(ctx, &env);
+                PlaybackChange::None
+            }
+            Event::NextEpisodeCancelled => {
+                self.playback.cancel_next(ctx);
+                PlaybackChange::None
+            }
+            Event::ShuffleToggled => {
+                self.playback.toggle_shuffle(ctx);
+                PlaybackChange::None
+            }
+            Event::CapabilitiesReported(caps) => {
+                self.playback.set_capabilities(caps);
+                PlaybackChange::None
+            }
+            _ => PlaybackChange::None,
+        };
+        self.playback_changed(ctx, change);
+    }
+
+    fn playback_changed(&mut self, ctx: &mut Ctx, change: PlaybackChange) {
+        match change {
+            // progress is saved every few seconds: the check throttles itself, and the end of
+            // a title is the likeliest moment for a new badge
+            PlaybackChange::Watched { finished } => self.check_achievements(ctx, finished),
+            PlaybackChange::Unauthorized => self.session_rejected(ctx),
+            PlaybackChange::None => {}
         }
     }
 
@@ -493,6 +585,7 @@ impl Model {
         self.catalog.reset(ctx);
         self.ranks.reset(ctx);
         self.profile.reset(ctx);
+        self.playback.reset(ctx);
     }
 
     /// A module's request came back 401: the active session is no longer valid.
@@ -559,6 +652,7 @@ impl Model {
                 serde_json::to_string(&self.ranks.leaderboard_view(*key, &images))
             }
             Surface::ProfileEditor => serde_json::to_string(&self.profile.view()),
+            Surface::Player => serde_json::to_string(&self.playback.view(&images)),
         };
         json.expect("view models always serialize")
     }

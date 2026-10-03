@@ -4,6 +4,7 @@
 mod boot;
 mod catalog;
 mod pairing;
+mod playback;
 mod ranks;
 mod session;
 mod sign_in;
@@ -16,8 +17,8 @@ use serde_json::{Value, json};
 use crate::core::{AppPhase, AppView, Core};
 use crate::messages::{
     AuthMode, CoreConfig, Effect, EffectOutput, EffectRequest, Event, HttpFailure, HttpFailureKind,
-    HttpRequest, HttpResponse, LoadStatus, Message, Platform, Resolution, StoreOp, StoredValue,
-    Surface, U53, UploadRequest,
+    HttpRequest, HttpResponse, LoadStatus, Message, Platform, PlayerCommand, Resolution, StoreOp,
+    StoredValue, Surface, U53, UploadRequest,
 };
 
 pub const SERVER_ID: &str = "4f6c0a5e-6a43-4c0e-9d4b-2b8f8d0b7a11";
@@ -34,6 +35,8 @@ pub struct Shell {
     /// Surfaces named by `Render` effects since the last `take_renders`.
     renders: Vec<Surface>,
     cancelled: Vec<U53>,
+    /// Every command the core gave the player, oldest first.
+    pub player: Vec<PlayerCommand>,
 }
 
 impl Shell {
@@ -57,6 +60,7 @@ impl Shell {
             outstanding: vec![],
             renders: vec![],
             cancelled: vec![],
+            player: vec![],
         }
     }
 
@@ -111,6 +115,7 @@ impl Shell {
                         StoreOp::Read => self.outstanding.push(effect),
                     }
                 }
+                Effect::Player(command) => self.player.push(command.clone()),
                 Effect::Http(_) | Effect::Timer(_) | Effect::Upload(_) => {
                     self.outstanding.push(effect);
                 }

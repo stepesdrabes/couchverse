@@ -79,6 +79,19 @@ class WireFormatTest {
                 """{"type":"imageChosen","content":{"slot":"banner","file":"content://media/7"}}""",
             Event.ImageRemoved(ImageSlotRef(ImageSlot.Avatar)) to
                 """{"type":"imageRemoved","content":{"slot":"avatar"}}""",
+            Event.PlayRequested(PlayTarget(PlayKind.Episode, "e1")) to
+                """{"type":"playRequested","content":{"kind":"episode","id":"e1"}}""",
+            Event.PlayerReported(PlayerReport(12.5, 2400.0, playing = true, buffering = false)) to
+                """{"type":"playerReported","content":{"positionSeconds":12.5,"durationSeconds":2400.0,"playing":true,"buffering":false}}""",
+            Event.PlayerClosed to """{"type":"playerClosed"}""",
+            Event.QualityChosen(QualityChoice("720p")) to """{"type":"qualityChosen","content":{"key":"720p"}}""",
+            Event.AudioChosen(TrackChoice("a-cs")) to """{"type":"audioChosen","content":{"id":"a-cs"}}""",
+            Event.SubtitlesChosen(TrackChoice()) to """{"type":"subtitlesChosen","content":{}}""",
+            Event.NextEpisodeRequested to """{"type":"nextEpisodeRequested"}""",
+            Event.NextEpisodeCancelled to """{"type":"nextEpisodeCancelled"}""",
+            Event.ShuffleToggled to """{"type":"shuffleToggled"}""",
+            Event.CapabilitiesReported(Capabilities(listOf("hevc"))) to
+                """{"type":"capabilitiesReported","content":{"videoCodecs":["hevc"]}}""",
         )
         assertEncodings(Event.serializer(), events)
         for ((event, _) in events) {
@@ -111,6 +124,7 @@ class WireFormatTest {
             Surface.Leaderboard(LeaderboardKey(Period.Month, Metric.Xp)) to
                 """{"type":"leaderboard","content":{"period":"month","metric":"xp"}}""",
             Surface.ProfileEditor to """{"type":"profileEditor"}""",
+            Surface.Player to """{"type":"player"}""",
         )
         assertEncodings(Surface.serializer(), surfaces)
         bridge().use { bridge ->
@@ -150,7 +164,7 @@ class WireFormatTest {
         )
         bridge().use { bridge ->
             val effects = roundTrip(EFFECTS, bridge.send(CoreJson.encodeToString(message)))
-            assertEquals(listOf(1uL, 2uL), effects.map { it.id })
+            assertEquals(listOf(1uL, 2uL, 3uL), effects.map { it.id })
             val resolution = Resolution(lastSafe, ULong.MAX_VALUE, EffectOutput.TimerFired)
             assertEquals("[]", bridge.resolve(CoreJson.encodeToString(resolution)))
         }
@@ -337,7 +351,7 @@ class WireFormatTest {
                         http[request.id] = effect.content.request
                         uploads[request.id] = effect.content
                     }
-                    is Effect.Timer, is Effect.CancelTimer, is Effect.Render -> Unit
+                    is Effect.Timer, is Effect.CancelTimer, is Effect.Render, is Effect.Player -> Unit
                 }
             }
             for ((id, value) in reads) resolve(id, EffectOutput.Stored(StoredValue(value)))
