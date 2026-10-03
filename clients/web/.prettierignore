@@ -4,3 +4,4 @@ build/
 src/lib/paraglide/
 src/lib/generated/
 package-lock.json
+src/lib/core/pkg/
