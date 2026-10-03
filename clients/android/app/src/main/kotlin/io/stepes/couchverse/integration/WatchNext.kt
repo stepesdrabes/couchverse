@@ -5,7 +5,11 @@ import android.content.Context
 import android.net.Uri
 import androidx.tvprovider.media.tv.TvContractCompat
 import androidx.tvprovider.media.tv.WatchNextProgram
+import io.stepes.couchverse.core.AppPhase
+import io.stepes.couchverse.core.AppView
 import io.stepes.couchverse.core.ContinueCard
+import io.stepes.couchverse.core.HomeView
+import io.stepes.couchverse.core.LoadStatus
 import io.stepes.couchverse.core.TitleKind
 
 /**
@@ -69,6 +73,13 @@ class WatchNext(private val context: Context) {
 /** The link that plays [card] where it stopped. */
 fun playLink(card: ContinueCard): Uri = Uri.parse("couchverse://play/${card.play.kind.string}/${card.play.id}")
 
-/** Every unfinished title on a home, in its order. */
-fun continueWatching(home: io.stepes.couchverse.core.HomeView?): List<ContinueCard> =
-    home?.rows?.flatMap { it.continueWatching }.orEmpty()
+/**
+ * What Continue Watching outside the app should show: the loaded home's unfinished titles,
+ * nothing once no account is left, and `null` (keep what is there) otherwise, so a process
+ * started without the home (a download's worker, a TV on "Who's watching?") clears nothing.
+ */
+fun continueWatching(app: AppView?, home: HomeView?): List<ContinueCard>? = when {
+    app?.phase == AppPhase.Welcome || app?.phase == AppPhase.SignIn -> emptyList()
+    app?.phase == AppPhase.Ready && home?.status == LoadStatus.Loaded -> home.rows.flatMap { it.continueWatching }
+    else -> null
+}

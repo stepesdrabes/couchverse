@@ -15,6 +15,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import io.stepes.couchverse.core.AppView
 import io.stepes.couchverse.core.AuthMode
 import io.stepes.couchverse.core.CoreConfig
 import io.stepes.couchverse.core.CouchView
@@ -41,7 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -111,12 +112,13 @@ class CouchverseApp : Application(), SingletonImageLoader.Factory, PlaybackHost,
 
     /** Continue Watching outside the app: Watch Next on a TV, the home screen widget on a phone. */
     private fun continueWatching() {
+        val app = runtime.view<AppView>(Surface.App)
         val home = runtime.view<HomeView>(Surface.Home)
         val session = runtime.view<SessionView>(Surface.Session)
         val watchNext = if (tv) WatchNext(this) else null
         scope.launch {
-            home.map(::continueWatching)
-                .combine(session) { cards, s -> cards to (s?.language ?: "en") }
+            combine(app, home, session) { a, h, s -> continueWatching(a, h)?.let { it to (s?.language ?: "en") } }
+                .filterNotNull()
                 .distinctUntilChanged()
                 .collect { (cards, language) ->
                     withContext(Dispatchers.IO) {
