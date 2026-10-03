@@ -139,8 +139,29 @@ make run-backend             # Go API on :8080 (bootstraps admin/admin)
 make run-web                 # Vite dev server on :5173, proxies /api
 make sample-media            # generates test clips covering every pipeline tier
 make lint check test         # golangci-lint/vet · svelte-check/eslint/prettier · go test
+make e2e                     # Playwright smoke suite against the built binary
 make build                   # SPA → embed → single binary at backend/bin/couchverse
 ```
+
+### End-to-end smoke suite
+
+`make e2e` builds the app, then `scripts/e2e-server.sh` serves the binary on a throwaway database
+it creates on the dev Postgres (the API conformance seed plus `clients/web/e2e/setup.sql`, a
+generated one-minute clip and placeholder artwork), and Playwright drives the web client in
+Chromium, then WebKit (CI runs Chromium only): sign-in, browsing, My List, playback, a couch
+session with an anonymous guest, the admin pages, the language switch and TV mode. The database
+and data directory are dropped when the run ends. It needs the compose `db` up and ffmpeg; `psql`
+is optional (the script falls back to the one in the `couchverse-db-1` container,
+`E2E_PG_CONTAINER` to override).
+
+```sh
+cd clients/web
+E2E_SKIP_BUILD=1 npx playwright test e2e/couch.spec.ts --project=chromium   # reuse the last build
+npx playwright test --ui                                                     # watch it run
+npx playwright show-report                                                   # traces of failures
+```
+
+Set `E2E_SERVER_LOG=/tmp/e2e-server.log` to keep the server log; CI uploads it with the report.
 
 Architecture notes live in `CLAUDE.md`. The web client (`clients/web`) is a static SPA embedded into
 the Go binary; in production only two containers run: the app and Postgres.

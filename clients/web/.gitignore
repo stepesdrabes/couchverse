@@ -8,6 +8,11 @@ node_modules
 /.svelte-kit
 /build
 
+# Playwright
+/test-results
+/playwright-report
+/e2e/.auth
+
 # Paraglide (generated from messages/)
 /src/lib/paraglide
 

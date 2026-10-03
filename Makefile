@@ -1,4 +1,4 @@
-.PHONY: run-backend run-web build lint check format test contract sample-media clean \
+.PHONY: run-backend run-web build lint check format test e2e contract sample-media clean \
 	core-test core-apple core-android core-wasm apple-test android-test \
 	hls-check hls-apple ingest-samples hls-server-check e2e-playback
 
@@ -40,12 +40,18 @@ check: $(WEB_CORE)
 	cd clients/web && npm test
 
 format:
-	cd clients/web && npx prettier --write src
+	cd clients/web && npm run format
 	cd backend && gofmt -w .
 
 # API conformance tests create throwaway databases on the dev Postgres
 test:
 	cd backend && TEST_DATABASE_URL=$(DEV_DB) go test ./...
+
+# Playwright smoke suite: builds the app, serves it on a throwaway seeded database on the dev
+# Postgres (scripts/e2e-server.sh) and drives the web client in Chromium, then WebKit
+e2e:
+	cd clients/web && npx playwright install chromium webkit
+	cd clients/web && E2E_DATABASE_URL=$(DEV_DB) npm run e2e
 
 # regenerate everything derived from contract/ (and the spec itself from the Go handlers)
 contract:
@@ -102,3 +108,4 @@ e2e-playback:
 
 clean:
 	rm -rf backend/bin clients/web/build clients/web/.svelte-kit
+	rm -rf clients/web/test-results clients/web/playwright-report

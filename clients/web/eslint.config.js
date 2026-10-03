@@ -34,6 +34,15 @@ export default ts.config(
 		}
 	},
 	{
-		ignores: ['build/', '.svelte-kit/', 'node_modules/', 'src/lib/paraglide/', 'src/lib/generated/', 'src/lib/core/pkg/']
+		ignores: [
+			'build/',
+			'.svelte-kit/',
+			'node_modules/',
+			'src/lib/paraglide/',
+			'src/lib/generated/',
+			'src/lib/core/pkg/',
+			'test-results/',
+			'playwright-report/'
+		]
 	}
 );

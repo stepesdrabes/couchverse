@@ -13,7 +13,13 @@ const config = {
 		// Static SPA build: the Go binary embeds `build/` and serves index.html
 		// as the fallback for every non-/api route, and the precompressed .br/.gz
 		// siblings to clients that accept them (the wasm core shrinks to a third).
-		adapter: adapter({ fallback: 'index.html', precompress: true })
+		adapter: adapter({ fallback: 'index.html', precompress: true }),
+		typescript: {
+			// svelte-check type-checks the Playwright suite along with the app
+			config: (tsconfig) => {
+				tsconfig.include.push('../e2e/**/*.ts', '../playwright.config.ts');
+			}
+		}
 	}
 };
 
