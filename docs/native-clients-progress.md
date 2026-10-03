@@ -56,8 +56,11 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
 
 - Done: core `catalog` (stale-while-revalidate, warm start, search, My List, image URLs), title
   logos (backend, TMDB, admin), logos in the core's views.
-- In progress: the web's catalog pages on the core (`worktree-agent-a63057a70b9134335`).
-- Pending: Apple browse and titles (after the Apple Phase 3 slice).
+- Done: the web's catalog pages on the core (home, listings, genres, title, My List, search;
+  notices as toasts; the catalog SWR cache and fetchers deleted), with the My List race, the
+  shared warm home on sign-out and episode lengths fixed in the core; navigation at parity
+  (revisits 40-100 ms, cold visits one round trip).
+- In progress: Apple browse and titles together with the Apple player (Phases 5 and 6).
 
 ## Phase 6: playback - in progress
 
@@ -67,7 +70,7 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
 - Done: the core's device profile (`CapabilitiesReported(DeviceProfile)`, the contract's
   fixtures round-trip unchanged), `resolvePlayback`/`resolveCouchPlayback` by POST, sources by
   tier (Original = the source file or the remuxed HLS, Auto and renditions = the ladder).
-- Pending: the web player on the core, the Apple player.
+- In progress: the web player and couch on the core, the Apple player.
 
 ## Phase 7: couch - in progress
 

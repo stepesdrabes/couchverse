@@ -164,10 +164,17 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     user, feature flags, display language and site accent; read them through `session`/
     `features` and never fetch `/auth/me`, `/features` or `/theme` yourself. After a web API
     call that changes what the session shows (profile, server settings), call
-    `session.refresh()` (`SessionChanged`). Loads that read the session `await parent()`. The
-    runtime (`runtime.svelte.ts`) must handle every `Effect` variant: its `never` check fails
-    the build when the core gains one.
-  - Shared catalog entities live in `features/catalog/types.ts`. The bare fetch wrapper
+    `session.refresh()` (`SessionChanged`). Loads that read the session `await parent()`; the
+    session store follows the core's user, so a session the core finds gone redirects to sign
+    in. Viewer catalog pages never fetch `/home`, `/titles`, `/search`, `/genres` or
+    `/me/watchlist`: they read the core's views, and My List changes go through
+    `WatchlistChanged`. A load must not own `ScreenOpened`/`ScreenClosed` (hover and TV-focus
+    preloads run loads for pages that never mount): a mounted page opens its screen with
+    `useScreen`. New notice codes need a message in `lib/core/Notices.svelte`. The runtime
+    (`runtime.svelte.ts`) stamps `wallMs` and must handle every `Effect` variant: its `never`
+    check fails the build when the core gains one.
+  - The viewer's catalog shapes are the core's generated view types; `features/catalog/types.ts`
+    keeps only the admin-shared `Genre` and `ContentStatus`. The bare fetch wrapper
     stays in `src/lib/api/client.ts`. Never hand-write URLs: use the generated functions or `xxxPath` builders.
   - Forms that edit existing data track dirtiness with `FormState`
     (`lib/utils/form-state.svelte.ts`); Save buttons are `disabled={!form.dirty}`
@@ -176,14 +183,18 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     in payloads as `posterAccent`/`backdropAccent` and via the public `/theme` endpoint).
     `lib/theme.ts` turns a hex accent into CSS vars: `applyAccent` sets
     `--color-accent[-strong|-soft]` globally, `accentVars(hex)` returns a scoped `style`
-    string; both include a contrast-aware `--color-on-accent` (use
+    string and `paletteVars(p)` does the same for a palette the core already derived (the
+    title page's `TitleDetailView.accent`); all include a contrast-aware `--color-on-accent` (use
     `text-[var(--color-on-accent)]` on `bg-accent`). Tooltips use `ui/Tooltip.svelte`.
   - **Optimistic navigation** (client-only SPA; must feel snappy on a Pi): data pages never
-    block the swap. `+page.ts` returns the cache key + an un-awaited `fresh` promise; the
-    feature's `XxxPage.svelte` is a thin `CachedView` wrapper (cached `content` -> else
-    `skeleton` -> else `notFound`) with the body moved to `XxxContent.svelte`. SWR cache is
-    `lib/api/cache.svelte.ts` (`createSwrCache`, cleared on logout via `resetAllCaches`);
-    instances in `features/<name>/cache.svelte.ts`. Skeletons reuse `ui/Skeleton.svelte`.
+    block the swap. Catalog pages are core-backed: `+page.ts` calls `features/catalog/api.ts`
+    `revisit`/`preload`/`preloadListing` and returns the screen; the page uses `useScreen` and
+    passes `shown(view)` and `status` to `CachedView` (content -> skeleton -> notFound ->
+    failed with Retry). Other data pages return the cache key + an un-awaited `fresh` promise
+    and the feature's `XxxPage.svelte` is a thin `CachedView` wrapper with the body moved to
+    `XxxContent.svelte`. The SWR cache (`lib/api/cache.svelte.ts`, `createSwrCache`, cleared on
+    logout via `resetAllCaches`; instances in `features/<name>/cache.svelte.ts`) now serves only
+    the ranks profile, the leaderboard and the devices list. Skeletons reuse `ui/Skeleton.svelte`.
     `StreamedView` is the uncached keep-last-value variant (admin editors: no skeleton flash
     on an `invalidateAll` save). `preloadData` only for side-effect-free routes - never
     `/watch/...` (starts a JIT transcode); watch links use `data-sveltekit-preload-data="tap"`.
@@ -306,7 +317,9 @@ Full design in `FEATURES.md`; the conventions to follow:
   owner_id, kind, lang)`. Viewer reads expose `logoId`/`logoVer`/`logoAspect` picked by
   `artwork.PickLogo` (display language, base language, language-neutral, any). Logos are PNG
   only and resize to PNG; TMDB apply replaces its own logos and keeps uploaded ones. Every
-  artwork save records the image's width and height (0 for WebP).
+  artwork save records the image's width and height (0 for WebP). Clients show them through
+  the core's `Logo` (the web on the hero and the title page, the name kept as screen-reader
+  text and as the fallback).
 - **Multi-language audio** (chosen in the player, independent of the display language): model B
   is a separate file per language (`media_files.audio_lang`/`audio_role`, tagged via
   `PATCH /admin/media-files/{id}`; the player swaps source + re-seeks); model A is one file
