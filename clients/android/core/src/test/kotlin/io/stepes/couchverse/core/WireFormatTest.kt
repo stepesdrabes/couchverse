@@ -91,8 +91,18 @@ class WireFormatTest {
             Event.NextEpisodeRequested to """{"type":"nextEpisodeRequested"}""",
             Event.NextEpisodeCancelled to """{"type":"nextEpisodeCancelled"}""",
             Event.ShuffleToggled to """{"type":"shuffleToggled"}""",
-            Event.CapabilitiesReported(Capabilities(listOf("hevc"))) to
-                """{"type":"capabilitiesReported","content":{"videoCodecs":["hevc"]}}""",
+            Event.CapabilitiesReported(
+                DeviceProfile(
+                    containers = listOf(Container.Mp4),
+                    video = listOf(VideoSupport(VideoCodec.Hevc, maxBitDepth = 10u)),
+                    audio = listOf(AudioSupport(AudioCodec.Eac3, maxChannels = 6u)),
+                    maxHeight = 2160u,
+                    hls = listOf(HlsFormat.Fmp4),
+                ),
+            ) to
+                """{"type":"capabilitiesReported","content":{"containers":["mp4"],""" +
+                """"video":[{"codec":"hevc","maxBitDepth":10}],"audio":[{"codec":"eac3","maxChannels":6}],""" +
+                """"maxHeight":2160,"hls":["fmp4"]}}""",
             Event.CouchStartRequested to """{"type":"couchStartRequested"}""",
             Event.CouchJoinRequested(CouchCode("123456")) to
                 """{"type":"couchJoinRequested","content":{"code":"123456"}}""",

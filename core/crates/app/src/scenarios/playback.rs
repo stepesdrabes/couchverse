@@ -381,11 +381,86 @@ fn unplayable_titles_and_rejected_sessions() {
 }
 
 #[test]
-fn reported_capabilities_shape_the_request() {
+fn a_remux_plays_the_copied_source_and_keeps_the_ladder_for_auto() {
     let mut shell = signed_in();
-    shell.send(Event::CapabilitiesReported(crate::modules::playback::Capabilities {
-        video_codecs: vec!["hevc".into()],
-    }));
+    let mut payload = info("hls");
+    payload["tier"] = json!("remux");
+    payload["streamUrl"] = json!(format!("{API}/media/{GRANT}/hls/source/master.m3u8"));
+    payload["originalUrl"] = payload["streamUrl"].clone();
+    play(&mut shell, movie(), payload);
+
+    let load = last_load(&shell);
+    assert_eq!(load.url, format!("{API}/media/{GRANT}/hls/source/master.m3u8"));
+    assert_eq!(load.source, PlayerSource::Hls);
+    let view: PlayerView = shell.view(&Surface::Player);
+    assert_eq!(view.qualities[0].kind, QualityKind::Original);
+    assert_eq!(view.quality, "original");
+
+    shell.send(Event::QualityChosen(QualityChoice { key: "auto".into() }));
+    let load = last_load(&shell);
+    assert_eq!(load.url, format!("{API}/media/{GRANT}/hls/master.m3u8"));
+    assert_eq!(load.max_height, None);
+}
+
+#[test]
+fn a_transcode_starts_on_auto_without_an_original() {
+    let mut shell = signed_in();
+    let mut payload = info("hls");
+    payload["tier"] = json!("transcode");
+    payload["streamUrl"] = payload["hlsUrl"].clone();
+    play(&mut shell, movie(), payload);
+
+    let load = last_load(&shell);
+    assert_eq!(load.url, format!("{API}/media/{GRANT}/hls/master.m3u8"));
+    assert_eq!(load.source, PlayerSource::Hls);
+    let view: PlayerView = shell.view(&Surface::Player);
+    assert_eq!(view.quality, "auto");
+    assert!(view.qualities.iter().all(|q| q.kind != QualityKind::Original));
+}
+
+/// The shells' profiles mirror the server's exactly: every contract fixture survives the trip
+/// through the core's types into the request body unchanged.
+#[test]
+fn a_reported_device_profile_decides_how_to_play() {
+    for fixture in [
+        include_str!("../../../../../contract/fixtures/device-profiles/apple-tv-4k.json"),
+        include_str!("../../../../../contract/fixtures/device-profiles/chrome-desktop.json"),
+        include_str!("../../../../../contract/fixtures/device-profiles/android-tv.json"),
+    ] {
+        let mut shell = signed_in();
+        let profile: crate::modules::playback::DeviceProfile =
+            serde_json::from_str(fixture).expect("the core reads the fixture");
+        shell.send(Event::CapabilitiesReported(profile));
+        shell.send(Event::PlayRequested(movie()));
+        let (_, request) = shell.request("POST", &format!("{API}/playback/movie/m1?lang=en"));
+        let sent = body(&request);
+        let expected: Value = serde_json::from_str(fixture).expect("JSON");
+        assert_eq!(canonical(&sent), canonical(&expected));
+    }
+}
+
+#[test]
+fn without_a_profile_the_browser_baseline_decides() {
+    let mut shell = signed_in();
     shell.send(Event::PlayRequested(movie()));
-    shell.request("GET", &format!("{API}/playback/movie/m1?lang=en&caps=hevc"));
+    shell.request("GET", &format!("{API}/playback/movie/m1?lang=en"));
+}
+
+/// Absent and empty or zero values mean the same to the server, so they compare equal.
+fn canonical(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .filter(|(_, v)| {
+                    !matches!(v, Value::Null | Value::Bool(false))
+                        && v.as_array().is_none_or(|a| !a.is_empty())
+                        && v.as_f64().is_none_or(|n| n != 0.0)
+                })
+                .map(|(k, v)| (k.clone(), canonical(v)))
+                .collect(),
+        ),
+        Value::Array(items) => Value::Array(items.iter().map(canonical).collect()),
+        Value::Number(n) => serde_json::json!(n.as_f64()),
+        other => other.clone(),
+    }
 }

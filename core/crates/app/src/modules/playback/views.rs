@@ -207,7 +207,8 @@ pub(super) fn backdrop(images: &Images, info: &PlaybackInfo) -> Option<Image> {
 
 fn qualities(info: &PlaybackInfo) -> Vec<QualityOption> {
     let mut options = Vec::new();
-    if info.mode == PlaybackInfoMode::Direct && info.stream_url.is_some() {
+    let direct = info.mode == PlaybackInfoMode::Direct && info.stream_url.is_some();
+    if info.original_url.is_some() || direct {
         options.push(QualityOption {
             key: Quality::Original.key(),
             kind: QualityKind::Original,

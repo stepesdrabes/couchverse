@@ -157,7 +157,7 @@ pub enum Event {
     NextEpisodeCancelled,
     ShuffleToggled,
     /// What this device can play, measured by the shell once per launch.
-    CapabilitiesReported(playback::Capabilities),
+    CapabilitiesReported(playback::DeviceProfile),
     /// Host a couch session around what is playing.
     CouchStartRequested,
     /// Join a couch session by its code (a typed code, a scanned QR or a link).

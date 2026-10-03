@@ -6,10 +6,10 @@
 
 mod views;
 
-use couchverse_api::ops::GetPlaybackQuery;
+use couchverse_api::ops::{GetPlaybackQuery, ResolvePlaybackQuery};
 use couchverse_api::types::{
-    GetPlaybackKind, PlaybackAudioTrackSource, PlaybackInfo, PlaybackInfoMode, ProgressReport,
-    StreamSession, StreamSessionStart,
+    GetPlaybackKind, PlaybackAudioTrackSource, PlaybackInfo, PlaybackInfoMode, PlaybackInfoTier,
+    ProgressReport, ResolvePlaybackKind, StreamSession, StreamSessionStart,
 };
 use couchverse_api::{Call, ops};
 use serde::{Deserialize, Serialize};
@@ -39,13 +39,158 @@ const KEEPALIVE_MS: U53 = 15_000;
 const PREPARING_POLL_MS: U53 = 3_000;
 const PREFS_KEY: &str = "player.prefs";
 
-/// What this device can play. Shells report it once per launch.
+/// What this device can play, measured by the shell once per launch (plan 7.6). It mirrors the
+/// server's device profile, which is authoritative: the server never offers what this leaves out.
 #[typeshare]
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Capabilities {
-    /// Video codecs decoded beyond the h264/vp9/av1 baseline, e.g. `hevc`.
-    pub video_codecs: Vec<String>,
+pub struct DeviceProfile {
+    /// Progressive containers played directly.
+    pub containers: Vec<Container>,
+    pub video: Vec<VideoSupport>,
+    /// Audio decoded, or passed through to a receiver.
+    pub audio: Vec<AudioSupport>,
+    /// HDR formats shown; SDR is always assumed.
+    #[serde(default)]
+    pub hdr: Vec<HdrFormat>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_frame_rate: Option<f64>,
+    /// Bits per second.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_bitrate: Option<U53>,
+    /// HLS segment formats played; empty for none.
+    pub hls: Vec<HlsFormat>,
+    /// Subtitles rendered beside a progressive file; empty when they need HLS renditions
+    /// (`AVPlayer`).
+    #[serde(default)]
+    pub sidecar_subtitles: Vec<SubtitleFormat>,
+    /// Audio tracks inside a progressive file can be switched.
+    #[serde(default)]
+    pub audio_track_switching: bool,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Container {
+    Mp4,
+    Mov,
+    Mkv,
+    Webm,
+    Ts,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoSupport {
+    pub codec: VideoCodec,
+    /// Empty for every profile within `max_bit_depth`.
+    #[serde(default)]
+    pub profiles: Vec<VideoProfile>,
+    /// The highest level as written on the box (5.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_level: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_bit_depth: Option<u8>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VideoCodec {
+    H264,
+    Hevc,
+    Av1,
+    Vp9,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VideoProfile {
+    Baseline,
+    Main,
+    High,
+    High10,
+    High422,
+    High444,
+    Main10,
+    Rext,
+    Professional,
+    Profile0,
+    Profile1,
+    Profile2,
+    Profile3,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioSupport {
+    pub codec: AudioCodec,
+    /// Two when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_channels: Option<u8>,
+    /// Dolby Atmos reaches the output as Atmos.
+    #[serde(default)]
+    pub atmos: bool,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AudioCodec {
+    Aac,
+    Mp3,
+    Ac3,
+    Eac3,
+    Truehd,
+    Dts,
+    Flac,
+    Opus,
+    Vorbis,
+    Alac,
+    Pcm,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HdrFormat {
+    Hdr10,
+    Hdr10plus,
+    Hlg,
+    DolbyVision5,
+    DolbyVision7,
+    DolbyVision8,
+    DolbyVision10,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HlsFormat {
+    Ts,
+    Fmp4,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SubtitleFormat {
+    Webvtt,
+}
+
+impl DeviceProfile {
+    /// The API's profile: the same JSON, so serde maps one onto the other.
+    pub fn to_api(&self) -> Option<couchverse_api::types::DeviceProfile> {
+        serde_json::to_value(self).ok().and_then(|v| serde_json::from_value(v).ok())
+    }
 }
 
 /// A quality from `PlayerView.qualities`, by its key.
@@ -217,7 +362,8 @@ pub struct Playback {
     /// The last report was a play, a pause or a seek: a couch host tells its followers at once.
     moved: bool,
     prefs: Prefs,
-    caps: Capabilities,
+    /// The API form of the device's profile, once the shell reported it.
+    profile: Option<couchverse_api::types::DeviceProfile>,
     session: Option<Session>,
     /// Draws for shuffle; any sequence will do, the core only needs no clock or OS randomness.
     seed: u64,
@@ -228,8 +374,13 @@ impl Playback {
         ctx.store_read(PREFS_KEY, self.pending(Request::Prefs));
     }
 
-    pub fn set_capabilities(&mut self, caps: Capabilities) {
-        self.caps = caps;
+    pub fn set_profile(&mut self, profile: &DeviceProfile) {
+        self.profile = profile.to_api();
+    }
+
+    /// The device's profile for the server, when the shell reported one.
+    pub fn profile(&self) -> Option<&couchverse_api::types::DeviceProfile> {
+        self.profile.as_ref()
     }
 
     /// Opens a title, ending whatever was playing.
@@ -244,13 +395,28 @@ impl Playback {
 
     fn fetch(&mut self, ctx: &mut Ctx, env: &Env) {
         let Some(session) = &self.session else { return };
-        let kind = match session.target.kind {
-            PlayKind::Movie => GetPlaybackKind::Movie,
-            PlayKind::Episode => GetPlaybackKind::Episode,
+        let lang = Some(env.language.to_string());
+        let id = &session.target.id;
+        // the profile decides how to play; without one, the browser baseline does
+        let call = match (&self.profile, session.target.kind) {
+            (Some(profile), kind) => {
+                let kind = match kind {
+                    PlayKind::Movie => ResolvePlaybackKind::Movie,
+                    PlayKind::Episode => ResolvePlaybackKind::Episode,
+                };
+                ops::resolve_playback(kind, id, &ResolvePlaybackQuery { lang }, profile)
+            }
+            (None, PlayKind::Movie) => ops::get_playback(
+                GetPlaybackKind::Movie,
+                id,
+                &GetPlaybackQuery { lang, caps: None },
+            ),
+            (None, PlayKind::Episode) => ops::get_playback(
+                GetPlaybackKind::Episode,
+                id,
+                &GetPlaybackQuery { lang, caps: None },
+            ),
         };
-        let caps = Some(self.caps.video_codecs.clone()).filter(|c| !c.is_empty());
-        let query = GetPlaybackQuery { lang: Some(env.language.to_string()), caps };
-        let call = ops::get_playback(kind, &session.target.id, &query);
         let request = env.endpoint.request(&call.request);
         ctx.http(request, self.pending(Request::Info(call)));
     }
@@ -562,10 +728,7 @@ impl Playback {
             PlaybackInfoMode::Jit => {
                 let call = ops::create_stream_session(
                     &info.grant,
-                    &StreamSessionStart {
-                        start_at: Some(resume),
-                        plan: info.jit.clone(),
-                    },
+                    &StreamSessionStart { start_at: Some(resume), plan: info.jit.clone() },
                 );
                 session.position = resume;
                 session.info = Some(info);
@@ -581,11 +744,7 @@ impl Playback {
                 }
             }
             PlaybackInfoMode::Direct | PlaybackInfoMode::Hls => {
-                session.quality = if info.mode == PlaybackInfoMode::Direct {
-                    Quality::Original
-                } else {
-                    Quality::Auto
-                };
+                session.quality = starting_quality(&info);
                 if !refresh {
                     session.audio = default_audio(&info, self.prefs.audio_lang.as_deref());
                     session.subtitle = self.prefs.subtitle_lang.as_ref().and_then(|lang| {
@@ -650,21 +809,16 @@ impl Playback {
             (_, Some(track)) if track.hls_url.is_some() => {
                 (track.hls_url.clone(), PlayerSource::Hls, None)
             }
-            (Quality::Original, _) if info.mode == PlaybackInfoMode::Direct => {
-                (info.stream_url.clone(), PlayerSource::File, None)
+            (Quality::Original, _) => {
+                let (url, source) = original(info);
+                (url, source, None)
             }
             (Quality::Rendition(name), _) => {
                 let height =
                     info.variants.iter().flatten().find(|v| &v.name == name).map(|v| v.height);
-                let url = info.hls_url.clone().or_else(|| info.stream_url.clone());
-                (url, PlayerSource::Hls, height.and_then(|h| u32::try_from(h).ok()))
+                (ladder(info), PlayerSource::Hls, height.and_then(|h| u32::try_from(h).ok()))
             }
-            _ if info.mode == PlaybackInfoMode::Hls => {
-                (info.stream_url.clone(), PlayerSource::Hls, None)
-            }
-            _ => {
-                (info.hls_url.clone().or_else(|| info.stream_url.clone()), PlayerSource::Hls, None)
-            }
+            (Quality::Auto, _) => (ladder(info), PlayerSource::Hls, None),
         };
         let Some(url) = url else { return };
         if let Some(load) = self.player_load(url, source, max_height, start, autoplay) {
@@ -805,6 +959,33 @@ impl Playback {
 
     pub fn target(&self) -> Option<&PlayTarget> {
         self.session.as_ref().map(|s| &s.target)
+    }
+}
+
+/// The source as it is: the file for the direct tier, the copied source video in HLS for the
+/// remux tier; outside the adaptive ladder either way.
+fn original(info: &PlaybackInfo) -> (Option<String>, PlayerSource) {
+    let direct = match info.tier {
+        Some(PlaybackInfoTier::Direct) => true,
+        Some(_) => false,
+        None => info.mode == PlaybackInfoMode::Direct,
+    };
+    let url = info.original_url.clone().or_else(|| info.stream_url.clone());
+    (url, if direct { PlayerSource::File } else { PlayerSource::Hls })
+}
+
+/// The transcoded ladder, or the stream itself when the payload plays HLS without one.
+fn ladder(info: &PlaybackInfo) -> Option<String> {
+    let stream = info.stream_url.clone().filter(|_| info.mode != PlaybackInfoMode::Direct);
+    info.hls_url.clone().or(stream)
+}
+
+/// The cheapest tier the server chose plays first: the source when it can, else the ladder.
+fn starting_quality(info: &PlaybackInfo) -> Quality {
+    match (info.tier, info.mode) {
+        (Some(PlaybackInfoTier::Direct | PlaybackInfoTier::Remux), _)
+        | (None, PlaybackInfoMode::Direct) => Quality::Original,
+        _ => Quality::Auto,
     }
 }
 

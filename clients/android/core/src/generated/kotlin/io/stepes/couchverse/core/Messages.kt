@@ -126,6 +126,41 @@ data class AudioRendition (
 )
 
 @Serializable
+enum class AudioCodec(val string: String) {
+	@SerialName("aac")
+	Aac("aac"),
+	@SerialName("mp3")
+	Mp3("mp3"),
+	@SerialName("ac3")
+	Ac3("ac3"),
+	@SerialName("eac3")
+	Eac3("eac3"),
+	@SerialName("truehd")
+	Truehd("truehd"),
+	@SerialName("dts")
+	Dts("dts"),
+	@SerialName("flac")
+	Flac("flac"),
+	@SerialName("opus")
+	Opus("opus"),
+	@SerialName("vorbis")
+	Vorbis("vorbis"),
+	@SerialName("alac")
+	Alac("alac"),
+	@SerialName("pcm")
+	Pcm("pcm"),
+}
+
+@Serializable
+data class AudioSupport (
+	val codec: AudioCodec,
+	/// Two when absent.
+	val maxChannels: UByte? = null,
+	/// Dolby Atmos reaches the output as Atmos.
+	val atmos: Boolean? = null
+)
+
+@Serializable
 enum class TitleKind(val string: String) {
 	@SerialName("movie")
 	Movie("movie"),
@@ -180,13 +215,6 @@ data class BrowseView (
 	val more: Boolean,
 	val loadingMore: Boolean,
 	val problem: Problem? = null
-)
-
-/// What this device can play. Shells report it once per launch.
-@Serializable
-data class Capabilities (
-	/// Video codecs decoded beyond the h264/vp9/av1 baseline, e.g. `hevc`.
-	val videoCodecs: List<String>
 )
 
 @Serializable
@@ -370,6 +398,129 @@ data class DeviceCard (
 	/// RFC 3339.
 	val lastSeenAt: String,
 	val current: Boolean
+)
+
+@Serializable
+enum class Container(val string: String) {
+	@SerialName("mp4")
+	Mp4("mp4"),
+	@SerialName("mov")
+	Mov("mov"),
+	@SerialName("mkv")
+	Mkv("mkv"),
+	@SerialName("webm")
+	Webm("webm"),
+	@SerialName("ts")
+	Ts("ts"),
+}
+
+@Serializable
+enum class VideoCodec(val string: String) {
+	@SerialName("h264")
+	H264("h264"),
+	@SerialName("hevc")
+	Hevc("hevc"),
+	@SerialName("av1")
+	Av1("av1"),
+	@SerialName("vp9")
+	Vp9("vp9"),
+}
+
+@Serializable
+enum class VideoProfile(val string: String) {
+	@SerialName("baseline")
+	Baseline("baseline"),
+	@SerialName("main")
+	Main("main"),
+	@SerialName("high")
+	High("high"),
+	@SerialName("high10")
+	High10("high10"),
+	@SerialName("high422")
+	High422("high422"),
+	@SerialName("high444")
+	High444("high444"),
+	@SerialName("main10")
+	Main10("main10"),
+	@SerialName("rext")
+	Rext("rext"),
+	@SerialName("professional")
+	Professional("professional"),
+	@SerialName("profile0")
+	Profile0("profile0"),
+	@SerialName("profile1")
+	Profile1("profile1"),
+	@SerialName("profile2")
+	Profile2("profile2"),
+	@SerialName("profile3")
+	Profile3("profile3"),
+}
+
+@Serializable
+data class VideoSupport (
+	val codec: VideoCodec,
+	/// Empty for every profile within `max_bit_depth`.
+	val profiles: List<VideoProfile>? = null,
+	/// The highest level as written on the box (5.1).
+	val maxLevel: Double? = null,
+	val maxBitDepth: UByte? = null
+)
+
+@Serializable
+enum class HdrFormat(val string: String) {
+	@SerialName("hdr10")
+	Hdr10("hdr10"),
+	@SerialName("hdr10plus")
+	Hdr10plus("hdr10plus"),
+	@SerialName("hlg")
+	Hlg("hlg"),
+	@SerialName("dolbyVision5")
+	DolbyVision5("dolbyVision5"),
+	@SerialName("dolbyVision7")
+	DolbyVision7("dolbyVision7"),
+	@SerialName("dolbyVision8")
+	DolbyVision8("dolbyVision8"),
+	@SerialName("dolbyVision10")
+	DolbyVision10("dolbyVision10"),
+}
+
+@Serializable
+enum class HlsFormat(val string: String) {
+	@SerialName("ts")
+	Ts("ts"),
+	@SerialName("fmp4")
+	Fmp4("fmp4"),
+}
+
+@Serializable
+enum class SubtitleFormat(val string: String) {
+	@SerialName("webvtt")
+	Webvtt("webvtt"),
+}
+
+/// What this device can play, measured by the shell once per launch (plan 7.6). It mirrors the
+/// server's device profile, which is authoritative: the server never offers what this leaves out.
+@Serializable
+data class DeviceProfile (
+	/// Progressive containers played directly.
+	val containers: List<Container>,
+	val video: List<VideoSupport>,
+	/// Audio decoded, or passed through to a receiver.
+	val audio: List<AudioSupport>,
+	/// HDR formats shown; SDR is always assumed.
+	val hdr: List<HdrFormat>? = null,
+	val maxWidth: UInt? = null,
+	val maxHeight: UInt? = null,
+	val maxFrameRate: Double? = null,
+	/// Bits per second.
+	val maxBitrate: ULong? = null,
+	/// HLS segment formats played; empty for none.
+	val hls: List<HlsFormat>,
+	/// Subtitles rendered beside a progressive file; empty when they need HLS renditions
+	/// (`AVPlayer`).
+	val sidecarSubtitles: List<SubtitleFormat>? = null,
+	/// Audio tracks inside a progressive file can be switched.
+	val audioTrackSwitching: Boolean? = null
 )
 
 @Serializable
@@ -917,7 +1068,7 @@ sealed class Event {
 	/// What this device can play, measured by the shell once per launch.
 	@Serializable
 	@SerialName("capabilitiesReported")
-	data class CapabilitiesReported(val content: Capabilities): Event()
+	data class CapabilitiesReported(val content: DeviceProfile): Event()
 	/// Host a couch session around what is playing.
 	@Serializable
 	@SerialName("couchStartRequested")

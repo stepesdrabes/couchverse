@@ -102,6 +102,28 @@ export interface AudioRendition {
 	lang: string;
 }
 
+export enum AudioCodec {
+	Aac = "aac",
+	Mp3 = "mp3",
+	Ac3 = "ac3",
+	Eac3 = "eac3",
+	Truehd = "truehd",
+	Dts = "dts",
+	Flac = "flac",
+	Opus = "opus",
+	Vorbis = "vorbis",
+	Alac = "alac",
+	Pcm = "pcm",
+}
+
+export interface AudioSupport {
+	codec: AudioCodec;
+	/** Two when absent. */
+	maxChannels?: number;
+	/** Dolby Atmos reaches the output as Atmos. */
+	atmos?: boolean;
+}
+
 export enum TitleKind {
 	Movie = "movie",
 	Series = "series",
@@ -146,12 +168,6 @@ export interface BrowseView {
 	more: boolean;
 	loadingMore: boolean;
 	problem?: Problem;
-}
-
-/** What this device can play. Shells report it once per launch. */
-export interface Capabilities {
-	/** Video codecs decoded beyond the h264/vp9/av1 baseline, e.g. `hevc`. */
-	videoCodecs: string[];
 }
 
 export interface CheckRequest {
@@ -305,6 +321,93 @@ export interface DeviceCard {
 	/** RFC 3339. */
 	lastSeenAt: string;
 	current: boolean;
+}
+
+export enum Container {
+	Mp4 = "mp4",
+	Mov = "mov",
+	Mkv = "mkv",
+	Webm = "webm",
+	Ts = "ts",
+}
+
+export enum VideoCodec {
+	H264 = "h264",
+	Hevc = "hevc",
+	Av1 = "av1",
+	Vp9 = "vp9",
+}
+
+export enum VideoProfile {
+	Baseline = "baseline",
+	Main = "main",
+	High = "high",
+	High10 = "high10",
+	High422 = "high422",
+	High444 = "high444",
+	Main10 = "main10",
+	Rext = "rext",
+	Professional = "professional",
+	Profile0 = "profile0",
+	Profile1 = "profile1",
+	Profile2 = "profile2",
+	Profile3 = "profile3",
+}
+
+export interface VideoSupport {
+	codec: VideoCodec;
+	/** Empty for every profile within `max_bit_depth`. */
+	profiles?: VideoProfile[];
+	/** The highest level as written on the box (5.1). */
+	maxLevel?: number;
+	maxBitDepth?: number;
+}
+
+export enum HdrFormat {
+	Hdr10 = "hdr10",
+	Hdr10plus = "hdr10plus",
+	Hlg = "hlg",
+	DolbyVision5 = "dolbyVision5",
+	DolbyVision7 = "dolbyVision7",
+	DolbyVision8 = "dolbyVision8",
+	DolbyVision10 = "dolbyVision10",
+}
+
+export enum HlsFormat {
+	Ts = "ts",
+	Fmp4 = "fmp4",
+}
+
+export enum SubtitleFormat {
+	Webvtt = "webvtt",
+}
+
+/**
+ * What this device can play, measured by the shell once per launch (plan 7.6). It mirrors the
+ * server's device profile, which is authoritative: the server never offers what this leaves out.
+ */
+export interface DeviceProfile {
+	/** Progressive containers played directly. */
+	containers: Container[];
+	video: VideoSupport[];
+	/** Audio decoded, or passed through to a receiver. */
+	audio: AudioSupport[];
+	/** HDR formats shown; SDR is always assumed. */
+	hdr?: HdrFormat[];
+	maxWidth?: number;
+	maxHeight?: number;
+	maxFrameRate?: number;
+	/** Bits per second. */
+	maxBitrate?: number;
+	/** HLS segment formats played; empty for none. */
+	hls: HlsFormat[];
+	/**
+	 * Subtitles rendered beside a progressive file; empty when they need HLS renditions
+	 * (`AVPlayer`).
+	 */
+	sidecarSubtitles?: SubtitleFormat[];
+	/** Audio tracks inside a progressive file can be switched. */
+	audioTrackSwitching?: boolean;
 }
 
 export interface DeviceRef {
@@ -676,7 +779,7 @@ export type Event =
 	| { type: "nextEpisodeCancelled", content?: undefined }
 	| { type: "shuffleToggled", content?: undefined }
 	/** What this device can play, measured by the shell once per launch. */
-	| { type: "capabilitiesReported", content: Capabilities }
+	| { type: "capabilitiesReported", content: DeviceProfile }
 	/** Host a couch session around what is playing. */
 	| { type: "couchStartRequested", content?: undefined }
 	/** Join a couch session by its code (a typed code, a scanned QR or a link). */

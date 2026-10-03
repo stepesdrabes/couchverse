@@ -153,12 +153,17 @@ fn playback_env(session: &Session, images: Images) -> Option<playback::Env<'_>> 
     })
 }
 
-fn couch_env<'a>(session: &'a Session, config: &'a CoreConfig) -> Option<couch::Env<'a>> {
+fn couch_env<'a>(
+    session: &'a Session,
+    config: &'a CoreConfig,
+    playback: &'a Playback,
+) -> Option<couch::Env<'a>> {
     session.endpoint().map(|endpoint| couch::Env {
         endpoint,
         language: session.language(),
         cookie: config.auth_mode == AuthMode::Cookie,
         origin: &config.origin,
+        profile: playback.profile(),
     })
 }
 
@@ -438,7 +443,7 @@ impl Model {
                 self.playback_changed(ctx, change);
             }
             Pending::Couch(p) => {
-                let env = couch_env(&self.session, &self.config);
+                let env = couch_env(&self.session, &self.config, &self.playback);
                 let change = self.couch.resolve(ctx, env.as_ref(), &self.playback, p, output);
                 self.couch_changed(ctx, change);
             }
@@ -484,8 +489,8 @@ impl Model {
         let switched = matches!(event, Event::PlayRequested(_) | Event::PlayerClosed);
         let images = self.images();
         let Some(env) = playback_env(&self.session, images) else {
-            if let Event::CapabilitiesReported(caps) = event {
-                self.playback.set_capabilities(caps);
+            if let Event::CapabilitiesReported(profile) = event {
+                self.playback.set_profile(&profile);
             }
             return;
         };
@@ -523,8 +528,8 @@ impl Model {
                 self.playback.toggle_shuffle(ctx);
                 PlaybackChange::None
             }
-            Event::CapabilitiesReported(caps) => {
-                self.playback.set_capabilities(caps);
+            Event::CapabilitiesReported(profile) => {
+                self.playback.set_profile(&profile);
                 PlaybackChange::None
             }
             _ => PlaybackChange::None,
@@ -538,7 +543,7 @@ impl Model {
 
     /// Couch sessions: hosting, joining, leaving, reactions and remote control.
     fn couch_event(&mut self, ctx: &mut Ctx, event: Event) {
-        let Some(env) = couch_env(&self.session, &self.config) else { return };
+        let Some(env) = couch_env(&self.session, &self.config, &self.playback) else { return };
         let change = match event {
             Event::CouchStartRequested => {
                 match self.playback.target().cloned() {

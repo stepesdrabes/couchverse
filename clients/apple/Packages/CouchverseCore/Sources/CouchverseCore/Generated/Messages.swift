@@ -160,6 +160,34 @@ public struct AudioRendition: Codable, Sendable, Hashable {
 	}
 }
 
+public enum AudioCodec: String, Codable, Sendable, Hashable {
+	case aac
+	case mp3
+	case ac3
+	case eac3
+	case truehd
+	case dts
+	case flac
+	case opus
+	case vorbis
+	case alac
+	case pcm
+}
+
+public struct AudioSupport: Codable, Sendable, Hashable {
+	public let codec: AudioCodec
+	/// Two when absent.
+	public let maxChannels: UInt8?
+	/// Dolby Atmos reaches the output as Atmos.
+	public let atmos: Bool?
+
+	public init(codec: AudioCodec, maxChannels: UInt8?, atmos: Bool?) {
+		self.codec = codec
+		self.maxChannels = maxChannels
+		self.atmos = atmos
+	}
+}
+
 public enum TitleKind: String, Codable, Sendable, Hashable {
 	case movie
 	case series
@@ -234,16 +262,6 @@ public struct BrowseView: Codable, Sendable, Hashable {
 		self.more = more
 		self.loadingMore = loadingMore
 		self.problem = problem
-	}
-}
-
-/// What this device can play. Shells report it once per launch.
-public struct Capabilities: Codable, Sendable, Hashable {
-	/// Video codecs decoded beyond the h264/vp9/av1 baseline, e.g. `hevc`.
-	public let videoCodecs: [String]
-
-	public init(videoCodecs: [String]) {
-		self.videoCodecs = videoCodecs
 	}
 }
 
@@ -481,6 +499,110 @@ public struct DeviceCard: Codable, Sendable, Hashable {
 		self.platform = platform
 		self.lastSeenAt = lastSeenAt
 		self.current = current
+	}
+}
+
+public enum Container: String, Codable, Sendable, Hashable {
+	case mp4
+	case mov
+	case mkv
+	case webm
+	case ts
+}
+
+public enum VideoCodec: String, Codable, Sendable, Hashable {
+	case h264
+	case hevc
+	case av1
+	case vp9
+}
+
+public enum VideoProfile: String, Codable, Sendable, Hashable {
+	case baseline
+	case main
+	case high
+	case high10
+	case high422
+	case high444
+	case main10
+	case rext
+	case professional
+	case profile0
+	case profile1
+	case profile2
+	case profile3
+}
+
+public struct VideoSupport: Codable, Sendable, Hashable {
+	public let codec: VideoCodec
+	/// Empty for every profile within `max_bit_depth`.
+	public let profiles: [VideoProfile]?
+	/// The highest level as written on the box (5.1).
+	public let maxLevel: Double?
+	public let maxBitDepth: UInt8?
+
+	public init(codec: VideoCodec, profiles: [VideoProfile]?, maxLevel: Double?, maxBitDepth: UInt8?) {
+		self.codec = codec
+		self.profiles = profiles
+		self.maxLevel = maxLevel
+		self.maxBitDepth = maxBitDepth
+	}
+}
+
+public enum HdrFormat: String, Codable, Sendable, Hashable {
+	case hdr10
+	case hdr10plus
+	case hlg
+	case dolbyVision5
+	case dolbyVision7
+	case dolbyVision8
+	case dolbyVision10
+}
+
+public enum HlsFormat: String, Codable, Sendable, Hashable {
+	case ts
+	case fmp4
+}
+
+public enum SubtitleFormat: String, Codable, Sendable, Hashable {
+	case webvtt
+}
+
+/// What this device can play, measured by the shell once per launch (plan 7.6). It mirrors the
+/// server's device profile, which is authoritative: the server never offers what this leaves out.
+public struct DeviceProfile: Codable, Sendable, Hashable {
+	/// Progressive containers played directly.
+	public let containers: [Container]
+	public let video: [VideoSupport]
+	/// Audio decoded, or passed through to a receiver.
+	public let audio: [AudioSupport]
+	/// HDR formats shown; SDR is always assumed.
+	public let hdr: [HdrFormat]?
+	public let maxWidth: UInt32?
+	public let maxHeight: UInt32?
+	public let maxFrameRate: Double?
+	/// Bits per second.
+	public let maxBitrate: UInt64?
+	/// HLS segment formats played; empty for none.
+	public let hls: [HlsFormat]
+	/// Subtitles rendered beside a progressive file; empty when they need HLS renditions
+	/// (`AVPlayer`).
+	public let sidecarSubtitles: [SubtitleFormat]?
+	/// Audio tracks inside a progressive file can be switched.
+	public let audioTrackSwitching: Bool?
+
+	public init(containers: [Container], video: [VideoSupport], audio: [AudioSupport], hdr: [HdrFormat]?, maxWidth: UInt32?, maxHeight: UInt32?, maxFrameRate: Double?, maxBitrate: UInt64?, hls: [HlsFormat], sidecarSubtitles: [SubtitleFormat]?, audioTrackSwitching: Bool?) {
+		self.containers = containers
+		self.video = video
+		self.audio = audio
+		self.hdr = hdr
+		self.maxWidth = maxWidth
+		self.maxHeight = maxHeight
+		self.maxFrameRate = maxFrameRate
+		self.maxBitrate = maxBitrate
+		self.hls = hls
+		self.sidecarSubtitles = sidecarSubtitles
+		self.audioTrackSwitching = audioTrackSwitching
 	}
 }
 
@@ -1302,7 +1424,7 @@ public enum Event: Codable, Sendable, Hashable {
 	case nextEpisodeCancelled
 	case shuffleToggled
 	/// What this device can play, measured by the shell once per launch.
-	case capabilitiesReported(Capabilities)
+	case capabilitiesReported(DeviceProfile)
 	/// Host a couch session around what is playing.
 	case couchStartRequested
 	/// Join a couch session by its code (a typed code, a scanned QR or a link).
@@ -1564,7 +1686,7 @@ public enum Event: Codable, Sendable, Hashable {
 				self = .shuffleToggled
 				return
 			case .capabilitiesReported:
-				if let content = try? container.decode(Capabilities.self, forKey: .content) {
+				if let content = try? container.decode(DeviceProfile.self, forKey: .content) {
 					self = .capabilitiesReported(content)
 					return
 				}

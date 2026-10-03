@@ -9,7 +9,9 @@ use couchverse_api::couch::{
     ClientFrame, CouchEmojiCommand, CouchHostStateCommand, CouchPausedCommand, CouchRemoteCommand,
     CouchRemoteCommandAction, ServerFrame,
 };
-use couchverse_api::ops::{CreateCouchQuery, GetCouchPlaybackQuery, JoinCouchQuery};
+use couchverse_api::ops::{
+    CreateCouchQuery, GetCouchPlaybackQuery, JoinCouchQuery, ResolveCouchPlaybackQuery,
+};
 use couchverse_api::types::{
     CouchHostState, CouchMediaRef, CouchMediaRefKind, CouchParticipant, CouchPlayback,
     CouchSession, CouchSessionRole, CouchStart, CouchStartKind, CreateCouchDelivery,
@@ -184,6 +186,8 @@ pub struct Env<'a> {
     /// The web: the couch cookie authenticates, and URLs are relative to `origin`.
     pub cookie: bool,
     pub origin: &'a str,
+    /// What this device can play, for a follower's payload.
+    pub profile: Option<&'a couchverse_api::types::DeviceProfile>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -545,8 +549,17 @@ impl Couch {
 
     fn fetch_player(&mut self, ctx: &mut Ctx, env: &Env) {
         let Some(live) = &self.live else { return };
-        let query = GetCouchPlaybackQuery { lang: Some(env.language.to_string()), caps: None };
-        let call = ops::get_couch_playback(&live.code, &query);
+        let lang = Some(env.language.to_string());
+        let call = match env.profile {
+            Some(profile) => ops::resolve_couch_playback(
+                &live.code,
+                &ResolveCouchPlaybackQuery { lang },
+                profile,
+            ),
+            None => {
+                ops::get_couch_playback(&live.code, &GetCouchPlaybackQuery { lang, caps: None })
+            }
+        };
         let request = Self::authorized(env, &call.request, live.token.as_deref());
         ctx.http(request, self.pending(Request::Player(call)));
     }
