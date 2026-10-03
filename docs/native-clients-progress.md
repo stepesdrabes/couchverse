@@ -87,6 +87,13 @@ and titles (`worktree-agent-ad92f5029f15e7764`).
 Accessibility and localization audit, Raspberry Pi performance, build-from-source guides,
 release automation, docs, an HTML overview with screenshots of every client.
 
+## Release automation (part of Phase 13) - done
+
+`release.yml` publishes the multi-arch server image (amd64, arm64) to GHCR on a `v*` tag and
+creates the GitHub release; `docker.yml` keeps the image building on main and pull requests. The
+Rust, Node and Go stages build on the build host (Go cross-compiles), so only the slim runtime
+stage runs per platform. Signed APKs join once the Android app exists.
+
 ## Done outside the plan
 
 - The web build is served precompressed (brotli/gzip), the wasm core 232 KB instead of 885 KB.

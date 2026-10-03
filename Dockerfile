@@ -1,7 +1,7 @@
 # ---- core (wasm) ----
 # The wasm is the same on every platform, so it is built once on the build host rather than
 # under emulation for each image platform.
-FROM --platform=$BUILDPLATFORM rust:1.97-slim-bookworm AS core
+FROM --platform=$BUILDPLATFORM rust:1.99-slim-bookworm AS core
 ARG BUILDARCH
 ARG BINARYEN_VERSION=133
 RUN apt-get update \
@@ -31,14 +31,18 @@ COPY --from=core /repo/clients/web/src/lib/core/pkg ./src/lib/core/pkg
 RUN npm run build
 
 # ---- backend ----
-FROM golang:1.25-bookworm AS backend
+# Go cross-compiles, so this too runs on the build host instead of under emulation.
+FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS backend
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /src
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
 COPY --from=web /repo/clients/web/build ./web/dist
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -ldflags="-s -w -X couchverse/internal/version.Version=${VERSION}" -o /couchverse ./cmd/couchverse
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
+    go build -ldflags="-s -w -X couchverse/internal/version.Version=${VERSION}" -o /couchverse ./cmd/couchverse
 
 # ---- runtime ----
 FROM debian:bookworm-slim
