@@ -126,7 +126,7 @@ fun QrScannerScreen(hint: String, onLink: (String) -> Unit, onBack: () -> Unit) 
         ) {
             if (!granted) {
                 Text(
-                    stringResource(R.string.scan_camera_needed),
+                    stringResource(R.string.scanner_camera_needed),
                     style = MaterialTheme.typography.bodyLarge,
                     color = Color.White,
                     textAlign = TextAlign.Center,
@@ -135,10 +135,10 @@ fun QrScannerScreen(hint: String, onLink: (String) -> Unit, onBack: () -> Unit) 
                     onClick = {
                         if (asked && !canAsk(context)) openAppSettings(context) else request.launch(Manifest.permission.CAMERA)
                     },
-                ) { Text(stringResource(R.string.scan_allow_camera)) }
+                ) { Text(stringResource(R.string.scanner_allow_camera)) }
             } else {
                 Text(
-                    foreign?.let { stringResource(R.string.scan_not_recognized) } ?: hint,
+                    foreign?.let { stringResource(R.string.scanner_not_couchverse) } ?: hint,
                     style = MaterialTheme.typography.bodyLarge,
                     color = if (foreign != null) Tokens.Palette.danger else Color.White,
                     textAlign = TextAlign.Center,

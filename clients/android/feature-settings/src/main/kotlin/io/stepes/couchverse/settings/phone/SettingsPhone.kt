@@ -74,7 +74,7 @@ internal fun SettingsPhone(state: SettingsState, actions: SettingsActions) {
             item(key = "current") { CurrentAccount(current, actions.onSwitchAccount) }
         }
 
-        section("accounts", R.string.app_settings_accounts)
+        section("accounts", R.string.accounts_title)
         items(state.accounts?.accounts.orEmpty(), key = { "account-${it.id}" }) { account ->
             SettingRow(
                 headline = account.displayName,
@@ -87,9 +87,9 @@ internal fun SettingsPhone(state: SettingsState, actions: SettingsActions) {
                 },
             )
         }
-        item(key = "add-account") { ActionRow(Icons.Filled.Add, stringResource(R.string.accounts_add), actions.onAddAccount) }
+        item(key = "add-account") { ActionRow(Icons.Filled.Add, stringResource(R.string.accounts_add_account), actions.onAddAccount) }
 
-        section("servers", R.string.app_settings_servers)
+        section("servers", R.string.servers_title)
         items(state.servers?.servers.orEmpty(), key = { "server-${it.id}" }) { server ->
             SettingRow(
                 headline = server.name,
@@ -112,7 +112,7 @@ internal fun SettingsPhone(state: SettingsState, actions: SettingsActions) {
                 },
             )
         }
-        item(key = "add-server") { ActionRow(Icons.Filled.Add, stringResource(R.string.servers_add), actions.onAddServer) }
+        item(key = "add-server") { ActionRow(Icons.Filled.Add, stringResource(R.string.servers_add_title), actions.onAddServer) }
 
         section("language", R.string.language_label)
         items(DisplayLanguages, key = { "lang-$it" }) { code ->
@@ -129,19 +129,20 @@ internal fun SettingsPhone(state: SettingsState, actions: SettingsActions) {
         item(key = "devices") { ActionRow(CouchverseIcons.Devices, stringResource(R.string.devices_heading), actions.onDevices, chevron = true) }
         item(key = "approve") { ActionRow(CouchverseIcons.ScanCode, stringResource(R.string.pair_heading), actions.onApprove, chevron = true) }
 
-        section("about", R.string.app_settings_about)
+        section("about", R.string.about_title)
         item(key = "version") {
             ListItem(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 leadingContent = { Icon(Icons.Filled.Info, contentDescription = null) },
-                headlineContent = { Text(stringResource(R.string.app_settings_app_version, state.version)) },
+                headlineContent = { Text(stringResource(R.string.about_app_version)) },
+                supportingContent = { Text(state.version) },
             )
         }
     }
     signingOut?.let { account ->
         ConfirmDialog(
-            title = stringResource(R.string.accounts_sign_out_title, account.displayName),
-            message = stringResource(R.string.accounts_sign_out_message),
+            title = stringResource(R.string.accounts_sign_out_confirm_title, account.displayName),
+            message = stringResource(R.string.accounts_sign_out_confirm_message),
             confirm = stringResource(R.string.devices_sign_out),
             onConfirm = { actions.onSignOut(account) },
             onDismiss = { signingOut = null },
@@ -149,8 +150,8 @@ internal fun SettingsPhone(state: SettingsState, actions: SettingsActions) {
     }
     removing?.let { server ->
         ConfirmDialog(
-            title = stringResource(R.string.servers_remove_title, server.name),
-            message = stringResource(R.string.servers_remove_message),
+            title = stringResource(R.string.servers_remove_confirm_title, server.name),
+            message = stringResource(R.string.servers_remove_confirm_message),
             confirm = stringResource(R.string.servers_remove),
             onConfirm = { actions.onRemoveServer(server) },
             onDismiss = { removing = null },

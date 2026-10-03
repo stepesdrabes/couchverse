@@ -144,7 +144,7 @@ private fun AddTilePhone(onAdd: () -> Unit) {
         Box(Modifier.size(104.dp).border(2.dp, Tokens.Palette.edge, CircleShape), contentAlignment = Alignment.Center) {
             Icon(Icons.Filled.Add, contentDescription = null, tint = Tokens.Palette.muted, modifier = Modifier.size(40.dp))
         }
-        Text(stringResource(R.string.accounts_add), style = MaterialTheme.typography.titleMedium, color = Tokens.Palette.muted)
+        Text(stringResource(R.string.accounts_add_account), style = MaterialTheme.typography.titleMedium, color = Tokens.Palette.muted)
     }
 }
 
@@ -227,7 +227,7 @@ fun AccountList(
                     Icon(Icons.Filled.Add, contentDescription = null)
                 }
             },
-            headlineContent = { Text(stringResource(R.string.accounts_add)) },
+            headlineContent = { Text(stringResource(R.string.accounts_add_account)) },
         )
     }
 }

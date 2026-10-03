@@ -78,7 +78,7 @@ class AccountsUiTest {
         compose.setContent { Fixture(Device.Tv) { SignInScreen(SignInState(Fixtures.server, Fixtures.pairing(PairingState.Waiting), 125), actions) } }
         compose.onNodeWithText("WDJB-MJHT").assertIsDisplayed()
         compose.onNodeWithText("Expires in 2:05").assertIsDisplayed()
-        compose.onNodeWithContentDescription("QR code for signing in this device").assertIsDisplayed()
+        compose.onNodeWithContentDescription("QR code for https://media.example.com/pair?code=WDJB-MJHT").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)

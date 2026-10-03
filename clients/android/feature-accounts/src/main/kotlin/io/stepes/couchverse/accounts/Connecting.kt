@@ -52,7 +52,7 @@ fun ConnectingScreen(view: SignInView?, onBack: () -> Unit) {
                 Button(onClick = onBack) { Text(stringResource(R.string.common_back)) }
             } else {
                 CircularProgressIndicator()
-                Text(stringResource(R.string.login_signing_in), style = MaterialTheme.typography.titleMedium, color = Tokens.Palette.text)
+                Text(stringResource(R.string.accounts_signing_in), style = MaterialTheme.typography.titleMedium, color = Tokens.Palette.text)
             }
         }
     }

@@ -130,7 +130,7 @@ private fun CodeEntry(actions: ApproveActions) {
             OutlinedButton(onClick = scan) {
                 Icon(CouchverseIcons.ScanCode, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.pair_scan_code))
+                Text(stringResource(R.string.pairing_scan_tv))
             }
         }
     }

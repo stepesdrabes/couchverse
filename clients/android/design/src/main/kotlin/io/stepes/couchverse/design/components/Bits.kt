@@ -68,7 +68,7 @@ fun Pill(text: String, modifier: Modifier = Modifier, color: Color = Tokens.Pale
 /** Marks a server reached over plain http (D14). */
 @Composable
 fun InsecureBadge(modifier: Modifier = Modifier) {
-    val label = stringResource(R.string.servers_insecure)
+    val label = stringResource(R.string.servers_not_encrypted)
     Row(
         modifier
             .clip(CircleShape)

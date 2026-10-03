@@ -69,7 +69,7 @@ internal fun SignInTv(state: SignInState, actions: SignInActions) {
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(R.string.login_server_title, state.server?.name.orEmpty()),
+                    stringResource(R.string.accounts_sign_in_title, state.server?.name.orEmpty()),
                     style = MaterialTheme.typography.headlineMedium,
                     color = Tokens.Palette.text,
                     modifier = Modifier.semantics { heading() },
@@ -84,7 +84,7 @@ internal fun SignInTv(state: SignInState, actions: SignInActions) {
                         .padding(28.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text(stringResource(R.string.pairing_title), style = MaterialTheme.typography.titleLarge, color = Tokens.Palette.text)
+                    Text(stringResource(R.string.accounts_sign_in_with_device), style = MaterialTheme.typography.titleLarge, color = Tokens.Palette.text)
                     PairingPanel(
                         pairing = pairing,
                         loading = busy && !withPassword,
@@ -93,7 +93,7 @@ internal fun SignInTv(state: SignInState, actions: SignInActions) {
                         qrSize = 176.dp,
                         codeStyle = MaterialTheme.typography.headlineLarge,
                         newCode = {
-                            TvActionButton(stringResource(R.string.pairing_new_code), onClick = actions.onStartPairing, primary = true)
+                            TvActionButton(stringResource(R.string.accounts_pairing_new_code), onClick = actions.onStartPairing, primary = true)
                         },
                     )
                 }
@@ -106,7 +106,7 @@ internal fun SignInTv(state: SignInState, actions: SignInActions) {
                             style = MaterialTheme.typography.bodyMedium,
                             color = Tokens.Palette.muted,
                         )
-                        TvActionButton(stringResource(R.string.login_with_password), onClick = { withPassword = true })
+                        TvActionButton(stringResource(R.string.accounts_use_password), onClick = { withPassword = true })
                     }
                     actions.onBack?.let { back -> TvActionButton(stringResource(R.string.common_back), onClick = back) }
                 }
@@ -171,7 +171,7 @@ private fun PasswordFormTv(state: SignInState, actions: SignInActions, busy: Boo
         )
     }
     TvActionButton(
-        stringResource(if (busy) R.string.login_signing_in else R.string.login_submit),
+        stringResource(if (busy) R.string.accounts_signing_in else R.string.login_submit),
         onClick = submit,
         primary = true,
         enabled = canSubmit,

@@ -85,18 +85,18 @@ internal fun WelcomePhone(onAddServer: () -> Unit, onScan: () -> Unit) {
                     modifier = Modifier.semantics { heading() },
                 )
                 Text(
-                    stringResource(R.string.onboarding_welcome_body),
+                    stringResource(R.string.onboarding_welcome_message),
                     style = MaterialTheme.typography.bodyLarge,
                     color = Tokens.Palette.muted,
                 )
                 Spacer(Modifier.heightIn(min = 48.dp))
                 Button(onClick = onAddServer, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-                    Text(stringResource(R.string.servers_add))
+                    Text(stringResource(R.string.servers_add_title))
                 }
                 OutlinedButton(onClick = onScan, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                     Icon(CouchverseIcons.ScanCode, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.scan_title))
+                    Text(stringResource(R.string.scanner_title))
                 }
             }
         }
@@ -112,21 +112,21 @@ internal fun AddServerPhone(view: ServersView?, onSubmit: (String) -> Unit, onBa
     val submit = { if (address.isNotBlank() && !loading) onSubmit(address.trim()) }
     OnboardingPage(onBack) {
         Text(
-            stringResource(R.string.onboarding_add_server_title),
+            stringResource(R.string.servers_add_title),
             style = MaterialTheme.typography.headlineMedium,
             color = Tokens.Palette.text,
             modifier = Modifier.semantics { heading() },
         )
         Text(
-            stringResource(R.string.onboarding_add_server_body),
+            stringResource(R.string.servers_address_hint),
             style = MaterialTheme.typography.bodyLarge,
             color = Tokens.Palette.muted,
         )
         OutlinedTextField(
             value = address,
             onValueChange = { address = it },
-            label = { Text(stringResource(R.string.onboarding_server_address)) },
-            placeholder = { Text(stringResource(R.string.onboarding_server_address_placeholder)) },
+            label = { Text(stringResource(R.string.servers_address_label)) },
+            placeholder = { Text(stringResource(R.string.servers_address_placeholder)) },
             singleLine = true,
             enabled = !loading,
             isError = failed,
@@ -153,13 +153,13 @@ internal fun AddServerPhone(view: ServersView?, onSubmit: (String) -> Unit, onBa
                 Spacer(Modifier.width(10.dp))
                 Text(stringResource(R.string.onboarding_connecting))
             } else {
-                Text(stringResource(R.string.onboarding_connect))
+                Text(stringResource(R.string.servers_connect))
             }
         }
         TextButton(onClick = onScan, modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Icon(CouchverseIcons.ScanCode, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.scan_title))
+            Text(stringResource(R.string.scanner_title))
         }
     }
 }

@@ -12,10 +12,9 @@ fun problemMessage(problem: Problem?): String = stringResource(problemText(probl
 
 @StringRes
 fun problemText(code: String?): Int = when (code) {
-    "offline" -> R.string.problem_offline
+    "offline", "network" -> R.string.problem_offline
     "timeout" -> R.string.problem_timeout
     "tls" -> R.string.problem_tls
-    "network" -> R.string.problem_network
     "invalid_address" -> R.string.problem_invalid_address
     "not_a_server" -> R.string.problem_not_a_server
     "server_outdated" -> R.string.problem_server_outdated

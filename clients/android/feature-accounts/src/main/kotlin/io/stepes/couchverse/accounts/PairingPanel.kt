@@ -48,7 +48,7 @@ internal fun PairingPanel(
         Box(Modifier.size(qrSize), contentAlignment = Alignment.Center) {
             when {
                 pairing != null && pairing.state == PairingState.Waiting ->
-                    QrCode(pairing.verifyUrl, stringResource(R.string.pairing_qr), Modifier.size(qrSize))
+                    QrCode(pairing.verifyUrl, stringResource(R.string.a11y_qr_code, pairing.verifyUrl), Modifier.size(qrSize))
                 pairing == null && loading -> CircularProgressIndicator()
                 else -> {}
             }
@@ -60,7 +60,7 @@ internal fun PairingPanel(
                     newCode()
                 }
                 pairing == null -> {
-                    Text(stringResource(R.string.pairing_scan), style = MaterialTheme.typography.bodyLarge, color = Tokens.Palette.muted)
+                    Text(stringResource(R.string.accounts_pairing_instructions), style = MaterialTheme.typography.bodyLarge, color = Tokens.Palette.muted)
                     // a password attempt cancels a running pairing; this starts another
                     if (!loading) newCode()
                 }
@@ -77,7 +77,7 @@ internal fun PairingPanel(
                             color = Tokens.Palette.text,
                         )
                         Text(
-                            stringResource(if (expired) R.string.pairing_expired_body else R.string.pairing_denied_body),
+                            stringResource(if (expired) R.string.accounts_pairing_expired else R.string.accounts_pairing_denied),
                             style = MaterialTheme.typography.bodyLarge,
                             color = Tokens.Palette.muted,
                         )
@@ -92,12 +92,12 @@ internal fun PairingPanel(
 @Composable
 private fun Waiting(pairing: PairingView, remainingSeconds: Long, codeStyle: androidx.compose.ui.text.TextStyle) {
     Text(
-        stringResource(R.string.pairing_scan),
+        stringResource(R.string.accounts_pairing_instructions),
         style = MaterialTheme.typography.bodyLarge,
         color = Tokens.Palette.text,
     )
     Text(
-        stringResource(R.string.pairing_manual, pairingPage(pairing.verifyUrl)),
+        stringResource(R.string.accounts_pairing_visit, pairingPage(pairing.verifyUrl)),
         style = MaterialTheme.typography.bodyMedium,
         color = Tokens.Palette.muted,
     )
@@ -115,6 +115,6 @@ private fun Waiting(pairing: PairingView, remainingSeconds: Long, codeStyle: and
         val style = MaterialTheme.typography.bodyMedium
         Text(stringResource(R.string.pair_expires_in, formatCountdown(remainingSeconds)), style = style, color = Tokens.Palette.faint)
         Text("·", style = style, color = Tokens.Palette.faint)
-        Text(stringResource(R.string.pairing_waiting), style = style, color = Tokens.Palette.faint)
+        Text(stringResource(R.string.accounts_pairing_waiting), style = style, color = Tokens.Palette.faint)
     }
 }

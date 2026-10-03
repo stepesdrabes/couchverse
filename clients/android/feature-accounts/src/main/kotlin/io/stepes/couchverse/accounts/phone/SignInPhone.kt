@@ -65,7 +65,7 @@ internal fun SignInPhone(state: SignInState, actions: SignInActions) {
 
     OnboardingPage(actions.onBack) {
         Text(
-            stringResource(R.string.login_server_title, state.server?.name.orEmpty()),
+            stringResource(R.string.accounts_sign_in_title, state.server?.name.orEmpty()),
             style = MaterialTheme.typography.headlineMedium,
             color = Tokens.Palette.text,
             modifier = Modifier.semantics { heading() },
@@ -111,7 +111,7 @@ internal fun SignInPhone(state: SignInState, actions: SignInActions) {
             if (busy && !pairingChosen) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                 Spacer(Modifier.width(10.dp))
-                Text(stringResource(R.string.login_signing_in))
+                Text(stringResource(R.string.accounts_signing_in))
             } else {
                 Text(stringResource(R.string.login_submit))
             }
@@ -126,7 +126,7 @@ internal fun SignInPhone(state: SignInState, actions: SignInActions) {
                 },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
             ) {
-                Text(stringResource(R.string.login_with_device))
+                Text(stringResource(R.string.accounts_sign_in_with_device))
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -137,7 +137,7 @@ internal fun SignInPhone(state: SignInState, actions: SignInActions) {
                     remainingSeconds = state.remainingSeconds,
                     qrSize = 132.dp,
                     codeStyle = MaterialTheme.typography.headlineMedium,
-                    newCode = { OutlinedButton(onClick = actions.onStartPairing) { Text(stringResource(R.string.pairing_new_code)) } },
+                    newCode = { OutlinedButton(onClick = actions.onStartPairing) { Text(stringResource(R.string.accounts_pairing_new_code)) } },
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                     TextButton(

@@ -1,6 +1,7 @@
 package io.stepes.couchverse.settings.tv
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -83,7 +84,7 @@ internal fun SettingsTv(state: SettingsState, actions: SettingsActions) {
             )
         }
 
-        section("accounts", R.string.app_settings_accounts)
+        section("accounts", R.string.accounts_title)
         items(state.accounts?.accounts.orEmpty(), key = { "account-${it.id}" }) { account ->
             ListItem(
                 selected = false,
@@ -96,9 +97,9 @@ internal fun SettingsTv(state: SettingsState, actions: SettingsActions) {
                 trailingContent = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = stringResource(R.string.devices_sign_out)) },
             )
         }
-        item(key = "add-account") { Action(Icons.Filled.Add, stringResource(R.string.accounts_add), actions.onAddAccount) }
+        item(key = "add-account") { Action(Icons.Filled.Add, stringResource(R.string.accounts_add_account), actions.onAddAccount) }
 
-        section("servers", R.string.app_settings_servers)
+        section("servers", R.string.servers_title)
         items(state.servers?.servers.orEmpty(), key = { "server-${it.id}" }) { server ->
             ListItem(
                 selected = false,
@@ -114,7 +115,7 @@ internal fun SettingsTv(state: SettingsState, actions: SettingsActions) {
                 trailingContent = { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.servers_remove)) },
             )
         }
-        item(key = "add-server") { Action(Icons.Filled.Add, stringResource(R.string.servers_add), actions.onAddServer) }
+        item(key = "add-server") { Action(Icons.Filled.Add, stringResource(R.string.servers_add_title), actions.onAddServer) }
 
         section("language", R.string.language_label)
         items(DisplayLanguages, key = { "lang-$it" }) { code ->
@@ -131,18 +132,21 @@ internal fun SettingsTv(state: SettingsState, actions: SettingsActions) {
         item(key = "devices") { Action(CouchverseIcons.Devices, stringResource(R.string.devices_heading), actions.onDevices) }
         item(key = "approve") { Action(CouchverseIcons.ScanCode, stringResource(R.string.pair_heading), actions.onApprove) }
 
-        section("about", R.string.app_settings_about)
+        section("about", R.string.about_title)
         item(key = "version") {
             Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Icon(Icons.Filled.Info, contentDescription = null, tint = Tokens.Palette.muted)
-                Text(stringResource(R.string.app_settings_app_version, state.version), color = Tokens.Palette.muted)
+                Column {
+                    Text(stringResource(R.string.about_app_version), color = Tokens.Palette.text)
+                    Text(state.version, color = Tokens.Palette.muted)
+                }
             }
         }
     }
     signingOut?.let { account ->
         ConfirmDialog(
-            title = stringResource(R.string.accounts_sign_out_title, account.displayName),
-            message = stringResource(R.string.accounts_sign_out_message),
+            title = stringResource(R.string.accounts_sign_out_confirm_title, account.displayName),
+            message = stringResource(R.string.accounts_sign_out_confirm_message),
             confirm = stringResource(R.string.devices_sign_out),
             onConfirm = { actions.onSignOut(account) },
             onDismiss = { signingOut = null },
@@ -150,8 +154,8 @@ internal fun SettingsTv(state: SettingsState, actions: SettingsActions) {
     }
     removing?.let { server ->
         ConfirmDialog(
-            title = stringResource(R.string.servers_remove_title, server.name),
-            message = stringResource(R.string.servers_remove_message),
+            title = stringResource(R.string.servers_remove_confirm_title, server.name),
+            message = stringResource(R.string.servers_remove_confirm_message),
             confirm = stringResource(R.string.servers_remove),
             onConfirm = { actions.onRemoveServer(server) },
             onDismiss = { removing = null },

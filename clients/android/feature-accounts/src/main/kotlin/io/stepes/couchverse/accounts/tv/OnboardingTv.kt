@@ -66,12 +66,12 @@ internal fun WelcomeTv(onAddServer: () -> Unit) {
             modifier = Modifier.semantics { heading() },
         )
         Text(
-            stringResource(R.string.onboarding_welcome_body),
+            stringResource(R.string.onboarding_welcome_message),
             style = MaterialTheme.typography.titleMedium,
             color = Tokens.Palette.muted,
         )
         TvActionButton(
-            stringResource(R.string.servers_add),
+            stringResource(R.string.servers_add_title),
             onClick = onAddServer,
             primary = true,
             modifier = Modifier.padding(top = 16.dp).focusOnStart(focus),
@@ -91,21 +91,21 @@ internal fun AddServerTv(view: ServersView?, onSubmit: (String) -> Unit, onBack:
     val focus = remember { FocusRequester() }
     TvOnboardingPage {
         Text(
-            stringResource(R.string.onboarding_add_server_title),
+            stringResource(R.string.servers_add_title),
             style = MaterialTheme.typography.headlineMedium,
             color = Tokens.Palette.text,
             modifier = Modifier.semantics { heading() },
         )
         Text(
-            stringResource(R.string.onboarding_add_server_body),
+            stringResource(R.string.servers_address_hint),
             style = MaterialTheme.typography.bodyLarge,
             color = Tokens.Palette.muted,
         )
         OutlinedTextField(
             value = address,
             onValueChange = { address = it },
-            label = { androidx.compose.material3.Text(stringResource(R.string.onboarding_server_address)) },
-            placeholder = { androidx.compose.material3.Text(stringResource(R.string.onboarding_server_address_placeholder)) },
+            label = { androidx.compose.material3.Text(stringResource(R.string.servers_address_label)) },
+            placeholder = { androidx.compose.material3.Text(stringResource(R.string.servers_address_placeholder)) },
             singleLine = true,
             enabled = !loading,
             isError = failed,
@@ -128,7 +128,7 @@ internal fun AddServerTv(view: ServersView?, onSubmit: (String) -> Unit, onBack:
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp)) {
             TvActionButton(
-                stringResource(if (loading) R.string.onboarding_connecting else R.string.onboarding_connect),
+                stringResource(if (loading) R.string.onboarding_connecting else R.string.servers_connect),
                 onClick = submit,
                 primary = true,
                 enabled = address.isNotBlank() && !loading,

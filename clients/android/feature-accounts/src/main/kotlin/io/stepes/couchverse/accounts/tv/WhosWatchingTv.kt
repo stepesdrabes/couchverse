@@ -225,7 +225,7 @@ private fun ProfileTile(
 private fun AddTile(appearDelayMillis: Long, leaving: Float, onFocused: () -> Unit, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val label = stringResource(R.string.accounts_add)
+    val label = stringResource(R.string.accounts_add_account)
     TileColumn(appearDelayMillis, leaving, direction = 1f) {
         Surface(
             onClick = onClick,

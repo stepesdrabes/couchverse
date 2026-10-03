@@ -44,7 +44,7 @@ fun ChooseServerScreen(view: ServersView?, onPick: (Server) -> Unit, onAddServer
     if (LocalIsTv.current) {
         val first = remember { FocusRequester() }
         TvOnboardingPage {
-            TvText(stringResource(R.string.login_choose_server), style = androidx.tv.material3.MaterialTheme.typography.headlineMedium)
+            TvText(stringResource(R.string.accounts_choose_server), style = androidx.tv.material3.MaterialTheme.typography.headlineMedium)
             servers.forEachIndexed { index, server ->
                 TvListItem(
                     selected = false,
@@ -56,12 +56,12 @@ fun ChooseServerScreen(view: ServersView?, onPick: (Server) -> Unit, onAddServer
                     modifier = if (index == 0) Modifier.focusOnStart(first) else Modifier,
                 )
             }
-            TvListItem(selected = false, onClick = onAddServer, headlineContent = { TvText(stringResource(R.string.servers_add)) })
+            TvListItem(selected = false, onClick = onAddServer, headlineContent = { TvText(stringResource(R.string.servers_add_title)) })
         }
     } else {
         OnboardingPage(onBack = null) {
             Text(
-                stringResource(R.string.login_choose_server),
+                stringResource(R.string.accounts_choose_server),
                 style = MaterialTheme.typography.headlineMedium,
                 color = Tokens.Palette.text,
                 modifier = Modifier.semantics { heading() },
@@ -84,7 +84,7 @@ fun ChooseServerScreen(view: ServersView?, onPick: (Server) -> Unit, onAddServer
             ListItem(
                 colors = colors,
                 modifier = Modifier.clickable(role = Role.Button, onClick = onAddServer),
-                headlineContent = { Text(stringResource(R.string.servers_add), color = MaterialTheme.colorScheme.primary) },
+                headlineContent = { Text(stringResource(R.string.servers_add_title), color = MaterialTheme.colorScheme.primary) },
             )
         }
     }

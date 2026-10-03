@@ -187,7 +187,7 @@ private fun RootNavigation(links: PendingLinks, version: String) {
                 screen<Scan> { entry ->
                     val approve = entry.toRoute<Scan>().approve
                     QrScannerScreen(
-                        hint = stringResource(if (approve) R.string.scan_pair_hint else R.string.scan_connect_hint),
+                        hint = stringResource(if (approve) R.string.scanner_hint else R.string.onboarding_scan_hint),
                         onLink = { url ->
                             runtime.send(Event.LinkOpened(Link(url)))
                             val next: Any = if (isConnectLink(url)) Connecting else Approve(opened = true)

@@ -86,23 +86,6 @@
         }
       }
     },
-    "accounts_add": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přidat účet"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add account"
-          }
-        }
-      }
-    },
     "accounts_add_account": {
       "extractionState": "manual",
       "localizations": {
@@ -393,40 +376,6 @@
       }
     },
     "accounts_sign_out_confirm_title": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odhlásit účet %1$@?"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign out %1$@?"
-          }
-        }
-      }
-    },
-    "accounts_sign_out_message": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Účet bude z tohoto zařízení odebrán. Pro další použití se znovu přihlaste."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The account is removed from this device. Sign in again to use it here."
-          }
-        }
-      }
-    },
-    "accounts_sign_out_title": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
@@ -1850,74 +1799,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Curator"
-          }
-        }
-      }
-    },
-    "app_settings_about": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O aplikaci"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "About"
-          }
-        }
-      }
-    },
-    "app_settings_accounts": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Účty"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Accounts"
-          }
-        }
-      }
-    },
-    "app_settings_app_version": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couchverse pro Android %1$@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couchverse for Android %1$@"
-          }
-        }
-      }
-    },
-    "app_settings_servers": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Servery"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Servers"
           }
         }
       }
@@ -5880,23 +5761,6 @@
         }
       }
     },
-    "login_choose_server": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vyberte server"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose a server"
-          }
-        }
-      }
-    },
     "login_error_generic": {
       "extractionState": "manual",
       "localizations": {
@@ -5944,40 +5808,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Password"
-          }
-        }
-      }
-    },
-    "login_server_title": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přihlášení k serveru %1$@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in to %1$@"
-          }
-        }
-      }
-    },
-    "login_signing_in": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přihlašování…"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Signing in…"
           }
         }
       }
@@ -6046,40 +5876,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Username"
-          }
-        }
-      }
-    },
-    "login_with_device": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přihlásit se pomocí jiného zařízení"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in with another device"
-          }
-        }
-      }
-    },
-    "login_with_password": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přihlásit se heslem"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in with a password"
           }
         }
       }
@@ -6526,57 +6322,6 @@
         }
       }
     },
-    "onboarding_add_server_body": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zadejte adresu, na které otevíráte Couchverse v prohlížeči."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter the address you open Couchverse at in a browser."
-          }
-        }
-      }
-    },
-    "onboarding_add_server_title": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přidejte svůj server"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add your server"
-          }
-        }
-      }
-    },
-    "onboarding_connect": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Připojit"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connect"
-          }
-        }
-      }
-    },
     "onboarding_connecting": {
       "extractionState": "manual",
       "localizations": {
@@ -6624,57 +6369,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scan a QR code"
-          }
-        }
-      }
-    },
-    "onboarding_server_address": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Adresa serveru"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Server address"
-          }
-        }
-      }
-    },
-    "onboarding_server_address_placeholder": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "media.example.com nebo 192.168.1.20:8080"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "media.example.com or 192.168.1.20:8080"
-          }
-        }
-      }
-    },
-    "onboarding_welcome_body": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Filmy a seriály z vašeho vlastního serveru na každé obrazovce."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Movies and series from your own server, on every screen."
           }
         }
       }
@@ -7104,23 +6798,6 @@
         }
       }
     },
-    "pair_scan_code": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Naskenovat kód"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scan the code"
-          }
-        }
-      }
-    },
     "pairing_approve": {
       "extractionState": "manual",
       "localizations": {
@@ -7223,23 +6900,6 @@
         }
       }
     },
-    "pairing_denied_body": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přihlášení bylo na druhém zařízení zamítnuto."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The sign-in was denied on the other device."
-          }
-        }
-      }
-    },
     "pairing_deny": {
       "extractionState": "manual",
       "localizations": {
@@ -7274,57 +6934,6 @@
         }
       }
     },
-    "pairing_expired_body": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pro další pokus si vyžádejte nový kód."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Get a new code to try again."
-          }
-        }
-      }
-    },
-    "pairing_manual": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nebo na přihlášeném zařízení otevřete %1$@ a zadejte tento kód:"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Or open %1$@ on a signed-in device and enter this code:"
-          }
-        }
-      }
-    },
-    "pairing_new_code": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Získat nový kód"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Get a new code"
-          }
-        }
-      }
-    },
     "pairing_not_found": {
       "extractionState": "manual",
       "localizations": {
@@ -7342,23 +6951,6 @@
         }
       }
     },
-    "pairing_qr": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "QR kód pro přihlášení tohoto zařízení"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "QR code for signing in this device"
-          }
-        }
-      }
-    },
     "pairing_request": {
       "extractionState": "manual",
       "localizations": {
@@ -7372,23 +6964,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ wants to sign in as %2$@."
-          }
-        }
-      }
-    },
-    "pairing_scan": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Naskenujte kód fotoaparátem telefonu."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scan the code with your phone's camera."
           }
         }
       }
@@ -7427,23 +7002,6 @@
         }
       }
     },
-    "pairing_title": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přihlaste se telefonem"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in with your phone"
-          }
-        }
-      }
-    },
     "pairing_try_another": {
       "extractionState": "manual",
       "localizations": {
@@ -7457,23 +7015,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enter another code"
-          }
-        }
-      }
-    },
-    "pairing_waiting": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Čeká se na schválení"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Waiting for approval"
           }
         }
       }
@@ -8137,23 +7678,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wrong username or password."
-          }
-        }
-      }
-    },
-    "problem_network": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Server se nepodařilo zastihnout."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not reach the server."
           }
         }
       }
@@ -9906,7 +9430,7 @@
         }
       }
     },
-    "scan_allow_camera": {
+    "scanner_allow_camera": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
@@ -9923,7 +9447,7 @@
         }
       }
     },
-    "scan_camera_needed": {
+    "scanner_camera_needed": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
@@ -9936,74 +9460,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couchverse needs the camera to scan the code."
-          }
-        }
-      }
-    },
-    "scan_connect_hint": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Na webu otevřete svůj profil a v části Zařízení zvolte Připojit zařízení. Pak na kód namiřte fotoaparát."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On the web, open your profile, find Devices and choose Connect a device. Then point the camera at the code."
-          }
-        }
-      }
-    },
-    "scan_not_recognized": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tento kód nepochází z Couchverse."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This code is not from Couchverse."
-          }
-        }
-      }
-    },
-    "scan_pair_hint": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Namiřte fotoaparát na kód na obrazovce druhého zařízení."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Point the camera at the code on the other device's screen."
-          }
-        }
-      }
-    },
-    "scan_title": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Naskenovat QR kód"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scan a QR code"
           }
         }
       }
@@ -10072,23 +9528,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "The camera isn't available here. Type the code instead."
-          }
-        }
-      }
-    },
-    "servers_add": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přidat server"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add a server"
           }
         }
       }
@@ -10195,40 +9634,6 @@
         }
       }
     },
-    "servers_insecure": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nešifrováno"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not encrypted"
-          }
-        }
-      }
-    },
-    "servers_insecure_hint": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Server používá nešifrované HTTP, takže ostatní v síti mohou číst, co posílá."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This server uses plain HTTP, so others on the network can read what it sends."
-          }
-        }
-      }
-    },
     "servers_not_encrypted": {
       "extractionState": "manual",
       "localizations": {
@@ -10298,40 +9703,6 @@
       }
     },
     "servers_remove_confirm_title": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odebrat server %1$@?"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remove %1$@?"
-          }
-        }
-      }
-    },
-    "servers_remove_message": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Všechny účty na tomto serveru se na tomto zařízení odhlásí."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Every account on this server is signed out of this device."
-          }
-        }
-      }
-    },
-    "servers_remove_title": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
