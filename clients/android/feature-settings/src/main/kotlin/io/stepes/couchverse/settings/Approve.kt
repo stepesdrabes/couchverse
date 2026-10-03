@@ -54,6 +54,7 @@ import io.stepes.couchverse.design.text.problemMessage
 import io.stepes.couchverse.design.theme.LocalIsTv
 import io.stepes.couchverse.design.tv.TvActionButton
 import io.stepes.couchverse.design.tv.TvSafe
+import io.stepes.couchverse.design.tv.remoteLeavesField
 
 class ApproveActions(
     val onLookup: (code: String) -> Unit,
@@ -121,7 +122,7 @@ private fun CodeEntry(actions: ApproveActions) {
             imeAction = ImeAction.Go,
         ),
         keyboardActions = KeyboardActions(onGo = { submit() }),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().remoteLeavesField(code.isEmpty()),
     )
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         PrimaryButton(stringResource(R.string.pair_continue), enabled = code.isNotBlank(), onClick = submit)
@@ -151,7 +152,7 @@ private fun Request(view: PairingApprovalView, userName: String, actions: Approv
         label = { Text(stringResource(R.string.pair_device_name)) },
         supportingText = { Text(stringResource(R.string.pair_device_name_hint)) },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().remoteLeavesField(name.isEmpty()),
     )
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         PrimaryButton(stringResource(R.string.pair_approve), onClick = { actions.onApprove(view.code, name.trim()) })

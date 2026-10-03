@@ -52,6 +52,7 @@ import io.stepes.couchverse.design.text.problemMessage
 import io.stepes.couchverse.design.tv.TvActionButton
 import io.stepes.couchverse.design.tv.TvSafe
 import io.stepes.couchverse.design.tv.focusOnStart
+import io.stepes.couchverse.design.tv.remoteLeavesField
 
 /** Pairing fills the left; a password is the slower way in, behind a button on the right. */
 @Composable
@@ -135,7 +136,11 @@ private fun PasswordFormTv(state: SignInState, actions: SignInActions, busy: Boo
         enabled = !busy,
         keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Next, platformImeOptions = keyboard),
         keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
-        modifier = Modifier.fillMaxWidth().focusOnStart(focus).semantics { contentType = ContentType.Username },
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusOnStart(focus)
+            .remoteLeavesField(username.isEmpty())
+            .semantics { contentType = ContentType.Username },
     )
     OutlinedTextField(
         value = password,
@@ -154,6 +159,7 @@ private fun PasswordFormTv(state: SignInState, actions: SignInActions, busy: Boo
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(passwordFocus)
+            .remoteLeavesField(password.isEmpty())
             .semantics { contentType = ContentType.Password },
     )
     if (failed) {

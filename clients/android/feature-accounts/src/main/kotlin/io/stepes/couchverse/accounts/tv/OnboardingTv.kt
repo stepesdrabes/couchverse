@@ -52,6 +52,7 @@ import io.stepes.couchverse.design.theme.Motion
 import io.stepes.couchverse.design.tv.TvActionButton
 import io.stepes.couchverse.design.tv.TvSafe
 import io.stepes.couchverse.design.tv.focusOnStart
+import io.stepes.couchverse.design.tv.remoteLeavesField
 
 @Composable
 internal fun WelcomeTv(onAddServer: () -> Unit) {
@@ -115,7 +116,7 @@ internal fun AddServerTv(view: ServersView?, onSubmit: (String) -> Unit, onBack:
                 platformImeOptions = PlatformImeOptions(TvKeyboardAlignment.Right),
             ),
             keyboardActions = KeyboardActions(onGo = { submit() }),
-            modifier = Modifier.fillMaxWidth().focusOnStart(focus),
+            modifier = Modifier.fillMaxWidth().focusOnStart(focus).remoteLeavesField(address.isEmpty()),
         )
         if (failed) {
             Text(

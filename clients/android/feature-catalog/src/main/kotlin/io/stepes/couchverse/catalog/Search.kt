@@ -18,12 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -47,6 +44,9 @@ import io.stepes.couchverse.design.runtime.rememberSurface
 import io.stepes.couchverse.design.theme.LocalIsTv
 import io.stepes.couchverse.design.tv.TvSafe
 import io.stepes.couchverse.design.tv.focusOnStart
+import io.stepes.couchverse.design.tv.remoteLeavesField
+import io.stepes.couchverse.design.tv.rememberScreenFocus
+import io.stepes.couchverse.design.tv.screenFocus
 
 /**
  * Search as you type: every change goes to the core, which waits for a pause and drops answers
@@ -57,7 +57,7 @@ import io.stepes.couchverse.design.tv.focusOnStart
 fun SearchScreen(view: SearchView?, onQuery: (String) -> Unit, navigation: CatalogNavigation, autoFocus: Boolean = true) {
     val tv = LocalIsTv.current
     var query by rememberSaveable { mutableStateOf(view?.query.orEmpty()) }
-    val focus = remember { FocusRequester() }
+    val screenFocus = rememberScreenFocus()
     val keyboard = LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -90,7 +90,13 @@ fun SearchScreen(view: SearchView?, onQuery: (String) -> Unit, navigation: Catal
                     horizontal = if (tv) TvSafe.horizontal else PhoneGutter,
                     vertical = if (tv) TvSafe.vertical else 8.dp,
                 )
-                .focusOnStart(focus, enabled = autoFocus && query.isEmpty()),
+                .then(
+                    if (tv) {
+                        Modifier.screenFocus(screenFocus, "query", start = autoFocus && query.isEmpty()).remoteLeavesField(query.isEmpty())
+                    } else {
+                        Modifier.focusOnStart(enabled = autoFocus && query.isEmpty())
+                    },
+                ),
         )
         Box(Modifier.weight(1f)) {
             val cards = view?.cards.orEmpty()
@@ -101,7 +107,7 @@ fun SearchScreen(view: SearchView?, onQuery: (String) -> Unit, navigation: Catal
                     stringResource(R.string.catalog_search_start_message),
                 )
                 cards.isNotEmpty() -> if (tv) {
-                    PosterGridTv(cards, navigation, loadingMore = false)
+                    PosterGridTv(cards, navigation, loadingMore = false, focus = screenFocus)
                 } else {
                     PosterGridPhone(cards, navigation, loadingMore = false)
                 }

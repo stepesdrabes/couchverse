@@ -18,18 +18,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -69,7 +66,8 @@ import io.stepes.couchverse.design.tv.TvBackdropCard
 import io.stepes.couchverse.design.tv.TvPosterCard
 import io.stepes.couchverse.design.tv.TvSafe
 import io.stepes.couchverse.design.tv.TvShelf
-import io.stepes.couchverse.design.tv.focusOnStart
+import io.stepes.couchverse.design.tv.rememberScreenFocus
+import io.stepes.couchverse.design.tv.screenFocus
 
 private val HeroHeight = 340.dp
 
@@ -80,20 +78,25 @@ internal fun HomeTv(view: HomeView, actions: HomeActions) {
         return
     }
     val navigation = actions.navigation
+    val focus = rememberScreenFocus()
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = TvSafe.vertical * 2),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         if (view.featured.isNotEmpty()) {
-            item(key = "hero") { HeroTv(view.featured, actions) }
+            item(key = "hero") { HeroTv(view.featured, actions, Modifier.screenFocus(focus, "hero", start = true)) }
         }
         if (view.problem != null) {
             item(key = "stale") { StaleNotice(view.status, view.problem, Modifier.padding(horizontal = TvSafe.horizontal)) }
         }
-        items(view.rows, key = { it.id }) { row ->
+        itemsIndexed(view.rows, key = { _, row -> row.id }) { rowIndex, row ->
+            val watching = row.continueWatching.map { "${row.id}/play/${it.play.id}" }
+            val titles = row.cards.map { "${row.id}/${it.titleId}" }
+            // without a hero, focus starts on the first card of the first row
+            val first = (watching + titles).firstOrNull().takeIf { rowIndex == 0 && view.featured.isEmpty() }
             TvShelf(rowLabel(row)) {
-                items(row.continueWatching, key = { "${it.play.kind}-${it.play.id}" }) { card ->
+                itemsIndexed(row.continueWatching, key = { _, card -> "${card.play.kind}-${card.play.id}" }) { index, card ->
                     TvBackdropCard(
                         name = card.name,
                         imageUrl = card.backdrop?.url,
@@ -102,15 +105,17 @@ internal fun HomeTv(view: HomeView, actions: HomeActions) {
                         progress = card.progress.toFloat(),
                         progressLabel = card.progressLabel(),
                         onClick = { navigation.play(card.play) },
+                        modifier = Modifier.screenFocus(focus, watching[index], start = watching[index] == first),
                     )
                 }
-                items(row.cards, key = { it.titleId }) { card ->
+                itemsIndexed(row.cards, key = { _, card -> card.titleId }) { index, card ->
                     TvPosterCard(
                         name = card.name,
                         posterUrl = card.poster?.url,
                         accent = card.poster?.accent,
                         caption = card.caption(),
                         onClick = { navigation.openTitle(card.slug) },
+                        modifier = Modifier.screenFocus(focus, titles[index], start = titles[index] == first),
                     )
                 }
             }
@@ -121,9 +126,8 @@ internal fun HomeTv(view: HomeView, actions: HomeActions) {
 /** The cinematic hero: it advances every 8 seconds and holds while focus is inside it. */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun HeroTv(featured: List<FeaturedCard>, actions: HomeActions) {
+private fun HeroTv(featured: List<FeaturedCard>, actions: HomeActions, modifier: Modifier) {
     val state = rememberCarouselState()
-    val focus = remember { FocusRequester() }
     val fade = Motion.ambient<Float>(600)
     Carousel(
         itemCount = featured.size,
@@ -138,7 +142,7 @@ private fun HeroTv(featured: List<FeaturedCard>, actions: HomeActions) {
                 modifier = Modifier.align(Alignment.BottomEnd).padding(horizontal = TvSafe.horizontal, vertical = 16.dp),
             )
         },
-        modifier = Modifier.fillMaxWidth().height(HeroHeight).focusOnStart(focus),
+        modifier = modifier.fillMaxWidth().height(HeroHeight),
     ) { index ->
         HeroSlideTv(featured[index], actions)
     }

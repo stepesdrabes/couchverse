@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,14 +23,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,8 +74,9 @@ private val RailWidth = 80.dp
 
 /**
  * The sidebar (plan 10.3, the same on Google TV): the account on top, which goes back to
- * "Who's watching?", then the catalog and Settings. It expands while focus is in it. Back on
- * a screen goes back; on Home it first moves into the sidebar, then leaves the app.
+ * "Who's watching?", then the catalog and Settings. It expands while focus is in it. A picked
+ * screen takes focus itself once its first element shows (a screen still loading leaves it
+ * here). Back on a screen goes back; on Home it first moves into the sidebar, then leaves the app.
  */
 @Composable
 internal fun TvMain(nav: NavHostController, catalog: CatalogNavigation, accountId: String, version: String, root: RootActions) {
@@ -83,8 +84,6 @@ internal fun TvMain(nav: NavHostController, catalog: CatalogNavigation, accountI
     val current = accounts?.accounts?.firstOrNull { it.id == accountId }
     val entry by nav.currentBackStackEntryAsState()
     val destination = entry?.destination
-    val focus = LocalFocusManager.current
-    val homeItem = remember { FocusRequester() }
     var sidebarFocused by remember { mutableStateOf(false) }
     val destinations = remember {
         listOf(
@@ -97,6 +96,9 @@ internal fun TvMain(nav: NavHostController, catalog: CatalogNavigation, accountI
             Destination(Account, R.string.nav_settings, Icons.Filled.Settings),
         )
     }
+    val items = remember { List(destinations.size) { FocusRequester() } }
+    val homeItem = items.first()
+    val selected = destinations.indexOfFirst { destination.isTop(it.route) }
     BackHandler(enabled = destination.isTop(Home) && !sidebarFocused) { runCatching { homeItem.requestFocus() } }
     val fade = Motion.standard<Float>()
 
@@ -108,7 +110,10 @@ internal fun TvMain(nav: NavHostController, catalog: CatalogNavigation, accountI
                 Modifier
                     .fillMaxHeight()
                     .padding(12.dp)
-                    .onFocusChanged { sidebarFocused = it.hasFocus },
+                    .onFocusChanged { sidebarFocused = it.hasFocus }
+                    // arriving from the content lands on the current destination, not the nearest row
+                    .focusProperties { onEnter = { if (selected >= 0) items[selected].requestFocus() } }
+                    .focusGroup(),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 NavigationDrawerItem(
@@ -122,7 +127,7 @@ internal fun TvMain(nav: NavHostController, catalog: CatalogNavigation, accountI
                     Text(current?.displayName.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Spacer(Modifier.height(24.dp))
-                destinations.forEach { item ->
+                destinations.forEachIndexed { index, item ->
                     NavigationDrawerItem(
                         selected = destination.isTop(item.route),
                         onClick = {
@@ -131,10 +136,9 @@ internal fun TvMain(nav: NavHostController, catalog: CatalogNavigation, accountI
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                            focus.moveFocus(FocusDirection.Right)
                         },
                         leadingContent = { Icon(item.icon, contentDescription = null) },
-                        modifier = if (item.route == Home) Modifier.focusRequester(homeItem) else Modifier,
+                        modifier = Modifier.focusRequester(items[index]),
                     ) {
                         Text(stringResource(item.label))
                     }

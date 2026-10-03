@@ -14,7 +14,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,7 +44,10 @@ import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.SkeletonBox
 import io.stepes.couchverse.design.components.loadingSemantics
 import io.stepes.couchverse.design.tv.TvPosterCard
+import io.stepes.couchverse.design.tv.ScreenFocus
 import io.stepes.couchverse.design.tv.TvSafe
+import io.stepes.couchverse.design.tv.rememberScreenFocus
+import io.stepes.couchverse.design.tv.screenFocus
 
 private val PosterColumn = 136.dp
 
@@ -94,7 +97,13 @@ internal fun BrowseTv(state: BrowseState, actions: BrowseActions, content: @Comp
 /** A focus grid of posters; coming back to it lands on the poster that was focused. */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-internal fun PosterGridTv(cards: List<Card>, navigation: CatalogNavigation, loadingMore: Boolean, onNearEnd: () -> Unit = {}) {
+internal fun PosterGridTv(
+    cards: List<Card>,
+    navigation: CatalogNavigation,
+    loadingMore: Boolean,
+    onNearEnd: () -> Unit = {},
+    focus: ScreenFocus = rememberScreenFocus(),
+) {
     val grid = rememberLazyGridState()
     LoadMoreWhenNearEnd(grid, cards.size, onNearEnd)
     LazyVerticalGrid(
@@ -105,7 +114,7 @@ internal fun PosterGridTv(cards: List<Card>, navigation: CatalogNavigation, load
         verticalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.fillMaxSize().focusRestorer(),
     ) {
-        items(cards, key = { it.titleId }) { card ->
+        itemsIndexed(cards, key = { _, card -> card.titleId }) { index, card ->
             TvPosterCard(
                 name = card.name,
                 posterUrl = card.poster?.url,
@@ -113,6 +122,7 @@ internal fun PosterGridTv(cards: List<Card>, navigation: CatalogNavigation, load
                 caption = card.caption(),
                 onClick = { navigation.openTitle(card.slug) },
                 width = PosterColumn,
+                modifier = Modifier.screenFocus(focus, card.titleId, start = index == 0),
             )
         }
         if (loadingMore) {
