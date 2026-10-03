@@ -528,7 +528,8 @@ remains during the web migration):
 3. **Transcode**: the prepared ladder, else JIT, as today.
 4. `preparing` and `unsupported` as today.
 
-**HLS v2** (validated with Apple's `mediastreamvalidator` and `hlsreport` in CI):
+**HLS v2** (validated in CI by our own validator, `couchverse validate-hls`, and played by an
+AVFoundation harness on macOS; Apple's `mediastreamvalidator` runs locally when installed):
 - fMP4 segments (`-hls_segment_type fmp4`), HEVC tagged `hvc1` (`dvh1` for Dolby Vision),
   IDR every 2 s, 6 s segments, `EXT-X-INDEPENDENT-SEGMENTS`.
 - Multivariant playlists with `CODECS`, `RESOLUTION`, `FRAME-RATE`, `BANDWIDTH` (peak),
@@ -810,7 +811,7 @@ across platforms.
 
 | Layer | Tests | Tooling |
 |---|---|---|
-| Backend | unit + integration (Postgres service), contract tests (every huma operation validated against the spec), HLS output validated with `mediastreamvalidator` on sample media | `go test`, golangci-lint, `make sample-media` |
+| Backend | unit + integration (Postgres service), contract tests (every huma operation validated against the spec), HLS output of every tier on generated media validated by `couchverse validate-hls` and played in AVFoundation (macOS job) | `go test`, golangci-lint, `make hls-check` |
 | Contract | drift check (regenerate, diff must be empty), i18n completeness (en and cs have identical keys and variants) | `make contract` |
 | Core | unit, scenario, property, conformance fixtures; size and latency budgets | `cargo test`, clippy (deny warnings), rustfmt, proptest |
 | Web | existing svelte-check, prettier, eslint; core-adapter tests; Playwright smoke (sign in, browse, play, couch join) | vitest, Playwright |
@@ -875,8 +876,8 @@ ship together, with the TV layout designed first.
 - Probe enrichment, capability-profile decision, remux tier, fMP4 HLS, attributes, audio and
   subtitle renditions, I-frame playlists, HDR handling, "Original" quality, JIT fMP4.
 - Web sends its capability profile (through the core once Phase 6 lands, directly until then).
-- **Exit**: `mediastreamvalidator` clean for every tier on sample media; the web plays every
-  sample; a remuxed MKV with E-AC-3 and subtitles plays on AVPlayer with native menus.
+- **Exit**: the HLS validator clean for every tier on sample media and AVFoundation plays
+  them (`mediastreamvalidator` where installed); the web plays every sample; a remuxed MKV with E-AC-3 and subtitles plays on AVPlayer with native menus.
 
 ### Phase 5: Slice - browse and titles
 - Core `catalog` (SWR, warm start, search). Title logos (8.8).
@@ -937,7 +938,7 @@ ship together, with the TV layout designed first.
 | Scope is very large for one maintainer with agents | Vertical slices with shippable exits; Android strictly after Apple; music removal shrinks the surface first. |
 | Shared-core tooling complexity (FFI, wasm, codegen) | Spike S2 before committing; one sans-I/O bridge for all languages; `cargo xtask` hides packaging; CI builds every binding from day one. |
 | The core leaks one platform's assumptions | Two consumers per slice (web + Apple); core reviews check for platform words in core APIs. |
-| AVPlayer strictness with ffmpeg HLS | Spike S3; `mediastreamvalidator` in CI; fMP4 everywhere; real-device checks on Apple TV. |
+| AVPlayer strictness with ffmpeg HLS | Spike S3; HLS validator and AVFoundation harness in CI; fMP4 everywhere; real-device checks on Apple TV. |
 | Raspberry Pi cannot transcode HEVC/HDR | Remux and copy paths first; HEVC output only where hardware encoders exist; SDR tone-mapping only when the profile needs it. |
 | Free personal team limits (7-day expiry, capability gaps) | Spike S1; `EXTENSIONS_ENABLED` switch; graceful degradation; documented reinstall flow. |
 | Web regressions while adopting the core | Per-slice adoption behind Playwright smoke and existing checks; admin untouched. |
@@ -960,11 +961,14 @@ ship together, with the TV layout designed first.
   Swift 6 strict mode, Kotlin and TypeScript; measured wasm size and serialization cost of a
   realistic home view model.
 - **S3** ffmpeg fMP4 HLS with HEVC copy (`hvc1`), E-AC-3 passthrough, WebVTT renditions and an
-  I-frame playlist, validated with `mediastreamvalidator` and played on Apple TV 4K; repeat on a
-  Pi 4 with the V4L2 encoder.
+  I-frame playlist, validated and played on Apple TV 4K; repeat on a Pi 4 with the V4L2
+  encoder. Done on the Mac and in Docker (`docs/spikes/s3-apple-hls.md`); the Apple TV and Pi
+  runs are on its checklist.
 - **S4** iOS `AVPlayerViewController` with SwiftUI overlays: visibility coordination, PiP,
   follower `requiresLinearPlayback`.
-- **S5** Dolby Vision profile 7 and 8.1 handling with the ffmpeg in the Docker image.
+- **S5** Dolby Vision profile 7 and 8.1 handling with the ffmpeg in the Docker image. Done with
+  synthetic samples (`docs/spikes/s5-dolby-vision.md`): Dolby Vision signalling needs ffmpeg 6+,
+  so the Docker image runs on Debian trixie (ffmpeg 7.1).
 - **S6** Top Shelf images through artwork grants.
 
 **Open questions** (decided during implementation, recorded here when settled)

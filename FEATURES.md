@@ -31,8 +31,10 @@ that render a `XxxPage.svelte` component from the owning feature.
 Shared kernel (backend): `internal/app` (wiring of stores, services and the job runner),
 `internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
 (the huma API, error envelope, `Routes` groups, `Tag`/`Localized`/`Guard`/`Raw`), `internal/media`
-(ffprobe, codec compatibility, filename parsing, transcode ladder policy,
-shared `MediaFile`/`Subtitle` row types), `internal/settings` (settings KV store),
+(ffprobe, codec compatibility, filename parsing, transcode ladder and auto-prepare policy,
+shared `MediaFile`/`Subtitle` row types; `media/mp4` reads fMP4 init sections and segments),
+`internal/hls` (HLS playlists: writer, parser, WebVTT segmenting and the validator behind
+`couchverse validate-hls`), `internal/settings` (settings KV store),
 `internal/flags` (admin-toggleable feature flags), `internal/grant` (media and artwork
 grants), `internal/slug`, `internal/version`
 (build version, API level), `internal/server` (composition root: middleware, API groups,
@@ -134,25 +136,33 @@ library table, title/season/episode CRUD and bulk actions.
   (`Episode.thumbId`, from TMDB stills).
 
 ### playback
-Everything that turns a media file into pixels: direct play streaming with range
-requests, prepared HLS variants, JIT ("instant play") transcode sessions with
-seek-anywhere, the playback-info decision endpoint, the background transcode job
-engine (ffmpeg HLS encode, hardware encoder detection/probing) and transcode admin.
-- Endpoints: `/playback/{kind}/{id}` (the payload, with the media grant and grant URLs; its
-  `display.backdropId` accents the player) and, under `/media/{grant}/` (see "Media grants"):
-  `stream`, `frame?t=` (seek-preview still, ffmpeg input-seek cached under `cache/frames`),
-  `hls/master.m3u8`, `hls/{variant}/{file}`, `jit` (open an instant-play session),
-  `jit/{sid}/{file}`, `jit/{sid}/keepalive`, `DELETE jit/{sid}` (stop);
-  the player); admin `/admin/transcode/info|active`,
+Everything that turns a media file into pixels: the per-device playback decision, direct
+play streaming with range requests, the prepared HLS v2 renditions and their multivariant
+playlists, JIT ("instant play") sessions with seek-anywhere, the background transcode job
+engine (ffmpeg, hardware encoder detection/probing) and transcode admin. Full design in
+"Playback v2" below.
+- Endpoints: `POST /playback/{kind}/{id}` (`resolvePlayback`: the body is the device's
+  capability profile; the payload carries the tier, the media grant and grant URLs; its
+  `display.backdropId` accents the player), `GET /playback/{kind}/{id}` (`getPlayback`, the
+  browser baseline plus `?caps=`, kept for older clients) and, under `/media/{grant}/` (see
+  "Media grants"): `stream`, `frame?t=` (seek-preview still, ffmpeg input-seek cached under
+  `cache/frames`, tone-mapped for HDR), `hls/master.m3u8?video=original|ladder|legacy&surround=`,
+  `hls/{variant}/{file}`, `hls/subtitles/{id}/{file}` (sidecar subtitles as WebVTT renditions),
+  `jit` (open an instant-play session), `jit/{sid}/{file}`, `jit/{sid}/keepalive`,
+  `DELETE jit/{sid}` (stop); admin `/admin/transcode/info|active`,
   `/admin/media-files/{id}/transcode|variants`, `/admin/transcode-variants/{id}`.
-- Job handler: `transcode_hls` (per-type concurrency = `maxConcurrent` setting).
+- Job handler: `transcode_hls` (per-type concurrency = `maxConcurrent` setting) with the
+  variants `package` (the copied source and every audio rendition in one read), `trickplay`
+  and a ladder rendition name.
 - Web: WatchPage + VideoPlayer (HLS.js, subtitles, shortcuts, progress beacons incl.
   watched-seconds deltas, JIT keepalive, banner-accented chrome, bits-ui control tooltips,
-  seek-bar time + frame preview - splitting it is a known follow-up).
-- Transcode ladder/settings policy lives in the `media` kernel so library's prober can
-  auto-prepare variants without importing playback. Rendition bitrates are capped at
-  the source bitrate (`Rendition.CappedAt`) so transcodes never outweigh their source;
-  variant sizes are measured into `transcode_variants.size_bytes` when a job finishes.
+  seek-bar time + frame preview - splitting it is a known follow-up). `deviceProfile()` in
+  `playback/api.ts` measures the browser once per page load.
+- Transcode ladder/settings policy and the auto-prepare policy (`media.AutoPrepare`) live in
+  the `media` kernel and `library.Prepare` queues the jobs, so library's prober can prepare
+  renditions without importing playback. Rendition bitrates are capped at the source bitrate
+  (`Rendition.CappedAt`) so transcodes never outweigh their source; variant sizes are measured
+  into `transcode_variants.size_bytes` when a job finishes.
 
 ### library
 Media ingestion via resumable chunked uploads -> the probe pipeline (filename parsing
@@ -164,7 +174,14 @@ upload targets, auto-created on first boot.)
 - Endpoints (admin): `/admin/media-files/{id}` (`PATCH` audio lang/role; `DELETE`
   hard-deletes the file plus its source, HLS/frame caches and subtitle files on disk),
   `/admin/uploads...`.
-- Job handler: `probe`.
+- Job handlers: `probe`, and `reprobe` (enqueued at every start; brings rows an older prober
+  read up to `media.ProbeVersion`, from ffprobe or, once the source is gone, from the stored
+  probe output, and queues the cheap HLS v2 package for them when auto-prepare is on).
+- The probe records, besides container, codecs, size, duration and bit rate, the video's codec
+  tag, normalized profile, level, bit depth, frame rate and HDR format (`hdr10`, `hdr10plus`
+  from the first frame's SMPTE 2094-40 data, `hlg`, `dolbyVision` with profile and base-layer
+  compatibility) on `media_files`, and per audio track the profile (Atmos), channel layout and
+  sample rate on `audio_streams`.
 - Web: `features/library` (AdminLibraryPage, AdminTitleEditorPage,
   editor components incl. EditorHero with hover poster/backdrop editing, EpisodesTable with
   client-side filters, StorageChart, NewTitleModal, TmdbSearchModal, FileVariants,
@@ -192,7 +209,9 @@ as episode `thumb` artwork). API key comes from settings.
 
 ### subtitles
 Side-car WebVTT subtitles: automatic extraction of embedded text subs (ffmpeg),
-`.srt`/`.vtt` upload with conversion, serving as `<track>` elements.
+`.srt`/`.vtt` upload with conversion, serving as `<track>` elements (the web) and, through
+playback's `hls/subtitles/{id}/...`, as segmented WebVTT renditions of every HLS playlist
+(system players).
 - Endpoints: `/subtitles/{id}.vtt`; admin `/admin/media-files/{id}/subtitles`,
   `/admin/subtitles/{id}`.
 - Job handler: `extract_subtitles`.
@@ -441,10 +460,13 @@ leave it empty so they see base text.
   `AudioSiblings` returns the alternates. Tagged via `PATCH /admin/media-files/{id}`
   (AudioLangControl in the editor). The player swaps the source file and re-seeks.
 - *Model A - one file, many embedded tracks:* ffprobe records all tracks into the
-  `audio_streams` table (prober `ReplaceAudioStreams`); a multi-audio h264 file is remuxed
-  to a single `multiaudio` HLS variant via ffmpeg `-var_stream_map` (copied video + AAC
-  audio renditions, master.m3u8) and is forced onto HLS. The player switches via hls.js
-  `audioTrack` (Safari: native `video.audioTracks`).
+  `audio_streams` table (prober `ReplaceAudioStreams`); the HLS v2 package prepares AAC
+  stereo (and surround) renditions of every track, which every multivariant playlist lists
+  as one audio group in stream order (see "Playback v2"), and a client that cannot switch
+  the tracks of a progressive file (`audioTrackSwitching` in its profile) plays through
+  HLS. The player switches via hls.js `audioTrack` (Safari: native `video.audioTracks`);
+  AVPlayer and ExoPlayer show the group as their native audio menu. Files prepared before
+  HLS v2 keep their `multiaudio` MPEG-TS remux (`-var_stream_map`, its own master.m3u8).
 - Both surface as `playbackInfo.audio` (source `file`|`embedded`); the player shows one
   audio menu, selected independently of the display language (`localStorage cv.audioLang`).
 
@@ -557,8 +579,9 @@ fetch on their own), so media is authorized by a capability in the URL.
 - **Media grants** (6 hours) name one media file. Everything that plays it lives under
   `/media/{grant}/...`, so relative HLS URIs inherit the grant; handlers read the file from
   `grant.From(ctx)` and never trust a path id (subtitles and instant-play sessions must
-  belong to that file). `GET /playback/...` returns `grant`, `streamUrl`, `hlsUrl`,
-  `frameUrl` and subtitle URLs already signed. An expired grant answers 403
+  belong to that file; instant-play sessions also to the grant's viewer). The playback
+  payloads return `grant`, `streamUrl`, `originalUrl`, `hlsUrl`, `frameUrl` and subtitle
+  URLs already signed. An expired grant answers 403
   `grant_expired` (fetch the payload again), a forged one 403 `invalid_grant`, a revoked
   couch grant 403 `grant_revoked`.
 - **Artwork grants** (7 days) unlock artwork images (`?g=`) for system fetches (tvOS Top
@@ -566,6 +589,59 @@ fetch on their own), so media is authorized by a capability in the URL.
   payloads.
 - **Couch-bound grants** carry the follower's participant id and are re-checked against the
   live session on every request (see couch).
+
+## Playback v2 (cross-cutting)
+
+Every client says what it can play and the server picks the cheapest delivery that fits;
+everything that is not the source file is fMP4 HLS that AVPlayer, ExoPlayer and hls.js play
+with native audio and subtitle menus. Spikes: `docs/spikes/s3-apple-hls.md`,
+`docs/spikes/s5-dolby-vision.md`.
+
+- **Device profile** (`playback.DeviceProfile`, the body of `resolvePlayback` and
+  `resolveCouchPlayback`; examples in `contract/fixtures/device-profiles/`): progressive
+  `containers`; `video` codecs with `profiles`, `maxLevel` and `maxBitDepth`; `audio` codecs
+  with `maxChannels` and `atmos`; `hdr` modes, Dolby Vision per profile (`dolbyVision5`,
+  `dolbyVision8`...); `maxWidth`/`maxHeight`/`maxFrameRate`/`maxBitrate`; `hls` segment
+  formats; `sidecarSubtitles` (formats rendered beside a direct-played file; none means
+  subtitles need HLS, as on AVPlayer); `audioTrackSwitching` (inside a progressive file).
+  The GET forms map `?caps=` onto `LegacyProfile`, the old browser baseline.
+- **Decision** (`playback.Decide`, a pure function over profile, source facts, prepared
+  state and server abilities; table-tested in `decision_test.go`): **direct** when the
+  profile covers container, video (codec, profile, level, bit depth, size, frame rate,
+  bitrate, HDR or Dolby Vision profile) and audio and nothing needs HLS renditions;
+  **remux** (the copied source, `?video=original`) when the video fits but the container,
+  audio, subtitles or languages do not; **transcode** (the ladder, `?video=ladder`; legacy
+  MPEG-TS variants for profiles that play TS) otherwise; then `preparing` while jobs run, an
+  instant-play session (`mode: jit` with a `jit` plan) when JIT is on, `unsupported` last.
+  A file that direct-plays except for its subtitles or extra languages plays directly
+  rather than waiting for its package. HDR the profile cannot show falls back to a
+  compatible base layer (Dolby Vision 8.1/7 to HDR10, 8.4 to HLG) or the tone-mapped ladder.
+  The payload's `tier` says what reaches the client, `originalUrl` is the "Original" quality
+  (the file or the copied-source playlist, outside the ABR ladder) and `hlsUrl` the ladder.
+- **Packages** (`transcode_variants` rows, `format` `fmp4`; pre-v2 rows are `ts`): `source`
+  (the video copied, `hvc1` for HEVC, Dolby Vision signalled where ffmpeg 6+ can, profile 7
+  stripped to HDR10), `audio` (directories `audio-<stream>-<codec>`: AAC stereo for every
+  track plus AC-3/E-AC-3 copied or E-AC-3 5.1 made from other multichannel audio),
+  `trickplay` (one 180p intra frame every 2 s, listed as `iframes.m3u8`) and the ladder rungs
+  (H.264 High, tone-mapped and 8-bit, IDR every 2 s of source time). Every output shares one
+  timeline (`-copyts`, a 1.4 s offset, `frag_discont`, negative CTS offsets) and 6 s
+  segments; each directory gets a `rendition.json` with its codec string, size, range,
+  channels and measured peak and average bit rates. `media.AutoPrepare` picks what to
+  prepare at probe time: nothing for H.264/AAC MP4 with one audio track and no subtitles,
+  the copied source otherwise (cheap), and with auto-prepare on the full ladder for sources
+  some clients cannot decode (HEVC, AV1, 10-bit, HDR) or the rungs below an H.264 source.
+- **Multivariant playlists** are written per request from the `rendition.json` files: every
+  video rendition once per audio group ("surround" when the profile takes AC-3/E-AC-3, then
+  "stereo"), with `CODECS`, `SUPPLEMENTAL-CODECS`, `RESOLUTION`, `FRAME-RATE`, `VIDEO-RANGE`,
+  `BANDWIDTH`, `AVERAGE-BANDWIDTH`, a subtitle group of segmented WebVTT renditions built
+  from the sidecar files (`X-TIMESTAMP-MAP=MPEGTS:126000`) and the I-frame playlist.
+- **Instant play** encodes H.264 SDR fMP4 from the requested 6 s segment with the planned
+  audio (copied when the profile takes it, else AAC or E-AC-3), restarts on far seeks, is
+  bound to the grant's viewer (subject and couch participant) and is served behind a
+  one-variant multivariant playlist with the subtitle renditions.
+- **Checks**: `couchverse validate-hls <url>` (rules in the S3 spike), `TestPlaybackTiers`
+  (every tier on generated media, validated; with `COUCHVERSE_AVPLAYER=1` played by
+  `scripts/avplayer-probe.swift`), `make hls-check|hls-apple|hls-server-check|e2e-playback`.
 
 ## Optimistic navigation & caching (cross-cutting)
 
