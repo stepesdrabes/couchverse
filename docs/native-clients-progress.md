@@ -131,12 +131,11 @@ stage runs per platform. Signed APKs join once the Android app exists.
 
 ## Known issues (backlog)
 
-- Login errors show the server's English text instead of a localized message.
-- The genre page heading shows the English genre name from the URL, not the localized label.
-- A couch follower who misses `session_ended` (network drop) reconnects forever; no fallback
-  check against the session info.
-- A signed-out page fetches `/me/preferences` twice; a hover preload and the click's
-  navigation sometimes fetch the same title twice.
+- Fixed since they were found: sign-in errors are localized by code, a genre page is headed by
+  its label (from the core), a couch follower that missed the end learns of it on reconnect,
+  and a signed-out page asks for `/me/preferences` once.
+- Native clients refresh an open screen only past the core's 60 s freshness (the web sends
+  `RefreshRequested` on every visit); consider a visit policy in the core.
 
 ## Real-device checklist (for the user)
 
