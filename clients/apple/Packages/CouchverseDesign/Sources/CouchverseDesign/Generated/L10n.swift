@@ -218,6 +218,27 @@ extension L10n {
     public static func devicesSignedOut(device: String) -> String { format("devices_signed_out", [device]) }
     public static func devicesSummary(count: Int) -> String { format("devices_summary", [count]) }
     public static var devicesThisBrowser: String { string("devices_this_browser") }
+    public static var downloadAction: String { string("download_action") }
+    public static var downloadChooseQuality: String { string("download_choose_quality") }
+    public static var downloadFailedExpired: String { string("download_failed_expired") }
+    public static var downloadFailedFetch: String { string("download_failed_fetch") }
+    public static var downloadFailedNoSpace: String { string("download_failed_no_space") }
+    public static var downloadFailedPrepare: String { string("download_failed_prepare") }
+    public static var downloadFailedUnsupported: String { string("download_failed_unsupported") }
+    public static var downloadQualityOriginal: String { string("download_quality_original") }
+    public static var downloadQualityOriginalHint: String { string("download_quality_original_hint") }
+    public static var downloadRemove: String { string("download_remove") }
+    public static var downloadRetry: String { string("download_retry") }
+    public static var downloadStarted: String { string("download_started") }
+    public static func downloadStateFetching(percent: String) -> String { format("download_state_fetching", [percent]) }
+    public static func downloadStatePreparing(percent: String) -> String { format("download_state_preparing", [percent]) }
+    public static var downloadStateQueued: String { string("download_state_queued") }
+    public static var downloadStateReady: String { string("download_state_ready") }
+    public static var downloadsEmpty: String { string("downloads_empty") }
+    public static var downloadsEmptyHint: String { string("downloads_empty_hint") }
+    public static var downloadsOfflineBanner: String { string("downloads_offline_banner") }
+    public static func downloadsStorage(size: String) -> String { format("downloads_storage", [size]) }
+    public static var downloadsTitle: String { string("downloads_title") }
     public static var errorGoHome: String { string("error_go_home") }
     public static var errorNotFound: String { string("error_not_found") }
     public static var errorPageTitle: String { string("error_page_title") }

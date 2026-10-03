@@ -71,53 +71,12 @@ impl Images {
 /// The artwork version token for a full artwork row: its `createdAt` in unix seconds, as the
 /// web has always sent it.
 pub fn version_of(created_at: &str) -> Option<String> {
-    unix_seconds(created_at).map(|s| s.to_string())
-}
-
-/// Seconds since the epoch for an RFC 3339 timestamp (`2026-10-02T12:00:00.123+02:00`).
-fn unix_seconds(timestamp: &str) -> Option<i64> {
-    let (date, rest) = timestamp.split_once(['T', 't', ' '])?;
-    let mut date = date.splitn(3, '-').map(str::parse::<i64>);
-    let (year, month, day) = (date.next()?.ok()?, date.next()?.ok()?, date.next()?.ok()?);
-    let time_end = rest.find(['Z', 'z', '+', '-']).unwrap_or(rest.len());
-    let (time, zone) = rest.split_at(time_end);
-    let time = time.split('.').next()?;
-    let mut time = time.splitn(3, ':').map(str::parse::<i64>);
-    let (hour, minute, second) = (time.next()?.ok()?, time.next()?.ok()?, time.next()?.ok()?);
-    let offset = match zone.chars().next() {
-        Some(sign @ ('+' | '-')) => {
-            let (h, m) = zone[1..].split_once(':')?;
-            let minutes = h.parse::<i64>().ok()? * 60 + m.parse::<i64>().ok()?;
-            if sign == '+' { minutes * 60 } else { -minutes * 60 }
-        }
-        _ => 0,
-    };
-    Some(days_from_civil(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second - offset)
-}
-
-/// Days since 1970-01-01 in the proleptic Gregorian calendar (Howard Hinnant's algorithm).
-fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
-    let year = if month <= 2 { year - 1 } else { year };
-    let era = year.div_euclid(400);
-    let year_of_era = year - era * 400;
-    let month_index = (month + 9) % 12;
-    let day_of_year = (153 * month_index + 2) / 5 + day - 1;
-    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * 146_097 + day_of_era - 719_468
+    crate::time::unix_seconds(created_at).map(|s| s.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn timestamps_become_unix_seconds() {
-        assert_eq!(unix_seconds("1970-01-01T00:00:00Z"), Some(0));
-        assert_eq!(unix_seconds("2026-10-02T12:00:00Z"), Some(1_790_942_400));
-        assert_eq!(unix_seconds("2026-10-02T14:00:00.987654+02:00"), Some(1_790_942_400));
-        assert_eq!(unix_seconds("2000-02-29T23:59:59-01:30"), Some(951_874_199));
-        assert_eq!(unix_seconds("not a date"), None);
-    }
 
     #[test]
     fn urls_carry_size_version_and_grant() {

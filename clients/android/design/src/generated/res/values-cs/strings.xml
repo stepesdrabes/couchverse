@@ -225,6 +225,27 @@
         <item quantity="other">Jste přihlášeni na %1$d zařízeních.</item>
     </plurals>
     <string name="devices_this_browser">Tento prohlížeč</string>
+    <string name="download_action">Stáhnout</string>
+    <string name="download_choose_quality">Kvalita stahování</string>
+    <string name="download_failed_expired">Server ho už nemá připravené - zkuste to znovu</string>
+    <string name="download_failed_fetch">Stahování se přerušilo</string>
+    <string name="download_failed_no_space">V zařízení není dost místa</string>
+    <string name="download_failed_prepare">Server ho nedokázal připravit</string>
+    <string name="download_failed_unsupported">Toto zařízení stažený titul nepřehraje</string>
+    <string name="download_quality_original">Originál</string>
+    <string name="download_quality_original_hint">Nejlepší obraz, největší soubor</string>
+    <string name="download_remove">Odstranit stažené</string>
+    <string name="download_retry">Zkusit znovu</string>
+    <string name="download_started">Stahování začalo</string>
+    <string name="download_state_fetching">Stahuje se · %1$s %%</string>
+    <string name="download_state_preparing">Připravuje se · %1$s %%</string>
+    <string name="download_state_queued">Čeká na server</string>
+    <string name="download_state_ready">Staženo</string>
+    <string name="downloads_empty">Zatím nic staženého</string>
+    <string name="downloads_empty_hint">Stáhněte si filmy a díly a sledujte je i bez připojení.</string>
+    <string name="downloads_offline_banner">Jste offline - stažené tituly můžete přehrávat dál.</string>
+    <string name="downloads_storage">%1$s v tomto zařízení</string>
+    <string name="downloads_title">Stažené</string>
     <string name="error_go_home">Zpět na úvod</string>
     <string name="error_not_found">Tuto stránku se nepodařilo najít.</string>
     <string name="error_page_title">Něco se pokazilo</string>

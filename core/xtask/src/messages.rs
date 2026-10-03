@@ -40,7 +40,7 @@ pub fn generate(root: &Path, written: &mut Vec<PathBuf>) -> Result<(), String> {
     let typescript = TypeScript { no_version_header: true, ..TypeScript::default() };
 
     let swift = render(Box::new(swift), &files, "//")?;
-    out::write(&root.join(SWIFT), &swift, written)?;
+    out::write(&root.join(SWIFT), &swift_optional_defaults(&swift), written)?;
     let kotlin = render(Box::new(kotlin), &files, "//")?;
     out::write(&root.join(KOTLIN), &kotlin_sealed(&kotlin_generics(&kotlin)), written)?;
     let typescript = render(Box::new(typescript), &files, "//")?;
@@ -104,6 +104,48 @@ fn render(
     lang.generate_types(&mut output, &HashMap::new(), data).map_err(|e| e.to_string())?;
     let body = String::from_utf8(output).map_err(|e| e.to_string())?;
     Ok(format!("{}{body}", out::header(comment, SOURCE)))
+}
+
+/// Optional initializer parameters default to `nil` in Swift, as they do in Kotlin, so a new
+/// optional field (`#[serde(default)]`) does not break the shells' call sites.
+fn swift_optional_defaults(source: &str) -> String {
+    source
+        .lines()
+        .map(|line| {
+            let Some(open) = line.find("public init(") else { return line.to_string() };
+            let params_start = open + "public init(".len();
+            let Some(close) = line.rfind(") {") else { return line.to_string() };
+            let params = split_params(&line[params_start..close])
+                .into_iter()
+                .map(|p| if p.ends_with('?') { format!("{p} = nil") } else { p.to_string() })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{}{params}{}", &line[..params_start], &line[close..])
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + if source.ends_with('\n') { "\n" } else { "" }
+}
+
+/// Splits `a: [String: Int], b: Foo?` at the commas outside brackets.
+fn split_params(params: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let (mut depth, mut start) = (0i32, 0);
+    for (i, c) in params.char_indices() {
+        match c {
+            '[' | '<' | '(' => depth += 1,
+            ']' | '>' | ')' => depth -= 1,
+            ',' if depth == 0 => {
+                out.push(params[start..i].trim());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    if !params[start..].trim().is_empty() {
+        out.push(params[start..].trim());
+    }
+    out
 }
 
 /// typeshare emits `object Loading: LoadState<T>()` for a unit variant of a generic enum, which
@@ -219,6 +261,17 @@ fn sealed_variant(line: &str, variants: &HashSet<&str>, top_level: &HashSet<&str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn swift_optionals_default_to_nil() {
+        let source = "\tpublic init(nowMs: UInt64, event: Event, wallMs: UInt64?) {\n\
+\tpublic init(headers: [String: String]?, items: [Item], next: Next?) {\n\
+\tpublic init() {}\n";
+        let expected = "\tpublic init(nowMs: UInt64, event: Event, wallMs: UInt64? = nil) {\n\
+\tpublic init(headers: [String: String]? = nil, items: [Item], next: Next? = nil) {\n\
+\tpublic init() {}\n";
+        assert_eq!(swift_optional_defaults(source), expected);
+    }
 
     #[test]
     fn kotlin_variants_do_not_shadow_the_types_they_carry() {

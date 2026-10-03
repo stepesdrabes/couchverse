@@ -420,6 +420,108 @@ export interface DevicesView {
 	problem?: Problem;
 }
 
+/** How big a download is: the source picture, or a ladder rung (smaller, H.264). */
+export enum DownloadQuality {
+	Original = "original",
+	Hd1080 = "1080p",
+	Hd720 = "720p",
+	Sd480 = "480p",
+}
+
+/** A movie or an episode to keep on the device. */
+export interface DownloadAsk {
+	target: PlayTarget;
+	quality: DownloadQuality;
+	/** Audio languages to keep, in order; empty for the default track. */
+	audio?: string[];
+}
+
+export interface DownloadFailure {
+	/** An English hint for logs, never shown as is. */
+	message: string;
+	/** Out of space on the device, so trying again will not help until some is freed. */
+	noSpace?: boolean;
+}
+
+export interface DownloadFinished {
+	bytes: number;
+}
+
+export interface EpisodeNumber {
+	season: number;
+	episode: number;
+}
+
+export enum DownloadState {
+	/** The server has not started preparing it. */
+	Queued = "queued",
+	/** The server is making the MP4. */
+	Preparing = "preparing",
+	/** The device is fetching it. */
+	Fetching = "fetching",
+	/** On the device, playable offline. */
+	Ready = "ready",
+	Failed = "failed",
+}
+
+export interface DownloadItem {
+	id: string;
+	target: PlayTarget;
+	title: string;
+	titleSlug: string;
+	episode?: EpisodeNumber;
+	episodeName?: string;
+	quality: DownloadQuality;
+	state: DownloadState;
+	/** 0 to 1 while preparing or fetching. */
+	progress: number;
+	/** The MP4's size; 0 until known. */
+	sizeBytes: number;
+	/** The episode still or the poster, from the server. */
+	image?: Image;
+	/**
+	 * The same artwork kept on the device: its name in the downloads directory. Prefer it
+	 * offline.
+	 */
+	artwork?: string;
+	/** Why it failed: `unsupported`, `expired`, `prepare_failed`, `fetch_failed`, `no_space`. */
+	problem?: Problem;
+}
+
+export interface DownloadName {
+	name: string;
+}
+
+export interface DownloadProgress {
+	receivedBytes: number;
+	/** Absent until the server said how big the file is. */
+	totalBytes?: number;
+}
+
+/** A download by its id from `DownloadsView`. */
+export interface DownloadRef {
+	id: string;
+}
+
+export interface DownloadStart {
+	/**
+	 * Empty to only pick up a transfer with this name that is running or finished; with
+	 * none, it fails at once.
+	 */
+	url: string;
+	/** The file's name in the downloads directory; stable, unlike the directory's path. */
+	name: string;
+}
+
+export interface DownloadsView {
+	/** `loading` until the device's list is read, then `loaded`. */
+	status: LoadStatus;
+	/** Newest first. */
+	items: DownloadItem[];
+	/** Bytes the finished downloads take on the device. */
+	usedBytes: number;
+}
+
 export interface EffectRef {
 	id: number;
 }
@@ -445,7 +547,14 @@ export type Effect =
 	 * `socketText` for every frame, and ends with `socketClosed`; send and close are
 	 * fire-and-forget.
 	 */
-	| { type: "socket", content: SocketCommand };
+	| { type: "socket", content: SocketCommand }
+	/**
+	 * Fetch a file into the app's downloads directory in the background, surviving the app
+	 * being suspended (a background `URLSession`, `WorkManager`). A start resolves
+	 * `downloadProgress` now and then and ends with `downloadFinished` or `downloadFailed`;
+	 * cancel and remove are fire-and-forget.
+	 */
+	| { type: "download", content: DownloadCommand };
 
 /**
  * Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -454,11 +563,6 @@ export type Effect =
 export interface EffectRequest {
 	id: number;
 	effect: Effect;
-}
-
-export interface EpisodeNumber {
-	season: number;
-	episode: number;
 }
 
 export interface EpisodeView {
@@ -794,12 +898,25 @@ export type Event =
 	/** A follower paused or resumed their own playback. */
 	| { type: "couchLocalPauseChanged", content: CouchPause }
 	/** A remote's play, pause, seek, next or previous. */
-	| { type: "couchRemoteCommanded", content: RemoteControl };
+	| { type: "couchRemoteCommanded", content: RemoteControl }
+	/** Keep a movie or an episode for offline viewing (iOS and Android). */
+	| { type: "downloadRequested", content: DownloadAsk }
+	/** Ask the server again for a download that failed. */
+	| { type: "downloadRetried", content: DownloadRef }
+	/** Delete a download from this device and from the account's list. */
+	| { type: "downloadRemoved", content: DownloadRef }
+	/** Play a finished download from the device. */
+	| { type: "downloadPlayRequested", content: DownloadRef };
 
 /** Something that happened in the shell: a user intent or a lifecycle change. */
 export interface Message {
 	nowMs: number;
 	event: Event;
+	/**
+	 * Milliseconds since the Unix epoch, for what depends on the date (progress saved while
+	 * offline is replayed with the time it was watched). `nowMs` stays the monotonic clock.
+	 */
+	wallMs?: number;
 }
 
 export interface MyListView {
@@ -910,13 +1027,19 @@ export enum PlayerSource {
 	File = "file",
 	/** An HLS multivariant playlist. */
 	Hls = "hls",
+	/** A finished download: `url` is its name in the downloads directory. */
+	Download = "download",
 }
 
 export interface PlayerSubtitle {
 	id: string;
 	lang: string;
 	label: string;
-	url: string;
+	/**
+	 * The WebVTT file to show beside the media; absent for a track inside it (a download's
+	 * subtitles), which the player selects by language.
+	 */
+	url?: string;
 	forced: boolean;
 }
 
@@ -1188,7 +1311,9 @@ export type Surface =
 	/** The player screen: sources, tracks, qualities, episodes and the next-episode countdown. */
 	| { type: "player", content?: undefined }
 	/** The couch session: members, reactions, the host's state and the follower's sync. */
-	| { type: "couch", content?: undefined };
+	| { type: "couch", content?: undefined }
+	/** The account's downloads on this device: preparing, fetching and ready to play offline. */
+	| { type: "downloads", content?: undefined };
 
 export interface RenderRequest {
 	surfaces: Surface[];
@@ -1208,7 +1333,13 @@ export type EffectOutput =
 	/** A text frame from the socket. */
 	| { type: "socketText", content: SocketText }
 	/** Terminal: the socket closed or could not open. */
-	| { type: "socketClosed", content: SocketClosed };
+	| { type: "socketClosed", content: SocketClosed }
+	/** How far a download has come; sent now and then, not for every chunk. */
+	| { type: "downloadProgress", content: DownloadProgress }
+	/** Terminal: the file is complete under its name. */
+	| { type: "downloadFinished", content: DownloadFinished }
+	/** Terminal: the transfer failed or was cancelled; nothing is kept. */
+	| { type: "downloadFailed", content: DownloadFailure };
 
 /**
  * The output of an effect the core asked for. Streaming effects (sockets, repeating timers)
@@ -1286,6 +1417,11 @@ export interface SessionView {
 	language: string;
 	accent: AccentPalette;
 	problem?: Problem;
+	/**
+	 * The server is out of reach (no network, or it is down): show what works offline,
+	 * the downloads.
+	 */
+	offline: boolean;
 }
 
 export interface SignInView {
@@ -1427,6 +1563,17 @@ export interface WatchlistChange {
 	/** True to add the title to My List, false to remove it. */
 	listed: boolean;
 }
+
+export type DownloadCommand = 
+	/**
+	 * Starting a name that is already transferring attaches to that transfer, and one that
+	 * is already complete finishes at once, so the core can start again after a relaunch.
+	 */
+	| { type: "start", content: DownloadStart }
+	/** Stop a transfer and delete what it fetched. */
+	| { type: "cancel", content: EffectRef }
+	/** Delete a finished file. */
+	| { type: "remove", content: DownloadName };
 
 export type PlayerCommand = 
 	/**

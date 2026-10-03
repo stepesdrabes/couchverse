@@ -554,19 +554,26 @@ messages and perform the effects it asks for.
   (Android `core` module) and `clients/web/src/lib/generated/core.ts`, committed with the
   change. Enums with data are adjacently tagged (`{"type", "content"}`), unit enums are
   strings, ids and milliseconds are `U53`.
-- **Messages**: `Message { nowMs, event }` (time is an input, so tests control it) and
-  `Resolution { nowMs, id, output }`. `CoreConfig` names the platform and the auth mode:
+- **Messages**: `Message { nowMs, event, wallMs? }` (time is an input, so tests control it;
+  `nowMs` is monotonic, `wallMs` the Unix-epoch clock for what depends on the date, such as
+  progress replayed after watching offline) and `Resolution { nowMs, id, output }`. `CoreConfig` names the platform and the auth mode:
   `bearer` (native: per-account device tokens in the secure store) or `cookie` (the web: one
   session over the browser cookie, origin-relative URLs).
 - **Effects** (`EffectRequest { id, effect }`): `http`, `upload` (a multipart form around a
   file the shell holds; the core only sees the shell's handle), `timer` (one-shot or
-  repeating, stopped by `cancelTimer`), `store` and `secureStore` (read/write/delete), and
-  `render { surfaces }`, which names the view models to re-read. Writes, deletes, cancels and
-  renders are fire-and-forget; a late answer for a cancelled or forgotten effect is ignored.
+  repeating, stopped by `cancelTimer`), `store` and `secureStore` (read/write/delete),
+  `player` (load a source, play, pause, seek, select audio or subtitles, stop; the shell
+  reports back with `PlayerReported`), `socket` (open resolves `socketOpened`, a
+  `socketText` per frame and ends with `socketClosed`; send and close), `download` (a
+  background transfer into the app's downloads directory by a stable name: `downloadProgress`
+  now and then, ending with `downloadFinished` or `downloadFailed`; starting a name already
+  transferring attaches to it; cancel and remove), and `render { surfaces }`, which names the
+  view models to re-read. Writes, deletes, cancels and renders are fire-and-forget; a late
+  answer for a cancelled or forgotten effect is ignored.
 - **View models** are plain data per `Surface` (`app`, `servers`, `accounts`, `signIn`,
   `devices`, `pairingApproval`, `session`, `markdown(source)`, `home`, `browse(key)`,
   `title(slug)`, `genres`, `myList`, `search`, `notices`, `rank`, `profile(username)`,
-  `leaderboard(key)`, `profileEditor`), each with a `LoadStatus`
+  `leaderboard(key)`, `profileEditor`, `player`, `couch`, `downloads`), each with a `LoadStatus`
   (`idle|loading|loaded|stale|notFound|failed`: stale beats blank) and a `Problem { code }`
   that shells localize. `AppView.phase` (`starting|welcome|signIn|chooseAccount|ready`) picks
   the root screen; a TV always opens on "Who's watching?".
@@ -577,7 +584,16 @@ messages and perform the effects it asks for.
   genres, My List, search with debounce and supersede, warm-start home per account, image URLs
   per role with the artwork grant), `ranks` (rank badge and level-ups, throttled achievement
   checks, celebration queue, profiles with the heatmap, leaderboards), `profile` (edits,
-  password, avatar/banner uploads), `notices` (transient toasts), plus pure helpers `theme`
+  password, avatar/banner uploads), `playback` (the device profile and `resolvePlayback`,
+  sources by tier, resume, watched-time accounting and progress saves, JIT keepalive,
+  preparing poll, qualities, tracks, next episode, shuffle; a downloaded title plays from the
+  device with source `download` and in-file subtitles), `couch` (the socket protocol,
+  reconnects, host broadcast, follower drift sync, remote control, reactions), `downloads`
+  (asks the server to prepare an MP4 for the device's profile, polls, fetches it and its
+  artwork with the download effect, keeps the account's offline library in the store, plays
+  it while `SessionView.offline`, and keeps progress that could not be saved, with the time it
+  was watched, until the server answers again; signing out deletes the account's downloads),
+  `notices` (transient toasts), plus pure helpers `theme`
   (accent palettes from `contract/design/tokens.json`), `images` and `markdown` (bios as a
   safe tree: no HTML, no images, http(s)/mailto links only). Requests in flight carry a
   generation, so answers for a previous account or display language are dropped.

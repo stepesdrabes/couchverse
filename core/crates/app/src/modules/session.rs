@@ -39,6 +39,9 @@ pub struct SessionView {
     pub accent: AccentPalette,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub problem: Option<Problem>,
+    /// The server is out of reach (no network, or it is down): show what works offline,
+    /// the downloads.
+    pub offline: bool,
 }
 
 #[typeshare]
@@ -121,6 +124,7 @@ impl Session {
                 language: supported_language(locale),
                 accent: theme::palette(theme::default_accent()),
                 problem: None,
+                offline: false,
             },
             endpoint: None,
             locale: locale.to_string(),
@@ -192,6 +196,7 @@ impl Session {
             language,
             accent: theme::palette(accent),
             problem: None,
+            offline: false,
         };
         self.endpoint = Some(endpoint);
         self.load(ctx);
@@ -285,6 +290,7 @@ impl Session {
                     });
                     self.view.status = LoadStatus::Loaded;
                     self.view.problem = None;
+                    self.view.offline = false;
                     SessionChange::Ready(user)
                 }
                 Err(failure) if failure.unauthorized() => {
@@ -330,6 +336,13 @@ impl Session {
         self.view.status =
             if self.view.user.is_some() { LoadStatus::Stale } else { LoadStatus::Failed };
         self.view.problem = Some(failure.problem());
+        self.view.offline = matches!(failure, Failure::Network(_))
+            || matches!(failure, Failure::Api(e) if e.status >= 500);
+    }
+
+    /// Whether the server was out of reach the last time the session asked.
+    pub fn offline(&self) -> bool {
+        self.view.offline
     }
 }
 

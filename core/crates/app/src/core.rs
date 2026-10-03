@@ -14,6 +14,7 @@ use crate::messages::{
 use crate::modules::accounts::{Accounts, AccountsChange, AccountsPending};
 use crate::modules::catalog::{self, Catalog, CatalogChange, CatalogPending, Env};
 use crate::modules::couch::{self, Couch, CouchChange, CouchPending};
+use crate::modules::downloads::{self, Downloads, DownloadsChange, DownloadsPending};
 use crate::modules::images::Images;
 use crate::modules::markdown;
 use crate::modules::notices::Notices;
@@ -35,6 +36,7 @@ pub enum Pending {
     Profile(ProfilePending),
     Playback(PlaybackPending),
     Couch(CouchPending),
+    Downloads(DownloadsPending),
 }
 
 /// Where the app is, so a shell knows which root screen to show.
@@ -83,6 +85,7 @@ struct Model {
     profile: Profile,
     playback: Playback,
     couch: Couch,
+    downloads: Downloads,
     notices: Notices,
     phase: AppPhase,
     /// Persisted reads still outstanding at start-up; the phase is decided when they land.
@@ -102,6 +105,7 @@ impl Core {
             profile: Profile::default(),
             playback: Playback::default(),
             couch: Couch::default(),
+            downloads: Downloads::default(),
             notices: Notices::default(),
             phase: AppPhase::Starting,
             boot_reads: 0,
@@ -111,6 +115,7 @@ impl Core {
 
     pub fn send(&mut self, message: Message) -> Vec<EffectRequest> {
         let mut ctx = Ctx::new(message.now_ms, &mut self.registry);
+        ctx.wall = message.wall_ms;
         self.model.send(&mut ctx, message.event);
         self.registry.drain()
     }
@@ -164,6 +169,19 @@ fn couch_env<'a>(
         cookie: config.auth_mode == AuthMode::Cookie,
         origin: &config.origin,
         profile: playback.profile(),
+    })
+}
+
+fn downloads_env<'a>(
+    session: &'a Session,
+    playback: &'a Playback,
+    images: Images,
+) -> Option<downloads::Env<'a>> {
+    session.endpoint().map(|endpoint| downloads::Env {
+        endpoint,
+        language: session.language(),
+        profile: playback.profile(),
+        images,
     })
 }
 
@@ -256,6 +274,10 @@ impl Model {
             | Event::CouchEmojiSent(_)
             | Event::CouchLocalPauseChanged(_)
             | Event::CouchRemoteCommanded(_)) => self.couch_event(ctx, party),
+            offline @ (Event::DownloadRequested(_)
+            | Event::DownloadRetried(_)
+            | Event::DownloadRemoved(_)
+            | Event::DownloadPlayRequested(_)) => self.download_event(ctx, offline),
             browsing @ (Event::ScreenOpened(_)
             | Event::ScreenClosed(_)
             | Event::RefreshRequested(_)
@@ -275,6 +297,8 @@ impl Model {
                 ctx.render(Surface::App);
             }
             Event::SignOutRequested(account) => {
+                // the account's downloads leave the device with it
+                self.downloads.purge(ctx, &account.account_id);
                 if self.session.account_id() == Some(account.account_id.as_str()) {
                     self.end_session(ctx);
                 }
@@ -349,6 +373,13 @@ impl Model {
             }
             return;
         }
+        if let Event::ScreenOpened(Surface::Downloads)
+        | Event::RefreshRequested(Surface::Downloads) = &event
+        {
+            let env = downloads_env(&self.session, &self.playback, self.images());
+            self.downloads.opened(ctx, env.as_ref());
+            return;
+        }
         let env = env(&self.session);
         match (event, env) {
             (Event::ScreenOpened(surface), env) if catalog::owns(&surface) => {
@@ -409,6 +440,11 @@ impl Model {
                         if let Some(id) = self.session.account_id() {
                             self.accounts.update_profile(ctx, id, &user);
                         }
+                        // the server answers again: offline progress and downloads catch up
+                        let images = self.images();
+                        if let Some(env) = downloads_env(&self.session, &self.playback, images) {
+                            self.downloads.reconnected(ctx, &env);
+                        }
                         if self.phase != AppPhase::Ready {
                             // the web's cookie session checked out
                             self.phase = AppPhase::Ready;
@@ -446,6 +482,12 @@ impl Model {
                 let env = couch_env(&self.session, &self.config, &self.playback);
                 let change = self.couch.resolve(ctx, env.as_ref(), &self.playback, p, output);
                 self.couch_changed(ctx, change);
+            }
+            Pending::Downloads(p) => {
+                let images = self.images();
+                let env = downloads_env(&self.session, &self.playback, images);
+                let change = self.downloads.resolve(ctx, env.as_ref(), p, output);
+                self.downloads_changed(ctx, change);
             }
             Pending::Profile(p) => match self.profile.resolve(ctx, p, output) {
                 ProfileChange::Updated(user) => {
@@ -496,10 +538,23 @@ impl Model {
         };
         let change = match event {
             Event::PlayRequested(target) => {
-                self.playback.play(ctx, &env, target, false);
+                // out of reach of the server, a downloaded title plays from the device
+                match self.downloads.local_for(&target).filter(|_| self.session.offline()) {
+                    Some(local) => self.playback.play_download(ctx, &env, &local),
+                    None => self.playback.play(ctx, &env, target, false),
+                }
                 PlaybackChange::None
             }
-            Event::PlayerReported(report) => self.playback.report(ctx, &env, &report),
+            Event::PlayerReported(report) => {
+                let change = self.playback.report(ctx, &env, &report);
+                if matches!(change, PlaybackChange::Watched { .. })
+                    && let Some((target, position)) = self.playback.local_position()
+                {
+                    let target = target.clone();
+                    self.downloads.remember(ctx, &target, position);
+                }
+                change
+            }
             Event::PlayerClosed => {
                 self.playback.close(ctx, env.endpoint);
                 PlaybackChange::None
@@ -605,7 +660,39 @@ impl Model {
             // a title is the likeliest moment for a new badge
             PlaybackChange::Watched { finished } => self.check_achievements(ctx, finished),
             PlaybackChange::Unauthorized => self.session_rejected(ctx),
+            PlaybackChange::Unsaved(report) => self.downloads.keep(ctx, *report),
             PlaybackChange::None => {}
+        }
+    }
+
+    /// Downloads: asking for one, trying again, deleting and playing one from the device.
+    fn download_event(&mut self, ctx: &mut Ctx, event: Event) {
+        let images = self.images();
+        if let Event::DownloadPlayRequested(download) = &event {
+            let local = self.downloads.local(&download.id);
+            if let (Some(local), Some(env)) = (local, playback_env(&self.session, images)) {
+                self.playback.play_download(ctx, &env, &local);
+            }
+            return;
+        }
+        if let Event::DownloadRemoved(download) = &event {
+            self.downloads.remove(ctx, self.session.endpoint(), &download.id);
+            return;
+        }
+        let Some(env) = downloads_env(&self.session, &self.playback, images) else { return };
+        let change = match event {
+            Event::DownloadRequested(ask) => self.downloads.ask(ctx, &env, ask),
+            Event::DownloadRetried(download) => self.downloads.retry(ctx, &env, &download.id),
+            _ => DownloadsChange::None,
+        };
+        self.downloads_changed(ctx, change);
+    }
+
+    fn downloads_changed(&mut self, ctx: &mut Ctx, change: DownloadsChange) {
+        match change {
+            DownloadsChange::Notice(code) => self.notices.push(ctx, code),
+            DownloadsChange::Unauthorized => self.session_rejected(ctx),
+            DownloadsChange::None => {}
         }
     }
 
@@ -679,6 +766,7 @@ impl Model {
         self.session.activate(ctx, account_id, endpoint, &accent);
         self.accounts.refresh(ctx, &self.servers, account_id);
         self.start_catalog(ctx, account_id);
+        self.downloads.activate(ctx, account_id);
         self.phase = AppPhase::Ready;
         ctx.render(Surface::App);
     }
@@ -712,6 +800,7 @@ impl Model {
         self.profile.reset(ctx);
         self.playback.reset(ctx);
         self.couch.reset(ctx);
+        self.downloads.reset(ctx);
     }
 
     /// A module's request came back 401: the active session is no longer valid.
@@ -782,6 +871,7 @@ impl Model {
             Surface::Couch => {
                 serde_json::to_string(&self.couch.view(&images, &self.config.origin, &images.base))
             }
+            Surface::Downloads => serde_json::to_string(&self.downloads.view(&images)),
         };
         json.expect("view models always serialize")
     }

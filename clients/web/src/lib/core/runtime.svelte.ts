@@ -221,6 +221,9 @@ export class CoreRuntime {
 				// nothing sends PlayRequested or joins a couch through the core until the web's
 				// player and couch adopt it
 				return;
+			case 'download':
+				// downloads are for the native apps; the web never asks for one
+				return;
 			default: {
 				// a new effect needs an executor here before the web takes that core version
 				const unhandled: never = effect;

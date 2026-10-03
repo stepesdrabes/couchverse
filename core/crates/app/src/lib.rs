@@ -11,6 +11,7 @@ pub mod messages;
 pub mod modules;
 #[cfg(test)]
 mod scenarios;
+mod time;
 
 pub use crate::core::{AppPhase, AppView};
 pub use bridge::{Bridge, BridgeError};

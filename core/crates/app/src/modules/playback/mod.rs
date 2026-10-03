@@ -13,6 +13,7 @@ use couchverse_api::types::{
 };
 use couchverse_api::{Call, ops};
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use typeshare::typeshare;
 
 pub use views::*;
@@ -26,6 +27,7 @@ use crate::messages::{
 };
 use crate::modules::catalog::{PlayKind, PlayTarget};
 use crate::modules::images::Images;
+use crate::time;
 
 /// Starting over is pointless in the first seconds, as on the web.
 const RESUME_AFTER_SECONDS: f64 = 5.0;
@@ -240,12 +242,18 @@ enum Request {
     Jit(Call<StreamSession>),
     PreparingTick,
     KeepaliveTick,
-    /// Fire-and-forget calls: progress, keepalives, stopping a transcode.
+    /// A progress save; one that never reached the server is handed back to be kept for
+    /// later, stamped with when it was made.
+    Progress {
+        report: Box<ProgressReport>,
+        wall: Option<U53>,
+    },
+    /// Fire-and-forget calls: keepalives, stopping a transcode.
     Ignored,
     Prefs,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PlaybackChange {
     None,
     Unauthorized,
@@ -253,6 +261,27 @@ pub enum PlaybackChange {
     Watched {
         finished: bool,
     },
+    /// A progress save never reached the server (offline): keep it and send it later.
+    Unsaved(Box<ProgressReport>),
+}
+
+/// A finished download, played from the device.
+pub struct LocalTitle {
+    pub target: PlayTarget,
+    /// The file's name in the shell's downloads directory.
+    pub file: String,
+    pub title: String,
+    /// The episode line; empty for a movie.
+    pub subtitle: String,
+    pub title_id: String,
+    pub title_slug: String,
+    pub duration: f64,
+    /// Where offline playback stopped last time.
+    pub resume: f64,
+    /// The tracks inside the file: language and label.
+    pub audio: Vec<(String, String)>,
+    /// The subtitles inside the file: language, label and whether forced.
+    pub subtitles: Vec<(String, String, bool)>,
 }
 
 /// Which source the player has, so a switch knows what it is switching from.
@@ -327,6 +356,8 @@ struct Session {
     /// Reloads after a player failure; the first one fetches a fresh payload.
     retries: u8,
     buffering: bool,
+    /// A finished download plays from this file in the downloads directory.
+    local: Option<String>,
 }
 
 impl Session {
@@ -352,6 +383,7 @@ impl Session {
             next: Next::Undecided,
             retries: 0,
             buffering: false,
+            local: None,
         }
     }
 }
@@ -435,7 +467,8 @@ impl Playback {
         }
         if let Some(report) = progress(&mut session) {
             let call = ops::save_progress_beacon(&report);
-            ctx.http(endpoint.request(&call.request), self.pending(Request::Ignored));
+            let request = Request::Progress { report: Box::new(report), wall: ctx.wall };
+            ctx.http(endpoint.request(&call.request), self.pending(request));
         }
         if let Some(timer) = session.preparing_timer {
             ctx.cancel_timer(timer);
@@ -513,7 +546,8 @@ impl Playback {
         let Some(session) = self.session.as_mut() else { return PlaybackChange::None };
         let Some(report) = progress(session) else { return PlaybackChange::None };
         let call = ops::save_progress(&report);
-        ctx.http(endpoint.request(&call.request), self.pending(Request::Ignored));
+        let request = Request::Progress { report: Box::new(report), wall: ctx.wall };
+        ctx.http(endpoint.request(&call.request), self.pending(request));
         PlaybackChange::Watched { finished }
     }
 
@@ -671,6 +705,17 @@ impl Playback {
                     _ => PlaybackChange::None,
                 };
             }
+            Request::Progress { mut report, wall } => {
+                return match decode_status(&output) {
+                    Some(401) => PlaybackChange::Unauthorized,
+                    // offline, or a server that could not take it: kept for later
+                    None | Some(500..) => {
+                        report.watched_at = report.watched_at.or(wall.map(time::rfc3339));
+                        PlaybackChange::Unsaved(report)
+                    }
+                    Some(_) => PlaybackChange::None,
+                };
+            }
             _ if pending.generation != self.generation => return PlaybackChange::None,
             Request::Info(call) => match decode(&call, output) {
                 Ok(info) => self.info(ctx, env, info),
@@ -795,6 +840,14 @@ impl Playback {
     fn load(&mut self, ctx: &mut Ctx, start: f64, autoplay: bool) {
         let Some(session) = self.session.as_ref() else { return };
         let Some(info) = &session.info else { return };
+        if let Some(file) = session.local.clone() {
+            if let Some(load) =
+                self.player_load(file, PlayerSource::Download, None, start, autoplay)
+            {
+                ctx.player(PlayerCommand::Load(load));
+            }
+            return;
+        }
         let file_audio = session.audio.as_ref().and_then(|id| {
             info.audio
                 .as_ref()?
@@ -852,7 +905,7 @@ impl Playback {
                     id: s.id.clone(),
                     lang: s.lang.clone(),
                     label: s.label.clone(),
-                    url: s.url.clone(),
+                    url: Some(s.url.clone()).filter(|u| !u.is_empty()),
                     forced: s.forced,
                 })
                 .collect(),
@@ -892,6 +945,12 @@ impl Playback {
             return PlaybackChange::None;
         }
         session.retries += 1;
+        if session.local.is_some() {
+            // nothing to fetch: the file is on the device
+            let start = session.position;
+            self.load(ctx, start, true);
+            return PlaybackChange::None;
+        }
         session.status = LoadStatus::Stale;
         self.fetch(ctx, env);
         ctx.render(Surface::Player);
@@ -960,6 +1019,75 @@ impl Playback {
     pub fn target(&self) -> Option<&PlayTarget> {
         self.session.as_ref().map(|s| &s.target)
     }
+
+    /// Plays a finished download from the device: the same session as a streamed title (resume,
+    /// progress saves, tracks), from a payload made up from what the download recorded.
+    pub fn play_download(&mut self, ctx: &mut Ctx, env: &Env, local: &LocalTitle) {
+        self.end(ctx, env.endpoint);
+        self.generation += 1;
+        self.seed ^= ctx.now;
+        let mut session = Session::new(local.target.clone(), env.images.clone(), false);
+        session.local = Some(local.file.clone());
+        self.session = Some(session);
+        match local_info(local) {
+            Some(info) => self.info(ctx, Some(env), info),
+            None => {
+                if let Some(session) = self.session.as_mut() {
+                    session.status = LoadStatus::Failed;
+                    session.problem = Some(Problem::new("playback_failed", "unreadable download"));
+                }
+            }
+        }
+        ctx.render(Surface::Player);
+    }
+
+    /// The download playing and where it is, so offline playback resumes there next time.
+    pub fn local_position(&self) -> Option<(&PlayTarget, f64)> {
+        let session = self.session.as_ref().filter(|s| s.local.is_some())?;
+        Some((&session.target, session.position))
+    }
+}
+
+/// The payload a download plays from: the file, its tracks and what the player shows.
+fn local_info(local: &LocalTitle) -> Option<PlaybackInfo> {
+    let subtitles: Vec<_> = local
+        .subtitles
+        .iter()
+        .enumerate()
+        .map(|(i, (lang, label, forced))| {
+            json!({ "id": format!("local:{i}"), "lang": lang, "label": label, "forced": forced, "url": "" })
+        })
+        .collect();
+    let audio: Vec<_> = local
+        .audio
+        .iter()
+        .enumerate()
+        .map(|(i, (lang, label))| {
+            json!({ "id": format!("local:{i}"), "lang": lang, "label": label, "default": i == 0, "source": "embedded" })
+        })
+        .collect();
+    #[allow(clippy::cast_possible_truncation)] // seconds
+    let resume = local.resume.floor() as i64;
+    let info = json!({
+        "mode": "direct",
+        "tier": "direct",
+        "mediaFileId": "",
+        "grant": "",
+        "frameUrl": "",
+        "durationSeconds": local.duration,
+        "resumePosition": resume,
+        "allowRandomPlayback": false,
+        "display": {
+            "title": local.title,
+            "subtitle": local.subtitle,
+            "titleId": local.title_id,
+            "titleSlug": local.title_slug,
+            "backdropId": null,
+        },
+        "subtitles": subtitles,
+        "audio": if audio.len() > 1 { Value::Array(audio) } else { Value::Null },
+    });
+    serde_json::from_value(info).ok()
 }
 
 /// The source as it is: the file for the direct tier, the copied source video in HLS for the

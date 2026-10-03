@@ -535,6 +535,125 @@ data class DevicesView (
 	val problem: Problem? = null
 )
 
+/// How big a download is: the source picture, or a ladder rung (smaller, H.264).
+@Serializable
+enum class DownloadQuality(val string: String) {
+	@SerialName("original")
+	Original("original"),
+	@SerialName("1080p")
+	Hd1080("1080p"),
+	@SerialName("720p")
+	Hd720("720p"),
+	@SerialName("480p")
+	Sd480("480p"),
+}
+
+/// A movie or an episode to keep on the device.
+@Serializable
+data class DownloadAsk (
+	val target: PlayTarget,
+	val quality: DownloadQuality,
+	/// Audio languages to keep, in order; empty for the default track.
+	val audio: List<String>? = null
+)
+
+@Serializable
+data class DownloadFailure (
+	/// An English hint for logs, never shown as is.
+	val message: String,
+	/// Out of space on the device, so trying again will not help until some is freed.
+	val noSpace: Boolean? = null
+)
+
+@Serializable
+data class DownloadFinished (
+	val bytes: ULong
+)
+
+@Serializable
+data class EpisodeNumber (
+	val season: UInt,
+	val episode: UInt
+)
+
+@Serializable
+enum class DownloadState(val string: String) {
+	/// The server has not started preparing it.
+	@SerialName("queued")
+	Queued("queued"),
+	/// The server is making the MP4.
+	@SerialName("preparing")
+	Preparing("preparing"),
+	/// The device is fetching it.
+	@SerialName("fetching")
+	Fetching("fetching"),
+	/// On the device, playable offline.
+	@SerialName("ready")
+	Ready("ready"),
+	@SerialName("failed")
+	Failed("failed"),
+}
+
+@Serializable
+data class DownloadItem (
+	val id: String,
+	val target: PlayTarget,
+	val title: String,
+	val titleSlug: String,
+	val episode: EpisodeNumber? = null,
+	val episodeName: String? = null,
+	val quality: DownloadQuality,
+	val state: DownloadState,
+	/// 0 to 1 while preparing or fetching.
+	val progress: Double,
+	/// The MP4's size; 0 until known.
+	val sizeBytes: ULong,
+	/// The episode still or the poster, from the server.
+	val image: Image? = null,
+	/// The same artwork kept on the device: its name in the downloads directory. Prefer it
+	/// offline.
+	val artwork: String? = null,
+	/// Why it failed: `unsupported`, `expired`, `prepare_failed`, `fetch_failed`, `no_space`.
+	val problem: Problem? = null
+)
+
+@Serializable
+data class DownloadName (
+	val name: String
+)
+
+@Serializable
+data class DownloadProgress (
+	val receivedBytes: ULong,
+	/// Absent until the server said how big the file is.
+	val totalBytes: ULong? = null
+)
+
+/// A download by its id from `DownloadsView`.
+@Serializable
+data class DownloadRef (
+	val id: String
+)
+
+@Serializable
+data class DownloadStart (
+	/// Empty to only pick up a transfer with this name that is running or finished; with
+	/// none, it fails at once.
+	val url: String,
+	/// The file's name in the downloads directory; stable, unlike the directory's path.
+	val name: String
+)
+
+@Serializable
+data class DownloadsView (
+	/// `loading` until the device's list is read, then `loaded`.
+	val status: LoadStatus,
+	/// Newest first.
+	val items: List<DownloadItem>,
+	/// Bytes the finished downloads take on the device.
+	val usedBytes: ULong
+)
+
 @Serializable
 data class EffectRef (
 	val id: ULong
@@ -579,6 +698,13 @@ sealed class Effect {
 	@Serializable
 	@SerialName("socket")
 	data class Socket(val content: SocketCommand): Effect()
+	/// Fetch a file into the app's downloads directory in the background, surviving the app
+	/// being suspended (a background `URLSession`, `WorkManager`). A start resolves
+	/// `downloadProgress` now and then and ends with `downloadFinished` or `downloadFailed`;
+	/// cancel and remove are fire-and-forget.
+	@Serializable
+	@SerialName("download")
+	data class Download(val content: DownloadCommand): Effect()
 }
 
 /// Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -587,12 +713,6 @@ sealed class Effect {
 data class EffectRequest (
 	val id: ULong,
 	val effect: Effect
-)
-
-@Serializable
-data class EpisodeNumber (
-	val season: UInt,
-	val episode: UInt
 )
 
 @Serializable
@@ -1100,13 +1220,32 @@ sealed class Event {
 	@Serializable
 	@SerialName("couchRemoteCommanded")
 	data class CouchRemoteCommanded(val content: RemoteControl): Event()
+	/// Keep a movie or an episode for offline viewing (iOS and Android).
+	@Serializable
+	@SerialName("downloadRequested")
+	data class DownloadRequested(val content: DownloadAsk): Event()
+	/// Ask the server again for a download that failed.
+	@Serializable
+	@SerialName("downloadRetried")
+	data class DownloadRetried(val content: DownloadRef): Event()
+	/// Delete a download from this device and from the account's list.
+	@Serializable
+	@SerialName("downloadRemoved")
+	data class DownloadRemoved(val content: DownloadRef): Event()
+	/// Play a finished download from the device.
+	@Serializable
+	@SerialName("downloadPlayRequested")
+	data class DownloadPlayRequested(val content: DownloadRef): Event()
 }
 
 /// Something that happened in the shell: a user intent or a lifecycle change.
 @Serializable
 data class Message (
 	val nowMs: ULong,
-	val event: Event
+	val event: Event,
+	/// Milliseconds since the Unix epoch, for what depends on the date (progress saved while
+	/// offline is replayed with the time it was watched). `nowMs` stays the monotonic clock.
+	val wallMs: ULong? = null
 )
 
 @Serializable
@@ -1240,6 +1379,9 @@ enum class PlayerSource(val string: String) {
 	/// An HLS multivariant playlist.
 	@SerialName("hls")
 	Hls("hls"),
+	/// A finished download: `url` is its name in the downloads directory.
+	@SerialName("download")
+	Download("download"),
 }
 
 @Serializable
@@ -1247,7 +1389,9 @@ data class PlayerSubtitle (
 	val id: String,
 	val lang: String,
 	val label: String,
-	val url: String,
+	/// The WebVTT file to show beside the media; absent for a track inside it (a download's
+	/// subtitles), which the player selects by language.
+	val url: String? = null,
 	val forced: Boolean
 )
 
@@ -1592,6 +1736,10 @@ sealed class Surface {
 	@Serializable
 	@SerialName("couch")
 	data object Couch: Surface()
+	/// The account's downloads on this device: preparing, fetching and ready to play offline.
+	@Serializable
+	@SerialName("downloads")
+	data object Downloads: Surface()
 }
 
 @Serializable
@@ -1633,6 +1781,18 @@ sealed class EffectOutput {
 	@Serializable
 	@SerialName("socketClosed")
 	data class SocketClosed(val content: io.stepes.couchverse.core.SocketClosed): EffectOutput()
+	/// How far a download has come; sent now and then, not for every chunk.
+	@Serializable
+	@SerialName("downloadProgress")
+	data class DownloadProgress(val content: io.stepes.couchverse.core.DownloadProgress): EffectOutput()
+	/// Terminal: the file is complete under its name.
+	@Serializable
+	@SerialName("downloadFinished")
+	data class DownloadFinished(val content: io.stepes.couchverse.core.DownloadFinished): EffectOutput()
+	/// Terminal: the transfer failed or was cancelled; nothing is kept.
+	@Serializable
+	@SerialName("downloadFailed")
+	data class DownloadFailed(val content: DownloadFailure): EffectOutput()
 }
 
 /// The output of an effect the core asked for. Streaming effects (sockets, repeating timers)
@@ -1718,7 +1878,10 @@ data class SessionView (
 	/// The display language for UI strings and catalog text.
 	val language: String,
 	val accent: AccentPalette,
-	val problem: Problem? = null
+	val problem: Problem? = null,
+	/// The server is out of reach (no network, or it is down): show what works offline,
+	/// the downloads.
+	val offline: Boolean
 )
 
 @Serializable
@@ -1890,6 +2053,23 @@ data class WatchlistChange (
 	/// True to add the title to My List, false to remove it.
 	val listed: Boolean
 )
+
+@Serializable
+sealed class DownloadCommand {
+	/// Starting a name that is already transferring attaches to that transfer, and one that
+	/// is already complete finishes at once, so the core can start again after a relaunch.
+	@Serializable
+	@SerialName("start")
+	data class Start(val content: DownloadStart): DownloadCommand()
+	/// Stop a transfer and delete what it fetched.
+	@Serializable
+	@SerialName("cancel")
+	data class Cancel(val content: EffectRef): DownloadCommand()
+	/// Delete a finished file.
+	@Serializable
+	@SerialName("remove")
+	data class Remove(val content: DownloadName): DownloadCommand()
+}
 
 @Serializable
 sealed class PlayerCommand {

@@ -31,7 +31,7 @@ public struct AccountCard: Codable, Sendable, Hashable {
 	/// False once the server rejected the token (revoked or expired): sign in again.
 	public let signedIn: Bool
 
-	public init(id: String, serverId: String, serverName: String, insecure: Bool, username: String, displayName: String, avatarUrl: String?, signedIn: Bool) {
+	public init(id: String, serverId: String, serverName: String, insecure: Bool, username: String, displayName: String, avatarUrl: String? = nil, signedIn: Bool) {
 		self.id = id
 		self.serverId = serverId
 		self.serverName = serverName
@@ -55,7 +55,7 @@ public struct AccountsView: Codable, Sendable, Hashable {
 	public let accounts: [AccountCard]
 	public let active: String?
 
-	public init(accounts: [AccountCard], active: String?) {
+	public init(accounts: [AccountCard], active: String? = nil) {
 		self.accounts = accounts
 		self.active = active
 	}
@@ -76,7 +76,7 @@ public struct AchievementCard: Codable, Sendable, Hashable {
 	public let percent: UInt32
 	public let xp: UInt64
 
-	public init(code: String, category: String, tier: String, unlocked: Bool, unlockedAt: String?, value: UInt64, target: UInt64, percent: UInt32, xp: UInt64) {
+	public init(code: String, category: String, tier: String, unlocked: Bool, unlockedAt: String? = nil, value: UInt64, target: UInt64, percent: UInt32, xp: UInt64) {
 		self.code = code
 		self.category = category
 		self.tier = tier
@@ -120,7 +120,7 @@ public struct AddServerView: Codable, Sendable, Hashable {
 	public let added: String?
 	public let problem: Problem?
 
-	public init(status: LoadStatus, address: String, added: String?, problem: Problem?) {
+	public init(status: LoadStatus, address: String, added: String? = nil, problem: Problem? = nil) {
 		self.status = status
 		self.address = address
 		self.added = added
@@ -146,7 +146,7 @@ public struct AppView: Codable, Sendable, Hashable {
 	public let phase: AppPhase
 	public let activeAccount: String?
 
-	public init(phase: AppPhase, activeAccount: String?) {
+	public init(phase: AppPhase, activeAccount: String? = nil) {
 		self.phase = phase
 		self.activeAccount = activeAccount
 	}
@@ -181,7 +181,7 @@ public struct AudioSupport: Codable, Sendable, Hashable {
 	/// Dolby Atmos reaches the output as Atmos.
 	public let atmos: Bool?
 
-	public init(codec: AudioCodec, maxChannels: UInt8?, atmos: Bool?) {
+	public init(codec: AudioCodec, maxChannels: UInt8? = nil, atmos: Bool? = nil) {
 		self.codec = codec
 		self.maxChannels = maxChannels
 		self.atmos = atmos
@@ -206,7 +206,7 @@ public struct BrowseKey: Codable, Sendable, Hashable {
 	/// Required, so every shell builds the same key the core echoes back in renders.
 	public let sort: BrowseSort
 
-	public init(kind: TitleKind?, genre: String?, sort: BrowseSort) {
+	public init(kind: TitleKind? = nil, genre: String? = nil, sort: BrowseSort) {
 		self.kind = kind
 		self.genre = genre
 		self.sort = sort
@@ -218,7 +218,7 @@ public struct Image: Codable, Sendable, Hashable {
 	public let url: String
 	public let accent: String?
 
-	public init(url: String, accent: String?) {
+	public init(url: String, accent: String? = nil) {
 		self.url = url
 		self.accent = accent
 	}
@@ -233,7 +233,7 @@ public struct Card: Codable, Sendable, Hashable {
 	public let poster: Image?
 	public let backdrop: Image?
 
-	public init(titleId: String, slug: String, name: String, kind: TitleKind, year: Int32?, poster: Image?, backdrop: Image?) {
+	public init(titleId: String, slug: String, name: String, kind: TitleKind, year: Int32? = nil, poster: Image? = nil, backdrop: Image? = nil) {
 		self.titleId = titleId
 		self.slug = slug
 		self.name = name
@@ -254,7 +254,7 @@ public struct BrowseView: Codable, Sendable, Hashable {
 	public let loadingMore: Bool
 	public let problem: Problem?
 
-	public init(key: BrowseKey, status: LoadStatus, cards: [Card], total: UInt64, more: Bool, loadingMore: Bool, problem: Problem?) {
+	public init(key: BrowseKey, status: LoadStatus, cards: [Card], total: UInt64, more: Bool, loadingMore: Bool, problem: Problem? = nil) {
 		self.key = key
 		self.status = status
 		self.cards = cards
@@ -269,7 +269,7 @@ public struct CheckRequest: Codable, Sendable, Hashable {
 	/// Check even inside the throttle window (the end of a title).
 	public let force: Bool?
 
-	public init(force: Bool?) {
+	public init(force: Bool? = nil) {
 		self.force = force
 	}
 }
@@ -305,7 +305,7 @@ public struct ContinueCard: Codable, Sendable, Hashable {
 	public let poster: Image?
 	public let backdrop: Image?
 
-	public init(titleId: String, slug: String, name: String, kind: TitleKind, episodeLabel: String?, positionSeconds: UInt64, durationSeconds: UInt64, progress: Double, play: PlayTarget, poster: Image?, backdrop: Image?) {
+	public init(titleId: String, slug: String, name: String, kind: TitleKind, episodeLabel: String? = nil, positionSeconds: UInt64, durationSeconds: UInt64, progress: Double, play: PlayTarget, poster: Image? = nil, backdrop: Image? = nil) {
 		self.titleId = titleId
 		self.slug = slug
 		self.name = name
@@ -348,7 +348,7 @@ public struct CoreConfig: Codable, Sendable, Hashable {
 	/// The server the web app was served from (`AuthMode::Cookie`); empty for native clients.
 	public let origin: String?
 
-	public init(platform: Platform, authMode: AuthMode, deviceName: String, locale: String, origin: String?) {
+	public init(platform: Platform, authMode: AuthMode, deviceName: String, locale: String, origin: String? = nil) {
 		self.platform = platform
 		self.authMode = authMode
 		self.deviceName = deviceName
@@ -378,7 +378,7 @@ public struct CouchMember: Codable, Sendable, Hashable {
 	public let paused: Bool
 	public let me: Bool
 
-	public init(id: String, displayName: String, avatar: Image?, seed: String, host: Bool, anonymous: Bool, paused: Bool, me: Bool) {
+	public init(id: String, displayName: String, avatar: Image? = nil, seed: String, host: Bool, anonymous: Bool, paused: Bool, me: Bool) {
 		self.id = id
 		self.displayName = displayName
 		self.avatar = avatar
@@ -463,7 +463,7 @@ public struct CouchView: Codable, Sendable, Hashable {
 	public let ended: String?
 	public let problem: Problem?
 
-	public init(status: CouchStatus, role: CouchRole?, code: String?, shareUrl: String?, members: [CouchMember], media: PlayTarget?, playing: Bool, positionSeconds: Double, positionAtMs: UInt64, hostAway: Bool, waiting: Bool, localPaused: Bool, reactions: [Reaction], recentEmojis: [String], resynced: Bool, ended: String?, problem: Problem?) {
+	public init(status: CouchStatus, role: CouchRole? = nil, code: String? = nil, shareUrl: String? = nil, members: [CouchMember], media: PlayTarget? = nil, playing: Bool, positionSeconds: Double, positionAtMs: UInt64, hostAway: Bool, waiting: Bool, localPaused: Bool, reactions: [Reaction], recentEmojis: [String], resynced: Bool, ended: String? = nil, problem: Problem? = nil) {
 		self.status = status
 		self.role = role
 		self.code = code
@@ -541,7 +541,7 @@ public struct VideoSupport: Codable, Sendable, Hashable {
 	public let maxLevel: Double?
 	public let maxBitDepth: UInt8?
 
-	public init(codec: VideoCodec, profiles: [VideoProfile]?, maxLevel: Double?, maxBitDepth: UInt8?) {
+	public init(codec: VideoCodec, profiles: [VideoProfile]? = nil, maxLevel: Double? = nil, maxBitDepth: UInt8? = nil) {
 		self.codec = codec
 		self.profiles = profiles
 		self.maxLevel = maxLevel
@@ -591,7 +591,7 @@ public struct DeviceProfile: Codable, Sendable, Hashable {
 	/// Audio tracks inside a progressive file can be switched.
 	public let audioTrackSwitching: Bool?
 
-	public init(containers: [Container], video: [VideoSupport], audio: [AudioSupport], hdr: [HdrFormat]?, maxWidth: UInt32?, maxHeight: UInt32?, maxFrameRate: Double?, maxBitrate: UInt64?, hls: [HlsFormat], sidecarSubtitles: [SubtitleFormat]?, audioTrackSwitching: Bool?) {
+	public init(containers: [Container], video: [VideoSupport], audio: [AudioSupport], hdr: [HdrFormat]? = nil, maxWidth: UInt32? = nil, maxHeight: UInt32? = nil, maxFrameRate: Double? = nil, maxBitrate: UInt64? = nil, hls: [HlsFormat], sidecarSubtitles: [SubtitleFormat]? = nil, audioTrackSwitching: Bool? = nil) {
 		self.containers = containers
 		self.video = video
 		self.audio = audio
@@ -619,10 +619,168 @@ public struct DevicesView: Codable, Sendable, Hashable {
 	public let devices: [DeviceCard]
 	public let problem: Problem?
 
-	public init(status: LoadStatus, devices: [DeviceCard], problem: Problem?) {
+	public init(status: LoadStatus, devices: [DeviceCard], problem: Problem? = nil) {
 		self.status = status
 		self.devices = devices
 		self.problem = problem
+	}
+}
+
+/// How big a download is: the source picture, or a ladder rung (smaller, H.264).
+public enum DownloadQuality: String, Codable, Sendable, Hashable {
+	case original
+	case hd1080 = "1080p"
+	case hd720 = "720p"
+	case sd480 = "480p"
+}
+
+/// A movie or an episode to keep on the device.
+public struct DownloadAsk: Codable, Sendable, Hashable {
+	public let target: PlayTarget
+	public let quality: DownloadQuality
+	/// Audio languages to keep, in order; empty for the default track.
+	public let audio: [String]?
+
+	public init(target: PlayTarget, quality: DownloadQuality, audio: [String]? = nil) {
+		self.target = target
+		self.quality = quality
+		self.audio = audio
+	}
+}
+
+public struct DownloadFailure: Codable, Sendable, Hashable {
+	/// An English hint for logs, never shown as is.
+	public let message: String
+	/// Out of space on the device, so trying again will not help until some is freed.
+	public let noSpace: Bool?
+
+	public init(message: String, noSpace: Bool? = nil) {
+		self.message = message
+		self.noSpace = noSpace
+	}
+}
+
+public struct DownloadFinished: Codable, Sendable, Hashable {
+	public let bytes: UInt64
+
+	public init(bytes: UInt64) {
+		self.bytes = bytes
+	}
+}
+
+public struct EpisodeNumber: Codable, Sendable, Hashable {
+	public let season: UInt32
+	public let episode: UInt32
+
+	public init(season: UInt32, episode: UInt32) {
+		self.season = season
+		self.episode = episode
+	}
+}
+
+public enum DownloadState: String, Codable, Sendable, Hashable {
+	/// The server has not started preparing it.
+	case queued
+	/// The server is making the MP4.
+	case preparing
+	/// The device is fetching it.
+	case fetching
+	/// On the device, playable offline.
+	case ready
+	case failed
+}
+
+public struct DownloadItem: Codable, Sendable, Hashable {
+	public let id: String
+	public let target: PlayTarget
+	public let title: String
+	public let titleSlug: String
+	public let episode: EpisodeNumber?
+	public let episodeName: String?
+	public let quality: DownloadQuality
+	public let state: DownloadState
+	/// 0 to 1 while preparing or fetching.
+	public let progress: Double
+	/// The MP4's size; 0 until known.
+	public let sizeBytes: UInt64
+	/// The episode still or the poster, from the server.
+	public let image: Image?
+	/// The same artwork kept on the device: its name in the downloads directory. Prefer it
+	/// offline.
+	public let artwork: String?
+	/// Why it failed: `unsupported`, `expired`, `prepare_failed`, `fetch_failed`, `no_space`.
+	public let problem: Problem?
+
+	public init(id: String, target: PlayTarget, title: String, titleSlug: String, episode: EpisodeNumber? = nil, episodeName: String? = nil, quality: DownloadQuality, state: DownloadState, progress: Double, sizeBytes: UInt64, image: Image? = nil, artwork: String? = nil, problem: Problem? = nil) {
+		self.id = id
+		self.target = target
+		self.title = title
+		self.titleSlug = titleSlug
+		self.episode = episode
+		self.episodeName = episodeName
+		self.quality = quality
+		self.state = state
+		self.progress = progress
+		self.sizeBytes = sizeBytes
+		self.image = image
+		self.artwork = artwork
+		self.problem = problem
+	}
+}
+
+public struct DownloadName: Codable, Sendable, Hashable {
+	public let name: String
+
+	public init(name: String) {
+		self.name = name
+	}
+}
+
+public struct DownloadProgress: Codable, Sendable, Hashable {
+	public let receivedBytes: UInt64
+	/// Absent until the server said how big the file is.
+	public let totalBytes: UInt64?
+
+	public init(receivedBytes: UInt64, totalBytes: UInt64? = nil) {
+		self.receivedBytes = receivedBytes
+		self.totalBytes = totalBytes
+	}
+}
+
+/// A download by its id from `DownloadsView`.
+public struct DownloadRef: Codable, Sendable, Hashable {
+	public let id: String
+
+	public init(id: String) {
+		self.id = id
+	}
+}
+
+public struct DownloadStart: Codable, Sendable, Hashable {
+	/// Empty to only pick up a transfer with this name that is running or finished; with
+	/// none, it fails at once.
+	public let url: String
+	/// The file's name in the downloads directory; stable, unlike the directory's path.
+	public let name: String
+
+	public init(url: String, name: String) {
+		self.url = url
+		self.name = name
+	}
+}
+
+public struct DownloadsView: Codable, Sendable, Hashable {
+	/// `loading` until the device's list is read, then `loaded`.
+	public let status: LoadStatus
+	/// Newest first.
+	public let items: [DownloadItem]
+	/// Bytes the finished downloads take on the device.
+	public let usedBytes: UInt64
+
+	public init(status: LoadStatus, items: [DownloadItem], usedBytes: UInt64) {
+		self.status = status
+		self.items = items
+		self.usedBytes = usedBytes
 	}
 }
 
@@ -654,6 +812,11 @@ public enum Effect: Codable, Sendable, Hashable {
 	/// `socketText` for every frame, and ends with `socketClosed`; send and close are
 	/// fire-and-forget.
 	case socket(SocketCommand)
+	/// Fetch a file into the app's downloads directory in the background, surviving the app
+	/// being suspended (a background `URLSession`, `WorkManager`). A start resolves
+	/// `downloadProgress` now and then and ends with `downloadFinished` or `downloadFailed`;
+	/// cancel and remove are fire-and-forget.
+	case download(DownloadCommand)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case http,
@@ -664,7 +827,8 @@ public enum Effect: Codable, Sendable, Hashable {
 			render,
 			upload,
 			player,
-			socket
+			socket,
+			download
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -720,6 +884,11 @@ public enum Effect: Codable, Sendable, Hashable {
 					self = .socket(content)
 					return
 				}
+			case .download:
+				if let content = try? container.decode(DownloadCommand.self, forKey: .content) {
+					self = .download(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(Effect.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Effect"))
@@ -755,6 +924,9 @@ public enum Effect: Codable, Sendable, Hashable {
 		case .socket(let content):
 			try container.encode(CodingKeys.socket, forKey: .type)
 			try container.encode(content, forKey: .content)
+		case .download(let content):
+			try container.encode(CodingKeys.download, forKey: .type)
+			try container.encode(content, forKey: .content)
 		}
 	}
 }
@@ -771,16 +943,6 @@ public struct EffectRequest: Codable, Sendable, Hashable {
 	}
 }
 
-public struct EpisodeNumber: Codable, Sendable, Hashable {
-	public let season: UInt32
-	public let episode: UInt32
-
-	public init(season: UInt32, episode: UInt32) {
-		self.season = season
-		self.episode = episode
-	}
-}
-
 public struct EpisodeView: Codable, Sendable, Hashable {
 	public let id: String
 	public let number: UInt32
@@ -793,7 +955,7 @@ public struct EpisodeView: Codable, Sendable, Hashable {
 	public let progress: Double
 	public let completed: Bool
 
-	public init(id: String, number: UInt32, name: String, overview: String, runtimeMinutes: UInt32?, airDate: String?, still: Image?, progress: Double, completed: Bool) {
+	public init(id: String, number: UInt32, name: String, overview: String, runtimeMinutes: UInt32? = nil, airDate: String? = nil, still: Image? = nil, progress: Double, completed: Bool) {
 		self.id = id
 		self.number = number
 		self.name = name
@@ -812,7 +974,7 @@ public struct Logo: Codable, Sendable, Hashable {
 	/// Width over height, to size the space before the image loads.
 	public let aspect: Double?
 
-	public init(url: String, aspect: Double?) {
+	public init(url: String, aspect: Double? = nil) {
 		self.url = url
 		self.aspect = aspect
 	}
@@ -835,7 +997,7 @@ public struct FeaturedCard: Codable, Sendable, Hashable {
 	public let logo: Logo?
 	public let inList: Bool
 
-	public init(titleId: String, slug: String, name: String, kind: TitleKind, year: Int32?, overview: String, genres: [String], contentRating: String?, runtimeMinutes: UInt32?, backdrop: Image?, logo: Logo?, inList: Bool) {
+	public init(titleId: String, slug: String, name: String, kind: TitleKind, year: Int32? = nil, overview: String, genres: [String], contentRating: String? = nil, runtimeMinutes: UInt32? = nil, backdrop: Image? = nil, logo: Logo? = nil, inList: Bool) {
 		self.titleId = titleId
 		self.slug = slug
 		self.name = name
@@ -878,7 +1040,7 @@ public struct GenresView: Codable, Sendable, Hashable {
 	public let genres: [GenreView]
 	public let problem: Problem?
 
-	public init(status: LoadStatus, genres: [GenreView], problem: Problem?) {
+	public init(status: LoadStatus, genres: [GenreView], problem: Problem? = nil) {
 		self.status = status
 		self.genres = genres
 		self.problem = problem
@@ -1045,7 +1207,7 @@ public struct HomeView: Codable, Sendable, Hashable {
 	public let rows: [HomeRowView]
 	public let problem: Problem?
 
-	public init(status: LoadStatus, featured: [FeaturedCard], rows: [HomeRowView], problem: Problem?) {
+	public init(status: LoadStatus, featured: [FeaturedCard], rows: [HomeRowView], problem: Problem? = nil) {
 		self.status = status
 		self.featured = featured
 		self.rows = rows
@@ -1088,7 +1250,7 @@ public struct HttpRequest: Codable, Sendable, Hashable {
 	public let headers: [HttpHeader]
 	public let body: String?
 
-	public init(method: String, url: String, headers: [HttpHeader], body: String?) {
+	public init(method: String, url: String, headers: [HttpHeader], body: String? = nil) {
 		self.method = method
 		self.url = url
 		self.headers = headers
@@ -1154,7 +1316,7 @@ public struct LeaderRow: Codable, Sendable, Hashable {
 	public let achievements: UInt64
 	public let isSelf: Bool
 
-	public init(position: UInt32, username: String, displayName: String, avatar: Image?, level: UInt32, tierCode: String, value: UInt64, xp: UInt64, watchSeconds: UInt64, achievements: UInt64, isSelf: Bool) {
+	public init(position: UInt32, username: String, displayName: String, avatar: Image? = nil, level: UInt32, tierCode: String, value: UInt64, xp: UInt64, watchSeconds: UInt64, achievements: UInt64, isSelf: Bool) {
 		self.position = position
 		self.username = username
 		self.displayName = displayName
@@ -1206,7 +1368,7 @@ public struct LeaderboardView: Codable, Sendable, Hashable {
 	public let hidden: Bool
 	public let problem: Problem?
 
-	public init(key: LeaderboardKey, status: LoadStatus, rows: [LeaderRow], myPosition: UInt32?, podium: Bool, allZero: Bool, hidden: Bool, problem: Problem?) {
+	public init(key: LeaderboardKey, status: LoadStatus, rows: [LeaderRow], myPosition: UInt32? = nil, podium: Bool, allZero: Bool, hidden: Bool, problem: Problem? = nil) {
 		self.key = key
 		self.status = status
 		self.rows = rows
@@ -1343,7 +1505,7 @@ public struct ListBlock: Codable, Sendable, Hashable {
 	public let start: UInt32?
 	public let items: [ListItem]
 
-	public init(start: UInt32?, items: [ListItem]) {
+	public init(start: UInt32? = nil, items: [ListItem]) {
 		self.start = start
 		self.items = items
 	}
@@ -1440,6 +1602,14 @@ public enum Event: Codable, Sendable, Hashable {
 	case couchLocalPauseChanged(CouchPause)
 	/// A remote's play, pause, seek, next or previous.
 	case couchRemoteCommanded(RemoteControl)
+	/// Keep a movie or an episode for offline viewing (iOS and Android).
+	case downloadRequested(DownloadAsk)
+	/// Ask the server again for a download that failed.
+	case downloadRetried(DownloadRef)
+	/// Delete a download from this device and from the account's list.
+	case downloadRemoved(DownloadRef)
+	/// Play a finished download from the device.
+	case downloadPlayRequested(DownloadRef)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case appStarted,
@@ -1491,7 +1661,11 @@ public enum Event: Codable, Sendable, Hashable {
 			couchEndRequested,
 			couchEmojiSent,
 			couchLocalPauseChanged,
-			couchRemoteCommanded
+			couchRemoteCommanded,
+			downloadRequested,
+			downloadRetried,
+			downloadRemoved,
+			downloadPlayRequested
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -1724,6 +1898,26 @@ public enum Event: Codable, Sendable, Hashable {
 					self = .couchRemoteCommanded(content)
 					return
 				}
+			case .downloadRequested:
+				if let content = try? container.decode(DownloadAsk.self, forKey: .content) {
+					self = .downloadRequested(content)
+					return
+				}
+			case .downloadRetried:
+				if let content = try? container.decode(DownloadRef.self, forKey: .content) {
+					self = .downloadRetried(content)
+					return
+				}
+			case .downloadRemoved:
+				if let content = try? container.decode(DownloadRef.self, forKey: .content) {
+					self = .downloadRemoved(content)
+					return
+				}
+			case .downloadPlayRequested:
+				if let content = try? container.decode(DownloadRef.self, forKey: .content) {
+					self = .downloadPlayRequested(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(Event.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Event"))
@@ -1868,6 +2062,18 @@ public enum Event: Codable, Sendable, Hashable {
 		case .couchRemoteCommanded(let content):
 			try container.encode(CodingKeys.couchRemoteCommanded, forKey: .type)
 			try container.encode(content, forKey: .content)
+		case .downloadRequested(let content):
+			try container.encode(CodingKeys.downloadRequested, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .downloadRetried(let content):
+			try container.encode(CodingKeys.downloadRetried, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .downloadRemoved(let content):
+			try container.encode(CodingKeys.downloadRemoved, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .downloadPlayRequested(let content):
+			try container.encode(CodingKeys.downloadPlayRequested, forKey: .type)
+			try container.encode(content, forKey: .content)
 		}
 	}
 }
@@ -1876,10 +2082,14 @@ public enum Event: Codable, Sendable, Hashable {
 public struct Message: Codable, Sendable, Hashable {
 	public let nowMs: UInt64
 	public let event: Event
+	/// Milliseconds since the Unix epoch, for what depends on the date (progress saved while
+	/// offline is replayed with the time it was watched). `nowMs` stays the monotonic clock.
+	public let wallMs: UInt64?
 
-	public init(nowMs: UInt64, event: Event) {
+	public init(nowMs: UInt64, event: Event, wallMs: UInt64? = nil) {
 		self.nowMs = nowMs
 		self.event = event
+		self.wallMs = wallMs
 	}
 }
 
@@ -1888,7 +2098,7 @@ public struct MyListView: Codable, Sendable, Hashable {
 	public let cards: [Card]
 	public let problem: Problem?
 
-	public init(status: LoadStatus, cards: [Card], problem: Problem?) {
+	public init(status: LoadStatus, cards: [Card], problem: Problem? = nil) {
 		self.status = status
 		self.cards = cards
 		self.problem = problem
@@ -1949,7 +2159,7 @@ public struct NowPlaying: Codable, Sendable, Hashable {
 	public let artwork: String?
 	public let durationSeconds: Double
 
-	public init(title: String, subtitle: String?, artwork: String?, durationSeconds: Double) {
+	public init(title: String, subtitle: String? = nil, artwork: String? = nil, durationSeconds: Double) {
 		self.title = title
 		self.subtitle = subtitle
 		self.artwork = artwork
@@ -1962,7 +2172,7 @@ public struct PairingApproval: Codable, Sendable, Hashable {
 	/// Renames the device; it keeps its own name when empty.
 	public let deviceName: String?
 
-	public init(code: String, deviceName: String?) {
+	public init(code: String, deviceName: String? = nil) {
 		self.code = code
 		self.deviceName = deviceName
 	}
@@ -1981,7 +2191,7 @@ public struct PairingApprovalView: Codable, Sendable, Hashable {
 	public let outcome: ApprovalOutcome?
 	public let problem: Problem?
 
-	public init(status: LoadStatus, code: String, deviceName: String, platform: String, outcome: ApprovalOutcome?, problem: Problem?) {
+	public init(status: LoadStatus, code: String, deviceName: String, platform: String, outcome: ApprovalOutcome? = nil, problem: Problem? = nil) {
 		self.status = status
 		self.code = code
 		self.deviceName = deviceName
@@ -2044,7 +2254,7 @@ public struct PlayAction: Codable, Sendable, Hashable {
 	/// The episode the button plays, for its label.
 	public let episode: EpisodeNumber?
 
-	public init(target: PlayTarget, resumeSeconds: UInt64?, episode: EpisodeNumber?) {
+	public init(target: PlayTarget, resumeSeconds: UInt64? = nil, episode: EpisodeNumber? = nil) {
 		self.target = target
 		self.resumeSeconds = resumeSeconds
 		self.episode = episode
@@ -2058,7 +2268,7 @@ public struct PlayerEpisode: Codable, Sendable, Hashable {
 	public let still: Image?
 	public let current: Bool
 
-	public init(id: String, number: UInt32, name: String, still: Image?, current: Bool) {
+	public init(id: String, number: UInt32, name: String, still: Image? = nil, current: Bool) {
 		self.id = id
 		self.number = number
 		self.name = name
@@ -2072,16 +2282,20 @@ public enum PlayerSource: String, Codable, Sendable, Hashable {
 	case file
 	/// An HLS multivariant playlist.
 	case hls
+	/// A finished download: `url` is its name in the downloads directory.
+	case download
 }
 
 public struct PlayerSubtitle: Codable, Sendable, Hashable {
 	public let id: String
 	public let lang: String
 	public let label: String
-	public let url: String
+	/// The WebVTT file to show beside the media; absent for a track inside it (a download's
+	/// subtitles), which the player selects by language.
+	public let url: String?
 	public let forced: Bool
 
-	public init(id: String, lang: String, label: String, url: String, forced: Bool) {
+	public init(id: String, lang: String, label: String, url: String? = nil, forced: Bool) {
 		self.id = id
 		self.lang = lang
 		self.label = label
@@ -2107,7 +2321,7 @@ public struct PlayerLoad: Codable, Sendable, Hashable {
 	/// For the system's Now Playing and lock-screen controls.
 	public let nowPlaying: NowPlaying
 
-	public init(url: String, source: PlayerSource, startSeconds: Double, autoplay: Bool, maxHeight: UInt32?, subtitles: [PlayerSubtitle], subtitle: String?, audioLang: String?, linear: Bool, nowPlaying: NowPlaying) {
+	public init(url: String, source: PlayerSource, startSeconds: Double, autoplay: Bool, maxHeight: UInt32? = nil, subtitles: [PlayerSubtitle], subtitle: String? = nil, audioLang: String? = nil, linear: Bool, nowPlaying: NowPlaying) {
 		self.url = url
 		self.source = source
 		self.startSeconds = startSeconds
@@ -2130,7 +2344,7 @@ public struct PlayerReport: Codable, Sendable, Hashable {
 	public let ended: Bool?
 	public let failed: String?
 
-	public init(positionSeconds: Double, durationSeconds: Double, playing: Bool, buffering: Bool?, ended: Bool?, failed: String?) {
+	public init(positionSeconds: Double, durationSeconds: Double, playing: Bool, buffering: Bool? = nil, ended: Bool? = nil, failed: String? = nil) {
 		self.positionSeconds = positionSeconds
 		self.durationSeconds = durationSeconds
 		self.playing = playing
@@ -2174,7 +2388,7 @@ public struct QualityOption: Codable, Sendable, Hashable {
 	/// The rendition's height, for its label (`1080p`).
 	public let height: UInt32?
 
-	public init(key: String, kind: QualityKind, height: UInt32?) {
+	public init(key: String, kind: QualityKind, height: UInt32? = nil) {
 		self.key = key
 		self.kind = kind
 		self.height = height
@@ -2225,7 +2439,7 @@ public struct PlayerView: Codable, Sendable, Hashable {
 	public let linear: Bool
 	public let problem: Problem?
 
-	public init(status: LoadStatus, target: PlayTarget?, title: String, subtitle: String, titleSlug: String, backdrop: Image?, preparing: UInt32?, qualities: [QualityOption], quality: String, audio: [TrackOption], audioSelected: String?, subtitles: [TrackOption], subtitleSelected: String?, seasons: [PlayerSeason], nextUp: NextUp?, shuffleAvailable: Bool, shuffle: Bool, frameUrl: String?, linear: Bool, problem: Problem?) {
+	public init(status: LoadStatus, target: PlayTarget? = nil, title: String, subtitle: String, titleSlug: String, backdrop: Image? = nil, preparing: UInt32? = nil, qualities: [QualityOption], quality: String, audio: [TrackOption], audioSelected: String? = nil, subtitles: [TrackOption], subtitleSelected: String? = nil, seasons: [PlayerSeason], nextUp: NextUp? = nil, shuffleAvailable: Bool, shuffle: Bool, frameUrl: String? = nil, linear: Bool, problem: Problem? = nil) {
 		self.status = status
 		self.target = target
 		self.title = title
@@ -2337,7 +2551,7 @@ public struct TopTitle: Codable, Sendable, Hashable {
 	public let seconds: UInt64
 	public let poster: Image?
 
-	public init(slug: String, name: String, kind: TitleKind, seconds: UInt64, poster: Image?) {
+	public init(slug: String, name: String, kind: TitleKind, seconds: UInt64, poster: Image? = nil) {
 		self.slug = slug
 		self.name = name
 		self.kind = kind
@@ -2369,7 +2583,7 @@ public struct ProfileDetail: Codable, Sendable, Hashable {
 	public let hours: [UInt64]
 	public let heatmap: Heatmap
 
-	public init(username: String, displayName: String, bio: MarkdownDoc, avatar: Image?, banner: Image?, memberSince: String, isSelf: Bool, public: Bool, rank: RankBadge, xpTotal: UInt64, xpSources: [XpLine], achievements: [AchievementCard], achievementsWon: UInt32, recentUnlocks: [AchievementCard], totals: ProfileTotals, topTitles: [TopTitle], favouriteGenre: String, hours: [UInt64], heatmap: Heatmap) {
+	public init(username: String, displayName: String, bio: MarkdownDoc, avatar: Image? = nil, banner: Image? = nil, memberSince: String, isSelf: Bool, public: Bool, rank: RankBadge, xpTotal: UInt64, xpSources: [XpLine], achievements: [AchievementCard], achievementsWon: UInt32, recentUnlocks: [AchievementCard], totals: ProfileTotals, topTitles: [TopTitle], favouriteGenre: String, hours: [UInt64], heatmap: Heatmap) {
 		self.username = username
 		self.displayName = displayName
 		self.bio = bio
@@ -2408,7 +2622,7 @@ public struct SaveState: Codable, Sendable, Hashable {
 	public let status: LoadStatus
 	public let problem: Problem?
 
-	public init(status: LoadStatus, problem: Problem?) {
+	public init(status: LoadStatus, problem: Problem? = nil) {
 		self.status = status
 		self.problem = problem
 	}
@@ -2434,7 +2648,7 @@ public struct ProfileView: Codable, Sendable, Hashable {
 	public let profile: ProfileDetail?
 	public let problem: Problem?
 
-	public init(username: String, status: LoadStatus, profile: ProfileDetail?, problem: Problem?) {
+	public init(username: String, status: LoadStatus, profile: ProfileDetail? = nil, problem: Problem? = nil) {
 		self.username = username
 		self.status = status
 		self.profile = profile
@@ -2469,7 +2683,7 @@ public struct RankView: Codable, Sendable, Hashable {
 	/// How many more are queued behind it.
 	public let queued: UInt32
 
-	public init(rank: RankBadge?, levelUps: UInt64, celebration: AchievementCard?, queued: UInt32) {
+	public init(rank: RankBadge? = nil, levelUps: UInt64, celebration: AchievementCard? = nil, queued: UInt32) {
 		self.rank = rank
 		self.levelUps = levelUps
 		self.celebration = celebration
@@ -2490,7 +2704,7 @@ public struct RemoteControl: Codable, Sendable, Hashable {
 	/// Where to seek; only for `seek`.
 	public let positionSeconds: Double?
 
-	public init(action: RemoteAction, positionSeconds: Double?) {
+	public init(action: RemoteAction, positionSeconds: Double? = nil) {
 		self.action = action
 		self.positionSeconds = positionSeconds
 	}
@@ -2535,6 +2749,8 @@ public enum Surface: Codable, Sendable, Hashable {
 	case player
 	/// The couch session: members, reactions, the host's state and the follower's sync.
 	case couch
+	/// The account's downloads on this device: preparing, fetching and ready to play offline.
+	case downloads
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case app,
@@ -2557,7 +2773,8 @@ public enum Surface: Codable, Sendable, Hashable {
 			leaderboard,
 			profileEditor,
 			player,
-			couch
+			couch,
+			downloads
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -2641,6 +2858,9 @@ public enum Surface: Codable, Sendable, Hashable {
 			case .couch:
 				self = .couch
 				return
+			case .downloads:
+				self = .downloads
+				return
 			}
 		}
 		throw DecodingError.typeMismatch(Surface.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Surface"))
@@ -2696,6 +2916,8 @@ public enum Surface: Codable, Sendable, Hashable {
 			try container.encode(CodingKeys.player, forKey: .type)
 		case .couch:
 			try container.encode(CodingKeys.couch, forKey: .type)
+		case .downloads:
+			try container.encode(CodingKeys.downloads, forKey: .type)
 		}
 	}
 }
@@ -2723,6 +2945,12 @@ public enum EffectOutput: Codable, Sendable, Hashable {
 	case socketText(SocketText)
 	/// Terminal: the socket closed or could not open.
 	case socketClosed(SocketClosed)
+	/// How far a download has come; sent now and then, not for every chunk.
+	case downloadProgress(DownloadProgress)
+	/// Terminal: the file is complete under its name.
+	case downloadFinished(DownloadFinished)
+	/// Terminal: the transfer failed or was cancelled; nothing is kept.
+	case downloadFailed(DownloadFailure)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case http,
@@ -2733,7 +2961,10 @@ public enum EffectOutput: Codable, Sendable, Hashable {
 			storeFailed,
 			socketOpened,
 			socketText,
-			socketClosed
+			socketClosed,
+			downloadProgress,
+			downloadFinished,
+			downloadFailed
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -2783,6 +3014,21 @@ public enum EffectOutput: Codable, Sendable, Hashable {
 					self = .socketClosed(content)
 					return
 				}
+			case .downloadProgress:
+				if let content = try? container.decode(DownloadProgress.self, forKey: .content) {
+					self = .downloadProgress(content)
+					return
+				}
+			case .downloadFinished:
+				if let content = try? container.decode(DownloadFinished.self, forKey: .content) {
+					self = .downloadFinished(content)
+					return
+				}
+			case .downloadFailed:
+				if let content = try? container.decode(DownloadFailure.self, forKey: .content) {
+					self = .downloadFailed(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(EffectOutput.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for EffectOutput"))
@@ -2814,6 +3060,15 @@ public enum EffectOutput: Codable, Sendable, Hashable {
 			try container.encode(content, forKey: .content)
 		case .socketClosed(let content):
 			try container.encode(CodingKeys.socketClosed, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .downloadProgress(let content):
+			try container.encode(CodingKeys.downloadProgress, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .downloadFinished(let content):
+			try container.encode(CodingKeys.downloadFinished, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .downloadFailed(let content):
+			try container.encode(CodingKeys.downloadFailed, forKey: .type)
 			try container.encode(content, forKey: .content)
 		}
 	}
@@ -2847,7 +3102,7 @@ public struct SearchView: Codable, Sendable, Hashable {
 	public let cards: [Card]
 	public let problem: Problem?
 
-	public init(query: String, status: LoadStatus, cards: [Card], problem: Problem?) {
+	public init(query: String, status: LoadStatus, cards: [Card], problem: Problem? = nil) {
 		self.query = query
 		self.status = status
 		self.cards = cards
@@ -2931,7 +3186,7 @@ public struct SessionUser: Codable, Sendable, Hashable {
 	/// RFC 3339.
 	public let createdAt: String
 
-	public init(username: String, displayName: String, admin: Bool, avatarId: String?, bannerId: String?, bio: String, createdAt: String) {
+	public init(username: String, displayName: String, admin: Bool, avatarId: String? = nil, bannerId: String? = nil, bio: String, createdAt: String) {
 		self.username = username
 		self.displayName = displayName
 		self.admin = admin
@@ -2951,8 +3206,11 @@ public struct SessionView: Codable, Sendable, Hashable {
 	public let language: String
 	public let accent: AccentPalette
 	public let problem: Problem?
+	/// The server is out of reach (no network, or it is down): show what works offline,
+	/// the downloads.
+	public let offline: Bool
 
-	public init(status: LoadStatus, accountId: String?, user: SessionUser?, features: Features, language: String, accent: AccentPalette, problem: Problem?) {
+	public init(status: LoadStatus, accountId: String? = nil, user: SessionUser? = nil, features: Features, language: String, accent: AccentPalette, problem: Problem? = nil, offline: Bool) {
 		self.status = status
 		self.accountId = accountId
 		self.user = user
@@ -2960,6 +3218,7 @@ public struct SessionView: Codable, Sendable, Hashable {
 		self.language = language
 		self.accent = accent
 		self.problem = problem
+		self.offline = offline
 	}
 }
 
@@ -2971,7 +3230,7 @@ public struct SignInView: Codable, Sendable, Hashable {
 	/// The account that just signed in; the shell moves on.
 	public let signedIn: String?
 
-	public init(serverId: String?, status: LoadStatus, problem: Problem?, pairing: PairingView?, signedIn: String?) {
+	public init(serverId: String? = nil, status: LoadStatus, problem: Problem? = nil, pairing: PairingView? = nil, signedIn: String? = nil) {
 		self.serverId = serverId
 		self.status = status
 		self.problem = problem
@@ -2985,7 +3244,7 @@ public struct SocketClosed: Codable, Sendable, Hashable {
 	public let code: UInt16
 	public let reason: String?
 
-	public init(code: UInt16, reason: String?) {
+	public init(code: UInt16, reason: String? = nil) {
 		self.code = code
 		self.reason = reason
 	}
@@ -3091,7 +3350,7 @@ public struct StoreRequest: Codable, Sendable, Hashable {
 public struct StoredValue: Codable, Sendable, Hashable {
 	public let value: String?
 
-	public init(value: String?) {
+	public init(value: String? = nil) {
 		self.value = value
 	}
 }
@@ -3099,7 +3358,7 @@ public struct StoredValue: Codable, Sendable, Hashable {
 public struct SubtitleSelection: Codable, Sendable, Hashable {
 	public let id: String?
 
-	public init(id: String?) {
+	public init(id: String? = nil) {
 		self.id = id
 	}
 }
@@ -3135,7 +3394,7 @@ public struct TimerRequest: Codable, Sendable, Hashable {
 	/// Fire again every `after_ms` until cancelled.
 	public let `repeat`: Bool?
 
-	public init(afterMs: UInt64, repeat: Bool?) {
+	public init(afterMs: UInt64, repeat: Bool? = nil) {
 		self.afterMs = afterMs
 		self.repeat = `repeat`
 	}
@@ -3174,7 +3433,7 @@ public struct TitleDetailView: Codable, Sendable, Hashable {
 	/// Only seasons and episodes that have something to play.
 	public let seasons: [SeasonView]
 
-	public init(id: String, slug: String, name: String, kind: TitleKind, year: Int32?, overview: String, genres: [String], contentRating: String?, runtimeMinutes: UInt32?, poster: Image?, backdrop: Image?, logo: Logo?, accent: AccentPalette?, quality: Quality?, hdr: Bool, inList: Bool, play: PlayAction?, shuffle: Bool, seasons: [SeasonView]) {
+	public init(id: String, slug: String, name: String, kind: TitleKind, year: Int32? = nil, overview: String, genres: [String], contentRating: String? = nil, runtimeMinutes: UInt32? = nil, poster: Image? = nil, backdrop: Image? = nil, logo: Logo? = nil, accent: AccentPalette? = nil, quality: Quality? = nil, hdr: Bool, inList: Bool, play: PlayAction? = nil, shuffle: Bool, seasons: [SeasonView]) {
 		self.id = id
 		self.slug = slug
 		self.name = name
@@ -3203,7 +3462,7 @@ public struct TitleView: Codable, Sendable, Hashable {
 	public let detail: TitleDetailView?
 	public let problem: Problem?
 
-	public init(slug: String, status: LoadStatus, detail: TitleDetailView?, problem: Problem?) {
+	public init(slug: String, status: LoadStatus, detail: TitleDetailView? = nil, problem: Problem? = nil) {
 		self.slug = slug
 		self.status = status
 		self.detail = detail
@@ -3215,7 +3474,7 @@ public struct TitleView: Codable, Sendable, Hashable {
 public struct TrackChoice: Codable, Sendable, Hashable {
 	public let id: String?
 
-	public init(id: String?) {
+	public init(id: String? = nil) {
 		self.id = id
 	}
 }
@@ -3252,6 +3511,65 @@ public struct WatchlistChange: Codable, Sendable, Hashable {
 	public init(titleId: String, listed: Bool) {
 		self.titleId = titleId
 		self.listed = listed
+	}
+}
+
+public enum DownloadCommand: Codable, Sendable, Hashable {
+	/// Starting a name that is already transferring attaches to that transfer, and one that
+	/// is already complete finishes at once, so the core can start again after a relaunch.
+	case start(DownloadStart)
+	/// Stop a transfer and delete what it fetched.
+	case cancel(EffectRef)
+	/// Delete a finished file.
+	case remove(DownloadName)
+
+	enum CodingKeys: String, CodingKey, Codable {
+		case start,
+			cancel,
+			remove
+	}
+
+	private enum ContainerCodingKeys: String, CodingKey {
+		case type, content
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: ContainerCodingKeys.self)
+		if let type = try? container.decode(CodingKeys.self, forKey: .type) {
+			switch type {
+			case .start:
+				if let content = try? container.decode(DownloadStart.self, forKey: .content) {
+					self = .start(content)
+					return
+				}
+			case .cancel:
+				if let content = try? container.decode(EffectRef.self, forKey: .content) {
+					self = .cancel(content)
+					return
+				}
+			case .remove:
+				if let content = try? container.decode(DownloadName.self, forKey: .content) {
+					self = .remove(content)
+					return
+				}
+			}
+		}
+		throw DecodingError.typeMismatch(DownloadCommand.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for DownloadCommand"))
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: ContainerCodingKeys.self)
+		switch self {
+		case .start(let content):
+			try container.encode(CodingKeys.start, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .cancel(let content):
+			try container.encode(CodingKeys.cancel, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .remove(let content):
+			try container.encode(CodingKeys.remove, forKey: .type)
+			try container.encode(content, forKey: .content)
+		}
 	}
 }
 

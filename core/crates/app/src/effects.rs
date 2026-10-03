@@ -5,9 +5,9 @@ use std::collections::{HashMap, HashSet};
 
 use crate::core::Pending;
 use crate::messages::{
-    Effect, EffectRef, EffectRequest, HttpHeader, HttpRequest, PlayerCommand, RenderRequest,
-    SocketCommand, SocketOpen, SocketSend, StoreOp, StoreRequest, Surface, TimerRequest, U53,
-    UploadRequest,
+    DownloadCommand, DownloadName, DownloadStart, Effect, EffectRef, EffectRequest, HttpHeader,
+    HttpRequest, PlayerCommand, RenderRequest, SocketCommand, SocketOpen, SocketSend, StoreOp,
+    StoreRequest, Surface, TimerRequest, U53, UploadRequest,
 };
 
 /// Effects issued so far in this call and the continuations still waiting for outputs.
@@ -72,12 +72,14 @@ impl Registry {
 /// The context a module runs in for one message: the shell's clock and a way to ask for effects.
 pub struct Ctx<'a> {
     pub now: U53,
+    /// The shell's wall clock for an event, when it sent one; effect outputs carry none.
+    pub wall: Option<U53>,
     registry: &'a mut Registry,
 }
 
 impl<'a> Ctx<'a> {
     pub fn new(now: U53, registry: &'a mut Registry) -> Self {
-        Self { now, registry }
+        Self { now, wall: None, registry }
     }
 
     pub fn http(&mut self, request: HttpRequest, pending: Pending) -> U53 {
@@ -112,6 +114,31 @@ impl<'a> Ctx<'a> {
         self.registry.forget(socket);
         let close = SocketCommand::Close(EffectRef { id: socket });
         self.registry.issue(Effect::Socket(close), None, false);
+    }
+
+    /// Starts (or, after a relaunch, re-attaches to) a background download.
+    pub fn download_start(&mut self, url: String, name: String, pending: Pending) -> U53 {
+        let start = DownloadCommand::Start(DownloadStart { url, name });
+        self.registry.issue(Effect::Download(start), Some(pending), true)
+    }
+
+    /// Stops a download; outputs still in flight for it are dropped.
+    pub fn download_cancel(&mut self, download: U53) {
+        self.registry.forget(download);
+        let cancel = DownloadCommand::Cancel(EffectRef { id: download });
+        self.registry.issue(Effect::Download(cancel), None, false);
+    }
+
+    /// Deletes a finished download's file; fire-and-forget.
+    pub fn download_remove(&mut self, name: String) {
+        let remove = DownloadCommand::Remove(DownloadName { name });
+        self.registry.issue(Effect::Download(remove), None, false);
+    }
+
+    /// Stops routing a streaming effect's outputs to the core without stopping the effect: a
+    /// background download carries on and is picked up again later.
+    pub fn forget(&mut self, id: U53) {
+        self.registry.forget(id);
     }
 
     /// Drives the shell's player; fire-and-forget.

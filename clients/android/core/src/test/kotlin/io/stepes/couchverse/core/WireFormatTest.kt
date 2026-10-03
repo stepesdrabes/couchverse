@@ -115,6 +115,12 @@ class WireFormatTest {
                 """{"type":"couchLocalPauseChanged","content":{"paused":true}}""",
             Event.CouchRemoteCommanded(RemoteControl(RemoteAction.Seek, 12.5)) to
                 """{"type":"couchRemoteCommanded","content":{"action":"seek","positionSeconds":12.5}}""",
+            Event.DownloadRequested(DownloadAsk(PlayTarget(PlayKind.Movie, "m1"), DownloadQuality.Hd720, listOf("cs"))) to
+                """{"type":"downloadRequested","content":{"target":{"kind":"movie","id":"m1"},"quality":"720p","audio":["cs"]}}""",
+            Event.DownloadRetried(DownloadRef("d1")) to """{"type":"downloadRetried","content":{"id":"d1"}}""",
+            Event.DownloadRemoved(DownloadRef("d1")) to """{"type":"downloadRemoved","content":{"id":"d1"}}""",
+            Event.DownloadPlayRequested(DownloadRef("d1")) to
+                """{"type":"downloadPlayRequested","content":{"id":"d1"}}""",
         )
         assertEncodings(Event.serializer(), events)
         for ((event, _) in events) {
@@ -149,6 +155,7 @@ class WireFormatTest {
             Surface.ProfileEditor to """{"type":"profileEditor"}""",
             Surface.Player to """{"type":"player"}""",
             Surface.Couch to """{"type":"couch"}""",
+            Surface.Downloads to """{"type":"downloads"}""",
         )
         assertEncodings(Surface.serializer(), surfaces)
         bridge().use { bridge ->
@@ -172,6 +179,12 @@ class WireFormatTest {
             EffectOutput.SocketText(SocketText("{}")) to """{"type":"socketText","content":{"text":"{}"}}""",
             EffectOutput.SocketClosed(SocketClosed(1006.toUShort(), "gone")) to
                 """{"type":"socketClosed","content":{"code":1006,"reason":"gone"}}""",
+            EffectOutput.DownloadProgress(DownloadProgress(250u, 1000u)) to
+                """{"type":"downloadProgress","content":{"receivedBytes":250,"totalBytes":1000}}""",
+            EffectOutput.DownloadFinished(DownloadFinished(1000u)) to
+                """{"type":"downloadFinished","content":{"bytes":1000}}""",
+            EffectOutput.DownloadFailed(DownloadFailure("disk full", noSpace = true)) to
+                """{"type":"downloadFailed","content":{"message":"disk full","noSpace":true}}""",
         )
         assertEncodings(EffectOutput.serializer(), outputs)
         bridge().use { bridge ->
@@ -379,7 +392,7 @@ class WireFormatTest {
                         http[request.id] = effect.content.request
                         uploads[request.id] = effect.content
                     }
-                    is Effect.Timer, is Effect.CancelTimer, is Effect.Render, is Effect.Player, is Effect.Socket -> Unit
+                    is Effect.Timer, is Effect.CancelTimer, is Effect.Render, is Effect.Player, is Effect.Socket, is Effect.Download -> Unit
                 }
             }
             for ((id, value) in reads) resolve(id, EffectOutput.Stored(StoredValue(value)))

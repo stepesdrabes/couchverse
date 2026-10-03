@@ -4,6 +4,7 @@
 mod boot;
 mod catalog;
 mod couch;
+mod downloads;
 mod pairing;
 mod playback;
 mod ranks;
@@ -17,13 +18,16 @@ use serde_json::{Value, json};
 
 use crate::core::{AppPhase, AppView, Core};
 use crate::messages::{
-    AuthMode, CoreConfig, Effect, EffectOutput, EffectRequest, Event, HttpFailure, HttpFailureKind,
-    HttpRequest, HttpResponse, LoadStatus, Message, Platform, PlayerCommand, Resolution,
-    SocketCommand, SocketOpen, SocketText, StoreOp, StoredValue, Surface, U53, UploadRequest,
+    AuthMode, CoreConfig, DownloadCommand, Effect, EffectOutput, EffectRequest, Event, HttpFailure,
+    HttpFailureKind, HttpRequest, HttpResponse, LoadStatus, Message, Platform, PlayerCommand,
+    Resolution, SocketCommand, SocketOpen, SocketText, StoreOp, StoredValue, Surface, U53,
+    UploadRequest,
 };
 
 pub const SERVER_ID: &str = "4f6c0a5e-6a43-4c0e-9d4b-2b8f8d0b7a11";
 pub const HTTPS: &str = "https://media.example.com";
+/// The wall clock when the monotonic one reads zero: 2026-10-02T12:00:00Z.
+pub const WALL_EPOCH: U53 = 1_790_942_400_000;
 
 /// A shell with in-memory stores. Writes and deletes are applied as they are issued (they are
 /// fire-and-forget); reads, HTTP calls and timers stay outstanding until a test answers them.
@@ -43,6 +47,8 @@ pub struct Shell {
     /// Text the core sent, with the socket it went on.
     pub sent: Vec<(U53, String)>,
     pub closed_sockets: Vec<U53>,
+    /// Download commands, with their effect ids, oldest first.
+    pub downloads: Vec<(U53, DownloadCommand)>,
 }
 
 impl Shell {
@@ -70,6 +76,7 @@ impl Shell {
             sockets: vec![],
             sent: vec![],
             closed_sockets: vec![],
+            downloads: vec![],
         }
     }
 
@@ -82,7 +89,8 @@ impl Shell {
     }
 
     pub fn send(&mut self, event: Event) {
-        let effects = self.core.send(Message { now_ms: self.now, event });
+        let wall_ms = Some(WALL_EPOCH + self.now);
+        let effects = self.core.send(Message { now_ms: self.now, event, wall_ms });
         self.absorb(effects);
     }
 
@@ -132,6 +140,12 @@ impl Shell {
                     self.sent.push((send.socket, send.text.clone()));
                 }
                 Effect::Socket(SocketCommand::Close(socket)) => self.closed_sockets.push(socket.id),
+                Effect::Download(command) => {
+                    if let DownloadCommand::Cancel(download) = command {
+                        self.outstanding.retain(|e| e.id != download.id);
+                    }
+                    self.downloads.push((effect.id, command.clone()));
+                }
                 Effect::Http(_) | Effect::Timer(_) | Effect::Upload(_) => {
                     self.outstanding.push(effect);
                 }

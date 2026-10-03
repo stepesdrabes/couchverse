@@ -223,6 +223,27 @@
         <item quantity="other">You are signed in on %1$d devices.</item>
     </plurals>
     <string name="devices_this_browser">This browser</string>
+    <string name="download_action">Download</string>
+    <string name="download_choose_quality">Download quality</string>
+    <string name="download_failed_expired">The server no longer has it ready - try again</string>
+    <string name="download_failed_fetch">The download was interrupted</string>
+    <string name="download_failed_no_space">Not enough space on this device</string>
+    <string name="download_failed_prepare">The server could not prepare it</string>
+    <string name="download_failed_unsupported">This device cannot play a download of this title</string>
+    <string name="download_quality_original">Original</string>
+    <string name="download_quality_original_hint">Best picture, largest file</string>
+    <string name="download_remove">Remove download</string>
+    <string name="download_retry">Try again</string>
+    <string name="download_started">Download started</string>
+    <string name="download_state_fetching">Downloading · %1$s%%</string>
+    <string name="download_state_preparing">Preparing · %1$s%%</string>
+    <string name="download_state_queued">Waiting for the server</string>
+    <string name="download_state_ready">Downloaded</string>
+    <string name="downloads_empty">Nothing downloaded yet</string>
+    <string name="downloads_empty_hint">Download movies and episodes to watch them without a connection.</string>
+    <string name="downloads_offline_banner">You\'re offline - your downloads still play.</string>
+    <string name="downloads_storage">%1$s on this device</string>
+    <string name="downloads_title">Downloads</string>
     <string name="error_go_home">Back to home</string>
     <string name="error_not_found">This page could not be found.</string>
     <string name="error_page_title">Something went wrong</string>

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
 
 use crate::modules::{
-    accounts, catalog, couch, notices, playback, profile, ranks, servers, session,
+    accounts, catalog, couch, downloads, notices, playback, profile, ranks, servers, session,
 };
 
 /// Effect ids and monotonic milliseconds: typeshare maps the name to a 53-bit-safe integer in
@@ -74,6 +74,10 @@ pub struct CoreConfig {
 pub struct Message {
     pub now_ms: U53,
     pub event: Event,
+    /// Milliseconds since the Unix epoch, for what depends on the date (progress saved while
+    /// offline is replayed with the time it was watched). `nowMs` stays the monotonic clock.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wall_ms: Option<U53>,
 }
 
 /// The output of an effect the core asked for. Streaming effects (sockets, repeating timers)
@@ -173,6 +177,14 @@ pub enum Event {
     CouchLocalPauseChanged(couch::CouchPause),
     /// A remote's play, pause, seek, next or previous.
     CouchRemoteCommanded(couch::RemoteControl),
+    /// Keep a movie or an episode for offline viewing (iOS and Android).
+    DownloadRequested(downloads::DownloadAsk),
+    /// Ask the server again for a download that failed.
+    DownloadRetried(downloads::DownloadRef),
+    /// Delete a download from this device and from the account's list.
+    DownloadRemoved(downloads::DownloadRef),
+    /// Play a finished download from the device.
+    DownloadPlayRequested(downloads::DownloadRef),
 }
 
 /// A screen, panel or piece of state a shell renders from a view model.
@@ -217,6 +229,8 @@ pub enum Surface {
     Player,
     /// The couch session: members, reactions, the host's state and the follower's sync.
     Couch,
+    /// The account's downloads on this device: preparing, fetching and ready to play offline.
+    Downloads,
 }
 
 /// Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -252,6 +266,42 @@ pub enum Effect {
     /// `socketText` for every frame, and ends with `socketClosed`; send and close are
     /// fire-and-forget.
     Socket(SocketCommand),
+    /// Fetch a file into the app's downloads directory in the background, surviving the app
+    /// being suspended (a background `URLSession`, `WorkManager`). A start resolves
+    /// `downloadProgress` now and then and ends with `downloadFinished` or `downloadFailed`;
+    /// cancel and remove are fire-and-forget.
+    Download(DownloadCommand),
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "content", rename_all = "camelCase")]
+pub enum DownloadCommand {
+    /// Starting a name that is already transferring attaches to that transfer, and one that
+    /// is already complete finishes at once, so the core can start again after a relaunch.
+    Start(DownloadStart),
+    /// Stop a transfer and delete what it fetched.
+    Cancel(EffectRef),
+    /// Delete a finished file.
+    Remove(DownloadName),
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadStart {
+    /// Empty to only pick up a transfer with this name that is running or finished; with
+    /// none, it fails at once.
+    pub url: String,
+    /// The file's name in the downloads directory; stable, unlike the directory's path.
+    pub name: String,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadName {
+    pub name: String,
 }
 
 #[typeshare]
@@ -331,6 +381,8 @@ pub enum PlayerSource {
     File,
     /// An HLS multivariant playlist.
     Hls,
+    /// A finished download: `url` is its name in the downloads directory.
+    Download,
 }
 
 #[typeshare]
@@ -340,7 +392,10 @@ pub struct PlayerSubtitle {
     pub id: String,
     pub lang: String,
     pub label: String,
-    pub url: String,
+    /// The WebVTT file to show beside the media; absent for a track inside it (a download's
+    /// subtitles), which the player selects by language.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
     pub forced: bool,
 }
 
@@ -486,6 +541,40 @@ pub enum EffectOutput {
     SocketText(SocketText),
     /// Terminal: the socket closed or could not open.
     SocketClosed(SocketClosed),
+    /// How far a download has come; sent now and then, not for every chunk.
+    DownloadProgress(DownloadProgress),
+    /// Terminal: the file is complete under its name.
+    DownloadFinished(DownloadFinished),
+    /// Terminal: the transfer failed or was cancelled; nothing is kept.
+    DownloadFailed(DownloadFailure),
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadProgress {
+    pub received_bytes: U53,
+    /// Absent until the server said how big the file is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_bytes: Option<U53>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadFinished {
+    pub bytes: U53,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadFailure {
+    /// An English hint for logs, never shown as is.
+    pub message: String,
+    /// Out of space on the device, so trying again will not help until some is freed.
+    #[serde(default)]
+    pub no_space: bool,
 }
 
 #[typeshare]
@@ -508,7 +597,12 @@ pub struct SocketClosed {
 impl EffectOutput {
     /// Whether this output ends a streaming effect, so nothing more arrives for its id.
     pub fn is_terminal(&self) -> bool {
-        matches!(self, EffectOutput::SocketClosed(_))
+        matches!(
+            self,
+            EffectOutput::SocketClosed(_)
+                | EffectOutput::DownloadFinished(_)
+                | EffectOutput::DownloadFailed(_)
+        )
     }
 }
 

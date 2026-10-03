@@ -82,9 +82,19 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
 
 Top Shelf, widget, Live Activity (per spike S1), App Intents, Shortcuts, Spotlight.
 
-## Phase 10: downloads - pending
+## Phase 10: downloads - in progress
 
-Backend download preparation, core `downloads`, iOS downloads UI and offline mode.
+- Done: backend download preparation (`requestDownload` plans a device-ready MP4 for the
+  profile, `prepare_download` makes it, shared between requests with the same plan, fetched
+  through a media grant with ranges, removed after retention; `saveProgress.watchedAt` so
+  offline progress never replaces newer progress), verified with real copies and transcodes
+  (`TestDownloads`).
+- Done: core `downloads` (download effect with relaunch re-attach, preparation polling, the
+  offline library per account, artwork kept beside it, playback from the device while offline,
+  unsaved progress replayed with the time it was watched, sign-out deleting the account's
+  files), the `wallMs` message clock, `PlayerSource.download`, in-file subtitles.
+- Pending: the iOS/iPadOS downloads UI and offline mode (background `URLSession` executor),
+  Android downloads (Phase 12).
 
 ## Phase 11: Android foundation - in progress
 
