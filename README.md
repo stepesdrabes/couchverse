@@ -1,11 +1,11 @@
 # Couchverse
 
 A self-hosted, Netflix-style streaming server for your movies and TV series, with a
-full management panel. One Go binary, one
-Postgres database, runs on anything from a Raspberry Pi with a USB disk to a beefy
-home server.
+full management panel, a web app and native apps for iPhone, iPad, Apple TV, Android and
+Google TV. One Go binary, one Postgres database, runs on anything from a Raspberry Pi with a
+USB disk to a beefy home server.
 
-![stack](https://img.shields.io/badge/stack-Go%20·%20SvelteKit%20·%20Postgres%20·%20ffmpeg-8b7cf0)
+![stack](https://img.shields.io/badge/stack-Go%20·%20SvelteKit%20·%20Rust%20core%20·%20SwiftUI%20·%20Compose%20·%20Postgres%20·%20ffmpeg-8b7cf0)
 
 ## Features
 
@@ -15,6 +15,11 @@ home server.
 - Movies and series with seasons/episodes (episode thumbnails), resume positions,
   auto-next-episode
 - My List, watch history, full-text search
+- **Native apps** for iPhone/iPad and Apple TV (SwiftUI) and for Android phones and Google TV
+  (Compose), built from source (see [Native apps](#native-apps)). A TV signs in by showing a
+  code and QR that you approve on your phone or the web; "Who's watching?" switches profiles
+- **Downloads** on iPhone, iPad and Android: the server prepares an MP4 for the device,
+  which plays it offline; progress watched offline syncs back once the server is reachable
 - Custom video player: subtitles (side-car VTT), quality menu, picture-in-picture,
   keyboard shortcuts, hover tooltips, and a seek bar with time + frame preview
 - Subtitle support: upload `.srt`/`.vtt` or automatic extraction of embedded text subs
@@ -42,10 +47,14 @@ home server.
   title/episode metadata per language, add languages from a searchable picker, or remove a
   language to purge its translations and files
 
-**Playback pipeline** (scales with your hardware)
-1. **Direct play** - browser-compatible files stream straight from disk (zero CPU)
-2. **Copy-remux** - h264 in MKV / AC3 audio is repackaged to HLS automatically (fast everywhere)
-3. **Background transcode** - admin-queued quality ladder (1080p/720p/480p)
+**Playback pipeline** (scales with your hardware; every client reports what it can play,
+measured on the device, and gets the cheapest stream that fits)
+1. **Direct play** - a file the device plays as is streams straight from disk (zero CPU)
+2. **Remux** - the source video copied into fMP4 HLS with its audio as renditions (copied,
+   or AAC/E-AC-3 when the device needs it) and subtitles as WebVTT renditions; cheap even on a
+   Pi, and how HDR10, HLG, Dolby Vision and Atmos reach an Apple TV
+3. **Background transcode** - an H.264 SDR quality ladder (1080p/720p/480p, HDR tone-mapped),
+   with an I-frame playlist for scrubbing previews
 4. **Instant play (JIT)** - unprepared files transcode live while you watch, with
    seek-anywhere; enabled automatically when a hardware encoder is detected
    (VideoToolbox, NVENC, QSV, VA-API, Raspberry Pi 4's V4L2)
@@ -90,7 +99,23 @@ catalog from the database, but leaves files on disk - delete `media/music/` insi
 `MEDIA_ROOT` (and album art under `artwork/`) by hand if you no longer need them.
 
 Add users under **Admin → Users** (no public signup). Set a TMDB API key under
-**Admin → Settings** for one-click metadata.
+**Admin → Settings** for one-click metadata. Couch sessions, ranks and downloads can each be
+switched off under **Admin → Settings → Features**.
+
+### Native apps
+
+The apps are open source and built from source; nothing is published to an app store.
+
+- **iPhone, iPad and Apple TV**: Xcode 27 and a free Apple ID are enough
+  ([docs/apple.md](docs/apple.md)). Free provisioning lasts 7 days, so the apps are rebuilt
+  weekly from Xcode.
+- **Android and Google TV**: one APK for phones and TVs ([docs/android.md](docs/android.md)),
+  built with Gradle or downloaded from a release.
+
+In an app, add your server's address (the app checks it is a Couchverse server and warns
+when the connection is not encrypted), then sign in with a password, or on a TV show a code
+and approve it from a signed-in phone (scan its QR) or at `http://<host>:8080/pair`. Each
+signed-in device appears under your profile's **Devices**, where it can be signed out.
 
 ### Raspberry Pi notes
 
@@ -99,6 +124,11 @@ Add users under **Admin → Users** (no public signup). Set a TMDB API key under
   `docker-compose.yml` if your root filesystem is an SD card.
 - Media is added through the browser (resumable chunked uploads), so there is no need
   to expose the media folder over SMB/SFTP.
+- The remux tier (copying the source video into HLS) is cheap on a Pi and covers most MKV
+  files for the native apps; transcodes are what cost CPU.
+- Downloads are MP4s the server prepares: "Original" quality copies the video (cheap),
+  lower qualities transcode. Turn downloads off under **Admin → Settings → Features** if the
+  Pi should never do that work.
 - Keep the transcode ladder at 720p and 1 concurrent job (the defaults). On a Pi 4
   start the stack with the hardware-encoder overlay so transcodes use the
   `h264_v4l2m2m` video encoder (~3x realtime) instead of software libx264, which is
@@ -131,16 +161,21 @@ Tune ladder, preset, concurrency and instant play under **Admin → Settings**.
 
 ## Development
 
-Prereqs: Go 1.24+, Node 22+, Docker, ffmpeg on PATH.
+Prereqs: Go 1.25+, Node 22+, Rust (rustup, with the `wasm32-unknown-unknown` target and
+`binaryen` for `wasm-opt`), Docker, ffmpeg on PATH. Xcode 27 and the Android SDK only for the
+native apps.
 
 ```sh
 docker compose up db -d      # postgres on localhost:5432 (DB_PASSWORD=couchverse in dev)
 make run-backend             # Go API on :8080 (bootstraps admin/admin)
 make run-web                 # Vite dev server on :5173, proxies /api
 make sample-media            # generates test clips covering every pipeline tier
-make lint check test         # golangci-lint/vet · svelte-check/eslint/prettier · go test
-make e2e                     # Playwright smoke suite against the built binary
-make build                   # SPA → embed → single binary at backend/bin/couchverse
+make lint check test         # golangci-lint/vet · svelte-check/eslint/prettier/vitest · go test
+make core-test               # the shared Rust core: fmt, clippy, scenario tests
+make contract                # regenerate the API spec, the typed clients, strings and tokens
+make e2e                     # Playwright smoke suite (and the axe accessibility audit)
+make apple-test android-test # the native apps' package, snapshot and JVM tests
+make build                   # wasm core → SPA → embed → single binary at backend/bin/couchverse
 ```
 
 ### End-to-end smoke suite
@@ -163,5 +198,9 @@ npx playwright show-report                                                   # t
 
 Set `E2E_SERVER_LOG=/tmp/e2e-server.log` to keep the server log; CI uploads it with the report.
 
-Architecture notes live in `CLAUDE.md`. The web client (`clients/web`) is a static SPA embedded into
-the Go binary; in production only two containers run: the app and Postgres.
+Architecture notes live in `CLAUDE.md` and `FEATURES.md`; the native clients' design in
+`docs/native-clients-plan.md`. Every client runs the same Rust core (`core/`) for its logic -
+the native apps through UniFFI, the web as WebAssembly - so sign-in, browsing, playback
+decisions, couch sync, ranks and downloads behave the same everywhere. The web client
+(`clients/web`) is a static SPA embedded into the Go binary; in production only two
+containers run: the app and Postgres.
