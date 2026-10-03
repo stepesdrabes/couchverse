@@ -172,7 +172,14 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     preloads run loads for pages that never mount): a mounted page opens its screen with
     `useScreen`. New notice codes need a message in `lib/core/Notices.svelte`. The runtime
     (`runtime.svelte.ts`) stamps `wallMs` and must handle every `Effect` variant: its `never`
-    check fails the build when the core gains one.
+    check fails the build when the core gains one. It also runs the player and the couch: the
+    `player` effect goes to `attachPlayer` with `ElementPlayer` (the video element plus hls.js;
+    commands queue until a player attaches), the `socket` effect over cookie auth, and the
+    browser's `DeviceProfile` (`lib/core/device-profile.ts`) is reported at startup. The `/watch`
+    load is side-effect free and the watch page sends `playRequested` when it mounts (the "never
+    preload /watch" rule still stands). The web couch is `core.watch(COUCH)` plus events, with no
+    protocol code in `features/couch`; anonymous guests follow through the core's cookie-mode
+    guest endpoint.
   - The viewer's catalog shapes are the core's generated view types; `features/catalog/types.ts`
     keeps only the admin-shared `Genre` and `ContentStatus`. The bare fetch wrapper
     stays in `src/lib/api/client.ts`. Never hand-write URLs: use the generated functions or `xxxPath` builders.

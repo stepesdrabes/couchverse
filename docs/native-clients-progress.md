@@ -70,14 +70,20 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
 - Done: the core's device profile (`CapabilitiesReported(DeviceProfile)`, the contract's
   fixtures round-trip unchanged), `resolvePlayback`/`resolveCouchPlayback` by POST, sources by
   tier (Original = the source file or the remuxed HLS, Auto and renditions = the ladder).
-- In progress: the web player and couch on the core, the Apple player.
+- Done: the web player on the core (`ElementPlayer` over the video element and hls.js, the
+  browser's device profile, every tier, track and quality switching, next episode, resume),
+  with the web's resume, beacons, JIT keepalive and next-episode code deleted.
+- In progress: the Apple player.
 
 ## Phase 7: couch - in progress
 
 - Done: couch v2 backend (participant tokens per device, `delivery=body` + `X-Couch-Token`,
   remote role and relay), core `couch` (socket effect, reconnect, host broadcast, follower
   drift sync, remote control, reactions).
-- Pending: web couch on the core, Apple couch.
+- Done: the web couch on the core (socket effect, anonymous guests through a cookie-mode
+  guest endpoint, follower drift sync, reactions, a follower's failed player refetched through
+  the couch).
+- Pending: Apple couch, Android couch.
 
 ## Phase 8: ranks and profiles - in progress
 
