@@ -2,8 +2,8 @@ use serde_json::json;
 
 use super::*;
 use crate::modules::accounts::{
-    ApprovalOutcome, DeviceRef, DevicesView, Link, PairingApproval, PairingApprovalView,
-    PairingState, SignInView, UserCode,
+    AccountRef, ApprovalOutcome, DeviceCard, DeviceRef, DevicesView, Link, PairingApproval,
+    PairingApprovalView, PairingState, SignInView, UserCode,
 };
 use crate::modules::servers::ServerRef;
 
@@ -293,9 +293,19 @@ fn the_web_lists_and_revokes_its_devices_over_its_cookie() {
     let view: DevicesView = shell.view(&Surface::Devices);
     assert_eq!((view.status, view.devices.len()), (LoadStatus::Loaded, 1));
 
-    // a list refused as signed out ends the web's session
+    // a list refused as signed out ends the web's session, and the list goes with it
     shell.send(Event::DevicesOpened);
     let signed_out = json!({ "error": { "code": "unauthorized", "message": "sign in" } });
     shell.respond("GET", devices, 401, signed_out);
     assert_eq!(shell.phase(), AppPhase::SignIn);
+    assert_eq!(shell.view::<DevicesView>(&Surface::Devices).devices, empty::<DeviceCard>());
+
+    // the next member never sees a list read for the last one
+    shell.send(Event::SessionStarted);
+    shell.answer_session("", user(1, "admin"), Some("en"));
+    shell.send(Event::DevicesOpened);
+    shell.send(Event::SignOutRequested(AccountRef { account_id: "web".into() }));
+    shell.send(Event::SessionStarted);
+    shell.respond("GET", devices, 200, json!([device("firefox", "browser", "web", true)]));
+    assert_eq!(shell.view::<DevicesView>(&Surface::Devices).devices, empty::<DeviceCard>());
 }

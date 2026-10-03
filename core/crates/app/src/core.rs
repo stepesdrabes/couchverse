@@ -854,6 +854,7 @@ impl Model {
 
     /// A new account's catalog, loading whatever its screens already have open.
     fn start_catalog(&mut self, ctx: &mut Ctx, account_id: &str) {
+        self.accounts.forget_devices(ctx);
         self.ranks.reset(ctx);
         self.profile.reset(ctx);
         self.catalog.activate(ctx, account_id);
@@ -864,6 +865,7 @@ impl Model {
 
     fn end_session(&mut self, ctx: &mut Ctx) {
         self.session.end(ctx);
+        self.accounts.forget_devices(ctx);
         self.catalog.reset(ctx);
         self.ranks.reset(ctx);
         self.profile.reset(ctx);

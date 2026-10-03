@@ -239,9 +239,11 @@ pub enum AccountsPending {
         call: Call<types::ArtworkGrant>,
     },
     Devices {
+        generation: u64,
         call: Call<Vec<Device>>,
     },
     Revoked {
+        generation: u64,
         call: Call<NoContent>,
     },
     ApprovalLoaded {
@@ -283,6 +285,8 @@ pub struct Accounts {
     devices: DevicesView,
     /// Where the devices list was last read from, to read it again after a revoke.
     devices_endpoint: Option<Endpoint>,
+    /// Bumped when a session ends or another begins, so a list in flight for it is dropped.
+    devices_generation: u64,
     approval: PairingApprovalView,
     /// A connect link waiting for its server to be identified: (server URL, code).
     connect: Option<(String, String)>,
@@ -569,15 +573,24 @@ impl Accounts {
         );
     }
 
+    /// Forgets the devices list: the session ended or another began.
+    pub fn forget_devices(&mut self, ctx: &mut Ctx) {
+        self.devices = DevicesView::default();
+        self.devices_endpoint = None;
+        self.devices_generation += 1;
+        ctx.render(Surface::Devices);
+    }
+
     /// The signed-in session's devices, read through `endpoint` (the active account's server,
     /// or the web's cookie session).
     pub fn open_devices(&mut self, ctx: &mut Ctx, endpoint: &Endpoint) {
         let call = ops::list_devices();
         self.devices.status =
             if self.devices.devices.is_empty() { LoadStatus::Loading } else { LoadStatus::Stale };
+        let generation = self.devices_generation;
         ctx.http(
             endpoint.request(&call.request),
-            Pending::Accounts(AccountsPending::Devices { call }),
+            Pending::Accounts(AccountsPending::Devices { generation, call }),
         );
         self.devices_endpoint = Some(endpoint.clone());
         ctx.render(Surface::Devices);
@@ -586,9 +599,10 @@ impl Accounts {
     pub fn revoke_device(&mut self, ctx: &mut Ctx, endpoint: &Endpoint, device_id: &str) {
         let call = ops::revoke_device(device_id);
         self.devices.devices.retain(|d| d.id != device_id);
+        let generation = self.devices_generation;
         ctx.http(
             endpoint.request(&call.request),
-            Pending::Accounts(AccountsPending::Revoked { call }),
+            Pending::Accounts(AccountsPending::Revoked { generation, call }),
         );
         ctx.render(Surface::Devices);
     }
@@ -686,10 +700,14 @@ impl Accounts {
                     ctx.render(Surface::Accounts);
                 }
             }
-            AccountsPending::Devices { call } => {
+            // an answer for a session that has since ended
+            AccountsPending::Devices { generation, .. }
+            | AccountsPending::Revoked { generation, .. }
+                if generation != self.devices_generation => {}
+            AccountsPending::Devices { call, .. } => {
                 return self.devices_loaded(ctx, decode(&call, output));
             }
-            AccountsPending::Revoked { call } => {
+            AccountsPending::Revoked { call, .. } => {
                 if let Err(failure) = decode(&call, output) {
                     self.devices.problem = Some(failure.problem());
                 }
