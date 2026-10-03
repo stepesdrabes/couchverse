@@ -169,6 +169,17 @@ fn the_web_checks_once_someone_is_signed_in() {
 }
 
 #[test]
+fn a_relaunch_inside_the_throttle_still_learns_the_rank() {
+    let mut shell = ranked();
+    shell.respond("POST", CHECK, 200, json!({ "throttled": true, "rank": null, "unlocked": [] }));
+    assert_eq!(shell.view::<RankView>(&Surface::Rank).rank, None);
+    shell.respond("GET", &format!("{API}/me/stats?lang=en"), 200, profile_payload("admin", true));
+
+    let view: RankView = shell.view(&Surface::Rank);
+    assert_eq!((view.rank.expect("rank").tier.level, view.level_ups), (2, 0));
+}
+
+#[test]
 fn nothing_is_checked_while_rankings_are_off() {
     let mut shell = launched(returning(Platform::Ios, &[(1, "admin", Some("tok-1"))], 1));
     shell.answer_session(HTTPS, user(1, "admin"), Some("en"));

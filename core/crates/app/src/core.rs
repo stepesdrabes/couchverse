@@ -759,6 +759,14 @@ impl Model {
                     self.ranks.retry(ctx, endpoint);
                 }
             }
+            RanksChange::RankUnknown => {
+                if let Some(env) = ranks_env(&self.session)
+                    && let Some(me) = env.username
+                {
+                    let me = Surface::Profile(me.to_string());
+                    self.ranks.open(ctx, &env, &me, false);
+                }
+            }
             RanksChange::None => {}
         }
     }

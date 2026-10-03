@@ -323,6 +323,9 @@ enum Request {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RanksChange {
     None,
+    /// A throttled check before any rank was known (a relaunch within the server's window):
+    /// the viewer's own stats carry it.
+    RankUnknown,
     Unauthorized,
     /// A forced check the server throttled is due again.
     CheckAgain,
@@ -535,6 +538,9 @@ impl Ranks {
                         }
                         self.queue.extend(result.unlocked);
                         ctx.render(Surface::Rank);
+                        if result.throttled && self.rank.is_none() {
+                            return RanksChange::RankUnknown;
+                        }
                         None
                     }
                     // progression must never interrupt watching: other failures stay quiet
