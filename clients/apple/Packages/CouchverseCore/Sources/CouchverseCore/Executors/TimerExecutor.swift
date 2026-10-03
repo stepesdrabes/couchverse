@@ -23,6 +23,8 @@ public final class TimerExecutor: TimerScheduling {
                 } catch {
                     return
                 }
+                // the sleep may have ended just before a cancel that ran ahead of this resumption
+                guard !Task.isCancelled else { return }
                 fire()
                 guard repeats else { break }
                 deadline += interval
