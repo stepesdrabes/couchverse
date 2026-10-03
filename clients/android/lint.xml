@@ -6,8 +6,28 @@
     <issue id="AndroidGradlePluginVersion" severity="ignore" />
     <!-- strings come from contract/i18n; native catalogs skip only admin keys, so many stay unused here -->
     <issue id="UnusedResources" severity="ignore" />
-    <!-- the catalogs are generated; Czech plural forms there are reviewed in contract/i18n -->
+    <issue id="UseKtx" severity="ignore" />
+    <!-- the generated catalogs are reviewed in contract/i18n, where the web shares them -->
     <issue id="MissingQuantity">
         <ignore path="**/src/generated/**" />
+    </issue>
+    <issue id="TypographyEllipsis">
+        <ignore path="**/src/generated/**" />
+    </issue>
+    <!-- UniFFI checks for java.lang.ref.Cleaner at runtime and falls back to JNA's below API 33 -->
+    <issue id="NewApi">
+        <ignore path="**/build/generated/uniffi/**" />
+    </issue>
+    <!-- plain http and user-installed CAs are how self-hosted servers are reached (D14) -->
+    <issue id="InsecureBaseConfiguration" severity="ignore" />
+    <issue id="AcceptsUserCertificates" severity="ignore" />
+    <!-- shipped as APKs, not bundles split by language -->
+    <issue id="AppBundleLocaleChanges" severity="ignore" />
+    <!-- the logo is the web's single path, drawn small and cached; the banner's size is fixed by Google TV -->
+    <issue id="VectorPath">
+        <ignore path="**/drawable/couchverse_logo.xml" />
+    </issue>
+    <issue id="VectorRaster">
+        <ignore path="**/drawable/tv_banner.xml" />
     </issue>
 </lint>

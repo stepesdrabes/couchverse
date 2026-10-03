@@ -75,7 +75,7 @@ import io.stepes.couchverse.settings.ApproveRoute
 import io.stepes.couchverse.settings.DevicesRoute
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import java.util.Locale
+import androidx.compose.ui.platform.LocalConfiguration
 
 /**
  * The whole app: the session's accent and display language around a root navigation that
@@ -86,7 +86,7 @@ fun CouchverseRoot(runtime: CoreRuntime, tv: Boolean, links: PendingLinks, versi
     CompositionLocalProvider(LocalCoreRuntime provides runtime) {
         val session by rememberSurface<SessionView>(Surface.Session)
         CouchverseTheme(accent = AccentColors.of(session?.accent), tv = tv) {
-            ProvideDisplayLanguage(session?.language ?: Locale.getDefault().language) {
+            ProvideDisplayLanguage(session?.language ?: LocalConfiguration.current.locales[0].language) {
                 Box(Modifier.fillMaxSize().background(Tokens.Palette.bg)) {
                     RootNavigation(links, version)
                     Notices()

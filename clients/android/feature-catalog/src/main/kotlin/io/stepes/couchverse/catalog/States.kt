@@ -44,8 +44,8 @@ fun LoadFailed(problem: Problem?, onRetry: () -> Unit, modifier: Modifier = Modi
 
 /** Nothing to show, with what would make something appear. */
 @Composable
-fun Empty(title: String, message: String? = null, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+fun Empty(title: String, message: String? = null) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         StatusMessage(title = title, message = message)
     }
 }

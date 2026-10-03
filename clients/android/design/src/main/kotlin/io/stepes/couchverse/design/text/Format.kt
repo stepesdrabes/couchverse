@@ -15,7 +15,7 @@ import java.util.Locale
 /** The display language's locale, as [io.stepes.couchverse.design.theme.ProvideDisplayLanguage] set it. */
 @Composable
 @ReadOnlyComposable
-fun displayLocale(): Locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+fun displayLocale(): Locale = LocalConfiguration.current.locales[0]
 
 /** A runtime in the display language's short form: "1h 52m", "1 h 52 min". */
 fun formatRuntime(minutes: Int, locale: Locale): String {
