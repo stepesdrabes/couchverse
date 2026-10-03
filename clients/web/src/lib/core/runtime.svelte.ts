@@ -8,7 +8,10 @@ import type {
 	EffectRequest,
 	HttpRequest,
 	MarkdownDoc,
+	PlayerCommand,
 	SessionView,
+	SocketCommand,
+	SocketOpen,
 	StoreRequest,
 	Surface,
 	TimerRequest,
@@ -41,6 +44,27 @@ export interface Executor {
 	secureStore(request: StoreRequest): EffectOutput;
 	/** Calls `fire` after `afterMs` (every `afterMs` when repeating); returns the cancel. */
 	timer(request: TimerRequest, fire: () => void): () => void;
+	/**
+	 * Opens a WebSocket and hands `emit` its opening, every text frame and, last, its closing
+	 * (not after `close`).
+	 */
+	socket(open: SocketOpen, emit: (output: EffectOutput) => void): Socket;
+}
+
+export interface Socket {
+	send(text: string): void;
+	close(): void;
+}
+
+/** Plays what the core asks: the page's video element. */
+export interface PlayerHost {
+	command(command: PlayerCommand): void;
+}
+
+export interface RuntimeOptions {
+	now?: () => number;
+	/** Sent to every new core before `AppStarted` (what this device can play). */
+	startup?: () => CoreEvent[];
 }
 
 /**
@@ -79,17 +103,31 @@ export class CoreRuntime {
 	// when each surface was last revalidated
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#revalidated = new Map<string, number>();
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	#sockets = new Map<number, Socket>();
+	#player: PlayerHost | undefined;
+	// what the core asked of a player before one was there, from its last load on
+	#queued: PlayerCommand[] = [];
+	#startup: () => CoreEvent[];
 
-	constructor(
-		config: CoreConfig,
-		spawn: Spawn,
-		executor: Executor,
-		now = () => Math.floor(performance.now())
-	) {
+	constructor(config: CoreConfig, spawn: Spawn, executor: Executor, options: RuntimeOptions = {}) {
 		this.#config = config;
 		this.#spawn = spawn;
 		this.#executor = executor;
-		this.#now = now;
+		this.#now = options.now ?? (() => Math.floor(performance.now()));
+		this.#startup = options.startup ?? (() => []);
+	}
+
+	/**
+	 * Hands the core's player commands to `host` until the returned detach. Commands that came
+	 * while no player was attached are replayed from the last load on.
+	 */
+	attachPlayer(host: PlayerHost): () => void {
+		this.#player = host;
+		for (const command of this.#queued.splice(0)) host.command(command);
+		return () => {
+			if (this.#player === host) this.#player = undefined;
+		};
 	}
 
 	/** Where the app is: `starting` until the session is known, then `ready` or `signIn`. */
@@ -253,6 +291,11 @@ export class CoreRuntime {
 	async #boot() {
 		this.#bridge = await this.#spawn(JSON.stringify(this.#config));
 		this.#render([{ type: 'app' }, { type: 'session' }]);
+		await this.#begin();
+	}
+
+	async #begin() {
+		for (const event of this.#startup()) await this.#dispatch(event);
 		await this.#dispatch({ type: 'appStarted' });
 	}
 
@@ -266,6 +309,8 @@ export class CoreRuntime {
 		this.#bridge = undefined;
 		for (const cancel of this.#timers.values()) cancel();
 		this.#timers.clear();
+		for (const socket of this.#sockets.values()) socket.close();
+		this.#sockets.clear();
 		if (this.#restarting) {
 			console.error('the core trapped again while restarting; giving up', err);
 			return;
@@ -279,7 +324,7 @@ export class CoreRuntime {
 		const watched = [...this.#watched.values()];
 		try {
 			this.#bridge = await this.#spawn(JSON.stringify(this.#config));
-			await this.#dispatch({ type: 'appStarted' });
+			await this.#begin();
 			// the new core has none of the screens open that the pages still show
 			const screens = watched.flatMap((w) => Array<Surface>(w.screens).fill(w.surface));
 			await Promise.all(screens.map((s) => this.#dispatch({ type: 'screenOpened', content: s })));
@@ -347,9 +392,10 @@ export class CoreRuntime {
 				if (!this.#restarting) this.#render(effect.content.surfaces);
 				return;
 			case 'player':
+				this.#command(effect.content);
+				return;
 			case 'socket':
-				// nothing sends PlayRequested or joins a couch through the core until the web's
-				// player and couch adopt it
+				this.#socket(bridge, id, effect.content);
 				return;
 			case 'download':
 				// downloads are for the native apps; the web never asks for one
@@ -359,6 +405,38 @@ export class CoreRuntime {
 				const unhandled: never = effect;
 				throw new Error(`unhandled core effect ${JSON.stringify(unhandled)}`);
 			}
+		}
+	}
+
+	#command(command: PlayerCommand) {
+		if (this.#player) {
+			this.#player.command(command);
+		} else if (command.type === 'load') {
+			this.#queued = [command];
+		} else if (command.type === 'stop') {
+			this.#queued = [];
+		} else {
+			this.#queued.push(command);
+		}
+	}
+
+	#socket(bridge: Bridge, id: number, command: SocketCommand) {
+		switch (command.type) {
+			case 'open': {
+				const socket = this.#executor.socket(command.content, (output) => {
+					if (output.type === 'socketClosed') this.#sockets.delete(id);
+					void this.#resolve(bridge, id, output);
+				});
+				this.#sockets.set(id, socket);
+				return;
+			}
+			case 'send':
+				this.#sockets.get(command.content.socket)?.send(command.content.text);
+				return;
+			case 'close':
+				this.#sockets.get(command.content.id)?.close();
+				this.#sockets.delete(command.content.id);
+				return;
 		}
 	}
 

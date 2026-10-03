@@ -6,16 +6,22 @@ import {
 	BrowseSort,
 	HttpFailureKind,
 	LoadStatus,
+	PlayKind,
 	Platform,
 	TitleKind
 } from '$lib/generated/core';
 import type {
 	BrowseView,
 	CoreConfig,
+	CouchView,
+	DeviceProfile,
 	EffectOutput,
 	GenresView,
 	HttpRequest,
 	NoticesView,
+	PlayerCommand,
+	PlayerView,
+	SocketOpen,
 	StoreRequest,
 	Surface,
 	TimerRequest
@@ -101,9 +107,28 @@ class FakeShell implements Executor {
 		return () => (timer.cancelled = true);
 	}
 
+	sockets: FakeSocket[] = [];
+
+	socket(open: SocketOpen, emit: (output: EffectOutput) => void) {
+		const socket: FakeSocket = { open, emit, frames: [], closed: false };
+		this.sockets.push(socket);
+		return {
+			send: (text: string) => socket.frames.push(text),
+			close: () => (socket.closed = true)
+		};
+	}
+
 	sent(method: string, url: string) {
 		return this.requests.filter((r) => r.method === method && r.url === url);
 	}
+}
+
+interface FakeSocket {
+	open: SocketOpen;
+	emit: (output: EffectOutput) => void;
+	/** what the core sent on it */
+	frames: string[];
+	closed: boolean;
 }
 
 function user(username: string, admin = false) {
@@ -139,9 +164,9 @@ function signedIn(shell: FakeShell, language = 'en') {
 	shell.route('POST', '/api/v1/auth/logout', 204, null);
 }
 
-function runtime(shell: FakeShell, spawn: Spawn = spawnReal, config = WEB) {
+function runtime(shell: FakeShell, spawn: Spawn = spawnReal, config = WEB, options = {}) {
 	let now = 1000;
-	return new CoreRuntime(config, spawn, shell, () => (now += 10));
+	return new CoreRuntime(config, spawn, shell, { now: () => (now += 10), ...options });
 }
 
 describe('the core runtime', () => {
@@ -309,7 +334,7 @@ describe('screens', () => {
 
 	async function signedInCore(shell: FakeShell, clock = { now: 1000 }) {
 		signedIn(shell);
-		const core = new CoreRuntime(WEB, spawnReal, shell, () => clock.now);
+		const core = new CoreRuntime(WEB, spawnReal, shell, { now: () => clock.now });
 		await core.start();
 		return core;
 	}
@@ -406,6 +431,131 @@ describe('screens', () => {
 
 		await core.send({ type: 'noticeDismissed', content: { id: notice.id } });
 		expect(core.view<NoticesView>(notices)?.notices).toEqual([]);
+		stop();
+	});
+});
+
+describe('the player and the couch', () => {
+	const PROFILE: DeviceProfile = JSON.parse(
+		readFileSync(
+			new URL(
+				'../../../../../contract/fixtures/device-profiles/chrome-desktop.json',
+				import.meta.url
+			),
+			'utf8'
+		)
+	);
+	const PLAYER: Surface = { type: 'player' };
+	const COUCH: Surface = { type: 'couch' };
+	const playback = {
+		mode: 'direct',
+		tier: 'direct',
+		mediaFileId: 'f1',
+		grant: 'gr4nt',
+		streamUrl: '/api/v1/media/gr4nt/stream',
+		frameUrl: '/api/v1/media/gr4nt/frame',
+		durationSeconds: 60,
+		resumePosition: 20,
+		allowRandomPlayback: false,
+		display: { title: 'Glass Harbor', subtitle: '', titleId: 'm1', titleSlug: 'glass-harbor' },
+		subtitles: [{ id: 's1', lang: 'en', label: 'English', forced: false, url: '/sub.vtt' }]
+	};
+	const hostState = { media: { kind: 'movie', titleId: 'm1' }, playing: true, positionSeconds: 20 };
+
+	async function playing(shell: FakeShell) {
+		signedIn(shell);
+		shell.route('POST', '/api/v1/playback/movie/m1?lang=en', 200, playback);
+		const startup = () => [{ type: 'capabilitiesReported' as const, content: PROFILE }];
+		const core = runtime(shell, spawnReal, WEB, { startup });
+		await core.start();
+		await core.send({ type: 'playRequested', content: { kind: PlayKind.Movie, id: 'm1' } });
+		return core;
+	}
+
+	it('resolves playback for the browser and loads the player once there is one', async () => {
+		const shell = new FakeShell();
+		const core = await playing(shell);
+
+		const [resolve] = shell.sent('POST', '/api/v1/playback/movie/m1?lang=en');
+		expect(JSON.parse(resolve.body ?? '')).toMatchObject(PROFILE);
+		expect(core.view<PlayerView>(PLAYER)?.title).toBe('Glass Harbor');
+
+		// the load waited for the page's player
+		const commands: PlayerCommand[] = [];
+		const detach = core.attachPlayer({ command: (c) => commands.push(c) });
+		expect(commands).toHaveLength(1);
+		expect(commands[0]).toMatchObject({
+			type: 'load',
+			content: { url: '/api/v1/media/gr4nt/stream', source: 'file', startSeconds: 20 }
+		});
+
+		await core.send({ type: 'subtitlesChosen', content: { id: 's1' } });
+		expect(commands.at(-1)).toEqual({ type: 'selectSubtitles', content: { id: 's1' } });
+
+		await core.send({ type: 'playerClosed' });
+		expect(commands.at(-1)).toEqual({ type: 'stop' });
+		detach();
+	});
+
+	it('runs the couch socket for a host', async () => {
+		const shell = new FakeShell();
+		const core = await playing(shell);
+		core.attachPlayer({ command: () => {} });
+		await core.send({
+			type: 'playerReported',
+			content: { positionSeconds: 20, durationSeconds: 60, playing: true }
+		});
+		shell.route('POST', '/api/v1/couch', 201, {
+			sessionId: 's1',
+			shareToken: '123456',
+			myParticipantId: 'p1',
+			role: 'host',
+			isAnonymous: false,
+			artworkGrant: 'g',
+			state: { ...hostState, playing: false, serverTimestamp: 0, seq: 1, away: false },
+			participants: [
+				{ id: 'p1', displayName: 'Admin', isHost: true, isAnonymous: false, paused: false }
+			]
+		});
+		shell.route('POST', '/api/v1/couch/123456/end', 204, null);
+		const stop = core.watch(COUCH);
+
+		await core.send({ type: 'couchStartRequested' });
+		const [socket] = shell.sockets;
+		expect(socket.open.url).toBe('/api/v1/couch/123456/ws');
+		expect(core.view<CouchView>(COUCH)?.shareUrl).toBe('http://tv.home/couch/123456');
+
+		socket.emit({ type: 'socketOpened' });
+		await vi.waitFor(() => expect(core.view<CouchView>(COUCH)?.status).toBe('open'));
+		socket.emit({
+			type: 'socketText',
+			content: {
+				text: JSON.stringify({
+					type: 'participants',
+					data: {
+						participants: [
+							{ id: 'p1', displayName: 'Admin', isHost: true, isAnonymous: false, paused: false },
+							{ id: 'p2', displayName: 'Guest', isHost: false, isAnonymous: true, paused: false }
+						]
+					}
+				})
+			}
+		});
+		await vi.waitFor(() => expect(core.view<CouchView>(COUCH)?.members).toHaveLength(2));
+
+		// a pause reaches the followers at once
+		await core.send({
+			type: 'playerReported',
+			content: { positionSeconds: 21, durationSeconds: 60, playing: false }
+		});
+		expect(JSON.parse(socket.frames.at(-1) ?? '')).toMatchObject({
+			type: 'host_state',
+			data: { playing: false, media: { kind: 'movie', titleId: 'm1' } }
+		});
+
+		await core.send({ type: 'couchEndRequested' });
+		expect(socket.closed).toBe(true);
+		expect(shell.sent('POST', '/api/v1/couch/123456/end')).toHaveLength(1);
 		stop();
 	});
 });

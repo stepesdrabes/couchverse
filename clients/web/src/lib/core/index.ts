@@ -1,5 +1,6 @@
 import { AuthMode, Platform } from '$lib/generated/core';
 import { getLocale } from '$lib/paraglide/runtime';
+import { browserProbe, measureProfile } from './device-profile';
 import { browserExecutor } from './executor';
 import { CoreRuntime } from './runtime.svelte';
 import { compileCore, spawner } from './wasm';
@@ -19,5 +20,9 @@ export const core = new CoreRuntime(
 		origin: location.origin
 	},
 	spawner(compileCore()),
-	browserExecutor
+	browserExecutor,
+	{
+		// so the core resolves playback for what this browser plays
+		startup: () => [{ type: 'capabilitiesReported', content: measureProfile(browserProbe()) }]
+	}
 );

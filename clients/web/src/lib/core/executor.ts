@@ -1,12 +1,14 @@
 import { HttpFailureKind } from '$lib/generated/core';
-import type { EffectOutput, HttpRequest, StoreRequest } from '$lib/generated/core';
-import type { Executor } from './runtime.svelte';
+import type { EffectOutput, HttpRequest, SocketOpen, StoreRequest } from '$lib/generated/core';
+import type { Executor, Socket } from './runtime.svelte';
 
 // generous for a Raspberry Pi busy transcoding, but a hung request must not hold the app
 const HTTP_TIMEOUT_MS = 30_000;
 
 // next to the app's own `cv.*` keys
 const STORE_PREFIX = 'cv.core.';
+
+const KEEPALIVE_MAX_BODY = 60_000;
 
 async function http({ method, url, headers, body }: HttpRequest): Promise<EffectOutput> {
 	const abort = new AbortController();
@@ -19,7 +21,10 @@ async function http({ method, url, headers, body }: HttpRequest): Promise<Effect
 			headers: headers.map((h): [string, string] => [h.name, h.value]),
 			body,
 			credentials: 'same-origin',
-			signal: abort.signal
+			signal: abort.signal,
+			// what the player saves as the page goes away (progress, stopping a transcode)
+			// must outlive it; the browser caps such requests at 64 KB of body
+			keepalive: method !== 'GET' && (body?.length ?? 0) < KEEPALIVE_MAX_BODY
 		});
 		return { type: 'http', content: { status: response.status, body: await response.text() } };
 	} catch (err) {
@@ -76,7 +81,34 @@ function secureStore({ op }: StoreRequest): EffectOutput {
 	}
 }
 
-/** The browser's effects: fetch, localStorage and timers. */
+// The core names a socket by path on the web; the page's origin picks ws or wss. Browsers
+// cannot set headers on a WebSocket, and the web's cookies need none.
+function socket({ url }: SocketOpen, emit: (output: EffectOutput) => void): Socket {
+	const target = new URL(url, location.href);
+	target.protocol = target.protocol === 'https:' ? 'wss:' : target.protocol.replace('http', 'ws');
+	const ws = new WebSocket(target);
+	let closed = false;
+	ws.onopen = () => emit({ type: 'socketOpened' });
+	ws.onmessage = (e) => {
+		if (typeof e.data === 'string') emit({ type: 'socketText', content: { text: e.data } });
+	};
+	ws.onclose = (e) => {
+		if (closed) return;
+		closed = true;
+		emit({ type: 'socketClosed', content: { code: e.code, reason: e.reason } });
+	};
+	return {
+		send(text) {
+			if (ws.readyState === WebSocket.OPEN) ws.send(text);
+		},
+		close() {
+			closed = true;
+			ws.close();
+		}
+	};
+}
+
+/** The browser's effects: fetch, localStorage, timers and WebSockets. */
 export const browserExecutor: Executor = {
 	http,
 	upload,
@@ -89,5 +121,6 @@ export const browserExecutor: Executor = {
 		}
 		const timeout = setTimeout(fire, afterMs);
 		return () => clearTimeout(timeout);
-	}
+	},
+	socket
 };
