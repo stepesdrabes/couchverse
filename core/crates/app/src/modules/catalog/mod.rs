@@ -33,6 +33,9 @@ const FRESH_MS: U53 = 60_000;
 const SEARCH_DEBOUNCE_MS: U53 = 250;
 const MAX_TITLES: usize = 30;
 const MAX_LISTINGS: usize = 12;
+/// Confirmed My List changes kept to bring older answers up to date; far more than can be in
+/// flight at once.
+const MAX_CONFIRMED: usize = 32;
 
 #[typeshare]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -62,6 +65,8 @@ pub struct Env<'a> {
 pub struct CatalogPending {
     generation: u64,
     language: u64,
+    /// How many My List changes were confirmed when the request went out.
+    watchlist: u64,
     request: Request,
 }
 
@@ -194,6 +199,14 @@ impl<K: std::hash::Hash + Eq + Clone, V: Default> Lru<K, V> {
     }
 }
 
+/// A My List change the server confirmed. A payload requested before it was answered from the
+/// list as it stood then, so the change is folded into that answer rather than undone by it.
+struct Confirmed {
+    seq: u64,
+    title_id: String,
+    listed: bool,
+}
+
 #[derive(Default)]
 struct Search {
     query: String,
@@ -218,6 +231,9 @@ pub struct Catalog {
     /// Surfaces a shell has open, with how many times.
     open: HashMap<Surface, usize>,
     listed: Listed,
+    /// How many My List changes the server has confirmed; the latest are kept in `confirmed`.
+    watchlist: u64,
+    confirmed: VecDeque<Confirmed>,
 }
 
 impl Default for Catalog {
@@ -234,6 +250,8 @@ impl Default for Catalog {
             search: Search::default(),
             open: HashMap::new(),
             listed: Listed::new(),
+            watchlist: 0,
+            confirmed: VecDeque::new(),
         }
     }
 }
@@ -459,6 +477,7 @@ impl Catalog {
         Pending::Catalog(CatalogPending {
             generation: self.generation,
             language: self.language,
+            watchlist: self.watchlist,
             request,
         })
     }
@@ -475,10 +494,11 @@ impl Catalog {
             return CatalogChange::None;
         }
         let now = ctx.now;
+        let since = pending.watchlist;
         let failure = match pending.request {
             Request::Home(call) => {
                 ctx.render(Surface::Home);
-                let result = decode(&call, output);
+                let result = decode(&call, output).map(|home| self.home_caught_up(home, since));
                 if let Ok(home) = &result {
                     self.save_warm_home(ctx, home);
                 }
@@ -490,7 +510,8 @@ impl Catalog {
             }
             Request::Title { slug, call } => {
                 ctx.render(Surface::Title(slug.clone()));
-                fill(self.titles.entry(&slug), decode(&call, output), now)
+                let result = decode(&call, output).map(|d| self.title_caught_up(d, since));
+                fill(self.titles.entry(&slug), result, now)
             }
             Request::Browse { key, page, call } => {
                 self.browsed(ctx, &key, page, decode(&call, output), now)
@@ -501,7 +522,7 @@ impl Catalog {
             }
             Request::MyList(call) => {
                 ctx.render(Surface::MyList);
-                fill(&mut self.my_list, decode(&call, output), now)
+                self.my_list_answered(decode(&call, output), since, now)
             }
             Request::SearchTimer { seq } => {
                 self.search.timer = None;
@@ -607,6 +628,60 @@ impl Catalog {
         if listed {
             self.home.invalidate();
         }
+        self.watchlist += 1;
+        let title_id = title_id.to_string();
+        self.confirmed.push_back(Confirmed { seq: self.watchlist, title_id, listed });
+        if self.confirmed.len() > MAX_CONFIRMED {
+            self.confirmed.pop_front();
+        }
+    }
+
+    /// The My List changes confirmed after a request that saw `since` of them went out.
+    fn confirmed_since(&self, since: u64) -> impl Iterator<Item = &Confirmed> {
+        self.confirmed.iter().filter(move |c| c.seq > since)
+    }
+
+    fn home_caught_up(&self, mut home: Home, since: u64) -> Home {
+        for change in self.confirmed_since(since) {
+            for item in home.featured.iter_mut().filter(|f| f.id == change.title_id) {
+                item.in_list = change.listed;
+            }
+        }
+        home
+    }
+
+    fn title_caught_up(&self, mut detail: TitleDetail, since: u64) -> TitleDetail {
+        for change in self.confirmed_since(since) {
+            if detail.title.id == change.title_id {
+                detail.in_watchlist = change.listed;
+            }
+        }
+        detail
+    }
+
+    fn my_list_answered(
+        &mut self,
+        result: Result<Vec<CardItem>, Failure>,
+        since: u64,
+        now: U53,
+    ) -> Option<Failure> {
+        let mut incomplete = false;
+        let result = result.map(|mut items| {
+            for change in self.confirmed_since(since) {
+                if !change.listed {
+                    items.retain(|i| i.title_id != change.title_id);
+                } else if !items.iter().any(|i| i.title_id == change.title_id) {
+                    incomplete = true;
+                }
+            }
+            items
+        });
+        let failure = fill(&mut self.my_list, result, now);
+        // an added title's card is not at hand, so the list reloads when next shown
+        if incomplete {
+            self.my_list.invalidate();
+        }
+        failure
     }
 
     fn save_warm_home(&self, ctx: &mut Ctx, home: &Home) {

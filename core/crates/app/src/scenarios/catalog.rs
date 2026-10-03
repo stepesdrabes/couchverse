@@ -362,6 +362,60 @@ fn my_list_changes_show_at_once_and_roll_back_on_failure() {
     assert_eq!(shell.view::<NoticesView>(&Surface::Notices).notices, empty::<Notice>());
 }
 
+fn ok(body: &Value) -> EffectOutput {
+    EffectOutput::Http(HttpResponse { status: 200, body: body.to_string() })
+}
+
+#[test]
+fn an_answer_requested_before_a_my_list_change_does_not_undo_it() {
+    let mut shell = signed_in();
+    let surface = Surface::Title("glass-harbor".into());
+    let url = format!("{API}/titles/glass-harbor?lang=en");
+    open(&mut shell, surface.clone());
+    shell.respond("GET", &url, 200, title_payload());
+    let listed = |shell: &Shell| shell.view::<TitleView>(&surface).detail.expect("detail").in_list;
+
+    // a refetch goes out, then the title is added and the server confirms before it answers
+    // with the list as it stood
+    shell.send(Event::RefreshRequested(surface.clone()));
+    let (refetch, _) = shell.request("GET", &url);
+    shell.send(Event::WatchlistChanged(WatchlistChange { title_id: "t1".into(), listed: true }));
+    shell.respond("PUT", &format!("{API}/me/watchlist/t1"), 204, Value::Null);
+    shell.resolve(refetch, ok(&title_payload()));
+    assert!(listed(&shell));
+
+    // one requested after the change is believed: the title was removed on another device
+    shell.send(Event::RefreshRequested(surface.clone()));
+    shell.respond("GET", &url, 200, title_payload());
+    assert!(!listed(&shell));
+}
+
+#[test]
+fn home_and_my_list_answers_catch_up_with_changes_made_meanwhile() {
+    let mut shell = signed_in();
+    let home_url = format!("{API}/home?lang=en");
+    let list_url = format!("{API}/me/watchlist?lang=en");
+    open(&mut shell, Surface::Home);
+    open(&mut shell, Surface::MyList);
+    let (home, _) = shell.request("GET", &home_url);
+    let (list, _) = shell.request("GET", &list_url);
+
+    shell.send(Event::WatchlistChanged(WatchlistChange { title_id: "t1".into(), listed: true }));
+    shell.respond("PUT", &format!("{API}/me/watchlist/t1"), 204, Value::Null);
+    shell.send(Event::WatchlistChanged(WatchlistChange { title_id: "t2".into(), listed: false }));
+    shell.respond("DELETE", &format!("{API}/me/watchlist/t2"), 204, Value::Null);
+
+    shell.resolve(home, ok(&home_payload()));
+    assert!(shell.view::<HomeView>(&Surface::Home).featured[0].in_list);
+    shell.resolve(list, ok(&json!([card_item("t2", "movie")])));
+    let view: MyListView = shell.view(&Surface::MyList);
+    assert_eq!(view.cards, vec![]);
+    // the added title's card was not in the answer, so the list reloads on its next visit
+    shell.send(Event::ScreenClosed(Surface::MyList));
+    open(&mut shell, Surface::MyList);
+    shell.request("GET", &list_url);
+}
+
 #[test]
 fn removing_from_my_list_drops_the_card() {
     let mut shell = signed_in();
