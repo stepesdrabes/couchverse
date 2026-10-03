@@ -4,28 +4,27 @@
 
 	let {
 		name,
-		avatarId,
+		avatarId = null,
+		src = null,
 		seed,
 		class: cls = 'size-8 rounded-lg text-xs'
 	}: {
 		name: string;
-		avatarId: string | null | undefined;
+		avatarId?: string | null;
+		/** a ready URL from a core view, in place of `avatarId` */
+		src?: string | null;
 		// stable per-user value (id/username) the placeholder identicon hashes from
 		seed?: string | number | null;
 		class?: string;
 	} = $props();
 
 	const identicon = $derived(minidenticon(String(seed ?? name ?? '?')));
+	const url = $derived(src ?? (avatarId ? artworkUrl(avatarId, null, 'w342') : null));
 </script>
 
-{#if avatarId}
+{#if url}
 	<span class="flex items-center justify-center overflow-hidden {cls}">
-		<img
-			src={artworkUrl(avatarId, null, 'w342')}
-			alt={name}
-			loading="lazy"
-			class="size-full object-cover"
-		/>
+		<img src={url} alt={name} loading="lazy" class="size-full object-cover" />
 	</span>
 {:else}
 	<span class="identicon flex items-center justify-center overflow-hidden bg-surface-2 {cls}">

@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { Loader } from 'lucide-svelte';
+	import { core } from '$lib/core';
+	import { LoadStatus, type PlayerView } from '$lib/generated/core';
 	import VideoPlayer from '$lib/features/playback/components/VideoPlayer.svelte';
+	import { PLAYER } from '$lib/features/playback/player';
 	import type { CouchInfo } from '$lib/features/couch/api';
 	import { couch } from '$lib/features/couch/couch.svelte';
 	import CouchJoinScreen from '$lib/features/couch/components/CouchJoinScreen.svelte';
@@ -10,45 +12,35 @@
 
 	let { token, info }: { token: string; info: CouchInfo } = $props();
 
+	// the core plays the host's media here: it fetches the payload, loads the player and keeps
+	// it on the host's timeline
+	$effect(() => core.watch(PLAYER));
+	const player = $derived(core.view<PlayerView>(PLAYER));
+
 	let joining = $state(false);
-	let joinError = $state(false);
+	let tried = $state(false);
+	$effect(() => () => couch.disconnect());
 
-	onMount(() => () => couch.disconnect());
-
-	// the join happens on this click so the browser allows autoplay
+	// the join happens on this click so the browser allows the video to play
 	async function start() {
 		joining = true;
-		joinError = false;
-		try {
-			await couch.joinByToken(token);
-		} catch {
-			joinError = true;
-			joining = false;
-		}
+		tried = true;
+		await couch.join(token);
+		joining = false;
 	}
 
-	const ids = $derived.by(() => {
-		const ref = couch.hostState?.media;
-		if (ref?.kind === 'movie') return { titleId: ref.titleId ?? null, episodeId: null };
-		if (ref?.kind === 'episode') return { titleId: null, episodeId: ref.episodeId ?? null };
-		return { titleId: null, episodeId: null };
-	});
-
-	const choosing = $derived((couch.hostState?.media.kind ?? '') === '');
+	const failed = $derived(tried && !joining && !couch.active && !!couch.view?.problem);
+	const playable = $derived(
+		player?.status === LoadStatus.Loaded || player?.status === LoadStatus.Stale
+	);
 </script>
 
 {#if !couch.active}
-	<CouchJoinScreen {info} {joining} error={joinError} onstart={start} />
-{:else if couch.playerInfo}
-	{#key couch.mediaKey}
-		<VideoPlayer
-			info={couch.playerInfo}
-			titleId={ids.titleId}
-			episodeId={ids.episodeId}
-			jitSessionId={couch.jitSessionId}
-		/>
-	{/key}
-{:else if choosing}
+	<CouchJoinScreen {info} {joining} error={failed} onstart={start} />
+{:else if player && playable}
+	<!-- it shows the host's absence itself, so the video stays loaded meanwhile -->
+	<VideoPlayer view={player} />
+{:else if couch.waiting}
 	<div class="relative h-dvh w-full bg-black">
 		<HostAwayOverlay />
 	</div>

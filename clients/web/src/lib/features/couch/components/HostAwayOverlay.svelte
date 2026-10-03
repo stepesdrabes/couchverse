@@ -19,7 +19,7 @@
 		{#if host}
 			<UserAvatar
 				name={host.displayName}
-				avatarId={host.avatarId ?? null}
+				src={host.avatar?.url}
 				seed={host.seed}
 				class="size-20 rounded-2xl text-2xl"
 			/>

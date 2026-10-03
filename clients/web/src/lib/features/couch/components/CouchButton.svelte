@@ -1,23 +1,20 @@
 <script lang="ts">
 	import { features } from '$lib/features/settings/features.svelte';
-	import type { PlaybackKind } from '$lib/features/playback/api';
 	import { couch } from '$lib/features/couch/couch.svelte';
 	import CouchPopover from './CouchPopover.svelte';
 	import CouchIcon from './icons/CouchIcon.svelte';
 
 	let {
-		kind,
-		id,
+		canStart = false,
 		portalTo,
 		triggerClass = 'player-btn'
-	}: { kind?: PlaybackKind; id?: string; portalTo?: HTMLElement; triggerClass?: string } = $props();
+	}: { canStart?: boolean; portalTo?: HTMLElement; triggerClass?: string } = $props();
 </script>
 
 {#if features.couchEnabled}
 	<div class="relative inline-flex">
 		<CouchPopover
-			{kind}
-			{id}
+			{canStart}
 			{portalTo}
 			triggerClass="{triggerClass} {couch.active ? 'text-accent-ink!' : ''}"
 		>

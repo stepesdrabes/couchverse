@@ -5,19 +5,17 @@
 	import { Copy, LogOut, Power } from 'lucide-svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import { session } from '$lib/features/auth/session.svelte';
-	import type { PlaybackKind } from '$lib/features/playback/api';
 	import { couch } from '$lib/features/couch/couch.svelte';
 	import * as m from '$lib/paraglide/messages';
 
+	// canStart: something is playing that a session can be hosted around
 	let {
-		kind,
-		id,
+		canStart = false,
 		portalTo,
 		triggerClass = '',
 		trigger
 	}: {
-		kind?: PlaybackKind;
-		id?: string;
+		canStart?: boolean;
 		portalTo?: HTMLElement;
 		triggerClass?: string;
 		trigger: Snippet;
@@ -26,15 +24,9 @@
 	let starting = $state(false);
 
 	async function start() {
-		if (!kind || !id) return;
 		starting = true;
-		try {
-			await couch.startSession(kind, id);
-		} catch {
-			toast.error(m.couch_start_failed());
-		} finally {
-			starting = false;
-		}
+		await couch.start();
+		starting = false;
 	}
 
 	async function copyLink() {
@@ -60,7 +52,7 @@
 			{#if !couch.active}
 				<p class="px-1 text-sm font-semibold">{m.couch_start_session()}</p>
 				<p class="mt-1 px-1 text-[11px] leading-snug text-faint">{m.couch_start_session_hint()}</p>
-				{#if kind && id && session.user}
+				{#if canStart && session.user}
 					<button
 						class="mt-3 h-9 w-full rounded-full bg-accent text-sm font-semibold text-[var(--color-on-accent)]
 							transition-colors hover:bg-accent-strong disabled:opacity-60"
@@ -102,19 +94,19 @@
 						<div class="flex items-center gap-2 rounded-lg px-1 py-1">
 							<UserAvatar
 								name={p.displayName}
-								avatarId={p.avatarId ?? null}
+								src={p.avatar?.url}
 								seed={p.seed}
 								class="size-7 rounded-lg text-[10px]"
 							/>
 							<span class="min-w-0 flex-1 truncate text-xs">{p.displayName}</span>
-							{#if p.isHost}
+							{#if p.host}
 								<span
 									class="rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink"
 								>
 									{m.couch_host_badge()}
 								</span>
 							{/if}
-							{#if p.id === couch.myParticipantId}
+							{#if p.me}
 								<span class="text-[10px] font-medium text-faint">{m.couch_you_badge()}</span>
 							{/if}
 						</div>

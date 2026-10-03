@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import 'flag-icons/css/flag-icons.min.css';
-	import { afterNavigate, onNavigate } from '$app/navigation';
+	import { onNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Toaster } from 'svelte-sonner';
 	import { core } from '$lib/core';
@@ -46,17 +46,6 @@
 		};
 		window.addEventListener('beforeunload', onBeforeUnload);
 		return () => window.removeEventListener('beforeunload', onBeforeUnload);
-	});
-
-	// while hosting a couch, keep the session's media in step with the host's
-	// navigation: switching episode/title propagates, leaving the player -> "choosing"
-	afterNavigate(() => {
-		if (!couch.isHost) return;
-		if (page.route.id?.includes('/watch/')) {
-			couch.setHostMedia(page.params.kind ?? '', page.params.id ?? '');
-		} else {
-			couch.setHostMedia('', '');
-		}
 	});
 
 	// soft cross-fade between pages via the View Transitions API (not on TVs, whose

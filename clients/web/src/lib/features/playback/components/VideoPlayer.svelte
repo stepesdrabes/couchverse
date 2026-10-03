@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto, preloadData } from '$app/navigation';
 	import { Popover } from 'bits-ui';
-	import type Hls from 'hls.js';
 	import {
 		ArrowLeft,
 		Captions,
@@ -23,20 +22,10 @@
 	} from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 	import { fade, fly, scale } from 'svelte/transition';
+	import { core } from '$lib/core';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
-	import type {
-		AudioTrack,
-		EpisodeRef,
-		PlaybackInfo,
-		SeriesEpisode
-	} from '$lib/features/playback/api';
-	import {
-		beaconProgress,
-		frameAt,
-		jitKeepalive,
-		stopJitSession,
-		reportProgress
-	} from '$lib/features/playback/api';
+	import { QualityKind, type PlayerView, type QualityOption } from '$lib/generated/core';
+	import { ElementPlayer } from '$lib/features/playback/element-player.svelte';
 	import {
 		preferences,
 		SUBTITLE_FONTS,
@@ -57,27 +46,23 @@
 	import { isTV, mediaKey, type MediaKey } from '$lib/tv/tv';
 	import * as m from '$lib/paraglide/messages';
 
-	let {
-		info,
-		titleId = null,
-		episodeId = null,
-		jitSessionId = null
-	}: {
-		info: PlaybackInfo;
-		titleId?: string | null;
-		episodeId?: string | null;
-		jitSessionId?: string | null;
-	} = $props();
+	// The core decides what plays and how (sources, resume, tracks, what comes next) and drives
+	// the video element through an ElementPlayer; this draws the controls and turns the
+	// viewer's choices into the core's events.
+	let { view }: { view: PlayerView } = $props();
 
 	let video = $state<HTMLVideoElement>();
 	let wrapper = $state<HTMLDivElement>();
 	let seekBar = $state<HTMLDivElement>();
+	let player = $state<ElementPlayer>();
 
 	let playing = $state(false);
 	let hasPlayed = $state(false); // suppress the pause indicator before autoplay starts
 	let buffering = $state(false); // media is stalled waiting for data
 	let currentTime = $state(0);
-	let duration = $state(info.durationSeconds || 0);
+	let elementDuration = $state(0);
+	// the element's own once it knows, else the payload's
+	const duration = $derived(elementDuration || player?.durationSeconds || 0);
 	let buffered = $state<{ start: number; end: number }[]>([]);
 	let volume = $state(Number(localStorage.getItem('cv.volume') ?? 1));
 	let muted = $state(false);
@@ -85,83 +70,21 @@
 	let pipActive = $state(false);
 	const pipSupported = typeof document !== 'undefined' && document.pictureInPictureEnabled === true;
 	let controlsVisible = $state(true);
-	let nextCountdown = $state<number | null>(null);
 
 	let hideTimer: ReturnType<typeof setTimeout>;
-	let lastReported = 0;
-	// actually-played seconds since the last beacon (pauses/seeks excluded)
-	let watchedSeconds = 0;
-	let lastTickTime = -1;
 
-	// subtitle selection: track id or null (off); restore the preferred language
-	let activeSub = $state<string | null>(null);
+	// a couch follower watches the host's timeline: no seeking, no switching what plays
+	const linear = $derived(view.linear);
 
-	// cues render in a custom overlay; tracks stay hidden so they still load and fire cuechange
-	let cueHtml = $state('');
-	let cueTrack: TextTrack | null = null;
-
-	function syncCues(track: TextTrack) {
-		if (!track.activeCues?.length) {
-			cueHtml = '';
-			return;
-		}
-		const div = document.createElement('div');
-		for (let i = 0; i < track.activeCues.length; i++) {
-			div.append((track.activeCues[i] as VTTCue).getCueAsHTML());
-		}
-		cueHtml = div.innerHTML;
-	}
-
-	function handleCueChange() {
-		if (cueTrack) syncCues(cueTrack);
-	}
-
-	function detachCueListener() {
-		cueTrack?.removeEventListener('cuechange', handleCueChange);
-		cueTrack = null;
-		cueHtml = '';
-	}
-
-	function applySubtitles() {
-		if (!video) return;
-		detachCueListener();
-		const selected = info.subtitles.findIndex((s) => s.id === activeSub);
-		for (let i = 0; i < video.textTracks.length; i++) {
-			video.textTracks[i].mode = 'hidden';
-		}
-		if (selected >= 0 && video.textTracks[selected]) {
-			cueTrack = video.textTracks[selected];
-			// in PiP the browser only paints the video element, so let it render
-			// native captions; otherwise keep them hidden and use the custom overlay
-			cueTrack.mode = pipActive ? 'showing' : 'hidden';
-			cueTrack.addEventListener('cuechange', handleCueChange);
-			syncCues(cueTrack);
-		}
-	}
-
-	function selectSubtitle(id: string | null) {
-		activeSub = id;
-		const lang = info.subtitles.find((s) => s.id === id)?.lang;
-		if (lang) localStorage.setItem('cv.subLang', lang);
-		else localStorage.removeItem('cv.subLang');
-		applySubtitles();
+	function chooseSubtitle(id: string | null) {
+		void core.send({ type: 'subtitlesChosen', content: id ? { id } : {} });
 	}
 
 	function cycleSubtitle() {
-		if (info.subtitles.length === 0) return;
-		const idx = info.subtitles.findIndex((s) => s.id === activeSub);
-		const next = idx + 1 >= info.subtitles.length ? null : info.subtitles[idx + 1].id;
-		selectSubtitle(next ?? null);
-	}
-
-	function restorePreferredSubtitle() {
-		const preferred = localStorage.getItem('cv.subLang');
-		if (!preferred) return;
-		const match = info.subtitles.find((s) => s.lang === preferred);
-		if (match) {
-			activeSub = match.id;
-			applySubtitles();
-		}
+		const subtitles = view.subtitles;
+		if (subtitles.length === 0) return;
+		const index = subtitles.findIndex((s) => s.id === view.subtitleSelected);
+		chooseSubtitle(index + 1 >= subtitles.length ? null : subtitles[index + 1].id);
 	}
 
 	// subtitle appearance, persisted per account
@@ -179,77 +102,33 @@
 		saveSubTimer = setTimeout(() => preferences.saveSubtitles(subStyle).catch(() => {}), 600);
 	}
 
-	// episode switcher: group the series' playable episodes by season
-	const episodesBySeason = $derived.by(() => {
-		// transient within the derived, recomputed each run - not reactive state
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const groups = new Map<number, SeriesEpisode[]>();
-		for (const ep of info.episodes ?? []) {
-			const list = groups.get(ep.seasonNumber) ?? [];
-			list.push(ep);
-			groups.set(ep.seasonNumber, list);
-		}
-		return [...groups.entries()].sort((a, b) => a[0] - b[0]);
-	});
-
+	// episode switcher: the season dropdown follows the playing season until the user picks one
 	const currentSeasonNumber = $derived(
-		(info.episodes ?? []).find((e) => e.episodeId === info.currentEpisodeId)?.seasonNumber ??
-			episodesBySeason[0]?.[0] ??
+		view.seasons.find((s) => s.episodes.some((e) => e.current))?.number ??
+			view.seasons[0]?.number ??
 			null
 	);
-	// the season dropdown follows the playing season until the user picks one
 	let seasonValue = $state('');
 	const activeSeason = $derived(seasonValue ? Number(seasonValue) : currentSeasonNumber);
-	const seasonEpisodes = $derived(episodesBySeason.find(([n]) => n === activeSeason)?.[1] ?? []);
+	const seasonEpisodes = $derived(
+		view.seasons.find((s) => s.number === activeSeason)?.episodes ?? []
+	);
 
-	function openEpisode(episodeId: string) {
-		if (episodeId === info.currentEpisodeId) return;
-		report();
-		goto(`/watch/episode/${episodeId}`);
+	function openEpisode(id: string, current: boolean) {
+		if (!current) goto(`/watch/episode/${id}`);
 	}
 
-	// shuffle: when enabled on a flagged series, auto-next jumps to a random episode.
-	// The choice persists globally (like volume) but only acts on flagged multi-episode series.
-	let shuffle = $state(localStorage.getItem('cv.shuffle') === '1');
-	const canShuffle = $derived(!!info.allowRandomPlayback && (info.episodes?.length ?? 0) > 1);
-	function toggleShuffle() {
-		shuffle = !shuffle;
-		localStorage.setItem('cv.shuffle', shuffle ? '1' : '0');
-	}
-	// the decided upcoming episode, held in state so the up-next card and the actual
-	// jump agree (picking inside a derived would re-randomise on every render)
-	let nextTarget = $state<SeriesEpisode | EpisodeRef | null>(null);
-	function pickNextTarget(): SeriesEpisode | EpisodeRef | null {
-		if (shuffle && canShuffle) {
-			const pool = (info.episodes ?? []).filter((e) => e.episodeId !== info.currentEpisodeId);
-			if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
+	const nextUp = $derived(view.nextUp && view.nextUp.countdownSeconds > 0 ? view.nextUp : null);
+
+	function qualityLabel(option: QualityOption): string {
+		switch (option.kind) {
+			case QualityKind.Original:
+				return m.player_quality_original();
+			case QualityKind.Auto:
+				return m.player_quality_auto();
+			case QualityKind.Rendition:
+				return `${option.height}p`;
 		}
-		return info.nextEpisode ?? null;
-	}
-
-	const remaining = $derived(duration - currentTime);
-	const progressBody = () => {
-		const watched = Math.floor(watchedSeconds);
-		watchedSeconds -= watched; // keep the sub-second remainder
-		return {
-			...(titleId ? { titleId } : { episodeId: episodeId! }),
-			positionSeconds: Math.floor(currentTime),
-			durationSeconds: Math.floor(duration),
-			watchedSeconds: watched
-		};
-	};
-
-	function report() {
-		// followers never post progress: anonymous can't, and logged-in followers
-		// must not pollute their own watch-time/analytics with a synced session
-		if (couch.isFollower) return;
-		if (currentTime < 5) return;
-		lastReported = currentTime;
-		reportProgress(progressBody()).catch(() => {});
-		// piggybacks the beacon's cadence but self-throttles to one call every few
-		// minutes, so an achievement can land mid-film without adding work to the
-		// 10s progress path
-		if (features.rankingsEnabled) rank.check();
 	}
 
 	function poke() {
@@ -268,16 +147,12 @@
 
 	function togglePlay() {
 		if (!video) return;
-		// a follower's pause/unpause is local: unpausing resyncs to the host
+		// a follower's pause is their own: resuming catches up with the host
 		if (couch.isFollower) {
-			if (video.paused) couch.onLocalUnpause();
-			else {
-				couch.markLocalPause();
-				video.pause();
-			}
+			couch.pauseLocally(!video.paused);
 			return;
 		}
-		if (video.paused) video.play();
+		if (video.paused) video.play().catch(() => {});
 		else video.pause();
 	}
 
@@ -300,10 +175,9 @@
 	}
 
 	function skip(seconds: number) {
-		if (!video || couch.followerLocked) return; // followers have no timeline control
+		if (!video || linear) return;
 		video.currentTime = Math.min(Math.max(0, video.currentTime + seconds), duration);
 		showSkip(seconds);
-		couch.onSeek(video.currentTime);
 	}
 
 	function setVolume(v: number) {
@@ -327,39 +201,6 @@
 		}
 	}
 
-	function onPipChange(active: boolean) {
-		pipActive = active;
-		applySubtitles(); // swap captions between native (PiP) and the overlay
-	}
-
-	function onTimeUpdate() {
-		if (!video) return;
-		// timeupdate fires ~4x/s while playing; bigger jumps are seeks
-		const tick = video.currentTime - lastTickTime;
-		if (lastTickTime >= 0 && tick > 0 && tick < 2) watchedSeconds += tick;
-		lastTickTime = video.currentTime;
-		currentTime = video.currentTime;
-		if (currentTime - lastReported >= 10) report();
-
-		// auto-next countdown in the last 20 seconds (a follower's episode changes
-		// only when the host switches, never via local autoplay). Shuffle also
-		// advances past the last episode; the target is decided once here.
-		const hasNext = info.nextEpisode || (shuffle && canShuffle);
-		if (
-			hasNext &&
-			!couch.isFollower &&
-			remaining <= 20 &&
-			remaining > 0 &&
-			nextCountdown === null
-		) {
-			nextTarget = pickNextTarget();
-			nextCountdown = Math.ceil(remaining);
-		}
-		if (nextCountdown !== null) {
-			nextCountdown = Math.max(0, Math.ceil(remaining));
-		}
-	}
-
 	function onProgress() {
 		if (!video) return;
 		const ranges = [];
@@ -369,49 +210,35 @@
 		buffered = ranges;
 	}
 
-	function goNextEpisode() {
-		if (couch.isFollower) return;
-		const target = nextTarget ?? pickNextTarget();
-		if (!target) return;
-		report();
-		goto(`/watch/episode/${target.episodeId}`);
-	}
-
-	function onEnded() {
-		cueHtml = '';
-		buffering = false;
-		// a follower stays put at the end; the host's next-media choice drives it
-		if (couch.isFollower) return;
-		const target = nextTarget ?? pickNextTarget();
-		report();
-		// finishing something is the most likely moment to have earned a badge,
-		// so this one bypasses the client-side throttle
+	/** The end of something with nothing after it goes back to its title page. */
+	function ended(target: PlayerView['target']) {
+		if (linear) return;
+		// finishing something is the likeliest moment for a new badge
 		if (features.rankingsEnabled) rank.check(true);
-		if (target) goto(`/watch/episode/${target.episodeId}`);
-		else goto(`/title/${info.display.titleSlug}`);
+		const now = view.target;
+		if (now && target && now.kind === target.kind && now.id === target.id) {
+			goto(`/title/${view.titleSlug}`);
+		}
 	}
 
 	function seekTo(event: PointerEvent, track: HTMLElement) {
-		if (couch.followerLocked) return; // host-only timeline
+		if (linear || !video) return;
 		const rect = track.getBoundingClientRect();
 		const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-		if (video) {
-			video.currentTime = ratio * duration;
-			couch.onSeek(video.currentTime);
-		}
+		video.currentTime = ratio * duration;
 	}
 
 	let scrubbing = $state(false);
 
 	// banner accent for the player, from the title backdrop's server-extracted colour
-	const accentStyle = $derived(
-		info.display.backdropAccent ? accentVars(info.display.backdropAccent) : ''
-	);
+	const accentStyle = $derived(view.backdrop?.accent ? accentVars(view.backdrop.accent) : '');
 	let hoverRatio = $state<number | null>(null);
 	const hoverTime = $derived(hoverRatio !== null ? hoverRatio * duration : 0);
 	// bucket to 5s so the preview reuses cached frames while scrubbing
 	const previewSrc = $derived(
-		hoverRatio !== null ? frameAt(info, Math.floor(hoverTime / 5) * 5) : ''
+		hoverRatio !== null && view.frameUrl
+			? `${view.frameUrl}?t=${Math.floor(hoverTime / 5) * 5}`
+			: ''
 	);
 
 	function onSeekHover(event: PointerEvent, track: HTMLElement) {
@@ -529,208 +356,48 @@
 		poke();
 	}
 
-	// playback source + quality. "Original" is the source as is (a file, or its
-	// video remuxed into HLS) and stays outside the adaptive ladder; "Auto" and the
-	// rungs play the transcoded ladder; the quality menu switches between them.
-	let hls: Hls | null = null;
-	let videoSrc = $state<string | undefined>(info.mode === 'direct' ? info.streamUrl : undefined);
-	const originalUrl = info.originalUrl ?? null;
-	// initial HLS load uses streamUrl (also the JIT session playlist); quality
-	// switches use the ladder master at hlsUrl
-	const initialHlsUrl = info.mode === 'hls' ? (info.streamUrl ?? null) : null;
-	const ladderUrl = info.hlsUrl ?? null;
-	const isPlaylist = (url: string) => url.includes('.m3u8');
-
-	// 'original' | 'auto' | a rendition name ("1080p")
-	let quality = $state(originalUrl && info.streamUrl === originalUrl ? 'original' : 'auto');
-	let didRestoreSub = false;
-	let pendingResume: { at: number; play: boolean } | null = null;
-
-	const qualityOptions = $derived.by(() => {
-		const opts: { key: string; label: string }[] = [];
-		if (originalUrl) opts.push({ key: 'original', label: m.player_quality_original() });
-		if (ladderUrl && (info.variants?.length ?? 0) > 0)
-			opts.push({ key: 'auto', label: m.player_quality_auto() });
-		for (const v of info.variants ?? []) opts.push({ key: v.name, label: `${v.height}p` });
-		return opts;
-	});
-
-	async function attachHls(url: string, pinName: string | null) {
-		if (!video) return;
-		// Safari plays HLS natively (adaptive only, no level API) and switches its audio
-		// renditions through video.audioTracks. Chrome and TV browsers claim native HLS
-		// too but have no audioTracks, so there hls.js keeps the quality and audio menus.
-		const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') !== '';
-		if (nativeHls && !isTV && 'audioTracks' in video) {
-			videoSrc = url;
-			return;
-		}
-		const { default: HlsCtor } = await import('hls.js');
-		if (!HlsCtor.isSupported()) {
-			if (nativeHls) videoSrc = url;
-			return;
-		}
-		// the player draws the sidecar WebVTT tracks itself (with the account's
-		// subtitle style), so hls.js adds no text tracks for the playlist's renditions
-		hls = new HlsCtor({ renderTextTracksNatively: false });
-		hls.loadSource(url);
-		hls.attachMedia(video);
-		hls.on(HlsCtor.Events.MANIFEST_PARSED, () => {
-			if (!hls) return;
-			const idx = pinName ? hls.levels.findIndex((l) => l.name === pinName) : -1;
-			hls.currentLevel = idx;
-		});
-	}
-
-	function selectQuality(key: string) {
-		if (key === quality || !video) return;
-		pendingResume = { at: video.currentTime, play: !video.paused };
-		quality = key;
-		hls?.destroy();
-		hls = null;
-		if (key === 'original' && originalUrl) {
-			if (isPlaylist(originalUrl)) {
-				videoSrc = undefined;
-				attachHls(originalUrl, null);
-			} else {
-				videoSrc = originalUrl;
-			}
-		} else {
-			videoSrc = undefined;
-			attachHls(ladderUrl ?? initialHlsUrl!, key === 'auto' ? null : key);
-		}
-	}
-
-	const audioTracks = $derived(info.audio ?? []);
-	let activeAudioId = $state<string | null>(info.audio?.find((a) => a.default)?.id ?? null);
-
-	// Audio switch. Embedded (model A): switch the HLS audio rendition in place via
-	// hls.js (or Safari's native video.audioTracks). File (model B): swap the whole
-	// source to the chosen-language file and re-seek, since browsers can't switch
-	// the audio of a progressive file.
-	function selectAudio(track: AudioTrack) {
-		if (track.id === activeAudioId || !video) return;
-		activeAudioId = track.id;
-		if (track.lang) localStorage.setItem('cv.audioLang', track.lang);
-		else localStorage.removeItem('cv.audioLang');
-
-		if (track.source === 'embedded') {
-			if (hls) {
-				// the playlist's audio group lists the tracks in the payload's order
-				const embedded = audioTracks.filter((t) => t.source === 'embedded');
-				const position = embedded.findIndex((t) => t.id === track.id);
-				const idx =
-					hls.audioTracks.length === embedded.length
-						? position
-						: hls.audioTracks.findIndex((t) => t.lang === track.lang);
-				if (idx >= 0) hls.audioTrack = idx;
-			} else {
-				// Safari plays HLS natively and exposes the audio group here
-				const native = video as HTMLVideoElement & {
-					audioTracks?: { length: number; [i: number]: { language: string; enabled: boolean } };
-				};
-				const list = native.audioTracks;
-				if (list) {
-					for (let i = 0; i < list.length; i++) {
-						list[i].enabled = list[i].language === track.lang;
-					}
-				}
-			}
-			return;
-		}
-
-		pendingResume = { at: video.currentTime, play: !video.paused };
-		hls?.destroy();
-		hls = null;
-		if (track.streamUrl) {
-			quality = 'original';
-			videoSrc = track.streamUrl;
-		} else if (track.hlsUrl) {
-			quality = 'auto';
-			videoSrc = undefined;
-			attachHls(track.hlsUrl, null);
-		}
-	}
-
-	function onLoadedMetadata() {
-		if (!video) return;
-		if (pendingResume) {
-			video.currentTime = pendingResume.at;
-			if (pendingResume.play) video.play().catch(() => {});
-			pendingResume = null;
-		} else if (info.resumePosition > 5) {
-			video.currentTime = info.resumePosition;
-		}
-		if (!didRestoreSub) {
-			restorePreferredSubtitle();
-			didRestoreSub = true;
-		} else {
-			applySubtitles(); // re-bind the active track after a source switch
-		}
-	}
-
-	// hand the media element to the couch store so it can drive a follower's sync
-	// (seek to the host position) and read a host's position for broadcasts
-	$effect(() => {
-		couch.bindVideo(video);
-		return () => couch.bindVideo(undefined);
-	});
-
 	// let the couch bar dodge the player controls while they are on screen
 	$effect(() => {
 		couch.playerControlsVisible = controlsVisible;
 	});
 
+	// the core saves progress itself; the ranks store still checks for badges on the web's
+	// side, and throttles itself
+	$effect(() => {
+		if (!playing || linear || !features.rankingsEnabled) return;
+		const timer = setInterval(() => rank.check(), 30_000);
+		return () => clearInterval(timer);
+	});
+
 	onMount(() => {
 		poke();
 		couch.playerMounts++; // the on-screen player hosts the couch bar (so it survives fullscreen)
-		if (info.mode === 'hls' && initialHlsUrl) attachHls(initialHlsUrl, null);
+		const host = new ElementPlayer(video!, async (report) => {
+			const target = view.target;
+			await core.send({ type: 'playerReported', content: report });
+			if (report.ended) ended(target);
+		});
+		player = host;
+		const detach = core.attachPlayer(host);
 
-		// warm the likely "back to title" destination so the Pi has it ready on click
-		// (safe: the title read has no side effects - unlike the JIT-spawning watch load)
-		if (!couch.isFollower) preloadData(`/title/${info.display.titleSlug}`).catch(() => {});
-
-		// JIT sessions are reaped server-side without this heartbeat; leaving the
-		// player (or the page) stops the transcode right away instead
-		const jit = jitSessionId ? { grant: info.grant, session: jitSessionId } : null;
-		let keepaliveTimer: ReturnType<typeof setInterval> | undefined;
-		if (jit) {
-			keepaliveTimer = setInterval(
-				() => jitKeepalive(jit.grant, jit.session).catch(() => {}),
-				15000
-			);
-		}
-		const stopJit = () => {
-			if (jit) stopJitSession(jit.grant, jit.session);
-		};
-		window.addEventListener('pagehide', stopJit);
-
-		const onVisibility = () => {
-			if (document.visibilityState === 'hidden' && currentTime > 5 && !couch.isFollower) {
-				beaconProgress(progressBody());
-			}
-		};
-		document.addEventListener('visibilitychange', onVisibility);
-
-		// PiP events aren't in Svelte's element typings, so bind them here
-		const onEnterPip = () => onPipChange(true);
-		const onLeavePip = () => onPipChange(false);
+		// PiP events are not in Svelte's element typings
+		const onEnterPip = () => (pipActive = true);
+		const onLeavePip = () => (pipActive = false);
 		video?.addEventListener('enterpictureinpicture', onEnterPip);
 		video?.addEventListener('leavepictureinpicture', onLeavePip);
 
+		// warm the likely "back to title" destination so the Pi has it ready on click
+		// (safe: the title read has no side effects, unlike playing)
+		if (!linear && view.titleSlug) preloadData(`/title/${view.titleSlug}`).catch(() => {});
+
 		return () => {
-			document.removeEventListener('visibilitychange', onVisibility);
 			video?.removeEventListener('enterpictureinpicture', onEnterPip);
 			video?.removeEventListener('leavepictureinpicture', onLeavePip);
-			detachCueListener();
+			detach();
+			host.destroy();
 			clearTimeout(hideTimer);
-			clearInterval(keepaliveTimer);
-			window.removeEventListener('pagehide', stopJit);
-			stopJit();
-			hls?.destroy();
 			couch.playerControlsVisible = false;
 			couch.playerMounts--;
-			if (currentTime > 5 && !couch.isFollower) beaconProgress(progressBody());
 		};
 	});
 </script>
@@ -749,25 +416,21 @@
 	onpointermove={poke}
 	role="presentation"
 >
-	<!-- svelte-ignore a11y_media_has_caption -->
+	<!-- the ElementPlayer adds the subtitle tracks the core loads -->
 	<video
 		bind:this={video}
-		src={videoSrc}
-		autoplay
 		class="size-full object-contain"
 		bind:volume
 		bind:muted
 		onplay={() => {
 			playing = true;
 			hasPlayed = true;
-			couch.onPlayStateChange(true, video?.currentTime ?? 0); // host broadcasts; follower no-op
 		}}
 		onpause={() => {
 			playing = false;
 			buffering = false;
-			report();
 			poke();
-			couch.onPlayStateChange(false, video?.currentTime ?? 0);
+			if (features.rankingsEnabled && !linear) rank.check();
 		}}
 		onwaiting={() => (buffering = true)}
 		onstalled={() => (buffering = true)}
@@ -776,24 +439,24 @@
 		onseeking={() => {
 			if (video) currentTime = video.currentTime;
 		}}
-		ontimeupdate={onTimeUpdate}
+		ontimeupdate={() => {
+			if (video) currentTime = video.currentTime;
+		}}
 		onprogress={onProgress}
-		ondurationchange={() => (duration = video?.duration || info.durationSeconds)}
-		onloadedmetadata={onLoadedMetadata}
-		onended={onEnded}
+		ondurationchange={() => {
+			const d = video?.duration ?? 0;
+			elementDuration = Number.isFinite(d) ? d : 0;
+		}}
+		onended={() => (buffering = false)}
 		onclick={togglePlay}
 		ondblclick={toggleFullscreen}
-	>
-		{#each info.subtitles as sub (sub.id)}
-			<track kind="subtitles" src={sub.url} srclang={sub.lang} label={sub.label} />
-		{/each}
-	</video>
+	></video>
 
-	{#if cueHtml && !pipActive}
+	{#if player?.cueHtml && !pipActive}
 		<div class="subtitle-overlay" class:raised={controlsVisible} style={subCssVars}>
 			<!-- cue markup comes from the browser's own VTT parser (getCueAsHTML) -->
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-			{@html cueHtml}
+			{@html player.cueHtml}
 		</div>
 	{/if}
 
@@ -914,13 +577,13 @@
 			class="absolute inset-x-0 top-0 flex items-center gap-4 bg-gradient-to-b from-black/80
 				to-transparent p-5 pb-12"
 		>
-			{#if !couch.isFollower}
+			{#if !linear}
 				<Tooltip label={m.player_back_to_title()} side="bottom" portalTo={wrapper}>
 					{#snippet trigger(props)}
 						<button
 							{...props}
 							class="rounded-full p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-							onclick={() => goto(`/title/${info.display.titleSlug}`)}
+							onclick={() => goto(`/title/${view.titleSlug}`)}
 							aria-label={m.common_back()}
 						>
 							<ArrowLeft class="size-5" />
@@ -929,9 +592,9 @@
 				</Tooltip>
 			{/if}
 			<div class="min-w-0">
-				<p class="truncate font-semibold text-white">{info.display.title}</p>
-				{#if info.display.subtitle}
-					<p class="truncate text-xs text-white/60">{info.display.subtitle}</p>
+				<p class="truncate font-semibold text-white">{view.title}</p>
+				{#if view.subtitle}
+					<p class="truncate text-xs text-white/60">{view.subtitle}</p>
 				{/if}
 			</div>
 		</div>
@@ -946,9 +609,9 @@
 				bind:this={seekBar}
 				data-tv-autofocus
 				class="group/seek relative mb-4 h-1 w-full rounded-full bg-white/20"
-				class:cursor-pointer={!couch.followerLocked}
-				class:pointer-events-none={couch.followerLocked}
-				class:opacity-70={couch.followerLocked}
+				class:cursor-pointer={!linear}
+				class:pointer-events-none={linear}
+				class:opacity-70={linear}
 				onpointerdown={(e) => {
 					scrubbing = true;
 					seekTo(e, e.currentTarget);
@@ -1023,7 +686,7 @@
 						</button>
 					{/snippet}
 				</Tooltip>
-				{#if !couch.followerLocked}
+				{#if !linear}
 					<Tooltip label={m.player_back_10_seconds()} portalTo={wrapper}>
 						{#snippet trigger(props)}
 							<button
@@ -1089,20 +752,17 @@
 
 				<div class="flex-1"></div>
 
-				<CouchButton
-					kind={titleId ? 'movie' : 'episode'}
-					id={titleId ?? episodeId ?? ''}
-					portalTo={wrapper}
-				/>
+				<CouchButton canStart={!linear} portalTo={wrapper} />
 
-				{#if canShuffle && !couch.isFollower}
+				{#if view.shuffleAvailable && !linear}
 					<Tooltip label={m.player_shuffle()} portalTo={wrapper}>
 						{#snippet trigger(props)}
 							<button
 								{...props}
-								class="player-btn {shuffle ? 'shuffle-on' : ''}"
-								onclick={toggleShuffle}
+								class="player-btn {view.shuffle ? 'shuffle-on' : ''}"
+								onclick={() => core.send({ type: 'shuffleToggled' })}
 								aria-label={m.player_shuffle()}
+								aria-pressed={view.shuffle}
 							>
 								<Shuffle class="size-5" />
 							</button>
@@ -1110,7 +770,7 @@
 					</Tooltip>
 				{/if}
 
-				{#if episodesBySeason.length > 0 && !couch.isFollower}
+				{#if view.seasons.length > 0 && !linear}
 					<Popover.Root>
 						<Popover.Trigger
 							class="player-btn"
@@ -1129,37 +789,36 @@
 									class="flex items-center justify-between gap-2 border-b border-edge/70 px-3 py-2.5"
 								>
 									<p class="text-xs font-semibold">{m.player_episodes()}</p>
-									{#if episodesBySeason.length > 1}
+									{#if view.seasons.length > 1}
 										<Select
 											bind:value={seasonValue}
 											label={m.catalog_season()}
 											placeholder={currentSeasonNumber !== null
 												? m.catalog_season_number({ number: currentSeasonNumber })
 												: ''}
-											items={episodesBySeason.map(([n]) => ({
-												value: String(n),
-												label: m.catalog_season_number({ number: n })
+											items={view.seasons.map((season) => ({
+												value: String(season.number),
+												label: m.catalog_season_number({ number: season.number })
 											}))}
 											portalTo={wrapper}
 										/>
 									{/if}
 								</div>
 								<div class="space-y-1 overflow-y-auto p-2 scrollbar-none">
-									{#each seasonEpisodes as ep (ep.episodeId)}
-										{@const current = ep.episodeId === info.currentEpisodeId}
+									{#each seasonEpisodes as ep (ep.id)}
+										{@const current = ep.current}
 										<button
 											class="group flex w-full gap-3 rounded-lg p-1.5 text-left transition-colors
 												{current ? 'bg-surface' : 'hover:bg-surface focus-visible:bg-surface'}"
-											onclick={() => openEpisode(ep.episodeId)}
+											onclick={() => openEpisode(ep.id, current)}
 										>
 											<div
 												class="relative aspect-video w-28 shrink-0 overflow-hidden rounded-md border
 													border-edge/60 bg-surface-2"
 											>
 												<Artwork
-													artworkId={ep.thumbId ?? null}
-													v={ep.thumbVer}
-													name={ep.name || m.player_episode_number({ number: ep.episodeNumber })}
+													src={ep.still?.url}
+													name={ep.name || m.player_episode_number({ number: ep.number })}
 												/>
 												<div
 													class="absolute inset-0 flex items-center justify-center bg-black/45 transition-opacity
@@ -1174,9 +833,7 @@
 											</div>
 											<div class="min-w-0 flex-1 py-0.5">
 												<div class="flex items-center gap-1.5">
-													<span class="text-xs font-semibold text-faint tnum"
-														>E{ep.episodeNumber}</span
-													>
+													<span class="text-xs font-semibold text-faint tnum">E{ep.number}</span>
 													{#if current}
 														<span class="text-[10px] font-semibold text-accent-ink"
 															>{m.player_now_playing()}</span
@@ -1187,7 +844,7 @@
 													class="mt-0.5 line-clamp-2 text-xs font-medium
 														{current ? 'text-text' : 'text-muted'} group-hover:text-accent-ink"
 												>
-													{ep.name || m.player_episode_number({ number: ep.episodeNumber })}
+													{ep.name || m.player_episode_number({ number: ep.number })}
 												</p>
 											</div>
 										</button>
@@ -1198,7 +855,7 @@
 					</Popover.Root>
 				{/if}
 
-				{#if qualityOptions.length > 1}
+				{#if view.qualities.length > 1}
 					<Popover.Root>
 						<Popover.Trigger
 							class="player-btn"
@@ -1218,14 +875,15 @@
 								>
 									{m.player_quality()}
 								</p>
-								{#each qualityOptions as opt (opt.key)}
+								{#each view.qualities as option (option.key)}
 									<button
 										class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
-											{quality === opt.key ? 'text-text' : 'text-muted'} hover:bg-surface"
-										onclick={() => selectQuality(opt.key)}
+											{view.quality === option.key ? 'text-text' : 'text-muted'} hover:bg-surface"
+										onclick={() =>
+											core.send({ type: 'qualityChosen', content: { key: option.key } })}
 									>
-										{opt.label}
-										{#if quality === opt.key}<Check class="size-3.5 text-accent-ink" />{/if}
+										{qualityLabel(option)}
+										{#if view.quality === option.key}<Check class="size-3.5 text-accent-ink" />{/if}
 									</button>
 								{/each}
 							</Popover.Content>
@@ -1233,7 +891,7 @@
 					</Popover.Root>
 				{/if}
 
-				{#if audioTracks.length > 1}
+				{#if view.audio.length > 1}
 					<Popover.Root>
 						<Popover.Trigger
 							class="player-btn"
@@ -1253,14 +911,16 @@
 								>
 									{m.player_audio()}
 								</p>
-								{#each audioTracks as track (track.id)}
+								{#each view.audio as track (track.id)}
 									<button
 										class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
-											{activeAudioId === track.id ? 'text-text' : 'text-muted'} hover:bg-surface"
-										onclick={() => selectAudio(track)}
+											{view.audioSelected === track.id ? 'text-text' : 'text-muted'} hover:bg-surface"
+										onclick={() => core.send({ type: 'audioChosen', content: { id: track.id } })}
 									>
 										{track.label}
-										{#if activeAudioId === track.id}<Check class="size-3.5 text-accent-ink" />{/if}
+										{#if view.audioSelected === track.id}<Check
+												class="size-3.5 text-accent-ink"
+											/>{/if}
 									</button>
 								{/each}
 							</Popover.Content>
@@ -1268,10 +928,10 @@
 					</Popover.Root>
 				{/if}
 
-				{#if info.subtitles.length > 0}
+				{#if view.subtitles.length > 0}
 					<Popover.Root>
 						<Popover.Trigger
-							class="player-btn {activeSub !== null ? 'text-accent-ink!' : ''}"
+							class="player-btn {view.subtitleSelected ? 'text-accent-ink!' : ''}"
 							aria-label={m.player_subtitles()}
 							title={m.player_subtitles()}
 						>
@@ -1290,20 +950,22 @@
 								</p>
 								<button
 									class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
-										{activeSub === null ? 'text-text' : 'text-muted'} hover:bg-surface"
-									onclick={() => selectSubtitle(null)}
+										{!view.subtitleSelected ? 'text-text' : 'text-muted'} hover:bg-surface"
+									onclick={() => chooseSubtitle(null)}
 								>
 									{m.player_subtitle_off()}
-									{#if activeSub === null}<Check class="size-3.5 text-accent-ink" />{/if}
+									{#if !view.subtitleSelected}<Check class="size-3.5 text-accent-ink" />{/if}
 								</button>
-								{#each info.subtitles as sub (sub.id)}
+								{#each view.subtitles as sub (sub.id)}
 									<button
 										class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
-											{activeSub === sub.id ? 'text-text' : 'text-muted'} hover:bg-surface"
-										onclick={() => selectSubtitle(sub.id)}
+											{view.subtitleSelected === sub.id ? 'text-text' : 'text-muted'} hover:bg-surface"
+										onclick={() => chooseSubtitle(sub.id)}
 									>
 										{sub.label}
-										{#if activeSub === sub.id}<Check class="size-3.5 text-accent-ink" />{/if}
+										{#if view.subtitleSelected === sub.id}<Check
+												class="size-3.5 text-accent-ink"
+											/>{/if}
 									</button>
 								{/each}
 
@@ -1430,30 +1092,31 @@
 		</div>
 	{/if}
 
-	{#if nextTarget && nextCountdown !== null && nextCountdown > 0}
+	{#if nextUp}
 		<div
 			transition:fly={{ y: 24, duration: 250 }}
 			class="absolute right-6 bottom-24 w-72 rounded-card border border-edge bg-surface-2/95
 				p-4 shadow-2xl shadow-black/60 backdrop-blur"
+			data-testid="up-next"
 		>
 			<p class="eyebrow mb-1 flex items-center gap-1.5">
-				{#if shuffle && canShuffle}<Shuffle class="size-3" />{/if}
-				{m.player_up_next({ seconds: nextCountdown })}
+				{#if nextUp.shuffled}<Shuffle class="size-3" />{/if}
+				{m.player_up_next({ seconds: nextUp.countdownSeconds })}
 			</p>
 			<p class="truncate text-sm font-semibold">
-				S{nextTarget.seasonNumber} E{nextTarget.episodeNumber}
-				{nextTarget.name ? `· ${nextTarget.name}` : ''}
+				S{nextUp.season} E{nextUp.episode}
+				{nextUp.name ? `· ${nextUp.name}` : ''}
 			</p>
 			<div class="mt-3 flex gap-2">
 				<button
 					class="h-8 flex-1 rounded-full bg-accent text-xs font-semibold text-white transition-colors hover:bg-accent-strong"
-					onclick={goNextEpisode}
+					onclick={() => core.send({ type: 'nextEpisodeRequested' })}
 				>
 					{m.player_play_now()}
 				</button>
 				<button
 					class="h-8 rounded-full px-3 text-xs font-semibold text-muted transition-colors hover:bg-surface hover:text-text"
-					onclick={() => (nextCountdown = null)}
+					onclick={() => core.send({ type: 'nextEpisodeCancelled' })}
 				>
 					{m.common_cancel()}
 				</button>

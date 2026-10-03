@@ -61,7 +61,7 @@
 						<span {...props} class="block">
 							<UserAvatar
 								name={p.displayName}
-								avatarId={p.avatarId ?? null}
+								src={p.avatar?.url}
 								seed={p.seed}
 								class="{avatar} rounded-lg text-[10px] ring-2 ring-black/40 transition-[filter,transform]
 									duration-300 {p.paused ? 'scale-90 grayscale' : 'scale-100 grayscale-0'}"
@@ -70,7 +70,7 @@
 					{/snippet}
 				</Tooltip>
 
-				{#if p.isHost}
+				{#if p.host}
 					<Tooltip label={m.couch_has_remote({ name: p.displayName })} side="top">
 						{#snippet trigger(props)}
 							<span
