@@ -1,3 +1,4 @@
+import { SvelteMap } from 'svelte/reactivity';
 import { AppPhase } from '$lib/generated/core';
 import type {
 	AppView,
@@ -20,6 +21,13 @@ export interface Bridge {
 	resolve(resolution: string): string;
 	view(surface: string): string;
 }
+
+/**
+ * How long a revalidation covers opening the same screen with `revalidate`. Long enough for a
+ * hover preload a moment before the click, short enough that coming back catches up.
+ */
+const REVISIT_MS = 5_000;
+const MAX_PEEKED = 8;
 
 /** Creates an independent core instance from a `CoreConfig` JSON. */
 export type Spawn = (config: string) => Promise<Bridge>;
@@ -45,6 +53,8 @@ export class CoreRuntime {
 	#session = $state.raw<SessionView>();
 	// bumped when a new core replaces a trapped one, so markdown derived from the old one re-runs
 	#generation = $state(0);
+	// the views of the surfaces something watches, by `surfaceKey`
+	#views = new SvelteMap<string, unknown>();
 
 	#config: CoreConfig;
 	#spawn: Spawn;
@@ -60,6 +70,15 @@ export class CoreRuntime {
 	// markdown sources that trapped the core are shown as plain text from then on
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#poisoned = new Set<string>();
+	// how many watchers each watched surface has, and how many of them opened it as a screen
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	#watched = new Map<string, { surface: Surface; watchers: number; screens: number }>();
+	// a surface read before anything watched it, so watching it keeps the same objects
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	#peeked = new Map<string, unknown>();
+	// when each surface was last revalidated
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	#revalidated = new Map<string, number>();
 
 	constructor(
 		config: CoreConfig,
@@ -125,6 +144,112 @@ export class CoreRuntime {
 		}
 	}
 
+	/**
+	 * A surface's view model, kept current while something watches it (`open`, `watch`).
+	 * Before that it is read as the core has it, so a page paints what is cached on its first
+	 * render. Undefined only while no core is running.
+	 */
+	view<T>(surface: Surface): T | undefined {
+		void this.#generation;
+		const key = surfaceKey(surface);
+		if (this.#views.has(key)) return this.#views.get(key) as T;
+		const view = this.#read<T>(surface);
+		if (view === undefined) return view;
+		this.#peeked.delete(key);
+		this.#peeked.set(key, view);
+		// only a page about to open needs its read; a closed page's last one can go
+		for (const oldest of this.#peeked.keys()) {
+			if (this.#peeked.size <= MAX_PEEKED) break;
+			this.#peeked.delete(oldest);
+		}
+		return view;
+	}
+
+	/**
+	 * Opens a screen: the core loads `surface` and keeps it fresh (`ScreenOpened`), and its view
+	 * stays current until the returned close (`ScreenClosed`). Pages open what they show from
+	 * an `$effect`, so leaving the page closes it.
+	 */
+	open(surface: Surface, { revalidate = false } = {}): () => void {
+		const stop = this.#watch(surface, true);
+		// with `revalidate`, a visit catches up with changes made elsewhere even when the core
+		// holds the surface as fresh; a page whose load just asked for that (or a hover that
+		// preloaded it) does not ask twice
+		const asked = this.#revalidated.get(surfaceKey(surface));
+		if (revalidate && (asked === undefined || this.#now() - asked > REVISIT_MS)) {
+			this.revalidate(surface);
+		}
+		void this.send({ type: 'screenOpened', content: surface });
+		return () => {
+			if (stop()) void this.send({ type: 'screenClosed', content: surface });
+		};
+	}
+
+	/** Has the core load `surface` unless it holds it as fresh, without opening it (a preload). */
+	prefetch(surface: Surface) {
+		void this.send({ type: 'screenOpened', content: surface });
+		void this.send({ type: 'screenClosed', content: surface });
+	}
+
+	/** Keeps the view of a surface that is not a screen (the notices) current until the stop. */
+	watch(surface: Surface): () => void {
+		const stop = this.#watch(surface, false);
+		return () => void stop();
+	}
+
+	/**
+	 * Has the core load `surface` again even when it is fresh (`RefreshRequested`), as a page's
+	 * load revalidates what it is about to show; whatever is cached stays up meanwhile.
+	 */
+	revalidate(surface: Surface) {
+		const now = this.#now();
+		for (const [key, at] of this.#revalidated) {
+			if (now - at > REVISIT_MS) this.#revalidated.delete(key);
+		}
+		this.#revalidated.set(surfaceKey(surface), now);
+		void this.send({ type: 'refreshRequested', content: surface });
+	}
+
+	/** Starts watching `surface`; the returned stop says whether this call was still watching. */
+	#watch(surface: Surface, screen: boolean): () => boolean {
+		const key = surfaceKey(surface);
+		let entry = this.#watched.get(key);
+		if (!entry) {
+			entry = { surface, watchers: 0, screens: 0 };
+			this.#watched.set(key, entry);
+			const view = this.#read(surface);
+			if (view !== undefined) this.#views.set(key, reuse(this.#peeked.get(key), view));
+		}
+		this.#peeked.delete(key);
+		entry.watchers++;
+		if (screen) entry.screens++;
+		const watching = entry;
+		let stopped = false;
+		return () => {
+			if (stopped) return false;
+			stopped = true;
+			watching.watchers--;
+			if (screen) watching.screens--;
+			if (watching.watchers === 0) {
+				this.#watched.delete(key);
+				this.#views.delete(key);
+			}
+			return true;
+		};
+	}
+
+	#read<T>(surface: Surface): T | undefined {
+		const bridge = this.#bridge;
+		if (!bridge) return undefined;
+		try {
+			return JSON.parse(bridge.view(JSON.stringify(surface)));
+		} catch (err) {
+			if (!(err instanceof WebAssembly.RuntimeError)) throw err;
+			this.#replace(bridge, err);
+			return undefined;
+		}
+	}
+
 	async #boot() {
 		this.#bridge = await this.#spawn(JSON.stringify(this.#config));
 		this.#render([{ type: 'app' }, { type: 'session' }]);
@@ -151,14 +276,18 @@ export class CoreRuntime {
 
 	async #restart() {
 		this.#restarting = true;
+		const watched = [...this.#watched.values()];
 		try {
 			this.#bridge = await this.#spawn(JSON.stringify(this.#config));
 			await this.#dispatch({ type: 'appStarted' });
+			// the new core has none of the screens open that the pages still show
+			const screens = watched.flatMap((w) => Array<Surface>(w.screens).fill(w.surface));
+			await Promise.all(screens.map((s) => this.#dispatch({ type: 'screenOpened', content: s })));
 		} finally {
 			this.#restarting = false;
 		}
 		if (!this.#bridge) return;
-		this.#render([{ type: 'app' }, { type: 'session' }]);
+		this.#render([{ type: 'app' }, { type: 'session' }, ...watched.map((w) => w.surface)]);
 		this.#generation++;
 	}
 
@@ -240,17 +369,37 @@ export class CoreRuntime {
 				this.#app = reuse(this.#app, JSON.parse(bridge.view(JSON.stringify(surface))));
 			} else if (surface.type === 'session') {
 				this.#session = reuse(this.#session, JSON.parse(bridge.view(JSON.stringify(surface))));
+			} else {
+				const key = surfaceKey(surface);
+				if (!this.#watched.has(key)) continue;
+				const view = this.#read(surface);
+				if (view !== undefined) this.#views.set(key, reuse(this.#views.get(key), view));
 			}
 		}
 	}
 }
 
 /**
- * `next`, keeping every part of `prev` that did not change, so a `$derived` or `$effect` that
- * reads only those parts does not run again.
+ * A surface's identity. The core names surfaces in renders with its own field order, so object
+ * keys are sorted (`undefined` fields drop out, as they do on the wire).
+ */
+export function surfaceKey(surface: Surface): string {
+	return JSON.stringify(surface, (_, value) =>
+		isRecord(value)
+			? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)))
+			: value
+	);
+}
+
+/**
+ * `next`, keeping every part of `prev` that did not change (array items by position), so a
+ * `$derived` or `$effect` that reads only those parts does not run again.
  */
 function reuse<T>(prev: T, next: T): T {
 	if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+	if (Array.isArray(prev) && Array.isArray(next)) {
+		return next.map((item, i) => reuse(prev[i], item)) as T;
+	}
 	if (!isRecord(prev) || !isRecord(next)) return next;
 	const merged: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(next)) merged[key] = reuse(prev[key], value);

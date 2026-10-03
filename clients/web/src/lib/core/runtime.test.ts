@@ -1,16 +1,28 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppPhase, AuthMode, HttpFailureKind, LoadStatus, Platform } from '$lib/generated/core';
+import {
+	AppPhase,
+	AuthMode,
+	BrowseSort,
+	HttpFailureKind,
+	LoadStatus,
+	Platform,
+	TitleKind
+} from '$lib/generated/core';
 import type {
+	BrowseView,
 	CoreConfig,
 	EffectOutput,
+	GenresView,
 	HttpRequest,
+	NoticesView,
 	StoreRequest,
+	Surface,
 	TimerRequest
 } from '$lib/generated/core';
 import { palette } from '$lib/theme';
 import { browserExecutor } from './executor';
-import { CoreRuntime, type Bridge, type Executor, type Spawn } from './runtime.svelte';
+import { CoreRuntime, surfaceKey, type Bridge, type Executor, type Spawn } from './runtime.svelte';
 import { spawner } from './wasm';
 
 const compiled = WebAssembly.compile(
@@ -270,6 +282,126 @@ describe('the core runtime', () => {
 	});
 });
 
+describe('screens', () => {
+	const GENRES: Surface = { type: 'genres' };
+	const drama = (label: string) => [{ id: 1, name: 'Drama', label }];
+	const card = (id: string) => ({
+		titleId: id,
+		slug: `${id}-slug`,
+		name: `Name ${id}`,
+		kind: 'movie',
+		year: 2024,
+		posterId: `p-${id}`,
+		posterVer: 3,
+		posterAccent: null,
+		backdropId: null,
+		backdropVer: null,
+		backdropAccent: null
+	});
+
+	async function signedInCore(shell: FakeShell, clock = { now: 1000 }) {
+		signedIn(shell);
+		const core = new CoreRuntime(WEB, spawnReal, shell, () => clock.now);
+		await core.start();
+		return core;
+	}
+
+	it('keeps an open screen current and the parts that did not change', async () => {
+		const shell = new FakeShell();
+		shell.route('GET', '/api/v1/genres?lang=en', 200, drama('Drama'));
+		const core = await signedInCore(shell);
+		// before it opens, a page reads what the core holds
+		expect(core.view<GenresView>(GENRES)?.status).toBe(LoadStatus.Idle);
+
+		const close = core.open(GENRES);
+		await vi.waitFor(() => expect(core.view<GenresView>(GENRES)?.status).toBe(LoadStatus.Loaded));
+		const loaded = core.view<GenresView>(GENRES);
+		expect(loaded?.genres).toEqual([{ name: 'Drama', label: 'Drama' }]);
+
+		// the status goes stale and back, but the same answer keeps the same genres
+		core.revalidate(GENRES);
+		await vi.waitFor(() => expect(shell.sent('GET', '/api/v1/genres?lang=en')).toHaveLength(2));
+		await core.send({ type: 'noticeDismissed', content: { id: 0 } });
+		expect(core.view<GenresView>(GENRES)).toEqual(loaded);
+		expect(core.view<GenresView>(GENRES)?.genres).toBe(loaded?.genres);
+
+		// a changed label replaces only what changed
+		shell.route('GET', '/api/v1/genres?lang=en', 200, drama('Drama (new)'));
+		core.revalidate(GENRES);
+		await vi.waitFor(() =>
+			expect(core.view<GenresView>(GENRES)?.genres[0].label).toBe('Drama (new)')
+		);
+		close();
+		close();
+		// closing twice is closing once; the view is still readable, no longer kept
+		expect(core.view<GenresView>(GENRES)?.genres[0].label).toBe('Drama (new)');
+	});
+
+	it('matches the surfaces the core renders whatever their field order', async () => {
+		expect(
+			surfaceKey({ type: 'browse', content: { sort: BrowseSort.Name, kind: TitleKind.Movie } })
+		).toBe(
+			surfaceKey({ type: 'browse', content: { kind: TitleKind.Movie, sort: BrowseSort.Name } })
+		);
+
+		const shell = new FakeShell();
+		shell.route('GET', '/api/v1/titles?lang=en&kind=movie&sort=name&page=1', 200, {
+			items: [card('a')],
+			total: 1
+		});
+		const core = await signedInCore(shell);
+		const listing: Surface = {
+			type: 'browse',
+			content: { sort: BrowseSort.Name, kind: TitleKind.Movie }
+		};
+		core.open(listing);
+		await vi.waitFor(() =>
+			expect(core.view<BrowseView>(listing)?.cards.map((c) => c.titleId)).toEqual(['a'])
+		);
+		expect(core.view<BrowseView>(listing)?.cards[0].poster?.url).toBe(
+			'/api/v1/artwork/p-a?size=w342&v=3'
+		);
+	});
+
+	it('revalidates a screen once for its load and its opening', async () => {
+		const shell = new FakeShell();
+		shell.route('GET', '/api/v1/genres?lang=en', 200, drama('Drama'));
+		const clock = { now: 1000 };
+		const core = await signedInCore(shell, clock);
+		const asked = () => shell.sent('GET', '/api/v1/genres?lang=en').length;
+
+		core.revalidate(GENRES);
+		const close = core.open(GENRES, { revalidate: true });
+		await vi.waitFor(() => expect(core.view<GenresView>(GENRES)?.status).toBe(LoadStatus.Loaded));
+		expect(asked()).toBe(1);
+		close();
+
+		// coming back later catches up, though the core still holds it as fresh
+		clock.now += 6_000;
+		core.open(GENRES, { revalidate: true });
+		await vi.waitFor(() => expect(asked()).toBe(2));
+		// a plain open trusts the core's freshness
+		core.open(GENRES);
+		await core.send({ type: 'noticeDismissed', content: { id: 0 } });
+		expect(asked()).toBe(2);
+	});
+
+	it('shows a My List change at once and turns a refusal into a notice', async () => {
+		const shell = new FakeShell();
+		const core = await signedInCore(shell);
+		const notices: Surface = { type: 'notices' };
+		const stop = core.watch(notices);
+
+		await core.send({ type: 'watchlistChanged', content: { titleId: 't1', listed: true } });
+		const [notice] = core.view<NoticesView>(notices)?.notices ?? [];
+		expect(notice.code).toBe('watchlist_failed');
+
+		await core.send({ type: 'noticeDismissed', content: { id: notice.id } });
+		expect(core.view<NoticesView>(notices)?.notices).toEqual([]);
+		stop();
+	});
+});
+
 describe('a trapped core', () => {
 	/** The real core behind a switch that makes its next call abort like a Rust panic. */
 	function trapping() {
@@ -321,6 +453,26 @@ describe('a trapped core', () => {
 		await sent;
 		expect(core.session.user?.username).toBe('admin');
 		expect(core.app.phase).toBe(AppPhase.Ready);
+	});
+
+	it('opens the screens the pages still show on the new core', async () => {
+		const shell = new FakeShell();
+		signedIn(shell);
+		shell.route('GET', '/api/v1/genres?lang=en', 200, [{ id: 1, name: 'Drama', label: 'Drama' }]);
+		const { spawn, spawned, trap } = trapping();
+		const core = runtime(shell, spawn);
+		await core.start();
+		const genres: Surface = { type: 'genres' };
+		core.open(genres);
+		await vi.waitFor(() => expect(core.view<GenresView>(genres)?.status).toBe(LoadStatus.Loaded));
+
+		trap.next = true;
+		await core.send({ type: 'sessionChanged' });
+
+		expect(spawned).toHaveLength(2);
+		// the new core loaded it for the open page, which kept showing it meanwhile
+		expect(shell.sent('GET', '/api/v1/genres?lang=en')).toHaveLength(2);
+		expect(core.view<GenresView>(genres)?.genres[0].label).toBe('Drama');
 	});
 
 	it('shows markdown that trapped it as plain text from then on', async () => {
