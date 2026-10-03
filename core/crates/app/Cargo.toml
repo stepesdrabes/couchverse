@@ -13,5 +13,8 @@ serde_json.workspace = true
 typeshare.workspace = true
 linkify.workspace = true
 
+[dev-dependencies]
+proptest.workspace = true
+
 [lints]
 workspace = true

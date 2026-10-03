@@ -592,3 +592,32 @@ fn a_my_list_change_survives_a_language_switch_while_in_flight() {
     shell.respond("GET", &format!("{API}/titles/glass-harbor?lang=cs"), 200, title_payload());
     assert!(!shell.view::<TitleView>(&surface).detail.expect("detail").in_list, "rolled back");
 }
+
+/// A coarse budget, generous enough for a debug build on a busy machine: it catches work that
+/// grows out of hand (a home of 20 rows of 40 cards), not microseconds.
+#[test]
+fn a_big_home_is_taken_in_and_shown_within_budget() {
+    let mut shell = signed_in();
+    let mut payload = home_payload();
+    let rows: Vec<Value> = (0..20)
+        .map(|r| {
+            let items: Vec<Value> =
+                (0..40).map(|c| card_item(&format!("t{r}-{c}"), "movie")).collect();
+            json!({ "kind": "genre", "label": format!("Row {r}"), "items": items, "continueWatching": [] })
+        })
+        .collect();
+    payload["rows"] = Value::Array(rows);
+    open(&mut shell, Surface::Home);
+
+    let started = std::time::Instant::now();
+    shell.respond("GET", &format!("{API}/home?lang=en"), 200, payload);
+    let answered = started.elapsed();
+    let started = std::time::Instant::now();
+    for _ in 0..10 {
+        let view: HomeView = shell.view(&Surface::Home);
+        assert_eq!(view.rows.len(), 20);
+    }
+    let rendered = started.elapsed() / 10;
+    assert!(answered.as_millis() < 500, "taking in the home took {answered:?}");
+    assert!(rendered.as_millis() < 250, "showing the home took {rendered:?}");
+}

@@ -10,6 +10,8 @@ mod effects;
 pub mod messages;
 pub mod modules;
 #[cfg(test)]
+mod properties;
+#[cfg(test)]
 mod scenarios;
 mod time;
 
