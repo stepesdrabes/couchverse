@@ -168,7 +168,7 @@
 					<Play class="size-4 fill-current" />
 					{m.common_play()}
 				</Button>
-				<Button variant="secondary" size="lg" onclick={toggleList}>
+				<Button variant="secondary" size="lg" onclick={toggleList} aria-pressed={listed}>
 					{#if listed}
 						<Check class="size-4" />
 					{:else}
