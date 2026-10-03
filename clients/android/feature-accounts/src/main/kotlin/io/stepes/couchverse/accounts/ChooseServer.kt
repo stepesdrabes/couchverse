@@ -35,6 +35,7 @@ import io.stepes.couchverse.design.theme.LocalIsTv
 import androidx.tv.material3.Icon as TvIcon
 import androidx.tv.material3.ListItem as TvListItem
 import androidx.tv.material3.Text as TvText
+import io.stepes.couchverse.design.tv.focusOnStart
 
 /** Which server to sign in to, when this device knows several and none has an account yet. */
 @Composable
@@ -42,7 +43,6 @@ fun ChooseServerScreen(view: ServersView?, onPick: (Server) -> Unit, onAddServer
     val servers = view?.servers.orEmpty()
     if (LocalIsTv.current) {
         val first = remember { FocusRequester() }
-        LaunchedEffect(servers.isEmpty()) { if (servers.isNotEmpty()) first.requestFocus() }
         TvOnboardingPage {
             TvText(stringResource(R.string.login_choose_server), style = androidx.tv.material3.MaterialTheme.typography.headlineMedium)
             servers.forEachIndexed { index, server ->
@@ -53,7 +53,7 @@ fun ChooseServerScreen(view: ServersView?, onPick: (Server) -> Unit, onAddServer
                     supportingContent = { TvText(server.url) },
                     leadingContent = { TvIcon(CouchverseIcons.Server, contentDescription = null) },
                     trailingContent = { if (server.insecure) InsecureBadge() },
-                    modifier = if (index == 0) Modifier.focusRequester(first) else Modifier,
+                    modifier = if (index == 0) Modifier.focusOnStart(first) else Modifier,
                 )
             }
             TvListItem(selected = false, onClick = onAddServer, headlineContent = { TvText(stringResource(R.string.servers_add)) })

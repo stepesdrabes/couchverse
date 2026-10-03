@@ -106,6 +106,8 @@ private fun Waiting(pairing: PairingView, remainingSeconds: Long, codeStyle: and
         pairing.userCode,
         style = codeStyle.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = 0.12.em),
         color = Tokens.Palette.text,
+        maxLines = 1,
+        softWrap = false,
         // read out character by character
         modifier = Modifier.semantics { contentDescription = spelled },
     )

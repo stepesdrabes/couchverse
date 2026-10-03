@@ -25,13 +25,14 @@ fun WhosWatchingScreen(view: AccountsView?, onPick: (AccountCard) -> Unit, onAdd
     if (LocalIsTv.current) WhosWatchingTv(view, onPick, onAdd) else AccountPickerPhone(view, onPick, onAdd)
 }
 
+/** [resume] gets the pick first and returns true when it handled it (the account already on). */
 @Composable
-fun WhosWatchingRoute(onSignInAgain: (AccountCard) -> Unit, onAdd: () -> Unit) {
+fun WhosWatchingRoute(onSignInAgain: (AccountCard) -> Unit, onAdd: () -> Unit, resume: (AccountCard) -> Boolean = { false }) {
     val send = rememberSend()
     val view by rememberSurface<AccountsView>(Surface.Accounts)
     WhosWatchingScreen(
         view = view,
-        onPick = { account -> pick(account, send, onSignInAgain) },
+        onPick = { account -> if (!resume(account)) pick(account, send, onSignInAgain) },
         onAdd = onAdd,
     )
 }

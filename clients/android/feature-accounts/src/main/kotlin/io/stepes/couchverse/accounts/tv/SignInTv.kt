@@ -51,6 +51,7 @@ import io.stepes.couchverse.design.components.InsecureBadge
 import io.stepes.couchverse.design.text.problemMessage
 import io.stepes.couchverse.design.tv.TvActionButton
 import io.stepes.couchverse.design.tv.TvSafe
+import io.stepes.couchverse.design.tv.focusOnStart
 
 /** Pairing fills the left; a password is the slower way in, behind a button on the right. */
 @Composable
@@ -77,7 +78,7 @@ internal fun SignInTv(state: SignInState, actions: SignInActions) {
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
                 Column(
                     Modifier
-                        .weight(1.35f)
+                        .weight(1.7f)
                         .background(Tokens.Palette.surface.copy(alpha = 0.72f), RoundedCornerShape(20.dp))
                         .padding(28.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -89,8 +90,8 @@ internal fun SignInTv(state: SignInState, actions: SignInActions) {
                         loading = !withPassword && view?.status != LoadStatus.Failed,
                         problem = view?.problem?.takeIf { view.status == LoadStatus.Failed && !withPassword },
                         remainingSeconds = state.remainingSeconds,
-                        qrSize = 200.dp,
-                        codeStyle = MaterialTheme.typography.displaySmall,
+                        qrSize = 176.dp,
+                        codeStyle = MaterialTheme.typography.headlineLarge,
                         newCode = {
                             TvActionButton(stringResource(R.string.pairing_new_code), onClick = actions.onStartPairing, primary = true)
                         },
@@ -123,7 +124,6 @@ private fun PasswordFormTv(state: SignInState, actions: SignInActions, busy: Boo
     val failed = view?.status == LoadStatus.Failed && view.pairing == null
     val focus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
     val canSubmit = username.isNotBlank() && password.isNotEmpty() && !busy
     val submit = { if (canSubmit) actions.onPassword(username.trim(), password) }
     // the keyboard opens on the left, over the pairing panel, so the form stays in view
@@ -136,7 +136,7 @@ private fun PasswordFormTv(state: SignInState, actions: SignInActions, busy: Boo
         enabled = !busy,
         keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Next, platformImeOptions = keyboard),
         keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
-        modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics { contentType = ContentType.Username },
+        modifier = Modifier.fillMaxWidth().focusOnStart(focus).semantics { contentType = ContentType.Username },
     )
     OutlinedTextField(
         value = password,

@@ -29,6 +29,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,9 +71,11 @@ import io.stepes.couchverse.design.theme.LocalReducedMotion
 import io.stepes.couchverse.design.theme.Motion
 import io.stepes.couchverse.design.theme.sharedAvatar
 import io.stepes.couchverse.design.tv.TvSafe
+import io.stepes.couchverse.design.tv.focusOnStart
 import kotlinx.coroutines.delay
 
-private val TileSize = 148.dp
+/** Tiles shrink once five no longer fit across the screen. */
+private val LocalTileSize = staticCompositionLocalOf { 148.dp }
 
 /**
  * The TV's showpiece (plan 12.3): profiles as large circular tiles over the drifting glow, which
@@ -94,7 +98,6 @@ internal fun WhosWatchingTv(view: AccountsView?, onPick: (AccountCard) -> Unit, 
     val chosenIndex = accounts.indexOfFirst { it.id == chosen }
     val start = remember { FocusRequester() }
     val startIndex = accounts.indexOfFirst { it.id == view?.active }.coerceAtLeast(0)
-    LaunchedEffect(accounts.isEmpty()) { if (accounts.isNotEmpty()) start.requestFocus() }
 
     Box(Modifier.fillMaxSize()) {
         GlowBackdrop(accent = tint)
@@ -110,33 +113,36 @@ internal fun WhosWatchingTv(view: AccountsView?, onPick: (AccountCard) -> Unit, 
                 modifier = Modifier.alpha(1f - departure).semantics { heading() },
             )
             Spacer(Modifier.height(48.dp))
-            LazyRow(
-                modifier = Modifier.fillMaxWidth().focusRestorer(start),
-                horizontalArrangement = Arrangement.spacedBy(40.dp, Alignment.CenterHorizontally),
-                contentPadding = PaddingValues(horizontal = TvSafe.horizontal, vertical = 28.dp),
-            ) {
-                itemsIndexed(accounts, key = { _, account -> account.id }) { index, account ->
-                    val leaving = if (chosenIndex >= 0 && index != chosenIndex) departure else 0f
-                    ProfileTile(
-                        account = account,
-                        appearDelayMillis = index * 70L,
-                        leaving = leaving,
-                        direction = if (index < chosenIndex) -1f else 1f,
-                        onFocused = { focusedId = account.id },
-                        onClick = {
-                            if (account.signedIn) chosen = account.id
-                            onPick(account)
-                        },
-                        modifier = if (index == startIndex) Modifier.focusRequester(start) else Modifier,
-                    )
-                }
-                item(key = "add") {
-                    AddTile(
-                        appearDelayMillis = accounts.size * 70L,
-                        leaving = if (chosenIndex >= 0) departure else 0f,
-                        onFocused = { focusedId = null },
-                        onClick = onAdd,
-                    )
+            val roomy = accounts.size < 4
+            CompositionLocalProvider(LocalTileSize provides if (roomy) 148.dp else 120.dp) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth().focusRestorer(start),
+                    horizontalArrangement = Arrangement.spacedBy(if (roomy) 40.dp else 24.dp, Alignment.CenterHorizontally),
+                    contentPadding = PaddingValues(horizontal = TvSafe.horizontal, vertical = 28.dp),
+                ) {
+                    itemsIndexed(accounts, key = { _, account -> account.id }) { index, account ->
+                        val leaving = if (chosenIndex >= 0 && index != chosenIndex) departure else 0f
+                        ProfileTile(
+                            account = account,
+                            appearDelayMillis = index * 70L,
+                            leaving = leaving,
+                            direction = if (index < chosenIndex) -1f else 1f,
+                            onFocused = { focusedId = account.id },
+                            onClick = {
+                                if (account.signedIn) chosen = account.id
+                                onPick(account)
+                            },
+                            focus = start.takeIf { index == startIndex },
+                        )
+                    }
+                    item(key = "add") {
+                        AddTile(
+                            appearDelayMillis = accounts.size * 70L,
+                            leaving = if (chosenIndex >= 0) departure else 0f,
+                            onFocused = { focusedId = null },
+                            onClick = onAdd,
+                        )
+                    }
                 }
             }
         }
@@ -151,7 +157,7 @@ private fun ProfileTile(
     direction: Float,
     onFocused: () -> Unit,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    focus: FocusRequester? = null,
 ) {
     val tint = accountTint(account)
     val interaction = remember { MutableInteractionSource() }
@@ -164,7 +170,7 @@ private fun ProfileTile(
         account.serverName,
         stringResource(R.string.accounts_sign_in_again).takeIf { !account.signedIn },
     ).joinToString(", ")
-    TileColumn(appearDelayMillis, leaving, direction, modifier) {
+    TileColumn(appearDelayMillis, leaving, direction) {
         Surface(
             onClick = onClick,
             interactionSource = interaction,
@@ -180,14 +186,15 @@ private fun ProfileTile(
                 focusedContainerColor = Tokens.Palette.surface2.copy(alpha = 0.85f),
             ),
             modifier = Modifier
-                .size(TileSize)
+                .size(LocalTileSize.current)
+                .then(if (focus != null) Modifier.focusOnStart(focus) else Modifier)
                 .onFocusChanged { if (it.isFocused) onFocused() }
                 .semantics { contentDescription = label },
         ) {
             Avatar(
                 account.avatarUrl,
                 seed = account.username,
-                size = TileSize - 18.dp,
+                size = LocalTileSize.current - 18.dp,
                 modifier = Modifier.align(Alignment.Center).sharedAvatar(account.id),
             )
         }
@@ -234,7 +241,7 @@ private fun AddTile(appearDelayMillis: Long, leaving: Float, onFocused: () -> Un
                 focusedContainerColor = Tokens.Palette.surface2.copy(alpha = 0.7f),
             ),
             modifier = Modifier
-                .size(TileSize)
+                .size(LocalTileSize.current)
                 .onFocusChanged { if (it.isFocused) onFocused() }
                 .semantics { contentDescription = label },
         ) {
@@ -270,7 +277,7 @@ private fun TileColumn(
     }
     Column(
         modifier
-            .width(TileSize + 28.dp)
+            .width(LocalTileSize.current + 28.dp)
             .graphicsLayer {
                 val shown = appear.value
                 alpha = shown * (1f - leaving)

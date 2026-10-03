@@ -51,11 +51,11 @@ import io.stepes.couchverse.design.text.problemMessage
 import io.stepes.couchverse.design.theme.Motion
 import io.stepes.couchverse.design.tv.TvActionButton
 import io.stepes.couchverse.design.tv.TvSafe
+import io.stepes.couchverse.design.tv.focusOnStart
 
 @Composable
 internal fun WelcomeTv(onAddServer: () -> Unit) {
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
     TvOnboardingPage {
         LogoMark(size = 88.dp)
         Text(
@@ -73,7 +73,7 @@ internal fun WelcomeTv(onAddServer: () -> Unit) {
             stringResource(R.string.servers_add),
             onClick = onAddServer,
             primary = true,
-            modifier = Modifier.padding(top = 16.dp).focusRequester(focus),
+            modifier = Modifier.padding(top = 16.dp).focusOnStart(focus),
         )
     }
 }
@@ -88,7 +88,6 @@ internal fun AddServerTv(view: ServersView?, onSubmit: (String) -> Unit, onBack:
     val failed = add?.status == LoadStatus.Failed
     val submit = { if (address.isNotBlank() && !loading) onSubmit(address.trim()) }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
     TvOnboardingPage {
         Text(
             stringResource(R.string.onboarding_add_server_title),
@@ -116,7 +115,7 @@ internal fun AddServerTv(view: ServersView?, onSubmit: (String) -> Unit, onBack:
                 platformImeOptions = PlatformImeOptions(TvKeyboardAlignment.Right),
             ),
             keyboardActions = KeyboardActions(onGo = { submit() }),
-            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            modifier = Modifier.fillMaxWidth().focusOnStart(focus),
         )
         if (failed) {
             Text(
