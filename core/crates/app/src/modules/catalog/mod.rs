@@ -29,6 +29,9 @@ use crate::modules::images::Images;
 
 /// How long a loaded surface counts as fresh: reopening it within this window does not refetch.
 const FRESH_MS: U53 = 60_000;
+/// The viewer's own state (continue watching, progress, My List) also changes on their other
+/// devices, so a visit to a screen showing it catches up sooner.
+const VISIT_MS: U53 = 10_000;
 /// Typing pauses this long before a search is sent.
 const SEARCH_DEBOUNCE_MS: U53 = 250;
 const MAX_TITLES: usize = 30;
@@ -123,11 +126,14 @@ impl<T> Slot<T> {
 
     /// Whether a shell opening the surface should load it now.
     fn wants(&self, now: U53, force: bool) -> bool {
-        (force || !self.fresh(now)) && !self.loading
+        self.wants_within(now, force, FRESH_MS)
     }
 
-    fn fresh(&self, now: U53) -> bool {
-        self.value.is_some() && self.fetched_at.is_some_and(|at| now.saturating_sub(at) < FRESH_MS)
+    /// Like `wants`, for a value that is out of date after `max_age`.
+    fn wants_within(&self, now: U53, force: bool, max_age: U53) -> bool {
+        let fresh = self.value.is_some()
+            && self.fetched_at.is_some_and(|at| now.saturating_sub(at) < max_age);
+        (force || !fresh) && !self.loading
     }
 
     fn loaded(&mut self, value: T, now: U53) {
@@ -369,12 +375,12 @@ impl Catalog {
         let now = ctx.now;
         let lang = Some(env.language.to_string());
         match surface {
-            Surface::Home if self.home.wants(now, force) => {
+            Surface::Home if self.home.wants_within(now, force, VISIT_MS) => {
                 self.home.loading = true;
                 let call = ops::get_home(&GetHomeQuery { lang });
                 self.http(ctx, env, &call.request.clone(), Request::Home(call));
             }
-            Surface::Title(slug) if self.titles.entry(slug).wants(now, force) => {
+            Surface::Title(slug) if self.titles.entry(slug).wants_within(now, force, VISIT_MS) => {
                 self.titles.entry(slug).loading = true;
                 let call = ops::get_title(slug, &GetTitleQuery { lang });
                 let request = call.request.clone();
@@ -389,7 +395,7 @@ impl Catalog {
                 let call = ops::list_genres(&ListGenresQuery { lang });
                 self.http(ctx, env, &call.request.clone(), Request::Genres(call));
             }
-            Surface::MyList if self.my_list.wants(now, force) => {
+            Surface::MyList if self.my_list.wants_within(now, force, VISIT_MS) => {
                 self.my_list.loading = true;
                 let call = ops::list_watchlist(&ListWatchlistQuery { lang });
                 self.http(ctx, env, &call.request.clone(), Request::MyList(call));

@@ -592,7 +592,8 @@ messages and perform the effects it asks for.
   `accounts` (password, pairing with polling and expiry, connect and pair links, approvals,
   devices, tokens), `session` (user, features, display language, accent; a 401 anywhere signs
   the account out but keeps it), `catalog` (stale-while-revalidate home, listings, titles,
-  genres, My List, search with debounce and supersede, warm-start home per account, deleted
+  genres and My List, fresh for 60 s, or 10 s for a visit to home, a title or My List, since
+  the viewer's progress and list change on their other devices; search with debounce and supersede, warm-start home per account, deleted
   when that account signs out, image URLs per role with the artwork grant; confirmed My List
   changes are numbered and folded into answers requested before them, so a slow refetch never
   undoes one), `ranks` (rank badge and level-ups, throttled achievement

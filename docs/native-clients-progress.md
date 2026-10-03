@@ -134,8 +134,8 @@ stage runs per platform. Signed APKs join once the Android app exists.
 - Fixed since they were found: sign-in errors are localized by code, a genre page is headed by
   its label (from the core), a couch follower that missed the end learns of it on reconnect,
   and a signed-out page asks for `/me/preferences` once.
-- Native clients refresh an open screen only past the core's 60 s freshness (the web sends
-  `RefreshRequested` on every visit); consider a visit policy in the core.
+- Also fixed: the core refreshes home, a title and My List on a visit after 10 s (listings
+  and genres after 60 s), so native clients catch up with changes made on other devices.
 
 ## Real-device checklist (for the user)
 

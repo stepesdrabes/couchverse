@@ -172,12 +172,13 @@ fn reopening_a_fresh_surface_does_not_refetch_but_a_stale_one_does() {
     shell.respond("GET", &format!("{API}/home?lang=en"), 200, home_payload());
     shell.send(Event::ScreenClosed(Surface::Home));
 
-    shell.now += 30_000;
+    shell.now += 5_000;
     open(&mut shell, Surface::Home);
     assert!(shell.find_request("GET", &format!("{API}/home?lang=en")).is_none());
 
+    // the viewer's own screens catch up with their other devices within seconds
     shell.send(Event::ScreenClosed(Surface::Home));
-    shell.now += 60_000;
+    shell.now += 10_000;
     open(&mut shell, Surface::Home);
     // stale beats blank: the old home stays while the new one loads
     assert_eq!(shell.view::<HomeView>(&Surface::Home).status, LoadStatus::Stale);
@@ -187,6 +188,23 @@ fn reopening_a_fresh_surface_does_not_refetch_but_a_stale_one_does() {
     // pull to refresh always reloads
     shell.send(Event::RefreshRequested(Surface::Home));
     shell.request("GET", &format!("{API}/home?lang=en"));
+}
+
+#[test]
+fn listings_stay_fresh_for_a_minute() {
+    let mut shell = signed_in();
+    let key = BrowseKey { kind: Some(TitleKind::Movie), genre: None, sort: BrowseSort::Name };
+    let url = format!("{API}/titles?lang=en&kind=movie&sort=name&page=1");
+    open(&mut shell, Surface::Browse(key.clone()));
+    shell.respond("GET", &url, 200, json!({ "items": [card_item("a", "movie")], "total": 1 }));
+    shell.send(Event::ScreenClosed(Surface::Browse(key.clone())));
+    shell.now += 30_000;
+    open(&mut shell, Surface::Browse(key.clone()));
+    assert!(shell.find_request("GET", &url).is_none());
+    shell.send(Event::ScreenClosed(Surface::Browse(key.clone())));
+    shell.now += 31_000;
+    open(&mut shell, Surface::Browse(key));
+    shell.request("GET", &url);
 }
 
 #[test]
