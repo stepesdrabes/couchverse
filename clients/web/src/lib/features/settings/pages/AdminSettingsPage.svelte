@@ -366,6 +366,7 @@
 							<label class="flex items-center gap-2 text-sm">
 								<Checkbox
 									checked={ladder.includes(rendition)}
+									label={rendition}
 									onCheckedChange={(on) => toggleRendition(rendition, on)}
 								/>
 								{rendition}
@@ -403,7 +404,7 @@
 							{m.settings_auto_prepare_hint()}
 						</span>
 					</span>
-					<Switch bind:checked={autoPrepare} />
+					<Switch bind:checked={autoPrepare} label={m.settings_auto_prepare_label()} />
 				</label>
 
 				<label
@@ -415,7 +416,7 @@
 							{m.settings_delete_original_hint()}
 						</span>
 					</span>
-					<Switch bind:checked={deleteSource} />
+					<Switch bind:checked={deleteSource} label={m.settings_delete_original_label()} />
 				</label>
 
 				<div>
@@ -455,7 +456,7 @@
 							{m.settings_couch_sessions_hint()}
 						</span>
 					</span>
-					<Switch bind:checked={couchEnabled} />
+					<Switch bind:checked={couchEnabled} label={m.settings_couch_sessions_label()} />
 				</label>
 
 				<label
@@ -467,7 +468,7 @@
 							{m.settings_rankings_hint()}
 						</span>
 					</span>
-					<Switch bind:checked={rankingsEnabled} />
+					<Switch bind:checked={rankingsEnabled} label={m.settings_rankings_label()} />
 				</label>
 
 				<label
@@ -479,7 +480,7 @@
 							{m.settings_downloads_hint()}
 						</span>
 					</span>
-					<Switch bind:checked={downloadsEnabled} />
+					<Switch bind:checked={downloadsEnabled} label={m.settings_downloads_label()} />
 				</label>
 
 				<div class="flex justify-end">

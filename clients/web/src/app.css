@@ -100,7 +100,7 @@ html[data-tv] * {
 	font-size: 0.6875rem;
 	font-weight: 600;
 	letter-spacing: 0.3em;
-	color: var(--color-accent);
+	color: var(--color-accent-ink);
 }
 
 @utility scrollbar-none {

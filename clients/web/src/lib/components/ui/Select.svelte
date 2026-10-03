@@ -52,7 +52,7 @@
 				>
 					{#snippet children({ selected })}
 						{item.label}
-						{#if selected}<Check class="size-3.5 text-accent" />{/if}
+						{#if selected}<Check class="size-3.5 text-accent-ink" />{/if}
 					{/snippet}
 				</Select.Item>
 			{/each}

@@ -68,7 +68,8 @@ public enum Fixtures {
         return SessionView(
             status: status, accountId: "\(serverId)/nora", user: hasUser ? user : nil,
             features: Features(couch: true, rankings: true, downloads: true), language: language,
-            accent: AccentPalette(accent: "#3a6ea5", strong: "#2d5681", soft: "#3a6ea529", onAccent: "#ffffff"),
+            accent: AccentPalette(
+                accent: "#3a6ea5", strong: "#2d5681", soft: "#3a6ea529", onAccent: "#ffffff", ink: "#5b87b4"),
             problem: status == .failed || status == .stale ? Problem(code: "offline", detail: "") : nil,
             offline: status == .failed || status == .stale)
     }

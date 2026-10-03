@@ -60,7 +60,7 @@
 		<a href="/" class="flex items-center gap-2.5">
 			<LogoMark class="size-10 rounded-lg" />
 			<span class="text-xl font-extrabold tracking-tight">
-				couch<span class="text-accent">verse</span>
+				couch<span class="text-accent-ink">verse</span>
 			</span>
 		</a>
 

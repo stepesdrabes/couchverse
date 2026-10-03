@@ -102,7 +102,9 @@ enum Payload {
     /// Routes the four loads of a freshly activated session plus the avatar grant.
     static func routeSession(_ http: FakeHTTP, base: String, user: String) {
         http.route("GET", "\(base)/api/v1/auth/me", user)
-        http.route("GET", "\(base)/api/v1/features", #"{"couchEnabled":true,"rankingsEnabled":false,"downloadsEnabled":true}"#)
+        http.route(
+            "GET", "\(base)/api/v1/features",
+            #"{"couchEnabled":true,"rankingsEnabled":false,"downloadsEnabled":true}"#)
         http.route("GET", "\(base)/api/v1/me/preferences", #"{"language":"cs"}"#)
         http.route("GET", "\(base)/api/v1/server", server)
         http.route("GET", "\(base)/api/v1/me/artwork-grant", #"{"grant":"g-1","expiresIn":604800}"#)

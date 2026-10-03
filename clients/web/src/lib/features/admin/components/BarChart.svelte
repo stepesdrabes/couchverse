@@ -13,10 +13,13 @@
 <script lang="ts">
 	let {
 		bars,
+		label,
 		format = (v: number) => String(v),
 		class: className = ''
 	}: {
 		bars: Bar[];
+		/** what the chart shows, for screen readers */
+		label: string;
 		format?: (v: number) => string;
 		class?: string;
 	} = $props();
@@ -48,7 +51,13 @@
 </script>
 
 <div class="relative {className}">
-	<svg viewBox="0 0 {W} {H}" preserveAspectRatio="none" class="size-full" role="img">
+	<svg
+		viewBox="0 0 {W} {H}"
+		preserveAspectRatio="none"
+		class="size-full"
+		role="img"
+		aria-label={label}
+	>
 		{#each rects as bar, i (i)}
 			{#each bar as rect, j (j)}
 				{#if rect.h > 0}

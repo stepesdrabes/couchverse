@@ -24,10 +24,11 @@ object Tokens {
         val edge = Color(0xFF262A38)
         val text = Color(0xFFF2F4F8)
         val muted = Color(0xFF8E93A6)
-        val faint = Color(0xFF5B6072)
+        val faint = Color(0xFF7E8396)
         val accent = Color(0xFFE50914)
         val accentStrong = Color(0xFFB80710)
         val accentSoft = Color(0xFF3A1216)
+        val accentInk = Color(0xFFEC474F)
         val onAccent = Color(0xFFFFFFFF)
         val success = Color(0xFF34D399)
         val danger = Color(0xFFF0635C)
@@ -41,6 +42,7 @@ object Tokens {
         val onAccentLight = Color(0xFFFFFFFF)
         val onAccentDark = Color(0xFF0B0C10)
         const val luminanceThreshold = 0.42f
+        const val inkContrast = 4.5f
     }
 
     object Radius {

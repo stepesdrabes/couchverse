@@ -36,7 +36,7 @@
 		<li>
 			<div class="flex items-baseline justify-between gap-3">
 				{#if item.href}
-					<a href={item.href} class="truncate font-medium transition-colors hover:text-accent">
+					<a href={item.href} class="truncate font-medium transition-colors hover:text-accent-ink">
 						{item.label}
 					</a>
 				{:else}

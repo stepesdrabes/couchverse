@@ -19,6 +19,9 @@ pub struct AccentPalette {
     pub soft: String,
     /// Readable text on top of `accent` (near-white or near-black).
     pub on_accent: String,
+    /// The accent as text on the app's surfaces: lightened just enough to reach the
+    /// `inkContrast` ratio (WCAG AA) on the lightest of them.
+    pub ink: String,
 }
 
 #[derive(Deserialize)]
@@ -29,6 +32,7 @@ struct AccentTokens {
     on_accent_light: String,
     on_accent_dark: String,
     luminance_threshold: f64,
+    ink_contrast: f64,
 }
 
 #[derive(Deserialize)]
@@ -40,6 +44,8 @@ struct Tokens {
 #[derive(Deserialize)]
 struct Colors {
     accent: String,
+    #[serde(rename = "surface-2")]
+    surface_2: String,
 }
 
 fn tokens() -> &'static Tokens {
@@ -70,7 +76,24 @@ pub fn palette(hex: &str) -> AccentPalette {
         } else {
             t.on_accent_light.clone()
         },
+        ink: to_hex(ink(rgb, t.ink_contrast)),
     }
+}
+
+/// The least lightening (in steps of 1%) that gives `rgb` the contrast `ratio` on the
+/// lightest surface; white when nothing short of it does.
+fn ink(rgb: [u8; 3], ratio: f64) -> [u8; 3] {
+    let surface = parse_hex(&tokens().color.surface_2).expect("surface-2 parses");
+    (0..=100)
+        .map(|step| shade(rgb, f64::from(step) / 100.0))
+        .find(|c| contrast(*c, surface) >= ratio)
+        .unwrap_or([255, 255, 255])
+}
+
+/// The WCAG contrast ratio between two colours (1 to 21).
+fn contrast(a: [u8; 3], b: [u8; 3]) -> f64 {
+    let (la, lb) = (luminance(a), luminance(b));
+    (la.max(lb) + 0.05) / (la.min(lb) + 0.05)
 }
 
 fn parse_hex(hex: &str) -> Option<[u8; 3]> {
@@ -125,6 +148,16 @@ mod tests {
         assert_eq!(p.strong, "#b30710");
         assert_eq!(p.soft, "#e5091429");
         assert_eq!(p.on_accent, "#ffffff");
+    }
+
+    #[test]
+    fn ink_reads_on_every_surface() {
+        // the default accent's ink is the token every client starts with
+        assert_eq!(palette("#e50914").ink, "#ec474f");
+        assert_eq!(palette(default_accent()).ink, "#ec474f");
+        assert_eq!(palette("#3a6ea5").ink, "#5b87b4");
+        // light enough already: unchanged
+        assert_eq!(palette("#facc15").ink, "#facc15");
     }
 
     #[test]

@@ -114,7 +114,7 @@
 			<span>{m.profiles_private_self_notice()}</span>
 			<a
 				href="/profile?tab=privacy"
-				class="ml-auto shrink-0 font-semibold text-accent hover:underline"
+				class="ml-auto shrink-0 font-semibold text-accent-ink hover:underline"
 			>
 				{m.profiles_make_public()}
 			</a>

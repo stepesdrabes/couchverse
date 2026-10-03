@@ -25,7 +25,7 @@
 		<Artwork src={art?.url} name={card.name} />
 	</div>
 	<p
-		class="mt-2 truncate text-sm font-semibold transition-colors group-hover:text-accent group-focus-visible:text-accent"
+		class="mt-2 truncate text-sm font-semibold transition-colors group-hover:text-accent-ink group-focus-visible:text-accent-ink"
 	>
 		{card.name}
 	</p>

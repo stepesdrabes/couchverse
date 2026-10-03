@@ -8,6 +8,11 @@ export interface AccentPalette {
 	soft: string;
 	/** Readable text on top of `accent` (near-white or near-black). */
 	onAccent: string;
+	/**
+	 * The accent as text on the app's surfaces: lightened just enough to reach the
+	 * `inkContrast` ratio (WCAG AA) on the lightest of them.
+	 */
+	ink: string;
 }
 
 export interface AccountCard {

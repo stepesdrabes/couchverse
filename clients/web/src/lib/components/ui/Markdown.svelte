@@ -64,7 +64,7 @@
 		}
 
 		:global(a) {
-			color: var(--color-accent);
+			color: var(--color-accent-ink);
 			text-decoration: underline;
 			text-underline-offset: 2px;
 		}

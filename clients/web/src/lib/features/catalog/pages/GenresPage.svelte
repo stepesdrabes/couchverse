@@ -47,7 +47,7 @@
 							)} 40% 16%), var(--color-surface))"
 						>
 							<span
-								class="text-lg font-bold transition-colors group-hover:text-accent group-focus-visible:text-accent"
+								class="text-lg font-bold transition-colors group-hover:text-accent-ink group-focus-visible:text-accent-ink"
 							>
 								{genre.label}
 							</span>

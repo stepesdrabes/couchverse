@@ -191,7 +191,7 @@
 					<h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-muted">
 						{m.library_file()}
 						{#if jobActive}
-							<span class="flex items-center gap-1.5 text-xs font-medium text-accent">
+							<span class="flex items-center gap-1.5 text-xs font-medium text-accent-ink">
 								<Loader2 class="size-3.5 animate-spin" />
 								{m.library_processing()}
 							</span>

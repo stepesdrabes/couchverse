@@ -47,7 +47,7 @@
 		}}
 		onclick={() => fileInput?.click()}
 	>
-		<UploadCloud class="size-5 text-accent" />
+		<UploadCloud class="size-5 text-accent-ink" />
 		<span class="text-xs font-semibold">{m.uploads_drop_files()}</span>
 		<span class="text-[11px] text-faint">{hint}</span>
 	</button>

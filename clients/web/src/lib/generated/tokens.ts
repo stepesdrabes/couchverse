@@ -20,12 +20,32 @@ export const medals = {
 	platinum: { from: '#a8f0e4', to: '#7fb3ff', ring: '#c9f4ff', glow: '#a8f0e473' },
 } as const;
 
+export const colors = {
+	'bg': '#07080d',
+	'surface': '#11131c',
+	'surface-2': '#191c27',
+	'edge': '#262a38',
+	'text': '#f2f4f8',
+	'muted': '#8e93a6',
+	'faint': '#7e8396',
+	'accent': '#e50914',
+	'accent-strong': '#b80710',
+	'accent-soft': '#3a1216',
+	'accent-ink': '#ec474f',
+	'on-accent': '#ffffff',
+	'success': '#34d399',
+	'danger': '#f0635c',
+	'glow-violet': '#8b7cf0',
+	'glow-teal': '#3dd6c4',
+} as const;
+
 export const accent = {
 	strongShade: -0.22,
 	softAlpha: 0.16,
 	onAccentLight: '#ffffff',
 	onAccentDark: '#0b0c10',
 	luminanceThreshold: 0.42,
+	inkContrast: 4.5,
 } as const;
 
 export const heroIntervalMs = 8000;

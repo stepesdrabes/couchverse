@@ -28,10 +28,13 @@
 </svelte:head>
 
 <div class="mx-auto max-w-[1700px] px-6 pt-24 pb-16 lg:px-12">
+	<h1 class="sr-only">{m.nav_search()}</h1>
 	<div class="relative mx-auto mb-10 max-w-xl">
 		<Search class="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-faint" />
 		<!-- svelte-ignore a11y_autofocus -->
 		<input
+			type="search"
+			aria-label={m.nav_search()}
 			bind:value={query}
 			oninput={() => catalog.searchFor(query)}
 			autofocus

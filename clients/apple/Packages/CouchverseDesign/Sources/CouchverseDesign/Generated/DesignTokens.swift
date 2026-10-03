@@ -29,10 +29,11 @@ public enum Tokens {
         public static let edge = Color(hex: 0x262A38)
         public static let text = Color(hex: 0xF2F4F8)
         public static let muted = Color(hex: 0x8E93A6)
-        public static let faint = Color(hex: 0x5B6072)
+        public static let faint = Color(hex: 0x7E8396)
         public static let accent = Color(hex: 0xE50914)
         public static let accentStrong = Color(hex: 0xB80710)
         public static let accentSoft = Color(hex: 0x3A1216)
+        public static let accentInk = Color(hex: 0xEC474F)
         public static let onAccent = Color(hex: 0xFFFFFF)
         public static let success = Color(hex: 0x34D399)
         public static let danger = Color(hex: 0xF0635C)
@@ -46,6 +47,7 @@ public enum Tokens {
         public static let onAccentLight = Color(hex: 0xFFFFFF)
         public static let onAccentDark = Color(hex: 0x0B0C10)
         public static let luminanceThreshold: Double = 0.42
+        public static let inkContrast: Double = 4.5
     }
 
     public enum Radius {

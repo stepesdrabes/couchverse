@@ -40,7 +40,7 @@
 			{#if total > 0}<span class="text-xs text-faint tnum">{formatBytes(total)}</span>{/if}
 		</div>
 		{#if data.items.length > 0}
-			<BarChart {bars} format={formatBytes} class="h-32" />
+			<BarChart {bars} label={m.library_storage()} format={formatBytes} class="h-32" />
 			<div class="mt-3 flex flex-wrap gap-4 text-xs">
 				<span class="flex items-center gap-1.5 text-muted">
 					<span class="size-2 rounded-full" style="background: {sourceColor}"></span>

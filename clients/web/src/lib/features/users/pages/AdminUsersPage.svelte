@@ -157,7 +157,7 @@
 					</td>
 					<td class="py-3 pr-4">
 						{#if user.role === 'admin'}
-							<span class="inline-flex items-center gap-1 text-xs font-semibold text-accent">
+							<span class="inline-flex items-center gap-1 text-xs font-semibold text-accent-ink">
 								<ShieldCheck class="size-3.5" />
 								{m.users_role_admin()}
 							</span>
@@ -239,7 +239,7 @@
 		/>
 		<label class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5">
 			<span class="text-sm">{m.users_status_disabled()}</span>
-			<Switch bind:checked={editDisabled} />
+			<Switch bind:checked={editDisabled} label={m.users_status_disabled()} />
 		</label>
 		<div class="flex justify-end pt-2">
 			<Button type="submit" loading={busy} disabled={!editForm.dirty}>{m.common_save()}</Button>

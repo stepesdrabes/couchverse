@@ -48,7 +48,7 @@
 	class="relative inline-flex shrink-0 items-center justify-center {SIZES[size]}"
 	style="--tier-from: {metal.from}; --tier-to: {metal.to};
 		--tier-ring: {metal.ring}; --tier-glow: {metal.glow}"
-	aria-label={onselect ? ariaLabel : undefined}
+	aria-label={ariaLabel}
 	role={onselect ? undefined : 'img'}
 	onclick={onselect ? () => onselect(achievement) : undefined}
 >

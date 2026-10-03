@@ -54,6 +54,6 @@
 	</div>
 {:else}
 	<div class="flex h-dvh w-full items-center justify-center bg-black" transition:fade>
-		<Loader class="size-7 animate-spin text-accent" />
+		<Loader class="size-7 animate-spin text-accent-ink" />
 	</div>
 {/if}

@@ -3,9 +3,12 @@
 
 	let {
 		checked = $bindable(false),
+		label,
 		onCheckedChange
 	}: {
 		checked?: boolean;
+		/** what it turns on, for screen readers: the control has no text of its own */
+		label: string;
 		onCheckedChange?: (checked: boolean) => void;
 	} = $props();
 </script>
@@ -13,6 +16,7 @@
 <Switch.Root
 	bind:checked
 	{onCheckedChange}
+	aria-label={label}
 	class="inline-flex h-5.5 w-9.5 shrink-0 items-center rounded-full border border-edge px-0.5
 		transition-colors data-[state=checked]:bg-accent data-[state=unchecked]:bg-surface"
 >

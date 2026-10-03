@@ -39,7 +39,7 @@
 	<a href="/admin" class="flex items-center gap-2.5 px-6 pt-6 pb-4">
 		<LogoMark class="size-8 rounded-md" />
 		<span class="text-lg font-extrabold tracking-tight">
-			couch<span class="text-accent">verse</span>
+			couch<span class="text-accent-ink">verse</span>
 		</span>
 	</a>
 

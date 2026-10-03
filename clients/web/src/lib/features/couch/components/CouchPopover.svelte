@@ -75,7 +75,8 @@
 			{:else}
 				<p class="eyebrow mb-1.5 px-1">{m.couch_share_label()}</p>
 				<div class="mb-2 rounded-input border border-edge bg-surface py-2 text-center">
-					<span class="text-2xl font-bold tracking-[0.3em] text-accent tnum">{couch.shareCode}</span
+					<span class="text-2xl font-bold tracking-[0.3em] text-accent-ink tnum"
+						>{couch.shareCode}</span
 					>
 				</div>
 				<div class="flex gap-1.5">
@@ -108,7 +109,7 @@
 							<span class="min-w-0 flex-1 truncate text-xs">{p.displayName}</span>
 							{#if p.isHost}
 								<span
-									class="rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent"
+									class="rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink"
 								>
 									{m.couch_host_badge()}
 								</span>

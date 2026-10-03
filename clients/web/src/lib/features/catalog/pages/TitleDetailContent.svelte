@@ -203,7 +203,7 @@
 									<div class="flex items-baseline gap-2">
 										<span class="shrink-0 text-sm font-semibold text-faint tnum">{ep.number}</span>
 										<p
-											class="truncate text-sm font-semibold group-hover:text-accent group-focus-visible:text-accent"
+											class="truncate text-sm font-semibold group-hover:text-accent-ink group-focus-visible:text-accent-ink"
 										>
 											{name}
 										</p>

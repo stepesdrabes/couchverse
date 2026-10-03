@@ -91,7 +91,7 @@
 				animate:flip={{ duration: 200 }}
 				class="flex items-center gap-3 rounded-input border border-edge/60 bg-surface px-3 py-2"
 			>
-				<Switch bind:checked={row.enabled} />
+				<Switch bind:checked={row.enabled} label={m.settings_home_row_show({ row: row.label })} />
 				<div class="min-w-0 flex-1">
 					{#if row.kind === 'genre'}
 						<div class="flex items-center gap-2">
@@ -107,6 +107,7 @@
 					{:else}
 						<input
 							bind:value={row.label}
+							aria-label={m.settings_home_row_name()}
 							class="w-full rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-sm
 								focus:border-edge focus:outline-none"
 						/>

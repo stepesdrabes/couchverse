@@ -200,7 +200,11 @@
 					<span class="block text-sm">{m.profiles_public_label()}</span>
 					<span class="block text-[11px] text-faint">{m.profiles_public_hint()}</span>
 				</span>
-				<Switch bind:checked={publicProfile} onCheckedChange={savePrivacy} />
+				<Switch
+					bind:checked={publicProfile}
+					label={m.profiles_public_label()}
+					onCheckedChange={savePrivacy}
+				/>
 			</label>
 		{/if}
 	</form>

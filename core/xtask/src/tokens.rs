@@ -118,6 +118,13 @@ fn typescript(t: &Tokens) -> Result<String, String> {
     record(&mut s, "tiers", &t.group(&["tier"])?)?;
     record(&mut s, "medals", &t.group(&["medal"])?)?;
 
+    // for colour maths at runtime (the accent ink); styles use the CSS variables
+    s.push_str("\nexport const colors = {\n");
+    for (name, value) in t.group(&["color"])? {
+        let _ = writeln!(s, "\t'{name}': '{}',", text(value, name)?);
+    }
+    s.push_str("} as const;\n");
+
     s.push_str("\nexport const accent = {\n");
     for (key, value) in t.group(&["accent"])? {
         match value {

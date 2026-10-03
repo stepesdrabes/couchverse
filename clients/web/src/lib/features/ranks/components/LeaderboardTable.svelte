@@ -64,7 +64,7 @@
 							<div class="min-w-0">
 								<a
 									href="/u/{row.username}"
-									class="block truncate font-medium transition-colors hover:text-accent"
+									class="block truncate font-medium transition-colors hover:text-accent-ink"
 								>
 									{row.displayName}
 									{#if row.isSelf}

@@ -171,7 +171,7 @@
 						<span
 							class="flex size-11 shrink-0 items-center justify-center rounded-xl border
 								{device.current
-								? 'border-accent/40 bg-accent/10 text-accent'
+								? 'border-accent/40 bg-accent/10 text-accent-ink'
 								: 'border-edge bg-surface-2 text-muted'}"
 						>
 							<Icon class="size-5" />
@@ -183,7 +183,7 @@
 								{#if device.current}
 									<span
 										class="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-semibold
-											text-accent"
+											text-accent-ink"
 									>
 										{m.devices_this_browser()}
 									</span>

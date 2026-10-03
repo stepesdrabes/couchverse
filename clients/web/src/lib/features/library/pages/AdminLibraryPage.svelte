@@ -238,6 +238,7 @@
 				<th class="w-12 px-4 py-3">
 					<Checkbox
 						checked={items.length > 0 && selected.size === items.length}
+						label={m.library_select_all()}
 						onCheckedChange={toggleAll}
 					/>
 				</th>
@@ -279,7 +280,11 @@
 					{selected.has(row.id) ? 'bg-accent-soft/30' : 'hover:bg-surface-2/40'}"
 				>
 					<td class="px-4 py-3">
-						<Checkbox checked={selected.has(row.id)} onCheckedChange={(on) => toggle(row.id, on)} />
+						<Checkbox
+							checked={selected.has(row.id)}
+							label={m.library_select_title({ title: row.name })}
+							onCheckedChange={(on) => toggle(row.id, on)}
+						/>
 					</td>
 					<td class="py-3 pr-4">
 						<a href="/admin/library/{row.id}" class="group flex items-center gap-3">
@@ -287,7 +292,7 @@
 								<Artwork artworkId={row.backdropId ?? row.posterId} name={row.name} />
 							</span>
 							<span class="min-w-0">
-								<span class="block truncate font-semibold group-hover:text-accent">
+								<span class="block truncate font-semibold group-hover:text-accent-ink">
 									{row.name}
 								</span>
 								<span class="block text-xs text-faint">{subtitle(row)}</span>
@@ -399,7 +404,7 @@
 		class="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-full
 			border border-edge bg-surface-2/95 px-2 py-1.5 shadow-2xl shadow-black/50 backdrop-blur"
 	>
-		<span class="px-3 text-xs font-semibold text-accent tnum"
+		<span class="px-3 text-xs font-semibold text-accent-ink tnum"
 			>{m.library_selected_count({ count: selected.size })}</span
 		>
 		<span class="h-5 w-px bg-edge"></span>

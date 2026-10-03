@@ -155,7 +155,7 @@
 		<div class="flex items-center gap-2.5">
 			<h2 class="text-sm font-semibold text-muted">{m.library_seasons_episodes()}</h2>
 			{#if importing}
-				<span class="flex items-center gap-1.5 text-xs font-medium text-accent">
+				<span class="flex items-center gap-1.5 text-xs font-medium text-accent-ink">
 					<Loader2 class="size-3.5 animate-spin" />
 					{m.library_importing_from_tmdb()}
 				</span>

@@ -44,7 +44,7 @@
 
 	const statusColor: Record<TranscodeVariant['status'], string> = {
 		queued: 'text-muted',
-		processing: 'text-accent',
+		processing: 'text-accent-ink',
 		ready: 'text-success',
 		failed: 'text-danger'
 	};
@@ -74,7 +74,7 @@
 			</ul>
 		{/if}
 		<button
-			class="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
+			class="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-accent-ink hover:underline"
 			onclick={prepare}
 		>
 			<Clapperboard class="size-3" />

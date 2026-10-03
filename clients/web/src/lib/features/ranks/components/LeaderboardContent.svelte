@@ -46,7 +46,7 @@
 		<span>{m.leaderboard_hidden_notice()}</span>
 		<a
 			href="/profile?tab=privacy"
-			class="ml-auto shrink-0 font-semibold text-accent hover:underline"
+			class="ml-auto shrink-0 font-semibold text-accent-ink hover:underline"
 		>
 			{m.leaderboard_hidden_action()}
 		</a>
@@ -75,7 +75,7 @@
 		class="sticky bottom-4 z-10 mt-4 flex items-center gap-3 rounded-card border border-accent/50
 			bg-surface-2/90 px-4 py-2.5 shadow-xl shadow-black/40 backdrop-blur"
 	>
-		<span class="w-6 shrink-0 text-center text-sm font-bold text-accent tnum">
+		<span class="w-6 shrink-0 text-center text-sm font-bold text-accent-ink tnum">
 			{board.hidden ? '-' : `#${myPosition}`}
 		</span>
 		<UserAvatar

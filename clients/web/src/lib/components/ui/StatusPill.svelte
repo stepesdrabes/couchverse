@@ -6,7 +6,11 @@
 
 	const styles: Record<ContentStatus, { dot: string; text: string; label: () => string }> = {
 		published: { dot: 'bg-success', text: 'text-success', label: m.common_published },
-		processing: { dot: 'bg-accent animate-pulse', text: 'text-accent', label: m.common_processing },
+		processing: {
+			dot: 'bg-accent animate-pulse',
+			text: 'text-accent-ink',
+			label: m.common_processing
+		},
 		draft: { dot: 'bg-faint', text: 'text-muted', label: m.common_draft },
 		hidden: { dot: 'bg-faint', text: 'text-faint', label: m.common_hidden }
 	};

@@ -48,7 +48,7 @@
 			/>
 		</label>
 		<button
-			class="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-accent hover:underline"
+			class="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-accent-ink hover:underline"
 			onclick={() => fileInput?.click()}
 		>
 			<Plus class="size-3" />

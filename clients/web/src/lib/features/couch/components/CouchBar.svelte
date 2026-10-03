@@ -31,7 +31,7 @@
 		<EmojiReactionButton
 			{portalTo}
 			triggerClass="flex size-11 items-center justify-center rounded-full border border-edge
-				bg-surface-2/90 text-text shadow-lg backdrop-blur transition-colors hover:bg-surface-2 hover:text-accent"
+				bg-surface-2/90 text-text shadow-lg backdrop-blur transition-colors hover:bg-surface-2 hover:text-accent-ink"
 		/>
 	</div>
 </div>

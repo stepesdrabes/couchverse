@@ -111,7 +111,15 @@
 		</div>
 	</div>
 
-	<div bind:this={scroller} class="relative overflow-x-auto scrollbar-none">
+	<!-- focusable so a keyboard can scroll a year that does not fit -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<div
+		bind:this={scroller}
+		class="relative overflow-x-auto scrollbar-none focus-visible:outline-2 focus-visible:outline-accent"
+		tabindex="0"
+		role="region"
+		aria-label={summary}
+	>
 		<div class="relative h-4" style="width: {columns * PITCH}px">
 			{#each monthLabels as label (label.col)}
 				<span class="absolute text-[10px] text-faint" style="left: {label.col * PITCH}px">

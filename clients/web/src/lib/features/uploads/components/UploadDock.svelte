@@ -85,7 +85,7 @@
 			shadow-2xl shadow-black/50 backdrop-blur"
 	>
 		<div class="flex items-center gap-2.5 px-3.5 py-3">
-			<UploadCloud class="size-5 shrink-0 {activeCount > 0 ? 'text-accent' : 'text-muted'}" />
+			<UploadCloud class="size-5 shrink-0 {activeCount > 0 ? 'text-accent-ink' : 'text-muted'}" />
 			<div class="min-w-0 flex-1">
 				<p class="truncate text-sm font-semibold">{header}</p>
 				{#if activeCount > 0 && aggregateSpeed > 0}

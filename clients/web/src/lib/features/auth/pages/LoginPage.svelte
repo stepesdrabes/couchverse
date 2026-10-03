@@ -61,7 +61,7 @@
 		<div class="mb-8 flex flex-col items-center text-center">
 			<LogoMark class="mb-5 size-16 rounded-2xl shadow-xl shadow-accent/25" />
 			<h1 class="text-3xl font-extrabold tracking-tight">
-				couch<span class="text-accent">verse</span>
+				couch<span class="text-accent-ink">verse</span>
 			</h1>
 			<p class="mt-2 text-sm text-muted">
 				{pairing ? m.login_subtitle_pair() : m.login_subtitle()}

@@ -1178,14 +1178,14 @@
 														>E{ep.episodeNumber}</span
 													>
 													{#if current}
-														<span class="text-[10px] font-semibold text-accent"
+														<span class="text-[10px] font-semibold text-accent-ink"
 															>{m.player_now_playing()}</span
 														>
 													{/if}
 												</div>
 												<p
 													class="mt-0.5 line-clamp-2 text-xs font-medium
-														{current ? 'text-text' : 'text-muted'} group-hover:text-accent"
+														{current ? 'text-text' : 'text-muted'} group-hover:text-accent-ink"
 												>
 													{ep.name || m.player_episode_number({ number: ep.episodeNumber })}
 												</p>
@@ -1225,7 +1225,7 @@
 										onclick={() => selectQuality(opt.key)}
 									>
 										{opt.label}
-										{#if quality === opt.key}<Check class="size-3.5 text-accent" />{/if}
+										{#if quality === opt.key}<Check class="size-3.5 text-accent-ink" />{/if}
 									</button>
 								{/each}
 							</Popover.Content>
@@ -1260,7 +1260,7 @@
 										onclick={() => selectAudio(track)}
 									>
 										{track.label}
-										{#if activeAudioId === track.id}<Check class="size-3.5 text-accent" />{/if}
+										{#if activeAudioId === track.id}<Check class="size-3.5 text-accent-ink" />{/if}
 									</button>
 								{/each}
 							</Popover.Content>
@@ -1271,7 +1271,7 @@
 				{#if info.subtitles.length > 0}
 					<Popover.Root>
 						<Popover.Trigger
-							class="player-btn {activeSub !== null ? 'text-accent!' : ''}"
+							class="player-btn {activeSub !== null ? 'text-accent-ink!' : ''}"
 							aria-label={m.player_subtitles()}
 							title={m.player_subtitles()}
 						>
@@ -1294,7 +1294,7 @@
 									onclick={() => selectSubtitle(null)}
 								>
 									{m.player_subtitle_off()}
-									{#if activeSub === null}<Check class="size-3.5 text-accent" />{/if}
+									{#if activeSub === null}<Check class="size-3.5 text-accent-ink" />{/if}
 								</button>
 								{#each info.subtitles as sub (sub.id)}
 									<button
@@ -1303,7 +1303,7 @@
 										onclick={() => selectSubtitle(sub.id)}
 									>
 										{sub.label}
-										{#if activeSub === sub.id}<Check class="size-3.5 text-accent" />{/if}
+										{#if activeSub === sub.id}<Check class="size-3.5 text-accent-ink" />{/if}
 									</button>
 								{/each}
 
@@ -1395,7 +1395,7 @@
 						{#snippet trigger(props)}
 							<button
 								{...props}
-								class="player-btn {pipActive ? 'text-accent!' : ''}"
+								class="player-btn {pipActive ? 'text-accent-ink!' : ''}"
 								onclick={togglePip}
 								aria-label={m.player_picture_in_picture()}
 							>

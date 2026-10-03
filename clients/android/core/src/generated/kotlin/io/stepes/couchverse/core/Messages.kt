@@ -13,7 +13,10 @@ data class AccentPalette (
 	/// A translucent tint for backgrounds.
 	val soft: String,
 	/// Readable text on top of `accent` (near-white or near-black).
-	val onAccent: String
+	val onAccent: String,
+	/// The accent as text on the app's surfaces: lightened just enough to reach the
+	/// `inkContrast` ratio (WCAG AA) on the lightest of them.
+	val ink: String
 )
 
 @Serializable

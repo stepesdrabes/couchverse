@@ -29,7 +29,7 @@ extension PairingApprovalView {
 extension AccentPalette {
     /// The design tokens' default red, as the core derives it.
     public static let fallback = AccentPalette(
-        accent: "#e50914", strong: "#b30710", soft: "#e5091429", onAccent: "#ffffff")
+        accent: "#e50914", strong: "#b30710", soft: "#e5091429", onAccent: "#ffffff", ink: "#ec474f")
 }
 
 extension SessionView {

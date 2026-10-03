@@ -121,7 +121,7 @@
 
 	const statusColor: Record<string, string> = {
 		pending: 'text-muted',
-		running: 'text-accent',
+		running: 'text-accent-ink',
 		done: 'text-success',
 		failed: 'text-danger',
 		cancelled: 'text-faint'
@@ -216,7 +216,7 @@
 			<div class="rounded-card border border-edge bg-surface/40 p-5">
 				<div class="mb-3 flex items-start justify-between">
 					<span class="flex items-center gap-2 text-sm font-medium text-muted">
-						<Cpu class="size-4 text-accent" />
+						<Cpu class="size-4 text-accent-ink" />
 						{m.admin_cpu()}
 					</span>
 					{#if system.cpuPercent >= 0}
@@ -261,7 +261,7 @@
 			<div class="rounded-card border border-edge bg-surface/40 p-5">
 				<div class="mb-3 flex items-start justify-between">
 					<span class="flex items-center gap-2 text-sm font-medium text-muted">
-						<MemoryStick class="size-4 text-accent" />
+						<MemoryStick class="size-4 text-accent-ink" />
 						{m.admin_memory()}
 					</span>
 					{#if system.memTotal > 0}
@@ -388,7 +388,7 @@
 					<div class="mb-2 flex items-center justify-between text-[11px] text-faint">
 						<span>{m.admin_quality_mix()}</span>
 						{#if lib.hdr > 0}
-							<span class="rounded bg-accent-soft px-1.5 py-0.5 font-semibold text-accent">
+							<span class="rounded bg-accent-soft px-1.5 py-0.5 font-semibold text-accent-ink">
 								{m.admin_hdr({ count: lib.hdr })}
 							</span>
 						{/if}
@@ -428,7 +428,12 @@
 						>{m.admin_total_value({ value: formatUptime(watchTotal) })}</span
 					>
 				</div>
-				<BarChart bars={watchBars} format={formatUptime} class="h-36 w-full" />
+				<BarChart
+					bars={watchBars}
+					label={m.admin_watch_time()}
+					format={formatUptime}
+					class="h-36 w-full"
+				/>
 				<div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 text-[11px]">
 					<span class="flex items-center gap-1.5 text-muted">
 						<span class="size-2 rounded-full bg-accent"></span>
@@ -530,7 +535,7 @@
 		<div class="rounded-card border border-edge bg-surface/40 p-6">
 			<div class="mb-3 flex items-baseline justify-between">
 				<h2 class="text-sm font-semibold text-muted">{m.admin_activity()}</h2>
-				<a href="/admin/jobs" class="text-xs text-accent hover:underline">
+				<a href="/admin/jobs" class="text-xs text-accent-ink hover:underline">
 					{m.admin_jobs_in_queue({ count: overview.pendingJobs })}
 				</a>
 			</div>

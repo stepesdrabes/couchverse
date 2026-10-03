@@ -10,12 +10,16 @@ public struct AccentPalette: Codable, Sendable, Hashable {
 	public let soft: String
 	/// Readable text on top of `accent` (near-white or near-black).
 	public let onAccent: String
+	/// The accent as text on the app's surfaces: lightened just enough to reach the
+	/// `inkContrast` ratio (WCAG AA) on the lightest of them.
+	public let ink: String
 
-	public init(accent: String, strong: String, soft: String, onAccent: String) {
+	public init(accent: String, strong: String, soft: String, onAccent: String, ink: String) {
 		self.accent = accent
 		self.strong = strong
 		self.soft = soft
 		self.onAccent = onAccent
+		self.ink = ink
 	}
 }
 

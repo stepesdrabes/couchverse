@@ -74,7 +74,7 @@
 	</div>
 {:else if !resolved || !info}
 	<div class="flex min-h-dvh items-center justify-center">
-		<Loader class="size-7 animate-spin text-accent" />
+		<Loader class="size-7 animate-spin text-accent-ink" />
 	</div>
 {:else if info.mode === 'direct' || info.mode === 'hls'}
 	{#key data.id}
@@ -87,7 +87,7 @@
 	{/key}
 {:else if info.mode === 'preparing'}
 	<div class="flex min-h-dvh flex-col items-center justify-center gap-5 px-6 text-center">
-		<Loader class="size-7 animate-spin text-accent" />
+		<Loader class="size-7 animate-spin text-accent-ink" />
 		<h1 class="text-xl font-bold">{m.player_preparing_title()}</h1>
 		<p class="max-w-md text-sm text-muted">
 			{m.player_preparing_description()}

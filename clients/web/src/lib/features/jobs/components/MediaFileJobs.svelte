@@ -15,7 +15,7 @@
 
 	const statusColor: Record<AdminJobStatus, string> = {
 		pending: 'text-muted',
-		running: 'text-accent',
+		running: 'text-accent-ink',
 		done: 'text-success',
 		failed: 'text-danger',
 		cancelled: 'text-faint'

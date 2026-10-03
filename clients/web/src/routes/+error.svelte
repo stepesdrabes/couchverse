@@ -21,7 +21,7 @@
 			-translate-y-1/2 rounded-full bg-accent/15 blur-[120px]"
 	></div>
 
-	<p class="text-[7rem] leading-none font-black text-accent tnum sm:text-[10rem]">{status}</p>
+	<p class="text-[7rem] leading-none font-black text-accent-ink tnum sm:text-[10rem]">{status}</p>
 	<h1 class="mt-1 text-xl font-bold">{heading}</h1>
 	{#if detail}
 		<p class="mt-2 max-w-md text-sm text-muted">{detail}</p>

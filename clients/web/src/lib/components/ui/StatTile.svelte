@@ -39,7 +39,7 @@
 			{size === 'sm' ? 'size-11' : 'size-12'}
 			{dim ? 'bg-surface-2' : 'bg-accent-soft'}"
 	>
-		<Icon class="size-5 {dim ? 'text-faint' : 'text-accent'}" />
+		<Icon class="size-5 {dim ? 'text-faint' : 'text-accent-ink'}" />
 		{#if hot}
 			<span class="absolute -top-0.5 -right-0.5 flex size-2.5">
 				<span class="absolute inline-flex size-full animate-ping rounded-full bg-accent/70"></span>

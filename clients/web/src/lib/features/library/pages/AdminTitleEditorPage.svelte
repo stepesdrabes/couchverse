@@ -317,7 +317,7 @@
 						<p class="text-sm font-medium">{m.library_allow_random()}</p>
 						<p class="text-xs text-faint">{m.library_allow_random_hint()}</p>
 					</div>
-					<Switch bind:checked={allowRandom} />
+					<Switch bind:checked={allowRandom} label={m.library_allow_random()} />
 				</div>
 			{/if}
 		</div>

@@ -19,7 +19,7 @@
 			{kind}
 			{id}
 			{portalTo}
-			triggerClass="{triggerClass} {couch.active ? 'text-accent!' : ''}"
+			triggerClass="{triggerClass} {couch.active ? 'text-accent-ink!' : ''}"
 		>
 			{#snippet trigger()}
 				<CouchIcon class="size-5" />

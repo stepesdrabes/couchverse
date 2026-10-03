@@ -117,7 +117,7 @@
 							<Badge>{sub.lang}</Badge>
 						{/each}
 						<button
-							class="inline-flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
+							class="inline-flex items-center gap-1 text-[11px] font-medium text-accent-ink hover:underline"
 							onclick={() => openSubtitles(file)}
 						>
 							<Languages class="size-3" />

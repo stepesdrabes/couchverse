@@ -213,7 +213,7 @@
 				{#if phase === 'entry'}
 					<form onsubmit={submit} class="flex flex-col items-center text-center">
 						<span
-							class="mb-5 flex size-14 items-center justify-center rounded-2xl bg-accent/15 text-accent"
+							class="mb-5 flex size-14 items-center justify-center rounded-2xl bg-accent/15 text-accent-ink"
 						>
 							<MonitorSmartphone class="size-7" />
 						</span>
@@ -257,7 +257,7 @@
 						<div class="mb-6 flex items-center gap-3" aria-hidden="true">
 							<span
 								class="flex size-16 items-center justify-center rounded-2xl border border-edge
-									bg-surface-2 text-accent shadow-lg shadow-black/30"
+									bg-surface-2 text-accent-ink shadow-lg shadow-black/30"
 							>
 								<PlatformIcon class="size-8" />
 							</span>

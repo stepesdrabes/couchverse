@@ -44,7 +44,7 @@
 				>
 					<Flag code={lang} />
 					<span class="flex-1">{displayLangLabel(lang)}</span>
-					{#if lang === active}<Check class="size-3.5 text-accent" />{/if}
+					{#if lang === active}<Check class="size-3.5 text-accent-ink" />{/if}
 				</DropdownMenu.Item>
 			{/each}
 		</DropdownMenu.Content>

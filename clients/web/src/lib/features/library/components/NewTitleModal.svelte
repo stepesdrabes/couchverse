@@ -125,7 +125,9 @@
 	{#if noTmdbKey}
 		<p class="mt-3 rounded-input border border-edge bg-surface px-3 py-2 text-xs text-faint">
 			{m.library_no_tmdb_key_before()}
-			<a href="/admin/settings" class="text-accent hover:underline">{m.library_settings_link()}</a>
+			<a href="/admin/settings" class="text-accent-ink hover:underline"
+				>{m.library_settings_link()}</a
+			>
 			{m.library_no_tmdb_key_after()}
 		</p>
 	{:else if results.length > 0}

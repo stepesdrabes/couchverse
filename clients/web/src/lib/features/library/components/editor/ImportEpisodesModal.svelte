@@ -65,7 +65,7 @@
 		<label
 			class="flex cursor-pointer items-center gap-2.5 border-b border-edge/60 pb-3 text-sm font-medium"
 		>
-			<Checkbox bind:checked={allSeasons} />
+			<Checkbox bind:checked={allSeasons} label={m.library_all_seasons()} />
 			{m.library_all_seasons()}
 		</label>
 		<ul
@@ -78,7 +78,10 @@
 						class="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 text-sm
 							transition-colors hover:bg-surface-2/50"
 					>
-						<Checkbox bind:checked={picks[season.seasonNumber]} />
+						<Checkbox
+							bind:checked={picks[season.seasonNumber]}
+							label={season.name || m.library_season_number({ number: season.seasonNumber })}
+						/>
 						<span class="min-w-0 flex-1 truncate">
 							{season.name || m.library_season_number({ number: season.seasonNumber })}
 						</span>
