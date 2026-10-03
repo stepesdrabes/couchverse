@@ -167,9 +167,10 @@ public enum BrowseSort: String, Codable, Sendable, Hashable {
 public struct BrowseKey: Codable, Sendable, Hashable {
 	public let kind: TitleKind?
 	public let genre: String?
-	public let sort: BrowseSort?
+	/// Required, so every shell builds the same key the core echoes back in renders.
+	public let sort: BrowseSort
 
-	public init(kind: TitleKind?, genre: String?, sort: BrowseSort?) {
+	public init(kind: TitleKind?, genre: String?, sort: BrowseSort) {
 		self.kind = kind
 		self.genre = genre
 		self.sort = sort

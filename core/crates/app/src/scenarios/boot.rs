@@ -2,7 +2,7 @@ use serde_json::json;
 
 use super::*;
 use crate::modules::accounts::{AccountRef, AccountsView};
-use crate::modules::servers::ServersView;
+use crate::modules::servers::{Server, ServersView};
 use crate::modules::session::SessionView;
 
 #[test]
@@ -10,7 +10,7 @@ fn a_first_launch_reads_the_stores_and_welcomes() {
     let mut shell = Shell::new(Platform::Ios);
     shell.send(Event::AppStarted);
     assert_eq!(shell.phase(), AppPhase::Starting);
-    assert!(shell.http_summary().is_empty());
+    assert_eq!(shell.http_summary(), empty::<String>());
 
     shell.answer_reads();
     assert_eq!(shell.phase(), AppPhase::Welcome);
@@ -79,7 +79,7 @@ fn unreadable_stores_start_fresh() {
     let shell = launched(shell);
     assert_eq!(shell.phase(), AppPhase::Welcome);
     let servers: ServersView = shell.view(&Surface::Servers);
-    assert!(servers.servers.is_empty());
+    assert_eq!(servers.servers, empty::<Server>());
 }
 
 #[test]

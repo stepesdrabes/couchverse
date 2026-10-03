@@ -259,6 +259,11 @@ impl Shell {
     }
 }
 
+/// An empty list to compare against, so a failing assertion shows what was there.
+pub fn empty<T>() -> Vec<T> {
+    Vec::new()
+}
+
 pub fn header<'a>(request: &'a HttpRequest, name: &str) -> Option<&'a str> {
     request.headers.iter().find(|h| h.name == name).map(|h| h.value.as_str())
 }

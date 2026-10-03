@@ -2,7 +2,7 @@ use serde_json::json;
 
 use super::*;
 use crate::modules::accounts::{AccountsView, Link, PasswordSignIn, SignInView};
-use crate::modules::servers::{ServerAddress, ServersView};
+use crate::modules::servers::{Server, ServerAddress, ServersView};
 use crate::modules::session::SessionView;
 
 const HTTP: &str = "http://media.example.com";
@@ -41,7 +41,7 @@ fn a_web_page_is_not_a_server() {
     let servers: ServersView = shell.view(&Surface::Servers);
     assert_eq!(servers.add.status, LoadStatus::Failed);
     assert_eq!(servers.add.problem.expect("problem").code, "not_a_server");
-    assert!(servers.servers.is_empty());
+    assert_eq!(servers.servers, empty::<Server>());
     assert_eq!(shell.phase(), AppPhase::Welcome);
 }
 
@@ -64,7 +64,7 @@ fn an_unreachable_or_outdated_server_is_reported() {
     submit(&mut shell, "my server");
     let servers: ServersView = shell.view(&Surface::Servers);
     assert_eq!(servers.add.problem.expect("problem").code, "invalid_address");
-    assert!(shell.http_summary().is_empty());
+    assert_eq!(shell.http_summary(), empty::<String>());
 }
 
 #[test]
@@ -184,7 +184,7 @@ fn a_connect_link_to_an_unreachable_server_fails_the_sign_in() {
     let view: SignInView = shell.view(&Surface::SignIn);
     assert_eq!(view.status, LoadStatus::Failed);
     assert_eq!(view.problem.expect("problem").code, "timeout");
-    assert!(shell.http_summary().is_empty());
+    assert_eq!(shell.http_summary(), empty::<String>());
 }
 
 #[test]
@@ -212,6 +212,6 @@ fn other_links_are_ignored() {
     let mut shell = launched(Shell::new(Platform::Ios));
     shell.take_renders();
     shell.send(Event::LinkOpened(Link { url: "https://evil.example/connect?code=1".into() }));
-    assert!(shell.http_summary().is_empty());
-    assert!(shell.take_renders().is_empty());
+    assert_eq!(shell.http_summary(), empty::<String>());
+    assert_eq!(shell.take_renders(), empty::<Surface>());
 }

@@ -91,7 +91,7 @@ fn pairing_polls_until_the_phone_approves() {
     assert_eq!(shell.view::<SignInView>(&Surface::SignIn).pairing, None);
 
     // a tick already in flight when the timer was cancelled changes nothing
-    assert!(shell.resolve_late(tick, EffectOutput::TimerFired).is_empty());
+    assert_eq!(shell.resolve_late(tick, EffectOutput::TimerFired), empty::<EffectRequest>());
 }
 
 #[test]
@@ -103,8 +103,8 @@ fn a_pairing_code_expires() {
 
     assert_eq!(pairing(&shell).state, PairingState::Expired);
     assert!(shell.was_cancelled(tick));
-    assert!(shell.timers().is_empty());
-    assert!(shell.resolve_late(tick, EffectOutput::TimerFired).is_empty());
+    assert_eq!(shell.timers(), empty::<(U53, U53, bool)>());
+    assert_eq!(shell.resolve_late(tick, EffectOutput::TimerFired), empty::<EffectRequest>());
     assert_eq!(shell.phase(), AppPhase::SignIn);
 }
 
@@ -115,7 +115,7 @@ fn a_denied_or_forgotten_pairing_stops_polling() {
     shell.fire(tick, 5_000);
     shell.respond("POST", POLL, 200, json!({ "status": "denied" }));
     assert_eq!(pairing(&shell).state, PairingState::Denied);
-    assert!(shell.timers().is_empty());
+    assert_eq!(shell.timers(), empty::<(U53, U53, bool)>());
 
     // a server restart forgets pairings: the poll 404s
     let mut shell = pairing_tv();
@@ -138,7 +138,7 @@ fn cancelling_or_restarting_a_pairing_stops_the_old_timers() {
     assert!(shell.was_cancelled(tick) && shell.was_cancelled(expiry));
 
     shell.send(Event::PairingCancelled);
-    assert!(shell.timers().is_empty());
+    assert_eq!(shell.timers(), empty::<(U53, U53, bool)>());
     assert_eq!(shell.view::<SignInView>(&Surface::SignIn).pairing, None);
 }
 
@@ -217,7 +217,7 @@ fn approving_needs_a_signed_in_account() {
     let view: PairingApprovalView = shell.view(&Surface::PairingApproval);
     assert_eq!(view.status, LoadStatus::Failed);
     assert_eq!(view.problem.expect("problem").code, "unauthorized");
-    assert!(shell.http_summary().is_empty());
+    assert_eq!(shell.http_summary(), empty::<String>());
 }
 
 #[test]

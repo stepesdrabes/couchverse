@@ -143,7 +143,8 @@ enum class BrowseSort(val string: String) {
 data class BrowseKey (
 	val kind: TitleKind? = null,
 	val genre: String? = null,
-	val sort: BrowseSort? = null
+	/// Required, so every shell builds the same key the core echoes back in renders.
+	val sort: BrowseSort
 )
 
 /// An image ready to load, with the accent colour extracted from it when known.

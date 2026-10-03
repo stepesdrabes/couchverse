@@ -258,9 +258,9 @@ mod tests {
 
     #[test]
     fn nonsense_has_no_candidates() {
-        assert!(candidate_urls("").is_empty());
-        assert!(candidate_urls("my server").is_empty());
-        assert!(candidate_urls("ftp://files.example.com").is_empty());
-        assert!(candidate_urls("https://").is_empty());
+        assert_eq!(candidate_urls(""), Vec::<String>::new());
+        assert_eq!(candidate_urls("my server"), Vec::<String>::new());
+        assert_eq!(candidate_urls("ftp://files.example.com"), Vec::<String>::new());
+        assert_eq!(candidate_urls("https://"), Vec::<String>::new());
     }
 }

@@ -5,7 +5,7 @@ use crate::modules::catalog::{
     BrowseKey, BrowseSort, BrowseView, GenresView, HomeRowKind, HomeView, MyListView, PlayKind,
     Quality, SearchText, SearchView, TitleKind, TitleView, WatchlistChange,
 };
-use crate::modules::notices::{NoticeRef, NoticesView};
+use crate::modules::notices::{Notice, NoticeRef, NoticesView};
 use crate::modules::session::LanguageChoice;
 
 const API: &str = "https://media.example.com/api/v1";
@@ -348,7 +348,7 @@ fn my_list_changes_show_at_once_and_roll_back_on_failure() {
     let notices: NoticesView = shell.view(&Surface::Notices);
     assert_eq!(notices.notices[0].code, "watchlist_failed");
     shell.send(Event::NoticeDismissed(NoticeRef { id: notices.notices[0].id }));
-    assert!(shell.view::<NoticesView>(&Surface::Notices).notices.is_empty());
+    assert_eq!(shell.view::<NoticesView>(&Surface::Notices).notices, empty::<Notice>());
 }
 
 #[test]

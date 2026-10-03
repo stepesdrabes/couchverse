@@ -146,7 +146,7 @@ mod tests {
         let doc = parse("<script>alert(1)</script>\n\nhi <b>there</b>");
         let json = serde_json::to_string(&doc).unwrap();
         assert!(json.contains("<script>alert(1)</script>"), "{json}");
-        assert!(!doc.blocks.is_empty());
+        assert_ne!(doc.blocks, Vec::<Block>::new());
         assert_eq!(doc.blocks[1], Block::Paragraph(vec![text("hi <b>there</b>")]));
     }
 
@@ -409,7 +409,7 @@ mod tests {
             let started = std::time::Instant::now();
             let doc = parse(&source);
             assert!(started.elapsed().as_secs() < 2, "slow on {}", &source[..10]);
-            assert!(!doc.blocks.is_empty());
+            assert_ne!(doc.blocks, Vec::<Block>::new());
         }
     }
 }

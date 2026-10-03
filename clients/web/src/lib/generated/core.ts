@@ -113,7 +113,8 @@ export enum BrowseSort {
 export interface BrowseKey {
 	kind?: TitleKind;
 	genre?: string;
-	sort?: BrowseSort;
+	/** Required, so every shell builds the same key the core echoes back in renders. */
+	sort: BrowseSort;
 }
 
 /** An image ready to load, with the accent colour extracted from it when known. */

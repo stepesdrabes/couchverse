@@ -290,7 +290,7 @@ pub struct BrowseKey {
     pub kind: Option<TitleKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub genre: Option<String>,
-    #[serde(default)]
+    /// Required, so every shell builds the same key the core echoes back in renders.
     pub sort: BrowseSort,
 }
 
