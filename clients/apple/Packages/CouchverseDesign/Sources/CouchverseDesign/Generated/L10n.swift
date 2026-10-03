@@ -200,17 +200,24 @@ extension L10n {
     public static var commonSearch: String { string("common_search") }
     public static var commonStatus: String { string("common_status") }
     public static var commonUntitled: String { string("common_untitled") }
+    public static func couchCode(code: String) -> String { format("couch_code", [code]) }
     public static var couchConnecting: String { string("couch_connecting") }
     public static var couchCopyLink: String { string("couch_copy_link") }
     public static var couchEndSession: String { string("couch_end_session") }
     public static func couchHasRemote(name: String) -> String { format("couch_has_remote", [name]) }
+    public static var couchHostAway: String { string("couch_host_away") }
     public static var couchHostBadge: String { string("couch_host_badge") }
     public static func couchHostChoosing(name: String) -> String { format("couch_host_choosing", [name]) }
     public static var couchHostChoosingGeneric: String { string("couch_host_choosing_generic") }
     public static var couchHostPaused: String { string("couch_host_paused") }
+    public static var couchJoin: String { string("couch_join") }
+    public static var couchJoinCode: String { string("couch_join_code") }
     public static var couchJoinFailed: String { string("couch_join_failed") }
     public static func couchJoinHeading(name: String) -> String { format("couch_join_heading", [name]) }
+    public static var couchJoinHint: String { string("couch_join_hint") }
+    public static var couchJoinRemote: String { string("couch_join_remote") }
     public static var couchJoinStart: String { string("couch_join_start") }
+    public static var couchJoinTitle: String { string("couch_join_title") }
     public static var couchLeave: String { string("couch_leave") }
     public static var couchLeftToast: String { string("couch_left_toast") }
     public static var couchLinkCopied: String { string("couch_link_copied") }
@@ -220,6 +227,9 @@ extension L10n {
     public static var couchParticipantsTitle: String { string("couch_participants_title") }
     public static var couchReact: String { string("couch_react") }
     public static var couchReconnecting: String { string("couch_reconnecting") }
+    public static var couchRemoteNext: String { string("couch_remote_next") }
+    public static var couchRemotePrevious: String { string("couch_remote_previous") }
+    public static var couchRemoteTitle: String { string("couch_remote_title") }
     public static var couchResynced: String { string("couch_resynced") }
     public static var couchSessionEndedHost: String { string("couch_session_ended_host") }
     public static var couchSessionEndedTitle: String { string("couch_session_ended_title") }

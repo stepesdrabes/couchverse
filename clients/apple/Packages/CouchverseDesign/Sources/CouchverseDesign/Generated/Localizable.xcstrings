@@ -3417,6 +3417,23 @@
         }
       }
     },
+    "couch_code": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code %1$@"
+          }
+        }
+      }
+    },
     "couch_connecting": {
       "extractionState": "manual",
       "localizations": {
@@ -3481,6 +3498,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ has the remote"
+          }
+        }
+      }
+    },
+    "couch_host_away": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hostitel si odskočil"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The host stepped away"
           }
         }
       }
@@ -3553,6 +3587,40 @@
         }
       }
     },
+    "couch_join": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připojit se"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join"
+          }
+        }
+      }
+    },
+    "couch_join_code": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Šestimístný kód"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Six-digit code"
+          }
+        }
+      }
+    },
     "couch_join_failed": {
       "extractionState": "manual",
       "localizations": {
@@ -3587,6 +3655,40 @@
         }
       }
     },
+    "couch_join_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadejte kód z obrazovky hostitele, nebo naskenujte jeho QR kód."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the code the host's screen shows, or scan its QR code."
+          }
+        }
+      }
+    },
+    "couch_join_remote": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Použít jako ovladač"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use as a remote"
+          }
+        }
+      }
+    },
     "couch_join_start": {
       "extractionState": "manual",
       "localizations": {
@@ -3600,6 +3702,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Start watching"
+          }
+        }
+      }
+    },
+    "couch_join_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připojit se ke společnému sledování"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join a couch session"
           }
         }
       }
@@ -3753,6 +3872,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reconnecting..."
+          }
+        }
+      }
+    },
+    "couch_remote_next": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Další epizoda"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next episode"
+          }
+        }
+      }
+    },
+    "couch_remote_previous": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předchozí epizoda"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous episode"
+          }
+        }
+      }
+    },
+    "couch_remote_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ovladač"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remote"
           }
         }
       }
