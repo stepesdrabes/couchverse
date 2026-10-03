@@ -42,6 +42,27 @@ test('signs in from a deep link, lands on home and signs out', async ({ page, er
 	expect((await page.request.get('/api/v1/auth/me')).status()).toBe(401);
 });
 
+test('a session that ends while browsing goes back to sign in', async ({ page, errors }) => {
+	// the core's next request is refused, whichever it is
+	errors.allow(/status of 401 /);
+	// vera's saved session stays: this one is her own
+	const res = await page.request.post('/api/v1/auth/login', {
+		data: { username: 'vera', password: PASSWORD }
+	});
+	expect(res.ok()).toBe(true);
+	await page.goto('/');
+	await expect(page.getByRole('region', { name: t('catalog_featured_titles') })).toBeVisible();
+
+	// signed out on another tab or device; the keyboard, so no hover preloads the page early
+	await page.request.post('/api/v1/auth/logout');
+	await page
+		.getByRole('navigation')
+		.getByRole('link', { name: t('nav_movies') })
+		.focus();
+	await page.keyboard.press('Enter');
+	await expect(page).toHaveURL(/\/login\?next=%2Fmovies$/);
+});
+
 test('a wrong password keeps the visitor on the login page', async ({ page, errors }) => {
 	errors.allow(/status of 401 .*\/api\/v1\/auth\/login\b/);
 	await page.goto('/login');

@@ -852,9 +852,11 @@ their slices, so the rest of the viewer still calls the API itself.
   `features/settings/features.svelte.ts`, language, accent). The login form posts
   `/auth/login` itself and sends `SessionStarted`; logout sends `SignOutRequested`; a profile
   edit or admin settings save sends `SessionChanged`, and so does a 401 from a web API call
-  (the core confirms with its own `/auth/me` before the web clears its caches and sends
-  session-only routes to `/login?next=`); a tab coming back into view sends
-  `AppBecameActive`. The root layout applies `session.accent` to `:root`
+  (the core confirms with its own `/auth/me`); a tab coming back into view sends
+  `AppBecameActive`. The session store watches the core's user: when it goes away without a
+  sign-out (that confirmation, or a 401 on one of the core's own requests such as the
+  catalog's), the web clears its caches and, once the navigation under way has landed, sends
+  session-only routes to `/login?next=`. The root layout applies `session.accent` to `:root`
   (`lib/theme.ts` `applyPalette`); scoped accents (`accentVars`) are still derived in TS, the
   same way (a test checks the two agree). In cookie mode the core leaves achievement checks to
   the web's `rank` store, which celebrates the unlocks a check returns, until the web renders
