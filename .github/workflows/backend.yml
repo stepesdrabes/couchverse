@@ -2,9 +2,9 @@ name: backend
 
 on:
   push:
-    paths: [backend/**, .github/workflows/backend.yml]
+    paths: [backend/**, contract/fixtures/device-profiles/**, .github/workflows/backend.yml]
   pull_request:
-    paths: [backend/**, .github/workflows/backend.yml]
+    paths: [backend/**, contract/fixtures/device-profiles/**, .github/workflows/backend.yml]
 
 defaults:
   run:
@@ -39,5 +39,9 @@ jobs:
       - uses: golangci/golangci-lint-action@v8
         with:
           working-directory: backend
+      # the playback tiers test (TestPlaybackTiers) prepares sample media with ffmpeg
+      # and checks every HLS presentation with the validator
+      - name: ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: go test ./...
       - run: go build ./cmd/couchverse

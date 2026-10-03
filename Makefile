@@ -1,8 +1,11 @@
 .PHONY: run-backend run-web build lint check format test contract sample-media clean \
-	core-test core-apple core-android core-wasm apple-test android-test
+	core-test core-apple core-android core-wasm apple-test android-test \
+	hls-check hls-apple ingest-samples hls-server-check e2e-playback
 
 # dev database (compose service `db` published on 5432)
 DEV_DB ?= postgres://couchverse:couchverse@localhost:5432/couchverse
+# a running server for the checks that drive one (ingest-samples, hls-server-check, e2e-playback)
+SERVER ?= http://localhost:8080
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X couchverse/internal/version.Version=$(VERSION)
 # the wasm core the web runs (build output); dev targets build it once, `make core-wasm` refreshes it
@@ -73,6 +76,29 @@ android-test: core-android
 
 sample-media:
 	./scripts/gen-sample-media.sh data/samples
+
+# every playback tier on generated media, through the real probe and transcode jobs,
+# checked by the HLS validator; on macOS AVFoundation also plays each presentation
+hls-check:
+	cd backend && COUCHVERSE_AVPLAYER=$(if $(filter Darwin,$(shell uname)),1,0) TEST_DATABASE_URL=$(DEV_DB) \
+		go test -count=1 -timeout 30m -run TestPlaybackTiers -v ./internal/server/
+
+# the same with Apple's mediastreamvalidator, for those who installed it
+hls-apple:
+	cd backend && COUCHVERSE_AVPLAYER=1 COUCHVERSE_APPLE_HLS_TOOLS=1 TEST_DATABASE_URL=$(DEV_DB) \
+		go test -count=1 -timeout 30m -run TestPlaybackTiers -v ./internal/server/
+
+# upload data/samples into the server at SERVER (as admin/admin)
+ingest-samples:
+	SERVER=$(SERVER) ./scripts/ingest-samples.sh data/samples
+
+# every movie of the server at SERVER for every device profile in contract/fixtures
+hls-server-check:
+	SERVER=$(SERVER) ./scripts/hls-check.sh
+
+# the web player in Chromium against the server at SERVER (CHANNEL=chrome for Google Chrome)
+e2e-playback:
+	cd clients/web && SERVER=$(SERVER) node e2e/playback.mjs
 
 clean:
 	rm -rf backend/bin clients/web/build clients/web/.svelte-kit

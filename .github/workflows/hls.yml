@@ -1,0 +1,51 @@
+name: hls
+
+# Plays every playback tier in AVFoundation: TestPlaybackTiers prepares generated
+# media through the real jobs, validates each HLS presentation and hands it to
+# scripts/avplayer-probe.swift (load, variants, media selection groups, a few
+# seconds of decoded playback, trick play).
+on:
+  push:
+    paths:
+      - backend/internal/feature/playback/**
+      - backend/internal/hls/**
+      - backend/internal/media/**
+      - backend/internal/server/playback_test.go
+      - contract/fixtures/device-profiles/**
+      - scripts/avplayer-probe.swift
+      - .github/workflows/hls.yml
+  pull_request:
+    paths:
+      - backend/internal/feature/playback/**
+      - backend/internal/hls/**
+      - backend/internal/media/**
+      - backend/internal/server/playback_test.go
+      - contract/fixtures/device-profiles/**
+      - scripts/avplayer-probe.swift
+      - .github/workflows/hls.yml
+
+jobs:
+  avfoundation:
+    runs-on: macos-15
+    env:
+      TEST_DATABASE_URL: postgres://couchverse:couchverse@localhost:5432/couchverse
+      COUCHVERSE_AVPLAYER: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: ffmpeg and Postgres
+        run: |
+          brew install ffmpeg postgresql@17
+          echo "$(brew --prefix postgresql@17)/bin" >> "$GITHUB_PATH"
+      - name: Start Postgres
+        run: |
+          brew services start postgresql@17
+          until pg_isready -h localhost; do sleep 1; done
+          psql -h localhost -d postgres -c "CREATE ROLE couchverse LOGIN SUPERUSER PASSWORD 'couchverse'"
+          createdb -h localhost -O couchverse couchverse
+      - name: Playback tiers in AVFoundation
+        working-directory: backend
+        run: go test -count=1 -timeout 30m -run TestPlaybackTiers -v ./internal/server/
