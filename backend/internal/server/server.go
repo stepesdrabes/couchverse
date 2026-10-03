@@ -24,6 +24,7 @@ import (
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/couch"
+	"couchverse/internal/feature/downloads"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/metadata"
@@ -58,6 +59,7 @@ type Deps struct {
 	Ranks     *ranks.Store
 	Couch     *couch.Hub
 	Grants    *grant.Signer
+	Downloads *downloads.Store
 }
 
 type Server struct {
@@ -153,6 +155,7 @@ func (s *Server) register(v1 chi.Router) huma.API {
 	metadata.NewAdminMetadata(s.Catalog, s.Settings, s.Jobs).Register(rt)
 	jobs.NewAdminJobs(s.Jobs).Register(rt)
 	analytics.NewModule(s.Analytics).Register(rt)
+	downloads.NewHandlers(s.Downloads, s.Catalog, s.Library, s.Subtitles.Subs, s.Jobs, s.Grants, s.Config.FFmpegPath, s.Config.DataDir).Register(rt)
 	return api
 }
 

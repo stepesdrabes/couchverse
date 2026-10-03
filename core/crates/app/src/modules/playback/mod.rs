@@ -1011,6 +1011,7 @@ fn progress(session: &mut Session) -> Option<ProgressReport> {
         position_seconds: session.position.floor() as i64,
         duration_seconds: session.duration.floor() as i64,
         watched_seconds: Some(watched as i64),
+        watched_at: None,
     })
 }
 

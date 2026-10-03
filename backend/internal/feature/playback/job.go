@@ -175,7 +175,7 @@ func (h *JobHandler) packageJob(ctx context.Context, mf *media.MediaFile, input 
 		for _, a := range renditions {
 			dir := filepath.Join(base, a.dir())
 			run.args = append(run.args, hlsOutput{dir: dir, codec: a.args(), segment: segmentSeconds}.args()...)
-			run.dirs[dir] = renditionInfo{StreamIndex: a.track.Index, Language: bcp47(a.track.Lang),
+			run.dirs[dir] = renditionInfo{StreamIndex: a.track.Index, Language: media.BCP47(a.track.Lang),
 				Name: a.track.Title, Default: a.track.Default}
 		}
 	}

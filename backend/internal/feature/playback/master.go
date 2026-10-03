@@ -150,7 +150,7 @@ func buildMaster(r fileRenditions, subs []media.Subtitle, m Master) (*hls.Multiv
 				label = audioLabel(s.Lang)
 			}
 			pl.Renditions = append(pl.Renditions, hls.Rendition{
-				Type: "SUBTITLES", GroupID: subtitles, Name: names.take(label), Language: bcp47(s.Lang),
+				Type: "SUBTITLES", GroupID: subtitles, Name: names.take(label), Language: media.BCP47(s.Lang),
 				Autoselect: true, Forced: s.Forced, URI: "subtitles/" + s.ID + "/index.m3u8",
 			})
 		}

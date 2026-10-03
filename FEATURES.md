@@ -27,6 +27,7 @@ that render a `XxxPage.svelte` component from the owning feature.
 | analytics | `internal/feature/analytics` | (charts in `features/admin`) | `watch_time_daily`, `watch_time_hourly`, `couch_watch_time_daily` |
 | couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
 | ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters` |
+| downloads | `internal/feature/downloads` | (native clients only) | `download_files`, `downloads` |
 
 Shared kernel (backend): `internal/app` (wiring of stores, services and the job runner),
 `internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
@@ -422,6 +423,34 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
   than inside the effect flush: creating a toast writes sonner's own reactive state,
   and doing that mid-flush corrupts its height bookkeeping.
 
+### downloads
+Device-ready MP4s that the native clients keep for offline viewing (plan 8.6).
+`POST /me/downloads {kind, id, quality, audio[], profile}` plans the file with the pure
+`playback.PlanDownload` (the source video when the profile decodes it, else H.264 at the
+quality via the transcode encoder; the requested audio languages in order, copied when the
+device takes them and MP4 carries them, else AAC; every subtitle track as `mov_text`;
+`+faststart`) and names the plan with `DownloadPlan.Spec()` plus the subtitle ids.
+Requests with the same media file and spec share one `download_files` row, so a second
+user (or device) asking for the same plan gets the ready file at once; every requester has
+a `downloads` row. A model-B sibling file is picked when the first language asked for is
+only there. The `prepare_download` job (one slot, `nice`d ffmpeg via `playback.Run`) writes
+`DATA_DIR/cache/downloads/<file id>.part`, renames it to `.mp4` when done, reports progress
+on the row, and records failures (`requestDownload` again re-queues a failed file).
+- Endpoints (signed in): `POST/GET /me/downloads`, `GET/DELETE /me/downloads/{id}`
+  (`requestDownload`, `listDownloads`, `getDownload`, `deleteDownload`, all `?lang=` for
+  the titles); a ready download carries `url`, the MP4 under a media grant of its file
+  (`GET /media/{grant}/downloads/{fileId}`, `fetchDownload`, with ranges so transfers
+  resume), and `expiresAt`.
+- Retention: the hourly cleanup (`downloads.Sweep`) deletes ready files 72 h after they
+  were last requested, failed ones after a day, files nobody has in their list anymore,
+  and MP4s on disk without a row. A device keeps its own copy; deleting a download only
+  removes it from the server list.
+- Offline progress: `saveProgress` takes an optional `watchedAt`; a replayed report older
+  than the saved position does not replace it.
+- Tests: `playback/download_test.go` (plans and ffmpeg arguments), `TestDownloads`
+  (real MP4s copied and transcoded, inspected with ffprobe, shared files, range requests,
+  grants, the cleanup).
+
 ## Internationalization & multi-language media (cross-cutting)
 
 **UI + metadata language (one "display language", Czech + English).** The web client
@@ -784,6 +813,7 @@ artwork <- auth <- catalog <- metadata
 analytics <- catalog (leaf: imports kernel only)
 playback -> {auth, catalog, library, subtitles}
 ranks -> {auth, catalog}  (near-leaf; nothing imports ranks)
+downloads -> {auth, catalog, library, subtitles, playback}  (nothing imports downloads)
 couch -> {playback, auth}  (top of the DAG; nothing imports couch)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)

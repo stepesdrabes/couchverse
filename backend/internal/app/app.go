@@ -16,6 +16,7 @@ import (
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/couch"
+	"couchverse/internal/feature/downloads"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/metadata"
@@ -101,6 +102,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 			Ranks:     ranksStore,
 			Couch:     couchHub,
 			Grants:    grants,
+			Downloads: downloads.NewStore(pool),
 		},
 		stop: stop,
 	}
@@ -131,7 +133,9 @@ func (a *App) Start(ctx context.Context) error {
 	runner.Register("fetch_metadata", 2, (&metadata.FetchJob{Catalog: d.Catalog, Settings: d.Settings, Artwork: d.Artwork}).Handle)
 	runner.Register("import_episodes", 1, (&metadata.ImportEpisodesJob{Catalog: d.Catalog, Settings: d.Settings, Artwork: d.Artwork}).Handle)
 	runner.Register("transcode_hls", transcodeSlots, d.Transcode.Handle)
-	runner.Register("cleanup", 1, cleanupHandler(d.Library, d.Auth, d.Jobs, d.Analytics, d.Uploads, d.Config.DataDir))
+	runner.Register(downloads.JobType, 1, (&downloads.Preparer{Store: d.Downloads, Files: d.Library, Subtitles: d.Subtitles,
+		Settings: d.Settings, DataDir: d.Config.DataDir, FFmpegPath: d.Config.FFmpegPath}).Handle)
+	runner.Register("cleanup", 1, cleanupHandler(d.Library, d.Auth, d.Jobs, d.Analytics, d.Uploads, d.Downloads, d.Config.DataDir))
 	if _, err := d.Jobs.EnqueueJobOnce(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{}); err != nil {
 		return err
 	}

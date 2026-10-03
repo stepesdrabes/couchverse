@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/auth"
@@ -29,6 +30,8 @@ type ProgressReport struct {
 	PositionSeconds int     `json:"positionSeconds" minimum:"0"`
 	DurationSeconds int     `json:"durationSeconds" minimum:"0"`
 	WatchedSeconds  int     `json:"watchedSeconds,omitempty" minimum:"0" doc:"Seconds actually played since the previous report (feeds analytics)."`
+	// clients replay what was watched offline once they are back
+	WatchedAt *time.Time `json:"watchedAt,omitempty" doc:"When the position was reached, for a report replayed after watching offline; it does not replace a position saved later. Absent means now."`
 }
 
 type progressInput struct {
@@ -42,7 +45,7 @@ func (h *Progress) Put(ctx context.Context, in *progressInput) (*struct{}, error
 		return nil, httpx.BadRequestError("exactly one of titleId or episodeId is required")
 	}
 	if err := h.store.UpsertProgress(ctx, user.ID, req.TitleID, req.EpisodeID,
-		req.PositionSeconds, req.DurationSeconds); err != nil {
+		req.PositionSeconds, req.DurationSeconds, req.WatchedAt); err != nil {
 		return nil, err
 	}
 	if req.WatchedSeconds > 0 {

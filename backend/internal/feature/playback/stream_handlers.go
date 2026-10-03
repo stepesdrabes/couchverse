@@ -253,7 +253,7 @@ func audioLabel(lang string) string {
 	if lang == "" || lang == "und" {
 		return "Original"
 	}
-	if n, ok := audioLangNames[bcp47(lang)]; ok {
+	if n, ok := audioLangNames[media.BCP47(lang)]; ok {
 		return n
 	}
 	return strings.ToUpper(lang)
@@ -507,7 +507,7 @@ func embeddedTracks(tracks []media.AudioStream) []PlaybackAudioTrack {
 		}
 		out = append(out, PlaybackAudioTrack{
 			ID:      fmt.Sprintf("embedded:%d", a.Index),
-			Lang:    bcp47(a.Lang),
+			Lang:    media.BCP47(a.Lang),
 			Label:   label,
 			Default: a.Default && !hasDefault,
 			Source:  "embedded",
@@ -872,7 +872,7 @@ func (h *Stream) sessionMaster(ctx context.Context, s *Session) (string, error) 
 		v.Subtitles = "subs"
 		pl.Renditions = append(pl.Renditions, hls.Rendition{
 			Type: "SUBTITLES", GroupID: "subs", Name: names.take(cmp.Or(sub.Label, audioLabel(sub.Lang))),
-			Language: bcp47(sub.Lang), Autoselect: true, Forced: sub.Forced,
+			Language: media.BCP47(sub.Lang), Autoselect: true, Forced: sub.Forced,
 			URI: "../../hls/subtitles/" + sub.ID + "/index.m3u8",
 		})
 	}

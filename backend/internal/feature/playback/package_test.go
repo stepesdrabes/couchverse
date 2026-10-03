@@ -145,8 +145,8 @@ func TestAudioRenditions(t *testing.T) {
 
 func TestBCP47(t *testing.T) {
 	for in, want := range map[string]string{"eng": "en", "cze": "cs", "ces": "cs", "en": "en", "": "und", "xx-bogus": "und", "und": "und"} {
-		if got := bcp47(in); got != want {
-			t.Errorf("bcp47(%q) = %q, want %q", in, got, want)
+		if got := media.BCP47(in); got != want {
+			t.Errorf("media.BCP47(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

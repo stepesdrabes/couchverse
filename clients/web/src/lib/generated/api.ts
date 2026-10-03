@@ -495,6 +495,83 @@ export interface DeviceToken {
 	user: User;
 }
 
+export interface Download {
+	/** Audio tracks in the MP4, the default first. */
+	audio: DownloadTrack[];
+	backdropId: string | null;
+	backdropVer?: number;
+	createdAt: string;
+	durationSeconds: number;
+	episodeId?: string;
+	episodeName?: string;
+	episodeNumber?: number;
+	/** When the server deletes the prepared MP4 unless it is asked for again; null until ready. */
+	expiresAt: string | null;
+	/** Picture height of a transcoded download; absent when the source video is kept. */
+	height?: number;
+	id: string;
+	kind: DownloadKind;
+	posterId: string | null;
+	posterVer?: number;
+	/** Preparation progress in percent. */
+	progress: number;
+	quality: DownloadQuality;
+	seasonNumber?: number;
+	/** The MP4's size once ready. */
+	sizeBytes?: number;
+	/** failed can be asked for again with requestDownload. */
+	status: DownloadStatus;
+	/** Subtitle tracks in the MP4 (mov_text). */
+	subtitles: DownloadSubtitle[];
+	thumbId: string | null;
+	thumbVer?: number;
+	title: string;
+	titleId: string;
+	titleSlug: string;
+	/** The MP4 under a media grant, once ready; the grant expires, so fetch the download again for a fresh URL. */
+	url?: string;
+}
+
+export type DownloadKind = 'movie' | 'episode';
+
+export interface DownloadList {
+	downloads: Download[];
+}
+
+export type DownloadQuality = 'original' | '1080p' | '720p' | '480p';
+
+export interface DownloadRequest {
+	/** Audio languages to include, in order; absent or unmatched for the default track. */
+	audio?: string[];
+	/** The movie's title id or the episode id. */
+	id: string;
+	kind: DownloadRequestKind;
+	/** The device's capability profile, as for resolvePlayback. */
+	profile: DeviceProfile;
+	/** original keeps the source picture (copied when the device decodes it, else the best rung); a rung transcodes to H.264 at that height unless the source is already no bigger. */
+	quality: DownloadRequestQuality;
+}
+
+export type DownloadRequestKind = 'movie' | 'episode';
+
+/** original keeps the source picture (copied when the device decodes it, else the best rung); a rung transcodes to H.264 at that height unless the source is already no bigger. */
+export type DownloadRequestQuality = 'original' | '1080p' | '720p' | '480p';
+
+/** failed can be asked for again with requestDownload. */
+export type DownloadStatus = 'queued' | 'preparing' | 'ready' | 'failed';
+
+export interface DownloadSubtitle {
+	forced: boolean;
+	label: string;
+	lang: string;
+}
+
+export interface DownloadTrack {
+	label: string;
+	/** BCP 47 language; und when unknown. */
+	lang: string;
+}
+
 export interface Episode {
 	airDate: string | null;
 	episodeNumber: number;
@@ -1081,6 +1158,8 @@ export interface ProgressReport {
 	positionSeconds: number;
 	/** Set for a movie; exactly one of titleId and episodeId. */
 	titleId?: string;
+	/** When the position was reached, for a report replayed after watching offline; it does not replace a position saved later. Absent means now. */
+	watchedAt?: string;
 	/**
 	 * Seconds actually played since the previous report (feeds analytics).
 	 * At least 0.
@@ -2184,6 +2263,10 @@ export const deleteAvatar = (opts?: CallOptions) =>
 export const deleteBanner = (opts?: CallOptions) =>
 	api<User>(`/me/banner`, { ...opts, method: 'DELETE' });
 
+/** `DELETE /me/downloads/{id}` */
+export const deleteDownload = (id: string, opts?: CallOptions) =>
+	api<void>(`/me/downloads/${encodeURIComponent(id)}`, { ...opts, method: 'DELETE' });
+
 /**
  * `POST /me/pairings/{code}/deny`
  *
@@ -2199,6 +2282,14 @@ export const denyPairing = (code: string, opts?: CallOptions) =>
  */
 export const endCouch = (token: string, opts?: CallOptions) =>
 	api<void>(`/couch/${encodeURIComponent(token)}/end`, { ...opts, method: 'POST' });
+
+/**
+ * Fetch a prepared download (`GET /media/{grant}/downloads/{id}`)
+ *
+ * @param grant The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
+ * @param id The prepared file id from the download's url.
+ */
+export const fetchDownloadPath = (grant: string, id: string) => `/api/v1/media/${encodeURIComponent(grant)}/downloads/${encodeURIComponent(id)}`;
 
 export interface GetArtworkQuery {
 	/** Resize to this width; the original when omitted. */
@@ -2236,6 +2327,10 @@ export interface GetCouchPlaybackQuery {
  */
 export const getCouchPlayback = (token: string, query: GetCouchPlaybackQuery = {}, opts?: CallOptions) =>
 	api<CouchPlayback>(`/couch/${encodeURIComponent(token)}/playback${qs({ caps: query.caps?.join(',') })}`, opts);
+
+/** `GET /me/downloads/{id}` */
+export const getDownload = (id: string, opts?: CallOptions) =>
+	api<Download>(`/me/downloads/${encodeURIComponent(id)}`, opts);
 
 /** `GET /features` */
 export const getFeatures = (opts?: CallOptions) =>
@@ -2411,6 +2506,10 @@ export const listContinueWatching = (opts?: CallOptions) =>
 export const listDevices = (opts?: CallOptions) =>
 	api<Device[]>(`/me/devices`, opts);
 
+/** `GET /me/downloads` */
+export const listDownloads = (opts?: CallOptions) =>
+	api<DownloadList>(`/me/downloads`, opts);
+
 /** `GET /genres` */
 export const listGenres = (opts?: CallOptions) =>
 	api<Genre[]>(`/genres`, opts);
@@ -2442,6 +2541,14 @@ export const pollPairing = (body: PairingPoll, opts?: CallOptions) =>
 /** `DELETE /me/watchlist/{titleId}` */
 export const removeFromWatchlist = (titleId: string, opts?: CallOptions) =>
 	api<void>(`/me/watchlist/${encodeURIComponent(titleId)}`, { ...opts, method: 'DELETE' });
+
+/**
+ * Ask for a movie or an episode to be prepared for offline viewing (`POST /me/downloads`)
+ *
+ * @param body
+ */
+export const requestDownload = (body: DownloadRequest, opts?: CallOptions) =>
+	api<Download>(`/me/downloads`, { ...opts, method: 'POST', body });
 
 /**
  * `POST /couch/{token}/playback`

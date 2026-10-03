@@ -4,33 +4,38 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 )
 
-// UpsertProgress records playback position; >95% counts as completed.
-func (s *Store) UpsertProgress(ctx context.Context, userID int64, titleID, episodeID *string, position, duration int) error {
+// UpsertProgress records a playback position reached at the given time (nil for
+// now); >95% counts as completed. A report older than the saved position
+// (replayed after watching offline) leaves it alone.
+func (s *Store) UpsertProgress(ctx context.Context, userID int64, titleID, episodeID *string, position, duration int, at *time.Time) error {
 	completed := duration > 0 && float64(position) >= float64(duration)*0.95
 
 	if titleID != nil {
 		_, err := s.db.Exec(ctx,
-			`INSERT INTO watch_progress (user_id, title_id, position_seconds, duration_seconds, completed)
-			 VALUES ($1, $2, $3, $4, $5)
+			`INSERT INTO watch_progress (user_id, title_id, position_seconds, duration_seconds, completed, updated_at)
+			 VALUES ($1, $2, $3, $4, $5, LEAST(COALESCE($6::timestamptz, now()), now()))
 			 ON CONFLICT (user_id, title_id) WHERE title_id IS NOT NULL DO UPDATE
 				SET position_seconds = EXCLUDED.position_seconds,
 					duration_seconds = EXCLUDED.duration_seconds,
 					completed = EXCLUDED.completed,
-					updated_at = now()`,
-			userID, *titleID, position, duration, completed)
+					updated_at = EXCLUDED.updated_at
+			 WHERE watch_progress.updated_at <= EXCLUDED.updated_at`,
+			userID, *titleID, position, duration, completed, at)
 		return err
 	}
 	_, err := s.db.Exec(ctx,
-		`INSERT INTO watch_progress (user_id, episode_id, position_seconds, duration_seconds, completed)
-		 VALUES ($1, $2, $3, $4, $5)
+		`INSERT INTO watch_progress (user_id, episode_id, position_seconds, duration_seconds, completed, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, LEAST(COALESCE($6::timestamptz, now()), now()))
 		 ON CONFLICT (user_id, episode_id) WHERE episode_id IS NOT NULL DO UPDATE
 			SET position_seconds = EXCLUDED.position_seconds,
 				duration_seconds = EXCLUDED.duration_seconds,
 				completed = EXCLUDED.completed,
-				updated_at = now()`,
-		userID, *episodeID, position, duration, completed)
+				updated_at = EXCLUDED.updated_at
+		 WHERE watch_progress.updated_at <= EXCLUDED.updated_at`,
+		userID, *episodeID, position, duration, completed, at)
 	return err
 }
 

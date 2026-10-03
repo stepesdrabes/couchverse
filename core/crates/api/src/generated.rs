@@ -1689,6 +1689,247 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct Download {
+        /// Audio tracks in the MP4, the default first.
+        pub audio: Vec<DownloadTrack>,
+        pub backdrop_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub backdrop_ver: Option<i64>,
+        pub created_at: String,
+        pub duration_seconds: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub episode_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub episode_name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub episode_number: Option<i64>,
+        /// When the server deletes the prepared MP4 unless it is asked for again; null until ready.
+        pub expires_at: Option<String>,
+        /// Picture height of a transcoded download; absent when the source video is kept.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub height: Option<i64>,
+        pub id: String,
+        pub kind: DownloadKind,
+        pub poster_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub poster_ver: Option<i64>,
+        /// Preparation progress in percent.
+        pub progress: i64,
+        pub quality: DownloadQuality,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub season_number: Option<i64>,
+        /// The MP4's size once ready.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub size_bytes: Option<i64>,
+        /// failed can be asked for again with requestDownload.
+        pub status: DownloadStatus,
+        /// Subtitle tracks in the MP4 (mov_text).
+        pub subtitles: Vec<DownloadSubtitle>,
+        pub thumb_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub thumb_ver: Option<i64>,
+        pub title: String,
+        pub title_id: String,
+        pub title_slug: String,
+        /// The MP4 under a media grant, once ready; the grant expires, so fetch the download again for a fresh URL.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub url: Option<String>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DownloadKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "episode")]
+        Episode,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DownloadKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DownloadKind::Movie => "movie",
+                DownloadKind::Episode => "episode",
+                DownloadKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DownloadKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DownloadList {
+        pub downloads: Vec<Download>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DownloadQuality {
+        #[serde(rename = "original")]
+        Original,
+        #[serde(rename = "1080p")]
+        V1080p,
+        #[serde(rename = "720p")]
+        V720p,
+        #[serde(rename = "480p")]
+        V480p,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DownloadQuality {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DownloadQuality::Original => "original",
+                DownloadQuality::V1080p => "1080p",
+                DownloadQuality::V720p => "720p",
+                DownloadQuality::V480p => "480p",
+                DownloadQuality::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DownloadQuality {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DownloadRequest {
+        /// Audio languages to include, in order; absent or unmatched for the default track.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub audio: Option<Vec<String>>,
+        /// The movie's title id or the episode id.
+        pub id: String,
+        pub kind: DownloadRequestKind,
+        /// The device's capability profile, as for resolvePlayback.
+        pub profile: DeviceProfile,
+        /// original keeps the source picture (copied when the device decodes it, else the best rung); a rung transcodes to H.264 at that height unless the source is already no bigger.
+        pub quality: DownloadRequestQuality,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DownloadRequestKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "episode")]
+        Episode,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DownloadRequestKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DownloadRequestKind::Movie => "movie",
+                DownloadRequestKind::Episode => "episode",
+                DownloadRequestKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DownloadRequestKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// original keeps the source picture (copied when the device decodes it, else the best rung); a rung transcodes to H.264 at that height unless the source is already no bigger.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DownloadRequestQuality {
+        #[serde(rename = "original")]
+        Original,
+        #[serde(rename = "1080p")]
+        V1080p,
+        #[serde(rename = "720p")]
+        V720p,
+        #[serde(rename = "480p")]
+        V480p,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DownloadRequestQuality {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DownloadRequestQuality::Original => "original",
+                DownloadRequestQuality::V1080p => "1080p",
+                DownloadRequestQuality::V720p => "720p",
+                DownloadRequestQuality::V480p => "480p",
+                DownloadRequestQuality::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DownloadRequestQuality {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// failed can be asked for again with requestDownload.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum DownloadStatus {
+        #[serde(rename = "queued")]
+        Queued,
+        #[serde(rename = "preparing")]
+        Preparing,
+        #[serde(rename = "ready")]
+        Ready,
+        #[serde(rename = "failed")]
+        Failed,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl DownloadStatus {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                DownloadStatus::Queued => "queued",
+                DownloadStatus::Preparing => "preparing",
+                DownloadStatus::Ready => "ready",
+                DownloadStatus::Failed => "failed",
+                DownloadStatus::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for DownloadStatus {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DownloadSubtitle {
+        pub forced: bool,
+        pub label: String,
+        pub lang: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DownloadTrack {
+        pub label: String,
+        /// BCP 47 language; und when unknown.
+        pub lang: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct Episode {
         pub air_date: Option<String>,
         pub episode_number: i64,
@@ -3290,6 +3531,9 @@ pub mod types {
         /// Set for a movie; exactly one of titleId and episodeId.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub title_id: Option<String>,
+        /// When the position was reached, for a report replayed after watching offline; it does not replace a position saved later. Absent means now.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub watched_at: Option<String>,
         /// Seconds actually played since the previous report (feeds analytics).
         /// At least 0.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5442,6 +5686,17 @@ pub mod ops {
         build::json(build::request(Method::Delete, "/me/banner".to_string(), q, Body::Empty))
     }
 
+    /// `DELETE /me/downloads/{id}`
+    pub fn delete_download(id: &str) -> Call<NoContent> {
+        let q = Vec::new();
+        build::no_content(build::request(
+            Method::Delete,
+            format!("/me/downloads/{}", build::segment(id)),
+            q,
+            Body::Empty,
+        ))
+    }
+
     /// `POST /me/pairings/{code}/deny`
     ///
     /// - `code`: The user code, with or without the dash, any case.
@@ -5466,6 +5721,22 @@ pub mod ops {
             q,
             Body::Empty,
         ))
+    }
+
+    /// Fetch a prepared download
+    ///
+    /// `GET /media/{grant}/downloads/{id}`
+    ///
+    /// - `grant`: The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
+    /// - `id`: The prepared file id from the download's url.
+    pub fn fetch_download(grant: &str, id: &str) -> Request {
+        let q = Vec::new();
+        build::request(
+            Method::Get,
+            format!("/media/{}/downloads/{}", build::segment(grant), build::segment(id)),
+            q,
+            Body::Empty,
+        )
     }
 
     /// Query parameters of [`get_artwork`].
@@ -5536,6 +5807,25 @@ pub mod ops {
         build::json(build::request(
             Method::Get,
             format!("/couch/{}/playback", build::segment(token)),
+            q,
+            Body::Empty,
+        ))
+    }
+
+    /// Query parameters of [`get_download`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct GetDownloadQuery {
+        /// Display language (ISO 639-1). Empty serves the base text.
+        pub lang: Option<String>,
+    }
+
+    /// `GET /me/downloads/{id}`
+    pub fn get_download(id: &str, query: &GetDownloadQuery) -> Call<Download> {
+        let mut q = Vec::new();
+        build::push(&mut q, "lang", query.lang.as_ref());
+        build::json(build::request(
+            Method::Get,
+            format!("/me/downloads/{}", build::segment(id)),
             q,
             Body::Empty,
         ))
@@ -5900,6 +6190,20 @@ pub mod ops {
         build::json(build::request(Method::Get, "/me/devices".to_string(), q, Body::Empty))
     }
 
+    /// Query parameters of [`list_downloads`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct ListDownloadsQuery {
+        /// Display language (ISO 639-1). Empty serves the base text.
+        pub lang: Option<String>,
+    }
+
+    /// `GET /me/downloads`
+    pub fn list_downloads(query: &ListDownloadsQuery) -> Call<DownloadList> {
+        let mut q = Vec::new();
+        build::push(&mut q, "lang", query.lang.as_ref());
+        build::json(build::request(Method::Get, "/me/downloads".to_string(), q, Body::Empty))
+    }
+
     /// Query parameters of [`list_genres`].
     #[derive(Debug, Clone, Default, PartialEq)]
     pub struct ListGenresQuery {
@@ -5964,6 +6268,30 @@ pub mod ops {
             format!("/me/watchlist/{}", build::segment(title_id)),
             q,
             Body::Empty,
+        ))
+    }
+
+    /// Query parameters of [`request_download`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct RequestDownloadQuery {
+        /// Display language (ISO 639-1). Empty serves the base text.
+        pub lang: Option<String>,
+    }
+
+    /// Ask for a movie or an episode to be prepared for offline viewing
+    ///
+    /// `POST /me/downloads`
+    pub fn request_download(
+        query: &RequestDownloadQuery,
+        body: &DownloadRequest,
+    ) -> Call<Download> {
+        let mut q = Vec::new();
+        build::push(&mut q, "lang", query.lang.as_ref());
+        build::json(build::request(
+            Method::Post,
+            "/me/downloads".to_string(),
+            q,
+            build::json_body(Some(body)),
         ))
     }
 

@@ -6,9 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
-
-	"golang.org/x/text/language"
 
 	"couchverse/internal/hls"
 	"couchverse/internal/media"
@@ -321,21 +318,4 @@ func videoRange(v media.VideoStream) string {
 		return "PQ"
 	}
 	return "SDR"
-}
-
-// bcp47 turns a stream's ISO 639-2 tag (eng, cze) into the BCP 47 form HLS
-// wants (en, cs); unknown tags become und.
-func bcp47(lang string) string {
-	if lang == "" {
-		return "und"
-	}
-	tag, err := language.Parse(lang)
-	if err != nil {
-		return "und"
-	}
-	base, conf := tag.Base()
-	if conf != language.Exact {
-		return "und"
-	}
-	return strings.ToLower(base.String())
 }

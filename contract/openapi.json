@@ -1579,6 +1579,261 @@
         ],
         "type": "object"
       },
+      "Download": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "description": "Audio tracks in the MP4, the default first.",
+            "items": {
+              "$ref": "#/components/schemas/DownloadTrack"
+            },
+            "type": "array"
+          },
+          "backdropId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "backdropVer": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "durationSeconds": {
+            "format": "double",
+            "type": "number"
+          },
+          "episodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "episodeName": {
+            "type": "string"
+          },
+          "episodeNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "expiresAt": {
+            "description": "When the server deletes the prepared MP4 unless it is asked for again; null until ready.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "height": {
+            "description": "Picture height of a transcoded download; absent when the source video is kept.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "movie",
+              "episode"
+            ],
+            "type": "string"
+          },
+          "posterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "posterVer": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "progress": {
+            "description": "Preparation progress in percent.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "quality": {
+            "enum": [
+              "original",
+              "1080p",
+              "720p",
+              "480p"
+            ],
+            "type": "string"
+          },
+          "seasonNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sizeBytes": {
+            "description": "The MP4's size once ready.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "description": "failed can be asked for again with requestDownload.",
+            "enum": [
+              "queued",
+              "preparing",
+              "ready",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "subtitles": {
+            "description": "Subtitle tracks in the MP4 (mov_text).",
+            "items": {
+              "$ref": "#/components/schemas/DownloadSubtitle"
+            },
+            "type": "array"
+          },
+          "thumbId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "thumbVer": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "titleSlug": {
+            "type": "string"
+          },
+          "url": {
+            "description": "The MP4 under a media grant, once ready; the grant expires, so fetch the download again for a fresh URL.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "titleId",
+          "titleSlug",
+          "title",
+          "posterId",
+          "backdropId",
+          "thumbId",
+          "quality",
+          "status",
+          "progress",
+          "durationSeconds",
+          "audio",
+          "subtitles",
+          "createdAt",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "DownloadList": {
+        "additionalProperties": false,
+        "properties": {
+          "downloads": {
+            "items": {
+              "$ref": "#/components/schemas/Download"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "downloads"
+        ],
+        "type": "object"
+      },
+      "DownloadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "description": "Audio languages to include, in order; absent or unmatched for the default track.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "description": "The movie's title id or the episode id.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "movie",
+              "episode"
+            ],
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/DeviceProfile",
+            "description": "The device's capability profile, as for resolvePlayback."
+          },
+          "quality": {
+            "description": "original keeps the source picture (copied when the device decodes it, else the best rung); a rung transcodes to H.264 at that height unless the source is already no bigger.",
+            "enum": [
+              "original",
+              "1080p",
+              "720p",
+              "480p"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "quality",
+          "profile"
+        ],
+        "type": "object"
+      },
+      "DownloadSubtitle": {
+        "additionalProperties": false,
+        "properties": {
+          "forced": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "lang",
+          "label",
+          "forced"
+        ],
+        "type": "object"
+      },
+      "DownloadTrack": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "lang": {
+            "description": "BCP 47 language; und when unknown.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lang",
+          "label"
+        ],
+        "type": "object"
+      },
       "Episode": {
         "additionalProperties": false,
         "properties": {
@@ -3509,6 +3764,11 @@
           "titleId": {
             "description": "Set for a movie; exactly one of titleId and episodeId.",
             "format": "uuid",
+            "type": "string"
+          },
+          "watchedAt": {
+            "description": "When the position was reached, for a report replayed after watching offline; it does not replace a position saved later. Absent means now.",
+            "format": "date-time",
             "type": "string"
           },
           "watchedSeconds": {
@@ -9781,6 +10041,210 @@
         ]
       }
     },
+    "/me/downloads": {
+      "get": {
+        "operationId": "listDownloads",
+        "parameters": [
+          {
+            "description": "Display language (ISO 639-1). Empty serves the base text.",
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "downloads"
+        ]
+      },
+      "post": {
+        "description": "Plans a device-ready MP4 (faststart; the source video when the profile decodes it, else H.264 at the quality; the audio languages asked for, copied when the device takes them and AAC otherwise; text subtitles as mov_text) and queues its preparation, or reuses the MP4 another request already made. Asking again returns the same download and prepares a failed one again. Poll getDownload until it is ready, then fetch url. Codes: no_media (404), source_deleted (409), unsupported (422, the device plays no download of this file).",
+        "operationId": "requestDownload",
+        "parameters": [
+          {
+            "description": "Display language (ISO 639-1). Empty serves the base text.",
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Download"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "summary": "Ask for a movie or an episode to be prepared for offline viewing",
+        "tags": [
+          "downloads"
+        ]
+      }
+    },
+    "/me/downloads/{id}": {
+      "delete": {
+        "description": "Removes the download from the list; a device that fetched the MP4 keeps its copy.",
+        "operationId": "deleteDownload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "downloads"
+        ]
+      },
+      "get": {
+        "operationId": "getDownload",
+        "parameters": [
+          {
+            "description": "Display language (ISO 639-1). Empty serves the base text.",
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Download"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "downloads"
+        ]
+      }
+    },
     "/me/pairings/{code}": {
       "get": {
         "operationId": "getPairingRequest",
@@ -10277,6 +10741,85 @@
         ],
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/media/{grant}/downloads/{id}": {
+      "get": {
+        "description": "Serves the MP4 with HTTP range support, so an interrupted transfer resumes. Use the url of a ready download. 404 codes: not_found (no such download of the granted file), file_missing; 409 not_ready.",
+        "operationId": "fetchDownload",
+        "parameters": [
+          {
+            "description": "The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The prepared file id from the download's url.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Byte range to read, e.g. bytes=0-1048575.",
+            "in": "header",
+            "name": "Range",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The whole file."
+          },
+          "206": {
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The requested byte range."
+          },
+          "416": {
+            "description": "The range lies outside the file."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fetch a prepared download",
+        "tags": [
+          "downloads"
         ]
       }
     },

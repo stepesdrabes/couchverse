@@ -17,6 +17,7 @@ import (
 	"couchverse/internal/config"
 	"couchverse/internal/db"
 	"couchverse/internal/feature/catalog"
+	"couchverse/internal/feature/downloads"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/feature/playback"
@@ -235,16 +236,20 @@ type worker struct {
 	prober    *library.Prober
 	subtitles *subtitles.Service
 	transcode *playback.JobHandler
+	downloads *downloads.Preparer
 }
 
 func newWorker(t *testing.T, env *testEnv) *worker {
 	files, set, jb := library.NewStore(env.pool), settings.NewStore(env.pool), jobs.NewStore(env.pool)
 	cat := catalog.NewStore(env.pool)
+	subs := &subtitles.Service{Subs: subtitles.NewStore(env.pool), Files: files, DataDir: env.cfg.DataDir, FFmpegPath: "ffmpeg"}
 	return &worker{
 		t: t, env: env, files: files, catalog: cat, jobs: jb, settings: set,
 		prober:    &library.Prober{Files: files, Catalog: cat, Settings: set, Jobs: jb, FFprobePath: "ffprobe"},
-		subtitles: &subtitles.Service{Subs: subtitles.NewStore(env.pool), Files: files, DataDir: env.cfg.DataDir, FFmpegPath: "ffmpeg"},
+		subtitles: subs,
 		transcode: &playback.JobHandler{Files: files, Settings: set, Jobs: jb, DataDir: env.cfg.DataDir, FFmpegPath: "ffmpeg"},
+		downloads: &downloads.Preparer{Store: downloads.NewStore(env.pool), Files: files, Subtitles: subs, Settings: set,
+			DataDir: env.cfg.DataDir, FFmpegPath: "ffmpeg"},
 	}
 }
 
@@ -273,8 +278,9 @@ func (w *worker) drain(ctx context.Context) {
 		"probe":             w.prober.Handle,
 		"extract_subtitles": w.subtitles.HandleExtract,
 		"transcode_hls":     w.transcode.Handle,
+		downloads.JobType:   w.downloads.Handle,
 	}
-	types := []string{"probe", "extract_subtitles", "transcode_hls"}
+	types := []string{"probe", "extract_subtitles", "transcode_hls", downloads.JobType}
 	for {
 		job, err := w.jobs.ClaimJob(ctx, types)
 		if errors.Is(err, db.ErrNotFound) {

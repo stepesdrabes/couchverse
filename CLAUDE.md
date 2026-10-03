@@ -25,8 +25,8 @@ Feature inventory + per-feature docs (endpoints, tables, dependency graph) live 
 A feature owns its HTTP handlers, domain logic and SQL together.
 
 - Backend features live in `backend/internal/feature/<name>/` (analytics, artwork, auth,
-  catalog, couch, jobs, library, metadata, playback, ranks, subtitles, system). Each is
-  one Go package with:
+  catalog, couch, downloads, jobs, library, metadata, playback, ranks, subtitles, system).
+  Each is one Go package with:
   - a per-feature `Store` struct over the shared pgx pool (`NewStore(pool)`) - SQL stays
     inside the feature;
   - handler files plus `routes.go` with a `Register(rt httpx.Routes)` method (on a `Module` or
