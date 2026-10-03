@@ -21,7 +21,9 @@ struct BridgeTests {
         return try decoder.decode([EffectRequest].self, from: Data(try core.send(message: message).utf8))
     }
 
-    private func resolve(_ core: CoreBridge, _ id: UInt64, _ output: EffectOutput, at now: UInt64)
+    private func resolve(
+        _ core: CoreBridge, _ id: UInt64, _ output: EffectOutput, at now: UInt64
+    )
         throws -> [EffectRequest]
     {
         let resolution = Resolution(nowMs: now, id: id, output: output)
