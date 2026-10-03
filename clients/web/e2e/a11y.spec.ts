@@ -61,12 +61,17 @@ test.describe('viewer pages', () => {
 		await audit(page);
 	});
 
-	test('a profile and the leaderboard are accessible', async ({ page }) => {
+	// one audit each: a profile is the largest page there is, and WebKit takes most of a
+	// test's time to audit it
+	test('a profile is accessible', async ({ page }) => {
 		await page.goto('/u/nora');
 		await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
 		await audit(page);
+	});
+
+	test('the leaderboard is accessible', async ({ page }) => {
 		await page.goto('/leaderboard');
-		await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+		await expect(page.getByRole('table')).toBeVisible();
 		await audit(page);
 	});
 });
