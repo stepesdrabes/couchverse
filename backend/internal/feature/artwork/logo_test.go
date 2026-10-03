@@ -4,12 +4,15 @@ import (
 	"context"
 	"image"
 	"image/color"
+	_ "image/jpeg"
 	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func logo(id string, lang string) Artwork {
@@ -116,4 +119,53 @@ func TestResolveKeepsALogoTransparent(t *testing.T) {
 	if !strings.HasSuffix(poster, ".jpg") {
 		t.Errorf("a poster resized to %s", poster)
 	}
+}
+
+func TestResolveServesRequestsForTheSameImageAtOnce(t *testing.T) {
+	ffmpeg, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Skip("ffmpeg is not installed")
+	}
+	dir := t.TempDir()
+	writeLogo(t, filepath.Join(dir, "poster.png"), 1000, 400)
+	svc := &Service{DataDir: dir, FFmpegPath: ffmpeg}
+	art := &Artwork{ID: "poster", Kind: "poster", Path: "poster.png"}
+
+	// staggered, so some look for the resize while another is still writing it
+	errs := make(chan error, 16)
+	var wg sync.WaitGroup
+	for range cap(errs) {
+		time.Sleep(5 * time.Millisecond)
+		wg.Go(func() {
+			path, err := svc.Resolve(context.Background(), art, "w342")
+			if err == nil {
+				err = decodes(path)
+			}
+			errs <- err
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Error(err)
+		}
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, "cache", "images"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("the cache holds %d files, want the one resize", len(entries))
+	}
+}
+
+func decodes(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, _, err = image.Decode(f)
+	return err
 }

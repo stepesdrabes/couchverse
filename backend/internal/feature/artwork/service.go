@@ -143,31 +143,43 @@ func (s *Service) Resolve(ctx context.Context, art *Artwork, size string) (strin
 	if err != nil {
 		return "", err
 	}
-	cached := filepath.Join(s.DataDir, "cache", "images",
-		fmt.Sprintf("%s_%d_%s%s", art.ID, info.ModTime().UnixNano(), size, ext))
+	dir := filepath.Join(s.DataDir, "cache", "images")
+	cached := filepath.Join(dir, fmt.Sprintf("%s_%d_%s%s", art.ID, info.ModTime().UnixNano(), size, ext))
 	if _, err := os.Stat(cached); err == nil {
 		return cached, nil
 	}
-	if err := os.MkdirAll(filepath.Dir(cached), 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	// drop resizes of older versions of this artwork
-	if stale, err := filepath.Glob(filepath.Join(s.DataDir, "cache", "images",
-		fmt.Sprintf("%s_*_%s%s", art.ID, size, ext))); err == nil {
+	// drop resizes of older versions of this artwork (not this one: a request for the same
+	// image may just have made it)
+	if stale, err := filepath.Glob(filepath.Join(dir, fmt.Sprintf("%s_*_%s%s", art.ID, size, ext))); err == nil {
 		for _, f := range stale {
-			os.Remove(f)
+			if f != cached {
+				os.Remove(f)
+			}
 		}
 	}
 
+	// resized aside and moved into place, so a request at the same moment never serves a
+	// half-written image
+	tmp, err := os.CreateTemp(dir, ".resize-*"+ext)
+	if err != nil {
+		return "", err
+	}
+	tmp.Close()
+	defer os.Remove(tmp.Name())
 	out, err := exec.CommandContext(ctx, s.FFmpegPath,
 		"-y", "-hide_banner", "-loglevel", "error",
 		"-i", original,
 		"-vf", fmt.Sprintf("scale=%d:-2", width),
 		"-frames:v", "1", "-update", "1",
-		cached).CombinedOutput()
+		tmp.Name()).CombinedOutput()
 	if err != nil {
-		os.Remove(cached)
 		return "", fmt.Errorf("resize: %s", strings.TrimSpace(string(out)))
+	}
+	if err := os.Rename(tmp.Name(), cached); err != nil {
+		return "", err
 	}
 	return cached, nil
 }
