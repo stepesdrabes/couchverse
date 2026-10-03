@@ -13,6 +13,8 @@ data class AccentColors(
     val strong: Color,
     val soft: Color,
     val onAccent: Color,
+    /** The accent for text on the app's surfaces, lightened to WCAG AA contrast; text never uses [accent]. */
+    val ink: Color,
 ) {
     companion object {
         val Default = AccentColors(
@@ -20,6 +22,7 @@ data class AccentColors(
             strong = Tokens.Palette.accentStrong,
             soft = Tokens.Palette.accentSoft,
             onAccent = Tokens.Palette.onAccent,
+            ink = Tokens.Palette.accentInk,
         )
 
         /** The core's palette; it already derived every colour from one accent. */
@@ -29,6 +32,7 @@ data class AccentColors(
                 strong = colorOf(it.strong) ?: Default.strong,
                 soft = colorOf(it.soft) ?: Default.soft,
                 onAccent = colorOf(it.onAccent) ?: Default.onAccent,
+                ink = colorOf(it.ink) ?: Default.ink,
             )
         } ?: Default
     }

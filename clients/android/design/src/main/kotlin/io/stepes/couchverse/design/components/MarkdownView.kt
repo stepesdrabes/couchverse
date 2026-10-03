@@ -53,7 +53,7 @@ fun MarkdownView(
     style: TextStyle = MaterialTheme.typography.bodyLarge,
     color: Color = Tokens.Palette.text,
 ) {
-    val markdown = MarkdownStyle(style.copy(color = color), LocalAccent.current.accent)
+    val markdown = MarkdownStyle(style.copy(color = color), LocalAccent.current.ink)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         doc.blocks.forEach { markdown.Block(it) }
     }

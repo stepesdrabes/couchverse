@@ -31,6 +31,7 @@ import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.CouchverseIcons
 import io.stepes.couchverse.design.components.InsecureBadge
 import io.stepes.couchverse.design.runtime.rememberSurface
+import io.stepes.couchverse.design.theme.LocalAccent
 import io.stepes.couchverse.design.theme.LocalIsTv
 import androidx.tv.material3.Icon as TvIcon
 import androidx.tv.material3.ListItem as TvListItem
@@ -84,7 +85,7 @@ fun ChooseServerScreen(view: ServersView?, onPick: (Server) -> Unit, onAddServer
             ListItem(
                 colors = colors,
                 modifier = Modifier.clickable(role = Role.Button, onClick = onAddServer),
-                headlineContent = { Text(stringResource(R.string.servers_add_title), color = MaterialTheme.colorScheme.primary) },
+                headlineContent = { Text(stringResource(R.string.servers_add_title), color = LocalAccent.current.ink) },
             )
         }
     }

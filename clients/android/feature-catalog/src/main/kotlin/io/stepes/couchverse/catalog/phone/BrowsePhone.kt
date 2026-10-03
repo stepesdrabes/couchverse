@@ -51,6 +51,7 @@ import io.stepes.couchverse.catalog.caption
 import io.stepes.couchverse.catalog.label
 import io.stepes.couchverse.core.Card
 import io.stepes.couchverse.design.R
+import io.stepes.couchverse.design.phone.inkButtonColors
 import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.SkeletonBox
 import io.stepes.couchverse.design.components.loadingSemantics
@@ -121,7 +122,11 @@ private fun SortMenu(state: BrowseState, actions: BrowseActions) {
     var open by remember { mutableStateOf(false) }
     val description = listOf(stringResource(R.string.catalog_sort_label), state.sort.label()).joinToString(", ")
     Box {
-        TextButton(onClick = { open = true }, modifier = Modifier.semantics { contentDescription = description }) {
+        TextButton(
+            onClick = { open = true },
+            colors = inkButtonColors(),
+            modifier = Modifier.semantics { contentDescription = description },
+        ) {
             Text(state.sort.label())
             Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
         }

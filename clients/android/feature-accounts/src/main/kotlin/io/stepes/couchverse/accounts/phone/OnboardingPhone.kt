@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import io.stepes.couchverse.core.LoadStatus
 import io.stepes.couchverse.core.ServersView
 import io.stepes.couchverse.design.R
+import io.stepes.couchverse.design.phone.inkButtonColors
 import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.CouchverseIcons
 import io.stepes.couchverse.design.components.GlowBackdrop
@@ -156,7 +157,7 @@ internal fun AddServerPhone(view: ServersView?, onSubmit: (String) -> Unit, onBa
                 Text(stringResource(R.string.servers_connect))
             }
         }
-        TextButton(onClick = onScan, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+        TextButton(onClick = onScan, colors = inkButtonColors(), modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Icon(CouchverseIcons.ScanCode, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.scanner_title))

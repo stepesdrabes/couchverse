@@ -45,6 +45,7 @@ import io.stepes.couchverse.accounts.SignInActions
 import io.stepes.couchverse.accounts.SignInState
 import io.stepes.couchverse.core.LoadStatus
 import io.stepes.couchverse.design.R
+import io.stepes.couchverse.design.phone.inkButtonColors
 import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.InsecureBadge
 import io.stepes.couchverse.design.text.problemMessage
@@ -145,6 +146,7 @@ internal fun SignInPhone(state: SignInState, actions: SignInActions) {
                             pairingChosen = false
                             actions.onCancelPairing()
                         },
+                        colors = inkButtonColors(),
                     ) { Text(stringResource(R.string.common_cancel)) }
                 }
             }

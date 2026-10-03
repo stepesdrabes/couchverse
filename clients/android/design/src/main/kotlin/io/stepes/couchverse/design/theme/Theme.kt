@@ -39,6 +39,7 @@ fun CouchverseTheme(
             strong = animateAccent(accent.strong),
             soft = animateAccent(accent.soft),
             onAccent = animateAccent(accent.onAccent),
+            ink = animateAccent(accent.ink),
         )
         val phoneTypography = remember { phoneTypography() }
         CompositionLocalProvider(LocalAccent provides animated) {

@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.Tokens
+import io.stepes.couchverse.design.phone.inkButtonColors
 
 /** Asks before something that cannot be undone from here (signing out, removing a server). */
 @Composable
@@ -26,6 +27,6 @@ internal fun ConfirmDialog(title: String, message: String, confirm: String, onCo
                 colors = ButtonDefaults.textButtonColors(contentColor = Tokens.Palette.danger),
             ) { Text(confirm) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
+        dismissButton = { TextButton(onClick = onDismiss, colors = inkButtonColors()) { Text(stringResource(R.string.common_cancel)) } },
     )
 }

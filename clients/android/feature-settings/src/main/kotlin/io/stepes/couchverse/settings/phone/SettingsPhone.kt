@@ -51,6 +51,7 @@ import io.stepes.couchverse.design.components.Avatar
 import io.stepes.couchverse.design.components.CouchverseIcons
 import io.stepes.couchverse.design.components.InsecureBadge
 import io.stepes.couchverse.design.phone.PhoneGutter
+import io.stepes.couchverse.design.theme.LocalAccent
 import io.stepes.couchverse.settings.ConfirmDialog
 import io.stepes.couchverse.settings.DisplayLanguages
 import io.stepes.couchverse.settings.SettingsActions
@@ -181,7 +182,7 @@ private fun LazyListScope.section(key: String, title: Int) {
             Text(
                 stringResource(title),
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = LocalAccent.current.ink,
                 modifier = Modifier.padding(start = PhoneGutter, end = PhoneGutter, top = 16.dp, bottom = 4.dp).semantics { heading() },
             )
         }
