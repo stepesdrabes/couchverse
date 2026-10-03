@@ -3,6 +3,8 @@ node_modules/
 clients/web/node_modules/
 clients/web/build/
 clients/web/.svelte-kit/
+clients/web/src/lib/core/pkg/
+core/target/
 backend/web/dist/*
 backend/bin/
 data/

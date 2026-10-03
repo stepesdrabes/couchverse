@@ -2,9 +2,13 @@ name: web
 
 on:
   push:
-    paths: [clients/web/**, contract/i18n/**, .github/workflows/web.yml]
+    paths: [clients/web/**, contract/i18n/**, contract/design/**, core/**, .github/workflows/web.yml]
   pull_request:
-    paths: [clients/web/**, contract/i18n/**, .github/workflows/web.yml]
+    paths: [clients/web/**, contract/i18n/**, contract/design/**, core/**, .github/workflows/web.yml]
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARYEN_VERSION: "133"
 
 defaults:
   run:
@@ -15,6 +19,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # the web runs the shared core as wasm, so it is built first
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Install wasm-opt
+        working-directory: .
+        run: |
+          curl -sSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" | tar xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/binaryen-version_${BINARYEN_VERSION}/bin" >> "$GITHUB_PATH"
+      - run: make core-wasm
+        working-directory: .
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -23,4 +41,5 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run lint
+      - run: npm test
       - run: npm run build
