@@ -307,7 +307,8 @@ export interface CouchView {
 	resynced: boolean;
 	/**
 	 * Why the session ended: `host_ended`, `host_left`, `host_timeout`, `idle`,
-	 * `server_shutdown` or `left` (this device left).
+	 * `server_shutdown`, `left` (this device left) or `gone` (it ended while this device was
+	 * disconnected).
 	 */
 	ended?: string;
 	problem?: Problem;

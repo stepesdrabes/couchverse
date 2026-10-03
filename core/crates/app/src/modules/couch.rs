@@ -10,10 +10,11 @@ use couchverse_api::couch::{
     CouchRemoteCommandAction, ServerFrame,
 };
 use couchverse_api::ops::{
-    CreateCouchQuery, GetCouchPlaybackQuery, JoinCouchQuery, ResolveCouchPlaybackQuery,
+    CreateCouchQuery, GetCouchInfoQuery, GetCouchPlaybackQuery, JoinCouchQuery,
+    ResolveCouchPlaybackQuery,
 };
 use couchverse_api::types::{
-    CouchHostState, CouchMediaRef, CouchMediaRefKind, CouchParticipant, CouchPlayback,
+    CouchHostState, CouchInfo, CouchMediaRef, CouchMediaRefKind, CouchParticipant, CouchPlayback,
     CouchSession, CouchSessionRole, CouchStart, CouchStartKind, CreateCouchDelivery,
     JoinCouchDelivery,
 };
@@ -172,7 +173,8 @@ pub struct CouchView {
     /// Briefly true after a follower was snapped back to the host.
     pub resynced: bool,
     /// Why the session ended: `host_ended`, `host_left`, `host_timeout`, `idle`,
-    /// `server_shutdown` or `left` (this device left).
+    /// `server_shutdown`, `left` (this device left) or `gone` (it ended while this device was
+    /// disconnected).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -203,6 +205,8 @@ enum Request {
     /// The socket: resolved on open, for every frame and once when it closes.
     Socket,
     Reconnect,
+    /// Before reconnecting: is the session still there?
+    Alive(Call<CouchInfo>),
     Heartbeat,
     ReactionGone(U53),
     ResyncNoteGone,
@@ -480,11 +484,36 @@ impl Couch {
             },
             Request::Socket => self.socket_output(ctx, env, playback, output),
             Request::Reconnect => {
-                if let Some(env) = env {
-                    self.open_socket(ctx, env);
+                // a session that ended while the socket was down sent its last frame to no one
+                if let (Some(env), Some(live)) = (env, &self.live) {
+                    let lang = Some(env.language.to_string());
+                    let call = ops::get_couch_info(&live.code, &GetCouchInfoQuery { lang });
+                    let request = Self::authorized(env, &call.request, live.token.as_deref());
+                    ctx.http(request, self.pending(Request::Alive(call)));
                 }
                 CouchChange::None
             }
+            Request::Alive(call) => match decode(&call, output) {
+                Ok(_) => {
+                    if let Some(env) = env {
+                        self.open_socket(ctx, env);
+                    }
+                    CouchChange::None
+                }
+                Err(Failure::Api(e)) if e.status == 404 => {
+                    let follower = self.is_follower();
+                    self.teardown(ctx);
+                    self.generation += 1;
+                    self.ended = Some("gone".into());
+                    ctx.render(Surface::Couch);
+                    if follower { CouchChange::StopFollowing } else { CouchChange::None }
+                }
+                // still out of reach: try again later
+                Err(_) => {
+                    self.retry_later(ctx);
+                    CouchChange::None
+                }
+            },
             Request::Heartbeat => {
                 self.broadcast(ctx, playback);
                 CouchChange::None
@@ -603,17 +632,23 @@ impl Couch {
                 Err(_) => CouchChange::None,
             },
             EffectOutput::SocketClosed(_) => {
-                let reconnect = self.pending(Request::Reconnect);
                 let Some(live) = self.live.as_mut() else { return CouchChange::None };
                 live.socket = None;
                 live.status = CouchStatus::Reconnecting;
-                ctx.after(live.backoff, reconnect);
-                live.backoff = (live.backoff * 2).min(MAX_BACKOFF_MS);
+                self.retry_later(ctx);
                 ctx.render(Surface::Couch);
                 CouchChange::None
             }
             _ => CouchChange::None,
         }
+    }
+
+    /// Schedules the next reconnect, backing off up to `MAX_BACKOFF_MS`.
+    fn retry_later(&mut self, ctx: &mut Ctx) {
+        let reconnect = self.pending(Request::Reconnect);
+        let Some(live) = self.live.as_mut() else { return };
+        ctx.after(live.backoff, reconnect);
+        live.backoff = (live.backoff * 2).min(MAX_BACKOFF_MS);
     }
 
     fn frame(

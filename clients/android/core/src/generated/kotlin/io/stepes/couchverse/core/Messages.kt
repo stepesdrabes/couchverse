@@ -384,7 +384,8 @@ data class CouchView (
 	/// Briefly true after a follower was snapped back to the host.
 	val resynced: Boolean,
 	/// Why the session ended: `host_ended`, `host_left`, `host_timeout`, `idle`,
-	/// `server_shutdown` or `left` (this device left).
+	/// `server_shutdown`, `left` (this device left) or `gone` (it ended while this device was
+	/// disconnected).
 	val ended: String? = null,
 	val problem: Problem? = null
 )

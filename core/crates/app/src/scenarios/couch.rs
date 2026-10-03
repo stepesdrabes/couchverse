@@ -181,6 +181,8 @@ fn a_dropped_socket_reconnects_with_growing_backoff() {
     let retry =
         shell.timers().iter().find(|(_, after, repeat)| *after == 500 && !repeat).expect("retry").0;
     shell.fire(retry, 500);
+    // the session is still there: the socket opens again
+    shell.respond("GET", &format!("{API}/couch/123456/info?lang=en"), 200, info());
     let second = shell.socket(SOCKET);
     assert_ne!(second, socket);
     shell.resolve(
@@ -190,9 +192,48 @@ fn a_dropped_socket_reconnects_with_growing_backoff() {
     assert!(shell.timers().iter().any(|(_, after, _)| *after == 1_000));
     let retry = shell.timers().iter().find(|(_, after, _)| *after == 1_000).expect("retry").0;
     shell.fire(retry, 1_000);
+    // still offline: the check itself backs off
+    shell.fail("GET", &format!("{API}/couch/123456/info?lang=en"), HttpFailureKind::Offline);
+    // the host's heartbeat repeats every two seconds too
+    let retry = shell
+        .timers()
+        .iter()
+        .find(|(_, after, repeat)| *after == 2_000 && !repeat)
+        .expect("retry")
+        .0;
+    shell.fire(retry, 2_000);
+    shell.respond("GET", &format!("{API}/couch/123456/info?lang=en"), 200, info());
     let third = shell.socket(SOCKET);
     opened(&mut shell, third);
     assert_eq!(couch(&shell).status, CouchStatus::Open);
+}
+
+#[test]
+fn a_follower_that_missed_the_end_learns_of_it_when_reconnecting() {
+    let (mut shell, socket) = following();
+    shell.resolve(
+        socket,
+        EffectOutput::SocketClosed(SocketClosed { code: 1006, reason: String::new() }),
+    );
+    let retry = shell.timers().iter().find(|(_, after, _)| *after == 500).expect("retry").0;
+    shell.fire(retry, 500);
+    shell.respond(
+        "GET",
+        &format!("{API}/couch/123456/info?lang=en"),
+        404,
+        json!({ "error": { "code": "no_session", "message": "gone" } }),
+    );
+    let view = couch(&shell);
+    assert_eq!((view.status, view.ended.as_deref()), (CouchStatus::Ended, Some("gone")));
+    assert_eq!(shell.player.last(), Some(&PlayerCommand::Stop), "the follower's player closes");
+    assert_eq!(shell.timers().iter().filter(|(_, after, _)| *after == 1_000).count(), 0);
+}
+
+fn info() -> Value {
+    json!({
+        "artworkGrant": "g-art", "hostAvatarId": null, "hostName": "admin", "hostSeed": "admin",
+        "participants": 2, "playing": true, "shareCode": "123456",
+    })
 }
 
 #[test]

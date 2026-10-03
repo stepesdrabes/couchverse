@@ -459,7 +459,8 @@ public struct CouchView: Codable, Sendable, Hashable {
 	/// Briefly true after a follower was snapped back to the host.
 	public let resynced: Bool
 	/// Why the session ended: `host_ended`, `host_left`, `host_timeout`, `idle`,
-	/// `server_shutdown` or `left` (this device left).
+	/// `server_shutdown`, `left` (this device left) or `gone` (it ended while this device was
+	/// disconnected).
 	public let ended: String?
 	public let problem: Problem?
 
