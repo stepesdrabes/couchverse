@@ -216,6 +216,14 @@ export class CoreRuntime {
 				// a restarting core reloads quietly; its views are read once it has settled
 				if (!this.#restarting) this.#render(effect.content.surfaces);
 				return;
+			case 'player':
+				// nothing sends PlayRequested until the web's player adopts the core
+				return;
+			default: {
+				// a new effect needs an executor here before the web takes that core version
+				const unhandled: never = effect;
+				throw new Error(`unhandled core effect ${JSON.stringify(unhandled)}`);
+			}
 		}
 	}
 
