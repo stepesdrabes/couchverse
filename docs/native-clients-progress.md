@@ -103,10 +103,19 @@ Top Shelf, widget, Live Activity (per spike S1), App Intents, Shortcuts, Spotlig
 - Pending: the iOS/iPadOS downloads UI and offline mode (background `URLSession` executor),
   Android downloads (Phase 12).
 
-## Phase 11: Android foundation - in progress
+## Phase 11: Android foundation - done
 
-`CoreRuntime` and executors, design (phone and TV), onboarding, accounts, Who's watching, browse
-and titles (`worktree-agent-ad92f5029f15e7764`).
+One APK for phones and Google TV (docs/android.md): `CoreRuntime` with OkHttp, WebSocket,
+timer, file and Keystore-sealed store executors, `wallMs`, the device profile from
+`MediaCodecList`, `player` and `download` answered for now; Material 3 and Compose for TV
+design systems; welcome, add server, QR scanning (CameraX + ZXing), password and pairing
+sign-in (QR, countdown), Who's watching with the shared-element avatar, the phone account
+switcher, settings (servers with the not-encrypted badge, accounts, language, devices,
+approving a device); Home, Movies, Series, Genres, My List, Search and the title page on both
+idioms with skeleton, stale and failed states, play opening a placeholder. TV screens keep the
+remote's place across Back. JVM, Compose UI and Roborazzi tests (phone and TV, en and cs), and
+`android.yml` (tests, lint, APK; screenshots verified on macOS). Checked on Android 16 phone and
+TV emulators against a local server, the TV signed in by pairing.
 
 ## Phase 12: Android playback, couch, ranks, downloads - pending
 
@@ -152,7 +161,10 @@ first.
 - Downloads (Phase 10): a background transfer finishing while the app is suspended or killed,
   playback in airplane mode, progress syncing on reconnect.
 - Free personal team: 7-day provisioning, at most 3 apps, wireless pairing to the TV (spike S1).
-- Google TV device: pairing, D-pad focus, Keystore persistence.
+- Android (full list in docs/android.md): a Google TV device (launcher banner, D-pad focus and
+  Back on every screen, the keyboard beside fields, pairing QR scanned across the room), phone
+  camera scans, Keystore persistence across reboots and updates, Czech and the largest font,
+  TalkBack, Remove animations.
 - Raspberry Pi 4 server: HLS v2 with the V4L2 encoder (spike S3): package, trickplay and 720p
   job timings, whether `h264_v4l2m2m` honours `-force_key_frames`, JIT first-segment and
   far-seek latency.
