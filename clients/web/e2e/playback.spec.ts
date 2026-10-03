@@ -56,6 +56,8 @@ test('plays a movie, reports progress and resumes from continue watching', async
 
 /** opens one of the player's menus and picks an option in it */
 async function choose(page: Page, menu: string, option: string) {
+	// a badge the first minutes of watching earned celebrates over the controls for a while
+	await expect(page.locator('.achievement-celebrate')).toHaveCount(0, { timeout: MEDIA_TIMEOUT });
 	// the controls hide while playing; moving the pointer brings them back
 	await page.mouse.move(640, 400);
 	await page.mouse.move(650, 410);
