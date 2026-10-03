@@ -274,6 +274,8 @@ fn title_detail_shows_only_playable_episodes_and_what_play_does() {
     assert_eq!(episodes.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), ["e1", "e2"]);
     assert!(episodes[0].completed);
     assert!((episodes[0].progress - 1.0).abs() < f64::EPSILON);
+    // the file's length, which needs no metadata
+    assert_eq!(episodes[0].duration_seconds, Some(2400));
     assert_eq!(
         episodes[1].still.as_ref().expect("still").url,
         format!("{API}/artwork/th-e2?size=w780&v=3&g=g-art")

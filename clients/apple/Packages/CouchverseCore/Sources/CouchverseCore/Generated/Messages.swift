@@ -951,11 +951,13 @@ public struct EpisodeView: Codable, Sendable, Hashable {
 	public let runtimeMinutes: UInt32?
 	public let airDate: String?
 	public let still: Image?
+	/// The length of the episode's file, which is known even without metadata.
+	public let durationSeconds: UInt64?
 	/// How far in, from 0 to 1.
 	public let progress: Double
 	public let completed: Bool
 
-	public init(id: String, number: UInt32, name: String, overview: String, runtimeMinutes: UInt32? = nil, airDate: String? = nil, still: Image? = nil, progress: Double, completed: Bool) {
+	public init(id: String, number: UInt32, name: String, overview: String, runtimeMinutes: UInt32? = nil, airDate: String? = nil, still: Image? = nil, durationSeconds: UInt64? = nil, progress: Double, completed: Bool) {
 		self.id = id
 		self.number = number
 		self.name = name
@@ -963,6 +965,7 @@ public struct EpisodeView: Codable, Sendable, Hashable {
 		self.runtimeMinutes = runtimeMinutes
 		self.airDate = airDate
 		self.still = still
+		self.durationSeconds = durationSeconds
 		self.progress = progress
 		self.completed = completed
 	}

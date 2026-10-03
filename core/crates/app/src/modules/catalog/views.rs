@@ -2,7 +2,7 @@
 //! shell reads them, from the cached payloads and the current artwork grant, so a renewed grant
 //! or a My List change shows up without refetching.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use couchverse_api::types::{
     BrowseTitlesSort, CardItem, ContinueItem, FeaturedItem, Genre, Home, HomeRow,
@@ -211,6 +211,9 @@ pub struct EpisodeView {
     pub air_date: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub still: Option<Image>,
+    /// The length of the episode's file, which is known even without metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_seconds: Option<U53>,
     /// How far in, from 0 to 1.
     pub progress: f64,
     pub completed: bool,
@@ -498,8 +501,13 @@ pub fn title(detail: &TitleDetail, images: &Images, listed: &Listed) -> TitleDet
     let kind = TitleKind::parse(t.kind.as_str());
 
     // only episodes with a file to play are shown, and seasons left empty by that are dropped
-    let playable: HashSet<&str> =
-        detail.media_files.iter().filter_map(|f| f.episode_id.as_deref()).collect();
+    let mut playable: HashMap<&str, f64> = HashMap::new();
+    for file in &detail.media_files {
+        if let Some(episode) = file.episode_id.as_deref() {
+            let longest = playable.entry(episode).or_default();
+            *longest = longest.max(file.duration_seconds);
+        }
+    }
     let seasons: Vec<SeasonView> = detail
         .seasons
         .iter()
@@ -511,7 +519,7 @@ pub fn title(detail: &TitleDetail, images: &Images, listed: &Listed) -> TitleDet
             episodes: s
                 .episodes
                 .iter()
-                .filter(|e| playable.contains(e.id.as_str()))
+                .filter(|e| playable.contains_key(e.id.as_str()))
                 .map(|e| {
                     let progress = detail.episode_progress.get(&e.id);
                     EpisodeView {
@@ -527,6 +535,7 @@ pub fn title(detail: &TitleDetail, images: &Images, listed: &Listed) -> TitleDet
                             Size::Medium,
                             None,
                         ),
+                        duration_seconds: playable.get(e.id.as_str()).copied().and_then(whole),
                         progress: progress.map_or(0.0, |p| {
                             if p.completed {
                                 1.0
@@ -629,6 +638,12 @@ fn fraction(position: u64, duration: u64) -> f64 {
     #[allow(clippy::cast_precision_loss)] // seconds of video stay far below 2^52
     let fraction = position as f64 / duration as f64;
     fraction.clamp(0.0, 1.0)
+}
+
+/// A file's length in whole seconds; absent when unknown.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // finite, positive, far below 2^53
+fn whole(seconds: f64) -> Option<U53> {
+    (seconds.is_finite() && seconds >= 1.0).then(|| seconds.round() as u64)
 }
 
 fn seconds(value: i64) -> u64 {

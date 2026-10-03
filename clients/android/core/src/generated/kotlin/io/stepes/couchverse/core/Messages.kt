@@ -724,6 +724,8 @@ data class EpisodeView (
 	val runtimeMinutes: UInt? = null,
 	val airDate: String? = null,
 	val still: Image? = null,
+	/// The length of the episode's file, which is known even without metadata.
+	val durationSeconds: ULong? = null,
 	/// How far in, from 0 to 1.
 	val progress: Double,
 	val completed: Boolean

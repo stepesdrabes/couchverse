@@ -573,6 +573,8 @@ export interface EpisodeView {
 	runtimeMinutes?: number;
 	airDate?: string;
 	still?: Image;
+	/** The length of the episode's file, which is known even without metadata. */
+	durationSeconds?: number;
 	/** How far in, from 0 to 1. */
 	progress: number;
 	completed: boolean;
