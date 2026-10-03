@@ -36,27 +36,27 @@ struct SignInScreen: View {
         ScrollView {
             Group {
                 if Idiom.isTV {
-                    VStack(alignment: .leading, spacing: Tokens.Spacing.xxxl) {
-                        header
-                        HStack(alignment: .top, spacing: 64) {
+                    // two columns from the top, so the remote moves straight across between them
+                    HStack(alignment: .top, spacing: 64) {
+                        VStack(alignment: .leading, spacing: Tokens.Spacing.xxl) {
+                            header
                             pairingPanel
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .tvFocusSection()
-                            Rectangle()
-                                .fill(Tokens.Palette.edge)
-                                .frame(width: 1)
-                                .padding(.vertical, Tokens.Spacing.xl)
-                            VStack(alignment: .leading, spacing: Tokens.Spacing.xl) {
-                                Text(L10n.accountsUsePassword)
-                                    .typeRole(Tokens.TypeRamp.section)
-                                    .foregroundStyle(Tokens.Palette.text)
-                                passwordForm
-                            }
-                            .frame(width: 540)
-                            .tvFocusSection()
                         }
-                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .tvFocusSection()
+                        Rectangle()
+                            .fill(Tokens.Palette.edge)
+                            .frame(width: 1)
+                        VStack(alignment: .leading, spacing: Tokens.Spacing.xl) {
+                            Text(L10n.accountsUsePassword)
+                                .typeRole(Tokens.TypeRamp.section)
+                                .foregroundStyle(Tokens.Palette.text)
+                            passwordForm
+                        }
+                        .frame(width: 540)
+                        .tvFocusSection()
                     }
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 80)
                     .padding(.vertical, 60)
                 } else {
@@ -89,6 +89,8 @@ struct SignInScreen: View {
             .animation(Tokens.Motion.smooth, value: core.signIn)
         }
         .scrollBounceBehavior(.basedOnSize)
+        // the field a remote user needs first; the code next to it needs no focus at all
+        .defaultFocus($field, Idiom.isTV ? .username : nil)
         .background { GlowBackdrop(tint: Color(hex: server?.accent ?? "") ?? Tokens.Palette.accent, intensity: 0.7) }
         .navigationBarTitleDisplayModeInline()
         .onAppear {
