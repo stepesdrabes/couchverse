@@ -7,6 +7,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.activity.compose)
     // the phone's QR scanner: CameraX frames decoded by ZXing (no Play services needed)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
