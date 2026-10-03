@@ -46,9 +46,11 @@ jobs:
             clients/android/core/src/main/jniLibs
             clients/android/core/build/generated/uniffi
           retention-days: 1
+      # the release build runs R8 over the app, which a debug build never does; it is signed with
+      # the debug key here (release.yml signs the published one)
       - name: Test, lint and assemble
         working-directory: clients/android
-        run: ./gradlew testDebugUnitTest lintDebug :app:assembleDebug
+        run: ./gradlew testDebugUnitTest lintDebug :app:assembleDebug :app:assembleRelease
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

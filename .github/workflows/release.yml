@@ -1,7 +1,8 @@
 name: release
 
 # A version tag publishes the multi-arch server image to GHCR, so Raspberry Pi hosts pull an
-# arm64 image instead of building the Rust and Node stages themselves.
+# arm64 image instead of building the Rust and Node stages themselves, and attaches the signed
+# Android APK to the GitHub release.
 on:
   push:
     tags: ["v*"]
@@ -43,13 +44,71 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  notes:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: image
+  # The Android app (phones and Google TV in one APK), signed with the keystore in the repository
+  # secrets: ANDROID_KEYSTORE (base64 of the .jks), ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS
+  # and ANDROID_KEY_PASSWORD. Without them the APK is signed with a throwaway debug key, which
+  # installs but cannot update an installed release (docs/android.md, "Signing").
+  android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk@4.1.2
+      - name: Build the core for Android
+        run: |
+          ndk=$(sed -n 's/^ndk = "\(.*\)"$/\1/p' clients/android/gradle/libs.versions.toml)
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" > /dev/null
+          ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$ndk" make core-android
+      - name: Build the signed APK
+        working-directory: clients/android
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          COUCHVERSE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          COUCHVERSE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          COUCHVERSE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/release.jks"
+            export COUCHVERSE_KEYSTORE="$RUNNER_TEMP/release.jks"
+          else
+            echo "::warning::no ANDROID_KEYSTORE secret; the APK is signed with a debug key"
+          fi
+          # v1.2.3 is version code 10203; a manual run without a tag builds "dev"
+          version=${GITHUB_REF_NAME#v}
+          code=1
+          if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+            code=$(( BASH_REMATCH[1] * 10000 + BASH_REMATCH[2] * 100 + BASH_REMATCH[3] ))
+          else
+            version=dev
+          fi
+          ./gradlew :app:assembleRelease -Pcouchverse.version="$version" -Pcouchverse.versionCode="$code"
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/couchverse-$version.apk"
+          echo "APK=$RUNNER_TEMP/couchverse-$version.apk" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: ${{ env.APK }}
+
+  notes:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [image, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: android-apk
+          path: apk
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag apk/*.apk

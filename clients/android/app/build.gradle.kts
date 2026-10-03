@@ -14,8 +14,22 @@ android {
             .getOrElse("io.stepes.couchverse")
         minSdk = 31
         targetSdk = 37
-        versionCode = 1
+        versionCode = providers.gradleProperty("couchverse.versionCode").map(String::toInt).getOrElse(1)
         versionName = providers.gradleProperty("couchverse.version").getOrElse("dev")
+    }
+
+    // A release APK is signed with the keystore these name (CI passes its repository secrets);
+    // without one it falls back to the debug key, so a build from source still installs.
+    val keystore = providers.environmentVariable("COUCHVERSE_KEYSTORE").orNull
+    signingConfigs {
+        if (keystore != null) {
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = providers.environmentVariable("COUCHVERSE_KEYSTORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("COUCHVERSE_KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("COUCHVERSE_KEY_PASSWORD").get()
+            }
+        }
     }
 
     buildTypes {
@@ -23,6 +37,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
