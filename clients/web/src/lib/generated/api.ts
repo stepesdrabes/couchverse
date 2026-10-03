@@ -3,7 +3,7 @@
 import { api, qs, type CallOptions } from '$lib/api/client';
 
 export interface AchievementCheck {
-	rank: CheckedRank;
+	rank: CheckedRank | null;
 	throttled: boolean;
 	unlocked: AchievementProgress[];
 }
@@ -239,7 +239,7 @@ export type CardItemKind = 'movie' | 'series';
 export interface CheckedRank {
 	/** XP earned inside the current tier. */
 	intoTier: number;
-	next: NextRankTier;
+	next: NextRankTier | null;
 	/**
 	 * Progress through the current tier; 100 at the top tier.
 	 * From 0 to 100.
@@ -1190,7 +1190,7 @@ export interface RankConfig {
 export interface RankProgress {
 	/** XP earned inside the current tier. */
 	intoTier: number;
-	next: NextRankTier;
+	next: NextRankTier | null;
 	/**
 	 * Progress through the current tier; 100 at the top tier.
 	 * From 0 to 100.

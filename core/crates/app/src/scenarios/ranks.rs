@@ -80,17 +80,34 @@ fn unlocks_queue_up_for_celebration_and_level_ups_count_once() {
     shell.respond("POST", CHECK, 200, check_result(2, &[]));
     assert_eq!(shell.view::<RankView>(&Surface::Rank).level_ups, 1);
 
-    // a throttled answer keeps the rank on screen
+    // a throttled answer carries no rank and keeps the one on screen
     shell.now += 5 * 60_000;
     shell.send(Event::AppBecameActive);
-    shell.respond(
-        "POST",
-        CHECK,
-        200,
-        json!({ "throttled": true, "rank": rank(1, 0), "unlocked": [] }),
-    );
+    shell.respond("POST", CHECK, 200, json!({ "throttled": true, "rank": null, "unlocked": [] }));
     let view: RankView = shell.view(&Surface::Rank);
     assert_eq!((view.rank.expect("rank").tier.level, view.level_ups), (2, 1));
+}
+
+#[test]
+fn the_top_of_the_ladder_has_no_next_tier() {
+    let mut shell = ranked();
+    let top = json!({
+        "tier": tier("legend", 10, 50_000), "next": null,
+        "xp": 61_000, "percent": 100, "intoTier": 11_000, "tierSpan": 0,
+    });
+    shell.respond("POST", CHECK, 200, json!({ "throttled": false, "rank": top, "unlocked": [] }));
+    let badge = shell.view::<RankView>(&Surface::Rank).rank.expect("rank");
+    assert_eq!((badge.tier.code.as_str(), badge.next.code.as_str()), ("legend", "legend"));
+    assert_eq!((badge.next.level, badge.percent), (10, 100));
+
+    let me = Surface::Profile("admin".into());
+    shell.send(Event::ScreenOpened(me.clone()));
+    let mut payload = profile_payload("admin", true);
+    payload["rank"] = top;
+    shell.respond("GET", &format!("{API}/me/stats?lang=en"), 200, payload);
+    let view: ProfileView = shell.view(&me);
+    assert_eq!(view.status, LoadStatus::Loaded);
+    assert_eq!(view.profile.expect("profile").rank.next.code, "legend");
 }
 
 #[test]

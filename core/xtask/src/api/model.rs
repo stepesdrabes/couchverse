@@ -184,7 +184,7 @@ impl<'a> Schemas<'a> {
                 json: json.clone(),
                 ty,
                 optional: !required.contains(json.as_str()),
-                nullable: nullable(prop),
+                nullable: nullable(prop) || self.nullable_ref(prop),
                 doc: documented(description(prop), prop),
             });
         }
@@ -207,6 +207,17 @@ impl<'a> Schemas<'a> {
     }
 
     /// The type of a schema; `hint` names inline enums and objects.
+    /// A `$ref` to a schema that is itself `["object", "null"]` (huma's `nullable:"true"` on a
+    /// struct): the field holds null as well, whatever the property says.
+    fn nullable_ref(&self, schema: &Value) -> bool {
+        schema
+            .get("$ref")
+            .and_then(Value::as_str)
+            .and_then(|reference| reference.strip_prefix(self.ref_prefix))
+            .and_then(|name| self.defs.get(name))
+            .is_some_and(nullable)
+    }
+
     pub fn type_of(&mut self, schema: &Value, hint: &str) -> Result<Ty, String> {
         if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
             let name = reference
@@ -574,5 +585,29 @@ mod tests {
         let xml = serde_json::json!({"content": {"application/xml": {"schema": {}}}});
         assert!(schemas.request_body("Xml", &xml).is_err());
         assert!(schemas.request_body("None", &Value::Null).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_reference_to_a_nullable_schema_is_nullable() {
+        let spec = serde_json::json!({
+            "Next": {"type": ["object", "null"], "properties": {"level": {"type": "integer"}}},
+            "Tier": {"type": "object", "properties": {"level": {"type": "integer"}}},
+            "Rank": {
+                "type": "object",
+                "required": ["next", "tier"],
+                "properties": {
+                    "next": {"$ref": "#/components/schemas/Next"},
+                    "tier": {"$ref": "#/components/schemas/Tier"}
+                }
+            }
+        });
+        let defs = spec.as_object().unwrap().clone();
+        let schemas = Schemas::parse(&defs, "#/components/schemas/").unwrap();
+        let Some(Item::Struct { fields, .. }) = schemas.items.get("Rank") else {
+            panic!("no Rank")
+        };
+        let nullable: Vec<(&str, bool)> =
+            fields.iter().map(|f| (f.json.as_str(), f.nullable)).collect();
+        assert_eq!(nullable, [("next", true), ("tier", false)]);
     }
 }

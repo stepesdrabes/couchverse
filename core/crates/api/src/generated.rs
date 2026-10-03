@@ -9,7 +9,7 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct AchievementCheck {
-        pub rank: CheckedRank,
+        pub rank: Option<CheckedRank>,
         pub throttled: bool,
         pub unlocked: Vec<AchievementProgress>,
     }
@@ -942,7 +942,7 @@ pub mod types {
     pub struct CheckedRank {
         /// XP earned inside the current tier.
         pub into_tier: i64,
-        pub next: NextRankTier,
+        pub next: Option<NextRankTier>,
         /// Progress through the current tier; 100 at the top tier.
         /// From 0 to 100.
         pub percent: i64,
@@ -3569,7 +3569,7 @@ pub mod types {
     pub struct RankProgress {
         /// XP earned inside the current tier.
         pub into_tier: i64,
-        pub next: NextRankTier,
+        pub next: Option<NextRankTier>,
         /// Progress through the current tier; 100 at the top tier.
         /// From 0 to 100.
         pub percent: i64,

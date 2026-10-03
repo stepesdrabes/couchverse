@@ -497,14 +497,9 @@ impl Ranks {
                 self.checking = false;
                 match decode(&call, output) {
                     Ok(result) => {
-                        // a throttled check skipped the snapshot and carries no news
-                        if !result.throttled {
-                            self.adopt(badge(
-                                &result.rank.tier,
-                                &result.rank.next,
-                                result.rank.xp,
-                                result.rank.percent,
-                            ));
+                        // a throttled check skipped the snapshot and carries no rank
+                        if let Some(r) = result.rank.as_ref().filter(|_| !result.throttled) {
+                            self.adopt(badge(&r.tier, r.next.as_ref(), r.xp, r.percent));
                         }
                         self.queue.extend(result.unlocked);
                         ctx.render(Surface::Rank);
@@ -522,7 +517,7 @@ impl Ranks {
                     && profile.is_self
                 {
                     let r = &profile.rank;
-                    self.adopt(badge(&r.tier, &r.next, r.xp, r.percent));
+                    self.adopt(badge(&r.tier, r.next.as_ref(), r.xp, r.percent));
                     ctx.render(Surface::Rank);
                 }
                 ctx.render(Surface::Profile(username.clone()));
@@ -610,7 +605,7 @@ impl Ranks {
             member_since: u.member_since.clone(),
             is_self: p.is_self,
             public: if p.is_self { self.public.unwrap_or(p.public) } else { p.public },
-            rank: badge(&p.rank.tier, &p.rank.next, p.rank.xp, p.rank.percent),
+            rank: badge(&p.rank.tier, p.rank.next.as_ref(), p.rank.xp, p.rank.percent),
             xp_total: unsigned(p.xp.total),
             xp_sources: p
                 .xp
@@ -680,20 +675,26 @@ impl Ranks {
     }
 }
 
-fn badge(tier: &RankTier, next: &NextRankTier, xp: i64, percent: i64) -> RankBadge {
-    RankBadge {
-        tier: Tier {
-            code: tier.code.as_str().to_string(),
-            level: u32::try_from(tier.level).unwrap_or(0),
-            colour: tier.colour.clone(),
-            min_xp: unsigned(tier.min_xp),
-        },
-        next: Tier {
+/// `next` is null at the top of the ladder, where the badge names the top tier twice.
+fn badge(tier: &RankTier, next: Option<&NextRankTier>, xp: i64, percent: i64) -> RankBadge {
+    let tier = Tier {
+        code: tier.code.as_str().to_string(),
+        level: u32::try_from(tier.level).unwrap_or(0),
+        colour: tier.colour.clone(),
+        min_xp: unsigned(tier.min_xp),
+    };
+    let next = next.map_or_else(
+        || tier.clone(),
+        |next| Tier {
             code: next.code.as_str().to_string(),
             level: u32::try_from(next.level).unwrap_or(0),
             colour: next.colour.clone(),
             min_xp: unsigned(next.min_xp),
         },
+    );
+    RankBadge {
+        tier,
+        next,
         xp: unsigned(xp),
         percent: u32::try_from(percent.clamp(0, 100)).unwrap_or(0),
     }
