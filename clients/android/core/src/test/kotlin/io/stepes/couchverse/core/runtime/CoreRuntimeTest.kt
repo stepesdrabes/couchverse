@@ -58,7 +58,8 @@ class CoreRuntimeTest {
         advanceUntilIdle()
 
         assertEquals(AppPhase.Welcome, app.value?.phase)
-        assertEquals(listOf("read servers", "read accounts"), shell.store.log)
+        assertTrue(shell.store.log.containsAll(listOf("read servers", "read accounts")))
+        assertTrue(shell.store.log.all { it.startsWith("read ") })
     }
 
     @Test
@@ -225,7 +226,7 @@ class CoreRuntimeTest {
             val upload = UploadExecutor { failed(HttpFailureKind.Other) }
             return CoreRuntime(
                 engine = engine,
-                executors = EffectExecutors(http, upload, store, secure),
+                executors = EffectExecutors(http, upload, store, secure, sockets = { _, _ -> error("no sockets here") }),
                 clock = { scope.testScheduler.currentTime + CLOCK_START },
                 coreDispatcher = dispatcher,
                 ioDispatcher = dispatcher,

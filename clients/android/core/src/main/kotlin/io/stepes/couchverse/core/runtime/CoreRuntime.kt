@@ -8,6 +8,7 @@ import io.stepes.couchverse.core.EffectRequest
 import io.stepes.couchverse.core.Event
 import io.stepes.couchverse.core.HttpFailure
 import io.stepes.couchverse.core.HttpFailureKind
+import io.stepes.couchverse.core.SocketCommand
 import io.stepes.couchverse.core.StoreFailure
 import io.stepes.couchverse.core.StoreOp
 import io.stepes.couchverse.core.StoreRequest
@@ -33,9 +34,9 @@ import kotlinx.serialization.serializer
 /**
  * Runs the shared core for the app: every call into the bridge happens on [coreDispatcher] (it
  * must be serial), stamped with the monotonic [clock]; the effects it asks for are performed by
- * [executors] (I/O on [ioDispatcher]) and by the runtime's own timers, and their outputs are fed
- * back. View models are decoded on the core's thread and published as one [StateFlow] per
- * surface, re-read only when a `render` effect names the surface.
+ * [executors] (I/O on [ioDispatcher]) and by the runtime's own timers, and their outputs, a
+ * socket's frames included, are fed back in order. View models are decoded on the core's thread
+ * and published as one [StateFlow] per surface, re-read only when a `render` effect names it.
  */
 class CoreRuntime(
     private val engine: CoreEngine,
@@ -52,6 +53,9 @@ class CoreRuntime(
 
     /** Running timers by effect id; only touched on the core's dispatcher. */
     private val timers = HashMap<ULong, Job>()
+
+    /** Open sockets by the id of their open effect; only touched on the core's dispatcher. */
+    private val sockets = HashMap<ULong, SocketConnection>()
 
     /** Store effects run one at a time and in order, so a read always sees earlier writes. */
     private val storeQueue = Channel<suspend () -> Unit>(Channel.UNLIMITED)
@@ -95,6 +99,7 @@ class CoreRuntime(
     override fun close() {
         job.cancel()
         storeQueue.close()
+        sockets.values.forEach { it.close() }
         engine.close()
     }
 
@@ -110,7 +115,25 @@ class CoreRuntime(
                 is Effect.Store -> store(executors.store, request.id, effect.content)
                 is Effect.SecureStore -> store(executors.secureStore, request.id, effect.content)
                 is Effect.Render -> render(effect.content.surfaces)
+                is Effect.Socket -> socket(request.id, effect.content)
+                is Effect.Player -> executors.player.perform(effect.content)
             }
+        }
+    }
+
+    private fun socket(id: ULong, command: SocketCommand) {
+        when (command) {
+            is SocketCommand.Open -> {
+                sockets[id] = executors.sockets.open(command.content) { output ->
+                    // frames arrive on OkHttp's thread; the serial dispatcher keeps their order
+                    scope.launch {
+                        if (output is EffectOutput.SocketClosed) sockets.remove(id)
+                        resolve(id, output)
+                    }
+                }
+            }
+            is SocketCommand.Send -> sockets[command.content.socket]?.send(command.content.text)
+            is SocketCommand.Close -> sockets.remove(command.content.id)?.close()
         }
     }
 

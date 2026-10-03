@@ -20,6 +20,7 @@ fun androidCoreRuntime(context: Context, config: CoreConfig, client: OkHttpClien
         upload = http,
         store = FileStore(File(directory, "store")),
         secureStore = EncryptedStore(FileStore(File(directory, "secure")), KeystoreSecretBox(KEY_ALIAS)),
+        sockets = OkHttpSocketExecutor(client),
     )
     val coreThread = Executors.newSingleThreadExecutor { Thread(it, "couchverse-core") }
     return CoreRuntime(
