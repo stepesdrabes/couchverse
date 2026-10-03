@@ -30,14 +30,23 @@ scripted client (ffprobe and AVFoundation playing a grant URL).
   markdown (no `{@html}`), the Android `core` and `design` Gradle modules with JVM tests.
 - In progress: the Apple project, `CoreRuntime` and executors, design system v0, onboarding,
   pairing, Who's watching, Settings (agent branch `worktree-agent-a66ffee4e3976782d`).
-- In progress: the Playwright web smoke suite (`worktree-agent-aed95c8a2bb6f34a9`).
+- Done: the Playwright web smoke suite (`make e2e`, `e2e.yml`; 19 flows in Chromium and WebKit
+  covering auth, browse, My List, playback and resume, couch, admin, i18n, ranks and TV mode),
+  with the six app bugs it found fixed.
 - Blocked: spike S1 (free personal team capabilities) needs the user's Apple ID and devices.
 
-## Phase 4: playback v2 - in progress
+## Phase 4: playback v2 - done
 
-Probe enrichment, device-profile decision, remux tier, fMP4 HLS with renditions and I-frame
-playlists, own HLS validator, AVFoundation harness, web on the new decision
-(`worktree-agent-a0d18ff9feefb377c`, contract settled, docs and Docker checks left).
+Probe enrichment, the device-profile decision (`resolvePlayback`), the remux tier, fMP4 HLS with
+audio and subtitle renditions and I-frame playlists, the own HLS validator (`make hls-check`,
+`hls.yml` green on GitHub), the AVFoundation harness, the web on the new decision, the Docker
+runtime on Debian trixie (ffmpeg 7.1 for Dolby Vision signalling). Spikes S3 and S5 documented.
+
+Known limits, kept for later: JIT never copies video (needs a keyframe index), Dolby Vision
+profile 5 tone-mapped for non-DV clients has wrong colours (needs libplacebo), no HEVC/HDR
+ladder, model-B audio siblings stay outside the multivariant playlists, legacy TS variants are
+not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
+`mediastreamvalidator` never run (needs an Apple ID download; `make hls-apple`).
 
 ## Phase 5: browse and titles - in progress
 
@@ -51,8 +60,10 @@ playlists, own HLS validator, AVFoundation harness, web on the new decision
 - Done: core `playback` (player effect, resume, watched-time accounting, progress saves, JIT
   keepalive and stop, preparing poll, qualities, audio and subtitle choices, next episode,
   shuffle, reload on failure).
-- Pending: the core's device profile and `POST /playback` (after Phase 4 merges), the web
-  player on the core, the Apple player.
+- Done: the core's device profile (`CapabilitiesReported(DeviceProfile)`, the contract's
+  fixtures round-trip unchanged), `resolvePlayback`/`resolveCouchPlayback` by POST, sources by
+  tier (Original = the source file or the remuxed HLS, Auto and renditions = the ladder).
+- Pending: the web player on the core, the Apple player.
 
 ## Phase 7: couch - in progress
 
@@ -97,6 +108,18 @@ stage runs per platform. Signed APKs join once the Android app exists.
 ## Done outside the plan
 
 - The web build is served precompressed (brotli/gzip), the wasm core 232 KB instead of 885 KB.
+- Fixed by the e2e suite: couch followers now receive `session_ended` before their socket
+  closes, guests' artwork keeps its grant with a size, stale SWR answers no longer overwrite a
+  newer My List toggle, unhandled data-promise rejections.
+
+## Known issues (backlog)
+
+- Login errors show the server's English text instead of a localized message.
+- The genre page heading shows the English genre name from the URL, not the localized label.
+- A couch follower who misses `session_ended` (network drop) reconnects forever; no fallback
+  check against the session info.
+- A signed-out page fetches `/me/preferences` twice; a hover preload and the click's
+  navigation sometimes fetch the same title twice.
 
 ## Real-device checklist (for the user)
 
@@ -107,4 +130,9 @@ first.
 - iPhone: QR scan of a Connect-a-device code, Keychain persistence across reinstalls.
 - Free personal team: 7-day provisioning, at most 3 apps, wireless pairing to the TV (spike S1).
 - Google TV device: pairing, D-pad focus, Keystore persistence.
-- Raspberry Pi 4 server: HLS v2 with the V4L2 encoder (spike S3).
+- Raspberry Pi 4 server: HLS v2 with the V4L2 encoder (spike S3): package, trickplay and 720p
+  job timings, whether `h264_v4l2m2m` honours `-force_key_frames`, JIT first-segment and
+  far-seek latency.
+- Apple TV 4K playback v2: HDR10, HLG and Dolby Vision mode switches, E-AC-3/Atmos reaching the
+  receiver, native audio and subtitle menus, forced subtitles, trick-play thumbnails, Original
+  and ladder startup times, real Dolby Vision 7 FEL and 8.1 releases.

@@ -16,7 +16,8 @@ Feature inventory + per-feature docs (endpoints, tables, dependency graph) live 
 - **Comments earn their place**: explain the non-obvious (the why), never restate the code; no
   decorative banners or over-engineered prose.
 - **Verify before committing**: `make check` (web: svelte-check + prettier + eslint + vitest) and
-  `make lint test` (backend) must be clean; run `make build` when touching embed/build paths.
+  `make lint test` (backend) must be clean; run `make build` when touching embed/build paths
+  and `make e2e` when a change touches a user flow.
   Write code that reads like the surrounding code.
 
 ## Architecture: feature-based on both sides
@@ -37,7 +38,9 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   - Import rules: a feature may import another feature's `Store`/exported services, never
     its handlers. The feature import graph must stay acyclic (current DAG in FEATURES.md).
     SQL may JOIN any table - joins create no Go dependency.
-  - Shared kernel: `internal/{app,config,db,grant,httpx,media,settings,flags,slug,server,version}`.
+  - Shared kernel: `internal/{app,config,db,grant,hls,httpx,media,settings,flags,slug,server,version}`
+    (`hls`: playlist parsing and writing, WebVTT segmenting, the HLS validator; `media/mp4`: the
+    fMP4 box reader behind codec strings and segment checks).
     `r.RemoteAddr` is always the bare client IP: `internal/server`'s `clientIP` believes
     `X-Forwarded-For` only from `TRUSTED_PROXIES`, so never read forwarding headers yourself.
     `db.ErrNotFound` is the missing-row sentinel (aliased as `httpx.ErrNotFound`; a wrapped
@@ -87,9 +90,19 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   the path, never by cookie or header, because players (AVPlayer, ExoPlayer, AirPlay, the
   browser's media element) cannot attach either reliably. Everything that plays one file lives
   under `/media/{grant}/...` (`Routes.Media`; the file is `grant.From(ctx).Resource`, never a
-  path id), and the playback payload hands out the grant and grant URLs. Artwork accepts a
+  path id), and the playback payload hands out the grant and grant URLs (`streamUrl`,
+  `originalUrl`, `hlsUrl`); a JIT session is bound to its grant's viewer. Artwork accepts a
   session or an artwork grant (`?g=`). New media routes go on `Routes.Media` and must only
   touch the granted file.
+- **Playback v2** (full design in FEATURES.md "Playback v2"): clients POST a `DeviceProfile` to
+  `resolvePlayback`/`resolveCouchPlayback` and it is authoritative (the `GET` variants keep a
+  browser baseline). `playback.Decide` is a pure function picking the tier (direct, remux,
+  transcode); any decision change gets a case in `decision_test.go`. New ffmpeg HLS outputs go
+  through `hlsOutput`/`inputArgs`, which keep every rendition on one fMP4 timeline (`-copyts`,
+  the 1.4 s offset, `frag_discont`, negative CTS offsets). Multivariant playlists are written
+  in Go from `rendition.json`, never by ffmpeg. Any HLS change must pass `make hls-check` (the
+  validator, plus AVFoundation on macOS). Bump `media.ProbeVersion` when the prober learns a
+  new fact; the `reprobe` job backfills it.
 - **Typed API (huma, the contract's source)**: every route is an operation on one huma API
   (OpenAPI 3.1 at `/api/v1`), registered through `httpx.Routes` groups: `Public`, `User`
   (signed in), `Admin` (paths get `/admin`), `Media` (`/media/{grant}`), `Artwork` (session or
@@ -175,6 +188,12 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     on an `invalidateAll` save). `preloadData` only for side-effect-free routes - never
     `/watch/...` (starts a JIT transcode); watch links use `data-sveltekit-preload-data="tap"`.
     Prefer targeted `invalidate` over `invalidateAll`. Full design in FEATURES.md.
+  - **E2E specs** (`clients/web/e2e/`, Playwright) find elements by role and label, with UI
+    strings taken from `contract/i18n` through `t()` in `e2e/fixtures.ts`; prefer real a11y
+    hooks (`aria-pressed`, labels) over `data-testid`. Every spec fails on console errors, so an
+    expected 401 must be allowed explicitly. Each signed-in spec uses its own seeded account
+    (nora, otto, vera, admin) and resets any state it writes, so specs stay parallel- and
+    retry-safe. A new user flow gets a spec.
   - **TV mode** (Titan OS smart TVs; `lib/tv/`, full design in FEATURES.md): the same SPA
     with remote-control spatial navigation, Back handling and a 10-foot scale, switched on
     by the `TitanOS/` user agent or `?tv=1`. New viewer UI must stay reachable by arrows:
@@ -221,11 +240,20 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   package tests and `make android-test` the Kotlin binding tests on the JVM, both against the
   real core (build-from-source details in docs/apple.md and docs/android.md).
 - CI (`.github/workflows/`): `backend.yml` (gofmt, vet, golangci-lint, tests incl. API
-  conformance against a Postgres service), `web.yml` (wasm core, check, lint, vitest, build),
+  conformance against a Postgres service; installs ffmpeg for `TestPlaybackTiers`), `hls.yml`
+  (every tier validated and played in AVFoundation on macOS), `e2e.yml` (Playwright in
+  Chromium against a Postgres service; traces uploaded on failure), `web.yml` (wasm core, check, lint, vitest, build),
   `contract.yml` (xtask fmt/clippy/tests, `make contract`, no drift), `core.yml` (the wasm and
   Apple packages built and run), `android.yml` (`make core-android`, the core's JVM tests, the
-  Gradle modules assembled), `repo.yml` (`scripts/check-no-emdash.sh`).
-- Sample media: `make sample-media` (lavfi-generated clips covering direct-play/remux/transcode tiers).
+  Gradle modules assembled), `repo.yml` (`scripts/check-no-emdash.sh`), `docker.yml` (the
+  image builds) and `release.yml` (multi-arch image to GHCR on a `v*` tag).
+- Sample media: `make sample-media` (lavfi-generated clips covering every tier; Dolby Vision
+  samples need `dovi_tool` and `mkvmerge`). Against a running server: `make ingest-samples
+  hls-server-check e2e-playback SERVER=...`.
+- `make e2e` runs the Playwright smoke suite (Chromium then WebKit) against the built binary on
+  a throwaway database on the dev Postgres (`scripts/e2e-server.sh`: `seed.sql` +
+  `e2e/setup.sql`, a generated clip, placeholder artwork; needs the compose `db` and ffmpeg;
+  `E2E_SKIP_BUILD=1` reuses the last build). A change to `seed.sql` must keep it green.
 - Verify HTTP: `curl localhost:8080/healthz`.
 
 ## Internationalization & multi-language media
@@ -270,7 +298,9 @@ Full design in `FEATURES.md`; the conventions to follow:
 - **Multi-language audio** (chosen in the player, independent of the display language): model B
   is a separate file per language (`media_files.audio_lang`/`audio_role`, tagged via
   `PATCH /admin/media-files/{id}`; the player swaps source + re-seeks); model A is one file
-  with embedded tracks (`audio_streams` table, ffmpeg `-var_stream_map` `multiaudio` HLS
-  variant, switched via hls.js `audioTrack`). Both surface as `playbackInfo.audio`.
-- ffmpeg/HLS paths run locally when ffmpeg is installed (Homebrew); the Docker image's ffmpeg
-  (Debian) is the reference for HLS output, exercised with `make sample-media`.
+  with embedded tracks (`audio_streams` table), packaged as an HLS audio group of AAC stereo
+  plus surround renditions and switched via hls.js `audioTrack` (`-var_stream_map`
+  `multiaudio` is legacy only). Both surface as `playbackInfo.audio`.
+- ffmpeg/HLS paths run locally when ffmpeg is installed (Homebrew, which lacks zscale); the
+  Docker image's ffmpeg (Debian trixie, 7.1) is the reference for HLS output. Dolby Vision
+  signalling needs ffmpeg 6+.
