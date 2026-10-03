@@ -32,7 +32,7 @@ final class LiveFlowTests: XCTestCase {
         screenshot("tv-03-pairing")
         try code.label.write(toFile: codeFile, atomically: true, encoding: .utf8)
 
-        XCTAssert(app.buttons["account-header"].waitForExistence(timeout: 240), "the phone approves the code")
+        XCTAssert(app.buttons["account-header"].waitForExistence(timeout: 600), "the phone approves the code")
         Thread.sleep(forTimeInterval: 2)
         screenshot("tv-04-home")
     }

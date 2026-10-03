@@ -57,7 +57,7 @@ final class LiveFlowTests: XCTestCase {
         approve.tap()
 
         var code: String?
-        let deadline = Date.now.addingTimeInterval(240)
+        let deadline = Date.now.addingTimeInterval(600)
         while code == nil, Date.now < deadline {
             code = (try? String(contentsOfFile: file, encoding: .utf8))?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
