@@ -76,6 +76,10 @@ fn media_file(id: &str, episode: Option<&str>, height: i64, range: &str) -> Valu
         "directPlay": true, "durationSeconds": 2400.0, "fileMtime": null, "libraryId": 1,
         "path": "/x", "sampleRate": 48000, "scannedAt": null, "sizeBytes": 1,
         "sourceDeletedAt": null, "videoCodec": "h264",
+        "video": {
+            "codecTag": "avc1", "profile": "high", "level": 4.0, "bitDepth": 8, "frameRate": 24.0,
+            "hdr": "sdr", "doviProfile": 0, "doviCompatibility": 0,
+        },
     })
 }
 
