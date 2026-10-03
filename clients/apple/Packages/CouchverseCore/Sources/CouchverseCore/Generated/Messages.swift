@@ -1103,6 +1103,10 @@ public enum Event: Codable, Sendable, Hashable {
 	/// The web signed in through its own login form (`AuthMode::Cookie`); the core loads the
 	/// new session. Native clients sign in through the core and never send it.
 	case sessionStarted
+	/// The web changed what the session shows through its own API calls (a profile edit, the
+	/// admin settings) or had one rejected as signed out; the core reads the session again.
+	/// Native clients make those calls through the core and never send it.
+	case sessionChanged
 	/// The user typed a server address on the add-server screen.
 	case serverAddressSubmitted(ServerAddress)
 	case serverRemoved(ServerRef)
@@ -1164,6 +1168,7 @@ public enum Event: Codable, Sendable, Hashable {
 		case appStarted,
 			appBecameActive,
 			sessionStarted,
+			sessionChanged,
 			serverAddressSubmitted,
 			serverRemoved,
 			passwordSignInSubmitted,
@@ -1220,6 +1225,9 @@ public enum Event: Codable, Sendable, Hashable {
 				return
 			case .sessionStarted:
 				self = .sessionStarted
+				return
+			case .sessionChanged:
+				self = .sessionChanged
 				return
 			case .serverAddressSubmitted:
 				if let content = try? container.decode(ServerAddress.self, forKey: .content) {
@@ -1411,6 +1419,8 @@ public enum Event: Codable, Sendable, Hashable {
 			try container.encode(CodingKeys.appBecameActive, forKey: .type)
 		case .sessionStarted:
 			try container.encode(CodingKeys.sessionStarted, forKey: .type)
+		case .sessionChanged:
+			try container.encode(CodingKeys.sessionChanged, forKey: .type)
 		case .serverAddressSubmitted(let content):
 			try container.encode(CodingKeys.serverAddressSubmitted, forKey: .type)
 			try container.encode(content, forKey: .content)
@@ -2520,13 +2530,19 @@ public struct SessionUser: Codable, Sendable, Hashable {
 	public let admin: Bool
 	public let avatarId: String?
 	public let bannerId: String?
+	/// Markdown; shells render it through the `Markdown` surface.
+	public let bio: String
+	/// RFC 3339.
+	public let createdAt: String
 
-	public init(username: String, displayName: String, admin: Bool, avatarId: String?, bannerId: String?) {
+	public init(username: String, displayName: String, admin: Bool, avatarId: String?, bannerId: String?, bio: String, createdAt: String) {
 		self.username = username
 		self.displayName = displayName
 		self.admin = admin
 		self.avatarId = avatarId
 		self.bannerId = bannerId
+		self.bio = bio
+		self.createdAt = createdAt
 	}
 }
 

@@ -52,6 +52,10 @@ pub struct SessionUser {
     pub avatar_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub banner_id: Option<String>,
+    /// Markdown; shells render it through the `Markdown` surface.
+    pub bio: String,
+    /// RFC 3339.
+    pub created_at: String,
 }
 
 /// Optional server features; on until the server says otherwise, so nothing flickers away.
@@ -146,6 +150,7 @@ impl Session {
             current.display_name.clone_from(&user.display_name);
             current.avatar_id.clone_from(&user.avatar_id);
             current.banner_id.clone_from(&user.banner_id);
+            current.bio.clone_from(&user.bio);
             ctx.render(Surface::Session);
         }
     }
@@ -157,6 +162,11 @@ impl Session {
     /// Where the active session's API calls go; `None` without one.
     pub fn endpoint(&self) -> Option<&Endpoint> {
         self.endpoint.as_ref()
+    }
+
+    /// The accent colour showing now, as `#rrggbb`.
+    pub fn accent(&self) -> &str {
+        &self.view.accent.accent
     }
 
     /// Makes `account_id` the session and loads it. The previous account's state is dropped,
@@ -247,7 +257,13 @@ impl Session {
         pending: SessionPending,
         output: EffectOutput,
     ) -> SessionChange {
-        if self.view.account_id.as_deref() != Some(&pending.account_id) {
+        let current = self.view.account_id.as_deref();
+        let stale = match pending.call {
+            // the server's colours outlive a sign-out, so the sign-in screen keeps them
+            SessionCall::Server(_) => current.is_some_and(|id| id != pending.account_id),
+            _ => current != Some(pending.account_id.as_str()),
+        };
+        if stale {
             return SessionChange::None;
         }
         let change = match pending.call {
@@ -259,6 +275,8 @@ impl Session {
                         admin: user.role == UserRole::Admin,
                         avatar_id: user.avatar_id.clone(),
                         banner_id: user.banner_id.clone(),
+                        bio: user.bio.clone(),
+                        created_at: user.created_at.clone(),
                     });
                     self.view.status = LoadStatus::Loaded;
                     self.view.problem = None;

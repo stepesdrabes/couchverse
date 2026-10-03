@@ -96,6 +96,10 @@ pub enum Event {
     /// The web signed in through its own login form (`AuthMode::Cookie`); the core loads the
     /// new session. Native clients sign in through the core and never send it.
     SessionStarted,
+    /// The web changed what the session shows through its own API calls (a profile edit, the
+    /// admin settings) or had one rejected as signed out; the core reads the session again.
+    /// Native clients make those calls through the core and never send it.
+    SessionChanged,
     /// The user typed a server address on the add-server screen.
     ServerAddressSubmitted(servers::ServerAddress),
     ServerRemoved(servers::ServerRef),

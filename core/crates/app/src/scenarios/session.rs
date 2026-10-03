@@ -143,3 +143,54 @@ fn a_web_visitor_without_a_session_signs_in() {
     assert_eq!(shell.view::<SessionView>(&Surface::Session).language, "en");
     assert!(shell.find_request("PUT", "/api/v1/me/preferences").is_none());
 }
+
+#[test]
+fn the_web_sign_in_screen_keeps_the_servers_accent() {
+    let mut shell = web();
+    // the cookie is rejected before the server's identity arrives
+    shell.respond("GET", "/api/v1/auth/me", 401, unauthorized());
+    shell.respond("GET", "/api/v1/server", 200, server_info("#3a6ea5"));
+    assert_eq!(shell.phase(), AppPhase::SignIn);
+    assert_eq!(shell.view::<SessionView>(&Surface::Session).accent.accent, "#3a6ea5");
+
+    // and signing in keeps it up while the session loads again
+    shell.send(Event::SessionStarted);
+    assert_eq!(shell.view::<SessionView>(&Surface::Session).accent.accent, "#3a6ea5");
+}
+
+#[test]
+fn the_web_reads_its_session_again_after_changing_it() {
+    let mut shell = web();
+    shell.answer_session("", user(1, "admin"), Some("en"));
+    let mut edited = user(1, "admin");
+    edited["displayName"] = json!("The Admin");
+    edited["bio"] = json!("# Hi");
+
+    shell.send(Event::SessionChanged);
+    assert_eq!(shell.view::<SessionView>(&Surface::Session).status, LoadStatus::Stale);
+    shell.respond("GET", "/api/v1/auth/me", 200, edited);
+    let user = shell.view::<SessionView>(&Surface::Session).user.expect("user");
+    assert_eq!(user.display_name, "The Admin");
+    assert_eq!(user.bio, "# Hi");
+    assert_eq!(user.created_at, "2026-01-01T00:00:00Z");
+
+    let flags = json!({"couchEnabled": false, "rankingsEnabled": true});
+    shell.respond("GET", "/api/v1/features", 200, flags);
+    assert!(!shell.view::<SessionView>(&Surface::Session).features.couch);
+}
+
+#[test]
+fn a_web_call_rejected_as_signed_out_ends_the_session_once_the_core_agrees() {
+    let mut shell = web();
+    shell.answer_session("", user(1, "admin"), Some("en"));
+
+    shell.send(Event::SessionChanged);
+    assert_eq!(shell.phase(), AppPhase::Ready, "the core's own read decides");
+    shell.respond("GET", "/api/v1/auth/me", 401, unauthorized());
+    assert_eq!(shell.phase(), AppPhase::SignIn);
+    assert_eq!(shell.view::<SessionView>(&Surface::Session).user, None);
+
+    // signed out, there is nothing left to read
+    shell.send(Event::SessionChanged);
+    assert!(shell.find_request("GET", "/api/v1/auth/me").is_none());
+}

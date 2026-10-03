@@ -680,6 +680,12 @@ sealed class Event {
 	@Serializable
 	@SerialName("sessionStarted")
 	data object SessionStarted: Event()
+	/// The web changed what the session shows through its own API calls (a profile edit, the
+	/// admin settings) or had one rejected as signed out; the core reads the session again.
+	/// Native clients make those calls through the core and never send it.
+	@Serializable
+	@SerialName("sessionChanged")
+	data object SessionChanged: Event()
 	/// The user typed a server address on the add-server screen.
 	@Serializable
 	@SerialName("serverAddressSubmitted")
@@ -1378,7 +1384,11 @@ data class SessionUser (
 	val displayName: String,
 	val admin: Boolean,
 	val avatarId: String? = null,
-	val bannerId: String? = null
+	val bannerId: String? = null,
+	/// Markdown; shells render it through the `Markdown` surface.
+	val bio: String,
+	/// RFC 3339.
+	val createdAt: String
 )
 
 @Serializable

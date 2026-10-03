@@ -183,6 +183,11 @@ impl Model {
                     self.start_web_session(ctx);
                 }
             }
+            Event::SessionChanged => {
+                if self.phase == AppPhase::Ready {
+                    self.session.refresh(ctx);
+                }
+            }
             onboarding @ (Event::ServerAddressSubmitted(_)
             | Event::ServerRemoved(_)
             | Event::PasswordSignInSubmitted(_)
@@ -564,7 +569,10 @@ impl Model {
     /// The web has one session: the browser's cookie for the server it was loaded from.
     fn start_web_session(&mut self, ctx: &mut Ctx) {
         let endpoint = Endpoint { base: String::new(), token: None };
-        self.session.activate(ctx, WEB_ACCOUNT, endpoint, theme::default_accent());
+        // the accent showing stays up while the session loads again, so signing in never
+        // flashes the default colour
+        let accent = self.session.accent().to_string();
+        self.session.activate(ctx, WEB_ACCOUNT, endpoint, &accent);
         self.start_catalog(ctx, WEB_ACCOUNT);
         self.phase = AppPhase::Starting;
         ctx.render(Surface::App);
