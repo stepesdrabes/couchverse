@@ -515,6 +515,18 @@ public struct EpisodeView: Codable, Sendable, Hashable {
 	}
 }
 
+/// A title's wordmark (a transparent image) in the display language when there is one.
+public struct Logo: Codable, Sendable, Hashable {
+	public let url: String
+	/// Width over height, to size the space before the image loads.
+	public let aspect: Double?
+
+	public init(url: String, aspect: Double?) {
+		self.url = url
+		self.aspect = aspect
+	}
+}
+
 public struct FeaturedCard: Codable, Sendable, Hashable {
 	public let titleId: String
 	public let slug: String
@@ -528,9 +540,11 @@ public struct FeaturedCard: Codable, Sendable, Hashable {
 	public let runtimeMinutes: UInt32?
 	/// The full-size backdrop for a hero.
 	public let backdrop: Image?
+	/// Shown instead of the name where there is room.
+	public let logo: Logo?
 	public let inList: Bool
 
-	public init(titleId: String, slug: String, name: String, kind: TitleKind, year: Int32?, overview: String, genres: [String], contentRating: String?, runtimeMinutes: UInt32?, backdrop: Image?, inList: Bool) {
+	public init(titleId: String, slug: String, name: String, kind: TitleKind, year: Int32?, overview: String, genres: [String], contentRating: String?, runtimeMinutes: UInt32?, backdrop: Image?, logo: Logo?, inList: Bool) {
 		self.titleId = titleId
 		self.slug = slug
 		self.name = name
@@ -541,6 +555,7 @@ public struct FeaturedCard: Codable, Sendable, Hashable {
 		self.contentRating = contentRating
 		self.runtimeMinutes = runtimeMinutes
 		self.backdrop = backdrop
+		self.logo = logo
 		self.inList = inList
 	}
 }
@@ -2311,6 +2326,7 @@ public struct TitleDetailView: Codable, Sendable, Hashable {
 	public let runtimeMinutes: UInt32?
 	public let poster: Image?
 	public let backdrop: Image?
+	public let logo: Logo?
 	/// The page's colours, from the backdrop.
 	public let accent: AccentPalette?
 	public let quality: Quality?
@@ -2323,7 +2339,7 @@ public struct TitleDetailView: Codable, Sendable, Hashable {
 	/// Only seasons and episodes that have something to play.
 	public let seasons: [SeasonView]
 
-	public init(id: String, slug: String, name: String, kind: TitleKind, year: Int32?, overview: String, genres: [String], contentRating: String?, runtimeMinutes: UInt32?, poster: Image?, backdrop: Image?, accent: AccentPalette?, quality: Quality?, hdr: Bool, inList: Bool, play: PlayAction?, shuffle: Bool, seasons: [SeasonView]) {
+	public init(id: String, slug: String, name: String, kind: TitleKind, year: Int32?, overview: String, genres: [String], contentRating: String?, runtimeMinutes: UInt32?, poster: Image?, backdrop: Image?, logo: Logo?, accent: AccentPalette?, quality: Quality?, hdr: Bool, inList: Bool, play: PlayAction?, shuffle: Bool, seasons: [SeasonView]) {
 		self.id = id
 		self.slug = slug
 		self.name = name
@@ -2335,6 +2351,7 @@ public struct TitleDetailView: Codable, Sendable, Hashable {
 		self.runtimeMinutes = runtimeMinutes
 		self.poster = poster
 		self.backdrop = backdrop
+		self.logo = logo
 		self.accent = accent
 		self.quality = quality
 		self.hdr = hdr

@@ -342,6 +342,14 @@ data class EpisodeView (
 	val completed: Boolean
 )
 
+/// A title's wordmark (a transparent image) in the display language when there is one.
+@Serializable
+data class Logo (
+	val url: String,
+	/// Width over height, to size the space before the image loads.
+	val aspect: Double? = null
+)
+
 @Serializable
 data class FeaturedCard (
 	val titleId: String,
@@ -356,6 +364,8 @@ data class FeaturedCard (
 	val runtimeMinutes: UInt? = null,
 	/// The full-size backdrop for a hero.
 	val backdrop: Image? = null,
+	/// Shown instead of the name where there is room.
+	val logo: Logo? = null,
 	val inList: Boolean
 )
 
@@ -1255,6 +1265,7 @@ data class TitleDetailView (
 	val runtimeMinutes: UInt? = null,
 	val poster: Image? = null,
 	val backdrop: Image? = null,
+	val logo: Logo? = null,
 	/// The page's colours, from the backdrop.
 	val accent: AccentPalette? = null,
 	val quality: Quality? = null,

@@ -271,6 +271,13 @@ export interface EpisodeView {
 	completed: boolean;
 }
 
+/** A title's wordmark (a transparent image) in the display language when there is one. */
+export interface Logo {
+	url: string;
+	/** Width over height, to size the space before the image loads. */
+	aspect?: number;
+}
+
 export interface FeaturedCard {
 	titleId: string;
 	slug: string;
@@ -284,6 +291,8 @@ export interface FeaturedCard {
 	runtimeMinutes?: number;
 	/** The full-size backdrop for a hero. */
 	backdrop?: Image;
+	/** Shown instead of the name where there is room. */
+	logo?: Logo;
 	inList: boolean;
 }
 
@@ -933,6 +942,7 @@ export interface TitleDetailView {
 	runtimeMinutes?: number;
 	poster?: Image;
 	backdrop?: Image;
+	logo?: Logo;
 	/** The page's colours, from the backdrop. */
 	accent?: AccentPalette;
 	quality?: Quality;

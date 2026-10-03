@@ -36,6 +36,7 @@ fn home_payload() -> Value {
             "year": 2025, "overview": "Lighthouses.", "genres": ["Drama"], "genreLabels": ["Drama"],
             "contentRating": "", "runtimeMinutes": null, "backdropId": "b1", "backdropVer": 5,
             "backdropAccent": "#3a6ea5", "inList": false, "addedAt": "2026-09-01T00:00:00Z",
+            "logoId": "lg1", "logoVer": 9, "logoAspect": 3.25,
             "allowRandomPlayback": true, "metadataLanguages": ["en"], "releaseDate": null,
             "sortName": "Glass Harbor", "status": "published", "tmdbId": null,
             "updatedAt": "2026-09-01T00:00:00Z",
@@ -117,6 +118,7 @@ fn title_payload() -> Value {
         },
         "progress": null,
         "inWatchlist": false,
+        "logoId": "lg1", "logoVer": 9, "logoAspect": 0.0,
     })
 }
 
@@ -138,6 +140,9 @@ fn home_shows_rows_with_ready_image_urls() {
     // a hero gets the original, carrying the account's artwork grant
     assert_eq!(backdrop.url, format!("{API}/artwork/b1?v=5&g=g-art"));
     assert_eq!(backdrop.accent.as_deref(), Some("#3a6ea5"));
+    let logo = hero.logo.as_ref().expect("logo");
+    assert_eq!(logo.url, format!("{API}/artwork/lg1?size=w780&v=9&g=g-art"));
+    assert_eq!(logo.aspect, Some(3.25));
 
     // the empty row and the row kind this client does not know are left out
     let kinds: Vec<HomeRowKind> = home.rows.iter().map(|r| r.kind).collect();
@@ -217,6 +222,8 @@ fn title_detail_shows_only_playable_episodes_and_what_play_does() {
         format!("{API}/artwork/b1?v=1790942400&g=g-art")
     );
     assert_eq!(detail.accent.expect("accent").accent, "#3a6ea5");
+    // an unknown aspect is left out rather than passed on as zero
+    assert_eq!(detail.logo.as_ref().map(|l| l.aspect), Some(None));
     assert_eq!(
         detail.poster.expect("poster").url,
         format!("{API}/artwork/p1?size=w780&v=10&g=g-art")

@@ -84,8 +84,19 @@ pub struct ContinueCard {
     pub backdrop: Option<Image>,
 }
 
+/// A title's wordmark (a transparent image) in the display language when there is one.
 #[typeshare]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Logo {
+    pub url: String,
+    /// Width over height, to size the space before the image loads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aspect: Option<f64>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FeaturedCard {
     pub title_id: String,
@@ -104,6 +115,9 @@ pub struct FeaturedCard {
     /// The full-size backdrop for a hero.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backdrop: Option<Image>,
+    /// Shown instead of the name where there is room.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logo: Option<Logo>,
     pub in_list: bool,
 }
 
@@ -233,6 +247,8 @@ pub struct TitleDetailView {
     pub poster: Option<Image>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backdrop: Option<Image>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logo: Option<Logo>,
     /// The page's colours, from the backdrop.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accent: Option<AccentPalette>,
@@ -425,6 +441,7 @@ fn featured(item: &FeaturedItem, images: &Images, listed: &Listed) -> FeaturedCa
             Size::Full,
             item.backdrop_accent.as_ref(),
         ),
+        logo: logo(images, item.logo_id.as_ref(), item.logo_ver, item.logo_aspect),
         in_list: listed.get(&item.id).copied().unwrap_or(item.in_list),
     }
 }
@@ -556,6 +573,7 @@ pub fn title(detail: &TitleDetail, images: &Images, listed: &Listed) -> TitleDet
         content_rating: Some(t.content_rating.clone()).filter(|r| !r.is_empty()),
         runtime_minutes: minutes(t.runtime_minutes),
         poster: image("poster", Size::Medium),
+        logo: logo(images, detail.logo_id.as_ref(), detail.logo_ver, detail.logo_aspect),
         accent: backdrop.as_ref().and_then(|b| b.accent.as_deref()).map(theme::palette),
         backdrop,
         quality: Quality::of_height(max_height),
@@ -585,6 +603,18 @@ pub fn genres(
             .collect(),
         problem,
     }
+}
+
+/// Logos are drawn a few hundred points wide even on a TV hero, so the medium size is sharp.
+fn logo(
+    images: &Images,
+    id: Option<&String>,
+    version: Option<i64>,
+    aspect: Option<f64>,
+) -> Option<Logo> {
+    images
+        .optional(id, version, Size::Medium, None)
+        .map(|image| Logo { url: image.url, aspect: aspect.filter(|a| a.is_finite() && *a > 0.0) })
 }
 
 /// Resuming only makes sense past the first few seconds, as on the web.
