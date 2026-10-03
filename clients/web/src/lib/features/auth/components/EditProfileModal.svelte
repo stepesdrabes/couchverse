@@ -56,8 +56,8 @@
 		const body = new FormData();
 		body.set('file', file);
 		try {
-			session.user =
-				kind === 'avatar' ? await authApi.uploadAvatar(body) : await authApi.uploadBanner(body);
+			await (kind === 'avatar' ? authApi.uploadAvatar(body) : authApi.uploadBanner(body));
+			await session.refresh();
 			toast.success(m.profile_picture_updated());
 			onsaved?.();
 		} catch (err) {
@@ -67,8 +67,8 @@
 
 	async function removeImage(kind: 'avatar' | 'banner') {
 		try {
-			session.user =
-				kind === 'avatar' ? await authApi.deleteAvatar() : await authApi.deleteBanner();
+			await (kind === 'avatar' ? authApi.deleteAvatar() : authApi.deleteBanner());
+			await session.refresh();
 			onsaved?.();
 		} catch {
 			toast.error(m.profile_avatar_remove_failed());
@@ -93,7 +93,8 @@
 		if (bio.length > MAX_BIO) return;
 		saving = true;
 		try {
-			session.user = await authApi.updateProfile(displayName.trim(), bio);
+			await authApi.updateProfile(displayName.trim(), bio);
+			await session.refresh();
 			form.reset();
 			toast.success(m.profile_saved());
 			onsaved?.();

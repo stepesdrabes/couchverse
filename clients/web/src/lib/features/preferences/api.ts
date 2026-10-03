@@ -15,7 +15,8 @@ export interface Preferences {
 	[key: string]: unknown;
 }
 
-export const getPreferences = () => api<Preferences>('/me/preferences');
+// read before the session is known, so a visitor's 401 is no cause to redirect
+export const getPreferences = () => api<Preferences>('/me/preferences', { skipAuthRedirect: true });
 
 export const putPreferences = (patch: Preferences) =>
 	api<Preferences>('/me/preferences', { method: 'PUT', body: patch });

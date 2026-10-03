@@ -1,6 +1,8 @@
-// Runtime accent theming. The admin picks a single accent colour; the strong
-// and soft variants are derived from it so the whole palette shifts together.
+// Runtime accent theming. An accent is a single colour; the strong and soft variants are
+// derived from it so the whole palette shifts together. The site accent comes from the core's
+// session; accents scoped to a subtree (a title's banner) are still derived here, the same way.
 
+import type { AccentPalette } from '$lib/generated/core';
 import { accent as tokens } from '$lib/generated/tokens';
 
 function clampByte(n: number): number {
@@ -14,15 +16,15 @@ function parseHex(hex: string): [number, number, number] | null {
 	return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
 }
 
-function toHex(r: number, g: number, b: number): string {
-	return '#' + [r, g, b].map((v) => clampByte(v).toString(16).padStart(2, '0')).join('');
+function toHex(...bytes: number[]): string {
+	return '#' + bytes.map((v) => clampByte(v).toString(16).padStart(2, '0')).join('');
 }
 
 /** mix toward black (amount < 0) or white (amount > 0) */
 function shade(rgb: [number, number, number], amount: number): string {
 	const target = amount < 0 ? 0 : 255;
 	const t = Math.abs(amount);
-	return toHex(...(rgb.map((c) => c + (target - c) * t) as [number, number, number]));
+	return toHex(...rgb.map((c) => c + (target - c) * t));
 }
 
 // WCAG relative luminance of an sRGB colour (0 = black, 1 = white).
@@ -41,22 +43,29 @@ export function readableTextOn(accent: string): string {
 	return luminance(rgb) > tokens.luminanceThreshold ? tokens.onAccentDark : tokens.onAccentLight;
 }
 
-/** Apply an accent colour by setting the palette CSS variables on :root. */
-export function applyAccent(accent: string) {
+/** The palette for `accent`, as the core derives the site's; null for an unreadable colour. */
+export function palette(accent: string): AccentPalette | null {
 	const rgb = parseHex(accent);
-	if (!rgb) return;
+	if (!rgb) return null;
+	return {
+		accent: toHex(...rgb),
+		strong: shade(rgb, tokens.strongShade),
+		// soft tint over the dark background - low-alpha accent
+		soft: toHex(...rgb, tokens.softAlpha * 255),
+		onAccent: readableTextOn(accent)
+	};
+}
+
+/** Apply a palette as the site accent: the palette CSS variables on :root. */
+export function applyPalette(p: AccentPalette) {
 	const root = document.documentElement.style;
-	root.setProperty('--color-accent', toHex(...rgb));
-	root.setProperty('--color-accent-strong', shade(rgb, tokens.strongShade));
-	// soft tint over the dark background - low-alpha accent
-	root.setProperty(
-		'--color-accent-soft',
-		`rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${tokens.softAlpha})`
-	);
-	root.setProperty('--color-on-accent', readableTextOn(accent));
+	root.setProperty('--color-accent', p.accent);
+	root.setProperty('--color-accent-strong', p.strong);
+	root.setProperty('--color-accent-soft', p.soft);
+	root.setProperty('--color-on-accent', p.onAccent);
 	// the site accent, never overridden by a scoped accent (e.g. the player's
 	// banner accent), so app-wide chrome like the couch can keep the site colour
-	root.setProperty('--color-site-accent', toHex(...rgb));
+	root.setProperty('--color-site-accent', p.accent);
 }
 
 /**
@@ -65,12 +74,12 @@ export function applyAccent(accent: string) {
  * :root. Includes the contrast-aware text colour. Returns '' for a bad colour.
  */
 export function accentVars(accent: string): string {
-	const rgb = parseHex(accent);
-	if (!rgb) return '';
+	const p = palette(accent);
+	if (!p) return '';
 	return (
-		`--color-accent:${toHex(...rgb)};` +
-		`--color-accent-strong:${shade(rgb, tokens.strongShade)};` +
-		`--color-accent-soft:rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${tokens.softAlpha});` +
-		`--color-on-accent:${readableTextOn(accent)}`
+		`--color-accent:${p.accent};` +
+		`--color-accent-strong:${p.strong};` +
+		`--color-accent-soft:${p.soft};` +
+		`--color-on-accent:${p.onAccent}`
 	);
 }

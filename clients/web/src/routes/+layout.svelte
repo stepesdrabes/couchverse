@@ -4,15 +4,23 @@
 	import { afterNavigate, onNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Toaster } from 'svelte-sonner';
+	import { core } from '$lib/core';
 	import { couch } from '$lib/features/couch/couch.svelte';
 	import CouchBar from '$lib/features/couch/components/CouchBar.svelte';
 	import NavProgress from '$lib/components/layout/NavProgress.svelte';
 	import UploadDock from '$lib/features/uploads/components/UploadDock.svelte';
 	import { uploadQueue } from '$lib/features/uploads/uploader.svelte';
+	import { applyPalette } from '$lib/theme';
 	import TvShell from '$lib/tv/TvShell.svelte';
 	import { isTV } from '$lib/tv/tv';
 
 	let { children } = $props();
+
+	// the site accent is the core session's, the login screen's included; an error page
+	// can render without a started core
+	$effect(() => {
+		if (core.started) applyPalette(core.session.accent);
+	});
 
 	const onWatch = $derived(page.route.id?.includes('/watch/') ?? false);
 	const onAuth = $derived(page.route.id?.includes('(auth)') ?? false);

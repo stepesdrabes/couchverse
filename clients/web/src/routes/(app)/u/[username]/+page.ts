@@ -4,7 +4,9 @@ import { getProfile } from '$lib/features/ranks/api';
 import { profileCache } from '$lib/features/ranks/cache.svelte';
 import { currentLang } from '$lib/i18n/locale.svelte';
 
-export function load({ params }) {
+export async function load({ params, parent }) {
+	// the flags arrive with the session, in the root layout's load
+	await parent();
 	if (!features.rankingsEnabled) error(404, 'Not found');
 
 	// keyed by language because title names and the genre label are localized

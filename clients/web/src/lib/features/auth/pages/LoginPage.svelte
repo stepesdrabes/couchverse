@@ -9,6 +9,7 @@
 	import LogoMark from '$lib/components/ui/LogoMark.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import { session } from '$lib/features/auth/session.svelte';
+	import { followAccountLang } from '$lib/i18n/locale.svelte';
 
 	let username = $state('');
 	let password = $state('');
@@ -26,7 +27,8 @@
 		error = '';
 		try {
 			await session.login(username, password);
-			goto(next);
+			// a reload into the account's language lands on `next` through the login redirect
+			if (!followAccountLang()) goto(next);
 		} catch (err) {
 			error = err instanceof ApiError ? err.message : m.login_error_generic();
 		} finally {

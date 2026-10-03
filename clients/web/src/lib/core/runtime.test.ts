@@ -8,6 +8,7 @@ import type {
 	StoreRequest,
 	TimerRequest
 } from '$lib/generated/core';
+import { palette } from '$lib/theme';
 import { browserExecutor } from './executor';
 import { CoreRuntime, type Bridge, type Executor, type Spawn } from './runtime.svelte';
 import { spawner } from './wasm';
@@ -140,7 +141,8 @@ describe('the core runtime', () => {
 		expect(core.session.status).toBe(LoadStatus.Loaded);
 		expect(core.session.user).toMatchObject({ username: 'admin', admin: true, bio: '# Hi' });
 		expect(core.session.features).toEqual({ couch: true, rankings: false });
-		expect(core.session.accent.accent).toBe('#3a6ea5');
+		// the web still derives scoped accents itself, so the two derivations must agree
+		expect(core.session.accent).toEqual(palette('#3a6ea5'));
 		// origin-relative, no bearer: the browser's cookie authenticates
 		const me = shell.sent('GET', '/api/v1/auth/me')[0];
 		expect(me.headers.some((h) => h.name === 'Authorization')).toBe(false);

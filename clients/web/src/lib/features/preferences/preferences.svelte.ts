@@ -17,10 +17,10 @@ export const DEFAULT_SUBTITLES: SubtitleSettings = {
 	backgroundOpacity: 55
 };
 
+// The web-only preferences: the subtitle style (native players use system captions) and the
+// profile's privacy switch. The display language is the core session's.
 class UserPreferences {
 	subtitles = $state<SubtitleSettings>({ ...DEFAULT_SUBTITLES });
-	/** saved display-language code, reconciled into Paraglide on boot */
-	language = $state<string | null>(null);
 	/** appear on public profiles and leaderboards; on unless turned off */
 	publicProfile = $state(true);
 
@@ -35,7 +35,6 @@ class UserPreferences {
 
 	private apply(prefs: Preferences) {
 		this.subtitles = { ...DEFAULT_SUBTITLES, ...(prefs.subtitles ?? {}) };
-		this.language = typeof prefs.language === 'string' ? prefs.language : null;
 		this.publicProfile = prefs.publicProfile !== false;
 	}
 

@@ -7,7 +7,9 @@ import type { Metric, Period } from '$lib/features/ranks/types';
 const PERIODS: Period[] = ['all', 'month', 'week'];
 const METRICS: Metric[] = ['xp', 'watch', 'achievements'];
 
-export function load({ url }) {
+export async function load({ url, parent }) {
+	// the flags arrive with the session, in the root layout's load
+	await parent();
 	if (!features.rankingsEnabled) error(404, 'Not found');
 
 	const requested = url.searchParams.get('period') as Period;

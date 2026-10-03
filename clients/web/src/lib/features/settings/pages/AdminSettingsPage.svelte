@@ -4,9 +4,10 @@
 	import { toast } from 'svelte-sonner';
 	import * as libraryApi from '$lib/features/library/api';
 	import type { TranscodeInfo } from '$lib/features/library/api';
+	import { core } from '$lib/core';
+	import { session } from '$lib/features/auth/session.svelte';
 	import * as settingsApi from '$lib/features/settings/api';
-	import { features } from '$lib/features/settings/features.svelte';
-	import { applyAccent } from '$lib/theme';
+	import { applyPalette, palette } from '$lib/theme';
 	import { FormState } from '$lib/utils/form-state.svelte';
 	import HomeRowsEditor from '$lib/features/settings/components/HomeRowsEditor.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -52,7 +53,8 @@
 	let savingHome = $state(false);
 	const homeForm = new FormState(() => ({ featuredCount }));
 
-	let accent = $state('#e50914');
+	// the accent showing until the settings arrive, so the live preview never flashes another
+	let accent = $state(core.session.accent.accent);
 	let savingAccent = $state(false);
 	const accentForm = new FormState(() => ({ accent }));
 	const accentPresets = ['#e50914', '#8b7cf0', '#3b82f6', '#10b981', '#f59e0b', '#ec4899'];
@@ -180,8 +182,7 @@
 		savingFeatures = true;
 		try {
 			await settingsApi.adminUpdateSettings({ features: { couchEnabled, rankingsEnabled } });
-			features.couchEnabled = couchEnabled;
-			features.rankingsEnabled = rankingsEnabled;
+			await session.refresh();
 			featuresForm.reset();
 			toast.success(m.settings_features_saved());
 		} catch {
@@ -192,13 +193,20 @@
 	}
 
 	// preview the accent live as the admin edits it
-	$effect(() => applyAccent(accent));
+	$effect(() => {
+		const preview = palette(accent);
+		if (preview) applyPalette(preview);
+	});
+
+	// leaving puts the site's own accent back, whether or not the preview was saved
+	$effect(() => () => applyPalette(core.session.accent));
 
 	async function saveAccent(e: SubmitEvent) {
 		e.preventDefault();
 		savingAccent = true;
 		try {
 			await settingsApi.adminUpdateSettings({ appearance: { accent } });
+			await session.refresh();
 			accentForm.reset();
 			toast.success(m.settings_accent_saved());
 		} catch {

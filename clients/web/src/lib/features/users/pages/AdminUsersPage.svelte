@@ -147,7 +147,7 @@
 							<span>
 								<span class="block font-semibold">
 									{user.displayName}
-									{#if user.id === session.user?.id}
+									{#if user.username === session.user?.username}
 										<span class="ml-1 text-[10px] font-normal text-faint">{m.users_you()}</span>
 									{/if}
 								</span>
@@ -175,7 +175,7 @@
 						<Button variant="ghost" size="sm" onclick={() => openEdit(user)}
 							>{m.common_edit()}</Button
 						>
-						{#if user.id !== session.user?.id}
+						{#if user.username !== session.user?.username}
 							<Button
 								variant="ghost"
 								size="sm"

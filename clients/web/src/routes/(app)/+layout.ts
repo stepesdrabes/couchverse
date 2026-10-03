@@ -6,7 +6,9 @@ import { getMyStats } from '$lib/features/ranks/api';
 import { profileCache } from '$lib/features/ranks/cache.svelte';
 import { currentLang } from '$lib/i18n/locale.svelte';
 
-export function load({ url }) {
+export async function load({ url, parent }) {
+	// the root layout's load is where the core learns who is signed in
+	await parent();
 	if (!session.user) {
 		redirect(307, `/login?next=${encodeURIComponent(url.pathname + url.search)}`);
 	}

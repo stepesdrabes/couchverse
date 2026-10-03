@@ -42,7 +42,7 @@
 						{session.user?.displayName}
 					</h1>
 					<p class="mt-1 text-sm text-faint">
-						@{session.user?.username} · {session.user?.role === 'admin'
+						@{session.user?.username} · {session.user?.admin
 							? m.profile_role_admin()
 							: m.profile_role_member()}
 					</p>

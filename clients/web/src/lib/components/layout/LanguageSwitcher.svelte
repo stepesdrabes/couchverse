@@ -2,13 +2,11 @@
 	import { DropdownMenu } from 'bits-ui';
 	import { Check, ChevronDown } from 'lucide-svelte';
 	import Flag from '$lib/components/ui/Flag.svelte';
-	import { putPreferences } from '$lib/features/preferences/api';
 	import {
 		currentLang,
 		displayLangs,
 		displayLangLabel,
-		setDisplayLang,
-		type DisplayLang
+		setDisplayLang
 	} from '$lib/i18n/locale.svelte';
 	import * as m from '$lib/paraglide/messages';
 
@@ -17,16 +15,6 @@
 	let { class: cls = '' }: { class?: string } = $props();
 
 	const active = currentLang();
-
-	async function choose(next: DisplayLang) {
-		if (next === currentLang()) return;
-		try {
-			await putPreferences({ language: next });
-		} catch {
-			// offline/unauthenticated: localStorage still carries the choice
-		}
-		setDisplayLang(next); // persists + reloads
-	}
 </script>
 
 <DropdownMenu.Root>
@@ -52,7 +40,7 @@
 				<DropdownMenu.Item
 					class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-muted
 						outline-none data-highlighted:bg-surface data-highlighted:text-text"
-					onSelect={() => choose(lang)}
+					onSelect={() => setDisplayLang(lang)}
 				>
 					<Flag code={lang} />
 					<span class="flex-1">{displayLangLabel(lang)}</span>
