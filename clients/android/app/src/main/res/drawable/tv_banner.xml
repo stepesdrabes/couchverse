@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- the Google TV launcher banner: the logo on the default accent -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="315"
+                android:endColor="#FF07080D"
+                android:startColor="@color/launcher_background" />
+        </shape>
+    </item>
+    <item
+        android:bottom="45dp"
+        android:drawable="@drawable/couchverse_logo"
+        android:left="97dp"
+        android:right="97dp"
+        android:top="45dp" />
+</layer-list>

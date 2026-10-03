@@ -1,0 +1,87 @@
+package io.stepes.couchverse
+
+import android.app.Application
+import android.app.UiModeManager
+import android.content.Context
+import android.content.res.Configuration
+import android.os.Build
+import android.provider.Settings
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.crossfade
+import io.stepes.couchverse.core.AuthMode
+import io.stepes.couchverse.core.CoreConfig
+import io.stepes.couchverse.core.Event
+import io.stepes.couchverse.core.Platform
+import io.stepes.couchverse.core.device.deviceProfile
+import io.stepes.couchverse.core.device.measureDevice
+import io.stepes.couchverse.core.runtime.CoreRuntime
+import io.stepes.couchverse.core.runtime.androidCoreRuntime
+import okhttp3.OkHttpClient
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
+
+/**
+ * The process's one core runtime, image loader and HTTP client. The runtime outlives
+ * activities, so a rotation or a trip through the TV's home screen keeps every view model.
+ */
+class CouchverseApp : Application(), SingletonImageLoader.Factory {
+    lateinit var runtime: CoreRuntime
+        private set
+
+    /** The TV interface, picked once at launch from the UI mode. */
+    val tv: Boolean by lazy { isTelevision(this) }
+
+    private val http by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        val config = CoreConfig(
+            platform = if (tv) Platform.Androidtv else Platform.Android,
+            authMode = AuthMode.Bearer,
+            deviceName = deviceName(),
+            locale = Locale.getDefault().toLanguageTag(),
+        )
+        runtime = androidCoreRuntime(this, config, http)
+        runtime.send(Event.AppStarted)
+        // listing the decoders takes a moment; the profile is only needed once something plays
+        thread(name = "device-profile") {
+            runtime.send(Event.CapabilitiesReported(deviceProfile(measureDevice(this))))
+        }
+        ProcessLifecycleOwner.get().lifecycle.addObserver(
+            object : DefaultLifecycleObserver {
+                private var started = false
+
+                override fun onStart(owner: LifecycleOwner) {
+                    if (started) runtime.send(Event.AppBecameActive)
+                    started = true
+                }
+            },
+        )
+    }
+
+    override fun newImageLoader(context: PlatformContext): ImageLoader =
+        ImageLoader.Builder(context)
+            .components { add(OkHttpNetworkFetcherFactory(callFactory = { http })) }
+            .crossfade(true)
+            .build()
+
+    /** The name a new device session gets: the one the user gave the device, else its model. */
+    private fun deviceName(): String =
+        Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() }
+            ?: Build.MODEL
+}
+
+fun isTelevision(context: Context): Boolean =
+    context.getSystemService(UiModeManager::class.java)?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION

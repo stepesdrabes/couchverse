@@ -45,6 +45,11 @@ android {
     }
 }
 
+tasks.withType<Test>().configureEach {
+    // Android 16's shared memory setup reaches into file descriptors through JDK internals
+    jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(project(":design"))
