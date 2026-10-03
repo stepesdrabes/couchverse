@@ -128,9 +128,15 @@ notification, signed APKs (`worktree-agent-ad92f5029f15e7764`).
   `faint` token and accent-coloured text (the palette's new `ink`, derived by the core for
   every client) meet WCAG AA on every surface, and every control has an accessible name.
 - Done: the admin can turn downloads off (`downloadsEnabled`).
-- Pending: native accessibility passes (VoiceOver, TalkBack), Raspberry Pi performance notes,
-  build-from-source guides, signed APKs, README, the HTML overview with screenshots of every
-  client, cleanup.
+- Done: localization audit of the web: every error reaches the user in the display language
+  through `problemMessage` (shared `problem_<code>` strings), no hard-coded English left.
+- Done: core property tests (proptest: markdown link safety, time text, accent ink contrast,
+  bridge robustness) and a rendering budget; the README describes the native apps, playback
+  v2, downloads and the Pi notes for them.
+- Done: Apple CI runs lint and the core's host tests on GitHub's Xcode 26.5 image and the
+  simulator suites wherever Xcode 27 exists (GitHub has no Xcode 27 image yet).
+- Pending: native accessibility passes (VoiceOver, TalkBack), signed APKs (Android Phase 12),
+  the HTML overview with screenshots of every client, cleanup.
 
 ## Release automation (part of Phase 13) - done
 
