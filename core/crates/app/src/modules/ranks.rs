@@ -603,9 +603,11 @@ impl Ranks {
             display_name: u.display_name.clone(),
             bio: markdown::parse(&u.bio),
             avatar: u.avatar_id.as_ref().map(|id| images.image(id, None, Size::Small, None)),
+            // shown dimmed behind the header, where a resize is plenty; an uploaded original
+            // can be a phone photo of several megabytes
             banner: u.banner_id.as_ref().map(|id| {
                 let accent = Some(u.banner_accent.clone()).filter(|a| !a.is_empty());
-                images.image(id, None, Size::Full, accent)
+                images.image(id, None, Size::Medium, accent)
             }),
             member_since: u.member_since.clone(),
             is_self: p.is_self,

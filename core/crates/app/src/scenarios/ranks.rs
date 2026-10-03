@@ -186,7 +186,9 @@ fn profiles_read_your_own_stats_or_someone_elses_public_page() {
     let bio = serde_json::to_string(&profile.bio).unwrap();
     assert!(bio.contains("\"strong\"") && bio.contains("<script>x</script>"));
     assert_eq!(profile.avatar.expect("avatar").url, format!("{API}/artwork/av?size=w342&g=g-art"));
-    assert_eq!(profile.banner.expect("banner").accent.as_deref(), Some("#204060"));
+    let banner = profile.banner.expect("banner");
+    assert_eq!(banner.url, format!("{API}/artwork/bn?size=w780&g=g-art"));
+    assert_eq!(banner.accent.as_deref(), Some("#204060"));
     assert_eq!(profile.hours.len(), 24);
     assert_eq!((profile.hours[21], profile.hours[7], profile.hours[0]), (3600, 1800, 0));
     let levels: Vec<u8> = profile.heatmap.days.iter().map(|d| d.level).collect();
