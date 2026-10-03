@@ -22,8 +22,11 @@ use crate::modules::catalog::TitleKind;
 use crate::modules::images::{Image, Images, Size};
 use crate::modules::markdown::{self, MarkdownDoc};
 
-/// At most one check per this window, mirroring the server's throttle.
+/// At most one check per this window unless forced.
 const CHECK_INTERVAL_MS: U53 = 5 * 60 * 1000;
+/// The server runs at most one check per member in this window (several tabs and devices
+/// check too) and answers any other as throttled, with nothing new.
+const SERVER_WINDOW_MS: U53 = 30_000;
 /// A profile or leaderboard reopened within this window is not refetched.
 const FRESH_MS: U53 = 60_000;
 
@@ -297,7 +300,13 @@ pub struct RanksPending {
 
 #[derive(Debug, Clone, PartialEq)]
 enum Request {
-    Check(Call<AchievementCheck>),
+    Check {
+        call: Call<AchievementCheck>,
+        force: bool,
+        retried: bool,
+    },
+    /// The server's window has passed since it throttled a forced check.
+    Retry,
     /// Tagged with the language generation: a profile carries localized labels.
     Profile {
         username: String,
@@ -311,10 +320,12 @@ enum Request {
     Visibility(Call<couchverse_api::types::Preferences>),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RanksChange {
     None,
     Unauthorized,
+    /// A forced check the server throttled is due again.
+    CheckAgain,
     /// The visibility switch could not be saved and was rolled back.
     VisibilityFailed,
 }
@@ -413,6 +424,15 @@ impl Ranks {
 
     /// Asks the server whether anything new was earned, at most once per window unless forced.
     pub fn check(&mut self, ctx: &mut Ctx, endpoint: &Endpoint, force: bool) {
+        self.ask(ctx, endpoint, force, false);
+    }
+
+    /// The forced check the server throttled, once more.
+    pub fn retry(&mut self, ctx: &mut Ctx, endpoint: &Endpoint) {
+        self.ask(ctx, endpoint, true, true);
+    }
+
+    fn ask(&mut self, ctx: &mut Ctx, endpoint: &Endpoint, force: bool, retried: bool) {
         let recent =
             self.last_check.is_some_and(|at| ctx.now.saturating_sub(at) < CHECK_INTERVAL_MS);
         if self.checking || (recent && !force) {
@@ -421,7 +441,8 @@ impl Ranks {
         self.last_check = Some(ctx.now);
         self.checking = true;
         let call = ops::check_achievements();
-        ctx.http(endpoint.request(&call.request), self.pending(Request::Check(call)));
+        let request = endpoint.request(&call.request);
+        ctx.http(request, self.pending(Request::Check { call, force, retried }));
     }
 
     pub fn open(&mut self, ctx: &mut Ctx, env: &Env, surface: &Surface, force: bool) {
@@ -498,13 +519,19 @@ impl Ranks {
         }
         let now = ctx.now;
         let failure = match pending.request {
-            Request::Check(call) => {
+            Request::Retry => return RanksChange::CheckAgain,
+            Request::Check { call, force, retried } => {
                 self.checking = false;
                 match decode(&call, output) {
                     Ok(result) => {
                         // a throttled check skipped the snapshot and carries no rank
                         if let Some(r) = result.rank.as_ref().filter(|_| !result.throttled) {
                             self.adopt(badge(&r.tier, r.next.as_ref(), r.xp, r.percent));
+                        }
+                        // what forced it (a new avatar, the end of a title) may have earned
+                        // something the check another trigger or tab just ran could not see
+                        if result.throttled && force && !retried {
+                            ctx.after(SERVER_WINDOW_MS, self.pending(Request::Retry));
                         }
                         self.queue.extend(result.unlocked);
                         ctx.render(Surface::Rank);

@@ -89,6 +89,35 @@ fn unlocks_queue_up_for_celebration_and_level_ups_count_once() {
 }
 
 #[test]
+fn a_forced_check_the_server_throttled_is_asked_again_once() {
+    let mut shell = ranked();
+    shell.respond("POST", CHECK, 200, check_result(1, &[]));
+
+    // a new avatar right after the launch's check: the server just ran one
+    shell.send(Event::AchievementsCheckRequested(CheckRequest { force: true }));
+    let throttled = json!({ "throttled": true, "rank": null, "unlocked": [] });
+    shell.respond("POST", CHECK, 200, throttled.clone());
+    let [(timer, after, false)] = shell.timers()[..] else { panic!("{:?}", shell.timers()) };
+    assert_eq!(after, 30_000);
+    shell.fire(timer, 30_000);
+    shell.respond("POST", CHECK, 200, check_result(1, &["avatar_set"]));
+    let view: RankView = shell.view(&Surface::Rank);
+    assert_eq!(view.celebration.expect("celebration").code, "avatar_set");
+
+    // once is enough, and an unforced check that was throttled waits its turn
+    shell.send(Event::AchievementsCheckRequested(CheckRequest { force: true }));
+    shell.respond("POST", CHECK, 200, throttled.clone());
+    let [(timer, _, _)] = shell.timers()[..] else { panic!("{:?}", shell.timers()) };
+    shell.fire(timer, 30_000);
+    shell.respond("POST", CHECK, 200, throttled.clone());
+    assert_eq!(shell.timers(), empty::<(U53, U53, bool)>());
+    shell.now += 5 * 60_000;
+    shell.send(Event::AchievementsCheckRequested(CheckRequest { force: false }));
+    shell.respond("POST", CHECK, 200, throttled);
+    assert_eq!(shell.timers(), empty::<(U53, U53, bool)>());
+}
+
+#[test]
 fn the_top_of_the_ladder_has_no_next_tier() {
     let mut shell = ranked();
     let top = json!({

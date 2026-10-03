@@ -196,6 +196,12 @@ fn downloads_env<'a>(
     })
 }
 
+/// Where achievement checks go: only once the server has said rankings are on, and only for a
+/// signed-in viewer, since the web's cookie session can learn its flags while nobody is.
+fn achievements_endpoint(session: &Session) -> Option<&Endpoint> {
+    session.endpoint().filter(|_| session.rankings_confirmed() && session.username().is_some())
+}
+
 fn ranks_env(session: &Session) -> Option<ranks::Env<'_>> {
     session.endpoint().map(|endpoint| ranks::Env {
         endpoint,
@@ -482,11 +488,10 @@ impl Model {
                     CatalogChange::None => {}
                 }
             }
-            Pending::Ranks(p) => match self.ranks.resolve(ctx, p, output) {
-                RanksChange::Unauthorized => self.session_rejected(ctx),
-                RanksChange::VisibilityFailed => self.notices.push(ctx, "visibility_failed"),
-                RanksChange::None => {}
-            },
+            Pending::Ranks(p) => {
+                let change = self.ranks.resolve(ctx, p, output);
+                self.ranks_changed(ctx, change);
+            }
             Pending::Playback(p) => {
                 let images = self.images();
                 let env = playback_env(&self.session, self.guest.as_ref(), images);
@@ -505,22 +510,29 @@ impl Model {
                 let change = self.downloads.resolve(ctx, env.as_ref(), p, output);
                 self.downloads_changed(ctx, change);
             }
-            Pending::Profile(p) => match self.profile.resolve(ctx, p, output) {
-                ProfileChange::Updated(user) => {
-                    self.session.user_updated(ctx, &user);
-                    if let Some(id) = self.session.account_id() {
-                        self.accounts.update_profile(ctx, id, &user);
-                    }
-                    if let Some(env) = ranks_env(&self.session) {
-                        let me = Surface::Profile(user.username.clone());
-                        self.ranks.open(ctx, &env, &me, true);
-                    }
-                    // a first avatar is an achievement
-                    self.check_achievements(ctx, true);
+            Pending::Profile(p) => {
+                let change = self.profile.resolve(ctx, p, output);
+                self.profile_changed(ctx, change);
+            }
+        }
+    }
+
+    fn profile_changed(&mut self, ctx: &mut Ctx, change: ProfileChange) {
+        match change {
+            ProfileChange::Updated(user) => {
+                self.session.user_updated(ctx, &user);
+                if let Some(id) = self.session.account_id() {
+                    self.accounts.update_profile(ctx, id, &user);
                 }
-                ProfileChange::Unauthorized => self.session_rejected(ctx),
-                ProfileChange::None => {}
-            },
+                if let Some(env) = ranks_env(&self.session) {
+                    let me = Surface::Profile(user.username.clone());
+                    self.ranks.open(ctx, &env, &me, true);
+                }
+                // a first avatar is an achievement
+                self.check_achievements(ctx, true);
+            }
+            ProfileChange::Unauthorized => self.session_rejected(ctx),
+            ProfileChange::None => {}
         }
     }
 
@@ -722,6 +734,19 @@ impl Model {
         self.downloads_changed(ctx, change);
     }
 
+    fn ranks_changed(&mut self, ctx: &mut Ctx, change: RanksChange) {
+        match change {
+            RanksChange::Unauthorized => self.session_rejected(ctx),
+            RanksChange::VisibilityFailed => self.notices.push(ctx, "visibility_failed"),
+            RanksChange::CheckAgain => {
+                if let Some(endpoint) = achievements_endpoint(&self.session) {
+                    self.ranks.retry(ctx, endpoint);
+                }
+            }
+            RanksChange::None => {}
+        }
+    }
+
     fn downloads_changed(&mut self, ctx: &mut Ctx, change: DownloadsChange) {
         match change {
             DownloadsChange::Notice(code) => self.notices.push(ctx, code),
@@ -730,13 +755,9 @@ impl Model {
         }
     }
 
-    /// Asks whether anything new was earned, once the server has said rankings are on and only
-    /// for a signed-in viewer: the web's cookie session can learn its flags while nobody is.
+    /// Asks whether anything new was earned.
     fn check_achievements(&mut self, ctx: &mut Ctx, force: bool) {
-        if self.session.rankings_confirmed()
-            && self.session.username().is_some()
-            && let Some(endpoint) = self.session.endpoint()
-        {
+        if let Some(endpoint) = achievements_endpoint(&self.session) {
             self.ranks.check(ctx, endpoint, force);
         }
     }
