@@ -10,7 +10,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import io.stepes.couchverse.design.Tokens
+import androidx.compose.material3.LocalContentColor as PhoneContentColor
 import androidx.compose.material3.darkColorScheme as phoneDarkColorScheme
+import androidx.tv.material3.LocalContentColor as TvContentColor
 import androidx.tv.material3.MaterialTheme as TvMaterialTheme
 import androidx.tv.material3.darkColorScheme as tvDarkColorScheme
 
@@ -41,11 +43,17 @@ fun CouchverseTheme(
         val phoneTypography = remember { phoneTypography() }
         CompositionLocalProvider(LocalAccent provides animated) {
             MaterialTheme(colorScheme = phoneColors(animated), typography = phoneTypography) {
-                if (tv) {
-                    val tvTypography = remember { tvTypography() }
-                    TvMaterialTheme(colorScheme = tvColors(animated), typography = tvTypography, content = content)
-                } else {
-                    content()
+                // text and icons outside a surface read the canvas's colour, not the default black
+                CompositionLocalProvider(
+                    PhoneContentColor provides Tokens.Palette.text,
+                    TvContentColor provides Tokens.Palette.text,
+                ) {
+                    if (tv) {
+                        val tvTypography = remember { tvTypography() }
+                        TvMaterialTheme(colorScheme = tvColors(animated), typography = tvTypography, content = content)
+                    } else {
+                        content()
+                    }
                 }
             }
         }
@@ -131,7 +139,8 @@ private fun tvColors(accent: AccentColors) = with(Tokens.Palette) {
         inverseOnSurface = bg,
         error = danger,
         onError = bg,
-        border = accent.accent,
+        // outlines of chips and the like; focus rings are drawn by the components themselves
+        border = edge,
         borderVariant = edge,
         scrim = Color.Black,
     )
