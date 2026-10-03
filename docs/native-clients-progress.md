@@ -117,12 +117,20 @@ remote's place across Back. JVM, Compose UI and Roborazzi tests (phone and TV, e
 `android.yml` (tests, lint, APK; screenshots verified on macOS). Checked on Android 16 phone and
 TV emulators against a local server, the TV signed in by pairing.
 
-## Phase 12: Android playback, couch, ranks, downloads - pending
+## Phase 12: Android playback, couch, ranks, downloads - in progress
 
-## Phase 13: polish and release - pending
+Media3 player, couch, ranks and profiles, downloads (WorkManager), Watch Next, widget, couch
+notification, signed APKs (`worktree-agent-ad92f5029f15e7764`).
 
-Accessibility and localization audit, Raspberry Pi performance, build-from-source guides,
-release automation, docs, an HTML overview with screenshots of every client.
+## Phase 13: polish and release - in progress
+
+- Done: accessibility audit of the web (axe on the main pages in `e2e/a11y.spec.ts`): the
+  `faint` token and accent-coloured text (the palette's new `ink`, derived by the core for
+  every client) meet WCAG AA on every surface, and every control has an accessible name.
+- Done: the admin can turn downloads off (`downloadsEnabled`).
+- Pending: native accessibility passes (VoiceOver, TalkBack), Raspberry Pi performance notes,
+  build-from-source guides, signed APKs, README, the HTML overview with screenshots of every
+  client, cleanup.
 
 ## Release automation (part of Phase 13) - done
 
