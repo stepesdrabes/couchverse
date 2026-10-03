@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- versions move in reviewed upgrades, not as lint findings on every build -->
+    <issue id="GradleDependency" severity="ignore" />
+    <issue id="NewerVersionAvailable" severity="ignore" />
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <!-- strings come from contract/i18n; native catalogs skip only admin keys, so many stay unused here -->
+    <issue id="UnusedResources" severity="ignore" />
+    <!-- the catalogs are generated; Czech plural forms there are reviewed in contract/i18n -->
+    <issue id="MissingQuantity">
+        <ignore path="**/src/generated/**" />
+    </issue>
+</lint>

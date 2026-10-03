@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.android.library)
+    id("couchverse.android.library")
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -10,17 +10,10 @@ val hostLibrary = layout.buildDirectory.dir("rust-host")
 
 android {
     namespace = "io.stepes.couchverse.core"
-    compileSdk = 37
     ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
-        minSdk = 31
         consumerProguardFiles("consumer-rules.pro")
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
 
     sourceSets {
@@ -35,11 +28,15 @@ android {
 dependencies {
     // the generated message types are the module's API and carry their serializers
     api(libs.kotlinx.serialization.json)
+    api(libs.kotlinx.coroutines.android)
+    api(libs.okhttp)
     implementation(libs.jna) { artifact { type = "aar" } }
 
     // the aar has no desktop natives; the jar brings JNA's dispatch library for the host JVM
     testImplementation(libs.jna)
     testImplementation(libs.kotlin.test.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
 }
 
 val checkRustCore = tasks.register("checkRustCore") {

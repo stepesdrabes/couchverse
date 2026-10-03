@@ -16,24 +16,36 @@ val CoreJson: Json = Json {
     encodeDefaults = false
 }
 
+/** The core as the runtime drives it; [Core] is the real one, tests may wrap it. */
+interface CoreEngine : AutoCloseable {
+    fun send(nowMs: ULong, event: Event): List<EffectRequest>
+
+    fun resolve(nowMs: ULong, id: ULong, output: EffectOutput): List<EffectRequest>
+
+    /** The current view model of [surface] as JSON. */
+    fun viewJson(surface: Surface): String
+}
+
 /**
  * The shared core spoken to in the generated message types rather than JSON strings. Like the
  * bridge underneath, it is single-threaded by contract: call it from one serial context.
  */
-class Core(config: CoreConfig) : AutoCloseable {
+class Core(config: CoreConfig) : CoreEngine {
     private val bridge = CoreBridge(CoreJson.encodeToString(config))
 
     /** Delivers a shell event; returns the effects to perform. */
-    fun send(nowMs: ULong, event: Event): List<EffectRequest> =
+    override fun send(nowMs: ULong, event: Event): List<EffectRequest> =
         effects(bridge.send(CoreJson.encodeToString(Message(nowMs, event))))
 
     /** Hands back the output of effect [id]; returns the effects to perform. */
-    fun resolve(nowMs: ULong, id: ULong, output: EffectOutput): List<EffectRequest> =
+    override fun resolve(nowMs: ULong, id: ULong, output: EffectOutput): List<EffectRequest> =
         effects(bridge.resolve(CoreJson.encodeToString(Resolution(nowMs, id, output))))
+
+    override fun viewJson(surface: Surface): String = bridge.view(CoreJson.encodeToString(surface))
 
     /** The current view model of [surface]. */
     fun <T> view(surface: Surface, model: DeserializationStrategy<T>): T =
-        CoreJson.decodeFromString(model, bridge.view(CoreJson.encodeToString(surface)))
+        CoreJson.decodeFromString(model, viewJson(surface))
 
     inline fun <reified T> view(surface: Surface): T = view(surface, serializer<T>())
 

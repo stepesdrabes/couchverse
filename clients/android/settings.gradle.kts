@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google()
         mavenCentral()
@@ -21,4 +22,12 @@ dependencyResolutionManagement {
 
 rootProject.name = "couchverse"
 
-include(":core", ":design")
+include(
+    ":app",
+    ":core",
+    ":design",
+    ":feature-accounts",
+    ":feature-catalog",
+    ":feature-settings",
+    ":testing",
+)
