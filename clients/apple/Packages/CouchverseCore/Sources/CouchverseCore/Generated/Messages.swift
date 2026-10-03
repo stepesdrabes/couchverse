@@ -528,6 +528,10 @@ public enum Effect: Codable, Sendable, Hashable {
 	case upload(UploadRequest)
 	/// Drive the shell's video player; fire-and-forget. It reports back with `PlayerReported`.
 	case player(PlayerCommand)
+	/// Open, write to or close a WebSocket. An open resolves `socketOpened`, then
+	/// `socketText` for every frame, and ends with `socketClosed`; send and close are
+	/// fire-and-forget.
+	case socket(SocketCommand)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case http,
@@ -537,7 +541,8 @@ public enum Effect: Codable, Sendable, Hashable {
 			store,
 			render,
 			upload,
-			player
+			player,
+			socket
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -588,6 +593,11 @@ public enum Effect: Codable, Sendable, Hashable {
 					self = .player(content)
 					return
 				}
+			case .socket:
+				if let content = try? container.decode(SocketCommand.self, forKey: .content) {
+					self = .socket(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(Effect.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Effect"))
@@ -619,6 +629,9 @@ public enum Effect: Codable, Sendable, Hashable {
 			try container.encode(content, forKey: .content)
 		case .player(let content):
 			try container.encode(CodingKeys.player, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .socket(let content):
+			try container.encode(CodingKeys.socket, forKey: .type)
 			try container.encode(content, forKey: .content)
 		}
 	}
@@ -1290,6 +1303,21 @@ public enum Event: Codable, Sendable, Hashable {
 	case shuffleToggled
 	/// What this device can play, measured by the shell once per launch.
 	case capabilitiesReported(Capabilities)
+	/// Host a couch session around what is playing.
+	case couchStartRequested
+	/// Join a couch session by its code (a typed code, a scanned QR or a link).
+	case couchJoinRequested(CouchCode)
+	/// Join the session as a remote for this account's own player on another device.
+	case couchRemoteRequested(CouchCode)
+	/// Leave the session; a host leaving ends it.
+	case couchLeft
+	/// The host ends the session for everyone.
+	case couchEndRequested
+	case couchEmojiSent(CouchReaction)
+	/// A follower paused or resumed their own playback.
+	case couchLocalPauseChanged(CouchPause)
+	/// A remote's play, pause, seek, next or previous.
+	case couchRemoteCommanded(RemoteControl)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case appStarted,
@@ -1333,7 +1361,15 @@ public enum Event: Codable, Sendable, Hashable {
 			nextEpisodeRequested,
 			nextEpisodeCancelled,
 			shuffleToggled,
-			capabilitiesReported
+			capabilitiesReported,
+			couchStartRequested,
+			couchJoinRequested,
+			couchRemoteRequested,
+			couchLeft,
+			couchEndRequested,
+			couchEmojiSent,
+			couchLocalPauseChanged,
+			couchRemoteCommanded
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -1532,6 +1568,40 @@ public enum Event: Codable, Sendable, Hashable {
 					self = .capabilitiesReported(content)
 					return
 				}
+			case .couchStartRequested:
+				self = .couchStartRequested
+				return
+			case .couchJoinRequested:
+				if let content = try? container.decode(CouchCode.self, forKey: .content) {
+					self = .couchJoinRequested(content)
+					return
+				}
+			case .couchRemoteRequested:
+				if let content = try? container.decode(CouchCode.self, forKey: .content) {
+					self = .couchRemoteRequested(content)
+					return
+				}
+			case .couchLeft:
+				self = .couchLeft
+				return
+			case .couchEndRequested:
+				self = .couchEndRequested
+				return
+			case .couchEmojiSent:
+				if let content = try? container.decode(CouchReaction.self, forKey: .content) {
+					self = .couchEmojiSent(content)
+					return
+				}
+			case .couchLocalPauseChanged:
+				if let content = try? container.decode(CouchPause.self, forKey: .content) {
+					self = .couchLocalPauseChanged(content)
+					return
+				}
+			case .couchRemoteCommanded:
+				if let content = try? container.decode(RemoteControl.self, forKey: .content) {
+					self = .couchRemoteCommanded(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(Event.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Event"))
@@ -1654,6 +1724,27 @@ public enum Event: Codable, Sendable, Hashable {
 			try container.encode(CodingKeys.shuffleToggled, forKey: .type)
 		case .capabilitiesReported(let content):
 			try container.encode(CodingKeys.capabilitiesReported, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .couchStartRequested:
+			try container.encode(CodingKeys.couchStartRequested, forKey: .type)
+		case .couchJoinRequested(let content):
+			try container.encode(CodingKeys.couchJoinRequested, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .couchRemoteRequested(let content):
+			try container.encode(CodingKeys.couchRemoteRequested, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .couchLeft:
+			try container.encode(CodingKeys.couchLeft, forKey: .type)
+		case .couchEndRequested:
+			try container.encode(CodingKeys.couchEndRequested, forKey: .type)
+		case .couchEmojiSent(let content):
+			try container.encode(CodingKeys.couchEmojiSent, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .couchLocalPauseChanged(let content):
+			try container.encode(CodingKeys.couchLocalPauseChanged, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .couchRemoteCommanded(let content):
+			try container.encode(CodingKeys.couchRemoteCommanded, forKey: .type)
 			try container.encode(content, forKey: .content)
 		}
 	}
@@ -2320,6 +2411,8 @@ public enum Surface: Codable, Sendable, Hashable {
 	case profileEditor
 	/// The player screen: sources, tracks, qualities, episodes and the next-episode countdown.
 	case player
+	/// The couch session: members, reactions, the host's state and the follower's sync.
+	case couch
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case app,
@@ -2341,7 +2434,8 @@ public enum Surface: Codable, Sendable, Hashable {
 			profile,
 			leaderboard,
 			profileEditor,
-			player
+			player,
+			couch
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -2422,6 +2516,9 @@ public enum Surface: Codable, Sendable, Hashable {
 			case .player:
 				self = .player
 				return
+			case .couch:
+				self = .couch
+				return
 			}
 		}
 		throw DecodingError.typeMismatch(Surface.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Surface"))
@@ -2475,6 +2572,8 @@ public enum Surface: Codable, Sendable, Hashable {
 			try container.encode(CodingKeys.profileEditor, forKey: .type)
 		case .player:
 			try container.encode(CodingKeys.player, forKey: .type)
+		case .couch:
+			try container.encode(CodingKeys.couch, forKey: .type)
 		}
 	}
 }
@@ -2497,6 +2596,11 @@ public enum EffectOutput: Codable, Sendable, Hashable {
 	/// A store write or delete finished.
 	case storeDone
 	case storeFailed(StoreFailure)
+	case socketOpened
+	/// A text frame from the socket.
+	case socketText(SocketText)
+	/// Terminal: the socket closed or could not open.
+	case socketClosed(SocketClosed)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case http,
@@ -2504,7 +2608,10 @@ public enum EffectOutput: Codable, Sendable, Hashable {
 			timerFired,
 			stored,
 			storeDone,
-			storeFailed
+			storeFailed,
+			socketOpened,
+			socketText,
+			socketClosed
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -2541,6 +2648,19 @@ public enum EffectOutput: Codable, Sendable, Hashable {
 					self = .storeFailed(content)
 					return
 				}
+			case .socketOpened:
+				self = .socketOpened
+				return
+			case .socketText:
+				if let content = try? container.decode(SocketText.self, forKey: .content) {
+					self = .socketText(content)
+					return
+				}
+			case .socketClosed:
+				if let content = try? container.decode(SocketClosed.self, forKey: .content) {
+					self = .socketClosed(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(EffectOutput.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for EffectOutput"))
@@ -2564,6 +2684,14 @@ public enum EffectOutput: Codable, Sendable, Hashable {
 			try container.encode(CodingKeys.storeDone, forKey: .type)
 		case .storeFailed(let content):
 			try container.encode(CodingKeys.storeFailed, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .socketOpened:
+			try container.encode(CodingKeys.socketOpened, forKey: .type)
+		case .socketText(let content):
+			try container.encode(CodingKeys.socketText, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .socketClosed(let content):
+			try container.encode(CodingKeys.socketClosed, forKey: .type)
 			try container.encode(content, forKey: .content)
 		}
 	}
@@ -2727,6 +2855,47 @@ public struct SignInView: Codable, Sendable, Hashable {
 		self.problem = problem
 		self.pairing = pairing
 		self.signedIn = signedIn
+	}
+}
+
+public struct SocketClosed: Codable, Sendable, Hashable {
+	/// The WebSocket close code; 1006 when the connection failed.
+	public let code: UInt16
+	public let reason: String?
+
+	public init(code: UInt16, reason: String?) {
+		self.code = code
+		self.reason = reason
+	}
+}
+
+public struct SocketOpen: Codable, Sendable, Hashable {
+	/// `ws://` or `wss://`; a path alone is relative to the page (the web picks the scheme).
+	public let url: String
+	public let headers: [HttpHeader]
+
+	public init(url: String, headers: [HttpHeader]) {
+		self.url = url
+		self.headers = headers
+	}
+}
+
+public struct SocketSend: Codable, Sendable, Hashable {
+	/// The id of the open effect.
+	public let socket: UInt64
+	public let text: String
+
+	public init(socket: UInt64, text: String) {
+		self.socket = socket
+		self.text = text
+	}
+}
+
+public struct SocketText: Codable, Sendable, Hashable {
+	public let text: String
+
+	public init(text: String) {
+		self.text = text
 	}
 }
 
@@ -3051,6 +3220,61 @@ public enum PlayerCommand: Codable, Sendable, Hashable {
 			try container.encode(content, forKey: .content)
 		case .stop:
 			try container.encode(CodingKeys.stop, forKey: .type)
+		}
+	}
+}
+
+public enum SocketCommand: Codable, Sendable, Hashable {
+	case open(SocketOpen)
+	case send(SocketSend)
+	case close(EffectRef)
+
+	enum CodingKeys: String, CodingKey, Codable {
+		case open,
+			send,
+			close
+	}
+
+	private enum ContainerCodingKeys: String, CodingKey {
+		case type, content
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: ContainerCodingKeys.self)
+		if let type = try? container.decode(CodingKeys.self, forKey: .type) {
+			switch type {
+			case .open:
+				if let content = try? container.decode(SocketOpen.self, forKey: .content) {
+					self = .open(content)
+					return
+				}
+			case .send:
+				if let content = try? container.decode(SocketSend.self, forKey: .content) {
+					self = .send(content)
+					return
+				}
+			case .close:
+				if let content = try? container.decode(EffectRef.self, forKey: .content) {
+					self = .close(content)
+					return
+				}
+			}
+		}
+		throw DecodingError.typeMismatch(SocketCommand.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for SocketCommand"))
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: ContainerCodingKeys.self)
+		switch self {
+		case .open(let content):
+			try container.encode(CodingKeys.open, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .send(let content):
+			try container.encode(CodingKeys.send, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .close(let content):
+			try container.encode(CodingKeys.close, forKey: .type)
+			try container.encode(content, forKey: .content)
 		}
 	}
 }

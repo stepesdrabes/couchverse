@@ -3,6 +3,7 @@
 
 mod boot;
 mod catalog;
+mod couch;
 mod pairing;
 mod playback;
 mod ranks;
@@ -17,8 +18,8 @@ use serde_json::{Value, json};
 use crate::core::{AppPhase, AppView, Core};
 use crate::messages::{
     AuthMode, CoreConfig, Effect, EffectOutput, EffectRequest, Event, HttpFailure, HttpFailureKind,
-    HttpRequest, HttpResponse, LoadStatus, Message, Platform, PlayerCommand, Resolution, StoreOp,
-    StoredValue, Surface, U53, UploadRequest,
+    HttpRequest, HttpResponse, LoadStatus, Message, Platform, PlayerCommand, Resolution,
+    SocketCommand, SocketOpen, SocketText, StoreOp, StoredValue, Surface, U53, UploadRequest,
 };
 
 pub const SERVER_ID: &str = "4f6c0a5e-6a43-4c0e-9d4b-2b8f8d0b7a11";
@@ -37,6 +38,11 @@ pub struct Shell {
     cancelled: Vec<U53>,
     /// Every command the core gave the player, oldest first.
     pub player: Vec<PlayerCommand>,
+    /// Sockets the core opened, by the open effect's id.
+    pub sockets: Vec<(U53, SocketOpen)>,
+    /// Text the core sent, with the socket it went on.
+    pub sent: Vec<(U53, String)>,
+    pub closed_sockets: Vec<U53>,
 }
 
 impl Shell {
@@ -61,6 +67,9 @@ impl Shell {
             renders: vec![],
             cancelled: vec![],
             player: vec![],
+            sockets: vec![],
+            sent: vec![],
+            closed_sockets: vec![],
         }
     }
 
@@ -116,6 +125,13 @@ impl Shell {
                     }
                 }
                 Effect::Player(command) => self.player.push(command.clone()),
+                Effect::Socket(SocketCommand::Open(open)) => {
+                    self.sockets.push((effect.id, open.clone()));
+                }
+                Effect::Socket(SocketCommand::Send(send)) => {
+                    self.sent.push((send.socket, send.text.clone()));
+                }
+                Effect::Socket(SocketCommand::Close(socket)) => self.closed_sockets.push(socket.id),
                 Effect::Http(_) | Effect::Timer(_) | Effect::Upload(_) => {
                     self.outstanding.push(effect);
                 }
@@ -200,6 +216,28 @@ impl Shell {
         let (id, _) = self.request(method, url);
         let failure = HttpFailure { kind, message: "simulated".into() };
         self.resolve(id, EffectOutput::HttpFailed(failure));
+    }
+
+    /// The socket opened to `url`, the latest first.
+    pub fn socket(&self, url: &str) -> U53 {
+        let found = self.sockets.iter().rev().find(|(_, open)| open.url == url);
+        let opened: Vec<&String> = self.sockets.iter().map(|(_, o)| &o.url).collect();
+        found.map_or_else(|| panic!("no socket to {url}; opened: {opened:?}"), |(id, _)| *id)
+    }
+
+    /// The server says something on a socket.
+    pub fn frame(&mut self, socket: U53, frame: &Value) {
+        let text = frame.to_string();
+        self.resolve(socket, EffectOutput::SocketText(SocketText { text }));
+    }
+
+    /// The JSON frames the core sent on a socket, oldest first.
+    pub fn sent_frames(&self, socket: U53) -> Vec<Value> {
+        self.sent
+            .iter()
+            .filter(|(s, _)| *s == socket)
+            .map(|(_, t)| serde_json::from_str(t).expect("JSON frame"))
+            .collect()
     }
 
     /// Every effect still waiting for an answer.

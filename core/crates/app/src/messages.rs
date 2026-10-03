@@ -6,7 +6,9 @@
 use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
 
-use crate::modules::{accounts, catalog, notices, playback, profile, ranks, servers, session};
+use crate::modules::{
+    accounts, catalog, couch, notices, playback, profile, ranks, servers, session,
+};
 
 /// Effect ids and monotonic milliseconds: typeshare maps the name to a 53-bit-safe integer in
 /// every language.
@@ -156,6 +158,21 @@ pub enum Event {
     ShuffleToggled,
     /// What this device can play, measured by the shell once per launch.
     CapabilitiesReported(playback::Capabilities),
+    /// Host a couch session around what is playing.
+    CouchStartRequested,
+    /// Join a couch session by its code (a typed code, a scanned QR or a link).
+    CouchJoinRequested(couch::CouchCode),
+    /// Join the session as a remote for this account's own player on another device.
+    CouchRemoteRequested(couch::CouchCode),
+    /// Leave the session; a host leaving ends it.
+    CouchLeft,
+    /// The host ends the session for everyone.
+    CouchEndRequested,
+    CouchEmojiSent(couch::CouchReaction),
+    /// A follower paused or resumed their own playback.
+    CouchLocalPauseChanged(couch::CouchPause),
+    /// A remote's play, pause, seek, next or previous.
+    CouchRemoteCommanded(couch::RemoteControl),
 }
 
 /// A screen, panel or piece of state a shell renders from a view model.
@@ -198,6 +215,8 @@ pub enum Surface {
     ProfileEditor,
     /// The player screen: sources, tracks, qualities, episodes and the next-episode countdown.
     Player,
+    /// The couch session: members, reactions, the host's state and the follower's sync.
+    Couch,
 }
 
 /// Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -229,6 +248,37 @@ pub enum Effect {
     Upload(UploadRequest),
     /// Drive the shell's video player; fire-and-forget. It reports back with `PlayerReported`.
     Player(PlayerCommand),
+    /// Open, write to or close a WebSocket. An open resolves `socketOpened`, then
+    /// `socketText` for every frame, and ends with `socketClosed`; send and close are
+    /// fire-and-forget.
+    Socket(SocketCommand),
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "content", rename_all = "camelCase")]
+pub enum SocketCommand {
+    Open(SocketOpen),
+    Send(SocketSend),
+    Close(EffectRef),
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SocketOpen {
+    /// `ws://` or `wss://`; a path alone is relative to the page (the web picks the scheme).
+    pub url: String,
+    pub headers: Vec<HttpHeader>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SocketSend {
+    /// The id of the open effect.
+    pub socket: U53,
+    pub text: String,
 }
 
 #[typeshare]
@@ -431,6 +481,35 @@ pub enum EffectOutput {
     /// A store write or delete finished.
     StoreDone,
     StoreFailed(StoreFailure),
+    SocketOpened,
+    /// A text frame from the socket.
+    SocketText(SocketText),
+    /// Terminal: the socket closed or could not open.
+    SocketClosed(SocketClosed),
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SocketText {
+    pub text: String,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SocketClosed {
+    /// The WebSocket close code; 1006 when the connection failed.
+    pub code: u16,
+    #[serde(default)]
+    pub reason: String,
+}
+
+impl EffectOutput {
+    /// Whether this output ends a streaming effect, so nothing more arrives for its id.
+    pub fn is_terminal(&self) -> bool {
+        matches!(self, EffectOutput::SocketClosed(_))
+    }
 }
 
 #[typeshare]

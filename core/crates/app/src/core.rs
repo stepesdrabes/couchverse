@@ -13,6 +13,7 @@ use crate::messages::{
 };
 use crate::modules::accounts::{Accounts, AccountsChange, AccountsPending};
 use crate::modules::catalog::{self, Catalog, CatalogChange, CatalogPending, Env};
+use crate::modules::couch::{self, Couch, CouchChange, CouchPending};
 use crate::modules::images::Images;
 use crate::modules::markdown;
 use crate::modules::notices::Notices;
@@ -33,6 +34,7 @@ pub enum Pending {
     Ranks(RanksPending),
     Profile(ProfilePending),
     Playback(PlaybackPending),
+    Couch(CouchPending),
 }
 
 /// Where the app is, so a shell knows which root screen to show.
@@ -80,6 +82,7 @@ struct Model {
     ranks: Ranks,
     profile: Profile,
     playback: Playback,
+    couch: Couch,
     notices: Notices,
     phase: AppPhase,
     /// Persisted reads still outstanding at start-up; the phase is decided when they land.
@@ -98,6 +101,7 @@ impl Core {
             ranks: Ranks::default(),
             profile: Profile::default(),
             playback: Playback::default(),
+            couch: Couch::default(),
             notices: Notices::default(),
             phase: AppPhase::Starting,
             boot_reads: 0,
@@ -114,8 +118,12 @@ impl Core {
     pub fn resolve(&mut self, resolution: Resolution) -> Vec<EffectRequest> {
         // a cancelled timer's late tick, a fire-and-forget write: nothing is waiting
         if let Some(pending) = self.registry.take(resolution.id) {
+            let terminal = resolution.output.is_terminal();
             let mut ctx = Ctx::new(resolution.now_ms, &mut self.registry);
             self.model.resolve(&mut ctx, pending, resolution.output);
+            if terminal {
+                self.registry.forget(resolution.id);
+            }
         }
         self.registry.drain()
     }
@@ -142,6 +150,15 @@ fn playback_env(session: &Session, images: Images) -> Option<playback::Env<'_>> 
         endpoint,
         language: session.language(),
         images,
+    })
+}
+
+fn couch_env<'a>(session: &'a Session, config: &'a CoreConfig) -> Option<couch::Env<'a>> {
+    session.endpoint().map(|endpoint| couch::Env {
+        endpoint,
+        language: session.language(),
+        cookie: config.auth_mode == AuthMode::Cookie,
+        origin: &config.origin,
     })
 }
 
@@ -195,6 +212,57 @@ impl Model {
             | Event::PairingCancelled
             | Event::LinkOpened(_)
             | Event::AccountSelected(_)) => self.onboard(ctx, onboarding),
+            account @ (Event::SignOutRequested(_)
+            | Event::DevicesOpened
+            | Event::DeviceRevoked(_)
+            | Event::PairingApprovalOpened(_)
+            | Event::PairingApproved(_)
+            | Event::PairingDenied(_)) => self.manage_account(ctx, account),
+            Event::DisplayLanguageChanged(choice) => {
+                let before = self.session.language().to_string();
+                self.session.set_language(ctx, &choice.code);
+                self.language_settled(ctx, &before);
+            }
+            Event::NoticeDismissed(notice) => self.notices.dismiss(ctx, notice.id),
+            Event::AchievementsCheckRequested(request) => {
+                self.check_achievements(ctx, request.force);
+            }
+            Event::CelebrationDismissed => self.ranks.celebrated(ctx),
+            progress @ (Event::ProfileVisibilityChanged(_)
+            | Event::ProfileEditSubmitted(_)
+            | Event::PasswordChangeSubmitted(_)
+            | Event::ImageChosen(_)
+            | Event::ImageRemoved(_)) => self.edit_profile(ctx, progress),
+            watching @ (Event::PlayRequested(_)
+            | Event::PlayerReported(_)
+            | Event::PlayerClosed
+            | Event::QualityChosen(_)
+            | Event::AudioChosen(_)
+            | Event::SubtitlesChosen(_)
+            | Event::NextEpisodeRequested
+            | Event::NextEpisodeCancelled
+            | Event::ShuffleToggled
+            | Event::CapabilitiesReported(_)) => self.watch(ctx, watching),
+            party @ (Event::CouchStartRequested
+            | Event::CouchJoinRequested(_)
+            | Event::CouchRemoteRequested(_)
+            | Event::CouchLeft
+            | Event::CouchEndRequested
+            | Event::CouchEmojiSent(_)
+            | Event::CouchLocalPauseChanged(_)
+            | Event::CouchRemoteCommanded(_)) => self.couch_event(ctx, party),
+            browsing @ (Event::ScreenOpened(_)
+            | Event::ScreenClosed(_)
+            | Event::RefreshRequested(_)
+            | Event::BrowseMoreRequested(_)
+            | Event::SearchChanged(_)
+            | Event::WatchlistChanged(_)) => self.browse(ctx, browsing),
+        }
+    }
+
+    /// The signed-in account: signing out, its devices, approving another device.
+    fn manage_account(&mut self, ctx: &mut Ctx, event: Event) {
+        match event {
             Event::SignOutRequested(_) if self.config.auth_mode == AuthMode::Cookie => {
                 self.session.log_out(ctx);
                 self.catalog.reset(ctx);
@@ -224,37 +292,7 @@ impl Model {
             Event::PairingDenied(code) => {
                 self.accounts.decide_pairing(ctx, &self.servers, &code.code, None);
             }
-            Event::DisplayLanguageChanged(choice) => {
-                let before = self.session.language().to_string();
-                self.session.set_language(ctx, &choice.code);
-                self.language_settled(ctx, &before);
-            }
-            Event::NoticeDismissed(notice) => self.notices.dismiss(ctx, notice.id),
-            Event::AchievementsCheckRequested(request) => {
-                self.check_achievements(ctx, request.force);
-            }
-            Event::CelebrationDismissed => self.ranks.celebrated(ctx),
-            progress @ (Event::ProfileVisibilityChanged(_)
-            | Event::ProfileEditSubmitted(_)
-            | Event::PasswordChangeSubmitted(_)
-            | Event::ImageChosen(_)
-            | Event::ImageRemoved(_)) => self.edit_profile(ctx, progress),
-            watching @ (Event::PlayRequested(_)
-            | Event::PlayerReported(_)
-            | Event::PlayerClosed
-            | Event::QualityChosen(_)
-            | Event::AudioChosen(_)
-            | Event::SubtitlesChosen(_)
-            | Event::NextEpisodeRequested
-            | Event::NextEpisodeCancelled
-            | Event::ShuffleToggled
-            | Event::CapabilitiesReported(_)) => self.watch(ctx, watching),
-            browsing @ (Event::ScreenOpened(_)
-            | Event::ScreenClosed(_)
-            | Event::RefreshRequested(_)
-            | Event::BrowseMoreRequested(_)
-            | Event::SearchChanged(_)
-            | Event::WatchlistChanged(_)) => self.browse(ctx, browsing),
+            _ => {}
         }
     }
 
@@ -399,6 +437,11 @@ impl Model {
                 let change = self.playback.resolve(ctx, env.as_ref(), p, output);
                 self.playback_changed(ctx, change);
             }
+            Pending::Couch(p) => {
+                let env = couch_env(&self.session, &self.config);
+                let change = self.couch.resolve(ctx, env.as_ref(), &self.playback, p, output);
+                self.couch_changed(ctx, change);
+            }
             Pending::Profile(p) => match self.profile.resolve(ctx, p, output) {
                 ProfileChange::Updated(user) => {
                     self.session.user_updated(ctx, &user);
@@ -437,6 +480,8 @@ impl Model {
 
     /// The player: what plays, what the shell's player reports, tracks and what comes next.
     fn watch(&mut self, ctx: &mut Ctx, event: Event) {
+        let reported = matches!(event, Event::PlayerReported(_));
+        let switched = matches!(event, Event::PlayRequested(_) | Event::PlayerClosed);
         let images = self.images();
         let Some(env) = playback_env(&self.session, images) else {
             if let Event::CapabilitiesReported(caps) = event {
@@ -485,6 +530,68 @@ impl Model {
             _ => PlaybackChange::None,
         };
         self.playback_changed(ctx, change);
+        // a host's play, pause, seek or switch reaches the followers at once
+        if self.couch.is_host() && ((reported && self.playback.moved()) || switched) {
+            self.couch.host_moved(ctx, &self.playback);
+        }
+    }
+
+    /// Couch sessions: hosting, joining, leaving, reactions and remote control.
+    fn couch_event(&mut self, ctx: &mut Ctx, event: Event) {
+        let Some(env) = couch_env(&self.session, &self.config) else { return };
+        let change = match event {
+            Event::CouchStartRequested => {
+                match self.playback.target().cloned() {
+                    Some(target) if self.session.couch() => self.couch.start(ctx, &env, &target),
+                    Some(_) => self.notices.push(ctx, "couch_disabled"),
+                    None => self.notices.push(ctx, "couch_nothing_playing"),
+                }
+                CouchChange::None
+            }
+            Event::CouchJoinRequested(_) | Event::CouchRemoteRequested(_)
+                if !self.session.couch() =>
+            {
+                self.notices.push(ctx, "couch_disabled");
+                CouchChange::None
+            }
+            Event::CouchJoinRequested(code) => {
+                self.couch.join(ctx, &env, &code.code, false);
+                CouchChange::None
+            }
+            Event::CouchRemoteRequested(code) => {
+                self.couch.join(ctx, &env, &code.code, true);
+                CouchChange::None
+            }
+            Event::CouchLeft => self.couch.leave(ctx, &env, false),
+            Event::CouchEndRequested => self.couch.leave(ctx, &env, true),
+            Event::CouchEmojiSent(reaction) => {
+                self.couch.send_emoji(ctx, &reaction.emoji);
+                CouchChange::None
+            }
+            Event::CouchLocalPauseChanged(pause) => {
+                self.couch.local_pause(ctx, &self.playback, pause.paused);
+                CouchChange::None
+            }
+            Event::CouchRemoteCommanded(control) => {
+                self.couch.remote(ctx, control);
+                CouchChange::None
+            }
+            _ => CouchChange::None,
+        };
+        self.couch_changed(ctx, change);
+    }
+
+    fn couch_changed(&mut self, ctx: &mut Ctx, change: CouchChange) {
+        let images = self.images();
+        let Some(env) = playback_env(&self.session, images) else { return };
+        match change {
+            CouchChange::Follow(target, info) => self.playback.follow(ctx, &env, target, *info),
+            CouchChange::StopFollowing => self.playback.close(ctx, env.endpoint),
+            CouchChange::Next => self.playback.next_now(ctx, &env),
+            CouchChange::Previous => self.playback.previous(ctx, &env),
+            CouchChange::Unauthorized => self.session_rejected(ctx),
+            CouchChange::None => {}
+        }
     }
 
     fn playback_changed(&mut self, ctx: &mut Ctx, change: PlaybackChange) {
@@ -599,6 +706,7 @@ impl Model {
         self.ranks.reset(ctx);
         self.profile.reset(ctx);
         self.playback.reset(ctx);
+        self.couch.reset(ctx);
     }
 
     /// A module's request came back 401: the active session is no longer valid.
@@ -666,6 +774,9 @@ impl Model {
             }
             Surface::ProfileEditor => serde_json::to_string(&self.profile.view()),
             Surface::Player => serde_json::to_string(&self.playback.view(&images)),
+            Surface::Couch => {
+                serde_json::to_string(&self.couch.view(&images, &self.config.origin, &images.base))
+            }
         };
         json.expect("view models always serialize")
     }

@@ -5,8 +5,9 @@ use std::collections::{HashMap, HashSet};
 
 use crate::core::Pending;
 use crate::messages::{
-    Effect, EffectRef, EffectRequest, HttpRequest, PlayerCommand, RenderRequest, StoreOp,
-    StoreRequest, Surface, TimerRequest, U53, UploadRequest,
+    Effect, EffectRef, EffectRequest, HttpHeader, HttpRequest, PlayerCommand, RenderRequest,
+    SocketCommand, SocketOpen, SocketSend, StoreOp, StoreRequest, Surface, TimerRequest, U53,
+    UploadRequest,
 };
 
 /// Effects issued so far in this call and the continuations still waiting for outputs.
@@ -57,7 +58,7 @@ impl Registry {
         id
     }
 
-    fn forget(&mut self, id: U53) {
+    pub fn forget(&mut self, id: U53) {
         self.pending.remove(&id);
         self.streaming.remove(&id);
     }
@@ -93,6 +94,24 @@ impl<'a> Ctx<'a> {
     ) -> U53 {
         let upload = UploadRequest { request, file: file.to_string(), field: field.to_string() };
         self.registry.issue(Effect::Upload(upload), Some(pending), false)
+    }
+
+    /// Opens a WebSocket; `pending` hears every output until it closes.
+    pub fn socket_open(&mut self, url: String, headers: Vec<HttpHeader>, pending: Pending) -> U53 {
+        let open = SocketCommand::Open(SocketOpen { url, headers });
+        self.registry.issue(Effect::Socket(open), Some(pending), true)
+    }
+
+    pub fn socket_send(&mut self, socket: U53, text: String) {
+        let send = SocketCommand::Send(SocketSend { socket, text });
+        self.registry.issue(Effect::Socket(send), None, false);
+    }
+
+    /// Closes a socket; outputs still in flight for it are dropped.
+    pub fn socket_close(&mut self, socket: U53) {
+        self.registry.forget(socket);
+        let close = SocketCommand::Close(EffectRef { id: socket });
+        self.registry.issue(Effect::Socket(close), None, false);
     }
 
     /// Drives the shell's player; fire-and-forget.

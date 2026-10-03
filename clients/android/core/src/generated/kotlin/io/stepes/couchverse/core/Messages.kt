@@ -422,6 +422,12 @@ sealed class Effect {
 	@Serializable
 	@SerialName("player")
 	data class Player(val content: PlayerCommand): Effect()
+	/// Open, write to or close a WebSocket. An open resolves `socketOpened`, then
+	/// `socketText` for every frame, and ends with `socketClosed`; send and close are
+	/// fire-and-forget.
+	@Serializable
+	@SerialName("socket")
+	data class Socket(val content: SocketCommand): Effect()
 }
 
 /// Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -912,6 +918,37 @@ sealed class Event {
 	@Serializable
 	@SerialName("capabilitiesReported")
 	data class CapabilitiesReported(val content: Capabilities): Event()
+	/// Host a couch session around what is playing.
+	@Serializable
+	@SerialName("couchStartRequested")
+	data object CouchStartRequested: Event()
+	/// Join a couch session by its code (a typed code, a scanned QR or a link).
+	@Serializable
+	@SerialName("couchJoinRequested")
+	data class CouchJoinRequested(val content: CouchCode): Event()
+	/// Join the session as a remote for this account's own player on another device.
+	@Serializable
+	@SerialName("couchRemoteRequested")
+	data class CouchRemoteRequested(val content: CouchCode): Event()
+	/// Leave the session; a host leaving ends it.
+	@Serializable
+	@SerialName("couchLeft")
+	data object CouchLeft: Event()
+	/// The host ends the session for everyone.
+	@Serializable
+	@SerialName("couchEndRequested")
+	data object CouchEndRequested: Event()
+	@Serializable
+	@SerialName("couchEmojiSent")
+	data class CouchEmojiSent(val content: CouchReaction): Event()
+	/// A follower paused or resumed their own playback.
+	@Serializable
+	@SerialName("couchLocalPauseChanged")
+	data class CouchLocalPauseChanged(val content: CouchPause): Event()
+	/// A remote's play, pause, seek, next or previous.
+	@Serializable
+	@SerialName("couchRemoteCommanded")
+	data class CouchRemoteCommanded(val content: RemoteControl): Event()
 }
 
 /// Something that happened in the shell: a user intent or a lifecycle change.
@@ -1400,6 +1437,10 @@ sealed class Surface {
 	@Serializable
 	@SerialName("player")
 	data object Player: Surface()
+	/// The couch session: members, reactions, the host's state and the follower's sync.
+	@Serializable
+	@SerialName("couch")
+	data object Couch: Surface()
 }
 
 @Serializable
@@ -1430,6 +1471,17 @@ sealed class EffectOutput {
 	@Serializable
 	@SerialName("storeFailed")
 	data class StoreFailed(val content: StoreFailure): EffectOutput()
+	@Serializable
+	@SerialName("socketOpened")
+	data object SocketOpened: EffectOutput()
+	/// A text frame from the socket.
+	@Serializable
+	@SerialName("socketText")
+	data class SocketText(val content: io.stepes.couchverse.core.SocketText): EffectOutput()
+	/// Terminal: the socket closed or could not open.
+	@Serializable
+	@SerialName("socketClosed")
+	data class SocketClosed(val content: io.stepes.couchverse.core.SocketClosed): EffectOutput()
 }
 
 /// The output of an effect the core asked for. Streaming effects (sockets, repeating timers)
@@ -1526,6 +1578,32 @@ data class SignInView (
 	val pairing: PairingView? = null,
 	/// The account that just signed in; the shell moves on.
 	val signedIn: String? = null
+)
+
+@Serializable
+data class SocketClosed (
+	/// The WebSocket close code; 1006 when the connection failed.
+	val code: UShort,
+	val reason: String? = null
+)
+
+@Serializable
+data class SocketOpen (
+	/// `ws://` or `wss://`; a path alone is relative to the page (the web picks the scheme).
+	val url: String,
+	val headers: List<HttpHeader>
+)
+
+@Serializable
+data class SocketSend (
+	/// The id of the open effect.
+	val socket: ULong,
+	val text: String
+)
+
+@Serializable
+data class SocketText (
+	val text: String
 )
 
 @Serializable
@@ -1690,5 +1768,18 @@ sealed class PlayerCommand {
 	@Serializable
 	@SerialName("stop")
 	data object Stop: PlayerCommand()
+}
+
+@Serializable
+sealed class SocketCommand {
+	@Serializable
+	@SerialName("open")
+	data class Open(val content: SocketOpen): SocketCommand()
+	@Serializable
+	@SerialName("send")
+	data class Send(val content: SocketSend): SocketCommand()
+	@Serializable
+	@SerialName("close")
+	data class Close(val content: EffectRef): SocketCommand()
 }
 

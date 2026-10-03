@@ -179,7 +179,9 @@ struct Session {
     saved_position: f64,
     next: Next,
     /// The player failed once already and was reloaded with a fresh payload.
-    retried: bool,
+    /// Reloads after a player failure; the first one fetches a fresh payload.
+    retries: u8,
+    buffering: bool,
 }
 
 impl Session {
@@ -203,7 +205,8 @@ impl Session {
             watched: 0.0,
             saved_position: 0.0,
             next: Next::Undecided,
-            retried: false,
+            retries: 0,
+            buffering: false,
         }
     }
 }
@@ -211,6 +214,8 @@ impl Session {
 #[derive(Default)]
 pub struct Playback {
     generation: u64,
+    /// The last report was a play, a pause or a seek: a couch host tells its followers at once.
+    moved: bool,
     prefs: Prefs,
     caps: Capabilities,
     session: Option<Session>,
@@ -301,17 +306,20 @@ impl Playback {
         }
         // a forward step no longer than the time that passed (at up to double speed) is
         // playback; anything else is a seek
-        if session.playing
-            && let Some(at) = session.reported_at
-        {
+        let mut seeked = false;
+        if let Some(at) = session.reported_at {
             #[allow(clippy::cast_precision_loss)] // milliseconds between reports
             let elapsed = ctx.now.saturating_sub(at) as f64 / 1000.0;
             let step = report.position_seconds - session.position;
-            if step > 0.0 && step <= elapsed * 2.0 + 1.0 {
+            let window = if session.playing { elapsed * 2.0 + 1.0 } else { 1.0 };
+            if session.playing && step > 0.0 && step <= window {
                 session.watched += step;
             }
+            seeked = !(-1.0..=window).contains(&step);
         }
         let paused = session.playing && !report.playing;
+        self.moved = paused || seeked || (!session.playing && report.playing);
+        session.buffering = report.buffering;
         session.position = report.position_seconds;
         session.duration = report.duration_seconds.max(session.duration);
         session.playing = report.playing;
@@ -720,13 +728,13 @@ impl Playback {
     /// payload and resumes; a second one is reported.
     fn failed(&mut self, ctx: &mut Ctx, env: &Env, reason: &str) -> PlaybackChange {
         let Some(session) = self.session.as_mut() else { return PlaybackChange::None };
-        if session.retried {
+        if session.retries > 0 {
             session.status = LoadStatus::Failed;
             session.problem = Some(Problem::new("playback_failed", reason));
             ctx.render(Surface::Player);
             return PlaybackChange::None;
         }
-        session.retried = true;
+        session.retries += 1;
         session.status = LoadStatus::Stale;
         self.fetch(ctx, env);
         ctx.render(Surface::Player);
@@ -744,12 +752,52 @@ impl Playback {
         }
     }
 
-    /// Where the player is, for the couch's drift correction and the host's broadcasts.
-    pub fn position(&self) -> Option<(f64, bool)> {
-        self.session
-            .as_ref()
-            .filter(|s| s.status == LoadStatus::Loaded)
-            .map(|s| (s.position, s.playing))
+    /// Where the player is now: its last report, moved on by the time since while playing.
+    pub fn position_at(&self, now: U53) -> Option<(f64, bool)> {
+        let session = self.session.as_ref().filter(|s| s.status == LoadStatus::Loaded)?;
+        let mut position = session.position;
+        if session.playing
+            && let Some(at) = session.reported_at
+        {
+            #[allow(clippy::cast_precision_loss)] // milliseconds since the report
+            let elapsed = now.saturating_sub(at) as f64 / 1000.0;
+            position += elapsed;
+        }
+        Some((position, session.playing))
+    }
+
+    pub fn buffering(&self) -> bool {
+        self.session.as_ref().is_some_and(|s| s.buffering)
+    }
+
+    pub fn moved(&self) -> bool {
+        self.moved
+    }
+
+    /// A couch follower plays what the host plays, from the payload the couch fetched, locked
+    /// to the host's timeline.
+    pub fn follow(&mut self, ctx: &mut Ctx, env: &Env, target: PlayTarget, info: PlaybackInfo) {
+        self.end(ctx, env.endpoint);
+        self.generation += 1;
+        self.session = Some(Session::new(target, env.images.clone(), true));
+        self.info(ctx, Some(env), info);
+        ctx.render(Surface::Player);
+    }
+
+    /// The episode before this one, for a remote's "previous".
+    pub fn previous(&mut self, ctx: &mut Ctx, env: &Env) {
+        let Some(session) = self.session.as_ref() else { return };
+        let Some(episodes) = session.info.as_ref().and_then(|i| i.episodes.as_ref()) else {
+            return;
+        };
+        let Some(index) = episodes.iter().position(|e| e.episode_id == session.target.id) else {
+            return;
+        };
+        if let Some(before) = index.checked_sub(1).and_then(|i| episodes.get(i)) {
+            let target = PlayTarget { kind: PlayKind::Episode, id: before.episode_id.clone() };
+            self.save(ctx, env.endpoint, false);
+            self.play(ctx, env, target, false);
+        }
     }
 
     pub fn target(&self) -> Option<&PlayTarget> {

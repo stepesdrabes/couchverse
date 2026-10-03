@@ -139,6 +139,11 @@ impl Session {
         self.view.user.as_ref().map(|u| u.username.as_str())
     }
 
+    /// Whether the server has couch sessions on (assumed until it says otherwise).
+    pub fn couch(&self) -> bool {
+        self.view.features.couch
+    }
+
     /// Whether the server has rankings on (assumed until it says otherwise).
     pub fn rankings(&self) -> bool {
         self.view.features.rankings

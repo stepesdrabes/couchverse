@@ -336,7 +336,13 @@ export type Effect =
 	/** Upload a file the shell holds as a multipart form; resolves like `Http`. */
 	| { type: "upload", content: UploadRequest }
 	/** Drive the shell's video player; fire-and-forget. It reports back with `PlayerReported`. */
-	| { type: "player", content: PlayerCommand };
+	| { type: "player", content: PlayerCommand }
+	/**
+	 * Open, write to or close a WebSocket. An open resolves `socketOpened`, then
+	 * `socketText` for every frame, and ends with `socketClosed`; send and close are
+	 * fire-and-forget.
+	 */
+	| { type: "socket", content: SocketCommand };
 
 /**
  * Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -670,7 +676,22 @@ export type Event =
 	| { type: "nextEpisodeCancelled", content?: undefined }
 	| { type: "shuffleToggled", content?: undefined }
 	/** What this device can play, measured by the shell once per launch. */
-	| { type: "capabilitiesReported", content: Capabilities };
+	| { type: "capabilitiesReported", content: Capabilities }
+	/** Host a couch session around what is playing. */
+	| { type: "couchStartRequested", content?: undefined }
+	/** Join a couch session by its code (a typed code, a scanned QR or a link). */
+	| { type: "couchJoinRequested", content: CouchCode }
+	/** Join the session as a remote for this account's own player on another device. */
+	| { type: "couchRemoteRequested", content: CouchCode }
+	/** Leave the session; a host leaving ends it. */
+	| { type: "couchLeft", content?: undefined }
+	/** The host ends the session for everyone. */
+	| { type: "couchEndRequested", content?: undefined }
+	| { type: "couchEmojiSent", content: CouchReaction }
+	/** A follower paused or resumed their own playback. */
+	| { type: "couchLocalPauseChanged", content: CouchPause }
+	/** A remote's play, pause, seek, next or previous. */
+	| { type: "couchRemoteCommanded", content: RemoteControl };
 
 /** Something that happened in the shell: a user intent or a lifecycle change. */
 export interface Message {
@@ -1062,7 +1083,9 @@ export type Surface =
 	/** The viewer's profile, password and image saves. */
 	| { type: "profileEditor", content?: undefined }
 	/** The player screen: sources, tracks, qualities, episodes and the next-episode countdown. */
-	| { type: "player", content?: undefined };
+	| { type: "player", content?: undefined }
+	/** The couch session: members, reactions, the host's state and the follower's sync. */
+	| { type: "couch", content?: undefined };
 
 export interface RenderRequest {
 	surfaces: Surface[];
@@ -1077,7 +1100,12 @@ export type EffectOutput =
 	| { type: "stored", content: StoredValue }
 	/** A store write or delete finished. */
 	| { type: "storeDone", content?: undefined }
-	| { type: "storeFailed", content: StoreFailure };
+	| { type: "storeFailed", content: StoreFailure }
+	| { type: "socketOpened", content?: undefined }
+	/** A text frame from the socket. */
+	| { type: "socketText", content: SocketText }
+	/** Terminal: the socket closed or could not open. */
+	| { type: "socketClosed", content: SocketClosed };
 
 /**
  * The output of an effect the core asked for. Streaming effects (sockets, repeating timers)
@@ -1164,6 +1192,28 @@ export interface SignInView {
 	pairing?: PairingView;
 	/** The account that just signed in; the shell moves on. */
 	signedIn?: string;
+}
+
+export interface SocketClosed {
+	/** The WebSocket close code; 1006 when the connection failed. */
+	code: number;
+	reason?: string;
+}
+
+export interface SocketOpen {
+	/** `ws://` or `wss://`; a path alone is relative to the page (the web picks the scheme). */
+	url: string;
+	headers: HttpHeader[];
+}
+
+export interface SocketSend {
+	/** The id of the open effect. */
+	socket: number;
+	text: string;
+}
+
+export interface SocketText {
+	text: string;
 }
 
 export interface StoreFailure {
@@ -1290,4 +1340,9 @@ export type PlayerCommand =
 	| { type: "selectSubtitles", content: SubtitleSelection }
 	/** Stop and release the player. */
 	| { type: "stop", content?: undefined };
+
+export type SocketCommand = 
+	| { type: "open", content: SocketOpen }
+	| { type: "send", content: SocketSend }
+	| { type: "close", content: EffectRef };
 

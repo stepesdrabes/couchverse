@@ -93,6 +93,18 @@ class WireFormatTest {
             Event.ShuffleToggled to """{"type":"shuffleToggled"}""",
             Event.CapabilitiesReported(Capabilities(listOf("hevc"))) to
                 """{"type":"capabilitiesReported","content":{"videoCodecs":["hevc"]}}""",
+            Event.CouchStartRequested to """{"type":"couchStartRequested"}""",
+            Event.CouchJoinRequested(CouchCode("123456")) to
+                """{"type":"couchJoinRequested","content":{"code":"123456"}}""",
+            Event.CouchRemoteRequested(CouchCode("123456")) to
+                """{"type":"couchRemoteRequested","content":{"code":"123456"}}""",
+            Event.CouchLeft to """{"type":"couchLeft"}""",
+            Event.CouchEndRequested to """{"type":"couchEndRequested"}""",
+            Event.CouchEmojiSent(CouchReaction("🍿")) to """{"type":"couchEmojiSent","content":{"emoji":"🍿"}}""",
+            Event.CouchLocalPauseChanged(CouchPause(paused = true)) to
+                """{"type":"couchLocalPauseChanged","content":{"paused":true}}""",
+            Event.CouchRemoteCommanded(RemoteControl(RemoteAction.Seek, 12.5)) to
+                """{"type":"couchRemoteCommanded","content":{"action":"seek","positionSeconds":12.5}}""",
         )
         assertEncodings(Event.serializer(), events)
         for ((event, _) in events) {
@@ -126,6 +138,7 @@ class WireFormatTest {
                 """{"type":"leaderboard","content":{"period":"month","metric":"xp"}}""",
             Surface.ProfileEditor to """{"type":"profileEditor"}""",
             Surface.Player to """{"type":"player"}""",
+            Surface.Couch to """{"type":"couch"}""",
         )
         assertEncodings(Surface.serializer(), surfaces)
         bridge().use { bridge ->
@@ -145,6 +158,10 @@ class WireFormatTest {
             EffectOutput.StoreDone to """{"type":"storeDone"}""",
             EffectOutput.StoreFailed(StoreFailure("disk full")) to
                 """{"type":"storeFailed","content":{"message":"disk full"}}""",
+            EffectOutput.SocketOpened to """{"type":"socketOpened"}""",
+            EffectOutput.SocketText(SocketText("{}")) to """{"type":"socketText","content":{"text":"{}"}}""",
+            EffectOutput.SocketClosed(SocketClosed(1006.toUShort(), "gone")) to
+                """{"type":"socketClosed","content":{"code":1006,"reason":"gone"}}""",
         )
         assertEncodings(EffectOutput.serializer(), outputs)
         bridge().use { bridge ->
@@ -352,7 +369,7 @@ class WireFormatTest {
                         http[request.id] = effect.content.request
                         uploads[request.id] = effect.content
                     }
-                    is Effect.Timer, is Effect.CancelTimer, is Effect.Render, is Effect.Player -> Unit
+                    is Effect.Timer, is Effect.CancelTimer, is Effect.Render, is Effect.Player, is Effect.Socket -> Unit
                 }
             }
             for ((id, value) in reads) resolve(id, EffectOutput.Stored(StoredValue(value)))
