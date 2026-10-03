@@ -37,6 +37,6 @@ extension SessionView {
         SessionView(
             status: .idle, accountId: nil, user: nil,
             features: Features(couch: true, rankings: true), language: language,
-            accent: .fallback, problem: nil)
+            accent: .fallback, problem: nil, offline: false)
     }
 }

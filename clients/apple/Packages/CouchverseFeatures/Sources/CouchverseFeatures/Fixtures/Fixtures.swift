@@ -69,7 +69,8 @@ public enum Fixtures {
             status: status, accountId: "\(serverId)/nora", user: hasUser ? user : nil,
             features: Features(couch: true, rankings: true), language: language,
             accent: AccentPalette(accent: "#3a6ea5", strong: "#2d5681", soft: "#3a6ea529", onAccent: "#ffffff"),
-            problem: status == .failed || status == .stale ? Problem(code: "offline", detail: "") : nil)
+            problem: status == .failed || status == .stale ? Problem(code: "offline", detail: "") : nil,
+            offline: status == .failed || status == .stale)
     }
 
     public static func devices(_ status: LoadStatus) -> DevicesView {

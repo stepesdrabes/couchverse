@@ -22,15 +22,19 @@ Server identity, device sessions with sliding expiry, pairing, connect codes, de
 and artwork grants, JIT stop. Web: `/pair`, Connect-a-device QR, Devices list. Exit verified with a
 scripted client (ffprobe and AVFoundation playing a grant URL).
 
-## Phase 3: core foundation and first Apple slice - in progress
+## Phase 3: core foundation and first Apple slice - done
 
-- Done: the core (`servers`, `accounts`, `session`, `theme`, `markdown`, plus the later modules
+- The core (`servers`, `accounts`, `session`, `theme`, `markdown`, plus the later modules
   below), bindings and packaging (`make core-apple|core-android|core-wasm`, `core.yml`,
-  `android.yml`), the wasm budget (400 KB gzip, size build), the web on the core's session and
-  markdown (no `{@html}`), the Android `core` and `design` Gradle modules with JVM tests.
-- In progress: the Apple project, `CoreRuntime` and executors, design system v0, onboarding,
-  pairing, Who's watching, Settings (agent branch `worktree-agent-a66ffee4e3976782d`).
-- Done: the Playwright web smoke suite (`make e2e`, `e2e.yml`; 19 flows in Chromium and WebKit
+  `android.yml`, `apple.yml`), the wasm budget (400 KB gzip, size build), the web on the core's
+  session and markdown (no `{@html}`), the Android `core` and `design` Gradle modules with JVM
+  tests.
+- Apple: the Xcode project (iPhone/iPad and Apple TV apps), `CoreRuntime` with every executor,
+  design system v0 (Liquid Glass actions, identicon avatars, glow backdrop, skeletons,
+  markdown, QR), onboarding, password sign-in and pairing (the phone approves the TV's code,
+  also by scanning its QR), Who's watching with the profile-switch choreography, Settings,
+  129 snapshot references (en/cs, largest Dynamic Type), live UI flows on the simulators.
+- The Playwright web smoke suite (`make e2e`, `e2e.yml`; 19 flows in Chromium and WebKit
   covering auth, browse, My List, playback and resume, couch, admin, i18n, ranks and TV mode),
   with the six app bugs it found fixed.
 - Blocked: spike S1 (free personal team capabilities) needs the user's Apple ID and devices.
@@ -138,6 +142,13 @@ first.
 
 - Apple TV 4K: pairing from an iPhone, Who's watching animation, HDR/Atmos playback (Phase 6).
 - iPhone: QR scan of a Connect-a-device code, Keychain persistence across reinstalls.
+- Apple apps (full list in docs/apple.md): free-team signing and trusting the certificate,
+  wireless pairing to the Apple TV in Xcode, the Local Network prompt and the not-encrypted
+  badge, camera QR scans (Connect a device, the TV's pairing QR), approval within the 5 s
+  poll and a new code after expiry, the Reduce Motion cross-fade, Keychain and storage across
+  the weekly reinstall and a delete-and-reinstall, the display language surviving a relaunch.
+- Downloads (Phase 10): a background transfer finishing while the app is suspended or killed,
+  playback in airplane mode, progress syncing on reconnect.
 - Free personal team: 7-day provisioning, at most 3 apps, wireless pairing to the TV (spike S1).
 - Google TV device: pairing, D-pad focus, Keystore persistence.
 - Raspberry Pi 4 server: HLS v2 with the V4L2 encoder (spike S3): package, trickplay and 720p

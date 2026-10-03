@@ -220,6 +220,14 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   daemon). Swift and Kotlin message types come from typeshare via `cargo xtask codegen`: fix
   quirks in `core/xtask/src/messages.rs`, never by hand; every `Effect`, `Event` and `Surface`
   variant needs a case in the Android `WireFormatTest`, whose coverage check fails otherwise.
+  Apple (`clients/apple/`, build guide docs/apple.md): SwiftUI apps for iPhone/iPad and Apple
+  TV over three packages (`CouchverseCore`: the bridge, `CoreRuntime` and the effect executors;
+  `CouchverseDesign`; `CouchverseFeatures`); Swift 6 with complete strict concurrency, main
+  actor by default, warnings as errors. `CoreRuntime` is the only state: screens keep
+  presentation state only and send events. New UI strings go in `contract/i18n` and are used
+  through `L10n`. TV screens must stay reachable by the remote (focus sections,
+  `defaultFocus`). Snapshot references are re-recorded by deleting the old ones after an
+  intended visual change; `make apple-lint` before committing.
 - `contract/` - the API spec, couch protocol schema, i18n catalogs, design tokens, fixtures.
 - Postgres 17; job queue is a Postgres table (no Redis). ffmpeg/ffprobe shelled out.
 
@@ -237,14 +245,18 @@ A feature owns its HTTP handlers, domain logic and SQL together.
 - Core: `make core-test` (fmt, clippy pedantic with warnings denied, tests); `make
   core-apple|core-android|core-wasm` package it for each shell (gitignored output; rustup
   targets and, for Android, the NDK and `cargo-ndk`); `make apple-test` runs the Swift
-  package tests and `make android-test` the Kotlin binding tests on the JVM, both against the
-  real core (build-from-source details in docs/apple.md and docs/android.md).
+  package tests (`CouchverseCore` on the host, `CouchverseDesign` and `CouchverseFeatures` on
+  the iOS and tvOS simulators via `xcodebuild -scheme <package>`), `make apple-uitest` the
+  apps' UI tests, `make apple-lint`/`apple-format` swift-format, and `make android-test` the
+  Kotlin binding tests on the JVM, all against the real core (build-from-source details in
+  docs/apple.md and docs/android.md).
 - CI (`.github/workflows/`): `backend.yml` (gofmt, vet, golangci-lint, tests incl. API
   conformance against a Postgres service; installs ffmpeg for `TestPlaybackTiers`), `hls.yml`
   (every tier validated and played in AVFoundation on macOS), `e2e.yml` (Playwright in
   Chromium against a Postgres service; traces uploaded on failure), `web.yml` (wasm core, check, lint, vitest, build),
-  `contract.yml` (xtask fmt/clippy/tests, `make contract`, no drift), `core.yml` (the wasm and
-  Apple packages built and run), `android.yml` (`make core-android`, the core's JVM tests, the
+  `contract.yml` (xtask fmt/clippy/tests, `make contract`, no drift), `core.yml` (the wasm package
+  built and checked against its budget), `apple.yml` (lint, the package tests and the apps
+  built for the simulators), `android.yml` (`make core-android`, the core's JVM tests, the
   Gradle modules assembled), `repo.yml` (`scripts/check-no-emdash.sh`), `docker.yml` (the
   image builds) and `release.yml` (multi-arch image to GHCR on a `v*` tag).
 - Sample media: `make sample-media` (lavfi-generated clips covering every tier; Dolby Vision

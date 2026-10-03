@@ -92,7 +92,9 @@ public final class CoreRuntime {
             return
         }
         perform {
-            try live.bridge.send(message: try Self.encode(Message(nowMs: live.now(), event: event)))
+            let wallMs = UInt64(Date().timeIntervalSince1970 * 1000)
+            return try live.bridge.send(
+                message: try Self.encode(Message(nowMs: live.now(), event: event, wallMs: wallMs)))
         }
     }
 
@@ -190,6 +192,13 @@ public final class CoreRuntime {
             live.executors.sockets.close(socket: socket.id)
         case .player:
             // nothing starts playback before the player slice (Phase 6) adds AVPlayer
+            break
+        case .download(.start):
+            // background transfers arrive with the downloads slice (Phase 10)
+            track {
+                self.resolve(id, .downloadFailed(DownloadFailure(message: "downloads are not supported yet")))
+            }
+        case .download(.cancel), .download(.remove):
             break
         }
     }
