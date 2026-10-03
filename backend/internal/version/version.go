@@ -7,4 +7,4 @@ var Version = "dev"
 
 // APILevel is bumped whenever clients need new server behaviour. Clients declare
 // the minimum level they support and refuse older servers.
-const APILevel = 1
+const APILevel = 2
