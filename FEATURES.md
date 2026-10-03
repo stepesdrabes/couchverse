@@ -42,8 +42,8 @@ Shared web: `lib/api/client.ts` (fetch wrapper - never hand-write URLs in
 components) and `lib/api/cache.svelte.ts` (SWR cache), `lib/components/ui/` (bits-ui
 primitives), `lib/components/layout/` (TopNav, GlowBackdrop, NavProgress),
 `lib/components/{CachedView,StreamedView,NotFound}.svelte` (optimistic page shells),
-`lib/theme.ts` (accent), `lib/utils/`, `lib/tv/` (TV mode). See "Optimistic navigation &
-caching" and "TV mode".
+`lib/theme.ts` (accent), `lib/utils/`, `lib/tv/` (TV mode), `lib/core/` (the shared core
+as wasm). See "Optimistic navigation & caching", "TV mode" and "Shared core on the web".
 
 ## Features
 
@@ -80,19 +80,21 @@ Bootstraps the master admin account on a fresh database.
   itself from `artwork.accent` and only falls back to the rank tier colour when there
   is no banner. Avatar and banner share one `setImage`/`deleteImage` pair.
 - The **bio** is markdown in `users.bio` (2000 chars), stored as authored and rendered
-  client-side by `lib/components/ui/Markdown.svelte`. The security boundary is
-  `lib/utils/markdown.ts`: one shared markdown-it instance with `html: false`, so raw
-  HTML is escaped rather than parsed and no separate sanitizer is needed; markdown-it
-  also rejects unsafe link protocols, images are disabled and every link gets
-  `rel="nofollow noopener noreferrer"`.
+  client-side. The security boundary is the core's `markdown` module (the `markdown` surface):
+  it parses into a document tree that can only express safe structure (raw HTML arrives as
+  text, images as links, links are http(s) or mailto only). On the web
+  `lib/components/ui/Markdown.svelte` turns that tree into Svelte elements
+  (`MarkdownBlocks`/`MarkdownInlines`, no `{@html}`), and every link gets
+  `target="_blank" rel="nofollow noopener noreferrer"`.
 - **Preferences** are a jsonb blob served through a typed shape (`Preferences`:
   `subtitles`, `language`, `publicProfile`). `PUT /me/preferences` merges the posted
   keys, and object values (`subtitles`) merge field by field, so keys the server does
   not model stay stored across a client's read-modify-write; they are just not
   served. A stored value of the wrong type reads as unset.
-- Web: `features/auth` (session singleton + 401 handler, LoginPage, ProfilePage +
-  the Edit-profile and Change-password modals), `features/users` (AdminUsersPage),
-  `features/preferences` (subtitle settings store). `/profile` renders the *same*
+- Web: `features/auth` (`session`, a thin view of the core's session view, plus the 401
+  handler, LoginPage, ProfilePage + the Edit-profile and Change-password modals),
+  `features/users` (AdminUsersPage), `features/preferences` (the web-only subtitle style and
+  the privacy switch; the display language is the core's). `/profile` renders the *same*
   `ProfileContent` as `/u/you` with owner affordances, reading the same cache entry -
   there is no separate account page and no tabs. With rankings off it falls back to
   `AccountOnlyProfile`.
@@ -247,7 +249,8 @@ live-presence endpoint and the home-rows editor.
   small interfaces (`CouchPresence`/`TranscodePresence`) satisfied by `couch.Hub` /
   `playback.SessionManager` and wired at the composition root, so `system` imports
   neither package.
-- Web: `features/settings` (AdminSettingsPage, HomeRowsEditor, feature-flags store),
+- Web: `features/settings` (AdminSettingsPage, HomeRowsEditor, `features`: the flags as the
+  core's session reads them; a save sends `SessionChanged` so the core reads them again),
   `features/admin` (AdminDashboardPage, AdminSidebar, meters/sparkline/BarChart widgets).
 
 ### analytics
@@ -407,10 +410,14 @@ uses **Paraglide JS** as a compile-only i18n over the shared catalogs in
 `contract/i18n/{en,cs}.json` (also compiled into the Apple and Android string catalogs by
 `cargo xtask codegen`; counted strings carry CLDR plural variants),
 compiled to `src/lib/paraglide/` (gitignored, built by the Vite plugin and the `check`
-script). `lib/i18n/locale.svelte.ts` is the single source of truth (`currentLang`,
-`setDisplayLang`, `applySavedLang`); the header `LanguageSwitcher` (a flag dropdown built on
-bits-ui, flags from the bundled `flag-icons` via `lib/components/ui/Flag.svelte` +
-`lib/i18n/flags.ts`) persists the choice to `/me/preferences` and `setLocale` reloads.
+script). `lib/i18n/locale.svelte.ts` is the single source of truth for Paraglide
+(`currentLang`, `setDisplayLang`, `followAccountLang`) and is fed from the core's session:
+the header `LanguageSwitcher` (a flag dropdown built on bits-ui, flags from the bundled
+`flag-icons` via `lib/components/ui/Flag.svelte` + `lib/i18n/flags.ts`) sends
+`DisplayLanguageChanged`, waits for the core to save it to `/me/preferences`, and then
+`setLocale` reloads; on load and after sign-in the account's language wins (one reload when it
+differs, before anything renders). A first sign-in saves what the visitor was seeing, and
+visitors without a session keep Paraglide's localStorage choice (else English).
 `lib/api/client.ts` appends `?lang=` to every request; the backend honours it only on public
 catalog reads. Per-title TMDB metadata is stored per language in `translations jsonb` columns
 on `titles/seasons/episodes/genres` with the base columns as the fallback;
@@ -595,8 +602,46 @@ fills in behind a cached value or a skeleton.
   `data-sveltekit-preload-data="tap"` (not the global `hover`), so merely hovering an
   episode row or continue-watching card cannot spawn a transcode on the Pi. In-player
   episode navigation dropped `invalidateAll` (the `[id]` change already re-runs the watch
-  load; the layout's session/features/preferences fetch stays put), and the transcode poll
+  load; the root layout's core start and preferences fetch stay put), and the transcode poll
   uses a targeted `invalidate('app:playback')`.
+
+## Shared core on the web (cross-cutting)
+
+The web runs the shared client core (see "Shared client core") as wasm, so far for the
+session and bio markdown. Its catalog, ranks and profile modules wait for their slices, so the
+rest of the viewer still calls the API itself.
+
+- **Runtime** (`lib/core/`): `index.ts` creates the one `core` (`CoreRuntime`,
+  `runtime.svelte.ts`) in cookie mode and starts downloading and compiling the wasm
+  (`wasm.ts`) as soon as the root layout's module loads. The root `load` awaits
+  `core.start()` (the wasm plus the session's first load, alongside the web's preferences);
+  the guards (`(app)` and `admin` layouts, login, the rankings pages) `await parent()`, so they
+  run with the session known. The runtime stamps `nowMs` from `performance.now()`, performs
+  effects through `executor.ts` (`fetch` with the cookie, `localStorage` under `cv.core.`,
+  timers; secure-store reads are empty and writes refused, the web keeps no secrets; `upload`
+  fails, the web still uploads images itself) and keeps `app` and `session` in `$state.raw`,
+  re-reading only the surfaces a `render` names and reusing the unchanged parts of a view so
+  effects reading them stay quiet. `send(event)` settles once every effect it led to has
+  finished (timers aside).
+- **Traps**: a Rust panic aborts the wasm instance. The wasm-bindgen glue keeps its instance
+  in module scope, so each core evaluates its own copy of the glue; after a trap a new core
+  sends `AppStarted` again while the old views stay up. Markdown that trapped it renders as
+  plain text from then on; a second trap while restarting gives up.
+- **Session**: `features/auth/session.svelte.ts` reads `core.session` (user, flags via
+  `features/settings/features.svelte.ts`, language, accent). The login form posts
+  `/auth/login` itself and sends `SessionStarted`; logout sends `SignOutRequested`; a profile
+  edit or admin settings save sends `SessionChanged`, and so does a 401 from a web API call
+  (the core confirms with its own `/auth/me` before the web clears its caches and sends
+  session-only routes to `/login?next=`); a tab coming back into view sends
+  `AppBecameActive`. The root layout applies `session.accent` to `:root`
+  (`lib/theme.ts` `applyPalette`); scoped accents (`accentVars`) are still derived in TS, the
+  same way (a test checks the two agree). In cookie mode the core leaves achievement checks to
+  the web's `rank` store, which celebrates the unlocks a check returns, until the web renders
+  the core's ranks views.
+- **Build**: `make core-wasm` writes `lib/core/pkg/` (gitignored); `make build`, the
+  Dockerfile (a `$BUILDPLATFORM` Rust stage with binaryen) and `web.yml` build it before the
+  web, and `make check` runs vitest (`npm test`) against the real wasm with a scripted
+  executor.
 
 ## TV mode (cross-cutting)
 
