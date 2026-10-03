@@ -172,6 +172,23 @@ func TestPlaybackTiers(t *testing.T) {
 		t.Fatalf("jit session: %d %s", status, body)
 	}
 	env.checkHLS(t, "jit", session.PlaylistURL, jit, false)
+
+	// a session belongs to the viewer whose grant opened it, not to the file
+	status, body, _ = env.request(t, env.clients["admin"], "POST", "/playback/movie/"+w.titleID(ctx, jit.title), chromeProfile)
+	var other playback.PlaybackInfo
+	if err := json.Unmarshal(body, &other); status != 200 || err != nil {
+		t.Fatalf("admin playback: %d %s", status, body)
+	}
+	keepalive := func(grant string) int {
+		status, _, _ := env.request(t, env.clients[""], "POST", "/media/"+grant+"/jit/"+session.SessionID+"/keepalive", nil)
+		return status
+	}
+	if got := keepalive(other.Grant); got != 404 {
+		t.Errorf("another viewer's grant reached the session: %d", got)
+	}
+	if got := keepalive(info.Grant); got != 204 {
+		t.Errorf("the owner's grant: %d, want 204", got)
+	}
 }
 
 // generate writes a sample with lavfi sources: test pattern video, a 440 Hz
