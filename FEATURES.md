@@ -284,10 +284,20 @@ admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
   HTTP handlers and the WS endpoint, on `github.com/coder/websocket`. `Hub.LivePresence()`
   exposes live session/viewer counts to the admin dashboard's `/admin/live`.
 - Endpoints: `POST /couch` (create/reclaim, host must be logged in),
-  `POST /couch/{token}/join` (public, anon OK), `POST /couch/{token}/leave`,
-  `POST /couch/{token}/end` (host only), `GET /couch/{token}/playback` (follower
-  payload for the current media, couch-cookie authorized), `GET /couch/{token}/ws`
-  (the sync socket; same-origin enforced).
+  `POST /couch/{token}/join` (public, anon OK; `?remote=true` for the host's own account
+  on another device, 403 `not_host` for anyone else), `POST /couch/{token}/leave`,
+  `POST /couch/{token}/end` (any of the host's devices), `GET /couch/{token}/playback`
+  (follower payload for the current media), `GET /couch/{token}/ws` (the sync socket;
+  same-origin enforced for browsers).
+- **Participant tokens**: create and join mint a token per device (a participant may hold
+  several, so a host joining from a phone does not sign out their TV). Browsers get it as the
+  couch cookie; native apps pass `?delivery=body`, receive `participantToken` and send it as
+  `X-Couch-Token` wherever a browser sends the cookie (socket, playback, leave, end).
+- **Remote control**: a remote connection (the host's account joined with `remote=true`)
+  receives `host_state` like a follower but plays nothing; its `remote_command` frames
+  (`play|pause|seek|next|previous`, `positionSeconds` for seek) go to the host's playing
+  connection, the one that last sent `host_state`, which applies them and broadcasts the
+  result. A remote leaving keeps the session; a follower or anyone sending it is refused.
 - WS protocol: host broadcasts authoritative `{media, playing, positionSeconds,
   serverTimestamp, seq}` (server-stamped) + emoji; followers extrapolate position
   from the last update + local elapsed and hard-seek past ~3s drift. Host identity

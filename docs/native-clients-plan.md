@@ -560,8 +560,11 @@ menu keeps working from the new master playlist attributes.
 
 ### 8.7 Couch v2
 
-- WebSocket auth: cookie (web), bearer (signed-in native) or a participant token returned by
-  `join` (anonymous native, e.g. a TV joining by code).
+- WebSocket auth: the participant token from create/join, as the couch cookie (web) or, for
+  native clients (`delivery=body`), the `X-Couch-Token` header on the socket and the couch
+  endpoints. (Planned as a bearer for signed-in native clients; one token for every native
+  client turned out simpler and covers anonymous ones too, 2026-10-03.) A participant holds a
+  token per device, so a host joining from a second device keeps the first signed in.
 - Followers receive grant URLs in their playback payloads (8.4).
 - **Remote control**: a host's extra connection (their phone) joins with role `remote` and
   sends `remote_command {action: play|pause|seek|next|previous, positionSeconds?}`; the Hub
