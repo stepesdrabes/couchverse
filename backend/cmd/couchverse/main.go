@@ -20,6 +20,9 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
 
 	if len(os.Args) > 1 {
+		if os.Args[1] == "validate-hls" {
+			os.Exit(validateHLS(os.Args[2:], os.Stdout))
+		}
 		if write, ok := contractPrinters[os.Args[1]]; ok {
 			if err := write(os.Stdout); err != nil {
 				slog.Error(os.Args[1], "err", err)
