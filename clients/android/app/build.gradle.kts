@@ -68,6 +68,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.tvprovider)
 
     testImplementation(project(":testing"))
     testImplementation(libs.kotlin.test.junit)

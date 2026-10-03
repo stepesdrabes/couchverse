@@ -19,6 +19,7 @@ import io.stepes.couchverse.core.AuthMode
 import io.stepes.couchverse.core.CoreConfig
 import io.stepes.couchverse.core.CouchView
 import io.stepes.couchverse.core.Event
+import io.stepes.couchverse.core.HomeView
 import io.stepes.couchverse.core.Platform
 import io.stepes.couchverse.core.SessionView
 import io.stepes.couchverse.core.Surface
@@ -31,11 +32,18 @@ import io.stepes.couchverse.couch.CoreHost
 import io.stepes.couchverse.couch.CouchNotification
 import io.stepes.couchverse.downloads.WorkDownloads
 import io.stepes.couchverse.downloads.downloadsDirectory
+import io.stepes.couchverse.integration.ContinueWidgets
+import io.stepes.couchverse.integration.WatchNext
+import io.stepes.couchverse.integration.continueWatching
 import io.stepes.couchverse.playback.PlaybackEngine
 import io.stepes.couchverse.playback.PlaybackHost
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -78,6 +86,7 @@ class CouchverseApp : Application(), SingletonImageLoader.Factory, PlaybackHost,
         val downloads = if (tv) NoDownloads else WorkDownloads(WorkManager.getInstance(this), downloadsDirectory(this))
         runtime = androidCoreRuntime(this, config, http, player = playback, downloads = downloads)
         runtime.send(Event.AppStarted)
+        continueWatching()
         if (!tv) {
             val notification = CouchNotification(this)
             val couch = runtime.view<CouchView>(Surface.Couch)
@@ -98,6 +107,23 @@ class CouchverseApp : Application(), SingletonImageLoader.Factory, PlaybackHost,
                 }
             },
         )
+    }
+
+    /** Continue Watching outside the app: Watch Next on a TV, the home screen widget on a phone. */
+    private fun continueWatching() {
+        val home = runtime.view<HomeView>(Surface.Home)
+        val session = runtime.view<SessionView>(Surface.Session)
+        val watchNext = if (tv) WatchNext(this) else null
+        scope.launch {
+            home.map(::continueWatching)
+                .combine(session) { cards, s -> cards to (s?.language ?: "en") }
+                .distinctUntilChanged()
+                .collect { (cards, language) ->
+                    withContext(Dispatchers.IO) {
+                        if (watchNext != null) watchNext.publish(cards) else ContinueWidgets.publish(this@CouchverseApp, cards, language)
+                    }
+                }
+        }
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

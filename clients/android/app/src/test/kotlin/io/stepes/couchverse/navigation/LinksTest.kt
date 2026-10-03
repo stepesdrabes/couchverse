@@ -23,6 +23,10 @@ class LinksTest {
         assertNull(AppLink.parse("couchverse://title"))
         assertNull(AppLink.parse("https://tv.home/title/glass-harbor-2025"))
         assertNull(AppLink.parse("couchverse://admin"))
+        assertEquals(AppLink.Couch("123456"), AppLink.parse("couchverse://couch/123456"))
+        assertNull(AppLink.parse("couchverse://couch/12"))
+        assertEquals(AppLink.Play("episode", "e2"), AppLink.parse("couchverse://play/episode/e2"))
+        assertNull(AppLink.parse("couchverse://play/song/s1"))
     }
 
     @Test

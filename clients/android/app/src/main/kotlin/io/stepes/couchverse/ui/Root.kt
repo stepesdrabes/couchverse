@@ -172,6 +172,10 @@ private fun RootNavigation(links: PendingLinks, version: String) {
                 links.consume()
                 nav.navigate(JoinCouch(link.code))
             }
+            is AppLink.Play -> if (phase == AppPhase.Ready) {
+                links.consume()
+                nav.navigate(Watch(link.kind, link.id))
+            }
             null -> {}
         }
     }

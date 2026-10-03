@@ -20,6 +20,9 @@ sealed interface AppLink {
     /** Join a couch session by its code. */
     data class Couch(val code: String) : AppLink
 
+    /** Play a movie or an episode where it stopped (Continue Watching outside the app). */
+    data class Play(val kind: String, val id: String) : AppLink
+
     companion object {
         fun parse(url: String): AppLink? {
             val uri = Uri.parse(url)
@@ -29,11 +32,14 @@ sealed interface AppLink {
                 "pair" -> Pair(url)
                 "title" -> uri.pathSegments.firstOrNull()?.let(::OpenTitle)
                 "couch" -> couchCode(url)?.let(::Couch)
+                "play" -> uri.pathSegments.takeIf { it.size == 2 && it[0] in PlayKinds }?.let { Play(it[0], it[1]) }
                 else -> null
             }
         }
     }
 }
+
+private val PlayKinds = setOf("movie", "episode")
 
 /** The link the app was opened with, held until the screens can act on it. */
 class PendingLinks {

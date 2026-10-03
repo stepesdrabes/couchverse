@@ -598,4 +598,6 @@
     <string name="tv_exit_confirm">Ukončit</string>
     <string name="tv_exit_message">Chcete Couchverse ukončit?</string>
     <string name="tv_exit_title">Už odcházíte?</string>
+    <string name="widget_continue_description">Pokračujte tam, kde jste skončili</string>
+    <string name="widget_continue_empty">Pusťte si něco v Couchverse a počká to tady.</string>
 </resources>

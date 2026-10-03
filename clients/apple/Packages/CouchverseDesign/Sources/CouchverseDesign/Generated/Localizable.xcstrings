@@ -10041,6 +10041,40 @@
           }
         }
       }
+    },
+    "widget_continue_description": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokračujte tam, kde jste skončili"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick up where you left off"
+          }
+        }
+      }
+    },
+    "widget_continue_empty": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pusťte si něco v Couchverse a počká to tady."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start something in Couchverse and it waits here."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

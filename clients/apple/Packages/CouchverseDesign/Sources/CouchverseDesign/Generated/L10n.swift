@@ -575,4 +575,6 @@ extension L10n {
     public static var tvExitConfirm: String { string("tv_exit_confirm") }
     public static var tvExitMessage: String { string("tv_exit_message") }
     public static var tvExitTitle: String { string("tv_exit_title") }
+    public static var widgetContinueDescription: String { string("widget_continue_description") }
+    public static var widgetContinueEmpty: String { string("widget_continue_empty") }
 }

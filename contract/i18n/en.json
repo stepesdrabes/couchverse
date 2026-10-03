@@ -1304,5 +1304,7 @@
 	"users_update_failed": "Failed to update user",
 	"users_updated": "User updated",
 	"users_username_label": "Username",
-	"users_you": "(you)"
+	"users_you": "(you)",
+	"widget_continue_description": "Pick up where you left off",
+	"widget_continue_empty": "Start something in Couchverse and it waits here."
 }

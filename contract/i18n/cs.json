@@ -1330,5 +1330,7 @@
 	"users_update_failed": "Nepodařilo se aktualizovat uživatele",
 	"users_updated": "Uživatel aktualizován",
 	"users_username_label": "Uživatelské jméno",
-	"users_you": "(vy)"
+	"users_you": "(vy)",
+	"widget_continue_description": "Pokračujte tam, kde jste skončili",
+	"widget_continue_empty": "Pusťte si něco v Couchverse a počká to tady."
 }

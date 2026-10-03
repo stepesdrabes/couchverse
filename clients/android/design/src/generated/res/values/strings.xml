@@ -592,4 +592,6 @@
     <string name="tv_exit_confirm">Exit</string>
     <string name="tv_exit_message">Do you want to exit Couchverse?</string>
     <string name="tv_exit_title">Leaving already?</string>
+    <string name="widget_continue_description">Pick up where you left off</string>
+    <string name="widget_continue_empty">Start something in Couchverse and it waits here.</string>
 </resources>

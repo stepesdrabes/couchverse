@@ -45,7 +45,20 @@
                 <data android:host="pair" />
                 <data android:host="title" />
                 <data android:host="couch" />
+                <data android:host="play" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".integration.ContinueWatchingReceiver"
+            android:exported="true"
+            android:label="@string/home_row_continue_watching">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/continue_widget" />
+        </receiver>
     </application>
 </manifest>
