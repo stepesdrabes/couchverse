@@ -1,0 +1,499 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C0DE00000000000000000B00 /* CouchverseFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE00000000000000000A01 /* CouchverseFeatures */; };
+		C0DE00000000000000000B01 /* CouchverseFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE00000000000000000A02 /* CouchverseFeatures */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C0DE00000000000000000C00 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C0DE00000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C0DE00000000000000000040;
+			remoteInfo = Couchverse;
+		};
+		C0DE00000000000000000C01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C0DE00000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C0DE00000000000000000041;
+			remoteInfo = "Couchverse TV";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		C0DE00000000000000000010 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		C0DE00000000000000000011 /* Couchverse.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Couchverse.xcconfig; sourceTree = "<group>"; };
+		C0DE00000000000000000012 /* CouchverseTV.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CouchverseTV.xcconfig; sourceTree = "<group>"; };
+		C0DE00000000000000000013 /* CouchverseUITests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CouchverseUITests.xcconfig; sourceTree = "<group>"; };
+		C0DE00000000000000000014 /* CouchverseTVUITests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CouchverseTVUITests.xcconfig; sourceTree = "<group>"; };
+		C0DE00000000000000000015 /* Couchverse-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Couchverse-Info.plist"; sourceTree = "<group>"; };
+		C0DE00000000000000000016 /* CouchverseTV-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "CouchverseTV-Info.plist"; sourceTree = "<group>"; };
+		C0DE00000000000000000017 /* Local.xcconfig.template */ = {isa = PBXFileReference; lastKnownFileType = text; path = Local.xcconfig.template; sourceTree = "<group>"; };
+		C0DE00000000000000000020 /* Couchverse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Couchverse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0DE00000000000000000021 /* Couchverse TV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Couchverse TV.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0DE00000000000000000022 /* CouchverseUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CouchverseUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0DE00000000000000000023 /* CouchverseTVUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CouchverseTVUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		C0DE00000000000000000030 /* Couchverse */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Couchverse;
+			sourceTree = "<group>";
+		};
+		C0DE00000000000000000031 /* CouchverseTV */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = CouchverseTV;
+			sourceTree = "<group>";
+		};
+		C0DE00000000000000000032 /* CouchverseUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = CouchverseUITests;
+			sourceTree = "<group>";
+		};
+		C0DE00000000000000000033 /* CouchverseTVUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = CouchverseTVUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C0DE00000000000000000060 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0DE00000000000000000B00 /* CouchverseFeatures in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0DE00000000000000000061 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0DE00000000000000000B01 /* CouchverseFeatures in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0DE00000000000000000062 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0DE00000000000000000063 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C0DE00000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				C0DE00000000000000000030 /* Couchverse */,
+				C0DE00000000000000000031 /* CouchverseTV */,
+				C0DE00000000000000000032 /* CouchverseUITests */,
+				C0DE00000000000000000033 /* CouchverseTVUITests */,
+				C0DE00000000000000000004 /* Config */,
+				C0DE00000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C0DE00000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C0DE00000000000000000020 /* Couchverse.app */,
+				C0DE00000000000000000021 /* Couchverse TV.app */,
+				C0DE00000000000000000022 /* CouchverseUITests.xctest */,
+				C0DE00000000000000000023 /* CouchverseTVUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C0DE00000000000000000004 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				C0DE00000000000000000010 /* Base.xcconfig */,
+				C0DE00000000000000000017 /* Local.xcconfig.template */,
+				C0DE00000000000000000011 /* Couchverse.xcconfig */,
+				C0DE00000000000000000015 /* Couchverse-Info.plist */,
+				C0DE00000000000000000012 /* CouchverseTV.xcconfig */,
+				C0DE00000000000000000016 /* CouchverseTV-Info.plist */,
+				C0DE00000000000000000013 /* CouchverseUITests.xcconfig */,
+				C0DE00000000000000000014 /* CouchverseTVUITests.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C0DE00000000000000000040 /* Couchverse */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0DE00000000000000000081 /* Build configuration list for PBXNativeTarget "Couchverse" */;
+			buildPhases = (
+				C0DE00000000000000000050 /* Sources */,
+				C0DE00000000000000000060 /* Frameworks */,
+				C0DE00000000000000000070 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C0DE00000000000000000030 /* Couchverse */,
+			);
+			name = Couchverse;
+			packageProductDependencies = (
+				C0DE00000000000000000A01 /* CouchverseFeatures */,
+			);
+			productName = Couchverse;
+			productReference = C0DE00000000000000000020 /* Couchverse.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C0DE00000000000000000041 /* Couchverse TV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0DE00000000000000000082 /* Build configuration list for PBXNativeTarget "Couchverse TV" */;
+			buildPhases = (
+				C0DE00000000000000000051 /* Sources */,
+				C0DE00000000000000000061 /* Frameworks */,
+				C0DE00000000000000000071 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C0DE00000000000000000031 /* CouchverseTV */,
+			);
+			name = "Couchverse TV";
+			packageProductDependencies = (
+				C0DE00000000000000000A02 /* CouchverseFeatures */,
+			);
+			productName = "Couchverse TV";
+			productReference = C0DE00000000000000000021 /* Couchverse TV.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C0DE00000000000000000042 /* CouchverseUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0DE00000000000000000083 /* Build configuration list for PBXNativeTarget "CouchverseUITests" */;
+			buildPhases = (
+				C0DE00000000000000000052 /* Sources */,
+				C0DE00000000000000000062 /* Frameworks */,
+				C0DE00000000000000000072 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C0DE00000000000000000D00 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C0DE00000000000000000032 /* CouchverseUITests */,
+			);
+			name = CouchverseUITests;
+			productName = CouchverseUITests;
+			productReference = C0DE00000000000000000022 /* CouchverseUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		C0DE00000000000000000043 /* CouchverseTVUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0DE00000000000000000084 /* Build configuration list for PBXNativeTarget "CouchverseTVUITests" */;
+			buildPhases = (
+				C0DE00000000000000000053 /* Sources */,
+				C0DE00000000000000000063 /* Frameworks */,
+				C0DE00000000000000000073 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C0DE00000000000000000D01 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C0DE00000000000000000033 /* CouchverseTVUITests */,
+			);
+			name = CouchverseTVUITests;
+			productName = CouchverseTVUITests;
+			productReference = C0DE00000000000000000023 /* CouchverseTVUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C0DE00000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					C0DE00000000000000000040 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					C0DE00000000000000000041 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					C0DE00000000000000000042 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = C0DE00000000000000000040;
+					};
+					C0DE00000000000000000043 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = C0DE00000000000000000041;
+					};
+				};
+			};
+			buildConfigurationList = C0DE00000000000000000080 /* Build configuration list for PBXProject "Couchverse" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				cs,
+				Base,
+			);
+			mainGroup = C0DE00000000000000000002;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C0DE00000000000000000A00 /* XCLocalSwiftPackageReference "Packages/CouchverseFeatures" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C0DE00000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C0DE00000000000000000040 /* Couchverse */,
+				C0DE00000000000000000041 /* Couchverse TV */,
+				C0DE00000000000000000042 /* CouchverseUITests */,
+				C0DE00000000000000000043 /* CouchverseTVUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C0DE00000000000000000070 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0DE00000000000000000071 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0DE00000000000000000072 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0DE00000000000000000073 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C0DE00000000000000000050 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0DE00000000000000000051 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0DE00000000000000000052 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0DE00000000000000000053 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C0DE00000000000000000D00 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C0DE00000000000000000040 /* Couchverse */;
+			targetProxy = C0DE00000000000000000C00 /* PBXContainerItemProxy */;
+		};
+		C0DE00000000000000000D01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C0DE00000000000000000041 /* Couchverse TV */;
+			targetProxy = C0DE00000000000000000C01 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C0DE00000000000000000090 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0DE00000000000000000010 /* Base.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C0DE00000000000000000091 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0DE00000000000000000010 /* Base.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C0DE00000000000000000092 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0DE00000000000000000011 /* Couchverse.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C0DE00000000000000000093 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0DE00000000000000000011 /* Couchverse.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C0DE00000000000000000094 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0DE00000000000000000012 /* CouchverseTV.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C0DE00000000000000000095 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0DE00000000000000000012 /* CouchverseTV.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C0DE00000000000000000096 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0DE00000000000000000013 /* CouchverseUITests.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C0DE00000000000000000097 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0DE00000000000000000013 /* CouchverseUITests.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C0DE00000000000000000098 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0DE00000000000000000014 /* CouchverseTVUITests.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C0DE00000000000000000099 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0DE00000000000000000014 /* CouchverseTVUITests.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C0DE00000000000000000080 /* Build configuration list for PBXProject "Couchverse" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0DE00000000000000000090 /* Debug */,
+				C0DE00000000000000000091 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0DE00000000000000000081 /* Build configuration list for PBXNativeTarget "Couchverse" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0DE00000000000000000092 /* Debug */,
+				C0DE00000000000000000093 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0DE00000000000000000082 /* Build configuration list for PBXNativeTarget "Couchverse TV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0DE00000000000000000094 /* Debug */,
+				C0DE00000000000000000095 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0DE00000000000000000083 /* Build configuration list for PBXNativeTarget "CouchverseUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0DE00000000000000000096 /* Debug */,
+				C0DE00000000000000000097 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0DE00000000000000000084 /* Build configuration list for PBXNativeTarget "CouchverseTVUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0DE00000000000000000098 /* Debug */,
+				C0DE00000000000000000099 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		C0DE00000000000000000A00 /* XCLocalSwiftPackageReference "Packages/CouchverseFeatures" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CouchverseFeatures;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C0DE00000000000000000A01 /* CouchverseFeatures */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CouchverseFeatures;
+		};
+		C0DE00000000000000000A02 /* CouchverseFeatures */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CouchverseFeatures;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = C0DE00000000000000000001 /* Project object */;
+}

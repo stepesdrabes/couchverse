@@ -1,0 +1,12 @@
+// Smoke UI tests of the iPhone and iPad app.
+
+SDKROOT = iphoneos
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator
+TARGETED_DEVICE_FAMILY = 1,2
+PRODUCT_NAME = CouchverseUITests
+PRODUCT_BUNDLE_IDENTIFIER = $(BUNDLE_ID_ROOT).uitests
+TEST_TARGET_NAME = Couchverse
+GENERATE_INFOPLIST_FILE = YES
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks @loader_path/Frameworks
+// XCTestCase is not main-actor isolated; each test that drives the UI is marked @MainActor
+SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated

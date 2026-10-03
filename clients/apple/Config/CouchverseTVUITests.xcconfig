@@ -1,0 +1,12 @@
+// Smoke UI tests of the Apple TV app.
+
+SDKROOT = appletvos
+SUPPORTED_PLATFORMS = appletvos appletvsimulator
+TARGETED_DEVICE_FAMILY = 3
+PRODUCT_NAME = CouchverseTVUITests
+PRODUCT_BUNDLE_IDENTIFIER = $(BUNDLE_ID_ROOT).tvuitests
+TEST_TARGET_NAME = Couchverse TV
+GENERATE_INFOPLIST_FILE = YES
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks @loader_path/Frameworks
+// XCTestCase is not main-actor isolated; each test that drives the UI is marked @MainActor
+SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated

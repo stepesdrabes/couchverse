@@ -1,0 +1,11 @@
+// Copy to Local.xcconfig (gitignored) and fill in to build for your own devices.
+
+// Your team id: Xcode > Settings > Accounts, or the "Team" a free personal team shows in
+// Signing & Capabilities. Leave empty to build for the simulator only.
+DEVELOPMENT_TEAM =
+
+// Bundle ids must be unique per team; a free team cannot reuse io.stepes.couchverse.
+BUNDLE_ID_ROOT = com.example.couchverse
+
+// YES only with a team that can provision App Groups (plan 10.9).
+EXTENSIONS_ENABLED = NO

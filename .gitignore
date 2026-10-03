@@ -13,6 +13,8 @@ data/
 # core build output for the shells (cargo xtask apple|android|wasm)
 clients/apple/Packages/CouchverseCore/CouchverseCoreFFI.xcframework/
 clients/apple/Packages/CouchverseCore/Sources/CouchverseCore/FFI/
+# per-builder signing and bundle id (template committed next to it)
+clients/apple/Config/Local.xcconfig
 clients/android/core/src/main/jniLibs/
 clients/web/src/lib/core/pkg/
 .build/
