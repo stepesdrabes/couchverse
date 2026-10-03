@@ -5,9 +5,11 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import QrCode from '$lib/components/ui/QrCode.svelte';
+	import { core } from '$lib/core';
+	import { LoadStatus, type DeviceCard, type DevicesView } from '$lib/generated/core';
 	import { formatClock } from '$lib/utils/format';
 	import * as authApi from '../api';
-	import type { Device } from '../api';
+	import { DEVICES, openDevices } from '../devices';
 	import * as m from '$lib/paraglide/messages';
 
 	// A one-time code as a QR for the phone app, which adds this server and signs in
@@ -20,7 +22,7 @@
 	}: {
 		open?: boolean;
 		/** a device signed in while the code was up; the dialog closes itself */
-		onconnected?: (devices: Device[], added: Device) => void;
+		onconnected?: (added: DeviceCard) => void;
 	} = $props();
 
 	let connect = $state<{ code: string; expiresAt: number } | null>(null);
@@ -76,19 +78,20 @@
 		}, 1000);
 
 		// Watch for the phone that scans the code: anything not signed in when the
-		// dialog opened is it.
+		// dialog opened is it. The core reads the list, which the page shows too.
 		let known: Set<string> | null = null;
 		const watch = async () => {
-			const list = await authApi.listDevices().catch(() => null);
-			if (!list || !open) return;
+			await openDevices();
+			const list = core.view<DevicesView>(DEVICES);
+			if (!open || list?.status !== LoadStatus.Loaded) return;
 			if (!known) {
-				known = new Set(list.map((d) => d.id));
+				known = new Set(list.devices.map((d) => d.id));
 				return;
 			}
-			const added = list.find((d) => !known?.has(d.id));
+			const added = list.devices.find((d) => !known?.has(d.id));
 			if (!added) return;
 			open = false;
-			onconnected?.(list, added);
+			onconnected?.(added);
 		};
 		watch();
 		const watcher = setInterval(watch, 3000);

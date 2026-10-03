@@ -3,71 +3,61 @@
 	import { fly } from 'svelte/transition';
 	import { KeyRound, LogOut, QrCode, RefreshCw } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
-	import { ApiError } from '$lib/api/client';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Confirm from '$lib/components/ui/Confirm.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import { core } from '$lib/core';
+	import { LoadStatus, type DeviceCard, type DevicesView } from '$lib/generated/core';
 	import { currentLang } from '$lib/i18n/locale.svelte';
 	import { formatRelative, formatYearDate } from '$lib/utils/format';
-	import * as authApi from '../api';
-	import type { Device } from '../api';
-	import { devicesCache } from '../cache.svelte';
+	import { DEVICES, openDevices } from '../devices';
 	import { platformIcon, platformName } from '../platforms';
 	import { session } from '../session.svelte';
 	import ConnectDeviceModal from './ConnectDeviceModal.svelte';
 	import * as m from '$lib/paraglide/messages';
 
-	// Every browser and app signed in to the account; on the owner's /profile only.
+	// Every browser and app signed in to the account, as the core lists them; on the
+	// owner's /profile only.
 
 	// The server records activity at most every five minutes, so anything seen within
 	// that window is as good as in use.
 	const ACTIVE_WINDOW_MS = 5 * 60 * 1000;
 
-	const key = $derived(session.user?.username ?? '');
-	const devices = $derived(devicesCache.get(key));
+	$effect(() => core.watch(DEVICES));
+	const view = $derived(core.view<DevicesView>(DEVICES));
+	// the list the core holds shows at once (stale beats blank), a cold one once it lands
+	const devices = $derived(
+		view && (view.devices.length > 0 || view.status === LoadStatus.Loaded)
+			? view.devices
+			: undefined
+	);
+	const failed = $derived(!devices && view?.status === LoadStatus.Failed);
 	// this browser first, then the server's most recently active order
 	const sorted = $derived(
 		devices ? [...devices].sort((a, b) => Number(b.current) - Number(a.current)) : []
 	);
 
-	let failed = $state(false);
 	let connectOpen = $state(false);
-	let revoking = $state<Device | null>(null);
+	let revoking = $state<DeviceCard | null>(null);
 	let confirmOpen = $state(false);
 	let busyId = $state<string | null>(null);
 	let section = $state<HTMLElement>();
 
-	function activity(device: Device): string {
+	function activity(device: DeviceCard): string {
 		if (device.current || Date.now() - Date.parse(device.lastSeenAt) < ACTIVE_WINDOW_MS) {
 			return m.devices_active_now();
 		}
 		return m.devices_last_seen({ time: formatRelative(device.lastSeenAt, currentLang()) });
 	}
 
-	// A browser's name already says what it is. The no-break space keeps the dot on
-	// the first line when a narrow screen wraps this.
-	const status = (device: Device) =>
-		device.kind === 'device'
-			? `${platformName(device.platform)}\u00a0· ${activity(device)}`
-			: activity(device);
+	// A browser's name already says what it is (a browser is the web platform). The no-break
+	// space keeps the dot on the first line when a narrow screen wraps this.
+	const status = (device: DeviceCard) =>
+		device.platform === 'web'
+			? activity(device)
+			: `${platformName(device.platform)}\u00a0· ${activity(device)}`;
 
-	async function load() {
-		failed = false;
-		try {
-			await devicesCache.revalidate(key, () => authApi.listDevices());
-		} catch {
-			failed = !devicesCache.get(key);
-		}
-	}
-
-	function drop(id: string) {
-		devicesCache.set(
-			key,
-			(devicesCache.get(key) ?? []).filter((d) => d.id !== id)
-		);
-	}
-
-	function askRevoke(device: Device) {
+	function askRevoke(device: DeviceCard) {
 		revoking = device;
 		confirmOpen = true;
 	}
@@ -78,26 +68,24 @@
 		// signing this browser out is a logout, which also clears its cookie
 		if (device.current) return session.logout();
 		busyId = device.id;
+		// the core drops it at once and reads the list again: still there, the server refused
 		try {
-			await authApi.revokeDevice(device.id);
-			drop(device.id);
-			toast.success(m.devices_signed_out({ device: device.name }));
-		} catch (err) {
-			// already signed out somewhere else
-			if (err instanceof ApiError && err.status === 404) drop(device.id);
-			else toast.error(m.devices_sign_out_failed());
+			await core.send({ type: 'deviceRevoked', content: { deviceId: device.id } });
 		} finally {
 			busyId = null;
 		}
+		const after = core.view<DevicesView>(DEVICES);
+		const listed = after?.devices.some((d) => d.id === device.id);
+		if (listed || after?.status === LoadStatus.Failed) toast.error(m.devices_sign_out_failed());
+		else toast.success(m.devices_signed_out({ device: device.name }));
 	}
 
-	function connected(list: Device[], added: Device) {
-		devicesCache.set(key, list);
+	function connected(added: DeviceCard) {
 		toast.success(m.devices_connect_connected({ device: added.name }));
 	}
 
 	onMount(async () => {
-		await load();
+		await openDevices();
 		// /pair links here once a device is approved
 		if (location.hash === '#devices') {
 			await tick();
@@ -143,7 +131,7 @@
 		{#if failed}
 			<div class="flex flex-col items-center gap-3 px-6 py-10 text-center">
 				<p class="text-sm text-muted">{m.devices_load_failed()}</p>
-				<Button variant="secondary" size="sm" onclick={load}>
+				<Button variant="secondary" size="sm" onclick={openDevices}>
 					<RefreshCw class="size-4" />
 					{m.common_retry()}
 				</Button>
@@ -190,9 +178,13 @@
 								{/if}
 							</div>
 							<p class="mt-0.5 text-xs text-faint">{status(device)}</p>
-							<p class="mt-0.5 text-xs text-faint/80">
-								{m.devices_signed_in_on({ date: formatYearDate(device.createdAt, currentLang()) })}
-							</p>
+							{#if device.signedInAt}
+								<p class="mt-0.5 text-xs text-faint/80">
+									{m.devices_signed_in_on({
+										date: formatYearDate(device.signedInAt, currentLang())
+									})}
+								</p>
+							{/if}
 						</div>
 
 						<button

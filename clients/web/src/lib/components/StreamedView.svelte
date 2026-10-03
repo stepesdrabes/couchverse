@@ -5,7 +5,7 @@
 	// keeps the last value while a same-key revalidation (e.g. invalidateAll after a
 	// save) is in flight, so it never flashes the skeleton mid-edit. A genuinely new
 	// key clears back to the skeleton. Use where data must stay fresh per visit
-	// (admin editors) rather than served from the SWR cache.
+	// (admin editors) and no core view holds it.
 	let {
 		key,
 		data,

@@ -24,8 +24,6 @@ export {
 	approvePairing,
 	createConnectCode,
 	denyPairing,
-	getPairingRequest,
-	listDevices,
-	revokeDevice
+	getPairingRequest
 } from '$lib/generated/api';
-export type { Device, DevicePlatform, PairingRequest } from '$lib/generated/api';
+export type { DevicePlatform, PairingRequest } from '$lib/generated/api';

@@ -2,7 +2,6 @@ import { untrack } from 'svelte';
 import { goto } from '$app/navigation';
 import { navigating, page } from '$app/state';
 import { onUnauthorized } from '$lib/api/client';
-import { resetAllCaches } from '$lib/api/cache.svelte';
 import { core } from '$lib/core';
 import { preferences } from '$lib/features/preferences/preferences.svelte';
 import type { Event as CoreEvent } from '$lib/generated/core';
@@ -33,7 +32,6 @@ class Session {
 		const accountId = core.session.accountId ?? '';
 		this.#leaving = true;
 		await core.send({ type: 'signOutRequested', content: { accountId } });
-		clear();
 		goto('/login');
 	}
 
@@ -62,7 +60,6 @@ class Session {
 	 */
 	async ended() {
 		if (this.#leaving) return;
-		clear();
 		// a navigation under way lands first: cutting it short throws in SvelteKit's link
 		// handler, and the visitor comes back to where they were going
 		await navigating.complete?.catch(() => {});
@@ -76,11 +73,6 @@ class Session {
 		await core.start();
 		await core.send(event);
 	}
-}
-
-/** the next account starts clean (the core forgets the last one's catalog and ranks itself) */
-function clear() {
-	resetAllCaches();
 }
 
 // the anonymous pages (login, a couch link) stay put when a session ends
