@@ -625,10 +625,11 @@ messages and perform the effects it asks for.
   `CouchverseCoreFFI.xcframework` plus Swift bindings into the CouchverseCore package, see
   "Apple clients"), `make core-android` (per-ABI `libcouchverse_ffi.so`, a
   host library for JVM tests and the Kotlin bindings for the Gradle `core` module; `make
-  android-test` runs its JVM tests, docs/android.md) and `make core-wasm` (the web package in
-  `clients/web/src/lib/core/pkg`, built for size with opt-level "z" and `wasm-opt -Oz`, and
-  checked against a 400 KB gzip budget). In CI `core.yml` builds the wasm package, `apple.yml`
-  the Apple one with the apps, `android.yml` the Android one with the Gradle project.
+  android-test` runs every JVM test and verifies the screenshots, docs/android.md) and `make
+  core-wasm` (the web package in `clients/web/src/lib/core/pkg`, built for size with opt-level
+  "z" and `wasm-opt -Oz`, and checked against a 400 KB gzip budget). In CI `core.yml` builds
+  the wasm package, `apple.yml` the Apple one with the apps, `android.yml` the Android one with
+  the Gradle project.
 
 ## Apple clients (cross-cutting)
 
@@ -687,6 +688,33 @@ navigation, nothing else.
   Type. UI tests: a smoke test per app, and `LiveFlowTests` that pair a TV from a phone against a
   running server (skipped without `CV_LIVE_SERVER`). `make apple-test`, `make apple-uitest` and
   `make apple-lint` (swift-format) run them; `apple.yml` runs them all in CI.
+
+## Android client (cross-cutting)
+
+One app for phones and Google TV (`clients/android/`, docs/android.md), the TV UI picked at
+launch from the UI mode, on the shared core.
+
+- **Runtime** (`core/runtime/`): `CoreRuntime` owns the bridge on one serial thread for the
+  process's life, stamps `SystemClock.elapsedRealtime`, performs every effect (OkHttp for
+  `http`/`upload`/`socket`, coroutine timers, files for `store`, Keystore-sealed files for
+  `secureStore`, a no-op `player` until Phase 12) and publishes one `StateFlow` per surface,
+  re-read only when a `render` names it. At launch it reports `CapabilitiesReported` from
+  `MediaCodecList`, the display's HDR types and HDMI passthrough (`core/device/`).
+- **Screens** read view models (`rememberSurface`, which also opens catalog surfaces) and send
+  events; they own navigation and nothing else. Each screen has phone and TV layouts behind
+  one entry point, takes plain view models, and is rendered from fixtures in Roborazzi
+  screenshots (phone and TV, en and cs) and Compose UI tests. A TV screen names where focus
+  starts (`focusOnStart`, or `screenFocus`, which also returns focus to the element that had it
+  when the screen was left) and its text fields let the arrows out (`remoteLeavesField`).
+- **Root navigation** follows `AppView.phase`; the signed-in screens are keyed by account. A
+  TV starts on "Who's watching?" (focus lifts a tile, the glow takes the focused account's
+  colour, the chosen avatar flies into the sidebar as a shared element); phones open the last
+  account and switch from the profile tab's sheet. `couchverse://connect|pair|title` links and
+  scanned QR codes (CameraX + ZXing, phones only) go to the core as `LinkOpened`.
+- **Design** (`design/`): Material 3 and Compose for TV themes over the tokens, tinted by the
+  session's (or a title's) accent palette; spring motion with a cut under "Remove animations";
+  the account's display language applied to resources at runtime; Coil for artwork URLs the
+  core signs.
 
 ## Media grants (cross-cutting)
 
