@@ -5,9 +5,9 @@ public enum Ambience: Sendable {
     case live
     /// Drawn but still, for screenshots.
     case still
-    /// No glow, no motion and solid instead of glass prominent buttons: what a snapshot without
-    /// a host app can render (a prominent glass button at the largest text sizes draws nothing),
-    /// in references that stay small and change only with the layout.
+    /// No glow, no motion and solid buttons instead of glass ones: what a snapshot without a host
+    /// app can render (a prominent glass button at the largest text sizes draws nothing), in
+    /// references that stay small and change only with the layout.
     case flat
 }
 

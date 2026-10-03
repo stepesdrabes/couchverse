@@ -23,29 +23,37 @@ public struct GlowBackdrop: View {
         }
     }
 
-    private var glow: some View {
-        let still = reduceMotion || ambience == .still
-        return TimelineView(.animation(minimumInterval: 1 / 30, paused: still)) { timeline in
-            let t = still ? 0 : timeline.date.timeIntervalSinceReferenceDate
-            GeometryReader { geometry in
-                let size = geometry.size
-                let extent = max(size.width, size.height)
-                ZStack {
-                    Tokens.Palette.bg
-                    orb(Tokens.Palette.glowViolet, opacity: 0.22, diameter: extent * 0.9)
-                        .position(drift(t, period: 41, phase: 0, center: CGPoint(x: 0.1, y: 0.05), in: size))
-                    orb(Tokens.Palette.glowTeal, opacity: 0.16, diameter: extent * 0.85)
-                        .position(drift(t, period: 53, phase: 2, center: CGPoint(x: 0.95, y: 0.95), in: size))
-                    orb(tint, opacity: 0.5, diameter: extent * 0.8)
-                        .position(drift(t, period: 37, phase: 4, center: CGPoint(x: 0.75, y: 0.15), in: size))
-                        .id(tint.description)
-                        .transition(.opacity)
+    @ViewBuilder private var glow: some View {
+        Group {
+            if reduceMotion || ambience == .still {
+                orbs(at: 0)
+            } else {
+                TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
+                    orbs(at: timeline.date.timeIntervalSinceReferenceDate)
                 }
-                .animation(.easeInOut(duration: 0.8), value: tint.description)
             }
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
+    }
+
+    private func orbs(at t: TimeInterval) -> some View {
+        GeometryReader { geometry in
+            let size = geometry.size
+            let extent = max(size.width, size.height)
+            ZStack {
+                Tokens.Palette.bg
+                orb(Tokens.Palette.glowViolet, opacity: 0.22, diameter: extent * 0.9)
+                    .position(drift(t, period: 41, phase: 0, center: CGPoint(x: 0.1, y: 0.05), in: size))
+                orb(Tokens.Palette.glowTeal, opacity: 0.16, diameter: extent * 0.85)
+                    .position(drift(t, period: 53, phase: 2, center: CGPoint(x: 0.95, y: 0.95), in: size))
+                orb(tint, opacity: 0.5, diameter: extent * 0.8)
+                    .position(drift(t, period: 37, phase: 4, center: CGPoint(x: 0.75, y: 0.15), in: size))
+                    .id(tint.description)
+                    .transition(.opacity)
+            }
+            .animation(.easeInOut(duration: 0.8), value: tint.description)
+        }
     }
 
     private func orb(_ color: Color, opacity: Double, diameter: CGFloat) -> some View {

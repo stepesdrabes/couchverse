@@ -9,13 +9,29 @@ extension View {
 
     /// Any other action: plain glass, so the primary one stays the only coloured control.
     public func secondaryAction() -> some View {
+        modifier(SecondaryAction())
+    }
+}
+
+private struct SecondaryAction: ViewModifier {
+    @Environment(\.ambience) private var ambience
+
+    func body(content: Content) -> some View {
         #if os(tvOS)
-            buttonStyle(.glass)
+            styled(content)
         #else
-            buttonStyle(.glass)
+            styled(content)
                 .controlSize(.large)
                 .foregroundStyle(Tokens.Palette.text)
         #endif
+    }
+
+    @ViewBuilder private func styled(_ content: Content) -> some View {
+        if ambience == .flat {
+            content.buttonStyle(.bordered)
+        } else {
+            content.buttonStyle(.glass)
+        }
     }
 }
 
