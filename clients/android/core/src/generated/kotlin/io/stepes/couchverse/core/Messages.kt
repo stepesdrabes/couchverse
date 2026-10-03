@@ -208,6 +208,9 @@ data class Card (
 @Serializable
 data class BrowseView (
 	val key: BrowseKey,
+	/// The genre's name in the display language, for a genre listing's heading; absent until
+	/// the genres are known (show the key's name meanwhile).
+	val genreLabel: String? = null,
 	val status: LoadStatus,
 	val cards: List<Card>,
 	val total: ULong,

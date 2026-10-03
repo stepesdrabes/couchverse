@@ -396,6 +396,10 @@ impl Catalog {
             }
             _ => {}
         }
+        // a genre listing's heading names the genre in the display language
+        if let Surface::Browse(BrowseKey { genre: Some(_), .. }) = surface {
+            self.ensure(ctx, env, &Surface::Genres, false);
+        }
     }
 
     fn browse_page(&mut self, ctx: &mut Ctx, env: &Env, key: &BrowseKey, page: u32) {
@@ -528,6 +532,11 @@ impl Catalog {
             }
             Request::Genres(call) => {
                 ctx.render(Surface::Genres);
+                for surface in self.open.keys() {
+                    if let Surface::Browse(BrowseKey { genre: Some(_), .. }) = surface {
+                        ctx.render(surface.clone());
+                    }
+                }
                 fill(&mut self.genres, decode(&call, output), now)
             }
             Request::MyList(call) => {
@@ -741,8 +750,13 @@ impl Catalog {
             .map(|items| views::cards(items, images))
             .unwrap_or_default();
         let total = listing.map_or(0, |l| l.total);
+        let genre_label = key.genre.as_ref().and_then(|name| {
+            let genres = self.genres.value.as_deref()?;
+            genres.iter().find(|g| &g.name == name).map(|g| g.label.clone())
+        });
         BrowseView {
             key: key.clone(),
+            genre_label,
             status: listing.map_or(LoadStatus::Idle, |l| l.slot.status()),
             more: (cards.len() as u64) < total,
             cards,

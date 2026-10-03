@@ -471,6 +471,23 @@ fn removing_from_my_list_drops_the_card() {
 }
 
 #[test]
+fn a_genre_listing_names_its_genre_in_the_display_language() {
+    let mut shell = signed_in();
+    let key = BrowseKey { kind: None, genre: Some("Drama".into()), sort: BrowseSort::Name };
+    open(&mut shell, Surface::Browse(key.clone()));
+    assert_eq!(shell.view::<BrowseView>(&Surface::Browse(key.clone())).genre_label, None);
+    shell.respond(
+        "GET",
+        &format!("{API}/genres?lang=en"),
+        200,
+        json!([{ "id": 1, "name": "Drama", "label": "Drama (en)" }]),
+    );
+    assert!(shell.take_renders().contains(&Surface::Browse(key.clone())));
+    let view: BrowseView = shell.view(&Surface::Browse(key));
+    assert_eq!(view.genre_label.as_deref(), Some("Drama (en)"));
+}
+
+#[test]
 fn switching_the_language_reloads_what_is_open_and_keeps_it_showing() {
     let mut shell = signed_in();
     open(&mut shell, Surface::Genres);

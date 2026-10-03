@@ -318,6 +318,10 @@ pub struct BrowseKey {
 #[serde(rename_all = "camelCase")]
 pub struct BrowseView {
     pub key: BrowseKey,
+    /// The genre's name in the display language, for a genre listing's heading; absent until
+    /// the genres are known (show the key's name meanwhile).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub genre_label: Option<String>,
     pub status: LoadStatus,
     pub cards: Vec<Card>,
     pub total: U53,

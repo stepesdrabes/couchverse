@@ -161,6 +161,11 @@ export interface Card {
 
 export interface BrowseView {
 	key: BrowseKey;
+	/**
+	 * The genre's name in the display language, for a genre listing's heading; absent until
+	 * the genres are known (show the key's name meanwhile).
+	 */
+	genreLabel?: string;
 	status: LoadStatus;
 	cards: Card[];
 	total: number;

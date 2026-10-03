@@ -246,6 +246,9 @@ public struct Card: Codable, Sendable, Hashable {
 
 public struct BrowseView: Codable, Sendable, Hashable {
 	public let key: BrowseKey
+	/// The genre's name in the display language, for a genre listing's heading; absent until
+	/// the genres are known (show the key's name meanwhile).
+	public let genreLabel: String?
 	public let status: LoadStatus
 	public let cards: [Card]
 	public let total: UInt64
@@ -254,8 +257,9 @@ public struct BrowseView: Codable, Sendable, Hashable {
 	public let loadingMore: Bool
 	public let problem: Problem?
 
-	public init(key: BrowseKey, status: LoadStatus, cards: [Card], total: UInt64, more: Bool, loadingMore: Bool, problem: Problem? = nil) {
+	public init(key: BrowseKey, genreLabel: String? = nil, status: LoadStatus, cards: [Card], total: UInt64, more: Bool, loadingMore: Bool, problem: Problem? = nil) {
 		self.key = key
+		self.genreLabel = genreLabel
 		self.status = status
 		self.cards = cards
 		self.total = total
