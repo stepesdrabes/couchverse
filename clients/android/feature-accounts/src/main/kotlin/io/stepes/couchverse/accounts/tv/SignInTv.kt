@@ -86,8 +86,7 @@ internal fun SignInTv(state: SignInState, actions: SignInActions) {
                     Text(stringResource(R.string.pairing_title), style = MaterialTheme.typography.titleLarge, color = Tokens.Palette.text)
                     PairingPanel(
                         pairing = pairing,
-                        // pairing starts with the screen, so until it fails it is on its way
-                        loading = !withPassword && view?.status != LoadStatus.Failed,
+                        loading = busy && !withPassword,
                         problem = view?.problem?.takeIf { view.status == LoadStatus.Failed && !withPassword },
                         remainingSeconds = state.remainingSeconds,
                         qrSize = 176.dp,

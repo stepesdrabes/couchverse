@@ -59,13 +59,10 @@ fun SignInRoute(serverId: String, username: String, onBack: (() -> Unit)?) {
     val servers by rememberSurface<ServersView>(Surface.Servers)
     val signIn by rememberSurface<SignInView>(Surface.SignIn)
     val tv = LocalIsTv.current
-    if (tv) {
-        DisposableEffect(serverId) {
-            send(Event.PairingStarted(ServerRef(serverId)))
-            onDispose { send(Event.PairingCancelled) }
-        }
-    } else {
-        DisposableEffect(serverId) { onDispose { send(Event.PairingCancelled) } }
+    DisposableEffect(serverId) {
+        val first = PairingScreens.open()
+        if (tv && first) send(Event.PairingStarted(ServerRef(serverId)))
+        onDispose { if (PairingScreens.close()) send(Event.PairingCancelled) }
     }
     val remaining = rememberCountdown(signIn?.pairing?.expiresAtMs?.toLong(), runtime::nowMs)
     SignInScreen(
@@ -77,6 +74,21 @@ fun SignInRoute(serverId: String, username: String, onBack: (() -> Unit)?) {
             onBack = onBack,
         ),
     )
+}
+
+/**
+ * Sign-in screens on screen right now. A navigation that replaces one with another composes the
+ * new screen before it disposes the old one, so pairing starts with the first and is cancelled
+ * with the last, never by the screen that is going away.
+ */
+private object PairingScreens {
+    private var open = 0
+
+    /** Returns whether this is the only one. */
+    fun open(): Boolean = ++open == 1
+
+    /** Returns whether none is left. */
+    fun close(): Boolean = --open == 0
 }
 
 /** Whole seconds left until [deadlineMs] on the core's monotonic [clock], ticking each second. */
