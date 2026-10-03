@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { renderMarkdown } from '$lib/utils/markdown';
+	import { core } from '$lib/core';
+	import MarkdownBlocks from './MarkdownBlocks.svelte';
 
-	// Renders user-authored markdown. Safe to {@html} because the shared
-	// markdown-it instance parses with raw HTML disabled and rejects unsafe link
-	// protocols, so the output can only contain the tags it generated itself.
+	// Renders user-authored markdown from the core's document tree, which can only express
+	// safe structure: raw HTML arrives as text, images as links, and links are http(s) or
+	// mailto. The tree becomes Svelte elements, never an HTML string.
 	let { source, class: cls = '' }: { source: string; class?: string } = $props();
 
-	const html = $derived(renderMarkdown(source));
+	const doc = $derived(core.markdown(source));
 </script>
 
 <div class="markdown {cls}">
-	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-	{@html html}
+	<MarkdownBlocks blocks={doc.blocks} />
 </div>
 
 <style lang="scss">
