@@ -66,6 +66,9 @@ import io.stepes.couchverse.design.text.formatRuntime
 
 private val HeroHeight = 540.dp
 
+/** Where artwork will be in a skeleton: fading to the canvas, so the blocks on it stand out. */
+internal val SkeletonArt = Brush.verticalGradient(listOf(Tokens.Palette.surface2, Tokens.Palette.bg))
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun HomePhone(view: HomeView, actions: HomeActions) {
@@ -180,7 +183,7 @@ internal fun ListButton(inList: Boolean, onClick: () -> Unit) {
 @Composable
 internal fun HomeSkeletonPhone() {
     Column(Modifier.fillMaxSize().loadingSemantics(), verticalArrangement = Arrangement.spacedBy(28.dp)) {
-        Box(Modifier.fillMaxWidth().height(HeroHeight).background(Tokens.Palette.surface)) {
+        Box(Modifier.fillMaxWidth().height(HeroHeight).background(SkeletonArt)) {
             Column(Modifier.align(Alignment.BottomStart).padding(PhoneGutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SkeletonBox(Modifier.width(220.dp).height(64.dp))
                 SkeletonBox(Modifier.width(140.dp).height(18.dp))

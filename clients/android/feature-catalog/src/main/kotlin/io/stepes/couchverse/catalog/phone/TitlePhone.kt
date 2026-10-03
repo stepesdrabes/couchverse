@@ -255,7 +255,7 @@ private fun EpisodeRow(episode: EpisodeView, onClick: () -> Unit) {
 @Composable
 internal fun TitleSkeletonPhone(onBack: (() -> Unit)?) {
     Column(Modifier.fillMaxSize().loadingSemantics(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Box(Modifier.fillMaxWidth().aspectRatio(4f / 3.4f).background(Tokens.Palette.surface)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(4f / 3.4f).background(SkeletonArt)) {
             if (onBack != null) {
                 IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(8.dp)) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))

@@ -19,6 +19,7 @@ import io.stepes.couchverse.catalog.CatalogNavigation
 import io.stepes.couchverse.catalog.GenresRoute
 import io.stepes.couchverse.core.TitleKind
 import io.stepes.couchverse.design.R
+import io.stepes.couchverse.design.Tokens
 
 /** The phone's Browse tab: movies, series and genres side by side. */
 @Composable
@@ -29,7 +30,13 @@ fun BrowseHubPhone(navigation: CatalogNavigation) {
         PhoneHeader(stringResource(R.string.nav_browse), onBack = null)
         PrimaryTabRow(selectedTabIndex = tab, containerColor = Color.Transparent) {
             tabs.forEachIndexed { index, label ->
-                Tab(selected = tab == index, onClick = { tab = index }, text = { Text(stringResource(label)) })
+                Tab(
+                    selected = tab == index,
+                    onClick = { tab = index },
+                    text = { Text(stringResource(label)) },
+                    selectedContentColor = Tokens.Palette.text,
+                    unselectedContentColor = Tokens.Palette.muted,
+                )
             }
         }
         Box(Modifier.weight(1f)) {

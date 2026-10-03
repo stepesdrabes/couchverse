@@ -1,10 +1,20 @@
 package io.stepes.couchverse.catalog
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import io.stepes.couchverse.catalog.phone.TitlePhone
 import io.stepes.couchverse.catalog.phone.TitleSkeletonPhone
 import io.stepes.couchverse.catalog.tv.TitleSkeletonTv
@@ -44,8 +54,8 @@ fun TitleScreen(view: TitleView?, actions: TitleActions) {
         LoadState(
             status = view?.status,
             skeleton = { if (tv) TitleSkeletonTv() else TitleSkeletonPhone(actions.onBack) },
-            failed = { LoadFailed(view?.problem, actions.onRefresh) },
-            notFound = { Empty(stringResource(R.string.error_not_found)) },
+            failed = { WithBack(actions.onBack) { LoadFailed(view?.problem, actions.onRefresh) } },
+            notFound = { WithBack(actions.onBack) { Empty(stringResource(R.string.error_not_found)) } },
         ) {
             if (detail != null) {
                 if (tv) TitleTv(detail, view.status, view.problem, actions) else TitlePhone(detail, view.status, view.problem, actions)
@@ -95,4 +105,17 @@ fun TitleDetailView.metaLine(): String {
         TitleKind.Movie -> runtimeMinutes?.let { formatRuntime(it.toInt(), locale) }
     }
     return listOfNotNull(year?.toString(), length).joinToString("  ·  ")
+}
+
+/** A page with nothing to show still needs a way back on phones (the TV has its Back key). */
+@Composable
+private fun WithBack(onBack: (() -> Unit)?, content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize()) {
+        content()
+        if (onBack != null && !LocalIsTv.current) {
+            IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(8.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+            }
+        }
+    }
 }
