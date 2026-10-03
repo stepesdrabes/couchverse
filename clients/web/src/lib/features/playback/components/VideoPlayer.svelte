@@ -26,6 +26,7 @@
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import { QualityKind, type PlayerView, type QualityOption } from '$lib/generated/core';
 	import { ElementPlayer } from '$lib/features/playback/element-player.svelte';
+	import { PLAYER, sameTarget } from '$lib/features/playback/player';
 	import {
 		preferences,
 		SUBTITLE_FONTS,
@@ -210,15 +211,16 @@
 		buffered = ranges;
 	}
 
-	/** The end of something with nothing after it goes back to its title page. */
-	function ended(target: PlayerView['target']) {
-		if (linear) return;
+	/**
+	 * The end of something with nothing after it goes back to its title page. Read from the core
+	 * itself: by now this player may be gone, the core having moved on to the next episode.
+	 */
+	function ended(ending: PlayerView) {
+		if (ending.linear) return;
 		// finishing something is the likeliest moment for a new badge
 		if (features.rankingsEnabled) rank.check(true);
-		const now = view.target;
-		if (now && target && now.kind === target.kind && now.id === target.id) {
-			goto(`/title/${view.titleSlug}`);
-		}
+		const now = core.view<PlayerView>(PLAYER)?.target;
+		if (sameTarget(now, ending.target)) goto(`/title/${ending.titleSlug}`);
 	}
 
 	function seekTo(event: PointerEvent, track: HTMLElement) {
@@ -373,9 +375,9 @@
 		poke();
 		couch.playerMounts++; // the on-screen player hosts the couch bar (so it survives fullscreen)
 		const host = new ElementPlayer(video!, async (report) => {
-			const target = view.target;
+			const ending = view;
 			await core.send({ type: 'playerReported', content: report });
-			if (report.ended) ended(target);
+			if (report.ended) ended(ending);
 		});
 		player = host;
 		const detach = core.attachPlayer(host);
