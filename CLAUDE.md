@@ -15,7 +15,7 @@ Feature inventory + per-feature docs (endpoints, tables, dependency graph) live 
   plain hyphen `-`. En-dash (U+2013) is OK only in numeric/date ranges.
 - **Comments earn their place**: explain the non-obvious (the why), never restate the code; no
   decorative banners or over-engineered prose.
-- **Verify before committing**: `make check` (web: svelte-check + prettier + eslint) and
+- **Verify before committing**: `make check` (web: svelte-check + prettier + eslint + vitest) and
   `make lint test` (backend) must be clean; run `make build` when touching embed/build paths.
   Write code that reads like the surrounding code.
 
@@ -68,16 +68,21 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     `/admin/ranks`, which stays reachable so an admin can retune progression while it is off.
     XP rates and tier thresholds are admin-editable (`ranks.RankConfig` in the `ranks` settings
     key) and threaded through the pure functions as an argument rather than read globally.
-  - **User-authored markdown** (profile bios) renders through `lib/utils/markdown.ts` - one
-    shared markdown-it instance with `html: false`. That is the security boundary: raw HTML is
-    escaped rather than parsed, so the `{@html}` in `ui/Markdown.svelte` can only emit tags
-    markdown-it generated itself. Never enable `html`, and never render user markdown any
-    other way.
+  - **User-authored markdown** (profile bios) is parsed by the core's `markdown` module into a
+    document tree that can only express safe structure (raw HTML arrives as text, images as
+    links, links are http(s)/mailto only); that module is the security boundary. The web
+    renders the tree with `lib/components/ui/Markdown.svelte` (`MarkdownBlocks`/
+    `MarkdownInlines`), native clients with their own views. Never add an `{@html}` path or
+    render user markdown any other way.
 - **Auth**: browsers use the httpOnly session cookie (CSRF Origin check); native clients are
   named **device sessions** sending `Authorization: Bearer` (`POST /auth/token`, RFC 8628-style
   pairing under `/auth/pairings` approved at `/me/pairings/{code}`, one-time connect codes).
   Both are `sessions` rows with a public id (`GET/DELETE /me/devices`); every session's expiry
-  slides on use. `auth.SessionFrom(ctx)` is the authenticating session.
+  slides on use. `auth.SessionFrom(ctx)` is the authenticating session. On the web, `/pair`
+  approves pairing codes (signed-out visitors go through `/login?next=`) and the owner's
+  profile ends with `DevicesSection` (cached list, revoke, Connect-a-device QR); revoking this
+  browser's own row is `session.logout()`, not `DELETE /me/devices/{id}`, so the cookie is
+  cleared. Per-IP limits (login 5/min, pairing and connect 10/min) apply to scripted tests too.
 - **Media grants** (`internal/grant`): media is authorized by a signed, expiring capability in
   the path, never by cookie or header, because players (AVPlayer, ExoPlayer, AirPlay, the
   browser's media element) cannot attach either reliably. Everything that plays one file lives
@@ -138,9 +143,17 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     in routes/ (SvelteKit requirement) and delegate to feature `api.ts`.
   - `lib/components/` keeps only domain-free shared UI: `ui/` (bits-ui primitives plus the
     shared widgets `StatTile`/`SegmentBar`/`RankedList`, extracted from the admin dashboard
-    once a second feature needed them), `layout/` (TopNav, GlowBackdrop, LanguageSwitcher,
+    once a second feature needed them, and `QrCode`, an SVG over `uqr` with the quiet zone
+    drawn in), `layout/` (TopNav, GlowBackdrop, LanguageSwitcher,
     NavProgress), and the optimistic page shells `{CachedView,StreamedView,NotFound}.svelte`.
     Domain components live in their feature.
+  - **The core on the web** (`lib/core/`): `core.session` is the only source of the signed-in
+    user, feature flags, display language and site accent; read them through `session`/
+    `features` and never fetch `/auth/me`, `/features` or `/theme` yourself. After a web API
+    call that changes what the session shows (profile, server settings), call
+    `session.refresh()` (`SessionChanged`). Loads that read the session `await parent()`. The
+    runtime (`runtime.svelte.ts`) must handle every `Effect` variant: its `never` check fails
+    the build when the core gains one.
   - Shared catalog entities live in `features/catalog/types.ts`. The bare fetch wrapper
     stays in `src/lib/api/client.ts`. Never hand-write URLs: use the generated functions or `xxxPath` builders.
   - Forms that edit existing data track dirtiness with `FormState`
@@ -183,6 +196,10 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   (`crates/ffi`, `crates/wasm`), the generated `couchverse-api` crate and `cargo xtask`
   (codegen and packaging). Design in FEATURES.md "Shared client core".
 - `clients/apple/`, `clients/android/` - the native clients (docs/native-clients-plan.md).
+  Android is one Gradle project (Kotlin DSL, version catalog; AGP 9 built-in Kotlin, JDK 21
+  daemon). Swift and Kotlin message types come from typeshare via `cargo xtask codegen`: fix
+  quirks in `core/xtask/src/messages.rs`, never by hand; every `Effect`, `Event` and `Surface`
+  variant needs a case in the Android `WireFormatTest`, whose coverage check fails otherwise.
 - `contract/` - the API spec, couch protocol schema, i18n catalogs, design tokens, fixtures.
 - Postgres 17; job queue is a Postgres table (no Redis). ffmpeg/ffprobe shelled out.
 
@@ -190,18 +207,23 @@ A feature owns its HTTP handlers, domain logic and SQL together.
 
 - `docker compose up db -d` then `make run-backend` (Go on :8080) + `make run-web` (Vite on :5173, proxies /api).
   Dev .env: `DB_PASSWORD=couchverse` so the Makefile default DSN works.
-- `make lint` (go vet [+ golangci-lint if installed]), `make check` (svelte-check + prettier + eslint), `make test`, `make build` (SPA -> embed -> binary).
+- `make lint` (go vet [+ golangci-lint if installed]), `make check` (svelte-check + prettier +
+  eslint + vitest), `make test`, `make build` (wasm core -> SPA -> embed -> binary). `make
+  run-web`/`check` build the wasm core once if `lib/core/pkg` is missing; rerun `make
+  core-wasm` after a core change.
 - `make contract` after any change to an operation, a schema type, the couch protocol, i18n,
   design tokens or a `#[typeshare]` type in the core; commit the regenerated files with the
   change.
 - Core: `make core-test` (fmt, clippy pedantic with warnings denied, tests); `make
   core-apple|core-android|core-wasm` package it for each shell (gitignored output; rustup
   targets and, for Android, the NDK and `cargo-ndk`); `make apple-test` runs the Swift
-  package tests against the real core.
+  package tests and `make android-test` the Kotlin binding tests on the JVM, both against the
+  real core (build-from-source details in docs/apple.md and docs/android.md).
 - CI (`.github/workflows/`): `backend.yml` (gofmt, vet, golangci-lint, tests incl. API
-  conformance against a Postgres service), `web.yml` (check, lint, build), `contract.yml`
-  (xtask fmt/clippy/tests, `make contract`, no drift), `core.yml` (the wasm, Apple and
-  Android packages built and run), `repo.yml` (`scripts/check-no-emdash.sh`).
+  conformance against a Postgres service), `web.yml` (wasm core, check, lint, vitest, build),
+  `contract.yml` (xtask fmt/clippy/tests, `make contract`, no drift), `core.yml` (the wasm and
+  Apple packages built and run), `android.yml` (`make core-android`, the core's JVM tests, the
+  Gradle modules assembled), `repo.yml` (`scripts/check-no-emdash.sh`).
 - Sample media: `make sample-media` (lavfi-generated clips covering direct-play/remux/transcode tiers).
 - Verify HTTP: `curl localhost:8080/healthz`.
 
@@ -236,7 +258,14 @@ Full design in `FEATURES.md`; the conventions to follow:
   `DELETE /admin/titles/{id}/languages/{lang}` drops its translations and promotes the next
   language to base (the last one is protected), and the editor also hard-deletes that
   language's alternate-audio files (`DELETE /admin/media-files/{id}` - source + caches +
-  subtitles on disk) and subtitle tracks, behind a warning modal.
+  subtitles on disk) and subtitle tracks, behind a warning modal; the server also deletes that
+  language's logo.
+- **Title logos** are per content language: `artwork.lang` (ISO 639-1, null for art not tied
+  to a language), one `kind='logo'` row per (title, language), a slot being `(owner_kind,
+  owner_id, kind, lang)`. Viewer reads expose `logoId`/`logoVer`/`logoAspect` picked by
+  `artwork.PickLogo` (display language, base language, language-neutral, any). Logos are PNG
+  only and resize to PNG; TMDB apply replaces its own logos and keeps uploaded ones. Every
+  artwork save records the image's width and height (0 for WebP).
 - **Multi-language audio** (chosen in the player, independent of the display language): model B
   is a separate file per language (`media_files.audio_lang`/`audio_role`, tagged via
   `PATCH /admin/media-files/{id}`; the player swaps source + re-seeks); model A is one file
