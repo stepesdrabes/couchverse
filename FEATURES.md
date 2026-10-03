@@ -48,6 +48,9 @@ primitives), `lib/components/layout/` (TopNav, GlowBackdrop, NavProgress),
 `lib/theme.ts` (accent), `lib/utils/`, `lib/tv/` (TV mode), `lib/core/` (the shared core
 as wasm). See "Optimistic navigation & caching", "TV mode" and "Shared core on the web".
 
+Native clients run the shared core ("Shared client core"); the iPhone, iPad and Apple TV apps
+are described in "Apple clients".
+
 ## Features
 
 ### auth
@@ -604,13 +607,70 @@ messages and perform the effects it asks for.
   the JSON wire format. `make core-test` runs fmt, clippy (pedantic, warnings denied) and all
   tests.
 - **Packaging** (build output, gitignored): `make core-apple` (the five-slice
-  `CouchverseCoreFFI.xcframework` plus Swift bindings into the CouchverseCore package; `make
-  apple-test` runs its `swift test`), `make core-android` (per-ABI `libcouchverse_ffi.so`, a
+  `CouchverseCoreFFI.xcframework` plus Swift bindings into the CouchverseCore package, see
+  "Apple clients"), `make core-android` (per-ABI `libcouchverse_ffi.so`, a
   host library for JVM tests and the Kotlin bindings for the Gradle `core` module; `make
   android-test` runs its JVM tests, docs/android.md) and `make core-wasm` (the web package in
   `clients/web/src/lib/core/pkg`, built for size with opt-level "z" and `wasm-opt -Oz`, and
-  checked against a 400 KB gzip budget). In CI `core.yml` builds the wasm and Apple packages,
-  `android.yml` the Android one with the Gradle project.
+  checked against a 400 KB gzip budget). In CI `core.yml` builds the wasm package, `apple.yml`
+  the Apple one with the apps, `android.yml` the Android one with the Gradle project.
+
+## Apple clients (cross-cutting)
+
+The iPhone/iPad app and the Apple TV app (`clients/apple/`, build guide in `docs/apple.md`) are
+SwiftUI shells over the shared core: they render its view models, perform its effects and own
+navigation, nothing else.
+
+- **Layout**: `Couchverse.xcodeproj` (folder-synchronized groups; settings in `Config/*.xcconfig`,
+  per-builder team and bundle id in the gitignored `Config/Local.xcconfig`) holds two thin app
+  targets and their UI test bundles; the code lives in three local packages. `CouchverseCore`:
+  the xcframework, `Generated/Messages.swift`, `CoreRuntime` and the executors (it alone also
+  builds for the Mac, for `swift test`). `CouchverseDesign`: tokens, typography, the accent
+  environment, components, generated strings. `CouchverseFeatures`: screens by feature folder
+  (`Onboarding`, `Accounts`, `Settings`, `Home`) and `CouchverseRoot`, the view both apps show.
+- **Runtime**: `CoreRuntime` (`@Observable`, main actor) is the only stateful service. It stamps
+  `nowMs` from the continuous clock, runs one executor per effect (`HTTPExecutor` over an
+  ephemeral URLSession, `TimerExecutor`, `KeychainStore` with `AfterFirstUnlock` for tokens,
+  `FileStore` in Application Support on iOS and `DefaultsStore` on tvOS, whose only guaranteed
+  storage is user defaults), re-reads just the surfaces a `Render` names and publishes them as
+  properties, decoded off the main actor (each surface keeps the generation it was published at,
+  so a late batch never wins). `upload` effects fail as `httpFailed` until profile editing adds
+  image picking. Screens read `core.<surface>` and `core.send(event)`; their own state is
+  presentation only (focus, sheets, a field being typed). `CoreRuntime(fixture:)` shows fixed
+  view models for previews and snapshots and records what it is sent. UI tests launch with
+  `-uiTesting` (in-memory stores: a fresh install every launch).
+- **Root**: `AppView.phase` picks the screen: `welcome`/`signIn` -> `OnboardingFlow` (welcome,
+  add server, sign in), `chooseAccount` -> "Who's watching?", `ready` -> `MainTabs` (a sidebar
+  on TV and iPad, a Liquid Glass tab bar on iPhone; Home is a placeholder until the catalog
+  slice). The root also follows the session's display language (`L10n.language`, observable, so
+  strings switch without rebuilding the app) and accent, sends `appBecameActive`, and opens
+  `couchverse://connect` and `couchverse://pair` links (`DeepLink` decides what to present; the
+  core parses the link).
+- **Sign-in**: password, or "Sign in with another device" (the code large, a QR code of the
+  pairing page and a countdown from `expiresAtMs` on the runtime's clock). A TV shows both side
+  by side and starts pairing on its own; a phone shows one at a time. Approving another device
+  (Settings, or a link) takes the code typed, from a pair link, or scanned from the TV's QR code
+  (VisionKit on iPhone; the core opens a server's `/pair?code=` page as a pair link).
+- **"Who's watching?"** (plan 12.3): glass profile tiles with an identicon-hued ring (the web's
+  minidenticons, ported in `Identicon`), the backdrop tinted by the focused profile. On TV,
+  choosing one runs `ProfileChoreography`: the others blow outward and the backdrop goes dark,
+  the chosen avatar flies into the sidebar header (its frame reported by `ProfileAvatar`) while
+  home rises from black behind it; with Reduce Motion it is a cross-fade. Phones use a sheet
+  (`AccountSwitcherSheet`) with a haptic tick and a cross-fade to the new account. A
+  signed-out profile signs in again instead.
+- **Design**: `primaryAction()` (glass prominent in the accent, the core's contrast-checked
+  `onAccent` label; on TV the system's focused label), `secondaryAction()`, `FormField`,
+  `AvatarView`, `GlowBackdrop` (radial gradients, no blur), `Skeleton`, `MarkdownView` (the
+  core's safe tree), `QRCodeView`, `InsecureBadge`, `ProblemBanner` (every `Problem.code` in
+  words). `Ambience` (`live|still|flat`) quiets the decoration for screenshots and snapshots.
+- **Tests**: Swift Testing throughout. `CouchverseCore`: the runtime over the real core with
+  fake executors, and the executors. `CouchverseDesign`: identicons against the web's output,
+  localization and Czech plurals, colours, QR, markdown. `CouchverseFeatures`: deep links, code
+  input, the countdown, the choreography, and `ScreenSnapshots` (swift-snapshot-testing) of every
+  key screen and load state on iPhone, iPad and TV, English and Czech at the largest Dynamic
+  Type. UI tests: a smoke test per app, and `LiveFlowTests` that pair a TV from a phone against a
+  running server (skipped without `CV_LIVE_SERVER`). `make apple-test`, `make apple-uitest` and
+  `make apple-lint` (swift-format) run them; `apple.yml` runs them all in CI.
 
 ## Media grants (cross-cutting)
 
