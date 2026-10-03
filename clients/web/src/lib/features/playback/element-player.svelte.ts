@@ -84,7 +84,7 @@ export class ElementPlayer implements PlayerHost {
 				}
 				break;
 			case 'selectAudio':
-				this.#selectAudio(command.content.lang);
+				this.#selectAudio(command.content.lang, command.content.index);
 				break;
 			case 'selectSubtitles':
 				this.#selected = command.content.id ?? null;
@@ -243,17 +243,27 @@ export class ElementPlayer implements PlayerHost {
 		this.cueHtml = '';
 	}
 
-	#selectAudio(lang: string) {
-		if (this.#hls) {
-			const index = this.#hls.audioTracks.findIndex((t) => t.lang === lang);
-			if (index >= 0 && this.#hls.audioTrack !== index) this.#hls.audioTrack = index;
+	/** The playlist lists the renditions in the payload's order, so `index` (the core's)
+	 * tells two in one language apart; the language is the fallback. */
+	#selectAudio(lang: string, index?: number) {
+		const pick = (count: number, language: (i: number) => string | undefined) => {
+			if (index !== undefined && index < count) return index;
+			for (let i = 0; i < count; i++) if (language(i) === lang) return i;
+			return -1;
+		};
+		const hls = this.#hls;
+		if (hls) {
+			const at = pick(hls.audioTracks.length, (i) => hls.audioTracks[i].lang);
+			if (at >= 0 && hls.audioTrack !== at) hls.audioTrack = at;
 			return;
 		}
 		// Safari's native HLS lists the playlist's audio group here
 		const tracks = (this.#video as HTMLVideoElement & { audioTracks?: NativeAudioTracks })
 			.audioTracks;
 		if (!tracks) return;
-		for (let i = 0; i < tracks.length; i++) tracks[i].enabled = tracks[i].language === lang;
+		const at = pick(tracks.length, (i) => tracks[i].language);
+		if (at < 0) return;
+		for (let i = 0; i < tracks.length; i++) tracks[i].enabled = i === at;
 	}
 
 	#stall() {
