@@ -5,15 +5,18 @@
 	import Select from '$lib/components/ui/Select.svelte';
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import { Info } from 'lucide-svelte';
+	import { useScreen } from '$lib/core/screen.svelte';
+	import LoadFailed from '$lib/features/catalog/components/LoadFailed.svelte';
+	import { shown } from '$lib/features/catalog/api';
+	import { Metric, Period, type LeaderboardView, type Surface } from '$lib/generated/core';
 	import LeaderboardContent from '../components/LeaderboardContent.svelte';
 	import LeaderboardSkeleton from '../components/LeaderboardSkeleton.svelte';
-	import { leaderboardCache } from '../cache.svelte';
 	import { metricLabel } from '../labels';
 	import * as m from '$lib/paraglide/messages';
-	import type { Leaderboard, Metric, Period } from '../types';
 
-	let { data }: { data: { period: Period; metric: Metric; fresh: Promise<Leaderboard> } } =
-		$props();
+	let { data }: { data: { period: Period; metric: Metric; screen: Surface } } = $props();
+
+	const board = useScreen<LeaderboardView>(() => data.screen);
 
 	// The switchers are chrome driven by URL params, not by the payload, so they
 	// live outside CachedView - inside it they would turn into shimmer blocks at
@@ -29,20 +32,20 @@
 	});
 
 	const metrics = $derived([
-		{ value: 'xp', label: metricLabel('xp') },
-		{ value: 'watch', label: metricLabel('watch') },
-		{ value: 'achievements', label: metricLabel('achievements') }
+		{ value: Metric.Xp, label: metricLabel(Metric.Xp) },
+		{ value: Metric.Watch, label: metricLabel(Metric.Watch) },
+		{ value: Metric.Achievements, label: metricLabel(Metric.Achievements) }
 	]);
 
 	const periods = $derived([
-		{ value: 'all', label: m.leaderboard_period_all() },
-		{ value: 'month', label: m.leaderboard_period_month() },
-		{ value: 'week', label: m.leaderboard_period_week() }
+		{ value: Period.All, label: m.leaderboard_period_all() },
+		{ value: Period.Month, label: m.leaderboard_period_month() },
+		{ value: Period.Week, label: m.leaderboard_period_week() }
 	]);
 
 	// XP is lifetime by definition (completions carry no date), so the period
 	// selector is meaningless on that board rather than silently ignored.
-	const periodApplies = $derived(metric !== 'xp');
+	const periodApplies = $derived(metric !== Metric.Xp);
 
 	function apply(next: { metric?: Metric; period?: Period }) {
 		const m2 = next.metric ?? metric;
@@ -85,12 +88,15 @@
 		</div>
 	</div>
 
-	<CachedView value={leaderboardCache.get(data.period)} fresh={data.fresh}>
-		{#snippet content(board)}
-			<LeaderboardContent {board} {metric} />
+	<CachedView value={shown(board.view)} status={board.view?.status}>
+		{#snippet content(view)}
+			<LeaderboardContent board={view} />
 		{/snippet}
 		{#snippet skeleton()}
 			<LeaderboardSkeleton />
+		{/snippet}
+		{#snippet failed()}
+			<LoadFailed screen={data.screen} />
 		{/snippet}
 	</CachedView>
 </div>

@@ -25,8 +25,9 @@ import {
 	Users,
 	type Icon as LucideIcon
 } from 'lucide-svelte';
+import { Metric } from '$lib/generated/core';
 import * as m from '$lib/paraglide/messages';
-import type { AchievementTier, Metric, TierCode } from './types';
+import type { AchievementTier, TierCode } from './types';
 
 // Achievement and rank codes arrive from the backend as strings, and Paraglide
 // messages are static functions, so the lookup has to be an explicit map (same
@@ -150,7 +151,7 @@ const TIER_NAMES: Record<TierCode, () => string> = {
 	legend: m.rank_tier_legend
 };
 
-export const tierName = (code: TierCode) => TIER_NAMES[code]?.() ?? code;
+export const tierName = (code: string) => TIER_NAMES[code as TierCode]?.() ?? code;
 
 const ACHIEVEMENT_TIER_NAMES: Record<AchievementTier, () => string> = {
 	bronze: m.achievement_tier_bronze,
@@ -159,8 +160,8 @@ const ACHIEVEMENT_TIER_NAMES: Record<AchievementTier, () => string> = {
 	platinum: m.achievement_tier_platinum
 };
 
-export const achievementTierName = (tier: AchievementTier) =>
-	ACHIEVEMENT_TIER_NAMES[tier]?.() ?? tier;
+export const achievementTierName = (tier: string) =>
+	ACHIEVEMENT_TIER_NAMES[tier as AchievementTier]?.() ?? tier;
 
 const XP_SOURCE_LABELS: Record<string, () => string> = {
 	video: m.rank_source_video,
@@ -174,9 +175,9 @@ const XP_SOURCE_LABELS: Record<string, () => string> = {
 export const xpSourceLabel = (key: string) => XP_SOURCE_LABELS[key]?.() ?? key;
 
 const METRIC_LABELS: Record<Metric, () => string> = {
-	xp: m.leaderboard_metric_xp,
-	watch: m.leaderboard_metric_watch,
-	achievements: m.leaderboard_metric_achievements
+	[Metric.Xp]: m.leaderboard_metric_xp,
+	[Metric.Watch]: m.leaderboard_metric_watch,
+	[Metric.Achievements]: m.leaderboard_metric_achievements
 };
 
 export const metricLabel = (metric: Metric) => METRIC_LABELS[metric]?.() ?? metric;

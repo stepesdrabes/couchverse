@@ -1,20 +1,28 @@
-import { api } from '$lib/api/client';
-import { putPreferences } from '$lib/features/preferences/api';
-import type { CheckResult, Leaderboard, Period, Profile } from './types';
+import { core } from '$lib/core';
+import { Metric, Period, type Surface } from '$lib/generated/core';
 
-export const getMyStats = () => api<Profile>('/me/stats');
+// Ranks and profiles come from the core: these name its screens and send its events.
 
-export const getProfile = (username: string) =>
-	api<Profile>(`/users/${encodeURIComponent(username)}/profile`);
+export const RANK: Surface = { type: 'rank' };
 
-/**
- * One payload carries every metric, so switching board costs no request and the
- * period is the only cache key.
- */
-export const getLeaderboard = (period: Period) => api<Leaderboard>(`/leaderboard?period=${period}`);
+export const profileScreen = (username: string): Surface => ({
+	type: 'profile',
+	content: username
+});
 
-export const checkAchievements = () =>
-	api<CheckResult>('/me/achievements/check', { method: 'POST' });
+/** One payload carries every metric, so switching board costs no request. */
+export const leaderboardScreen = (period: Period, metric: Metric): Surface => ({
+	type: 'leaderboard',
+	content: { period, metric }
+});
 
-/** The privacy switch rides the existing preferences blob, not a new endpoint. */
-export const setPublicProfile = (on: boolean) => putPreferences({ publicProfile: on });
+export const PERIODS = [Period.All, Period.Month, Period.Week];
+export const METRICS = [Metric.Xp, Metric.Watch, Metric.Achievements];
+
+/** Asks the server whether anything new was earned; the core throttles it unless forced. */
+export const checkAchievements = (force = false) =>
+	core.send({ type: 'achievementsCheckRequested', content: { force } });
+
+/** Shows the profile on leaderboards and public pages or hides it; the core rolls back on failure. */
+export const setPublicProfile = (visible: boolean) =>
+	core.send({ type: 'profileVisibilityChanged', content: { public: visible } });

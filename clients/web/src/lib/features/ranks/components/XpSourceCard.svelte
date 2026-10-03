@@ -3,12 +3,12 @@
 	import { xpSourceLabel } from '../labels';
 	import { xpSourceColor } from '../tiers';
 	import * as m from '$lib/paraglide/messages';
-	import type { XpResult } from '../types';
+	import type { XpLine } from '$lib/generated/core';
 
-	let { xp }: { xp: XpResult } = $props();
+	let { total, sources }: { total: number; sources: XpLine[] } = $props();
 
 	const segments = $derived<Segment[]>(
-		xp.sources.map((s) => ({
+		sources.map((s) => ({
 			key: s.key,
 			value: s.xp,
 			color: xpSourceColor(s.key),
@@ -20,12 +20,12 @@
 <div class="rounded-card border border-edge bg-surface/40 p-6">
 	<h2 class="mb-3 text-sm font-semibold text-muted">{m.rank_sources_heading()}</h2>
 
-	{#if xp.total === 0}
+	{#if total === 0}
 		<p class="py-6 text-center text-xs text-faint">{m.profiles_no_activity()}</p>
 	{:else}
 		<SegmentBar
 			{segments}
-			total={xp.total}
+			{total}
 			class="h-2"
 			title={(s) => `${s.label}: ${m.rank_xp_value({ xp: s.value })}`}
 		/>

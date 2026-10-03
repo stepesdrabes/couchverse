@@ -2,19 +2,18 @@
 	import { formatUptime } from '$lib/utils/format';
 	import { XP_SOURCE_COLORS } from '../tiers';
 	import * as m from '$lib/paraglide/messages';
-	import type { HourBucket } from '../types';
 
-	// A 24-slice radial histogram of when this person actually watches, built from
-	// the hour-of-day rollup. Midnight is at the top and the day runs clockwise,
-	// so the shape reads like a clock face.
-	let { hours }: { hours: HourBucket[] } = $props();
+	// A 24-slice radial histogram of when this person actually watches: watch seconds per
+	// hour of the day, midnight first. Midnight is at the top and the day runs clockwise, so
+	// the shape reads like a clock face.
+	let { hours }: { hours: number[] } = $props();
 
 	const OUTER = 46;
 	const INNER = 16;
 	const GAP_DEG = 2;
 
-	const peak = $derived(Math.max(1, ...hours.map((h) => h.videoSeconds)));
-	const total = $derived(hours.reduce((sum, h) => sum + h.videoSeconds, 0));
+	const peak = $derived(Math.max(1, ...hours));
+	const total = $derived(hours.reduce((sum, seconds) => sum + seconds, 0));
 
 	const polar = (radius: number, degrees: number) => {
 		const rad = ((degrees - 90) * Math.PI) / 180;
@@ -34,13 +33,13 @@
 		return `M${ax} ${ay} A${r1} ${r1} 0 0 1 ${bx} ${by} L${cx} ${cy} A${r0} ${r0} 0 0 0 ${dx} ${dy} Z`;
 	}
 
-	const slices = $derived(hours.map((h) => ({ ...h, video: h.videoSeconds / peak })));
+	const slices = $derived(hours.map((seconds, hour) => ({ hour, seconds, video: seconds / peak })));
 
-	let hover = $state<HourBucket | null>(null);
+	let hover = $state<{ hour: number; seconds: number } | null>(null);
 
 	function onMove(event: PointerEvent) {
 		const target = (event.target as Element)?.closest?.('[data-hour]') as HTMLElement | null;
-		hover = target ? (hours[Number(target.dataset.hour)] ?? null) : null;
+		hover = target ? (slices[Number(target.dataset.hour)] ?? null) : null;
 	}
 
 	const summary = $derived(`${m.profiles_clock_heading()}: ${formatUptime(total)}`);
@@ -103,7 +102,7 @@
 				>
 					<span class="text-sm font-bold tnum">{m.profiles_clock_hour({ hour: hover.hour })}</span>
 					<span class="text-[11px] text-faint tnum">
-						{formatUptime(hover.videoSeconds)}
+						{formatUptime(hover.seconds)}
 					</span>
 				</div>
 			{/if}

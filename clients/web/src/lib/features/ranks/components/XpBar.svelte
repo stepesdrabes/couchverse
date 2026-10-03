@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as m from '$lib/paraglide/messages';
-	import type { RankProgress } from '../types';
+	import type { RankBadge } from '$lib/generated/core';
 
-	let { rank, class: cls = '' }: { rank: RankProgress; class?: string } = $props();
+	let { rank, class: cls = '' }: { rank: RankBadge; class?: string } = $props();
 
 	// scaleX on a full-width track is compositor-only; animating width would
 	// force layout on every frame, which matters with a hundred of these on the
@@ -14,6 +14,8 @@
 	});
 
 	const fill = $derived(ready ? Math.min(100, Math.max(0, rank.percent)) / 100 : 0);
+	// the top tier names itself as its next
+	const top = $derived(rank.next.level === rank.tier.level);
 </script>
 
 <div class={cls}>
@@ -24,12 +26,17 @@
 		></div>
 	</div>
 	<div class="mt-1.5 flex justify-between text-[11px] text-faint tnum">
-		{#if rank.next}
-			<span>{m.rank_xp_progress({ into: rank.intoTier, need: rank.tierSpan })}</span>
-			<span>{m.rank_to_next_level({ level: rank.next.level })}</span>
-		{:else}
+		{#if top}
 			<span>{m.rank_xp_value({ xp: rank.xp })}</span>
 			<span>{m.rank_max_level()}</span>
+		{:else}
+			<span>
+				{m.rank_xp_progress({
+					into: rank.xp - rank.tier.minXp,
+					need: rank.next.minXp - rank.tier.minXp
+				})}
+			</span>
+			<span>{m.rank_to_next_level({ level: rank.next.level })}</span>
 		{/if}
 	</div>
 </div>

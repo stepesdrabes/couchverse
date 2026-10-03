@@ -5,7 +5,6 @@ import { onUnauthorized } from '$lib/api/client';
 import { resetAllCaches } from '$lib/api/cache.svelte';
 import { core } from '$lib/core';
 import { preferences } from '$lib/features/preferences/preferences.svelte';
-import { rank } from '$lib/features/ranks/rank.svelte';
 import type { Event as CoreEvent } from '$lib/generated/core';
 import * as authApi from './api';
 
@@ -79,10 +78,9 @@ class Session {
 	}
 }
 
-/** the next account starts clean */
+/** the next account starts clean (the core forgets the last one's catalog and ranks itself) */
 function clear() {
 	resetAllCaches();
-	rank.reset();
 }
 
 // the anonymous pages (login, a couch link) stay put when a session ends

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { achievementIcon, achievementName } from '../labels';
-	import { ACHIEVEMENT_TIERS } from '../tiers';
+	import { medal } from '../tiers';
 	import * as m from '$lib/paraglide/messages';
 	import type { Achievement } from '../types';
 
@@ -18,7 +18,7 @@
 	} = $props();
 
 	const SIZES = { sm: 'size-10', md: 'size-16', lg: 'size-20' } as const;
-	const metal = $derived(ACHIEVEMENT_TIERS[achievement.tier] ?? ACHIEVEMENT_TIERS.bronze);
+	const metal = $derived(medal(achievement.tier));
 	const Icon = $derived(achievementIcon(achievement.code));
 	const unlocked = $derived(achievement.unlocked);
 	const showRing = $derived(!unlocked && achievement.target > 1);

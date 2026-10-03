@@ -6,16 +6,14 @@
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import CountUp from './CountUp.svelte';
 	import { PODIUM } from '../tiers';
-	import type { LeaderRow } from '../types';
+	import type { LeaderRow } from '$lib/generated/core';
 
 	let {
 		rows,
-		value,
 		display
 	}: {
-		// exactly three, already sorted
+		// exactly three, already sorted by the board's metric, which each `value` is
 		rows: LeaderRow[];
-		value: (row: LeaderRow) => number;
 		display: (n: number) => string;
 	} = $props();
 
@@ -68,7 +66,7 @@
 				>
 					<UserAvatar
 						name={row.displayName}
-						avatarId={row.avatarId}
+						src={row.avatar?.url}
 						seed={row.username}
 						class="{layout.avatar} rounded-[14px] text-lg"
 					/>
@@ -78,7 +76,7 @@
 			</a>
 
 			<p class="text-lg font-extrabold" style="color: {metal.ring}">
-				<CountUp value={value(row)} format={display} />
+				<CountUp value={row.value} format={display} />
 			</p>
 
 			<div

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import AchievementBadge from './AchievementBadge.svelte';
 	import { achievementDesc, achievementName } from '../labels';
-	import { ACHIEVEMENT_TIERS } from '../tiers';
+	import { medal } from '../tiers';
 	import * as m from '$lib/paraglide/messages';
 	import type { Achievement } from '../types';
 
@@ -16,7 +16,7 @@
 		live?: boolean;
 	} = $props();
 
-	const metal = $derived(ACHIEVEMENT_TIERS[achievement.tier] ?? ACHIEVEMENT_TIERS.bronze);
+	const metal = $derived(medal(achievement.tier));
 </script>
 
 <div

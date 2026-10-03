@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { rankColor, rankGlow } from '../tiers';
-	import type { TierCode } from '../types';
 
 	let {
 		tier,
@@ -15,7 +14,8 @@
 		// `absolute`, so baking one in here would silently beat an overlay class
 		class: cls = 'relative'
 	}: {
-		tier: TierCode;
+		/** a tier code, as `rank_tier_<code>` names it */
+		tier: string;
 		percent: number;
 		size?: number;
 		stroke?: number;

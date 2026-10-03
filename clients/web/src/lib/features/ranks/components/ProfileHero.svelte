@@ -4,7 +4,6 @@
 	import { KeyRound, Pencil } from 'lucide-svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import Markdown from '$lib/components/ui/Markdown.svelte';
-	import { artworkUrl } from '$lib/features/catalog/api';
 	import { accentVars } from '$lib/theme';
 	import { formatYearDate } from '$lib/utils/format';
 	import RankRing from './RankRing.svelte';
@@ -13,7 +12,7 @@
 	import { tierName } from '../labels';
 	import { rankColor } from '../tiers';
 	import * as m from '$lib/paraglide/messages';
-	import type { Profile } from '../types';
+	import type { ProfileDetail } from '$lib/generated/core';
 
 	let {
 		profile,
@@ -21,7 +20,7 @@
 		onedit = undefined,
 		onpassword = undefined
 	}: {
-		profile: Profile;
+		profile: ProfileDetail;
 		leaderboardRank?: number | null;
 		// owner affordances; absent on someone else's profile
 		onedit?: () => void;
@@ -32,8 +31,8 @@
 	// The banner's own extracted accent wins when there is one, so the card takes
 	// the colour of the image the member chose; otherwise it falls back to the
 	// tier colour and the hero still means something.
-	const color = $derived(profile.user.bannerAccent || rankColor(tier.code));
-	const banner = $derived(profile.user.bannerId);
+	const color = $derived(profile.banner?.accent || rankColor(tier.code));
+	const banner = $derived(profile.banner?.url);
 </script>
 
 <!-- accentVars scopes --color-accent* (and the contrast-aware --color-on-accent)
@@ -45,11 +44,7 @@
 >
 	{#if banner}
 		<div class="absolute inset-0" aria-hidden="true">
-			<img
-				src={artworkUrl(banner, null, 'w780')}
-				alt=""
-				class="size-full scale-105 object-cover opacity-40 blur-[1px]"
-			/>
+			<img src={banner} alt="" class="size-full scale-105 object-cover opacity-40 blur-[1px]" />
 			<!-- the text sits on the lower half, so the scrim is strongest there -->
 			<div
 				class="absolute inset-0 bg-gradient-to-t from-surface via-surface/85 to-surface/40"
@@ -79,12 +74,15 @@
 					size={128}
 					stroke={7}
 					orbit
-					label={m.rank_xp_progress({ into: profile.rank.intoTier, need: profile.rank.tierSpan })}
+					label={m.rank_xp_progress({
+						into: profile.rank.xp - tier.minXp,
+						need: profile.rank.next.minXp - tier.minXp
+					})}
 				/>
 				<UserAvatar
-					name={profile.user.displayName}
-					avatarId={profile.user.avatarId}
-					seed={profile.user.username}
+					name={profile.displayName}
+					src={profile.avatar?.url}
+					seed={profile.username}
 					class="size-24 rounded-2xl text-3xl"
 				/>
 			</span>
@@ -93,11 +91,11 @@
 				<div in:fly|global={{ y: 12, duration: 400, delay: 80 }}>
 					<p class="eyebrow mb-1">{tierName(tier.code)}</p>
 					<h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl">
-						{profile.user.displayName}
+						{profile.displayName}
 					</h1>
 					<p class="mt-1 text-sm text-faint">
-						@{profile.user.username} · {m.profiles_joined({
-							date: formatYearDate(profile.user.memberSince)
+						@{profile.username} · {m.profiles_joined({
+							date: formatYearDate(profile.memberSince)
 						})}
 					</p>
 				</div>
@@ -105,7 +103,7 @@
 				<div in:fly|global={{ y: 12, duration: 400, delay: 160 }}>
 					<div class="mt-4 flex items-baseline gap-3">
 						<span class="text-3xl font-extrabold tracking-tight">
-							<CountUp value={profile.xp.total} />
+							<CountUp value={profile.xpTotal} />
 						</span>
 						<span class="text-sm font-semibold text-muted">{m.rank_xp()}</span>
 						<span class="ml-auto text-sm font-bold tnum">
@@ -156,12 +154,12 @@
 			</div>
 		</div>
 
-		{#if profile.user.bio.trim()}
+		{#if profile.bio.blocks.length > 0}
 			<div
 				class="mt-6 border-t border-edge/60 pt-5"
 				in:fly|global={{ y: 12, duration: 400, delay: 320 }}
 			>
-				<Markdown source={profile.user.bio} />
+				<Markdown doc={profile.bio} />
 			</div>
 		{/if}
 	</div>

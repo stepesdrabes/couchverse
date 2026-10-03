@@ -39,7 +39,6 @@
 	import { couch } from '$lib/features/couch/couch.svelte';
 	import CouchBar from '$lib/features/couch/components/CouchBar.svelte';
 	import AchievementOverlay from '$lib/features/ranks/components/AchievementOverlay.svelte';
-	import { rank } from '$lib/features/ranks/rank.svelte';
 	import { features } from '$lib/features/settings/features.svelte';
 	import CouchButton from '$lib/features/couch/components/CouchButton.svelte';
 	import HostAwayOverlay from '$lib/features/couch/components/HostAwayOverlay.svelte';
@@ -217,8 +216,6 @@
 	 */
 	function ended(ending: PlayerView) {
 		if (ending.linear) return;
-		// finishing something is the likeliest moment for a new badge
-		if (features.rankingsEnabled) rank.check(true);
 		const now = core.view<PlayerView>(PLAYER)?.target;
 		if (sameTarget(now, ending.target)) goto(`/title/${ending.titleSlug}`);
 	}
@@ -363,14 +360,6 @@
 		couch.playerControlsVisible = controlsVisible;
 	});
 
-	// the core saves progress itself; the ranks store still checks for badges on the web's
-	// side, and throttles itself
-	$effect(() => {
-		if (!playing || linear || !features.rankingsEnabled) return;
-		const timer = setInterval(() => rank.check(), 30_000);
-		return () => clearInterval(timer);
-	});
-
 	onMount(() => {
 		poke();
 		couch.playerMounts++; // the on-screen player hosts the couch bar (so it survives fullscreen)
@@ -432,7 +421,6 @@
 			playing = false;
 			buffering = false;
 			poke();
-			if (features.rankingsEnabled && !linear) rank.check();
 		}}
 		onwaiting={() => (buffering = true)}
 		onstalled={() => (buffering = true)}

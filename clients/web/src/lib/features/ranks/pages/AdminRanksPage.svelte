@@ -101,8 +101,7 @@
 		target: 1,
 		value: stat.unlocked > 0 ? 1 : 0,
 		percent: stat.unlocked > 0 ? 100 : 0,
-		unlocked: stat.unlocked > 0,
-		unlockedAt: null
+		unlocked: stat.unlocked > 0
 	});
 </script>
 

@@ -4,21 +4,20 @@
 	import { metricLabel, tierName } from '../labels';
 	import { rankColor } from '../tiers';
 	import * as m from '$lib/paraglide/messages';
-	import type { LeaderRow, Metric } from '../types';
+	import type { LeaderRow, Metric } from '$lib/generated/core';
 
 	let {
 		rows,
 		metric,
-		value,
 		display
 	}: {
+		// sorted by the board's metric, which each row's `value` is
 		rows: LeaderRow[];
 		metric: Metric;
-		value: (row: LeaderRow) => number;
 		display: (n: number) => string;
 	} = $props();
 
-	const top = $derived(Math.max(1, ...rows.map(value)));
+	const top = $derived(Math.max(1, ...rows.map((row) => row.value)));
 
 	let ready = $state(false);
 	onMount(() => {
@@ -51,13 +50,13 @@
 						class="border-l-2 px-4 py-3 text-center font-semibold text-faint tnum
 							{row.isSelf ? 'border-accent' : 'border-transparent'}"
 					>
-						{i + 1}
+						{row.position}
 					</td>
 					<td class="px-4 py-3">
 						<div class="flex min-w-0 items-center gap-3">
 							<UserAvatar
 								name={row.displayName}
-								avatarId={row.avatarId}
+								src={row.avatar?.url}
 								seed={row.username}
 								class="size-8 shrink-0 rounded-lg text-[10px]"
 							/>
@@ -88,12 +87,12 @@
 						</span>
 					</td>
 					<td class="px-4 py-3 text-right">
-						<span class="font-semibold tnum">{display(value(row))}</span>
+						<span class="font-semibold tnum">{display(row.value)}</span>
 						<span class="mt-1 block h-1 overflow-hidden rounded-full bg-surface-2">
 							<span
 								class="block h-full origin-left rounded-full bg-accent transition-transform
 									duration-700 ease-out"
-								style="transform: scaleX({ready ? value(row) / top : 0});
+								style="transform: scaleX({ready ? row.value / top : 0});
 									transition-delay: {Math.min(i * 40, 500)}ms"
 							></span>
 						</span>

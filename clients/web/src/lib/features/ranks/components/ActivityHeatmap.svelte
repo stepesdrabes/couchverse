@@ -2,27 +2,27 @@
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { formatUptime, formatYearDate } from '$lib/utils/format';
-	import { HEAT_FILLS, heatLevel, heatThresholds } from '../tiers';
+	import { HEAT_FILLS } from '../tiers';
 	import * as m from '$lib/paraglide/messages';
-	import type { Activity } from '../types';
+	import type { Heatmap } from '$lib/generated/core';
 
-	let { activity }: { activity: Activity } = $props();
+	// The levels come with the days: the core rates each against this viewer's own active
+	// days, so a light watcher's busiest days still light up.
+	let { heatmap }: { heatmap: Heatmap } = $props();
 
 	const CELL = 10; // px, plus a 3px gap = the 13px pitch the month labels assume
 	const PITCH = 13;
-
-	const thresholds = $derived(heatThresholds(activity.days));
 
 	const DAY_MS = 86_400_000;
 
 	const cells = $derived.by(() => {
 		// day offsets in ms rather than mutating a Date: the run is short enough
 		// that a DST shift cannot walk it onto the wrong day
-		const start = new Date(activity.from + 'T12:00:00').getTime();
-		return activity.days.map((seconds, i) => ({
+		const start = new Date(heatmap.from + 'T12:00:00').getTime();
+		return heatmap.days.map(({ seconds, level }, i) => ({
 			seconds,
 			date: new Date(start + i * DAY_MS),
-			level: heatLevel(seconds, thresholds)
+			level
 		}));
 	});
 
@@ -47,12 +47,10 @@
 		return out;
 	});
 
-	const totalSeconds = $derived(activity.days.reduce((sum, s) => sum + s, 0));
-	const activeDays = $derived(activity.days.filter((s) => s > 0).length);
 	const summary = $derived(
 		m.profiles_activity_summary({
-			hours: Math.round(totalSeconds / 3600),
-			days: activeDays
+			hours: Math.round(heatmap.totalSeconds / 3600),
+			days: heatmap.activeDays
 		})
 	);
 

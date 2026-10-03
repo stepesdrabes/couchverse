@@ -27,10 +27,12 @@
 	let scrollY = $state(0);
 	const scrolled = $derived(scrollY > 24);
 
+	rank.watch();
+
 	// A brand-new account has no ring at all, so the badge never reads as an
 	// empty broken gauge on a fresh install.
-	const showRank = $derived(features.rankingsEnabled && (rank.summary?.xp ?? 0) > 0);
-	const tier = $derived(rank.summary?.tier);
+	const showRank = $derived(features.rankingsEnabled && (rank.badge?.xp ?? 0) > 0);
+	const tier = $derived(rank.badge?.tier);
 	const myProfileHref = $derived(
 		session.user ? `/u/${encodeURIComponent(session.user.username)}` : ''
 	);
@@ -118,7 +120,7 @@
 						<RankRing
 							class="absolute inset-0"
 							tier={tier.code}
-							percent={rank.summary!.percent}
+							percent={rank.badge?.percent ?? 0}
 							size={48}
 							stroke={3}
 							pulse={rank.levelUps}

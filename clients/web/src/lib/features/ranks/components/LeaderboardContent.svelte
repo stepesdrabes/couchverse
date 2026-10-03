@@ -3,38 +3,28 @@
 	import { EyeOff } from 'lucide-svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
+	import { Metric, type LeaderboardView } from '$lib/generated/core';
 	import { formatUptime } from '$lib/utils/format';
 	import LeaderboardPodium from './LeaderboardPodium.svelte';
 	import LeaderboardTable from './LeaderboardTable.svelte';
 	import CountUp from './CountUp.svelte';
 	import { metricLabel } from '../labels';
 	import * as m from '$lib/paraglide/messages';
-	import type { Leaderboard, LeaderRow, Metric } from '../types';
 
-	let { board, metric }: { board: Leaderboard; metric: Metric } = $props();
+	// The core sorts the rows by the board's metric (one payload carries every metric, so
+	// switching board costs no request and no skeleton flash); each row's `value` is that
+	// metric.
+	let { board }: { board: LeaderboardView } = $props();
 
-	const SCORE: Record<Metric, (row: LeaderRow) => number> = {
-		xp: (r) => r.xp,
-		watch: (r) => r.watchSeconds,
-		achievements: (r) => r.achievements
-	};
-
-	const value = $derived(SCORE[metric]);
+	const metric = $derived(board.key.metric);
 	const display = $derived(
-		metric === 'watch'
+		metric === Metric.Watch
 			? (n: number) => formatUptime(n)
-			: metric === 'xp'
+			: metric === Metric.Xp
 				? (n: number) => m.rank_xp_value({ xp: Math.round(n) })
 				: (n: number) => String(Math.round(n))
 	);
-
-	// Sorting is client-side because one payload carries every metric, so
-	// switching board costs no request and no skeleton flash.
-	const ranked = $derived([...board.rows].sort((a, b) => value(b) - value(a)));
-	const myPosition = $derived(ranked.findIndex((r) => r.isSelf) + 1);
-	const showPodium = $derived(ranked.length >= 3 && value(ranked[0]) > 0);
-	const empty = $derived(ranked.length === 0);
-	const allZero = $derived(!empty && value(ranked[0]) === 0);
+	const myPosition = $derived(board.myPosition ?? 0);
 </script>
 
 {#if board.hidden}
@@ -53,17 +43,17 @@
 	</div>
 {/if}
 
-{#if empty}
+{#if board.rows.length === 0}
 	<EmptyState title={m.leaderboard_empty_title()} message={m.leaderboard_empty_message()} />
-{:else if allZero}
+{:else if board.allZero}
 	<EmptyState title={m.leaderboard_metric_empty()} message={metricLabel(metric)} />
 {:else}
 	{#key metric}
 		<div in:fly|global={{ y: 10, duration: 250 }}>
-			{#if showPodium}
-				<LeaderboardPodium rows={ranked.slice(0, 3)} {value} {display} />
+			{#if board.podium}
+				<LeaderboardPodium rows={board.rows.slice(0, 3)} {display} />
 			{/if}
-			<LeaderboardTable rows={ranked} {metric} {value} {display} />
+			<LeaderboardTable rows={board.rows} {metric} {display} />
 		</div>
 	{/key}
 {/if}
@@ -80,7 +70,7 @@
 		</span>
 		<UserAvatar
 			name={board.me.displayName}
-			avatarId={board.me.avatarId}
+			src={board.me.avatar?.url}
 			seed={board.me.username}
 			class="size-8 shrink-0 rounded-lg text-[10px]"
 		/>
@@ -93,7 +83,7 @@
 			{/if}
 		</span>
 		<span class="shrink-0 text-sm font-semibold tnum">
-			<CountUp value={value(board.me)} format={display} />
+			<CountUp value={board.me.value} format={display} />
 		</span>
 	</div>
 {/if}

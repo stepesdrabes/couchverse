@@ -1,13 +1,19 @@
 <script lang="ts">
 	import { core } from '$lib/core';
+	import type { MarkdownDoc } from '$lib/generated/core';
 	import MarkdownBlocks from './MarkdownBlocks.svelte';
 
 	// Renders user-authored markdown from the core's document tree, which can only express
 	// safe structure: raw HTML arrives as text, images as links, and links are http(s) or
-	// mailto. The tree becomes Svelte elements, never an HTML string.
-	let { source, class: cls = '' }: { source: string; class?: string } = $props();
+	// mailto. The tree becomes Svelte elements, never an HTML string. A view that carries the
+	// tree already (a profile's bio) passes `doc`; anything else passes the `source`.
+	let {
+		source = '',
+		doc: parsed,
+		class: cls = ''
+	}: { source?: string; doc?: MarkdownDoc; class?: string } = $props();
 
-	const doc = $derived(core.markdown(source));
+	const doc = $derived(parsed ?? core.markdown(source));
 </script>
 
 <div class="markdown {cls}">

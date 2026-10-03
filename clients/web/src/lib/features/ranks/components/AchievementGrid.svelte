@@ -6,7 +6,7 @@
 	import { formatYearDate } from '$lib/utils/format';
 	import AchievementBadge from './AchievementBadge.svelte';
 	import { achievementDesc, achievementName, achievementTierName } from '../labels';
-	import { ACHIEVEMENT_TIERS } from '../tiers';
+	import { medal } from '../tiers';
 	import * as m from '$lib/paraglide/messages';
 	import type { Achievement } from '../types';
 
@@ -81,7 +81,7 @@
 
 <Modal bind:open title={selected ? achievementName(selected.code) : ''}>
 	{#if selected}
-		{@const metal = ACHIEVEMENT_TIERS[selected.tier]}
+		{@const metal = medal(selected.tier)}
 		<div class="flex flex-col items-center gap-4 text-center">
 			<AchievementBadge achievement={selected} size="lg" />
 			<p class="text-sm text-muted">{achievementDesc(selected.code)}</p>

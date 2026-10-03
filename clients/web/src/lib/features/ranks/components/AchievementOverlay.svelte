@@ -13,25 +13,26 @@
 	// the couch bar documents.
 	let { class: cls = 'absolute top-6 right-6 z-40' }: { class?: string } = $props();
 
+	rank.watch();
+
 	let showing = $state<Achievement | null>(null);
+	let taking = $state(false);
 
 	onMount(() => {
-		rank.overlayMounts++;
+		rank.overlays++;
 		return () => {
-			rank.overlayMounts--;
+			rank.overlays--;
 		};
 	});
 
-	// Taking from the queue is deferred out of the effect flush for the same
-	// reason the toast path defers: an effect should not write the state it reads
-	// while it is still running.
+	// one at a time: the next is taken once this one has gone
 	$effect(() => {
-		if (showing || rank.queue.length === 0) return;
-		const timer = setTimeout(() => {
-			const next = rank.shift();
+		if (showing || taking || !rank.celebration) return;
+		taking = true;
+		void rank.take().then((next) => {
+			taking = false;
 			if (next) showing = next;
-		}, 0);
-		return () => clearTimeout(timer);
+		});
 	});
 
 	$effect(() => {

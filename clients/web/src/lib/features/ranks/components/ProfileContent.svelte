@@ -21,7 +21,7 @@
 	import AchievementGrid from './AchievementGrid.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import type { Snippet } from 'svelte';
-	import type { Profile } from '../types';
+	import type { ProfileDetail } from '$lib/generated/core';
 
 	let {
 		profile,
@@ -29,7 +29,7 @@
 		onpassword = undefined,
 		children = undefined
 	}: {
-		profile: Profile;
+		profile: ProfileDetail;
 		// owner affordances, threaded to the hero; absent on someone else's profile
 		onedit?: () => void;
 		onpassword?: () => void;
@@ -46,7 +46,7 @@
 			{
 				key: 'watch',
 				icon: Clock,
-				value: formatUptime(t.videoSeconds),
+				value: formatUptime(t.watchSeconds),
 				label: m.profiles_stat_watch_time()
 			},
 			{
@@ -101,7 +101,7 @@
 </script>
 
 <svelte:head>
-	<title>{m.profiles_page_title({ name: profile.user.displayName })}</title>
+	<title>{m.profiles_page_title({ name: profile.displayName })}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-5xl px-6 pt-28 pb-16">
@@ -133,9 +133,9 @@
 
 	<div class="mt-6 grid gap-6 lg:grid-cols-3" in:fly|global={{ y: 20, duration: 400 }}>
 		<div class="lg:col-span-2">
-			<ActivityHeatmap activity={profile.activity} />
+			<ActivityHeatmap heatmap={profile.heatmap} />
 		</div>
-		<XpSourceCard xp={profile.xp} />
+		<XpSourceCard total={profile.xpTotal} sources={profile.xpSources} />
 	</div>
 
 	<div class="mt-6 grid gap-6 lg:grid-cols-2" in:fly|global={{ y: 20, duration: 400, delay: 80 }}>
