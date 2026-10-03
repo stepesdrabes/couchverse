@@ -27,7 +27,8 @@ clients/apple/
   CouchverseTVUITests/    smoke UI test (Apple TV simulator)
   Packages/
     CouchverseCore        the xcframework, the generated message types, CoreRuntime and the
-                          effect executors (HTTP, timers, Keychain, files/user defaults)
+                          effect executors (HTTP, timers, WebSockets, Keychain, files/user
+                          defaults)
     CouchverseDesign      tokens, typography, accent, components, generated strings
     CouchverseFeatures    the screens by feature (Accounts, Onboarding, Settings, Home) and the
                           root the apps show

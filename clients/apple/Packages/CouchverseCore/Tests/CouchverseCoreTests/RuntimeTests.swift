@@ -19,7 +19,8 @@ struct RuntimeTests {
             platform: platform, authMode: .bearer, deviceName: "Living Room", locale: locale,
             origin: "")
         let executors = Executors(
-            http: http, timers: timers, secureStore: secure, store: store ?? self.store)
+            http: http, timers: timers, sockets: SocketExecutor(), secureStore: secure,
+            store: store ?? self.store)
         return try CoreRuntime(config: config, executors: executors, now: { now })
     }
 

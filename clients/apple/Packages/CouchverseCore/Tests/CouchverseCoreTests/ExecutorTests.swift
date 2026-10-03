@@ -117,7 +117,8 @@ struct TimerExecutorTests {
         let timers = TimerExecutor()
         let fired = Counter()
         timers.start(id: 1, request: TimerRequest(afterMs: 10, repeat: false)) { fired.add() }
-        try await Task.sleep(for: .milliseconds(80))
+        try await fired.reach(1)
+        try await Task.sleep(for: .milliseconds(50))
         #expect(fired.value == 1)
         #expect(timers.activeCount == 0)
     }
@@ -126,7 +127,7 @@ struct TimerExecutorTests {
         let timers = TimerExecutor()
         let fired = Counter()
         timers.start(id: 7, request: TimerRequest(afterMs: 10, repeat: true)) { fired.add() }
-        try await Task.sleep(for: .milliseconds(75))
+        try await fired.reach(3)
         timers.cancel(id: 7)
         let atCancel = fired.value
         #expect(atCancel >= 3)
@@ -146,9 +147,47 @@ struct TimerExecutorTests {
 }
 
 @MainActor
+struct SocketExecutorTests {
+    private func firstOutputs(_ url: String) async -> [EffectOutput] {
+        let sockets = SocketExecutor()
+        return await withCheckedContinuation { continuation in
+            var outputs: [EffectOutput] = []
+            sockets.open(id: 1, request: SocketOpen(url: url, headers: [])) { output in
+                outputs.append(output)
+                if case .socketClosed = output {
+                    continuation.resume(returning: outputs)
+                }
+            }
+        }
+    }
+
+    @Test func anUnreachableSocketClosesAbnormallyWithoutOpening() async {
+        // nothing listens on the discard port
+        let outputs = await firstOutputs("ws://127.0.0.1:9/couch")
+        #expect(outputs == [.socketClosed(SocketClosed(code: 1006, reason: nil))])
+    }
+
+    @Test func aMalformedUrlClosesAtOnce() async {
+        let outputs = await firstOutputs("")
+        guard case .socketClosed(let closed) = outputs.first else {
+            Issue.record("expected a close, got \(outputs)")
+            return
+        }
+        #expect(closed.code == 1006)
+    }
+}
+
+@MainActor
 final class Counter {
     private(set) var value = 0
     func add() { value += 1 }
+
+    /// Waits for `count` (generously: a busy CI machine runs timers late, never early).
+    func reach(_ count: Int) async throws {
+        for _ in 0..<300 where value < count {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
 }
 
 struct StoreTests {

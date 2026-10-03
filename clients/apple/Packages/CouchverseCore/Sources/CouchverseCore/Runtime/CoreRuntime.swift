@@ -180,6 +180,17 @@ public final class CoreRuntime {
             track {
                 self.resolve(id, .httpFailed(HttpFailure(kind: .other, message: "uploads are not supported yet")))
             }
+        case .socket(.open(let open)):
+            live.executors.sockets.open(id: id, request: open) { [weak self] output in
+                self?.resolve(id, output)
+            }
+        case .socket(.send(let send)):
+            live.executors.sockets.send(socket: send.socket, text: send.text)
+        case .socket(.close(let socket)):
+            live.executors.sockets.close(socket: socket.id)
+        case .player:
+            // nothing starts playback before the player slice (Phase 6) adds AVPlayer
+            break
         }
     }
 

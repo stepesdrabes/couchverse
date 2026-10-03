@@ -630,12 +630,13 @@ navigation, nothing else.
   (`Onboarding`, `Accounts`, `Settings`, `Home`) and `CouchverseRoot`, the view both apps show.
 - **Runtime**: `CoreRuntime` (`@Observable`, main actor) is the only stateful service. It stamps
   `nowMs` from the continuous clock, runs one executor per effect (`HTTPExecutor` over an
-  ephemeral URLSession, `TimerExecutor`, `KeychainStore` with `AfterFirstUnlock` for tokens,
-  `FileStore` in Application Support on iOS and `DefaultsStore` on tvOS, whose only guaranteed
-  storage is user defaults), re-reads just the surfaces a `Render` names and publishes them as
-  properties, decoded off the main actor (each surface keeps the generation it was published at,
-  so a late batch never wins). `upload` effects fail as `httpFailed` until profile editing adds
-  image picking. Screens read `core.<surface>` and `core.send(event)`; their own state is
+  ephemeral URLSession, `TimerExecutor`, `SocketExecutor` over `URLSessionWebSocketTask`,
+  `KeychainStore` with `AfterFirstUnlock` for tokens, `FileStore` in Application Support on iOS
+  and `DefaultsStore` on tvOS, whose only guaranteed storage is user defaults), re-reads just the
+  surfaces a `Render` names and publishes them as properties, decoded off the main actor (each
+  surface keeps the generation it was published at, so a late batch never wins). Until their
+  slices land, `upload` effects fail as `httpFailed` (no image picking yet) and `player` commands
+  are ignored (nothing starts playback yet). Screens read `core.<surface>` and `core.send(event)`; their own state is
   presentation only (focus, sheets, a field being typed). `CoreRuntime(fixture:)` shows fixed
   view models for previews and snapshots and records what it is sent. UI tests launch with
   `-uiTesting` (in-memory stores: a fresh install every launch).

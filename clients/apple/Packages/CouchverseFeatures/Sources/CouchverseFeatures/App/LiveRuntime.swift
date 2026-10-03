@@ -14,6 +14,7 @@ public enum LiveRuntime {
         let executors = Executors(
             http: HTTPExecutor(userAgent: userAgent),
             timers: TimerExecutor(),
+            sockets: SocketExecutor(),
             secureStore: ephemeral ? MemoryStore() : KeychainStore(service: "\(bundle).tokens"),
             store: ephemeral ? MemoryStore() : persistentStore(bundle))
         let config = CoreConfig(

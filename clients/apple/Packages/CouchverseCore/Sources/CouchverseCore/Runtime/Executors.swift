@@ -13,6 +13,15 @@ public protocol TimerScheduling: AnyObject {
     func cancel(id: UInt64)
 }
 
+/// Runs the core's `Socket` effects on the main actor; `deliver` resolves the open effect, once
+/// per output, ending with `socketClosed`.
+@MainActor
+public protocol SocketExecuting: AnyObject {
+    func open(id: UInt64, request: SocketOpen, deliver: @escaping @MainActor (EffectOutput) -> Void)
+    func send(socket: UInt64, text: String)
+    func close(socket: UInt64)
+}
+
 /// Backs the core's `Store` and `SecureStore` effects. Calls arrive on one serial queue per
 /// store, in the order the core issued them.
 public protocol KeyValueStore: Sendable {
@@ -25,17 +34,20 @@ public protocol KeyValueStore: Sendable {
 public struct Executors {
     public var http: any HTTPExecuting
     public var timers: any TimerScheduling
+    public var sockets: any SocketExecuting
     public var secureStore: any KeyValueStore
     public var store: any KeyValueStore
 
     public init(
         http: any HTTPExecuting,
         timers: any TimerScheduling,
+        sockets: any SocketExecuting,
         secureStore: any KeyValueStore,
         store: any KeyValueStore
     ) {
         self.http = http
         self.timers = timers
+        self.sockets = sockets
         self.secureStore = secureStore
         self.store = store
     }
