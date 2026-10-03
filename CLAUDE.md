@@ -279,8 +279,8 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   (every tier validated and played in AVFoundation on macOS), `e2e.yml` (Playwright in
   Chromium against a Postgres service; traces uploaded on failure), `web.yml` (wasm core, check, lint, vitest, build),
   `contract.yml` (xtask fmt/clippy/tests, `make contract`, no drift), `core.yml` (the wasm package
-  built and checked against its budget), `apple.yml` (lint, the package tests and the apps
-  built for the simulators), `android.yml` (`make core-android`, the core's JVM tests, the
+  built and checked against its budget), `apple.yml` (lint and the core package's host tests;
+  the simulator suites and UI tests where the runner has Xcode 27), `android.yml` (`make core-android`, the core's JVM tests, the
   Gradle modules assembled), `repo.yml` (`scripts/check-no-emdash.sh`), `docker.yml` (the
   image builds) and `release.yml` (multi-arch image to GHCR on a `v*` tag).
 - Sample media: `make sample-media` (lavfi-generated clips covering every tier; Dolby Vision
