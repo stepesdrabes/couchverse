@@ -4,6 +4,7 @@
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import * as catalog from '$lib/features/catalog/api';
+	import { titleCache } from '$lib/features/catalog/cache.svelte';
 	import type { Episode, MediaFile } from '$lib/features/catalog/types';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -15,7 +16,9 @@
 
 	let { data }: { data: Awaited<ReturnType<typeof catalog.getTitle>> } = $props();
 
-	let listed = $state(data.inWatchlist);
+	// The first copy painted may be a stale cached one, so this follows the cache (seeding
+	// a $state from it would never catch up), and a toggle writes its result there too.
+	const listed = $derived(data.inWatchlist);
 	let seasonValue = $state('');
 
 	const poster = $derived(data.artwork.find((a) => a.kind === 'poster'));
@@ -74,10 +77,11 @@
 	}
 
 	async function toggleList() {
+		const next = !listed;
 		try {
-			if (listed) await catalog.removeFromList(data.title.id);
-			else await catalog.addToList(data.title.id);
-			listed = !listed;
+			if (next) await catalog.addToList(data.title.id);
+			else await catalog.removeFromList(data.title.id);
+			titleCache.set(data.title.slug, { ...data, inWatchlist: next });
 		} catch {
 			toast.error(m.catalog_list_update_failed());
 		}
