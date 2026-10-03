@@ -23,7 +23,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Select the newest Xcode
-        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          major=$(xcodebuild -version | awk 'NR == 1 { split($2, v, "."); print v[1] }')
+          # the apps target iOS/tvOS 27; an image without Xcode 27 runs what it can
+          if [ "$major" -ge 27 ]; then
+            echo "FULL=1" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Xcode $major on this runner: the iOS/tvOS 27 suites need Xcode 27 and run locally (make apple-test apple-uitest)"
+          fi
       - name: Lint Swift
         run: make apple-lint
       - uses: dtolnay/rust-toolchain@stable
@@ -34,8 +42,12 @@ jobs:
           workspaces: core
       - name: Build the core
         run: make core-apple
-      # the apps target iOS/tvOS 27; a runner image can carry the Xcode without its runtimes
+      - name: Core package tests (host)
+        if: env.FULL != '1'
+        run: cd clients/apple/Packages/CouchverseCore && swift test
+      # a runner image can carry Xcode 27 without its runtimes
       - name: Simulator runtimes
+        if: env.FULL == '1'
         run: |
           for platform in iOS tvOS; do
             have=$(xcrun simctl list runtimes -j | jq --arg p "$platform" \
@@ -44,6 +56,7 @@ jobs:
           done
           xcrun simctl list runtimes
       - name: Create simulators
+        if: env.FULL == '1'
         run: |
           runtime() { xcrun simctl list runtimes -j | jq -r --arg p "$1" \
             '[.runtimes[] | select(.platform == $p and .isAvailable and (.version | startswith("27")))] | last | .identifier'; }
@@ -53,11 +66,13 @@ jobs:
           echo "IOS_SIM=CI iPhone" >> "$GITHUB_ENV"
           echo "TV_SIM=CI Apple TV" >> "$GITHUB_ENV"
       - name: Package tests
+        if: env.FULL == '1'
         run: make apple-test
         env:
           # snapshot failures are written here (xcodebuild strips the prefix for the test runner)
           TEST_RUNNER_SNAPSHOT_ARTIFACTS: ${{ runner.temp }}/snapshots
       - name: Smoke UI tests
+        if: env.FULL == '1'
         run: make apple-uitest
       - name: Keep failed snapshots
         if: failure()
