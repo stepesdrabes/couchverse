@@ -11,8 +11,9 @@ const config = {
 	},
 	kit: {
 		// Static SPA build: the Go binary embeds `build/` and serves index.html
-		// as the fallback for every non-/api route.
-		adapter: adapter({ fallback: 'index.html' })
+		// as the fallback for every non-/api route, and the precompressed .br/.gz
+		// siblings to clients that accept them (the wasm core shrinks to a third).
+		adapter: adapter({ fallback: 'index.html', precompress: true })
 	}
 };
 

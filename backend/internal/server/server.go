@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
+	"io"
 	"io/fs"
 	"log/slog"
+	"mime"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -207,30 +210,76 @@ func spaHandler() http.HandlerFunc {
 	if err != nil {
 		panic(err)
 	}
-	fileServer := http.FileServer(http.FS(dist))
+	return serveSPA(dist)
+}
 
+// encodings are the precompressed siblings the web build writes, best first.
+var encodings = []struct{ name, suffix string }{{"br", ".br"}, {"gzip", ".gz"}}
+
+func serveSPA(dist fs.FS) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/")
-		if path != "" && path != "index.html" {
-			if f, err := dist.Open(path); err == nil {
-				f.Close()
-				if strings.HasPrefix(path, "_app/immutable/") {
-					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-				}
-				fileServer.ServeHTTP(w, r)
-				return
-			}
+		if path == "" || path == "index.html" || !exists(dist, path) {
+			// client-side routes resolve in the app; the shell itself is never cached
+			w.Header().Set("Cache-Control", "no-cache")
+			path = "index.html"
+		} else if strings.HasPrefix(path, "_app/immutable/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
-
-		index, err := fs.ReadFile(dist, "index.html")
-		if err != nil {
-			http.Error(w, "web client not built - run `make build`", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Write(index)
+		serveFile(w, r, dist, path)
 	}
+}
+
+// serveFile writes a file, or its precompressed sibling when the client accepts that
+// encoding; the content type follows the original name either way.
+func serveFile(w http.ResponseWriter, r *http.Request, dist fs.FS, path string) {
+	w.Header().Add("Vary", "Accept-Encoding")
+	name := path
+	for _, enc := range encodings {
+		if accepts(r.Header.Get("Accept-Encoding"), enc.name) && exists(dist, path+enc.suffix) {
+			w.Header().Set("Content-Encoding", enc.name)
+			name = path + enc.suffix
+			break
+		}
+	}
+	f, err := dist.Open(name)
+	if err != nil {
+		http.Error(w, "web client not built - run `make build`", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		http.Error(w, "web client not built - run `make build`", http.StatusInternalServerError)
+		return
+	}
+	if ct := mime.TypeByExtension(filepath.Ext(path)); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	content, ok := f.(io.ReadSeeker)
+	if !ok {
+		http.Error(w, "unseekable asset", http.StatusInternalServerError)
+		return
+	}
+	http.ServeContent(w, r, path, info.ModTime(), content)
+}
+
+func exists(dist fs.FS, path string) bool {
+	info, err := fs.Stat(dist, path)
+	return err == nil && !info.IsDir()
+}
+
+// accepts reports whether an Accept-Encoding header allows enc (a q of 0 refuses it).
+func accepts(header, enc string) bool {
+	for _, part := range strings.Split(header, ",") {
+		name, params, _ := strings.Cut(strings.TrimSpace(part), ";")
+		if !strings.EqualFold(strings.TrimSpace(name), enc) {
+			continue
+		}
+		q := strings.ReplaceAll(strings.TrimSpace(params), " ", "")
+		return q != "q=0" && q != "q=0.0" && q != "q=0.00" && q != "q=0.000"
+	}
+	return false
 }
 
 func requestLogger(next http.Handler) http.Handler {

@@ -186,7 +186,8 @@ A feature owns its HTTP handlers, domain logic and SQL together.
 
 - `backend/` - Go (chi, pgx/v5, goose migrations embedded in `backend/migrations/`). Module
   name `couchverse`. The built SPA is embedded from `backend/web/dist` (gitignored,
-  populated by `make build`/Docker).
+  populated by `make build`/Docker) with precompressed `.br`/`.gz` siblings, which the SPA
+  handler serves by `Accept-Encoding`.
 - `clients/web/` - SvelteKit (Svelte 5 runes), static SPA (`adapter-static`, `ssr=false`,
   fallback index.html). **bits-ui** primitives styled with **Tailwind v4** (colour and radius
   tokens come from the generated `src/lib/generated/tokens.css`, imported by `src/app.css`,
