@@ -188,7 +188,7 @@ fn leaderboards_sort_by_the_chosen_metric_without_refetching() {
         })
     };
     let board = json!({
-        "period": "week", "hidden": false, "total": 3, "me": null,
+        "period": "week", "hidden": false, "total": 3, "me": row("b", 200, 30, 0, true),
         "rows": [row("a", 300, 10, 0, false), row("b", 200, 30, 0, true), row("c", 100, 20, 0, false)],
     });
     let xp = Surface::Leaderboard(LeaderboardKey { period: Period::Week, metric: Metric::Xp });
@@ -198,6 +198,8 @@ fn leaderboards_sort_by_the_chosen_metric_without_refetching() {
     let view: LeaderboardView = shell.view(&xp);
     let names: Vec<&str> = view.rows.iter().map(|r| r.username.as_str()).collect();
     assert_eq!((names, view.my_position, view.podium), (vec!["a", "b", "c"], Some(2), true));
+    let me = view.me.expect("your own row");
+    assert_eq!((me.position, me.value, view.total), (2, 200, 3));
 
     let watch =
         Surface::Leaderboard(LeaderboardKey { period: Period::Week, metric: Metric::Watch });
@@ -214,6 +216,19 @@ fn leaderboards_sort_by_the_chosen_metric_without_refetching() {
         Surface::Leaderboard(LeaderboardKey { period: Period::Week, metric: Metric::Achievements });
     let view: LeaderboardView = shell.view(&achievements);
     assert!(view.all_zero && !view.podium);
+
+    // a viewer who opted out still sees their own row, without a place
+    let all = Surface::Leaderboard(LeaderboardKey { period: Period::All, metric: Metric::Xp });
+    shell.send(Event::ScreenOpened(all.clone()));
+    let hidden = json!({
+        "period": "all", "hidden": true, "total": 2, "me": row("b", 200, 30, 0, true),
+        "rows": [row("a", 300, 10, 0, false), row("c", 100, 20, 0, false)],
+    });
+    shell.respond("GET", &format!("{API}/leaderboard?period=all"), 200, hidden);
+    let view: LeaderboardView = shell.view(&all);
+    let me = view.me.expect("your own row");
+    assert!(view.hidden && view.my_position.is_none());
+    assert_eq!((me.position, me.value, view.total), (0, 200, 2));
 }
 
 #[test]

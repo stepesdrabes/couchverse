@@ -266,6 +266,11 @@ pub struct LeaderboardView {
     /// The viewer's place on this board, when listed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub my_position: Option<u32>,
+    /// The viewer's own row, listed or not; its `position` is 0 while they are hidden.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub me: Option<LeaderRow>,
+    /// How many members the board ranks.
+    pub total: u32,
     /// The top three earned something, so a podium makes sense.
     pub podium: bool,
     /// Nobody has anything on this metric yet.
@@ -662,10 +667,16 @@ impl Ranks {
         let board = slot.and_then(|s| s.value.as_ref());
         let rows = board.map(|b| ranked(&b.rows, key.metric, images)).unwrap_or_default();
         let top = rows.first().map_or(0, |r| r.value);
+        let my_position = rows.iter().find(|r| r.is_self).map(|r| r.position);
         LeaderboardView {
             key,
             status: slot.map_or(LoadStatus::Idle, Slot::status),
-            my_position: rows.iter().find(|r| r.is_self).map(|r| r.position),
+            my_position,
+            me: board.and_then(|b| b.me.as_ref()).map(|me| LeaderRow {
+                position: my_position.unwrap_or(0),
+                ..leader_row(me, key.metric, images)
+            }),
+            total: board.map_or(0, |b| u32::try_from(b.total).unwrap_or(0)),
             podium: rows.len() >= 3 && top > 0,
             all_zero: !rows.is_empty() && top == 0,
             hidden: board.is_some_and(|b| b.hidden),
@@ -714,32 +725,39 @@ fn card(a: &AchievementProgress) -> AchievementCard {
     }
 }
 
-/// Sorted by the metric, ties keeping the server's order.
-fn ranked(rows: &[LeaderboardRow], metric: Metric, images: &Images) -> Vec<LeaderRow> {
-    let value = |r: &LeaderboardRow| match metric {
+fn metric_value(r: &LeaderboardRow, metric: Metric) -> U53 {
+    match metric {
         Metric::Xp => unsigned(r.xp),
         Metric::Watch => unsigned(r.watch_seconds),
         Metric::Achievements => unsigned(r.achievements),
-    };
+    }
+}
+
+/// Sorted by the metric, ties keeping the server's order.
+fn ranked(rows: &[LeaderboardRow], metric: Metric, images: &Images) -> Vec<LeaderRow> {
     let mut sorted: Vec<&LeaderboardRow> = rows.iter().collect();
-    sorted.sort_by_key(|r| std::cmp::Reverse(value(r)));
+    sorted.sort_by_key(|r| std::cmp::Reverse(metric_value(r, metric)));
     sorted
         .into_iter()
         .zip(1..)
-        .map(|(r, position)| LeaderRow {
-            position,
-            username: r.username.clone(),
-            display_name: r.display_name.clone(),
-            avatar: r.avatar_id.as_ref().map(|id| images.image(id, None, Size::Small, None)),
-            level: u32::try_from(r.level).unwrap_or(0),
-            tier_code: r.tier_code.as_str().to_string(),
-            value: value(r),
-            xp: unsigned(r.xp),
-            watch_seconds: unsigned(r.watch_seconds),
-            achievements: unsigned(r.achievements),
-            is_self: r.is_self,
-        })
+        .map(|(r, position)| LeaderRow { position, ..leader_row(r, metric, images) })
         .collect()
+}
+
+fn leader_row(r: &LeaderboardRow, metric: Metric, images: &Images) -> LeaderRow {
+    LeaderRow {
+        position: 0,
+        username: r.username.clone(),
+        display_name: r.display_name.clone(),
+        avatar: r.avatar_id.as_ref().map(|id| images.image(id, None, Size::Small, None)),
+        level: u32::try_from(r.level).unwrap_or(0),
+        tier_code: r.tier_code.as_str().to_string(),
+        value: metric_value(r, metric),
+        xp: unsigned(r.xp),
+        watch_seconds: unsigned(r.watch_seconds),
+        achievements: unsigned(r.achievements),
+        is_self: r.is_self,
+    }
 }
 
 fn hours(p: &UserProfile) -> Vec<U53> {

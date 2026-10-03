@@ -785,6 +785,10 @@ export interface LeaderboardView {
 	rows: LeaderRow[];
 	/** The viewer's place on this board, when listed. */
 	myPosition?: number;
+	/** The viewer's own row, listed or not; its `position` is 0 while they are hidden. */
+	me?: LeaderRow;
+	/** How many members the board ranks. */
+	total: number;
 	/** The top three earned something, so a podium makes sense. */
 	podium: boolean;
 	/** Nobody has anything on this metric yet. */

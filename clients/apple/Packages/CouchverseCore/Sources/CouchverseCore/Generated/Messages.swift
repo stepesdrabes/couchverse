@@ -1379,6 +1379,10 @@ public struct LeaderboardView: Codable, Sendable, Hashable {
 	public let rows: [LeaderRow]
 	/// The viewer's place on this board, when listed.
 	public let myPosition: UInt32?
+	/// The viewer's own row, listed or not; its `position` is 0 while they are hidden.
+	public let me: LeaderRow?
+	/// How many members the board ranks.
+	public let total: UInt32
 	/// The top three earned something, so a podium makes sense.
 	public let podium: Bool
 	/// Nobody has anything on this metric yet.
@@ -1387,11 +1391,13 @@ public struct LeaderboardView: Codable, Sendable, Hashable {
 	public let hidden: Bool
 	public let problem: Problem?
 
-	public init(key: LeaderboardKey, status: LoadStatus, rows: [LeaderRow], myPosition: UInt32? = nil, podium: Bool, allZero: Bool, hidden: Bool, problem: Problem? = nil) {
+	public init(key: LeaderboardKey, status: LoadStatus, rows: [LeaderRow], myPosition: UInt32? = nil, me: LeaderRow? = nil, total: UInt32, podium: Bool, allZero: Bool, hidden: Bool, problem: Problem? = nil) {
 		self.key = key
 		self.status = status
 		self.rows = rows
 		self.myPosition = myPosition
+		self.me = me
+		self.total = total
 		self.podium = podium
 		self.allZero = allZero
 		self.hidden = hidden

@@ -986,6 +986,10 @@ data class LeaderboardView (
 	val rows: List<LeaderRow>,
 	/// The viewer's place on this board, when listed.
 	val myPosition: UInt? = null,
+	/// The viewer's own row, listed or not; its `position` is 0 while they are hidden.
+	val me: LeaderRow? = null,
+	/// How many members the board ranks.
+	val total: UInt,
 	/// The top three earned something, so a podium makes sense.
 	val podium: Boolean,
 	/// Nobody has anything on this metric yet.
