@@ -57,8 +57,10 @@ import io.stepes.couchverse.design.theme.sharedAvatar
 import io.stepes.couchverse.navigation.Account
 import io.stepes.couchverse.navigation.Genres
 import io.stepes.couchverse.navigation.Home
+import io.stepes.couchverse.navigation.Leaderboard
 import io.stepes.couchverse.navigation.Movies
 import io.stepes.couchverse.navigation.MyList
+import io.stepes.couchverse.navigation.Profile
 import io.stepes.couchverse.navigation.Search
 import io.stepes.couchverse.navigation.Series
 import io.stepes.couchverse.settings.SettingsRoute
@@ -163,6 +165,8 @@ internal fun TvMain(nav: NavHostController, catalog: CatalogNavigation, accountI
                         onDevices = root.onDevices,
                         onApprove = root.onApprove,
                         onJoinCouch = root.onJoinCouch,
+                        onProfile = { nav.navigate(Profile(it)) },
+                        onLeaderboard = { nav.navigate(Leaderboard) },
                     )
                 }
                 detailScreens(nav, catalog)

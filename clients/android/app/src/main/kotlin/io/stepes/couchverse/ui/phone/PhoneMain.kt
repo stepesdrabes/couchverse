@@ -42,7 +42,9 @@ import io.stepes.couchverse.navigation.Account
 import io.stepes.couchverse.navigation.Browse
 import io.stepes.couchverse.navigation.Downloads
 import io.stepes.couchverse.navigation.Home
+import io.stepes.couchverse.navigation.Leaderboard
 import io.stepes.couchverse.navigation.MyList
+import io.stepes.couchverse.navigation.Profile
 import io.stepes.couchverse.navigation.Search
 import io.stepes.couchverse.settings.SettingsRoute
 import io.stepes.couchverse.ui.Page
@@ -129,6 +131,8 @@ internal fun PhoneMain(nav: NavHostController, catalog: CatalogNavigation, accou
                     onApprove = root.onApprove,
                     onDownloads = { nav.navigate(Downloads) },
                     onJoinCouch = root.onJoinCouch,
+                    onProfile = { nav.navigate(Profile(it)) },
+                    onLeaderboard = { nav.navigate(Leaderboard) },
                 )
             }
             composable<Downloads> { DownloadsRoute(onPlay = root.onPlayDownload, onBack = { nav.popBackStack() }) }

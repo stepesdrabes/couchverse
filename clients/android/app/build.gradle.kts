@@ -58,6 +58,7 @@ dependencies {
     implementation(project(":feature-couch"))
     implementation(project(":feature-downloads"))
     implementation(project(":feature-playback"))
+    implementation(project(":feature-ranks"))
     implementation(project(":feature-settings"))
 
     implementation(libs.androidx.core.ktx)

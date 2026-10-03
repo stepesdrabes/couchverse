@@ -31,6 +31,7 @@ include(
     ":feature-couch",
     ":feature-downloads",
     ":feature-playback",
+    ":feature-ranks",
     ":feature-settings",
     ":testing",
 )

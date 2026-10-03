@@ -90,6 +90,7 @@ import io.stepes.couchverse.playback.LocalPlaybackEngine
 import io.stepes.couchverse.playback.PlaybackEngine
 import io.stepes.couchverse.playback.PlayerRoute
 import io.stepes.couchverse.playback.PlayerStart
+import io.stepes.couchverse.ranks.CelebrationRoute
 import io.stepes.couchverse.settings.ApproveRoute
 import io.stepes.couchverse.settings.DevicesRoute
 import kotlinx.coroutines.delay
@@ -110,7 +111,10 @@ fun CouchverseRoot(runtime: CoreRuntime, playback: PlaybackEngine?, tv: Boolean,
                 Box(Modifier.fillMaxSize().background(Tokens.Palette.bg)) {
                     RootNavigation(links, version)
                     Notices()
-                    if (session?.status == LoadStatus.Loaded) NotificationPermission()
+                    if (session?.status == LoadStatus.Loaded) {
+                        NotificationPermission()
+                        CelebrationRoute()
+                    }
                 }
             }
         }

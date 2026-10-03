@@ -25,7 +25,13 @@ import io.stepes.couchverse.core.TitleKind
 import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.theme.LocalIsTv
 import io.stepes.couchverse.navigation.Genre
+import io.stepes.couchverse.navigation.Leaderboard
+import io.stepes.couchverse.navigation.Profile
+import io.stepes.couchverse.navigation.ProfileEditor
 import io.stepes.couchverse.navigation.Title
+import io.stepes.couchverse.ranks.LeaderboardRoute
+import io.stepes.couchverse.ranks.ProfileEditorRoute
+import io.stepes.couchverse.ranks.ProfileRoute
 import io.stepes.couchverse.ui.phone.PhoneMain
 import io.stepes.couchverse.ui.tv.TvMain
 
@@ -52,9 +58,19 @@ fun MainScreen(accountId: String, version: String, openTitle: String?, onTitleOp
     if (LocalIsTv.current) TvMain(nav, catalog, accountId, version, root) else PhoneMain(nav, catalog, accountId, version, root)
 }
 
-/** The screens every idiom reaches from anywhere: a title and a genre. */
+/** The screens every idiom reaches from anywhere: a title, a genre, profiles and the leaderboard. */
 fun NavGraphBuilder.detailScreens(nav: NavHostController, catalog: CatalogNavigation) {
     val back: () -> Unit = { nav.popBackStack() }
+    composable<Profile> { entry ->
+        ProfileRoute(
+            username = entry.toRoute<Profile>().username,
+            onEdit = { nav.navigate(ProfileEditor) },
+            onOpenTitle = catalog.openTitle,
+            onBack = back,
+        )
+    }
+    composable<Leaderboard> { LeaderboardRoute(onProfile = { nav.navigate(Profile(it)) }, onBack = back) }
+    composable<ProfileEditor> { ProfileEditorRoute(onBack = back) }
     composable<Title> { entry -> TitleRoute(entry.toRoute<Title>().slug, catalog, onBack = back) }
     composable<Genre> { entry ->
         val genre = entry.toRoute<Genre>()

@@ -78,6 +78,15 @@ data class Title(val slug: String)
 @Serializable
 data class Genre(val name: String, val label: String)
 
+@Serializable
+data class Profile(val username: String)
+
+@Serializable
+object Leaderboard
+
+@Serializable
+object ProfileEditor
+
 // The player, full screen above the main screens.
 
 @Serializable
