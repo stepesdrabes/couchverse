@@ -1,7 +1,7 @@
 use serde_json::json;
 
 use super::*;
-use crate::messages::{PlayerReport, PlayerSource};
+use crate::messages::{AudioRendition, PlayerReport, PlayerSource};
 use crate::modules::catalog::{PlayKind, PlayTarget};
 use crate::modules::playback::{PlayerView, QualityChoice, QualityKind, TrackChoice};
 
@@ -188,12 +188,21 @@ fn qualities_and_audio_files_reload_where_playback_was() {
         again["audio"] = json!([
             { "id": "a-en", "lang": "en", "label": "English", "default": true, "source": "embedded" },
             { "id": "a-cs", "lang": "cs", "label": "Čeština", "default": false, "source": "embedded" },
+            { "id": "a-dts", "lang": "en", "label": "DTS", "default": false, "source": "embedded" },
         ]);
         again
     });
     assert_eq!(shell.view::<PlayerView>(&Surface::Player).audio_selected.as_deref(), Some("a-cs"));
     shell.send(Event::AudioChosen(TrackChoice { id: Some("a-en".into()) }));
-    assert!(matches!(shell.player.last(), Some(PlayerCommand::SelectAudio(r)) if r.lang == "en"));
+    let rendition = |r: &AudioRendition| (r.lang.clone(), r.index);
+    assert!(
+        matches!(shell.player.last(), Some(PlayerCommand::SelectAudio(r)) if rendition(r) == ("en".into(), Some(0)))
+    );
+    // a second track in the same language is told apart by its place
+    shell.send(Event::AudioChosen(TrackChoice { id: Some("a-dts".into()) }));
+    assert!(
+        matches!(shell.player.last(), Some(PlayerCommand::SelectAudio(r)) if rendition(r) == ("en".into(), Some(2)))
+    );
 }
 
 #[test]

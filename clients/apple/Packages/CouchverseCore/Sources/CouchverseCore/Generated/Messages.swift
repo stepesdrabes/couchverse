@@ -158,9 +158,13 @@ public struct AppView: Codable, Sendable, Hashable {
 
 public struct AudioRendition: Codable, Sendable, Hashable {
 	public let lang: String
+	/// Its place among the stream's renditions, in the payload's order: two can share a
+	/// language (a film's own track and a commentary, or two codecs).
+	public let index: UInt32?
 
-	public init(lang: String) {
+	public init(lang: String, index: UInt32? = nil) {
 		self.lang = lang
+		self.index = index
 	}
 }
 

@@ -105,6 +105,11 @@ export interface AppView {
 
 export interface AudioRendition {
 	lang: string;
+	/**
+	 * Its place among the stream's renditions, in the payload's order: two can share a
+	 * language (a film's own track and a commentary, or two codecs).
+	 */
+	index?: number;
 }
 
 export enum AudioCodec {

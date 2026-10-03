@@ -125,7 +125,10 @@ data class AppView (
 
 @Serializable
 data class AudioRendition (
-	val lang: String
+	val lang: String,
+	/// Its place among the stream's renditions, in the payload's order: two can share a
+	/// language (a film's own track and a commentary, or two codecs).
+	val index: UInt? = null
 )
 
 @Serializable

@@ -423,6 +423,10 @@ pub struct PlayerSeek {
 #[serde(rename_all = "camelCase")]
 pub struct AudioRendition {
     pub lang: String,
+    /// Its place among the stream's renditions, in the payload's order: two can share a
+    /// language (a film's own track and a commentary, or two codecs).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index: Option<u32>,
 }
 
 #[typeshare]

@@ -648,7 +648,15 @@ impl Playback {
         self.prefs.audio_lang = Some(track.lang.clone());
         if track.source == PlaybackAudioTrackSource::Embedded {
             // a rendition inside the stream switches in place
-            ctx.player(PlayerCommand::SelectAudio(AudioRendition { lang: track.lang }));
+            let index = session.info.as_ref().and_then(|i| {
+                i.audio
+                    .iter()
+                    .flatten()
+                    .filter(|t| t.source == PlaybackAudioTrackSource::Embedded)
+                    .position(|t| t.id == track.id)
+                    .and_then(|p| u32::try_from(p).ok())
+            });
+            ctx.player(PlayerCommand::SelectAudio(AudioRendition { lang: track.lang, index }));
         } else {
             // another language is another file: reload it where playback was
             let (start, autoplay) = (session.position, session.playing);
