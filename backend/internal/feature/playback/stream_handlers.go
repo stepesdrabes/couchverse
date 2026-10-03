@@ -432,11 +432,11 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, viewer View
 	// alternate-audio siblings (model B): a language switch in the player that
 	// swaps the whole file. Only populated when there is more than one file.
 	if siblings, serr := h.catalog.AudioSiblings(ctx, mf.TitleID, mf.EpisodeID, mf.ID); serr == nil && len(siblings) > 0 {
-		info.Audio = append(info.Audio, h.fileTrack(ctx, mf, info.StreamURL, info.Mode, true))
+		info.Audio = append(info.Audio, fileTrack(mf, info.StreamURL, info.Mode, true))
 		for i := range siblings {
 			sg := h.mediaGrant(siblings[i].ID, viewer)
 			si := h.siblingPlayback(ctx, &siblings[i], profile, sg)
-			info.Audio = append(info.Audio, h.fileTrack(ctx, &siblings[i], si.StreamURL, si.Mode, false))
+			info.Audio = append(info.Audio, fileTrack(&siblings[i], si.StreamURL, si.Mode, false))
 		}
 	} else if len(tracks) >= 2 {
 		// embedded tracks (model A) switch inside the HLS audio group
@@ -485,7 +485,8 @@ func (h *Stream) siblingPlayback(ctx context.Context, mf *media.MediaFile, profi
 	return info
 }
 
-func (h *Stream) fileTrack(_ context.Context, mf *media.MediaFile, url, mode string, isDefault bool) PlaybackAudioTrack {
+// fileTrack is a model-B language: its file's direct stream or HLS playlist.
+func fileTrack(mf *media.MediaFile, url, mode string, isDefault bool) PlaybackAudioTrack {
 	t := PlaybackAudioTrack{ID: mf.ID, Lang: mf.AudioLang, Label: audioLabel(mf.AudioLang), Default: isDefault, Source: "file"}
 	switch mode {
 	case "direct":
