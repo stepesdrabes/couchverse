@@ -61,7 +61,7 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   - **Ranks** (XP, achievements, public profiles, leaderboards) is a near-leaf: it imports only
     `auth` and `catalog`'s `Localize`/`GenreLabel`, reaching every other table by SQL join, and
     **nothing imports it**. That is what lets `couch` report per-user counters through its own
-    `CouchStatsRecorder` interface (satisfied by `*ranks.Store`, wired in `main.go`, mirroring
+    `CouchStatsRecorder` interface (satisfied by `*ranks.Store`, wired in `internal/app`, mirroring
     `CouchWatchRecorder`). Do **not** put rank on `/auth/me` - `ranks -> auth` already exists, so
     that would be a cycle; the nav badge reads `GET /me/stats`. Evaluation is **pull-based**:
     `POST /me/achievements/check` is the only writer of `user_achievements` and is throttled per

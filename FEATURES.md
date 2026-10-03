@@ -251,7 +251,8 @@ skipped and edge pixels un-premultiplied, so a logo accents to its own colour).
 The Postgres-backed job queue (no Redis): enqueue/claim with `FOR UPDATE SKIP LOCKED`,
 per-type concurrency slots, retries with backoff, progress reporting, admin
 cancellation, and the in-process worker runner. Other features register handlers in
-`cmd/couchverse/main.go`; the hourly `cleanup` handler lives in `cmd/` too.
+`internal/app` (`App.Start`); the hourly `cleanup` handler lives there too
+(`internal/app/cleanup.go`).
 - Endpoints (admin): `/admin/jobs` (supports `?mediaFileId=` and returns a `subject`
   per job - the title/episode/track it works on, resolved by SQL joins from the
   payload), `/admin/jobs/{id}/retry|cancel`.
@@ -980,14 +981,14 @@ Notes that keep it acyclic:
   overlap, intentional.
 - `couch` sits at the top: it imports `playback` (to reuse `BuildPlayback`) and
   `auth`, reaches analytics and ranks only through the `CouchWatchRecorder`/
-  `CouchStatsRecorder` interfaces it declares (wired in `main.go`), and nothing
+  `CouchStatsRecorder` interfaces it declares (wired in `internal/app`), and nothing
   imports it. The anonymous-stream guard is inverted into `internal/server` so `playback`
   never depends on `couch`.
 - `ranks` reads a dozen other features' tables but imports only `auth` (for
   `UserFrom`) and `catalog` (for the exported `Localize`/`GenreLabel`); everything
   else is a SQL join. **Nothing imports `ranks`**, which is what makes the couch
   counters safe: `couch` declares the `CouchStatsRecorder` interface itself and
-  `main.go` hands it `*ranks.Store`. For the same reason the nav rank badge reads
+  `internal/app` hands it `*ranks.Store`. For the same reason the nav rank badge reads
   `GET /me/stats` and is deliberately **not** added to `/auth/me` - that would need
   `auth -> ranks`, and `ranks -> auth` already exists.
 
