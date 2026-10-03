@@ -4,7 +4,8 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
-	import * as authApi from '../api';
+	import { core } from '$lib/core';
+	import { LoadStatus, type ProfileEditorView, type Surface } from '$lib/generated/core';
 	import * as m from '$lib/paraglide/messages';
 
 	const MIN_PASSWORD = 8;
@@ -15,6 +16,10 @@
 	let newPassword = $state('');
 	let confirmPassword = $state('');
 	let busy = $state(false);
+
+	// the change goes through the core; its editor view says how it went
+	const EDITOR: Surface = { type: 'profileEditor' };
+	$effect(() => core.watch(EDITOR));
 
 	// clear on close so a reopened dialog never shows a stale password
 	$effect(() => {
@@ -41,14 +46,18 @@
 		e.preventDefault();
 		if (!canSubmit) return;
 		busy = true;
+		const form = { current: currentPassword, new: newPassword };
 		try {
-			await authApi.changePassword(currentPassword, newPassword);
-			toast.success(m.profile_password_changed());
-			open = false;
-		} catch (err) {
-			toast.error(problemMessage(err, m.profile_password_change_failed()));
+			await core.send({ type: 'passwordChangeSubmitted', content: form });
 		} finally {
 			busy = false;
+		}
+		const done = core.view<ProfileEditorView>(EDITOR)?.password;
+		if (done?.status === LoadStatus.Loaded) {
+			toast.success(m.profile_password_changed());
+			open = false;
+		} else {
+			toast.error(problemMessage(done?.problem, m.profile_password_change_failed()));
 		}
 	}
 </script>

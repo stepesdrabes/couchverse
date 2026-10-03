@@ -13,17 +13,6 @@ export interface User {
 	createdAt: string;
 }
 
-export const updateProfile = (displayName: string, bio?: string) =>
-	api<User>('/me/profile', { method: 'PATCH', body: { displayName, bio } });
-
-export { uploadAvatar, uploadBanner } from '$lib/generated/api';
-
-export const deleteAvatar = () => api<User>('/me/avatar', { method: 'DELETE' });
-export const deleteBanner = () => api<User>('/me/banner', { method: 'DELETE' });
-
-export const changePassword = (currentPassword: string, newPassword: string) =>
-	api<void>('/me/password', { method: 'PATCH', body: { currentPassword, newPassword } });
-
 export const login = (username: string, password: string) =>
 	api<User>('/auth/login', {
 		method: 'POST',

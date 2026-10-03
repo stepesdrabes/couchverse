@@ -20,6 +20,13 @@ describe('problemMessage', () => {
 		expect(problemMessage(err, 'fallback')).toBe('fallback');
 	});
 
+	it('names the problem a core view carries the same way', () => {
+		const problem = { code: 'offline', detail: 'TypeError: Failed to fetch' };
+		expect(problemMessage(problem, 'fallback')).toBe("Can't reach the server.");
+		expect(problemMessage({ code: 'network', detail: 'x' }, 'fallback')).toBe('fallback');
+		expect(problemMessage(undefined, 'fallback')).toBe('fallback');
+	});
+
 	it('says the server is out of reach when no response came back', () => {
 		expect(problemMessage(new TypeError('Failed to fetch'), 'fallback')).toBe(
 			"Can't reach the server."

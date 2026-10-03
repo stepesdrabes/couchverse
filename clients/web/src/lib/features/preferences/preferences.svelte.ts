@@ -17,12 +17,10 @@ export const DEFAULT_SUBTITLES: SubtitleSettings = {
 	backgroundOpacity: 55
 };
 
-// The web-only preferences: the subtitle style (native players use system captions) and the
-// profile's privacy switch. The display language is the core session's.
+// The web-only preference: the subtitle style (native players use system captions). The
+// display language is the core session's, and the profile's privacy switch the core's ranks'.
 class UserPreferences {
 	subtitles = $state<SubtitleSettings>({ ...DEFAULT_SUBTITLES });
-	/** appear on public profiles and leaderboards; on unless turned off */
-	publicProfile = $state(true);
 
 	async init() {
 		try {
@@ -35,19 +33,12 @@ class UserPreferences {
 
 	private apply(prefs: Preferences) {
 		this.subtitles = { ...DEFAULT_SUBTITLES, ...(prefs.subtitles ?? {}) };
-		this.publicProfile = prefs.publicProfile !== false;
 	}
 
 	/** persist the current subtitle settings to the account */
 	async saveSubtitles(next: SubtitleSettings) {
 		this.subtitles = next;
 		await api.putPreferences({ subtitles: next });
-	}
-
-	/** a lone switch that persists on flip, like the subtitle popover controls */
-	async savePublicProfile(next: boolean) {
-		this.publicProfile = next;
-		await api.putPreferences({ publicProfile: next });
 	}
 }
 
