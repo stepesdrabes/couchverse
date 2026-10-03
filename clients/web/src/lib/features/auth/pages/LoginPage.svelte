@@ -20,6 +20,19 @@
 	// someone who scanned a device's sign-in QR lands here first; say why
 	const pairing = $derived(next.startsWith('/pair'));
 
+	// the server's codes, in the display language; its English text is never shown
+	function loginProblem(err: unknown): string {
+		if (!(err instanceof ApiError)) return m.problem_offline();
+		switch (err.code) {
+			case 'invalid_credentials':
+				return m.problem_invalid_credentials();
+			case 'rate_limited':
+				return m.problem_rate_limited();
+			default:
+				return m.login_error_generic();
+		}
+	}
+
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
 		if (busy) return;
@@ -30,7 +43,7 @@
 			// a reload into the account's language lands on `next` through the login redirect
 			if (!followAccountLang()) goto(next);
 		} catch (err) {
-			error = err instanceof ApiError ? err.message : m.login_error_generic();
+			error = loginProblem(err);
 		} finally {
 			busy = false;
 		}

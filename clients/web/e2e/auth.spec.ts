@@ -71,8 +71,8 @@ test('a wrong password keeps the visitor on the login page', async ({ page, erro
 	await page.getByLabel(t('login_password')).fill('not-the-password');
 	await page.getByRole('button', { name: t('login_submit') }).click();
 
-	// the server's message, shown as sent
-	await expect(page.getByText('invalid username or password')).toBeVisible();
+	// the server's code, in the display language
+	await expect(page.getByText(t('problem_invalid_credentials'))).toBeVisible();
 	await expect(page).toHaveURL(/\/login$/);
 	await expect(page.getByLabel(t('login_password'))).toHaveValue('not-the-password');
 });
