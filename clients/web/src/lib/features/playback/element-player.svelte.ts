@@ -35,6 +35,13 @@ export class ElementPlayer implements PlayerHost {
 	#pendingSeek: number | null = null;
 	#buffering = false;
 	#failed = false;
+	// A browser may start the media over by itself, back at zero (WebKit does when its GPU
+	// process restarts). This load's metadata being in tells that from a load of ours; the last
+	// position and play state are what it comes back to.
+	#ready = false;
+	#position = 0;
+	#playing = false;
+	#restore: number | null = null;
 	// bumped by every load, so an hls.js import that lands late is for an old one
 	#generation = 0;
 	#timer: ReturnType<typeof setInterval>;
@@ -53,6 +60,7 @@ export class ElementPlayer implements PlayerHost {
 			['stalled', () => this.#stall()],
 			['ended', () => this.#settle()],
 			['loadedmetadata', () => this.#metadata()],
+			['emptied', () => this.#emptied()],
 			['error', () => this.#fail(video.error?.message || `media error ${video.error?.code}`)],
 			['enterpictureinpicture', () => this.#showSubtitle()],
 			['leavepictureinpicture', () => this.#showSubtitle()]
@@ -111,6 +119,8 @@ export class ElementPlayer implements PlayerHost {
 		this.#load = load;
 		this.durationSeconds = load.nowPlaying.durationSeconds;
 		this.#failed = false;
+		this.#ready = false;
+		this.#restore = null;
 		this.#selected = load.subtitle ?? null;
 		this.#addSubtitles(load.subtitles);
 		video.autoplay = load.autoplay;
@@ -182,10 +192,24 @@ export class ElementPlayer implements PlayerHost {
 		if (this.#pendingSeek !== null) {
 			video.currentTime = this.#pendingSeek;
 			this.#pendingSeek = null;
+		} else if (this.#restore !== null && Math.abs(video.currentTime - this.#restore) > 1) {
+			video.currentTime = this.#restore;
 		}
+		this.#restore = null;
+		this.#ready = true;
 		if (this.#load?.audioLang && !this.#hls) this.#selectAudio(this.#load.audioLang);
 		this.#showSubtitle();
 		this.#emit();
+	}
+
+	/** The element was reset after this load's metadata, so not by a load of ours: it goes back
+	 * to where it was (WebKit restores that itself), and plays again only if it was playing (its
+	 * autoplay would resume a viewer's pause). */
+	#emptied() {
+		if (!this.#ready) return;
+		this.#ready = false;
+		this.#restore = this.#position;
+		this.#video.autoplay = this.#playing;
 	}
 
 	#addSubtitles(tracks: PlayerSubtitle[]) {
@@ -287,10 +311,14 @@ export class ElementPlayer implements PlayerHost {
 		if (!load) return;
 		const video = this.#video;
 		const known = Number.isFinite(video.duration) && video.duration > 0;
+		// before the metadata the element is at zero, not yet where it is going
+		const position = this.#pendingSeek ?? this.#restore ?? video.currentTime;
+		const playing = !video.paused && !video.ended;
+		if (this.#ready) [this.#position, this.#playing] = [position, playing];
 		this.#report({
-			positionSeconds: video.currentTime,
+			positionSeconds: position,
 			durationSeconds: known ? video.duration : load.nowPlaying.durationSeconds,
-			playing: !video.paused && !video.ended,
+			playing,
 			buffering: this.#buffering,
 			ended: video.ended,
 			failed
