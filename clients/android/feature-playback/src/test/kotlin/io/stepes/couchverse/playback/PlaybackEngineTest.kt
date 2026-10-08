@@ -76,7 +76,7 @@ class PlaybackEngineTest {
         engine.perform(PlayerCommand.Load(load("d1.mp4", PlayerSource.Download)))
         idle()
         val player = assertNotNull(engine.player.value)
-        run(player).untilState(Player.STATE_ENDED)
+        advance(player).untilState(Player.STATE_ENDED)
         idle()
 
         assertTrue(reports.any { it.playing }, "it reported playing")
@@ -91,12 +91,12 @@ class PlaybackEngineTest {
         engine.perform(PlayerCommand.Load(load("d1.mp4", PlayerSource.Download, autoplay = false)))
         idle()
         val player = assertNotNull(engine.player.value)
-        run(player).untilState(Player.STATE_READY)
+        advance(player).untilState(Player.STATE_READY)
         assertEquals(false, player.playWhenReady)
 
         engine.perform(PlayerCommand.Seek(PlayerSeek(1.5)))
         idle()
-        run(player).untilPendingCommandsAreFullyHandled()
+        advance(player).untilPendingCommandsAreFullyHandled()
         idle()
         assertEquals(1.5, reports.last().positionSeconds, 0.05)
 
@@ -114,7 +114,7 @@ class PlaybackEngineTest {
         engine.perform(PlayerCommand.Load(load(server.url("/media/g/stream").toString(), PlayerSource.File)))
         idle()
         val player = assertNotNull(engine.player.value)
-        run(player).untilPlayerError()
+        advance(player).untilPlayerError()
         idle()
         assertEquals(1, server.requestCount, "a refusal is not retried")
 
@@ -143,12 +143,12 @@ class PlaybackEngineTest {
         engine.perform(PlayerCommand.Load(load("d1.mp4", PlayerSource.Download, autoplay = false, subtitles = subtitles)))
         idle()
         val player = assertNotNull(engine.player.value)
-        run(player).untilState(Player.STATE_READY)
+        advance(player).untilState(Player.STATE_READY)
         assertTrue(player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT), "off until chosen")
 
         engine.perform(PlayerCommand.SelectSubtitles(SubtitleSelection("s-en")))
         idle()
-        run(player).untilPendingCommandsAreFullyHandled()
+        advance(player).untilPendingCommandsAreFullyHandled()
         assertTrue(player.currentTracks.isTypeSelected(C.TRACK_TYPE_TEXT))
 
         engine.perform(PlayerCommand.SelectSubtitles(SubtitleSelection(null)))
@@ -159,7 +159,7 @@ class PlaybackEngineTest {
     private fun idle() = shadowOf(Looper.getMainLooper()).idle()
 
     /** A loaded build machine decodes slowly; the helpers' 10 s default is not a statement about the engine. */
-    private fun run(player: ExoPlayer) = TestPlayerRunHelper.run(player).withTimeoutMs(60_000)
+    private fun advance(player: ExoPlayer) = TestPlayerRunHelper.advance(player).withTimeoutMs(60_000)
 
     private fun clip(): ByteArray = javaClass.classLoader!!.getResourceAsStream("clip.mp4")!!.readBytes()
 

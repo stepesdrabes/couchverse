@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.stepes.couchverse.core.CouchMember
@@ -120,7 +121,10 @@ fun ReactionsOverlay(reactions: List<Reaction>, modifier: Modifier = Modifier) {
                     fontSize = 40.sp,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .offset(x = width * lane, y = if (reduced) (-80).dp else -(height * 0.6f * progress.value))
+                        .offset {
+                            val rise = if (reduced) (-80).dp else -(height * 0.6f * progress.value)
+                            IntOffset((width * lane).roundToPx(), rise.roundToPx())
+                        }
                         .alpha(1f - progress.value),
                 )
             }

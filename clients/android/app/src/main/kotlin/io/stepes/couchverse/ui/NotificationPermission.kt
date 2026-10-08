@@ -2,6 +2,7 @@ package io.stepes.couchverse.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -22,11 +23,12 @@ import io.stepes.couchverse.design.theme.LocalIsTv
 
 /**
  * Asks once per launch to post notifications, the first time one would say something: a
- * couch session to leave from the shade, or a download running in the background.
+ * couch session to leave from the shade, or a download running in the background. Before
+ * Android 13 notifications need no permission.
  */
 @Composable
 fun NotificationPermission() {
-    if (LocalIsTv.current) return
+    if (LocalIsTv.current || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
     val context = LocalContext.current
     val couch by rememberSurface<CouchView>(Surface.Couch)
     val downloads by rememberSurface<DownloadsView>(Surface.Downloads)
