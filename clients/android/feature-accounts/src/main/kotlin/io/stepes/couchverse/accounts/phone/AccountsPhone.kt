@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -171,23 +172,28 @@ internal fun AccountSwitcherSheet(
 ) {
     val haptics = LocalHapticFeedback.current
     val active = view?.accounts?.firstOrNull { it.id == view.active }
+    // the handle is drawn inside, so the glow reaches the sheet's top edge
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Tokens.Palette.surface,
+        dragHandle = null,
     ) {
         Box {
             // the sheet glows in the colour of the account watching now
             active?.let { GlowBackdrop(Modifier.matchParentSize(), accent = accountTint(it), intensity = 0.6f) }
-            AccountList(
-                view = view,
-                onPick = { account ->
-                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                    onPick(account)
-                },
-                onAdd = onAdd,
-                modifier = Modifier.navigationBarsPadding().padding(bottom = 16.dp),
-            )
+            Column {
+                BottomSheetDefaults.DragHandle(Modifier.align(Alignment.CenterHorizontally))
+                AccountList(
+                    view = view,
+                    onPick = { account ->
+                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                        onPick(account)
+                    },
+                    onAdd = onAdd,
+                    modifier = Modifier.navigationBarsPadding().padding(bottom = 16.dp),
+                )
+            }
         }
     }
 }
