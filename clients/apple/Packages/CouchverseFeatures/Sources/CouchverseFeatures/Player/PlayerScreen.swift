@@ -139,18 +139,24 @@ private struct PlayerProblem: View {
     }
 }
 
-/// A sidecar subtitle line, drawn the way the system draws its own.
+/// A sidecar subtitle line, drawn the way the system draws its own: in the viewer's caption style.
 private struct CaptionView: View {
     let text: String
+    @State private var style = CaptionStyle.current()
 
     var body: some View {
         Text(text)
-            .font(.system(size: Idiom.isTV ? 48 : 20, weight: .semibold))
-            .foregroundStyle(.white)
+            .font(.system(size: (Idiom.isTV ? 48 : 20) * style.scale, weight: .semibold))
+            .foregroundStyle(style.text)
             .multilineTextAlignment(.center)
             .padding(.horizontal, Tokens.Spacing.md)
             .padding(.vertical, Tokens.Spacing.xs)
-            .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+            .background(style.background, in: RoundedRectangle(cornerRadius: 6))
+            .task {
+                for await _ in NotificationCenter.default.notifications(named: CaptionStyle.changed) {
+                    style = .current()
+                }
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             .padding(.bottom, Idiom.isTV ? 140 : 96)
             .padding(.horizontal, CardMetrics.edge)
