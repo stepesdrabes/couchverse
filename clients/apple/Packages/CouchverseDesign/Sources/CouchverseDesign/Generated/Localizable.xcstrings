@@ -7971,6 +7971,23 @@
         }
       }
     },
+    "problem_already_hosting": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento prohlížeč už toto společné sledování hostí v jiné kartě."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This browser is already hosting this couch in another tab."
+          }
+        }
+      }
+    },
     "problem_conflict": {
       "extractionState": "manual",
       "localizations": {

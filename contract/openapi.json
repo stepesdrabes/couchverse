@@ -9092,13 +9092,22 @@
             }
           },
           {
-            "description": "Join as a remote for the host's own player (the host's account on another device); 403 not_host for anyone else.",
+            "description": "Join as a remote for the host's own player; 403 not_host for anyone but the host's account, which joins as a remote either way.",
             "explode": false,
             "in": "query",
             "name": "remote",
             "schema": {
-              "description": "Join as a remote for the host's own player (the host's account on another device); 403 not_host for anyone else.",
+              "description": "Join as a remote for the host's own player; 403 not_host for anyone but the host's account, which joins as a remote either way.",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "The participant cookie this browser already holds, if any: a browser playing for the session as its host cannot join it too (409 already_hosting).",
+            "in": "cookie",
+            "name": "couchverse_couch",
+            "schema": {
+              "description": "The participant cookie this browser already holds, if any: a browser playing for the session as its host cannot join it too (409 already_hosting).",
+              "type": "string"
             }
           }
         ],

@@ -128,7 +128,8 @@ func (h *Handlers) Info(ctx context.Context, in *shareInput) (*couchInfoOutput, 
 type joinCouchInput struct {
 	Delivery string `query:"delivery" enum:"cookie,body" default:"cookie" doc:"body returns the participant token in the response instead of setting the couch cookie."`
 	Token    string `path:"token" doc:"The session's share code."`
-	Remote   bool   `query:"remote" doc:"Join as a remote for the host's own player (the host's account on another device); 403 not_host for anyone else."`
+	Remote   bool   `query:"remote" doc:"Join as a remote for the host's own player; 403 not_host for anyone but the host's account, which joins as a remote either way."`
+	Cookie   string `cookie:"couchverse_couch" doc:"The participant cookie this browser already holds, if any: a browser playing for the session as its host cannot join it too (409 already_hosting)."`
 	clientIP string
 }
 
@@ -149,6 +150,11 @@ func (h *Handlers) Join(ctx context.Context, in *joinCouchInput) (*couchSessionO
 	if rm == nil {
 		return nil, errNoSession("this couch session does not exist or has ended")
 	}
+	// a browser keeps one couch cookie for all its tabs: a tab joining the session another
+	// tab plays for as its host would take the player's token away
+	if in.Delivery != "body" && h.hub.playsFor(rm, in.Cookie) {
+		return nil, httpx.Fail(http.StatusConflict, "already_hosting", "this browser is hosting the session")
+	}
 	user := auth.UserFrom(ctx)
 	p, token, role, err := h.hub.join(rm, user, in.Remote)
 	switch {
@@ -161,7 +167,7 @@ func (h *Handlers) Join(ctx context.Context, in *joinCouchInput) (*couchSessionO
 	case err != nil:
 		return nil, err
 	}
-	// only a logged-in follower counts; the host reclaiming their own link does not
+	// only a logged-in follower counts; the host's own remote does not
 	if user != nil && role == roleFollower && h.hub.deps.Stats != nil {
 		if err := h.hub.deps.Stats.RecordCouchJoined(ctx, user.ID); err != nil {
 			slog.Warn("record couch joined", "err", err)

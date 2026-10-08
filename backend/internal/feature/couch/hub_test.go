@@ -121,6 +121,40 @@ func TestJoinFollowerAndLeave(t *testing.T) {
 	}
 }
 
+// The host's account joining by code is another device than the one playing: it becomes a
+// remote even without asking, so it never broadcasts as a second host and its leaving keeps
+// the session.
+func TestHostAccountJoinsAsRemote(t *testing.T) {
+	fm := &fakeMedia{files: map[string]*media.MediaFile{"title:t1": {ID: "mf1", TitleID: ptr("t1")}}}
+	h := newTestHub(t, fm)
+	rm, hostP, hostToken, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
+
+	p, token, role, err := h.join(rm, host(1), false)
+	if err != nil {
+		t.Fatalf("join: %v", err)
+	}
+	if role != roleRemote || p.ID != hostP.ID {
+		t.Fatalf("the host's account joined as %q (participant %s), want a remote of %s", role, p.ID, hostP.ID)
+	}
+	if ref, ok := h.lookup(token); !ok || !ref.remote {
+		t.Fatalf("the second device's token is not a remote's: %+v", ref)
+	}
+	if session := rm.snapshotFor(p.ID, role); len(session.Participants) != 1 {
+		t.Fatalf("a remote takes a seat: %d participants", len(session.Participants))
+	}
+
+	h.leaveByToken(token)
+	rm.mu.Lock()
+	live := rm.live
+	rm.mu.Unlock()
+	if !live {
+		t.Fatal("the second device leaving ended the session")
+	}
+	if _, ok := h.lookup(hostToken); !ok {
+		t.Fatal("the playing device's token stopped working")
+	}
+}
+
 func TestParticipantCap(t *testing.T) {
 	fm := &fakeMedia{files: map[string]*media.MediaFile{"title:t1": {ID: "mf1", TitleID: ptr("t1")}}}
 	h := newTestHub(t, fm)

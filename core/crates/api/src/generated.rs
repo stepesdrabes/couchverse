@@ -6122,7 +6122,7 @@ pub mod ops {
         /// body returns the participant token in the response instead of setting the couch cookie.
         /// Default `cookie`.
         pub delivery: Option<JoinCouchDelivery>,
-        /// Join as a remote for the host's own player (the host's account on another device); 403 not_host for anyone else.
+        /// Join as a remote for the host's own player; 403 not_host for anyone but the host's account, which joins as a remote either way.
         pub remote: Option<bool>,
     }
 

@@ -340,6 +340,9 @@ func apiCases() []apiCase {
 		{op: "joinCouch", as: "guest", method: "POST", path: "/couch/{{couch}}/join?remote=true", status: 403},
 		{op: "joinCouch", as: "nora", method: "POST", path: "/couch/{{couch}}/join?remote=true&delivery=body", status: 200, save: map[string]string{"remote": "participantToken"}},
 		{op: "leaveCouch", couchToken: "remote", method: "POST", path: "/couch/{{couch}}/leave", status: 204},
+		// the host's account joining by code is a remote too, so its leaving keeps the session
+		{op: "joinCouch", as: "nora", method: "POST", path: "/couch/{{couch}}/join?delivery=body", status: 200, save: map[string]string{"phone": "participantToken"}},
+		{op: "leaveCouch", couchToken: "phone", method: "POST", path: "/couch/{{couch}}/leave", status: 204},
 		{op: "getCouchInfo", as: "guest", method: "GET", path: "/couch/{{couch}}/info", status: 200},
 		{op: "endCouch", as: "admin", method: "POST", path: "/couch/{{couch}}/end", status: 403},
 		{op: "endCouch", as: "nora", method: "POST", path: "/couch/{{couch}}/end", status: 204},

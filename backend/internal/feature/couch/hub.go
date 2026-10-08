@@ -395,8 +395,10 @@ func (h *Hub) dropTokensLocked(p *participant) {
 	p.tokenHashes = nil
 }
 
-// join adds a participant (logged-in or anonymous) to a session. A logged-in
-// host opening their own share link reclaims the host seat.
+// join adds a participant (logged-in or anonymous) to a session. The host's account
+// joining by code is on another device than the one playing, so it becomes a remote for
+// that player whether it asked to or not: a second host would broadcast its own state
+// (nothing playing) over the player's, and its leaving would end the session.
 func (h *Hub) join(rm *room, user *auth.User, remote bool) (*participant, string, string, error) {
 	h.mu.Lock()
 	rm.mu.Lock()
@@ -409,12 +411,9 @@ func (h *Hub) join(rm *room, user *auth.User, remote bool) (*participant, string
 		host := rm.hostParticipantLocked()
 		rm.lastActive = time.Now()
 		rm.mu.Unlock()
-		token := h.issueTokenLocked(rm, host, remote)
+		token := h.issueTokenLocked(rm, host, true)
 		h.mu.Unlock()
-		if remote {
-			return host, token, roleRemote, nil
-		}
-		return host, token, roleHost, nil
+		return host, token, roleRemote, nil
 	}
 	if remote {
 		rm.mu.Unlock()
@@ -603,6 +602,24 @@ func (h *Hub) lookup(rawToken string) (participantRef, bool) {
 		return participantRef{}, false
 	}
 	return *ref, true
+}
+
+// playsFor reports whether rawToken is one of the host's device tokens for rm (not a
+// remote's) with a socket open on it: a device playing for the session as its host.
+func (h *Hub) playsFor(rm *room, rawToken string) bool {
+	ref, ok := h.lookup(rawToken)
+	if !ok || ref.room != rm || ref.remote || !rm.isHostParticipant(ref.pid) {
+		return false
+	}
+	hash := hashToken(rawToken)
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	for c := range rm.conns {
+		if c.tokenHash == hash {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Hub) roomByShare(shareToken string) *room {

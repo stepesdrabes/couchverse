@@ -1036,6 +1036,7 @@
 	"player_unsupported_title": "This device can't play this video",
 	"player_up_next": "Up next · {seconds}s",
 	"player_volume": "Volume",
+	"problem_already_hosting": "This browser is already hosting this couch in another tab.",
 	"problem_conflict": "That username is already taken.",
 	"problem_forbidden": "You don't have access to that.",
 	"problem_generic": "Something went wrong. Try again.",

@@ -21,6 +21,7 @@ type conn struct {
 	pid       string
 	isHost    bool // the host's playing device; false for a remote
 	remote    bool
+	tokenHash string // the participant token the socket opened with
 	send      chan []byte
 	closed    chan struct{}
 	once      sync.Once

@@ -462,6 +462,7 @@ extension L10n {
     public static var playerUnsupportedTitle: String { string("player_unsupported_title") }
     public static func playerUpNext(seconds: String) -> String { format("player_up_next", [seconds]) }
     public static var playerVolume: String { string("player_volume") }
+    public static var problemAlreadyHosting: String { string("problem_already_hosting") }
     public static var problemConflict: String { string("problem_conflict") }
     public static var problemForbidden: String { string("problem_forbidden") }
     public static var problemGeneric: String { string("problem_generic") }

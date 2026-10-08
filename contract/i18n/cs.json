@@ -1058,6 +1058,7 @@
 	"player_unsupported_title": "Toto zařízení video nepřehraje",
 	"player_up_next": "Další · {seconds}s",
 	"player_volume": "Hlasitost",
+	"problem_already_hosting": "Tento prohlížeč už toto společné sledování hostí v jiné kartě.",
 	"problem_conflict": "Toto uživatelské jméno je už obsazené.",
 	"problem_forbidden": "K tomu nemáte přístup.",
 	"problem_generic": "Něco se pokazilo. Zkuste to znovu.",

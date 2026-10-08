@@ -470,6 +470,7 @@
     <string name="player_unsupported_title">This device can\'t play this video</string>
     <string name="player_up_next">Up next · %1$ss</string>
     <string name="player_volume">Volume</string>
+    <string name="problem_already_hosting">This browser is already hosting this couch in another tab.</string>
     <string name="problem_conflict">That username is already taken.</string>
     <string name="problem_forbidden">You don\'t have access to that.</string>
     <string name="problem_generic">Something went wrong. Try again.</string>

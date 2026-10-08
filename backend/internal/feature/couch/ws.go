@@ -30,7 +30,7 @@ func (h *Handlers) WS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return // Accept already wrote the handshake error
 	}
-	h.hub.serveConn(ws, ref.room, ref.pid, isHost, ref.remote)
+	h.hub.serveConn(ws, ref, hashToken(token), isHost)
 }
 
 // serveConn runs one connection's read/write pumps until it closes, then detaches
@@ -38,17 +38,19 @@ func (h *Handlers) WS(w http.ResponseWriter, r *http.Request) {
 // is stopped only once the writer is done, because cancelling a read closes the
 // socket at once and would cut off the frames the writer still flushes
 // (session_ended above all).
-func (h *Hub) serveConn(ws *websocket.Conn, rm *room, pid string, isHost, remote bool) {
+func (h *Hub) serveConn(ws *websocket.Conn, ref participantRef, tokenHash string, isHost bool) {
 	defer ws.CloseNow()
 
+	rm := ref.room
 	c := &conn{
-		ws:     ws,
-		room:   rm,
-		pid:    pid,
-		isHost: isHost,
-		remote: remote,
-		send:   make(chan []byte, sendBuffer),
-		closed: make(chan struct{}),
+		ws:        ws,
+		room:      rm,
+		pid:       ref.pid,
+		isHost:    isHost,
+		remote:    ref.remote,
+		tokenHash: tokenHash,
+		send:      make(chan []byte, sendBuffer),
+		closed:    make(chan struct{}),
 	}
 	if !rm.attach(c) {
 		ws.Close(websocket.StatusGoingAway, "session ended")

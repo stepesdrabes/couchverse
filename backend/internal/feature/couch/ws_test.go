@@ -257,6 +257,53 @@ func TestWSRemoteSteersTheHostsPlayer(t *testing.T) {
 	}
 }
 
+// A browser keeps one couch cookie: joining is refused only while the host's token in it has
+// a socket open (another tab plays for the session), not for a host device gone quiet, a
+// remote's or a follower's token.
+func TestPlaysForNeedsTheHostsOpenSocket(t *testing.T) {
+	fm := &fakeMedia{files: map[string]*media.MediaFile{"title:t1": {ID: "mf1", TitleID: ptr("t1")}}}
+	h := newTestHub(t, fm)
+	hand := &Handlers{hub: h, joinRate: newRateLimiter(1000, time.Minute)}
+
+	r := chi.NewRouter()
+	r.Get("/api/v1/couch/{token}/ws", hand.WS)
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/couch/x/ws"
+
+	rm, _, hostToken, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
+	_, remoteToken, _, _ := h.join(rm, host(1), true)
+	_, followerToken, _, _ := h.join(rm, nil, false)
+	if h.playsFor(rm, hostToken) {
+		t.Fatal("a host token without a socket counts as playing")
+	}
+
+	tv := dialWS(t, wsURL, hostToken)
+	waitForType(t, tv, msgHello)
+	phone := dialWS(t, wsURL, remoteToken)
+	defer phone.CloseNow()
+	waitForType(t, phone, msgHello)
+	guest := dialWS(t, wsURL, followerToken)
+	defer guest.CloseNow()
+	waitForType(t, guest, msgHello)
+
+	if !h.playsFor(rm, hostToken) {
+		t.Fatal("the playing device's token was not recognised")
+	}
+	if h.playsFor(rm, remoteToken) || h.playsFor(rm, followerToken) || h.playsFor(rm, "") {
+		t.Fatal("a remote's, a follower's or no token counts as playing")
+	}
+
+	tv.Close(websocket.StatusNormalClosure, "")
+	deadline := time.Now().Add(3 * time.Second)
+	for h.playsFor(rm, hostToken) {
+		if time.Now().After(deadline) {
+			t.Fatal("a closed socket still counts as playing")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 // Ending a session must deliver session_ended to every attached follower before the
 // socket closes; a follower that only sees the close waits for the host forever.
 func TestWSEndDeliversSessionEnded(t *testing.T) {
