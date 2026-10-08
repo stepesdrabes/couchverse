@@ -112,16 +112,19 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
   leaving, at the end and on signing in); the web's join page offers "Open in the app"
   (`couchverse://couch/<code>?server=<origin>`); Apple joins as a guest from the Welcome screen
   (server address and code), from such links and from a scanned join page, which now carry
-  their server. Android's generated types and `WireFormatTest` know the new field; its UI
-  waits for the `feature-couch` restructuring.
+  their server. Android does the same on phones and TVs: Welcome's "Join a couch session" asks
+  for the server's address and the code, `couchverse://couch/<code>?server=` links open over
+  any screen (one without a server waits for an account) and a scanned join page brings its
+  origin; the couch controls show whenever a couch is live, and a guest gets no "Use as a
+  remote". Verified by the JVM tests and screenshots (the guest's join form, Welcome).
 - Done: the TV player's info panel lists who is on the couch (a follower's has no episodes),
   and the iPhone and iPad reactions popover's "more" button sends any emoji from the system
   emoji keyboard.
 - Pending: the couch snapshot references (with the guest's join form) and the Welcome ones,
   removed for re-recording after its new "Join a couch session" button (and the Settings ones,
   re-recorded for its couch row), recorded on the pinned simulators; the couch walkthrough
-  (docs/apple.md, steps 1 to 7) on simulators and devices; Android's guest join (an address
-  field and links carrying `server`).
+  (docs/apple.md, steps 1 to 7) on simulators and devices; Android's guest join on an
+  emulator against a local server.
 
 ## Phase 8: ranks and profiles - in progress
 

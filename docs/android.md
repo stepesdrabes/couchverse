@@ -114,13 +114,20 @@ starts it by connecting a `MediaController`.
 The couch rides on the runtime's `socket` effect; the core runs the session and the shell
 follows `CouchView`:
 
-- The root navigation follows the role: a follower is taken to the couch player, which plays
-  whatever the core loads (the host's title, position and pause), and a remote to
-  `CouchRemote` (play/pause, 10 s skips, previous/next). When the session ends the screen
-  says so and closes after a few seconds.
+- The root navigation follows the role, signed in or not: a follower is taken to the couch
+  player, which plays whatever the core loads (the host's title, position and pause), and a
+  remote to `CouchRemote` (play/pause, 10 s skips, previous/next). When the session ends the
+  screen says so and closes after a few seconds.
 - The host starts a couch from the player's couch panel, which shows the code and its QR (the
   web's `/couch/<code>` page). Joining is by code (Settings, Join a couch), a scanned QR or a
   link, as a viewer or a remote.
+- Without an account, Welcome's "Join a couch session" asks for the server's address too and
+  joins as a guest (no remote: a guest has no player of its own to steer). A
+  `couchverse://couch/<code>?server=<address>` link (the web's "Open in the app") opens the
+  form over any screen with both filled in, a scanned join page brings its origin as the
+  server, and a link without a server waits for an account. The core joins through the
+  account on its own server and as a guest anywhere else (`CouchCode.server`). The player
+  shows its couch controls whenever a couch is live, so a guest's work without an account.
 - Reactions rise over the video for everyone; the members list shows who is there and who is
   away.
 - Phones keep an ongoing notification while in a session (promoted where the system allows),
@@ -306,7 +313,9 @@ The emulators cover the flows; these need hardware before a release:
 - **Couch on hardware**: the ongoing notification (and its promoted chip on Android 16) with
   Leave/End, the notification permission prompt, a follower on a TV staying in sync with a
   phone host through pauses and seeks, a QR code joined from a phone's camera, a phone as a
-  remote for a TV.
+  remote for a TV; with nothing signed in, Welcome's "Join a couch session" (the address typed
+  with the TV's keyboard) and the web join page's "Open in the app" joining as a guest, the
+  guest's avatars and backdrop loading from that server.
 - **Widget**: placing it on the home screen, its titles following the app's display language,
   a tap playing the title, the list emptying after signing out.
 - **Release APK**: installing the published APK over a debug build is refused (different

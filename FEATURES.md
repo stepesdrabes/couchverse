@@ -923,9 +923,12 @@ launch from the UI mode, on the shared core.
   display language the download was asked in), files in `files/downloads`; the Downloads
   screen replaces the tabs while offline.
 - **Couch** (`feature-couch`): host panel with code and QR, joining by code, QR or link,
-  follower and remote, reactions, and an ongoing notification with Leave/End on phones. Not
-  yet: joining without an account (the core joins a `CouchCode` naming its server as a guest;
-  no screen asks for a server, and links and QR codes still pass only the code).
+  follower and remote, reactions, and an ongoing notification with Leave/End on phones.
+  Without an account (Welcome's "Join a couch session") the join form also asks for the
+  server's address and joins as a guest, with no "Use as a remote"; `couchverse://couch/<code>
+  ?server=` links and scanned join pages (their origin) fill in both and pass `server` in
+  `CouchCode`, a link without one waiting for an account. The couch controls and the
+  navigation to the player follow a live couch, account or not.
 - **Ranks** (`feature-ranks`): profiles, leaderboards (with where the viewer stands pinned
   below the board while they are hidden from it or below its first three, as on the web),
   celebrations, the profile editor (photo picker into the `upload` effect), the rank beside
