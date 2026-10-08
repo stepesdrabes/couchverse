@@ -107,10 +107,11 @@ func BuildArgs(spec BuildSpec) []string {
 // video is copied, only the AAC audio is (re)encoded.
 func buildMultiAudioArgs(spec BuildSpec, args []string) []string {
 	args = append(args, "-map", "0:v:0")
-	hasDefault := false
-	for _, a := range spec.AudioStreams {
+	defaultIndex := 0
+	for i, a := range spec.AudioStreams {
 		if a.Default {
-			hasDefault = true
+			defaultIndex = i
+			break
 		}
 	}
 	var sm strings.Builder
@@ -122,7 +123,7 @@ func buildMultiAudioArgs(spec BuildSpec, args []string) []string {
 			lang = "und"
 		}
 		fmt.Fprintf(&sm, " a:%d,agroup:aud,language:%s,name:audio%d", i, lang, i)
-		if a.Default || (!hasDefault && i == 0) {
+		if i == defaultIndex {
 			sm.WriteString(",default:yes")
 		}
 	}

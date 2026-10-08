@@ -538,6 +538,7 @@
 	// switches from direct-play use the variants master at hlsUrl
 	const initialHlsUrl = info.mode === 'hls' ? (info.streamUrl ?? null) : null;
 	const switchHlsUrl = info.hlsUrl ?? initialHlsUrl;
+	let currentHlsUrl: string | null = null;
 
 	// 'direct' | 'auto' | a rendition name ("1080p")
 	let quality = $state(info.mode === 'direct' ? 'direct' : 'auto');
@@ -555,6 +556,7 @@
 
 	async function attachHls(url: string, pinName: string | null) {
 		if (!video) return;
+		currentHlsUrl = url;
 		// Safari plays HLS natively but exposes no level API - adaptive only. Chrome and TV
 		// browsers claim native HLS too but have no audioTracks, so there hls.js keeps the
 		// quality and audio menus working.
@@ -564,6 +566,7 @@
 			return;
 		}
 		const { default: HlsCtor } = await import('hls.js');
+		if (currentHlsUrl !== url || !video) return;
 		if (!HlsCtor.isSupported()) {
 			if (nativeHls) videoSrc = url;
 			return;
@@ -575,7 +578,9 @@
 			if (!hls) return;
 			const idx = pinName ? hls.levels.findIndex((l) => l.name === pinName) : -1;
 			hls.currentLevel = idx;
+			applySelectedAudio();
 		});
+		hls.on(HlsCtor.Events.AUDIO_TRACKS_UPDATED, applySelectedAudio);
 	}
 
 	function selectQuality(key: string) {
@@ -585,6 +590,7 @@
 		hls?.destroy();
 		hls = null;
 		if (key === 'direct' && directUrl) {
+			currentHlsUrl = null;
 			videoSrc = directUrl;
 		} else {
 			videoSrc = undefined;
@@ -594,6 +600,35 @@
 
 	const audioTracks = $derived(info.audio ?? []);
 	let activeAudioId = $state<string | null>(info.audio?.find((a) => a.default)?.id ?? null);
+
+	function applySelectedAudio() {
+		const track = audioTracks.find((a) => a.id === activeAudioId);
+		if (!video || track?.source !== 'embedded') return;
+		if (track.hlsUrl && currentHlsUrl !== track.hlsUrl) return;
+		if (hls) {
+			const idx = track.hlsAudioIndex ?? hls.audioTracks.findIndex((t) => t.lang === track.lang);
+			if (idx >= 0 && idx < hls.audioTracks.length && hls.audioTrack !== idx) hls.audioTrack = idx;
+			return;
+		}
+		const native = video as HTMLVideoElement & {
+			audioTracks?: { length: number; [i: number]: { language: string; enabled: boolean } };
+		};
+		const list = native.audioTracks;
+		if (list) {
+			let idx = track.hlsAudioIndex;
+			if (idx === undefined) {
+				for (let i = 0; i < list.length; i++) {
+					if (list[i].language === track.lang) {
+						idx = i;
+						break;
+					}
+				}
+			}
+			if (idx !== undefined && idx >= 0 && idx < list.length) {
+				for (let i = 0; i < list.length; i++) list[i].enabled = i === idx;
+			}
+		}
+	}
 
 	// Audio switch. Embedded (model A): switch the HLS audio rendition in place via
 	// hls.js (or Safari's native video.audioTracks). File (model B): swap the whole
@@ -606,20 +641,16 @@
 		else localStorage.removeItem('cv.audioLang');
 
 		if (track.source === 'embedded') {
-			if (hls) {
-				const idx = hls.audioTracks.findIndex((t) => t.lang === track.lang);
-				if (idx >= 0) hls.audioTrack = idx;
+			const url = track.hlsUrl ?? switchHlsUrl;
+			if (url && currentHlsUrl !== url) {
+				pendingResume = { at: video.currentTime, play: !video.paused };
+				hls?.destroy();
+				hls = null;
+				quality = 'auto';
+				videoSrc = undefined;
+				attachHls(url, null);
 			} else {
-				// Safari plays HLS natively and exposes the audio group here
-				const native = video as HTMLVideoElement & {
-					audioTracks?: { length: number; [i: number]: { language: string; enabled: boolean } };
-				};
-				const list = native.audioTracks;
-				if (list) {
-					for (let i = 0; i < list.length; i++) {
-						list[i].enabled = list[i].language === track.lang;
-					}
-				}
+				applySelectedAudio();
 			}
 			return;
 		}
@@ -628,6 +659,7 @@
 		hls?.destroy();
 		hls = null;
 		if (track.streamUrl) {
+			currentHlsUrl = null;
 			quality = 'direct';
 			videoSrc = track.streamUrl;
 		} else if (track.hlsUrl) {
@@ -639,6 +671,7 @@
 
 	function onLoadedMetadata() {
 		if (!video) return;
+		applySelectedAudio();
 		if (pendingResume) {
 			video.currentTime = pendingResume.at;
 			if (pendingResume.play) video.play().catch(() => {});

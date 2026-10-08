@@ -40,6 +40,8 @@ home server.
   editor, home-page row editor, and a Ranks page (level distribution, achievement
   rarity, per-member standing, editable XP rates and rank thresholds)
 - Media comes in through resumable chunked uploads (pause/resume survives disconnects)
+- [CouchPush](tools/couchpush/README.md): Windows uploader with local GPU encoding,
+  resolution selection, movie matching and selectable English/Czech audio tracks
 - Filename parsing (`Show/Season 01/Show S01E01.mkv`, `Movie (2024).mkv`) and
   music tags (ID3/FLAC/MP4) build the catalog automatically
 - TMDB integration: search & apply metadata + artwork with one click

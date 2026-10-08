@@ -449,6 +449,31 @@ func (s *Store) SubtitlesForMediaFiles(ctx context.Context, mediaFileIDs []strin
 	return out, rows.Err()
 }
 
+// Missing entries remain unknown, so upload clients cannot mistake unprobed files
+// for single-language files when deciding which existing sources to replace.
+func (s *Store) AudioStreamsForMediaFiles(ctx context.Context, mediaFileIDs []string) (map[string][]media.AudioStream, error) {
+	out := map[string][]media.AudioStream{}
+	if len(mediaFileIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx,
+		`SELECT media_file_id, stream_index, codec, lang, label, channels, is_default
+		 FROM audio_streams WHERE media_file_id = ANY($1::uuid[]) ORDER BY media_file_id, stream_index`, mediaFileIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var a media.AudioStream
+		if err := rows.Scan(&id, &a.Index, &a.Codec, &a.Lang, &a.Title, &a.Channels, &a.Default); err != nil {
+			return nil, err
+		}
+		out[id] = append(out[id], a)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) MediaFilesForTitle(ctx context.Context, titleID string) ([]media.MediaFile, error) {
 	rows, err := s.db.Query(ctx,
 		`SELECT `+media.MediaFileCols+` FROM media_files

@@ -89,6 +89,9 @@ library table, title/season/episode CRUD and bulk actions.
   which also emits a contrast-aware `--color-on-accent`). Episode rows show thumbnails
   (`Episode.thumbId`, from TMDB stills).
 
+- Admin title detail includes `audioStreamsByFile`, keyed by media file ID. Absent
+  entries have unknown inventory; upload clients preserve them when replacing combined audio.
+
 ### music
 Spotify-style music: albums, artists, tracks, playlists (create/rename/reorder),
 scrobbling (`POST /plays`, which also feeds analytics) and recently-played rows. The persistent bottom player and
@@ -119,6 +122,10 @@ engine (ffmpeg HLS encode, hardware encoder detection/probing) and transcode adm
   auto-prepare variants without importing playback. Rendition bitrates are capped at
   the source bitrate (`Rendition.CappedAt`) so transcodes never outweigh their source;
   variant sizes are measured into `transcode_variants.size_bytes` when a job finishes.
+
+- The audio menu merges embedded tracks and separate language files. Embedded choices
+  carry their file's prepared HLS URL and `hlsAudioIndex`; source switches preserve
+  position, including returning from an alternate file to a combined primary file.
 
 ### library
 Media ingestion via resumable chunked uploads -> the probe pipeline (filename parsing
@@ -512,3 +519,22 @@ Frontend:
    (loaders in `+page.ts` stay in routes/ and delegate to the feature's `api.ts`).
 
 Verify: `make lint check test build`, then `make run-backend` + `make run-frontend`.
+
+## CouchPush desktop uploader
+
+`tools/couchpush` is the Windows/PySide6 uploader. It probes and encodes locally
+with ffmpeg, then uses the existing admin title, chunked-upload, media-file and
+subtitle endpoints. No new ingestion route or database migration is required.
+
+- The queue supports folder scanning, file drops, filters, retries and an explicit
+  movie target picker. Unicode title/year matching refuses ambiguous targets.
+  New draft titles are created before encoding and their IDs survive retries.
+- Output resolution defaults to 1080p, preserves aspect ratio and never upscales.
+  NVENC selects its H.264 level automatically and falls back to software encoding.
+  Compatible HDR sources are tone-mapped to SDR for browser playback.
+- The default audio mode includes one matching track for each requested language
+  in one MP4. Combined audio becomes primary after upload/tagging; replacements
+  preserve existing files with unknown inventory or uncovered languages.
+- The checked-in PyInstaller spec excludes conflicting ICU DLLs from unrelated
+  PATH tools. The build script checks the executable's Qt startup.
+- Setup, builds, credentials and regression checks: [CouchPush docs](tools/couchpush/README.md).

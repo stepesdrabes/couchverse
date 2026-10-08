@@ -345,7 +345,8 @@
 						]}
 					/>
 					<p class="mt-1.5 text-[11px] text-faint">
-						{m.settings_detected_label()}{' '}{detecting
+						{m.settings_detected_label()}
+						{detecting
 							? m.settings_detecting_encoders()
 							: detectedEncoders.length
 								? detectedEncoders.join(', ')

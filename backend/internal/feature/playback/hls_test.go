@@ -2,6 +2,7 @@ package playback
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"couchverse/internal/media"
@@ -14,6 +15,35 @@ func argValue(args []string, flag string) string {
 		return ""
 	}
 	return args[i+1]
+}
+
+func TestMultiAudioMapsSourceIndexesAndOneDefault(t *testing.T) {
+	args := BuildArgs(BuildSpec{
+		Mode: "copy", OutDir: "/output", MultiAudio: true,
+		AudioStreams: []media.AudioStream{
+			{Index: 2, Lang: "eng", Default: true},
+			{Index: 5, Lang: "ces", Default: true},
+		},
+	})
+	maps := []string{}
+	for i, arg := range args {
+		if arg == "-map" && i+1 < len(args) {
+			maps = append(maps, args[i+1])
+		}
+	}
+	if !slices.Equal(maps, []string{"0:v:0", "0:2", "0:5"}) {
+		t.Errorf("global input stream indexes must be mapped: %v", maps)
+	}
+	streamMap := argValue(args, "-var_stream_map")
+	if !strings.Contains(streamMap, "a:0,agroup:aud,language:eng") || !strings.Contains(streamMap, "a:1,agroup:aud,language:ces") {
+		t.Errorf("HLS audio indexes must match menu output indexes: %s", streamMap)
+	}
+	if strings.Count(streamMap, "default:yes") != 1 {
+		t.Errorf("HLS must contain exactly one default, even if the input flags several: %s", streamMap)
+	}
+	if got := argValue(args, "-c:v"); got != "copy" {
+		t.Errorf("multiaudio preparation must copy video instead of encoding it: %s", got)
+	}
 }
 
 func TestBuildArgsBitrateCap(t *testing.T) {

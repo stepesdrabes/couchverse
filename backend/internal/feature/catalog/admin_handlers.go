@@ -102,6 +102,12 @@ func (h *AdminHandlers) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out["subtitlesByFile"] = subsByFile
+	audioByFile, err := h.store.AudioStreamsForMediaFiles(r.Context(), fileIDs)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	out["audioStreamsByFile"] = audioByFile
 
 	art, err := h.artwork.Store.ArtworkFor(r.Context(), "title", t.ID)
 	if err != nil {

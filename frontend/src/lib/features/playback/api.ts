@@ -28,6 +28,7 @@ export interface AudioTrack {
 	source: 'file' | 'embedded';
 	streamUrl?: string;
 	hlsUrl?: string;
+	hlsAudioIndex?: number;
 }
 
 export interface PlaybackInfo {

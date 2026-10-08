@@ -11,7 +11,8 @@
 		"check": "svelte-kit sync && paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check src && eslint .",
-		"format": "prettier --write src"
+		"format": "prettier --write src",
+		"test:playback-audio": "node --test tests/playback-audio.test.mjs"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

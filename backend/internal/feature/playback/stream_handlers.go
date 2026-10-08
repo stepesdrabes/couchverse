@@ -188,22 +188,25 @@ type subtitleTrack struct {
 // separate-language media file the player swaps to; "embedded" (model A) is an
 // in-stream HLS audio rendition.
 type audioTrack struct {
-	ID        string `json:"id"`
-	Lang      string `json:"lang"`
-	Label     string `json:"label"`
-	Default   bool   `json:"default"`
-	Source    string `json:"source"`
-	StreamURL string `json:"streamUrl,omitempty"`
-	HLSURL    string `json:"hlsUrl,omitempty"`
+	ID            string `json:"id"`
+	Lang          string `json:"lang"`
+	Label         string `json:"label"`
+	Default       bool   `json:"default"`
+	Source        string `json:"source"`
+	StreamURL     string `json:"streamUrl,omitempty"`
+	HLSURL        string `json:"hlsUrl,omitempty"`
+	HLSAudioIndex *int   `json:"hlsAudioIndex,omitempty"`
 }
 
 var audioLangNames = map[string]string{
 	"en": "English", "cs": "Čeština", "sk": "Slovenčina", "de": "Deutsch",
 	"es": "Español", "fr": "Français", "it": "Italiano", "pl": "Polski",
+	"pt": "Português", "nl": "Nederlands", "hu": "Magyar",
 	"ko": "한국어", "ja": "日本語", "ru": "Русский", "zh": "中文",
 }
 
 func audioLabel(lang string) string {
+	lang = audioLanguageCode(lang)
 	if lang == "" || lang == "und" {
 		return "Original"
 	}
@@ -216,7 +219,7 @@ func audioLabel(lang string) string {
 // audioTrackFor builds a model-B track from a media file, pointing at its direct
 // stream when it direct-plays, or its HLS master otherwise.
 func audioTrackFor(mf *media.MediaFile, isDefault bool) audioTrack {
-	t := audioTrack{ID: mf.ID, Lang: mf.AudioLang, Label: audioLabel(mf.AudioLang), Default: isDefault, Source: "file"}
+	t := audioTrack{ID: mf.ID, Lang: audioLanguageCode(mf.AudioLang), Label: audioLabel(mf.AudioLang), Default: isDefault, Source: "file"}
 	if mf.SourceDeletedAt == nil && mf.DirectPlay {
 		t.StreamURL = "/api/v1/stream/" + mf.ID
 	} else {
@@ -361,18 +364,12 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 		})
 	}
 
-	// alternate-audio siblings (model B): a language switch in the player. Only
-	// populated when the title/episode has more than one audio file.
-	if siblings, serr := h.catalog.AudioSiblings(ctx, mf.TitleID, mf.EpisodeID, mf.ID); serr == nil && len(siblings) > 0 {
-		info.Audio = append(info.Audio, audioTrackFor(mf, true))
-		for i := range siblings {
-			info.Audio = append(info.Audio, audioTrackFor(&siblings[i], false))
-		}
-	}
-
 	// embedded multi-audio (model A): a file with >=2 audio tracks streams via the
 	// var_stream_map HLS remux so the player can switch audio language.
-	audioStreams, _ := h.library.AudioStreamsForFile(ctx, mf.ID)
+	audioStreams, err := h.library.AudioStreamsForFile(ctx, mf.ID)
+	if err != nil {
+		return nil, err
+	}
 	multiAudio := len(audioStreams) >= 2
 
 	// ready transcode variants power the player's quality menu and are offered
@@ -409,31 +406,30 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, userID *int
 		info.HLSURL = hlsURL
 	}
 
-	// embedded audio tracks for the player's language menu (model A)
-	if multiAudio && len(info.Audio) == 0 {
-		for _, a := range audioStreams {
-			label := a.Title
-			if label == "" || label == a.Lang {
-				label = audioLabel(a.Lang)
+	sources := []audioFileSource{{file: *mf, streams: audioStreams, multiAudioReady: multiAudioReady}}
+	if siblings, serr := h.catalog.AudioSiblings(ctx, mf.TitleID, mf.EpisodeID, mf.ID); serr == nil {
+		for _, sibling := range siblings {
+			streams, aerr := h.library.AudioStreamsForFile(ctx, sibling.ID)
+			if aerr != nil {
+				continue
 			}
-			info.Audio = append(info.Audio, audioTrack{
-				ID:      fmt.Sprintf("embedded:%d", a.Index),
-				Lang:    a.Lang,
-				Label:   label,
-				Default: a.Default,
-				Source:  "embedded",
-			})
-		}
-		hasDef := false
-		for _, t := range info.Audio {
-			if t.Default {
-				hasDef = true
+			source := audioFileSource{file: sibling, streams: streams}
+			if len(streams) >= 2 {
+				siblingVariants, err := h.library.VariantsForMediaFile(ctx, sibling.ID)
+				if err != nil {
+					continue
+				}
+				for _, variant := range siblingVariants {
+					if variant.Name == "multiaudio" && variant.Status == "ready" {
+						source.multiAudioReady = true
+						break
+					}
+				}
 			}
-		}
-		if !hasDef && len(info.Audio) > 0 {
-			info.Audio[0].Default = true
+			sources = append(sources, source)
 		}
 	}
+	info.Audio = audioTracksForSources(sources)
 
 	switch {
 	// embedded multi-audio must use the HLS remux so the player can switch audio,
