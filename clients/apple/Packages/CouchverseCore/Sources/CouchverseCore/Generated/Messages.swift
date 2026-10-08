@@ -23,6 +23,38 @@ public struct AccentPalette: Codable, Sendable, Hashable {
 	}
 }
 
+/// A rank tier; `code` is localized by the shell (`rank_tier_<code>`).
+public struct Tier: Codable, Sendable, Hashable {
+	public let code: String
+	public let level: UInt32
+	/// `#rrggbb`.
+	public let colour: String
+	public let minXp: UInt64
+
+	public init(code: String, level: UInt32, colour: String, minXp: UInt64) {
+		self.code = code
+		self.level = level
+		self.colour = colour
+		self.minXp = minXp
+	}
+}
+
+public struct RankBadge: Codable, Sendable, Hashable {
+	public let tier: Tier
+	/// The tier after this one; the same as `tier` at the top.
+	public let next: Tier
+	public let xp: UInt64
+	/// Progress through the current tier, from 0 to 100.
+	public let percent: UInt32
+
+	public init(tier: Tier, next: Tier, xp: UInt64, percent: UInt32) {
+		self.tier = tier
+		self.next = next
+		self.xp = xp
+		self.percent = percent
+	}
+}
+
 public struct AccountCard: Codable, Sendable, Hashable {
 	public let id: String
 	public let serverId: String
@@ -34,8 +66,13 @@ public struct AccountCard: Codable, Sendable, Hashable {
 	public let avatarUrl: String?
 	/// False once the server rejected the token (revoked or expired): sign in again.
 	public let signedIn: Bool
+	/// The rank last seen on this device, for the ring around the avatar; absent until one is
+	/// known, and while the server has rankings off.
+	public let rank: RankBadge?
+	/// The colours of the account's banner, last seen on this device; absent without one.
+	public let accent: AccentPalette?
 
-	public init(id: String, serverId: String, serverName: String, insecure: Bool, username: String, displayName: String, avatarUrl: String? = nil, signedIn: Bool) {
+	public init(id: String, serverId: String, serverName: String, insecure: Bool, username: String, displayName: String, avatarUrl: String? = nil, signedIn: Bool, rank: RankBadge? = nil, accent: AccentPalette? = nil) {
 		self.id = id
 		self.serverId = serverId
 		self.serverName = serverName
@@ -44,6 +81,8 @@ public struct AccountCard: Codable, Sendable, Hashable {
 		self.displayName = displayName
 		self.avatarUrl = avatarUrl
 		self.signedIn = signedIn
+		self.rank = rank
+		self.accent = accent
 	}
 }
 
@@ -2494,38 +2533,6 @@ public struct PlayerView: Codable, Sendable, Hashable {
 		self.frameUrl = frameUrl
 		self.linear = linear
 		self.problem = problem
-	}
-}
-
-/// A rank tier; `code` is localized by the shell (`rank_tier_<code>`).
-public struct Tier: Codable, Sendable, Hashable {
-	public let code: String
-	public let level: UInt32
-	/// `#rrggbb`.
-	public let colour: String
-	public let minXp: UInt64
-
-	public init(code: String, level: UInt32, colour: String, minXp: UInt64) {
-		self.code = code
-		self.level = level
-		self.colour = colour
-		self.minXp = minXp
-	}
-}
-
-public struct RankBadge: Codable, Sendable, Hashable {
-	public let tier: Tier
-	/// The tier after this one; the same as `tier` at the top.
-	public let next: Tier
-	public let xp: UInt64
-	/// Progress through the current tier, from 0 to 100.
-	public let percent: UInt32
-
-	public init(tier: Tier, next: Tier, xp: UInt64, percent: UInt32) {
-		self.tier = tier
-		self.next = next
-		self.xp = xp
-		self.percent = percent
 	}
 }
 

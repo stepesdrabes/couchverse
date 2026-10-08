@@ -15,6 +15,24 @@ export interface AccentPalette {
 	ink: string;
 }
 
+/** A rank tier; `code` is localized by the shell (`rank_tier_<code>`). */
+export interface Tier {
+	code: string;
+	level: number;
+	/** `#rrggbb`. */
+	colour: string;
+	minXp: number;
+}
+
+export interface RankBadge {
+	tier: Tier;
+	/** The tier after this one; the same as `tier` at the top. */
+	next: Tier;
+	xp: number;
+	/** Progress through the current tier, from 0 to 100. */
+	percent: number;
+}
+
 export interface AccountCard {
 	id: string;
 	serverId: string;
@@ -26,6 +44,13 @@ export interface AccountCard {
 	avatarUrl?: string;
 	/** False once the server rejected the token (revoked or expired): sign in again. */
 	signedIn: boolean;
+	/**
+	 * The rank last seen on this device, for the ring around the avatar; absent until one is
+	 * known, and while the server has rankings off.
+	 */
+	rank?: RankBadge;
+	/** The colours of the account's banner, last seen on this device; absent without one. */
+	accent?: AccentPalette;
 }
 
 export interface AccountRef {
@@ -1171,24 +1196,6 @@ export interface PlayerView {
 	/** A couch follower's player: hide timeline controls. */
 	linear: boolean;
 	problem?: Problem;
-}
-
-/** A rank tier; `code` is localized by the shell (`rank_tier_<code>`). */
-export interface Tier {
-	code: string;
-	level: number;
-	/** `#rrggbb`. */
-	colour: string;
-	minXp: number;
-}
-
-export interface RankBadge {
-	tier: Tier;
-	/** The tier after this one; the same as `tier` at the top. */
-	next: Tier;
-	xp: number;
-	/** Progress through the current tier, from 0 to 100. */
-	percent: number;
 }
 
 export interface XpLine {

@@ -1,6 +1,7 @@
 use serde_json::json;
 
 use super::*;
+use crate::modules::accounts::{AccountCard, AccountsView};
 use crate::modules::notices::NoticesView;
 use crate::modules::profile::{
     ImageChoice, ImageSlot, PasswordForm, ProfileEdit, ProfileEditorView,
@@ -393,4 +394,107 @@ fn a_picked_image_is_uploaded_by_the_shell() {
         shell.view::<SessionView>(&Surface::Session).user.expect("user").avatar_id.as_deref(),
         Some("av-new")
     );
+}
+
+/// A member with a banner, whose accent only their profile names.
+fn bannered(id: i64, username: &str, banner: &str) -> Value {
+    let mut user = user(id, username);
+    user["bannerId"] = json!(banner);
+    user
+}
+
+fn account_card(shell: &Shell) -> AccountCard {
+    shell.view::<AccountsView>(&Surface::Accounts).accounts.remove(0)
+}
+
+/// A phone whose account has shown its rank and its banner's accent once.
+fn seen() -> Shell {
+    let mut shell = launched(returning(Platform::Ios, &[(1, "admin", Some("tok-1"))], 1));
+    shell.respond("GET", &format!("{API}/me/preferences"), 200, json!({ "language": "en" }));
+    shell.respond("GET", &format!("{API}/server"), 200, server_info("#3a6ea5"));
+    shell.respond("GET", &format!("{API}/auth/me"), 200, bannered(1, "admin", "bn"));
+    shell.respond(
+        "GET",
+        &format!("{API}/features"),
+        200,
+        json!({ "couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": true }),
+    );
+    // the check names the rank, and the profile, read for it, the banner's accent
+    shell.respond("POST", CHECK, 200, check_result(1, &[]));
+    let card = account_card(&shell);
+    assert_eq!((card.rank.map(|r| r.tier.level), card.accent), (Some(1), None));
+    shell.respond("GET", &format!("{API}/me/stats?lang=en"), 200, profile_payload("admin", true));
+    shell
+}
+
+#[test]
+fn who_is_watching_shows_an_account_as_it_last_looked_here() {
+    let shell = seen();
+    let card = account_card(&shell);
+    assert_eq!(card.rank.map(|r| (r.tier.code, r.tier.level)), Some(("remote".into(), 2)));
+    assert_eq!(card.accent.map(|a| a.accent), Some("#204060".into()));
+
+    // a TV asks who's watching before anything loads, so the card comes from the store
+    let tv = launched(shell.relaunch(Platform::Tvos));
+    assert_eq!((tv.phase(), tv.http_summary()), (AppPhase::ChooseAccount, empty::<String>()));
+    let card = account_card(&tv);
+    assert_eq!(card.rank.map(|r| r.tier.level), Some(2));
+    assert_eq!(card.accent.map(|a| a.accent), Some("#204060".into()));
+}
+
+#[test]
+fn a_new_banner_drops_the_old_accent_until_its_profile_is_read() {
+    let mut shell = seen();
+    // changed on another device: the session's next read says so
+    shell.now += 10 * 60_000;
+    shell.send(Event::AppBecameActive);
+    shell.respond("GET", &format!("{API}/auth/me"), 200, bannered(1, "admin", "bn2"));
+    assert_eq!(account_card(&shell).accent, None);
+    let mut payload = profile_payload("admin", true);
+    payload["user"]["bannerId"] = json!("bn2");
+    payload["user"]["bannerAccent"] = json!("#a03020");
+    shell.respond("GET", &format!("{API}/me/stats?lang=en"), 200, payload);
+    assert_eq!(account_card(&shell).accent.map(|a| a.accent), Some("#a03020".into()));
+
+    // without a banner there is nothing to look up
+    shell.now += 10 * 60_000;
+    shell.send(Event::AppBecameActive);
+    shell.respond("GET", &format!("{API}/auth/me"), 200, user(1, "admin"));
+    assert_eq!(account_card(&shell).accent, None);
+    assert!(shell.find_request("GET", &format!("{API}/me/stats?lang=en")).is_none());
+}
+
+#[test]
+fn rankings_switched_off_take_the_rank_off_the_card() {
+    let mut shell = seen();
+    shell.now += 10 * 60_000;
+    shell.send(Event::AppBecameActive);
+    shell.respond(
+        "GET",
+        &format!("{API}/features"),
+        200,
+        json!({ "couchEnabled": true, "rankingsEnabled": false, "downloadsEnabled": true }),
+    );
+    let card = account_card(&shell);
+    assert_eq!(card.rank, None);
+    assert!(card.accent.is_some(), "a banner is not a ranking");
+}
+
+#[test]
+fn a_profile_asked_for_in_the_language_left_behind_is_asked_for_again() {
+    let mut shell = launched(returning(Platform::Ios, &[(1, "admin", Some("tok-1"))], 1));
+    shell.respond("GET", &format!("{API}/auth/me"), 200, bannered(1, "admin", "bn"));
+    shell.respond(
+        "GET",
+        &format!("{API}/features"),
+        200,
+        json!({ "couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": true }),
+    );
+    // asked for in the device's language before the account's arrived
+    shell.request("GET", &format!("{API}/me/stats?lang=cs"));
+    shell.respond("GET", &format!("{API}/me/preferences"), 200, json!({ "language": "en" }));
+    shell.respond("GET", &format!("{API}/me/stats?lang=cs"), 200, profile_payload("admin", true));
+    assert_eq!(account_card(&shell).accent, None, "dropped with its language");
+    shell.respond("GET", &format!("{API}/me/stats?lang=en"), 200, profile_payload("admin", true));
+    assert_eq!(account_card(&shell).accent.map(|a| a.accent), Some("#204060".into()));
 }

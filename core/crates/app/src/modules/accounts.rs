@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use couchverse_api::types::{
     ConnectRedemption, Device, DeviceSignIn, DeviceToken, Pairing, PairingPoll, PairingRequest,
-    PairingStatus, PairingStatusStatus, User,
+    PairingStatus, PairingStatusStatus, ProfileUser, User,
 };
 use couchverse_api::{Call, NoContent, ops, types};
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,9 @@ use crate::api::{Endpoint, Failure, decode};
 use crate::core::Pending;
 use crate::effects::Ctx;
 use crate::messages::{CoreConfig, EffectOutput, LoadStatus, Problem, Surface, U53};
+use crate::modules::ranks::RankBadge;
 use crate::modules::servers::{Server, Servers};
+use crate::modules::theme::{self, AccentPalette};
 
 const STORE_KEY: &str = "accounts";
 
@@ -41,6 +43,12 @@ struct Account {
     /// Lets the shells load avatars without the session (system image loaders send no
     /// headers); renewed whenever the account becomes active.
     artwork_grant: Option<String>,
+    banner_id: Option<String>,
+    /// The accent of `banner_id` (`#rrggbb`, empty when the server found none), from the
+    /// profile, the only place the server names it; dropped when the banner changes.
+    banner_accent: Option<String>,
+    /// The rank last seen while the account was active, for "Who's watching?".
+    rank: Option<RankBadge>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -123,6 +131,13 @@ pub struct AccountCard {
     pub avatar_url: Option<String>,
     /// False once the server rejected the token (revoked or expired): sign in again.
     pub signed_in: bool,
+    /// The rank last seen on this device, for the ring around the avatar; absent until one is
+    /// known, and while the server has rankings off.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rank: Option<RankBadge>,
+    /// The colours of the account's banner, last seen on this device; absent without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accent: Option<AccentPalette>,
 }
 
 #[typeshare]
@@ -356,6 +371,12 @@ impl Accounts {
                         .as_deref()
                         .and_then(|id| self.artwork_url(servers, &a.id, id)),
                     signed_in: self.tokens.contains_key(&a.id),
+                    rank: a.rank.clone(),
+                    accent: a
+                        .banner_accent
+                        .as_deref()
+                        .filter(|hex| !hex.is_empty())
+                        .map(theme::palette),
                 }
             })
             .collect();
@@ -792,14 +813,50 @@ impl Accounts {
         };
         let changed = account.username != user.username
             || account.display_name != user.display_name
-            || account.avatar_id != user.avatar_id;
+            || account.avatar_id != user.avatar_id
+            || account.banner_id != user.banner_id;
         if changed {
+            if account.banner_id != user.banner_id {
+                account.banner_accent = None;
+            }
             account.username.clone_from(&user.username);
             account.display_name.clone_from(&user.display_name);
             account.avatar_id.clone_from(&user.avatar_id);
+            account.banner_id.clone_from(&user.banner_id);
             self.persist(ctx);
             ctx.render(Surface::Accounts);
         }
+    }
+
+    /// Keeps the account's rank for its card; `None` once its server has rankings off.
+    pub fn update_rank(&mut self, ctx: &mut Ctx, account_id: &str, rank: Option<&RankBadge>) {
+        let Some(account) = self.account_mut(account_id) else {
+            return;
+        };
+        if account.rank.as_ref() != rank {
+            account.rank = rank.cloned();
+            self.persist(ctx);
+            ctx.render(Surface::Accounts);
+        }
+    }
+
+    /// Takes the banner's accent from the account's profile, when it describes the banner the
+    /// session last reported.
+    pub fn update_banner(&mut self, ctx: &mut Ctx, account_id: &str, user: &ProfileUser) {
+        let Some(account) = self.account_mut(account_id) else {
+            return;
+        };
+        let accent = user.banner_id.as_ref().map(|_| user.banner_accent.clone());
+        if account.banner_id == user.banner_id && account.banner_accent != accent {
+            account.banner_accent = accent;
+            self.persist(ctx);
+            ctx.render(Surface::Accounts);
+        }
+    }
+
+    /// The account has a banner whose accent this device has not seen yet.
+    pub fn wants_accent(&self, account_id: &str) -> bool {
+        self.account(account_id).is_some_and(|a| a.banner_id.is_some() && a.banner_accent.is_none())
     }
 
     fn devices_loaded(
@@ -920,6 +977,9 @@ impl Accounts {
             display_name: user.display_name,
             avatar_id: user.avatar_id,
             artwork_grant: None,
+            banner_id: user.banner_id,
+            banner_accent: None,
+            rank: None,
         };
         match self.persisted.accounts.iter_mut().find(|a| a.id == id) {
             Some(existing) => *existing = account,

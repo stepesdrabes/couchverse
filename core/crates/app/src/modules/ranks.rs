@@ -610,6 +610,15 @@ impl Ranks {
         }
     }
 
+    pub fn rank(&self) -> Option<&RankBadge> {
+        self.rank.as_ref()
+    }
+
+    /// The viewer's own profile, once read.
+    pub fn own_profile(&self) -> Option<&UserProfile> {
+        self.profiles.values().find_map(|slot| slot.value.as_ref().filter(|p| p.is_self))
+    }
+
     pub fn rank_view(&self) -> RankView {
         RankView {
             rank: self.rank.clone(),

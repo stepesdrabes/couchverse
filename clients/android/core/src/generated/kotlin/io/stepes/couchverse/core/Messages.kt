@@ -19,6 +19,26 @@ data class AccentPalette (
 	val ink: String
 )
 
+/// A rank tier; `code` is localized by the shell (`rank_tier_<code>`).
+@Serializable
+data class Tier (
+	val code: String,
+	val level: UInt,
+	/// `#rrggbb`.
+	val colour: String,
+	val minXp: ULong
+)
+
+@Serializable
+data class RankBadge (
+	val tier: Tier,
+	/// The tier after this one; the same as `tier` at the top.
+	val next: Tier,
+	val xp: ULong,
+	/// Progress through the current tier, from 0 to 100.
+	val percent: UInt
+)
+
 @Serializable
 data class AccountCard (
 	val id: String,
@@ -30,7 +50,12 @@ data class AccountCard (
 	val displayName: String,
 	val avatarUrl: String? = null,
 	/// False once the server rejected the token (revoked or expired): sign in again.
-	val signedIn: Boolean
+	val signedIn: Boolean,
+	/// The rank last seen on this device, for the ring around the avatar; absent until one is
+	/// known, and while the server has rankings off.
+	val rank: RankBadge? = null,
+	/// The colours of the account's banner, last seen on this device; absent without one.
+	val accent: AccentPalette? = null
 )
 
 @Serializable
@@ -1522,26 +1547,6 @@ data class PlayerView (
 	/// A couch follower's player: hide timeline controls.
 	val linear: Boolean,
 	val problem: Problem? = null
-)
-
-/// A rank tier; `code` is localized by the shell (`rank_tier_<code>`).
-@Serializable
-data class Tier (
-	val code: String,
-	val level: UInt,
-	/// `#rrggbb`.
-	val colour: String,
-	val minXp: ULong
-)
-
-@Serializable
-data class RankBadge (
-	val tier: Tier,
-	/// The tier after this one; the same as `tier` at the top.
-	val next: Tier,
-	val xp: ULong,
-	/// Progress through the current tier, from 0 to 100.
-	val percent: UInt
 )
 
 @Serializable

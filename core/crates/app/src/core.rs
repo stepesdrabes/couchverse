@@ -495,11 +495,9 @@ impl Model {
                             self.phase = AppPhase::Ready;
                             ctx.render(Surface::App);
                         }
-                        // the first check waits for both the user and the flags, whichever
-                        // answers last
-                        self.check_achievements(ctx, false);
+                        self.session_known(ctx);
                     }
-                    SessionChange::Features => self.check_achievements(ctx, false),
+                    SessionChange::Features => self.session_known(ctx),
                     SessionChange::Unauthorized(id) => self.signed_out(ctx, &id),
                     SessionChange::None => {}
                 }
@@ -516,6 +514,7 @@ impl Model {
             }
             Pending::Ranks(p) => {
                 let change = self.ranks.resolve(ctx, p, output);
+                self.update_card(ctx);
                 self.ranks_changed(ctx, change);
             }
             Pending::Playback(p) => {
@@ -828,14 +827,7 @@ impl Model {
                     self.ranks.retry(ctx, endpoint);
                 }
             }
-            RanksChange::RankUnknown => {
-                if let Some(env) = ranks_env(&self.session)
-                    && let Some(me) = env.username
-                {
-                    let me = Surface::Profile(me.to_string());
-                    self.ranks.open(ctx, &env, &me, false);
-                }
-            }
+            RanksChange::RankUnknown => self.open_own_profile(ctx),
             RanksChange::None => {}
         }
     }
@@ -855,13 +847,56 @@ impl Model {
         }
     }
 
+    /// The session's user or flags arrived; what needs both runs once the later one has.
+    fn session_known(&mut self, ctx: &mut Ctx) {
+        self.check_achievements(ctx, false);
+        self.update_card(ctx);
+        self.learn_accent(ctx);
+    }
+
+    /// "Who's watching?" is tinted with the banner's accent, which only the profile names.
+    fn learn_accent(&mut self, ctx: &mut Ctx) {
+        if let Some(id) = self.session.account_id()
+            && self.session.rankings_confirmed()
+            && self.accounts.wants_accent(id)
+        {
+            self.open_own_profile(ctx);
+        }
+    }
+
+    /// Keeps the active account's card as ranks last saw it: its rank (none while the server
+    /// has rankings off) and its banner's accent.
+    fn update_card(&mut self, ctx: &mut Ctx) {
+        let Some(id) = self.session.account_id() else { return };
+        if !self.session.rankings() {
+            self.accounts.update_rank(ctx, id, None);
+        } else if let Some(rank) = self.ranks.rank() {
+            self.accounts.update_rank(ctx, id, Some(rank));
+        }
+        if let Some(me) = self.ranks.own_profile() {
+            self.accounts.update_banner(ctx, id, &me.user);
+        }
+    }
+
+    /// The viewer's own profile, which carries their rank and their banner's accent too.
+    fn open_own_profile(&mut self, ctx: &mut Ctx) {
+        if let Some(env) = ranks_env(&self.session)
+            && let Some(me) = env.username
+        {
+            let me = Surface::Profile(me.to_string());
+            self.ranks.open(ctx, &env, &me, false);
+        }
+    }
+
     /// Reloads what is showing when the display language differs from `before`.
     fn language_settled(&mut self, ctx: &mut Ctx, before: &str) {
         if self.session.language() != before
             && let Some(env) = env(&self.session)
         {
             self.catalog.language_changed(ctx, &env);
+            // a profile asked for in the language left behind is dropped when it arrives
             self.ranks.language_changed();
+            self.learn_accent(ctx);
         }
     }
 
