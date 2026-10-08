@@ -1,4 +1,5 @@
 import CouchverseCore
+import CouchverseDesign
 import Foundation
 import Testing
 
@@ -91,5 +92,38 @@ struct ProfileChoreographyTests {
         #expect(!choreography.isRunning)
         #expect(!choreography.isFlying(card.id))
         #expect(choreography.card == nil)
+    }
+}
+
+@MainActor
+struct CatalogLabelTests {
+    init() { L10n.language = "en" }
+
+    @Test func aMovieResumesAtATimeAndASeriesNamesItsEpisode() {
+        let movie = PlayAction(target: PlayTarget(kind: .movie, id: "m"), resumeSeconds: 3725)
+        #expect(CatalogLabels.playLabel(movie, kind: .movie) == "Resume from 1:02:05")
+        let episode = PlayAction(
+            target: PlayTarget(kind: .episode, id: "e"), resumeSeconds: 600,
+            episode: EpisodeNumber(season: 2, episode: 4))
+        #expect(CatalogLabels.playLabel(episode, kind: .series) == "Play S2 E4")
+        #expect(CatalogLabels.playLabel(PlayAction(target: PlayTarget(kind: .movie, id: "m")), kind: .movie) == "Play")
+    }
+
+    @Test func theBuiltInRowsAreTranslatedAndCustomOnesKept() {
+        let row = { (kind: HomeRowKind, label: String) in
+            HomeRowView(id: "r", kind: kind, label: label, cards: [], continueWatching: [])
+        }
+        L10n.language = "cs"
+        #expect(CatalogLabels.row(row(.continueWatching, "Continue Watching")) == L10n.homeRowContinueWatching)
+        #expect(CatalogLabels.row(row(.recentlyAdded, "Fresh this week")) == "Fresh this week")
+        #expect(CatalogLabels.row(row(.genre, "Drama")) == "Drama")
+        L10n.language = "en"
+    }
+
+    @Test func factsJoinWhatIsKnown() {
+        #expect(
+            CatalogLabels.facts(year: 2024, rating: "PG-13", runtime: 112, kind: .movie)
+                == "Movie · 2024 · PG-13 · 1 hr, 52 min")
+        #expect(CatalogLabels.facts(year: nil, rating: nil, runtime: nil) == "")
     }
 }

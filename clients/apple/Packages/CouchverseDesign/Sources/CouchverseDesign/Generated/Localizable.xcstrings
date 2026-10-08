@@ -2194,6 +2194,23 @@
         }
       }
     },
+    "catalog_more_info": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Více informací"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More info"
+          }
+        }
+      }
+    },
     "catalog_movies_title": {
       "extractionState": "manual",
       "localizations": {
@@ -2886,6 +2903,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Could not refresh. Showing what was saved."
+          }
+        }
+      }
+    },
+    "catalog_title_not_found": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento titul už v knihovně není."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This title is no longer in the library."
           }
         }
       }
@@ -7257,6 +7291,23 @@
         }
       }
     },
+    "player_failed_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přehrávání se zastavilo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playback stopped"
+          }
+        }
+      }
+    },
     "player_forward_10_seconds": {
       "extractionState": "manual",
       "localizations": {
@@ -7355,6 +7406,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Now playing"
+          }
+        }
+      }
+    },
+    "player_options": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Možnosti přehrávání"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playback options"
           }
         }
       }
@@ -7712,6 +7780,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unmute"
+          }
+        }
+      }
+    },
+    "player_unsupported_description": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Požádej administrátora, ať v editoru titulu připraví verzi pro streamování."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask the admin to prepare a streamable version from the title editor."
+          }
+        }
+      }
+    },
+    "player_unsupported_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toto zařízení video nepřehraje"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device can't play this video"
           }
         }
       }

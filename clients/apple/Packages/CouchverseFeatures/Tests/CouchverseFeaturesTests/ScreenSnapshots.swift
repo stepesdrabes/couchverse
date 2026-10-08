@@ -85,10 +85,82 @@ struct ScreenSnapshots {
 
     @Test(arguments: [LoadStatus.loading, .loaded, .failed, .stale])
     func home(status: LoadStatus) {
-        var values = Self.ready
-        values.append(.session(Fixtures.session(status)))
-        snapshot("home-\(status)", values) { NavigationStack { HomeScreen() } }
+        snapshot("home-\(status)", Self.ready + [.home(Fixtures.home(status))]) { NavigationStack { HomeScreen() } }
     }
+
+    @Test(arguments: [LoadStatus.loading, .loaded, .notFound, .failed, .stale])
+    func movie(status: LoadStatus) {
+        let view = Fixtures.title(status)
+        snapshot("title-movie-\(status)", Self.ready + [.title(view.slug, view)]) {
+            NavigationStack { TitleScreen(slug: view.slug) }
+        }
+    }
+
+    @Test func series() {
+        let view = Fixtures.title(.loaded, series: true)
+        snapshot("title-series", Self.ready + [.title(view.slug, view)]) {
+            NavigationStack { TitleScreen(slug: view.slug) }
+        }
+    }
+
+    @Test(arguments: ["loading", "loaded", "failed", "empty", "genre"])
+    func browse(state: String) {
+        let key = state == "genre" ? BrowseKey(kind: nil, genre: "Drama", sort: .added) : BrowseKey.movies
+        let view =
+            switch state {
+            case "loading": Fixtures.browse(.loading, key: key)
+            case "failed": Fixtures.browse(.failed, key: key)
+            case "empty": Fixtures.browse(.loaded, key: key, empty: true)
+            default: Fixtures.browse(.loaded, key: key)
+            }
+        snapshot("browse-\(state)", Self.ready + [.browse(key, view), .genres(Fixtures.genres(.loaded))]) {
+            NavigationStack { BrowseScreen(key: key) }
+        }
+    }
+
+    @Test(arguments: [LoadStatus.loading, .loaded])
+    func genres(status: LoadStatus) {
+        snapshot("genres-\(status)", Self.ready + [.genres(Fixtures.genres(status))]) {
+            NavigationStack { GenresScreen() }
+        }
+    }
+
+    @Test(arguments: ["loaded", "empty"])
+    func myList(state: String) {
+        snapshot("my-list-\(state)", Self.ready + [.myList(Fixtures.myList(.loaded, empty: state == "empty"))]) {
+            NavigationStack { MyListScreen() }
+        }
+    }
+
+    @Test(arguments: ["idle", "loading", "results", "no-results"])
+    func search(state: String) {
+        let view =
+            switch state {
+            case "loading": Fixtures.search("glass", .loading)
+            case "results": Fixtures.search("glass", .loaded)
+            case "no-results": Fixtures.search("zebra", .loaded, empty: true)
+            default: Fixtures.search("", .idle)
+            }
+        snapshot("search-\(state)", Self.ready + [.search(view)]) {
+            NavigationStack { SearchScreen() }
+        }
+    }
+
+    /// The player's own states; the picture itself is the system's and needs a host app.
+    @Test(arguments: ["preparing", "failed", "unsupported"])
+    func player(state: String) {
+        snapshot("player-\(state)", Self.ready + [.player(Fixtures.player(state))]) {
+            PlayerScreen().environment(PlayerController())
+        }
+    }
+
+    #if os(iOS)
+        @Test func playerNextUp() {
+            snapshot("player-next", Self.ready + [.player(Fixtures.player("next"))]) {
+                PlayerScreen().environment(PlayerController())
+            }
+        }
+    #endif
 
     @Test func settings() {
         snapshot("settings", Self.ready) { NavigationStack { SettingsScreen() } }

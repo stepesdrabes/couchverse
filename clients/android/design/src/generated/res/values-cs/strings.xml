@@ -130,6 +130,7 @@
     <string name="catalog_library_empty_title">Knihovna je prázdná</string>
     <string name="catalog_list_update_failed">Nepodařilo se aktualizovat Můj seznam</string>
     <string name="catalog_load_failed">Stránku se nepodařilo načíst</string>
+    <string name="catalog_more_info">Více informací</string>
     <string name="catalog_movies_title">Filmy - Couchverse</string>
     <string name="catalog_my_list_empty_message">Ulož si filmy a seriály tlačítkem + a najdeš je tady.</string>
     <string name="catalog_my_list_empty_title">Tvůj seznam je prázdný</string>
@@ -172,6 +173,7 @@
     <string name="catalog_sort_recently_added">Nedávno přidané</string>
     <string name="catalog_sort_year">Rok</string>
     <string name="catalog_stale_notice">Obsah se nepodařilo obnovit. Zobrazuje se uložená verze.</string>
+    <string name="catalog_title_not_found">Tento titul už v knihovně není.</string>
     <string name="catalog_title_page_title">%1$s - Couchverse</string>
     <string name="catalog_watched">Zhlédnuto</string>
     <string name="common_add">Přidat</string>
@@ -431,12 +433,14 @@
     <string name="player_episode_number">Epizoda %1$s</string>
     <string name="player_episodes">Epizody</string>
     <string name="player_exit_fullscreen">Ukončit celou obrazovku</string>
+    <string name="player_failed_title">Přehrávání se zastavilo</string>
     <string name="player_forward_10_seconds">Vpřed o 10 sekund</string>
     <string name="player_fullscreen">Celá obrazovka</string>
     <string name="player_mute">Ztlumit</string>
     <string name="player_needs_transcoding_description">Zdrojový formát nelze přehrát v prohlížeči. Administrátor může připravit verzi HLS v editoru titulu (Soubory → Připravit HLS).</string>
     <string name="player_needs_transcoding_title">Tento soubor je potřeba překódovat</string>
     <string name="player_now_playing">Právě hraje</string>
+    <string name="player_options">Možnosti přehrávání</string>
     <string name="player_page_title">%1$s - Couchverse</string>
     <string name="player_picture_in_picture">Obraz v obraze</string>
     <string name="player_play_now">Přehrát hned</string>
@@ -458,6 +462,8 @@
     <string name="player_subtitle_size">Velikost</string>
     <string name="player_subtitles">Titulky</string>
     <string name="player_unmute">Zrušit ztlumení</string>
+    <string name="player_unsupported_description">Požádej administrátora, ať v editoru titulu připraví verzi pro streamování.</string>
+    <string name="player_unsupported_title">Toto zařízení video nepřehraje</string>
     <string name="player_up_next">Další · %1$ss</string>
     <string name="player_volume">Hlasitost</string>
     <string name="problem_conflict">Toto uživatelské jméno je už obsazené.</string>

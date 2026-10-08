@@ -37,9 +37,8 @@ final class LiveFlowTests: XCTestCase {
         if notNow.waitForExistence(timeout: 5) {
             notNow.tap()
         }
-        XCTAssert(
-            app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Welcome back'")).firstMatch
-                .waitForExistence(timeout: 10))
+        XCTAssert(app.buttons["More info"].firstMatch.waitForExistence(timeout: 20), "the featured hero")
+        Thread.sleep(forTimeInterval: 2)
         screenshot("phone-04-home")
     }
 
@@ -81,6 +80,47 @@ final class LiveFlowTests: XCTestCase {
             app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Approved'")).firstMatch.waitForExistence(
                 timeout: 15))
         screenshot("phone-08-approved")
+    }
+
+    /// Browse to a title (`CV_TITLE`, Glass Harbor by default), play it, open the player's
+    /// options, close the player and find the title resuming where it stopped.
+    @MainActor
+    func test3BrowseToATitleAndPlayIt() throws {
+        let app = try launch()
+        XCTAssert(app.buttons["account-switcher"].waitForExistence(timeout: 20))
+        app.tabBars.buttons["Browse"].firstMatch.tap()
+        let card = app.buttons[environment["CV_TITLE"] ?? "Glass Harbor"].firstMatch
+        XCTAssert(card.waitForExistence(timeout: 15))
+        Thread.sleep(forTimeInterval: 1)
+        screenshot("phone-09-browse")
+        card.tap()
+
+        let play = app.buttons["title-play"]
+        XCTAssert(play.waitForExistence(timeout: 15))
+        Thread.sleep(forTimeInterval: 1)
+        screenshot("phone-10-title")
+        play.tap()
+
+        let options = app.buttons["player-options"]
+        XCTAssert(options.waitForExistence(timeout: 20), "the player shows its options")
+        Thread.sleep(forTimeInterval: 8)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
+        screenshot("phone-11-player")
+        options.tap()
+        XCTAssert(app.buttons["Quality"].firstMatch.waitForExistence(timeout: 5))
+        screenshot("phone-12-player-options")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).tap()
+
+        // the system player's own close
+        if !app.buttons["Close"].firstMatch.isHittable {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
+        }
+        app.buttons["Close"].firstMatch.tap()
+        // the title stays under the player; back in front, it offers to resume
+        let resume = NSPredicate(format: "hittable == true AND label BEGINSWITH 'Resume from'")
+        expectation(for: resume, evaluatedWith: play)
+        waitForExpectations(timeout: 15)
+        screenshot("phone-13-title-resume")
     }
 
     @MainActor

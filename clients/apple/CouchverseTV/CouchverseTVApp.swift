@@ -4,12 +4,13 @@ import SwiftUI
 
 @main
 struct CouchverseTVApp: App {
-    @State private var runtime = LiveRuntime.make()
+    @State private var app = LiveRuntime.make()
 
     var body: some Scene {
         WindowGroup {
             CouchverseRoot()
-                .environment(runtime)
+                .environment(app.runtime)
+                .environment(app.player)
         }
     }
 }

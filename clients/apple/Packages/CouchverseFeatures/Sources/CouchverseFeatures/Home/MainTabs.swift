@@ -2,11 +2,18 @@ import CouchverseCore
 import CouchverseDesign
 import SwiftUI
 
-/// The signed-in app. Home is a placeholder until the catalog slice; the navigation is already the
-/// final shape: a sidebar on TV and iPad, a Liquid Glass tab bar on iPhone (plan 10.3).
+/// The signed-in app (plan 10.3): a sidebar on TV (Home, Movies, Series, Genres, My List, Search,
+/// Settings), a Liquid Glass tab bar on iPhone with Search as its own tab, and the same tabs as an
+/// adaptable sidebar on iPad. Each tab keeps its own navigation stack.
 struct MainTabs: View {
     enum Destination: Hashable {
         case home
+        case browse
+        case movies
+        case series
+        case genres
+        case myList
+        case search
         case settings
     }
 
@@ -15,15 +22,87 @@ struct MainTabs: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab(L10n.navHome, systemImage: "house", value: Destination.home) {
-                NavigationStack { HomeScreen() }
+                CatalogStack { HomeScreen() }
+            }
+            #if os(tvOS)
+                Tab(L10n.navMovies, systemImage: "film", value: Destination.movies) {
+                    CatalogStack { BrowseScreen(key: .movies) }
+                }
+                Tab(L10n.navSeries, systemImage: "tv", value: Destination.series) {
+                    CatalogStack { BrowseScreen(key: .series) }
+                }
+                Tab(L10n.navGenres, systemImage: "square.grid.2x2", value: Destination.genres) {
+                    CatalogStack { GenresScreen() }
+                }
+            #else
+                Tab(L10n.navBrowse, systemImage: "square.grid.2x2", value: Destination.browse) {
+                    CatalogStack { BrowseHub() }
+                }
+            #endif
+            Tab(L10n.navMyList, systemImage: "bookmark", value: Destination.myList) {
+                CatalogStack { MyListScreen() }
             }
             Tab(L10n.navSettings, systemImage: "gearshape", value: Destination.settings) {
                 NavigationStack { SettingsScreen() }
+            }
+            Tab(L10n.navSearch, systemImage: "magnifyingglass", value: Destination.search, role: .search) {
+                CatalogStack { SearchScreen() }
             }
         }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewSidebarHeader { AccountHeader() }
     }
+}
+
+/// A tab's navigation stack, which titles and listings are pushed onto.
+private struct CatalogStack<Root: View>: View {
+    @ViewBuilder let root: () -> Root
+
+    var body: some View {
+        NavigationStack {
+            root().catalogDestinations()
+        }
+    }
+}
+
+#if os(iOS)
+    /// The phone's and tablet's Browse tab: movies, series or genres, switched at the top.
+    private struct BrowseHub: View {
+        enum Section: Hashable {
+            case movies
+            case series
+            case genres
+        }
+
+        @State private var section = Section.movies
+
+        var body: some View {
+            Group {
+                switch section {
+                case .movies: BrowseScreen(key: .movies).id(Section.movies)
+                case .series: BrowseScreen(key: .series).id(Section.series)
+                case .genres: GenresScreen()
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker(L10n.navBrowse, selection: $section) {
+                        Text(L10n.navMovies).tag(Section.movies)
+                        Text(L10n.navSeries).tag(Section.series)
+                        Text(L10n.navGenres).tag(Section.genres)
+                    }
+                    .pickerStyle(.segmented)
+                    .fixedSize()
+                }
+            }
+        }
+    }
+#endif
+
+extension BrowseKey {
+    static let movies = BrowseKey(kind: .movie, genre: nil, sort: .added)
+    static let series = BrowseKey(kind: .series, genre: nil, sort: .added)
 }
 
 /// Who is signed in, at the top of the sidebar: the place a chosen profile's avatar lands, and

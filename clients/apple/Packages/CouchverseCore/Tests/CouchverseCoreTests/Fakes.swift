@@ -99,6 +99,26 @@ enum Payload {
         "apiLevel":1,"accent":"#3a6ea5","insecure":true}]
         """
 
+    static let accountId = "\(serverId)/1"
+
+    /// The persisted state of a phone signed in as the admin on `storedServer`.
+    static let signedIn = [
+        "servers": storedServer,
+        "accounts": """
+        {"accounts":[{"id":"\(accountId)","serverId":"\(serverId)","userId":1,"username":"admin",\
+        "displayName":"Admin","avatarId":null,"artworkGrant":"g-1"}],"active":"\(accountId)"}
+        """,
+    ]
+
+    static let directMovie = """
+        {"mode":"direct","mediaFileId":"f1","grant":"gr","streamUrl":"http://tv.home/api/v1/media/gr/stream",\
+        "hlsUrl":"http://tv.home/api/v1/media/gr/hls/master.m3u8","variants":[{"name":"720p","height":720}],\
+        "frameUrl":"","durationSeconds":2400.0,"resumePosition":600,"allowRandomPlayback":false,\
+        "display":{"title":"Glass Harbor","subtitle":"","titleId":"t1","titleSlug":"glass-harbor"},\
+        "subtitles":[{"id":"s-en","lang":"en","label":"English","forced":false,\
+        "url":"http://tv.home/api/v1/media/gr/subtitles/s-en.vtt"}]}
+        """
+
     /// Routes the four loads of a freshly activated session plus the avatar grant.
     static func routeSession(_ http: FakeHTTP, base: String, user: String) {
         http.route("GET", "\(base)/api/v1/auth/me", user)

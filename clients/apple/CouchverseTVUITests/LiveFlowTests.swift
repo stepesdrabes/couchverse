@@ -82,6 +82,56 @@ final class LiveFlowTests: XCTestCase {
         screenshot("tv-10-home-after-switch")
     }
 
+    /// From Who's watching to a title (`CV_TITLE`, Glass Harbor by default) and its playback:
+    /// Movies in the sidebar, the poster, Play, the transport bar, then Back to the title.
+    @MainActor
+    func test4BrowseToATitleAndPlayIt() throws {
+        let app = try launch()
+        let first = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'profile-'")).firstMatch
+        if first.waitForExistence(timeout: 10) {
+            remote.press(.select)
+        }
+        XCTAssert(app.buttons["More info"].firstMatch.waitForExistence(timeout: 20), "the featured hero")
+        Thread.sleep(forTimeInterval: 2)
+        screenshot("tv-11-home")
+
+        // the sidebar opens on Home, to the left of the content; Movies is next
+        remote.press(.left)
+        Thread.sleep(forTimeInterval: 1)
+        remote.press(.left)
+        Thread.sleep(forTimeInterval: 1)
+        remote.press(.down)
+        Thread.sleep(forTimeInterval: 0.5)
+        remote.press(.select)
+        let card = app.buttons[environment["CV_TITLE"] ?? "Glass Harbor"].firstMatch
+        focusInGrid(card)
+        Thread.sleep(forTimeInterval: 1)
+        screenshot("tv-12-movies")
+        remote.press(.select)
+
+        let play = app.buttons["title-play"]
+        XCTAssert(play.waitForExistence(timeout: 15))
+        XCTAssert(play.hasFocus, "Play has the focus on a title")
+        Thread.sleep(forTimeInterval: 1)
+        screenshot("tv-13-title")
+        remote.press(.select)
+
+        Thread.sleep(forTimeInterval: 10)
+        screenshot("tv-14-player")
+        remote.press(.select)
+        Thread.sleep(forTimeInterval: 1.5)
+        screenshot("tv-15-transport-bar")
+        // Back hides the transport bar, then closes the player; the title keeps its place under it
+        remote.press(.menu)
+        Thread.sleep(forTimeInterval: 1)
+        remote.press(.menu)
+        let back = NSPredicate(format: "hasFocus == true AND label BEGINSWITH 'Resume from'")
+        expectation(for: back, evaluatedWith: play)
+        waitForExpectations(timeout: 15)
+        Thread.sleep(forTimeInterval: 1)
+        screenshot("tv-16-title-resume")
+    }
+
     @MainActor
     private func launch() throws -> XCUIApplication {
         guard environment["CV_LIVE_SERVER"] != nil else {
@@ -92,6 +142,34 @@ final class LiveFlowTests: XCTestCase {
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         return app
+    }
+
+    /// Moves the focus across a grid toward `element`, by where it is on screen.
+    @MainActor
+    private func focusInGrid(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssert(element.waitForExistence(timeout: 15), file: file, line: line)
+        let focused = XCUIApplication().descendants(matching: .any).element(
+            matching: NSPredicate(format: "hasFocus == true"))
+        var last = CGRect.null
+        for _ in 0..<24 where !element.hasFocus {
+            guard focused.exists else {
+                remote.press(.down)
+                continue
+            }
+            let from = focused.frame
+            let to = element.frame
+            // a row may end before the column the focus is in: then go sideways first
+            let stuck = from == last
+            last = from
+            if !stuck && to.minY > from.maxY - 10 {
+                remote.press(.down)
+            } else if !stuck && to.maxY < from.minY + 10 {
+                remote.press(.up)
+            } else {
+                remote.press(to.midX > from.midX ? .right : .left)
+            }
+        }
+        XCTAssert(element.hasFocus, "could not focus \(element)", file: file, line: line)
     }
 
     /// Moves focus with the remote until `element` has it.

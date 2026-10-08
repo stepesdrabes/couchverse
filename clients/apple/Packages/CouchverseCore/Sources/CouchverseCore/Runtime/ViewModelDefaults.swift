@@ -40,3 +40,43 @@ extension SessionView {
             accent: .fallback, problem: nil, offline: false)
     }
 }
+
+extension HomeView {
+    public static let idle = HomeView(status: .idle, featured: [], rows: [])
+}
+
+extension TitleView {
+    /// A title page before the core rendered it.
+    public static func opening(_ slug: String) -> TitleView {
+        TitleView(slug: slug, status: .loading)
+    }
+}
+
+extension BrowseView {
+    /// A listing before the core rendered it.
+    public static func opening(_ key: BrowseKey) -> BrowseView {
+        BrowseView(key: key, status: .loading, cards: [], total: 0, more: false, loadingMore: false)
+    }
+}
+
+extension GenresView {
+    public static let idle = GenresView(status: .idle, genres: [])
+}
+
+extension MyListView {
+    public static let idle = MyListView(status: .idle, cards: [])
+}
+
+extension SearchView {
+    public static let idle = SearchView(query: "", status: .idle, cards: [])
+}
+
+extension NoticesView {
+    public static let empty = NoticesView(notices: [])
+}
+
+extension PlayerView {
+    public static let closed = PlayerView(
+        status: .idle, title: "", subtitle: "", titleSlug: "", qualities: [], quality: "", audio: [],
+        subtitles: [], seasons: [], shuffleAvailable: false, shuffle: false, linear: false)
+}

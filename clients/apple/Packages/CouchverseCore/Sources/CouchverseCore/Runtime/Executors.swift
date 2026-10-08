@@ -22,6 +22,28 @@ public protocol SocketExecuting: AnyObject {
     func close(socket: UInt64)
 }
 
+/// Runs the core's `Player` commands. A player answers with events rather than outputs (its
+/// reports, a track the user picked in a system menu), sent through `events`, which the runtime
+/// sets.
+@MainActor
+public protocol PlayerExecuting: AnyObject {
+    var events: ((Event) -> Void)? { get set }
+    func execute(_ command: PlayerCommand)
+}
+
+/// A player that plays nothing: tests, and hosts without video.
+@MainActor
+public final class SilentPlayer: PlayerExecuting {
+    public var events: ((Event) -> Void)?
+    public private(set) var commands: [PlayerCommand] = []
+
+    public init() {}
+
+    public func execute(_ command: PlayerCommand) {
+        commands.append(command)
+    }
+}
+
 /// Backs the core's `Store` and `SecureStore` effects. Calls arrive on one serial queue per
 /// store, in the order the core issued them.
 public protocol KeyValueStore: Sendable {
@@ -35,6 +57,7 @@ public struct Executors {
     public var http: any HTTPExecuting
     public var timers: any TimerScheduling
     public var sockets: any SocketExecuting
+    public var player: any PlayerExecuting
     public var secureStore: any KeyValueStore
     public var store: any KeyValueStore
 
@@ -42,12 +65,14 @@ public struct Executors {
         http: any HTTPExecuting,
         timers: any TimerScheduling,
         sockets: any SocketExecuting,
+        player: any PlayerExecuting,
         secureStore: any KeyValueStore,
         store: any KeyValueStore
     ) {
         self.http = http
         self.timers = timers
         self.sockets = sockets
+        self.player = player
         self.secureStore = secureStore
         self.store = store
     }

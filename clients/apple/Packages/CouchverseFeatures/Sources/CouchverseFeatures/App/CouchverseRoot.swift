@@ -1,9 +1,11 @@
+import AVFoundation
 import CouchverseCore
 import CouchverseDesign
 import SwiftUI
 
 /// The app's root: shows what `AppView.phase` asks for, keeps the display language and accent in
-/// step with the session, opens `couchverse://` links and reports returns to the foreground.
+/// step with the session, opens `couchverse://` links, reports returns to the foreground and shows
+/// the core's notices and, over everything, the player.
 public struct CouchverseRoot: View {
     @Environment(CoreRuntime.self) private var core
     @Environment(\.scenePhase) private var scenePhase
@@ -13,6 +15,8 @@ public struct CouchverseRoot: View {
     @State private var switchingAccount = false
     @State private var approving = false
     @State private var connecting = false
+    /// Absent in previews and snapshots, which never play.
+    @Environment(PlayerController.self) private var player: PlayerController?
 
     public init() {}
 
@@ -31,6 +35,7 @@ public struct CouchverseRoot: View {
                 ConnectingBanner()
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
+            NoticeToasts()
         }
         .animation(reduceMotion ? .easeInOut(duration: 0.3) : Tokens.Motion.smooth, value: core.app.phase)
         .animation(reduceMotion ? .easeInOut(duration: 0.3) : Tokens.Motion.smooth, value: pickingProfile)
@@ -55,6 +60,40 @@ public struct CouchverseRoot: View {
         .onOpenURL(perform: open)
         .sheet(isPresented: $switchingAccount) { AccountSwitcherSheet() }
         .modal(isPresented: $approving) { ApproveDeviceScreen(openedFromLink: true) }
+        .fullScreenCover(isPresented: playing) {
+            if let player {
+                PlayerScreen()
+                    .environment(core)
+                    .environment(player)
+                    .accent(core.session.accent)
+                    .environment(\.locale, L10n.locale)
+            }
+        }
+        .task(id: player == nil) {
+            guard player != nil else { return }
+            reportCapabilities()
+            // a receiver or AirPods can bring Atmos, or take it away
+            for await _ in NotificationCenter.default.notifications(named: AVAudioSession.routeChangeNotification) {
+                reportCapabilities()
+            }
+        }
+    }
+
+    /// Up while the core has something playing; dismissing it (a swipe, the remote's Back)
+    /// closes the player in the core.
+    private var playing: Binding<Bool> {
+        Binding(
+            get: { player != nil && core.player.target != nil },
+            set: { presented in
+                if !presented && core.player.target != nil {
+                    core.send(.playerClosed)
+                }
+            })
+    }
+
+    private func reportCapabilities() {
+        let measured = DeviceCapabilities.measure(screen: DeviceCapabilities.currentScreen)
+        core.send(.capabilitiesReported(.avPlayer(measured)))
     }
 
     @ViewBuilder private var phaseContent: some View {

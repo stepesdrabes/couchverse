@@ -19,7 +19,7 @@ struct RuntimeTests {
             platform: platform, authMode: .bearer, deviceName: "Living Room", locale: locale,
             origin: "")
         let executors = Executors(
-            http: http, timers: timers, sockets: SocketExecutor(), secureStore: secure,
+            http: http, timers: timers, sockets: SocketExecutor(), player: SilentPlayer(), secureStore: secure,
             store: store ?? self.store)
         return try CoreRuntime(config: config, executors: executors, now: { now })
     }
@@ -124,6 +124,68 @@ struct RuntimeTests {
         #expect(timers.cancelled.contains(expiry.id))
         #expect(timers.running.isEmpty)
         #expect(runtime.signIn.pairing == nil)
+    }
+
+    @Test func titlePagesArePublishedBySlugOnceTheirScreenOpens() async throws {
+        let runtime = try makeRuntime(store: MemoryStore(Payload.signedIn))
+        try secure.write("token.\(Payload.accountId)", value: "tok-1")
+        Payload.routeSession(http, base: "http://tv.home", user: Payload.user(1, "admin"))
+        runtime.start()
+        await runtime.untilIdle()
+        #expect(runtime.title("glass-harbor").status == .loading, "not open yet")
+
+        http.route(
+            "GET", "http://tv.home/api/v1/titles/glass-harbor?lang=cs",
+            #"{"title":{"id":"t1","slug":"glass-harbor","name":"Glass Harbor","kind":"movie","year":2025,"overview":"Lighthouses.","genres":[],"genreLabels":[],"contentRating":"","runtimeMinutes":null,"allowRandomPlayback":false,"addedAt":"2026-09-01T00:00:00Z","metadataLanguages":["en"],"releaseDate":null,"sortName":"Glass Harbor","status":"published","tmdbId":null,"updatedAt":"2026-09-01T00:00:00Z"},"artwork":[],"seasons":[],"mediaFiles":[],"episodeProgress":{},"inWatchlist":true}"#
+        )
+        runtime.send(.screenOpened(.title("glass-harbor")))
+        await runtime.untilIdle()
+        let page = runtime.title("glass-harbor")
+        #expect(page.status == .loaded, "\(page.problem?.detail ?? "")")
+        #expect(page.detail?.name == "Glass Harbor")
+        #expect(page.detail?.inList == true)
+    }
+
+    @Test func thePlayerTakesTheCoresCommandsAndReportsBack() async throws {
+        let player = SilentPlayer()
+        let config = CoreConfig(
+            platform: .tvos, authMode: .bearer, deviceName: "Living Room", locale: "en-GB", origin: "")
+        let runtime = try CoreRuntime(
+            config: config,
+            executors: Executors(
+                http: http, timers: timers, sockets: SocketExecutor(), player: player, secureStore: secure,
+                store: MemoryStore(Payload.signedIn)),
+            now: { 1_000 })
+        try secure.write("token.\(Payload.accountId)", value: "tok-1")
+        Payload.routeSession(http, base: "http://tv.home", user: Payload.user(1, "admin"))
+        runtime.start()
+        await runtime.untilIdle()
+        runtime.send(.accountSelected(AccountRef(accountId: Payload.accountId)))
+        runtime.send(.capabilitiesReported(.avPlayer(DeviceProfileTests.appleTV4K)))
+        await runtime.untilIdle()
+        http.route("POST", "http://tv.home/api/v1/playback/movie/t1?lang=cs", Payload.directMovie)
+
+        runtime.send(.playRequested(PlayTarget(kind: .movie, id: "t1")))
+        await runtime.untilIdle()
+
+        guard case .load(let load) = try #require(player.commands.last) else {
+            Issue.record("expected a load, got \(player.commands)")
+            return
+        }
+        #expect(load.url == "http://tv.home/api/v1/media/gr/stream")
+        #expect(load.source == .file)
+        #expect(load.startSeconds == 600)
+        #expect(load.subtitles.map(\.id) == ["s-en"])
+        #expect(runtime.player.status == .loaded)
+        let body = try #require(http.requests("POST", "http://tv.home/api/v1/playback/movie/t1?lang=cs").first?.body)
+        #expect(body.contains("\"dolbyVision8\""), "the device profile goes with the request")
+
+        player.events?(
+            .playerReported(
+                PlayerReport(positionSeconds: 600, durationSeconds: 2400, playing: true, buffering: false, ended: false)
+            ))
+        await runtime.untilIdle()
+        #expect(runtime.player.status == .loaded)
     }
 
     @Test func aLateBatchNeverOverwritesANewerView() {

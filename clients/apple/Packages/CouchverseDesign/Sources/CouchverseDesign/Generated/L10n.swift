@@ -131,6 +131,7 @@ extension L10n {
     public static var catalogLibraryEmptyTitle: String { string("catalog_library_empty_title") }
     public static var catalogListUpdateFailed: String { string("catalog_list_update_failed") }
     public static var catalogLoadFailed: String { string("catalog_load_failed") }
+    public static var catalogMoreInfo: String { string("catalog_more_info") }
     public static var catalogMoviesTitle: String { string("catalog_movies_title") }
     public static var catalogMyListEmptyMessage: String { string("catalog_my_list_empty_message") }
     public static var catalogMyListEmptyTitle: String { string("catalog_my_list_empty_title") }
@@ -169,6 +170,7 @@ extension L10n {
     public static var catalogSortRecentlyAdded: String { string("catalog_sort_recently_added") }
     public static var catalogSortYear: String { string("catalog_sort_year") }
     public static var catalogStaleNotice: String { string("catalog_stale_notice") }
+    public static var catalogTitleNotFound: String { string("catalog_title_not_found") }
     public static func catalogTitlePageTitle(name: String) -> String { format("catalog_title_page_title", [name]) }
     public static var catalogWatched: String { string("catalog_watched") }
     public static var commonAdd: String { string("common_add") }
@@ -420,12 +422,14 @@ extension L10n {
     public static func playerEpisodeNumber(number: String) -> String { format("player_episode_number", [number]) }
     public static var playerEpisodes: String { string("player_episodes") }
     public static var playerExitFullscreen: String { string("player_exit_fullscreen") }
+    public static var playerFailedTitle: String { string("player_failed_title") }
     public static var playerForward10Seconds: String { string("player_forward_10_seconds") }
     public static var playerFullscreen: String { string("player_fullscreen") }
     public static var playerMute: String { string("player_mute") }
     public static var playerNeedsTranscodingDescription: String { string("player_needs_transcoding_description") }
     public static var playerNeedsTranscodingTitle: String { string("player_needs_transcoding_title") }
     public static var playerNowPlaying: String { string("player_now_playing") }
+    public static var playerOptions: String { string("player_options") }
     public static func playerPageTitle(title: String) -> String { format("player_page_title", [title]) }
     public static var playerPictureInPicture: String { string("player_picture_in_picture") }
     public static var playerPlayNow: String { string("player_play_now") }
@@ -447,6 +451,8 @@ extension L10n {
     public static var playerSubtitleSize: String { string("player_subtitle_size") }
     public static var playerSubtitles: String { string("player_subtitles") }
     public static var playerUnmute: String { string("player_unmute") }
+    public static var playerUnsupportedDescription: String { string("player_unsupported_description") }
+    public static var playerUnsupportedTitle: String { string("player_unsupported_title") }
     public static func playerUpNext(seconds: String) -> String { format("player_up_next", [seconds]) }
     public static var playerVolume: String { string("player_volume") }
     public static var problemConflict: String { string("problem_conflict") }

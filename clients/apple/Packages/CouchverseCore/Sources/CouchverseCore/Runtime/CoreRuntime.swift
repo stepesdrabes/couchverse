@@ -18,6 +18,16 @@ public final class CoreRuntime {
     public private(set) var devices: DevicesView
     public private(set) var pairingApproval: PairingApprovalView
     public private(set) var session: SessionView
+    public private(set) var home: HomeView
+    public private(set) var genres: GenresView
+    public private(set) var myList: MyListView
+    public private(set) var search: SearchView
+    public private(set) var notices: NoticesView
+    public private(set) var player: PlayerView
+    /// Title pages and listings by slug and key, once a screen opened them; read through
+    /// `title(_:)` and `browse(_:)`.
+    public private(set) var titles: [String: TitleView] = [:]
+    public private(set) var listings: [BrowseKey: BrowseView] = [:]
 
     public let platform: Platform
 
@@ -54,7 +64,7 @@ public final class CoreRuntime {
         )
         platform = config.platform
         // the core's own defaults (language from the locale, the default accent) before any render
-        let initial = try SurfaceValue.published.compactMap { surface in
+        let initial = try SurfaceValue.fixed.compactMap { surface in
             try SurfaceValue.decode(surface, try bridge.view(surface: try Self.encode(surface)))
         }
         app = AppView(phase: .starting, activeAccount: nil)
@@ -64,7 +74,14 @@ public final class CoreRuntime {
         devices = .idle
         pairingApproval = .idle
         session = .signedOut(language: "en")
+        home = .idle
+        genres = .idle
+        myList = .idle
+        search = .idle
+        notices = .empty
+        player = .closed
         initial.forEach(assign)
+        executors.player.events = { [weak self] event in self?.send(event) }
     }
 
     /// A runtime without a core, showing fixed view models: previews and snapshot tests.
@@ -78,6 +95,12 @@ public final class CoreRuntime {
         devices = .idle
         pairingApproval = .idle
         session = .signedOut(language: "en")
+        home = .idle
+        genres = .idle
+        myList = .idle
+        search = .idle
+        notices = .empty
+        player = .closed
         values.forEach(assign)
     }
 
@@ -96,6 +119,16 @@ public final class CoreRuntime {
             return try live.bridge.send(
                 message: try Self.encode(Message(nowMs: live.now(), event: event, wallMs: wallMs)))
         }
+    }
+
+    /// A title page as the core last rendered it, or loading before its screen opened.
+    public func title(_ slug: String) -> TitleView {
+        titles[slug] ?? .opening(slug)
+    }
+
+    /// A listing as the core last rendered it, or loading before its screen opened.
+    public func browse(_ key: BrowseKey) -> BrowseView {
+        listings[key] ?? .opening(key)
     }
 
     /// The shell's monotonic clock in the core's terms, e.g. for a pairing code's countdown.
@@ -190,9 +223,8 @@ public final class CoreRuntime {
             live.executors.sockets.send(socket: send.socket, text: send.text)
         case .socket(.close(let socket)):
             live.executors.sockets.close(socket: socket.id)
-        case .player:
-            // nothing starts playback before the player slice (Phase 6) adds AVPlayer
-            break
+        case .player(let command):
+            live.executors.player.execute(command)
         case .download(.start):
             // background transfers arrive with the downloads slice (Phase 10)
             track {
@@ -210,7 +242,7 @@ public final class CoreRuntime {
         renderGeneration += 1
         let generation = renderGeneration
         let payloads = surfaces.compactMap { surface -> RenderedSurface? in
-            guard SurfaceValue.published.contains(surface) else { return nil }
+            guard SurfaceValue.publishes(surface) else { return nil }
             do {
                 let json = try live.bridge.view(surface: try Self.encode(surface))
                 return RenderedSurface(surface: surface, json: json)
@@ -246,6 +278,14 @@ public final class CoreRuntime {
         case .devices(let view): if devices != view { devices = view }
         case .pairingApproval(let view): if pairingApproval != view { pairingApproval = view }
         case .session(let view): if session != view { session = view }
+        case .home(let view): if home != view { home = view }
+        case .title(let slug, let view): if titles[slug] != view { titles[slug] = view }
+        case .browse(let key, let view): if listings[key] != view { listings[key] = view }
+        case .genres(let view): if genres != view { genres = view }
+        case .myList(let view): if myList != view { myList = view }
+        case .search(let view): if search != view { search = view }
+        case .notices(let view): if notices != view { notices = view }
+        case .player(let view): if player != view { player = view }
         }
     }
 
