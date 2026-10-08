@@ -57,9 +57,11 @@ func (s *Store) UpsertVariant(ctx context.Context, mediaFileID string, name stri
 }
 
 func (s *Store) SetVariantStatus(ctx context.Context, id string, status, playlistPath string, sizeBytes int64) error {
+	// uncast, $4 takes its type from the CASE's literal 0 (int4), which
+	// rejects any variant over 2 GiB
 	_, err := s.db.Exec(ctx,
 		`UPDATE transcode_variants SET status = $2, playlist_path = $3,
-			size_bytes = CASE WHEN $2 = 'ready' THEN $4 ELSE 0 END,
+			size_bytes = CASE WHEN $2 = 'ready' THEN $4::bigint ELSE 0 END,
 			completed_at = CASE WHEN $2 = 'ready' THEN now() ELSE NULL END
 		 WHERE id = $1`, id, status, playlistPath, sizeBytes)
 	return err

@@ -27,6 +27,7 @@ import (
 	"couchverse/internal/app"
 	"couchverse/internal/config"
 	"couchverse/internal/db"
+	"couchverse/internal/feature/library"
 	"couchverse/internal/server"
 )
 
@@ -488,6 +489,25 @@ func TestSessionExpirySlides(t *testing.T) {
 	}
 	if time.Until(expires) < 29*24*time.Hour {
 		t.Errorf("session still expires at %v", expires)
+	}
+}
+
+// TestVariantSizeAbove2GiB checks that a variant too big for an int4 can still
+// be marked ready: a remuxed feature film easily is.
+func TestVariantSizeAbove2GiB(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := context.Background()
+	files := library.NewStore(env.pool)
+	const size = 5 << 30
+	if err := files.SetVariantStatus(ctx, failedRungID, "ready", "cache/hls/504/source/index.m3u8", size); err != nil {
+		t.Fatal(err)
+	}
+	v, err := files.VariantByID(ctx, failedRungID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Status != "ready" || v.SizeBytes != size {
+		t.Errorf("variant is %s with %d bytes, want ready with %d", v.Status, v.SizeBytes, size)
 	}
 }
 
