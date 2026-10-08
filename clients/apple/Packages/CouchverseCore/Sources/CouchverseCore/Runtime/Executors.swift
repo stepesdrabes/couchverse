@@ -60,6 +60,8 @@ public struct Executors {
     public var player: any PlayerExecuting
     public var secureStore: any KeyValueStore
     public var store: any KeyValueStore
+    /// Downloads for offline viewing; a device that keeps none fails every start.
+    public var downloads: any DownloadExecuting = NoDownloads()
 
     public init(
         http: any HTTPExecuting,

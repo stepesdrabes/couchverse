@@ -24,6 +24,8 @@ public final class CoreRuntime {
     public private(set) var search: SearchView
     public private(set) var notices: NoticesView
     public private(set) var player: PlayerView
+    /// The account's downloads on this device (iPhone and iPad).
+    public private(set) var downloads: DownloadsView = .idle
     /// Title pages and listings by slug and key, once a screen opened them; read through
     /// `title(_:)` and `browse(_:)`.
     public private(set) var titles: [String: TitleView] = [:]
@@ -225,13 +227,14 @@ public final class CoreRuntime {
             live.executors.sockets.close(socket: socket.id)
         case .player(let command):
             live.executors.player.execute(command)
-        case .download(.start):
-            // background transfers arrive with the downloads slice (Phase 10)
-            track {
-                self.resolve(id, .downloadFailed(DownloadFailure(message: "downloads are not supported yet")))
+        case .download(.start(let start)):
+            live.executors.downloads.start(id: id, request: start) { [weak self] output in
+                self?.resolve(id, output)
             }
-        case .download(.cancel), .download(.remove):
-            break
+        case .download(.cancel(let transfer)):
+            live.executors.downloads.cancel(id: transfer.id)
+        case .download(.remove(let file)):
+            live.executors.downloads.remove(name: file.name)
         }
     }
 
@@ -286,6 +289,7 @@ public final class CoreRuntime {
         case .search(let view): if search != view { search = view }
         case .notices(let view): if notices != view { notices = view }
         case .player(let view): if player != view { player = view }
+        case .downloads(let view): if downloads != view { downloads = view }
         }
     }
 

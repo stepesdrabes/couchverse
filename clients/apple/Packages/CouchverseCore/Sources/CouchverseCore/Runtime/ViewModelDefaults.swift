@@ -80,3 +80,7 @@ extension PlayerView {
         status: .idle, title: "", subtitle: "", titleSlug: "", qualities: [], quality: "", audio: [],
         subtitles: [], seasons: [], shuffleAvailable: false, shuffle: false, linear: false)
 }
+
+extension DownloadsView {
+    public static let idle = DownloadsView(status: .idle, items: [], usedBytes: 0)
+}
