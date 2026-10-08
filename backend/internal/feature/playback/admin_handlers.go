@@ -85,8 +85,8 @@ func (h *AdminTranscode) Enqueue(w http.ResponseWriter, r *http.Request) {
 			httpx.BadRequest(w, "unknown rendition "+name)
 			return
 		}
-		// skip upscaling renditions taller than the source
-		if ok && mf.Height > 0 && rendition.Height > mf.Height {
+		// skip upscaling renditions above the source's class
+		if ok && mf.Height > 0 && rendition.Height > media.ClassHeight(mf.Width, mf.Height) {
 			continue
 		}
 		rendition = rendition.CappedAt(mf.Bitrate)

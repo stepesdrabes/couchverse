@@ -15,10 +15,14 @@ import (
 // mode "copy" remuxes the h264 stream (I/O-bound, fast everywhere);
 // mode "transcode" re-encodes through the chosen encoder.
 type BuildSpec struct {
-	Input          string
-	OutDir         string // segments + index.m3u8 land here
-	Mode           string // copy | transcode
-	Rendition      media.Rendition
+	Input     string
+	OutDir    string // segments + index.m3u8 land here
+	Mode      string // copy | transcode
+	Rendition media.Rendition
+	// SourceWidth x SourceHeight is the input picture, which a transcode fits
+	// into the rendition's box
+	SourceWidth    int
+	SourceHeight   int
 	Encoder        string // libx264 | h264_videotoolbox | ...
 	Preset         string
 	HasAudio       bool
@@ -50,7 +54,11 @@ func BuildArgs(spec BuildSpec) []string {
 		args = append(args, "-c:v", "copy")
 	} else {
 		r := spec.Rendition
-		args = append(args, "-vf", fmt.Sprintf("scale=-2:%d", r.Height))
+		scale := fmt.Sprintf("scale=-2:%d", r.Height)
+		if w, h := r.Fit(spec.SourceWidth, spec.SourceHeight); w > 0 {
+			scale = fmt.Sprintf("scale=%d:%d", w, h)
+		}
+		args = append(args, "-vf", scale)
 		switch spec.Encoder {
 		case "libx264":
 			args = append(args, "-c:v", "libx264",

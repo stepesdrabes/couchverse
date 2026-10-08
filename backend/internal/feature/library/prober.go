@@ -127,10 +127,10 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 			}
 			// ...plus lower ladder rungs for adaptive streaming when auto-prepare
 			// is on. The source already covers the top tier, so skip rungs at or
-			// above its height.
+			// above its class.
 			if settings.AutoPrepareEnabled() {
-				for _, r := range media.PrepareRenditions(settings.Ladder, res.Height) {
-					if r.Height >= res.Height {
+				for _, r := range media.PrepareRenditions(settings.Ladder, res.Width, res.Height) {
+					if r.Height >= media.ClassHeight(res.Width, res.Height) {
 						continue
 					}
 					if err := p.prepareVariant(ctx, mf.ID, r.CappedAt(res.Bitrate), "transcode"); err != nil {
@@ -139,7 +139,7 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 				}
 			}
 		} else if settings.AutoPrepareEnabled() {
-			for _, r := range media.PrepareRenditions(settings.Ladder, res.Height) {
+			for _, r := range media.PrepareRenditions(settings.Ladder, res.Width, res.Height) {
 				if err := p.prepareVariant(ctx, mf.ID, r.CappedAt(res.Bitrate), "transcode"); err != nil {
 					return err
 				}

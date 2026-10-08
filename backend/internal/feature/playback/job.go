@@ -51,6 +51,8 @@ func (h *JobHandler) Handle(ctx context.Context, job *jobs.Job, report func(int)
 	spec := BuildSpec{
 		Input:          filepath.Join(lib.Path, mf.Path),
 		OutDir:         h.outDir(mf.ID, p.Variant),
+		SourceWidth:    mf.Width,
+		SourceHeight:   mf.Height,
 		HasAudio:       mf.AudioCodec != "",
 		Preset:         settings.Preset,
 		BackgroundNice: true,

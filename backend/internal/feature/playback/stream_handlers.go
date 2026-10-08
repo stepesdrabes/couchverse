@@ -495,6 +495,9 @@ func (h *Stream) HLSMaster(w http.ResponseWriter, r *http.Request) {
 		height := v.Height
 		if v.Mode == "copy" {
 			width, height = mf.Width, mf.Height
+		} else if r, ok := media.Renditions[v.Name]; ok && width == 0 {
+			// a rung's row holds its box; the picture is the source fitted into it
+			width, height = r.Fit(mf.Width, mf.Height)
 		}
 		if width == 0 && height > 0 && mf.Height > 0 {
 			width = mf.Width * height / mf.Height

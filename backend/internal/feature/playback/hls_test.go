@@ -80,3 +80,22 @@ func TestBuildArgsBitrateCap(t *testing.T) {
 		}
 	})
 }
+
+func TestBuildArgsFitsTheRungBox(t *testing.T) {
+	rendition := media.Renditions["720p"]
+
+	t.Run("a scope film keeps the box width", func(t *testing.T) {
+		args := BuildArgs(BuildSpec{Mode: "transcode", Rendition: rendition, Encoder: "libx264",
+			SourceWidth: 1920, SourceHeight: 800})
+		if got := argValue(args, "-vf"); got != "scale=1280:532" {
+			t.Errorf("-vf = %s, want scale=1280:532", got)
+		}
+	})
+
+	t.Run("an unknown source scales to the box height", func(t *testing.T) {
+		args := BuildArgs(BuildSpec{Mode: "transcode", Rendition: rendition, Encoder: "libx264"})
+		if got := argValue(args, "-vf"); got != "scale=-2:720" {
+			t.Errorf("-vf = %s, want scale=-2:720", got)
+		}
+	})
+}

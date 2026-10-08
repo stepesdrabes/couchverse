@@ -40,6 +40,8 @@ type Session struct {
 	encoder  string
 	preset   string
 	rend     media.Rendition
+	width    int // the source picture
+	height   int
 
 	mu         sync.Mutex
 	cancel     context.CancelFunc
@@ -108,7 +110,7 @@ func (m *SessionManager) Create(ctx context.Context, appCtx context.Context, med
 
 	settings := media.LoadTranscodeSettings(ctx, m.Settings)
 	rendition := media.Renditions["720p"]
-	if mf.Height > 0 && mf.Height < 600 {
+	if mf.Height > 0 && media.ClassHeight(mf.Width, mf.Height) < 600 {
 		rendition = media.Renditions["480p"]
 	}
 	rendition = rendition.CappedAt(mf.Bitrate)
@@ -123,6 +125,8 @@ func (m *SessionManager) Create(ctx context.Context, appCtx context.Context, med
 		encoder:     PickEncoder(m.FFmpegPath, settings.HWAccel),
 		preset:      settings.Preset,
 		rend:        rendition,
+		width:       mf.Width,
+		height:      mf.Height,
 		lastAccess:  time.Now(),
 	}
 	if err := os.MkdirAll(session.dir, 0o755); err != nil {
@@ -229,16 +233,18 @@ func (s *Session) startFFmpeg(appCtx context.Context, ffmpegPath string, fromSeg
 	s.startSeg = fromSeg
 
 	spec := BuildSpec{
-		Input:       s.input,
-		OutDir:      s.dir,
-		Mode:        "transcode",
-		Rendition:   s.rend,
-		Encoder:     s.encoder,
-		Preset:      s.preset,
-		HasAudio:    s.hasAudio,
-		StartAt:     float64(fromSeg) * segmentSeconds,
-		JIT:         true,
-		StartNumber: fromSeg,
+		Input:        s.input,
+		OutDir:       s.dir,
+		Mode:         "transcode",
+		Rendition:    s.rend,
+		SourceWidth:  s.width,
+		SourceHeight: s.height,
+		Encoder:      s.encoder,
+		Preset:       s.preset,
+		HasAudio:     s.hasAudio,
+		StartAt:      float64(fromSeg) * segmentSeconds,
+		JIT:          true,
+		StartNumber:  fromSeg,
 	}
 
 	go func() {
