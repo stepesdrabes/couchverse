@@ -630,11 +630,15 @@ messages and perform the effects it asks for.
   the root screen; a TV always opens on "Who's watching?".
 - **Modules** (`src/modules/`): `servers` (address -> `/server` identity, https then http),
   `accounts` (password, pairing with polling and expiry, connect and pair links, approvals,
-  devices, tokens), `session` (user, features, display language, accent; a 401 anywhere signs
-  the account out but keeps it), `catalog` (stale-while-revalidate home, listings, titles,
-  genres and My List, fresh for 60 s, or 10 s for a visit to home, a title or My List, since
-  the viewer's progress and list change on their other devices; search with debounce and supersede, warm-start home per account, deleted
-  when that account signs out, image URLs per role with the artwork grant; confirmed My List
+  devices, tokens; each `AccountCard` carries the account's rank and banner accent as last
+  seen on the device, persisted with it for "Who's watching?": the rank from the checks and
+  the own profile, none while the server has rankings off, the accent from the own profile,
+  the only place the server names it, read once per banner), `session` (user, features,
+  display language, accent; a 401 anywhere signs the account out but keeps it), `catalog`
+  (stale-while-revalidate home, listings, titles, genres and My List, fresh for 60 s, or 10 s
+  for a visit to home, a title or My List, since the viewer's progress and list change on
+  their other devices; search with debounce and supersede, warm-start home per account,
+  deleted when that account signs out, image URLs per role with the artwork grant; confirmed My List
   changes are numbered and folded into answers requested before them, so a slow refetch never
   undoes one), `ranks` (rank badge and level-ups, throttled achievement
   checks, celebration queue, profiles with the heatmap, leaderboards), `profile` (edits,
@@ -898,9 +902,12 @@ launch from the UI mode, on the shared core.
   starts (`focusOnStart`, or `screenFocus`, which also returns focus to the element that had it
   when the screen was left) and its text fields let the arrows out (`remoteLeavesField`).
 - **Root navigation** follows `AppView.phase`; the signed-in screens are keyed by account. A
-  TV starts on "Who's watching?" (focus lifts a tile, the glow takes the focused account's
-  colour, the chosen avatar flies into the sidebar as a shared element); phones open the last
-  account and switch from the profile tab's sheet. `couchverse://connect|pair|title` links and
+  TV starts on "Who's watching?" (each avatar in its rank ring, the tier's colour filled to the
+  progress through it; focus lifts a tile, brightens the ring, reveals the rank title and
+  tints the glow with the account's banner accent, or its identicon's hue without one; the
+  chosen avatar flies into the sidebar as a shared element); phones open the last account and
+  switch from the profile tab's sheet, which glows in the active account's colour, avatars in
+  their rank rings. `couchverse://connect|pair|title` links and
   scanned QR codes (CameraX + ZXing, phones only) go to the core as `LinkOpened`;
   `couchverse://couch/<code>` joins a couch and `couchverse://play/<kind>/<id>` plays (Watch
   Next, the widget). A couch follower is taken to the couch player and a remote to the remote,
@@ -910,16 +917,21 @@ launch from the UI mode, on the shared core.
   then language, `maxHeight` as a track cap, no retries on a 4xx) and reports about once a
   second while playing and on every change, `playing` meaning what the viewer asked for. Phone
   and TV player screens draw `PlayerView`; a `MediaSessionService` gives the system controls,
-  phones get picture-in-picture.
+  phones get picture-in-picture (shrinking from where the picture is).
 - **Downloads** (phones, `feature-downloads`): unique WorkManager work per file, a foreground
-  worker resuming with `Range` and reporting at most once a second, files in `files/downloads`;
-  the Downloads screen replaces the tabs while offline.
+  worker resuming with `Range` and reporting at most once a second (its notification in the
+  display language the download was asked in), files in `files/downloads`; the Downloads
+  screen replaces the tabs while offline.
 - **Couch** (`feature-couch`): host panel with code and QR, joining by code, QR or link,
   follower and remote, reactions, and an ongoing notification with Leave/End on phones. Not
   yet: joining without an account (the core joins a `CouchCode` naming its server as a guest;
   no screen asks for a server, and links and QR codes still pass only the code).
-- **Ranks** (`feature-ranks`): profiles, leaderboards, celebrations, the profile editor (photo
-  picker into the `upload` effect), the rank beside the profile row in Settings.
+- **Ranks** (`feature-ranks`): profiles, leaderboards (with where the viewer stands pinned
+  below the board while they are hidden from it or below its first three, as on the web),
+  celebrations, the profile editor (photo picker into the `upload` effect), the rank beside
+  the profile row in Settings, and the rank ring "Who's watching?" draws. The API's codes
+  (tiers, XP sources, achievements) map to strings through explicit tables, which a test checks
+  against `contract/`.
 - **Outside the app**: Watch Next on Google TV and a Glance widget on phones, both from the
   home's Continue Watching (kept as is until the home has loaded, cleared without an account).
 - **Releases**: `release.yml` attaches a signed APK to each `v*` release (keystore from

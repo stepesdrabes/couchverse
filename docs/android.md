@@ -103,8 +103,8 @@ The player screen (`PlayerRoute`) sends `PlayRequested` (or `DownloadPlayRequest
 `PlayerClosed`, and draws `PlayerView`: qualities, audio, subtitles, episodes, the next-episode
 card with its countdown, shuffle, and on the couch the panel, members and reactions. Phones get
 touch controls, landscape, hidden system bars and picture-in-picture (entered automatically
-while playing; leaving the app otherwise pauses). TVs get a remote layout: with the controls
-hidden, centre plays or pauses and left/right skip 10 s; Back closes a panel, then hides the
+while playing, shrinking from where the picture is; leaving the app otherwise pauses). TVs get
+a remote layout: with the controls hidden, centre plays or pauses and left/right skip 10 s; Back closes a panel, then hides the
 controls while playing, then leaves the player. `PlaybackService` is a `MediaSessionService` over the same player, so
 the notification, lock screen, Bluetooth buttons and the TV's system controls work; the screen
 starts it by connecting a `MediaController`.
@@ -135,7 +135,9 @@ Phones only; TVs never offer them (`NoDownloads`).
   (`download:<name>`, keep the existing one), so a start after a relaunch, or one with an empty
   URL, attaches to the running transfer or reports the finished file. `DownloadWorker` is a
   foreground (`dataSync`) worker that resumes a partial file with a `Range` request, reports
-  progress at most once a second and fails with `noSpace` when the disk fills. Files live in
+  progress at most once a second and fails with `noSpace` when the disk fills. Its
+  notification speaks the display language the download was asked in, which the work request
+  carries, since the system's can differ (D21). Files live in
   `files/downloads/` (app-private; the app allows no backups), the partial ones beside them as
   `.part`.
 - The title page offers a download button per movie and episode with a quality choice, hidden
@@ -150,10 +152,20 @@ Phones only; TVs never offer them (`NoDownloads`).
 From the core's `Rank`, `Profile`, `Leaderboard` and `ProfileEditor` surfaces, behind the
 server's `rankingsEnabled`: the tier and level beside the profile row in Settings, a
 celebration for each unlocked achievement, profiles (stats, the 26-week heatmap, the watch clock, the top title,
-achievements), leaderboards with a podium, and the profile editor. Avatars and banners are
+achievements), leaderboards with a podium and, pinned below the board while the viewer is
+hidden from it or below its first three, where they stand (`LeaderboardView.me`, as the web
+shows it), and the profile editor. Avatars and banners are
 chosen with the system photo picker and sent through the `upload` effect; the bio is user
 markdown, shown with the core's document tree. Achievement, tier and XP-source codes map to
-strings through explicit tables (`Words.kt`), so R8 keeps every string.
+strings through explicit tables (`Words.kt`), so R8 keeps every string; `WordsTest` checks
+them against every code `contract/openapi.json` allows and every achievement the string
+catalogs name.
+
+"Who's watching?" draws each account's rank (`AccountCard.rank`) as a ring around its avatar
+(`RankRing`: the tier's colour filled to the progress through the tier) and tints the glow
+with its banner's palette (`AccountCard.accent`), or its identicon's hue without one. On a TV
+focus brightens the ring and reveals the rank title; the phone's picker shows the title under
+the name, and its switcher sheet glows in the active account's colour.
 
 ## Outside the app
 
@@ -258,7 +270,8 @@ The emulators cover the flows; these need hardware before a release:
 
 - **Google TV device** (Chromecast with Google TV or Google TV Streamer, which runs a 32-bit
   userland on older models): the app appears in the launcher with its banner; "Who's watching?"
-  takes focus on the last account and the remote moves between tiles; the chosen avatar flies
+  takes focus on the last account and the remote moves between tiles, the glow following each
+  account's banner colour and the focused ring brightening; the chosen avatar flies
   into the sidebar; D-pad reaches every control on Home, Movies, Series, Genres, My List,
   Search, the title page and Settings, and Back from a title lands on the poster it was opened
   from; Back on Home moves into the sidebar, then exits; the
@@ -301,8 +314,8 @@ The emulators cover the flows; these need hardware before a release:
 
 ## Known gaps
 
-- "Who's watching?" tints each account with its identicon's hue rather than its banner's accent
-  and shows no rank ring: `AccountCard` carries neither.
+- A banner's accent reaches "Who's watching?" only through the account's profile, which the
+  server serves with rankings on; with them off the account keeps its identicon's hue.
 - TVs have no downloads (by design) and no widget; phones have no Watch Next.
 - The player's quality menu lists the core's choices; ExoPlayer's own adaptive switching under
   "Auto" is not shown.

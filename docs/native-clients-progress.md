@@ -198,6 +198,14 @@ TV emulators against a local server, the TV signed in by pairing.
   now hands native players whole media URLs and reads the rank from the viewer's stats when a
   check is throttled. Verified by the JVM tests (a real ExoPlayer on Robolectric, WorkManager's
   test driver), the Roborazzi screenshots, Android lint and the R8 release build.
+- Done: "Who's watching?" as plan 12.3 draws it on Android: each avatar in its rank ring in
+  the tier's colour, the rank title revealed on focus, the glow tinted with the focused
+  account's banner accent (the phone's picker and switcher sheet too). The core keeps each
+  account's rank and banner accent as last seen on the device and persists them with the
+  account (`AccountCard.rank` and `.accent`, optional, so the shells' initializers stand);
+  the accent comes from the account's profile, read once per banner. Also the leaderboard's
+  pinned "where you stand" row (`LeaderboardView.me`, as on the web) and the download
+  notification in the display language.
 - Pending: a pass on Android 16 phone and TV emulators against a local server with the sample
   media (a web browser joining the TV's couch).
 - Blocked: the first signed release needs a keystore in the repository secrets
@@ -216,6 +224,12 @@ TV emulators against a local server, the TV signed in by pairing.
   v2, downloads and the Pi notes for them.
 - Done: Apple CI runs lint and the core's host tests on GitHub's Xcode 26.5 image and the
   simulator suites wherever Xcode 27 exists (GitHub has no Xcode 27 image yet).
+- Done: Android cleanup: the couch and ranks screens in `phone/` and `tv/` packages like the
+  other features (screenshots unchanged), Android lint and the Kotlin compiler without
+  warnings (picture-in-picture shrinks from the picture, notifications ask for permission on
+  Android 13 and newer only, the media session service is exported for the system's
+  controls on purpose), the couch XP sources named by the keys the core sends (checked
+  against `contract/` by a test), and a focused chosen chip that stays readable on TV.
 - Pending: native accessibility passes (VoiceOver, TalkBack), the HTML overview with
   screenshots of every client, cleanup.
 
@@ -231,7 +245,9 @@ repository secrets; debug-signed when they are absent, docs/android.md "Signing 
 
 - The web build is served precompressed (brotli/gzip): the wasm core goes out as 282 KB of
   brotli instead of 1.1 MB (2026-10-08, with ranks and devices on the core; 382 KB gzipped,
-  95% of the 400 KB budget `core.yml` enforces).
+  95% of the 400 KB budget `core.yml` enforces). Each account's rank and banner accent for
+  "Who's watching?" took it to 385 KB gzipped (96%), most of it the code that reads a rank
+  back from the store.
 - Fixed by the e2e suite: couch followers now receive `session_ended` before their socket
   closes, guests' artwork keeps its grant with a size, stale SWR answers no longer overwrite a
   newer My List toggle, unhandled data-promise rejections.
