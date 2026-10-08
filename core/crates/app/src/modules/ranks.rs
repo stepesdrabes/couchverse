@@ -171,7 +171,8 @@ pub struct TopTitle {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct XpLine {
-    /// What earned it; localized by the shell (`rank_xp_source_<key>`).
+    /// What earned it, by the API's key (`video`, `movies`, `episodes`, `couchHosted`,
+    /// `couchJoined` or `achievements`); shells localize it as `rank_source_<key in snake case>`.
     pub key: String,
     pub units: U53,
     pub rate: U53,

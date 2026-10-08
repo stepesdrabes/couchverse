@@ -2530,7 +2530,8 @@ public struct RankBadge: Codable, Sendable, Hashable {
 }
 
 public struct XpLine: Codable, Sendable, Hashable {
-	/// What earned it; localized by the shell (`rank_xp_source_<key>`).
+	/// What earned it, by the API's key (`video`, `movies`, `episodes`, `couchHosted`,
+	/// `couchJoined` or `achievements`); shells localize it as `rank_source_<key in snake case>`.
 	public let key: String
 	public let units: UInt64
 	public let rate: UInt64
