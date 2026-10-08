@@ -27,11 +27,11 @@ clients/apple/
   CouchverseTVUITests/    smoke UI test (Apple TV simulator)
   Packages/
     CouchverseCore        the xcframework, the generated message types, CoreRuntime and the
-                          effect executors (HTTP, timers, WebSockets, Keychain, files/user
-                          defaults, background downloads)
+                          effect executors (HTTP and uploads, timers, WebSockets, Keychain,
+                          files/user defaults, background downloads)
     CouchverseDesign      tokens, typography, accent, components, generated strings
-    CouchverseFeatures    the screens by feature (Accounts, Onboarding, Settings, Home) and the
-                          root the apps show
+    CouchverseFeatures    the screens by feature (Accounts, Onboarding, Settings, Home, Catalog,
+                          Player, Ranks) and the root the apps show
 ```
 
 The apps are thin: each creates the runtime (`LiveRuntime.make()`) and shows `CouchverseRoot`.
@@ -100,7 +100,9 @@ of a reference recorded on a 1080p Apple TV (1x) differ from a 4K one (2x) every
 fail the largest-text variants: the suite records an issue instead of comparing when the
 simulator's scale is not the references' (3x iPhone, 2x Apple TV). Catalog screens render from
 `CatalogFixtures`, whose artwork points at a host that never resolves, so every image shows its
-accent-tinted placeholder and the references do not depend on the network.
+accent-tinted placeholder and the references do not depend on the network. The ranks screens
+(profiles, leaderboards, the profile editor, a celebration) are `RanksSnapshots`, an extension
+of the suite with `RanksFixtures`, whose references live in `__Snapshots__/RanksSnapshots`.
 
 **UI tests.** The smoke tests launch the apps with `-uiTesting`, which keeps the stores in memory
 so every launch is a fresh install. `LiveFlowTests` drive the real flows against a running
@@ -262,3 +264,24 @@ The simulators cover the flows (see the Phase 3 report); on hardware, also check
     ends the session the followers' players close after 3 s.
 23. **Reactions**: the popover on iPhone and iPad and the transport bar menu on the TV send
     reactions that rise over every member's picture (with Reduce Motion they fade in place).
+24. **Profile pictures from the photo library**: on the iPhone and the iPad, Settings > Edit
+    profile > Change profile picture opens the system photo picker without a permission prompt;
+    an HEIC photo from the camera (and a PNG screenshot, a large panorama as the banner) uploads,
+    the new picture shows in the editor, the Settings row, the sidebar and on the web, and a
+    first picture celebrates "Face of the House". Removing it goes back to the identicon. A
+    photo still in iCloud downloads first; with no network the editor says the upload failed.
+25. **Pictures handed off from the TV**: on the Apple TV, Profile > Edit profile shows a QR code;
+    the iPhone's camera opens the web profile on the account's server (signing in there if the
+    browser is not yet) and a picture changed there shows on the TV once it reads the profile
+    again (reopened after a minute, or the next launch). The name, bio, visibility and password
+    fields work with the Siri Remote's keyboard and dictation.
+26. **Celebrations over the player**: finishing a title (or anything that earns an achievement
+    while playing, on the TV and on the iPhone, also in landscape) shows the unlock over the
+    video for a few seconds without stopping playback or taking the remote's focus, and the
+    next unlock follows; it does not show twice on another device. With Reduce Motion it fades
+    in and stays longer. A level-up flashes the ring beside the profile in Settings and the
+    sidebar.
+27. **Leaderboards and profiles on the TV**: the sidebar's Profile and Leaderboard are reachable
+    with the remote, every block of a profile takes the focus so the page scrolls, a podium or
+    row opens that member's profile, and switching rankings off in the web's admin removes both
+    entries (and a pushed profile goes back).

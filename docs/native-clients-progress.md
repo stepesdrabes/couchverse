@@ -81,8 +81,8 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
   inside `AVPlayerViewController`: every tier, sidecar WebVTT and in-stream subtitles, audio and
   subtitles from the system menus, the Quality menu, next episode, shuffle, PiP, AirPlay, Now
   Playing, display criteria on the TV) and the device profile measured from the hardware.
-- Pending: the exit on hardware (docs/apple.md, items 9 to 15), the celebrations overlay (with
-  Apple ranks, Phase 8).
+- Done: the celebrations overlay over the Apple player (with Apple ranks, Phase 8).
+- Pending: the exit on hardware (docs/apple.md, items 9 to 15 and 18).
 
 ## Phase 7: couch - in progress
 
@@ -115,7 +115,18 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
   (a forced check the server throttled is asked once more) and the devices list over the
   cookie; the web's SWR cache is gone, the core is its only cache.
 - Done: Android ranks and profiles (Phase 12).
-- Pending: Apple adoption.
+- Done: Apple ranks and profiles on iPhone, iPad and Apple TV, absent with rankings off:
+  profiles (rank ring and XP, bio, stats, a 26-week heatmap, the watch clock, most watched,
+  achievements by category, XP sources), leaderboards (metric and period, podium, the viewer's
+  own place, the hidden notice), the profile editor (PhotosPicker uploads through the new
+  `upload` executor on touch devices, a QR to the web profile for pictures on the TV, name,
+  bio, visibility, password), the rank beside the profile in Settings and the TV sidebar
+  (Profile and Leaderboard there), unlock celebrations over the app and the player. Host tests
+  cover the upload executor and the ranks surfaces; the screens compile for iOS and tvOS with
+  logic tests and snapshot cases.
+- Pending: recording the ranks snapshot references and re-recording Settings' (removed after
+  its new profile rows): `make apple-test` twice on the pinned simulators, then review. The
+  real-device checks (docs/apple.md, items 24 to 27).
 
 ## Phase 9: Apple system integration - pending
 
@@ -230,6 +241,10 @@ first.
   badge, camera QR scans (Connect a device, the TV's pairing QR), approval within the 5 s
   poll and a new code after expiry, the Reduce Motion cross-fade, Keychain and storage across
   the weekly reinstall and a delete-and-reinstall, the display language surviving a relaunch.
+- Apple ranks (Phase 8, docs/apple.md items 24 to 27): profile pictures from the photo
+  library (HEIC, PNG, iCloud photos), the TV's QR hand-off to the web profile, celebrations
+  over the player on TV and iPhone (Reduce Motion too), profiles and leaderboards with the
+  remote, rankings switched off.
 - Downloads (Phase 10): a background transfer finishing while the app is suspended or killed,
   playback in airplane mode, progress syncing on reconnect, storage and removal.
 - Free personal team: 7-day provisioning, at most 3 apps, wireless pairing to the TV (spike S1).

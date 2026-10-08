@@ -458,6 +458,8 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
   the toast is created once the take settles, out of the effect flush, since creating one
   writes sonner's own reactive state and doing that mid-flush corrupts its height
   bookkeeping.
+- Native: the Apple apps (`Ranks/`, see "Apple clients") and Android (`feature-ranks`) render
+  the same core views and send the same events.
 
 ### downloads
 Device-ready MP4s that the native clients keep for offline viewing (plan 8.6).
@@ -669,21 +671,25 @@ navigation, nothing else.
   the xcframework, `Generated/Messages.swift`, `CoreRuntime` and the executors (it alone also
   builds for the Mac, for `swift test`). `CouchverseDesign`: tokens, typography, the accent
   environment, components, generated strings. `CouchverseFeatures`: screens by feature folder
-  (`Onboarding`, `Accounts`, `Settings`, `Home`, `Catalog`, `Player`, `Downloads`) and
-  `CouchverseRoot`, the view both apps show; `LiveRuntime.make()` returns the runtime and the
-  `PlayerController` it drives, which the apps put into the environment, and on iPhone and iPad
-  the background session downloads run in.
+  (`Onboarding`, `Accounts`, `Settings`, `Home`, `Catalog`, `Player`, `Couch`, `Ranks`,
+  `Downloads`) and `CouchverseRoot`, the view both apps show; `LiveRuntime.make()` returns the
+  runtime and the `PlayerController` it drives, which the apps put into the environment, and on
+  iPhone and iPad the background session downloads run in.
 - **Runtime**: `CoreRuntime` (`@Observable`, main actor) is the only stateful service. It stamps
   `nowMs` from the continuous clock, runs one executor per effect (`HTTPExecutor` over an
   ephemeral URLSession, `TimerExecutor`, `SocketExecutor` over `URLSessionWebSocketTask`,
   `KeychainStore` with `AfterFirstUnlock` for tokens, `FileStore` in Application Support on iOS
   and `DefaultsStore` on tvOS, whose only guaranteed storage is user defaults), re-reads just the
   surfaces a `Render` names and publishes them as properties, decoded off the main actor (each
-  surface keeps the generation it was published at, so a late batch never wins). Title pages and
-  listings are published per slug and `BrowseKey` once a screen opens them (`core.title(slug)`,
-  `core.browse(key)`, a loading view before). `player` commands go to a `PlayerExecuting`
-  (`PlayerController` in the apps, `SilentPlayer` in tests). Until its slice lands, `upload`
-  effects fail as `httpFailed` (no image picking yet). `download` effects go to a
+  surface keeps the generation it was published at, so a late batch never wins). Title pages,
+  listings, profiles and leaderboards are published per slug, `BrowseKey`, username and
+  `LeaderboardKey` once a screen opens them (`core.title(slug)`, `core.browse(key)`,
+  `core.profile(username)`, `core.leaderboard(key)`, a loading view before). `player` commands
+  go to a `PlayerExecuting` (`PlayerController` in the apps, `SilentPlayer` in tests). `upload`
+  effects are the `HTTPExecutor`'s: the picked file behind the handle goes as the one part of a
+  multipart form, answered as an `http` effect is; a screen makes the handle with `UploadFiles`
+  (a photo as a JPEG of at most the slot's size in the temporary directory, its file URL the
+  handle; servers take JPEG, PNG and WebP, phones shoot HEIC). `download` effects go to a
   `DownloadExecuting` (`DownloadExecutor` on iPhone and iPad, `NoDownloads` on the TV and by
   default in tests). Screens read `core.<surface>` and `core.send(event)`; their own state is
   presentation only (focus, sheets, a field being typed). `CoreRuntime(fixture:)` shows fixed
@@ -691,17 +697,19 @@ navigation, nothing else.
   `-uiTesting` (in-memory stores: a fresh install every launch).
 - **Root**: `AppView.phase` picks the screen: `welcome`/`signIn` -> `OnboardingFlow` (welcome,
   add server, sign in), `chooseAccount` -> "Who's watching?", `ready` -> `MainTabs` (the TV's
-  sidebar: Home, Movies, Series, Genres, My List, Couch, Settings, Search; on iPhone a Liquid
+  sidebar: Home, Movies, Series, Genres, My List, Couch, Profile and Leaderboard while rankings
+  are on, Settings, Search, under a header with the profile and its rank; on iPhone a Liquid
   Glass tab bar with Home, Browse (movies, series and genres under a segmented control), My List,
   Settings and a search tab, the same tabs as an adaptable sidebar on iPad; each tab its own
   `NavigationStack`). The root also follows the session's display language (`L10n.language`,
   observable, so strings switch without rebuilding the app) and accent, sends `appBecameActive`,
   opens `couchverse://connect`, `couchverse://pair` and `couchverse://couch` links (`DeepLink`
   decides what to present; the core parses sign-in links, a couch link fills in the join screen),
-  shows the core's notices as toasts (`NoticeDismissed` when one goes), reports the device profile
-  (`CapabilitiesReported`, again when the audio route changes) and covers everything with
-  `AppCover`: the player while `PlayerView.target` is set (dismissing it sends `PlayerClosed`), or
-  a couch screen standing in for it (see Couch).
+  shows the core's notices as toasts (`NoticeDismissed` when one goes) and achievement unlocks
+  (`CelebrationOverlay`), reports the device profile (`CapabilitiesReported`, again when the
+  audio route changes) and covers everything with `AppCover`: the player while
+  `PlayerView.target` is set (dismissing it sends `PlayerClosed`), or a couch screen standing in
+  for it (see Couch).
 - **Catalog** (`Catalog/`): Home (the featured hero, 8 s a slide unless a finger or the focus is
   on it, then the server's rows: Continue Watching as backdrop cards with progress that play at
   once, the newest titles and genre rows as posters), Movies, Series and a genre (`BrowseScreen`:
@@ -791,6 +799,27 @@ navigation, nothing else.
   local pause and the transport bar menu; `CouchSnapshots` every couch screen and state. Not yet:
   joining without an account (the core joins only through an account on native) and the Live
   Activity (Phase 9).
+- **Ranks** (`Ranks/`, plan Phase 8), absent rather than locked while the server has rankings
+  off: a member's profile (`ProfileScreen`: the avatar in the `RankRing` over the banner or a
+  glow in its colour, name, handle and joining date, XP towards the next level, the bio through
+  `MarkdownView`, stat tiles, the last 26 weeks of the heatmap Monday first (`HeatmapLayout`),
+  a 24-wedge watch clock (`WatchClockLayout`), most watched as posters leading to the titles,
+  achievements by category with their medal, unlocked first, and the XP sources; your own adds
+  Edit profile and, when private, a way back to public; it asks for an achievement check as it
+  opens), leaderboards (`LeaderboardScreen`: metric and period switchers, XP always the
+  all-time board, a 2-1-3 podium when the top three earned something, rows leading to profiles,
+  the viewer's own place kept in view, the hidden notice leading to the editor) and the profile
+  editor (`ProfileEditorScreen`: pictures through `PhotosPicker` into the upload effect on
+  touch devices, a QR code of the account's web profile on TV, where the text is edited with the
+  remote (plan 10.6); name and bio, visibility, password; each save's outcome in words, a
+  failure through `Problem.message` when the code has words of its own). Touch devices reach
+  them from Settings (your public profile with its rank beside it, the leaderboard, Edit
+  profile, which stays with rankings off since a name, picture and password are not
+  progression), a TV from its sidebar and Settings. `CelebrationOverlay` shows `RankView`'s
+  celebration for 4.5 s (6.5 s and a fade instead of a spring under Reduce Motion), never
+  taking the focus, then sends `CelebrationDismissed` for the next; the root shows it over the
+  app and `AppCover` inside its cover, which a root overlay cannot reach. Codes become words in
+  `RanksWords`.
 - **Sign-in**: password, or "Sign in with another device" (the code large, a QR code of the
   pairing page and a countdown from `expiresAtMs` on the runtime's clock). A TV shows both side
   by side and starts pairing on its own; a phone shows one at a time. Approving another device
@@ -807,12 +836,16 @@ navigation, nothing else.
   `onAccent` label; on TV the system's focused label), `secondaryAction()`, `FormField`,
   `AvatarView`, `GlowBackdrop` (radial gradients, no blur), `Skeleton`, `MarkdownView` (the
   core's safe tree), `QRCodeView`, `InsecureBadge`, `ProblemBanner` (every `Problem.code` in
-  words). `Ambience` (`live|still|flat`) quiets the decoration for screenshots and snapshots.
+  words), `RankRing` (the tier's arc around an avatar with the level chip, flashing once on a
+  level-up). `Ambience` (`live|still|flat`) quiets the decoration for screenshots and
+  snapshots.
 - **Tests**: Swift Testing throughout. `CouchverseCore`: the runtime over the real core with
-  fake executors, and the executors. `CouchverseDesign`: identicons against the web's output,
-  localization and Czech plurals, colours, QR, markdown. `CouchverseFeatures`: deep links, code
-  input, the countdown, the choreography, catalog labels, WebVTT and stream languages, the
-  device profile against the contract fixture (in `CouchverseCore`), and `ScreenSnapshots`
+  fake executors (ranks surfaces, an upload round trip), and the executors (the multipart form,
+  uploads through a stubbed session, picked photos made JPEGs). `CouchverseDesign`: identicons
+  against the web's output, localization and Czech plurals, colours, QR, markdown.
+  `CouchverseFeatures`: deep links, code input, the countdown, the choreography, catalog labels,
+  WebVTT and stream languages, ranks words, the heatmap and clock layouts, achievement groups,
+  the device profile against the contract fixture (in `CouchverseCore`), and `ScreenSnapshots`
   (swift-snapshot-testing) of every key screen and load state on iPhone, iPad and TV, English
   and Czech at the largest Dynamic Type, on the pinned simulators `make apple-sims` creates (the
   suite refuses a simulator of another screen scale). UI tests: a smoke test per app, and
