@@ -458,6 +458,130 @@ fn the_hosts_phone_steers_as_a_remote() {
     assert_eq!(shell.player, empty::<PlayerCommand>());
 }
 
+/// The snapshot the server sends a host's device when it connects, and again when its role
+/// changes.
+fn hello(role: &str, state: &Value) -> Value {
+    json!({
+        "type": "hello",
+        "data": {
+            "sessionId": "s1", "myParticipantId": "p-host", "role": role, "state": state,
+            "participants": [
+                { "id": "p-host", "displayName": "Admin", "seed": "admin", "isHost": true, "isAnonymous": false, "paused": false },
+            ],
+            "serverTime": 1000,
+        },
+    })
+}
+
+#[test]
+fn a_host_becomes_the_remote_of_the_device_its_account_hosts_on_next() {
+    let (mut shell, socket) = hosting();
+    report(&mut shell, 10.0, true);
+    let heartbeat = shell
+        .timers()
+        .iter()
+        .find(|(_, every, repeat)| *every == 2_000 && *repeat)
+        .expect("beat")
+        .0;
+    let reported = shell.sent_frames(socket).len();
+
+    // the account started the session on the TV, whose first report took it over
+    shell.frame(socket, &hello("remote", &host_state(7, true, 12.0)));
+    let view = couch(&shell);
+    assert_eq!((view.status, view.role), (CouchStatus::Open, Some(CouchRole::Remote)));
+    // its player stops, keeping where the viewer got to
+    assert_eq!(shell.player.last(), Some(&PlayerCommand::Stop));
+    let player: crate::modules::playback::PlayerView = shell.view(&Surface::Player);
+    assert_eq!(player.target, None);
+    shell.request("POST", &format!("{API}/progress"));
+    // and it reports nothing more, not even for a heartbeat already on its way
+    assert!(shell.was_cancelled(heartbeat));
+    assert_eq!(shell.resolve_late(heartbeat, EffectOutput::TimerFired), empty::<EffectRequest>());
+    assert_eq!(shell.sent_frames(socket).len(), reported);
+
+    // it follows the TV's state and steers it
+    shell.frame(socket, &state_frame(8, true, 30.0));
+    let view = couch(&shell);
+    assert!(view.playing && (view.position_seconds - 30.0).abs() < f64::EPSILON);
+    shell.send(Event::CouchRemoteCommanded(RemoteControl {
+        action: RemoteAction::Pause,
+        position_seconds: None,
+    }));
+    assert_eq!(
+        shell.sent_frames(socket).last(),
+        Some(&json!({ "type": "remote_command", "data": { "action": "pause" } }))
+    );
+    assert_eq!(shell.player.last(), Some(&PlayerCommand::Stop));
+
+    // putting it down leaves the session to the TV
+    shell.send(Event::CouchLeft);
+    let (_, leave) = shell.request("POST", &format!("{API}/couch/123456/leave"));
+    assert_eq!(header(&leave, "X-Couch-Token"), Some("host-tok"));
+    assert!(shell.find_request("POST", &format!("{API}/couch/123456/end")).is_none());
+}
+
+#[test]
+fn a_device_hosting_its_accounts_live_couch_reports_at_once_to_take_it_over() {
+    let mut shell = signed_in();
+    shell.send(Event::PlayRequested(PlayTarget { kind: PlayKind::Movie, id: "m2".into() }));
+    shell.respond("GET", &format!("{API}/playback/movie/m2?lang=en"), 200, player_info());
+    report(&mut shell, 300.0, true);
+    shell.send(Event::CouchStartRequested);
+    // another device of the account's plays m1 for the session
+    let mut live = session("host", "tv-tok");
+    live["state"] = host_state(41, true, 1834.0);
+    shell.respond("POST", &format!("{API}/couch?delivery=body"), 201, live);
+    let socket = shell.socket(SOCKET);
+    opened(&mut shell, socket);
+
+    // before any heartbeat, it reports what it plays, which hands the session over to it
+    let frames = shell.sent_frames(socket);
+    assert_eq!(frames.len(), 1);
+    assert_eq!(frames[0]["type"], json!("host_state"));
+    assert_eq!(frames[0]["data"]["media"], json!({ "kind": "movie", "titleId": "m2" }));
+    assert_eq!(frames[0]["data"]["playing"], json!(true));
+    assert_eq!(frames[0]["data"]["positionSeconds"], json!(300.0));
+
+    // its couch shows what it plays, not what the session played, the server's hello included
+    let m2 = Some(PlayTarget { kind: PlayKind::Movie, id: "m2".into() });
+    assert_eq!(couch(&shell).media, m2);
+    shell.frame(socket, &hello("host", &host_state(41, true, 1834.0)));
+    let view = couch(&shell);
+    assert_eq!((view.role, view.media), (Some(CouchRole::Host), m2));
+}
+
+#[test]
+fn a_follower_keeps_its_seat_when_the_host_hands_the_couch_over() {
+    let (mut shell, socket) = following();
+    shell.frame(socket, &state_frame(5, true, 100.0));
+    report(&mut shell, 100.0, true);
+
+    // the host's account took the session over on another device, which plays an episode
+    let episode = json!({ "kind": "episode", "episodeId": "e2" });
+    shell
+        .frame(socket, &json!({ "type": "media_changed", "data": { "media": episode, "seq": 6 } }));
+    let playback = format!("{API}/couch/123456/playback?lang=en");
+    shell.respond("GET", &playback, 200, json!({ "media": episode, "player": player_info() }));
+    let player: crate::modules::playback::PlayerView = shell.view(&Surface::Player);
+    assert_eq!(player.target, Some(PlayTarget { kind: PlayKind::Episode, id: "e2".into() }));
+
+    // and its reports put the follower on its timeline
+    report(&mut shell, 0.0, false);
+    shell.frame(
+        socket,
+        &json!({ "type": "host_state", "data": {
+            "media": episode, "playing": true, "positionSeconds": 5.0,
+            "serverTimestamp": 2000, "seq": 7, "away": false,
+        } }),
+    );
+    assert_eq!(shell.player.last(), Some(&PlayerCommand::Seek(PlayerSeek { seconds: 5.0 })));
+
+    // all on the seat and the socket it had
+    assert_eq!(couch(&shell).role, Some(CouchRole::Follower));
+    assert!(shell.http_summary().iter().all(|r| !r.contains("/join")));
+    assert_eq!((shell.sockets.len(), shell.closed_sockets.len()), (1, 0));
+}
+
 #[test]
 fn hosting_needs_something_playing() {
     let mut shell = signed_in();

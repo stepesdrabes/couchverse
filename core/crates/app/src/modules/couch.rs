@@ -2,13 +2,14 @@
 //! the account, or as a guest on a server this device has no account on), the session socket
 //! with reconnect and backoff, participants and reactions, the host broadcasting its play state,
 //! a follower kept within a few seconds of the host, and the host's other devices steering its
-//! player as remotes.
+//! player as remotes. A host whose account starts hosting on another device hands the session
+//! over to it and becomes its remote.
 
 use std::collections::VecDeque;
 
 use couchverse_api::couch::{
-    ClientFrame, CouchEmojiCommand, CouchHostStateCommand, CouchPausedCommand, CouchRemoteCommand,
-    CouchRemoteCommandAction, ServerFrame,
+    ClientFrame, CouchEmojiCommand, CouchHelloRole, CouchHostStateCommand, CouchPausedCommand,
+    CouchRemoteCommand, CouchRemoteCommandAction, ServerFrame,
 };
 use couchverse_api::ops::{
     CreateCouchQuery, GetCouchInfoQuery, GetCouchPlaybackQuery, JoinCouchQuery,
@@ -238,6 +239,9 @@ pub enum CouchChange {
     Previous,
     /// The follower's session ended: close its player.
     StopFollowing,
+    /// The host's account started hosting on another device, so this one became its remote:
+    /// close its player.
+    HandedOver,
 }
 
 struct Live {
@@ -469,6 +473,7 @@ impl Couch {
     }
 
     fn broadcast(&mut self, ctx: &mut Ctx, playback: &Playback) {
+        let Some(live) = self.live.as_mut() else { return };
         let media = match playback.target() {
             Some(PlayTarget { kind: PlayKind::Movie, id }) => CouchMediaRef {
                 kind: CouchMediaRefKind::Movie,
@@ -486,6 +491,15 @@ impl Couch {
             }
         };
         let (position_seconds, playing) = playback.position_at(ctx.now).unwrap_or((0.0, false));
+        // nothing echoes the host's state back to it: its own view is what it plays
+        if live.state.media != media {
+            live.state.media = media.clone();
+            ctx.render(Surface::Couch);
+        }
+        live.state.playing = playing;
+        live.state.position_seconds = position_seconds;
+        live.state.away = false;
+        live.received_at = ctx.now;
         self.send(
             ctx,
             &ClientFrame::HostState(CouchHostStateCommand { media, playing, position_seconds }),
@@ -570,7 +584,9 @@ impl Couch {
                 }
             },
             Request::Heartbeat => {
-                self.broadcast(ctx, playback);
+                if self.is_host() {
+                    self.broadcast(ctx, playback);
+                }
                 CouchChange::None
             }
             Request::ReactionGone(id) => {
@@ -698,10 +714,15 @@ impl Couch {
                 let Some(live) = self.live.as_mut() else { return CouchChange::None };
                 live.status = CouchStatus::Open;
                 live.backoff = FIRST_BACKOFF_MS;
-                if live.role == CouchRole::Host && live.heartbeat.is_none() {
+                let host = live.role == CouchRole::Host;
+                if host && live.heartbeat.is_none() {
                     live.heartbeat = Some(ctx.every(HEARTBEAT_MS, heartbeat));
                 }
                 ctx.render(Surface::Couch);
+                // the first report takes a session over from the account's other devices
+                if host {
+                    self.broadcast(ctx, playback);
+                }
                 CouchChange::None
             }
             EffectOutput::SocketText(text) => match serde_json::from_str::<ServerFrame>(&text.text)
@@ -742,8 +763,21 @@ impl Couch {
             ServerFrame::Hello(hello) => {
                 live.me = hello.my_participant_id;
                 live.participants = hello.participants;
-                live.state = hello.state;
-                live.received_at = ctx.now;
+                // the account started hosting on another device: this one steers it from now on
+                let handed_over =
+                    live.role == CouchRole::Host && hello.role == CouchHelloRole::Remote;
+                // a host's own state is what it plays, not the session's last report
+                if live.role != CouchRole::Host || handed_over {
+                    live.state = hello.state;
+                    live.received_at = ctx.now;
+                }
+                if handed_over {
+                    live.role = CouchRole::Remote;
+                    if let Some(timer) = live.heartbeat.take() {
+                        ctx.cancel_timer(timer);
+                    }
+                    return CouchChange::HandedOver;
+                }
                 if live.role == CouchRole::Follower {
                     self.resync(ctx, playback, true);
                 }

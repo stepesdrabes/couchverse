@@ -753,7 +753,9 @@ impl Model {
         };
         match change {
             CouchChange::Follow(target, info) => self.playback.follow(ctx, &env, target, *info),
-            CouchChange::StopFollowing => self.playback.close(ctx, env.endpoint),
+            CouchChange::StopFollowing | CouchChange::HandedOver => {
+                self.playback.close(ctx, env.endpoint);
+            }
             CouchChange::Next => self.playback.next_now(ctx, &env),
             CouchChange::Previous => self.playback.previous(ctx, &env),
             CouchChange::Unauthorized => self.session_rejected(ctx),
