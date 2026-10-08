@@ -647,8 +647,10 @@ The apps are thin: they compose the runtime, the root navigation and the platfor
   Liquid Glass tab bar (Home, Browse, My List, Profile, with Search as `Tab(role: .search)`);
   iPad uses the same tabs as `.sidebarAdaptable`. Detail navigation via `NavigationStack` with
   zoom transitions from cards on iOS.
-- Deep links: `couchverse://title/{slug}`, `watch/{kind}/{id}`, `couch/{code}`,
+- Deep links: `couchverse://title/{slug}`, `play/{kind}/{id}`, `couch/{code}`,
   `connect?...`, `pair?...` (custom scheme, because Associated Domains need a paid team).
+  (`play/` rather than the planned `watch/`, the shape Android shipped first and every client
+  now uses, 2026-10-08.)
 
 ### 10.4 Screens per idiom
 

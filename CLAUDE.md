@@ -248,7 +248,10 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   `CouchverseDesign`; `CouchverseFeatures`); Swift 6 with complete strict concurrency, main
   actor by default, warnings as errors. `CoreRuntime` is the only state: screens keep
   presentation state only and send events. New UI strings go in `contract/i18n` and are used
-  through `L10n`. TV screens must stay reachable by the remote (focus sections,
+  through `L10n`; strings the system shows from a bundle of its own (App Intents' `intent_`
+  keys, the widgets' `widget_` keys) are also generated into the app's and the widget
+  extension's catalogs, and Siri phrases live in `Couchverse/AppShortcuts.xcstrings`. TV
+  screens must stay reachable by the remote (focus sections,
   `defaultFocus`). Snapshot references are re-recorded by deleting the old ones after an
   intended visual change; `make apple-lint` before committing.
   Android (`clients/android/`, build guide docs/android.md): Compose for phones and Compose for
