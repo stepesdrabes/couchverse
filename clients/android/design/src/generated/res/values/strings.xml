@@ -205,6 +205,7 @@
     <string name="couch_code">Code %1$s</string>
     <string name="couch_connecting">Connecting to the couch...</string>
     <string name="couch_copy_link">Copy link</string>
+    <string name="couch_end_confirm">End the session for everyone?</string>
     <string name="couch_end_session">End session</string>
     <string name="couch_has_remote">%1$s has the remote</string>
     <string name="couch_host_away">The host stepped away</string>

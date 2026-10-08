@@ -3468,6 +3468,23 @@
         }
       }
     },
+    "couch_end_confirm": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ukončit sledování pro všechny?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End the session for everyone?"
+          }
+        }
+      }
+    },
     "couch_end_session": {
       "extractionState": "manual",
       "localizations": {

@@ -383,6 +383,7 @@
 	"couch_code": "Kód {code}",
 	"couch_connecting": "Připojování ke gauči...",
 	"couch_copy_link": "Kopírovat odkaz",
+	"couch_end_confirm": "Ukončit sledování pro všechny?",
 	"couch_end_session": "Ukončit sledování",
 	"couch_has_remote": "{name} má ovladač",
 	"couch_host_away": "Hostitel si odskočil",

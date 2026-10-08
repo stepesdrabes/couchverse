@@ -203,6 +203,7 @@ extension L10n {
     public static func couchCode(code: String) -> String { format("couch_code", [code]) }
     public static var couchConnecting: String { string("couch_connecting") }
     public static var couchCopyLink: String { string("couch_copy_link") }
+    public static var couchEndConfirm: String { string("couch_end_confirm") }
     public static var couchEndSession: String { string("couch_end_session") }
     public static func couchHasRemote(name: String) -> String { format("couch_has_remote", [name]) }
     public static var couchHostAway: String { string("couch_host_away") }

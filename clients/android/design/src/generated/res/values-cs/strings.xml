@@ -206,6 +206,7 @@
     <string name="couch_code">Kód %1$s</string>
     <string name="couch_connecting">Připojování ke gauči...</string>
     <string name="couch_copy_link">Kopírovat odkaz</string>
+    <string name="couch_end_confirm">Ukončit sledování pro všechny?</string>
     <string name="couch_end_session">Ukončit sledování</string>
     <string name="couch_has_remote">%1$s má ovladač</string>
     <string name="couch_host_away">Hostitel si odskočil</string>

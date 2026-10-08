@@ -375,6 +375,7 @@
 	"couch_code": "Code {code}",
 	"couch_connecting": "Connecting to the couch...",
 	"couch_copy_link": "Copy link",
+	"couch_end_confirm": "End the session for everyone?",
 	"couch_end_session": "End session",
 	"couch_has_remote": "{name} has the remote",
 	"couch_host_away": "The host stepped away",

@@ -11,6 +11,7 @@ struct CouchPanel: View {
     var onLeft: () -> Void = {}
 
     @Environment(CoreRuntime.self) private var core
+    @State private var ending = false
     @ScaledMetric(relativeTo: .largeTitle) private var codeSize: CGFloat = Idiom.isTV ? 96 : 40
     @ScaledMetric(relativeTo: .body) private var qrSize: CGFloat = Idiom.isTV ? 420 : 180
 
@@ -65,8 +66,12 @@ struct CouchPanel: View {
             }
         }
         Button(role: .destructive) {
-            core.send(view.role == .host ? .couchEndRequested : .couchLeft)
-            onLeft()
+            if view.role == .host {
+                ending = true
+            } else {
+                core.send(.couchLeft)
+                onLeft()
+            }
         } label: {
             ActionLabel(
                 view.role == .host ? L10n.couchEndSession : L10n.couchLeave,
@@ -75,6 +80,13 @@ struct CouchPanel: View {
         .secondaryAction()
         .fixedSize()
         .accessibilityIdentifier("couch-end")
+        // on TV this is often the only button in reach: ending it for everyone takes a second yes
+        .confirmationDialog(L10n.couchEndConfirm, isPresented: $ending, titleVisibility: .visible) {
+            Button(L10n.couchEndSession, role: .destructive) {
+                core.send(.couchEndRequested)
+                onLeft()
+            }
+        }
     }
 
     /// The QR code of the join page beside the code itself, both large enough to read across a room.
@@ -148,6 +160,7 @@ struct CouchMemberRow: View {
 struct CouchPanelScreen: View {
     @Environment(CoreRuntime.self) private var core
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var doneFocused: Bool
 
     var body: some View {
         #if os(tvOS)
@@ -157,12 +170,15 @@ struct CouchPanelScreen: View {
                     Button(L10n.commonDone) { dismiss() }
                         .primaryAction()
                         .fixedSize()
+                        .focused($doneFocused)
                 }
                 .padding(.horizontal, 120)
                 .padding(.vertical, 80)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .scrollClipDisabled()
+            // a stray click must not end the session for everyone
+            .defaultFocus($doneFocused, true)
             .background(Tokens.Palette.bg.opacity(0.88))
             .presentationBackground(.clear)
         #else

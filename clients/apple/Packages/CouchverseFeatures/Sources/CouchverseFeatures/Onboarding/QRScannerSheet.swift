@@ -3,8 +3,8 @@
     import SwiftUI
     import VisionKit
 
-    /// Scans a Couchverse QR code with the camera: a web "Connect a device" code or a TV's pairing
-    /// code. Other codes are pointed out and scanning goes on.
+    /// Scans a Couchverse QR code with the camera: a web "Connect a device" code, a TV's pairing
+    /// code or a host's couch. Other codes are pointed out and scanning goes on.
     struct QRScannerSheet: View {
         /// The kind of link this scan is for; anything else is pointed out as not a Couchverse code.
         let expecting: DeepLink
