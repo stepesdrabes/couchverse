@@ -90,3 +90,29 @@ extension CouchView {
         status: .idle, members: [], playing: false, positionSeconds: 0, positionAtMs: 0, hostAway: false,
         waiting: false, localPaused: false, reactions: [], recentEmojis: [], resynced: false)
 }
+
+extension RankView {
+    /// No rank known yet and nothing to celebrate.
+    public static let none = RankView(levelUps: 0, queued: 0)
+}
+
+extension ProfileView {
+    /// A profile before the core rendered it.
+    public static func opening(_ username: String) -> ProfileView {
+        ProfileView(username: username, status: .loading)
+    }
+}
+
+extension LeaderboardView {
+    /// A leaderboard before the core rendered it.
+    public static func opening(_ key: LeaderboardKey) -> LeaderboardView {
+        LeaderboardView(key: key, status: .loading, rows: [], total: 0, podium: false, allZero: false, hidden: false)
+    }
+}
+
+extension ProfileEditorView {
+    /// Nothing saved yet.
+    public static let idle = ProfileEditorView(
+        details: SaveState(status: .idle), password: SaveState(status: .idle), avatar: SaveState(status: .idle),
+        banner: SaveState(status: .idle))
+}

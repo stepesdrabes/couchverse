@@ -26,6 +26,16 @@ final class FakeHTTP: HTTPExecuting {
                 ?? .httpFailed(HttpFailure(kind: .offline, message: "no route"))
         }
     }
+
+    private let uploaded = Mutex<[UploadRequest]>([])
+
+    var uploads: [UploadRequest] { uploaded.withLock { $0 } }
+
+    /// Records the upload and answers its request from the routes.
+    func upload(_ request: UploadRequest) async -> EffectOutput {
+        uploaded.withLock { $0.append(request) }
+        return await perform(request.request)
+    }
 }
 
 /// Timers that only fire when a test says so.

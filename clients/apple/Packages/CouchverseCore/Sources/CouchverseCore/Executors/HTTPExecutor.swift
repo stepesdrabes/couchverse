@@ -23,15 +23,38 @@ public struct HTTPExecutor: HTTPExecuting {
 
     @concurrent
     public func perform(_ request: HttpRequest) async -> EffectOutput {
-        guard let url = URL(string: request.url) else {
+        guard var urlRequest = Self.urlRequest(request) else {
             return .httpFailed(HttpFailure(kind: .other, message: "not a URL: \(request.url)"))
         }
+        urlRequest.httpBody = request.body.map { Data($0.utf8) }
+        return await send(urlRequest)
+    }
+
+    @concurrent
+    public func upload(_ upload: UploadRequest) async -> EffectOutput {
+        guard var urlRequest = Self.urlRequest(upload.request) else {
+            return .httpFailed(HttpFailure(kind: .other, message: "not a URL: \(upload.request.url)"))
+        }
+        guard let file = UploadFiles.open(upload.file) else {
+            return .httpFailed(HttpFailure(kind: .other, message: "the picked file can no longer be read"))
+        }
+        let form = MultipartForm(field: upload.field, file: file)
+        urlRequest.setValue(form.contentType, forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = form.body
+        return await send(urlRequest)
+    }
+
+    private static func urlRequest(_ request: HttpRequest) -> URLRequest? {
+        guard let url = URL(string: request.url) else { return nil }
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = request.method
         for header in request.headers {
             urlRequest.setValue(header.value, forHTTPHeaderField: header.name)
         }
-        urlRequest.httpBody = request.body.map { Data($0.utf8) }
+        return urlRequest
+    }
+
+    private func send(_ urlRequest: URLRequest) async -> EffectOutput {
         do {
             let (data, response) = try await session.data(for: urlRequest)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0

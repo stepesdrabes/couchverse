@@ -27,10 +27,16 @@ public final class CoreRuntime {
     /// The account's downloads on this device (iPhone and iPad).
     public private(set) var downloads: DownloadsView = .idle
     public private(set) var couch: CouchView
+    public private(set) var rank: RankView
+    public private(set) var profileEditor: ProfileEditorView
     /// Title pages and listings by slug and key, once a screen opened them; read through
     /// `title(_:)` and `browse(_:)`.
     public private(set) var titles: [String: TitleView] = [:]
     public private(set) var listings: [BrowseKey: BrowseView] = [:]
+    /// Profiles and leaderboards by username and board, once a screen opened them; read through
+    /// `profile(_:)` and `leaderboard(_:)`.
+    public private(set) var profiles: [String: ProfileView] = [:]
+    public private(set) var leaderboards: [LeaderboardKey: LeaderboardView] = [:]
 
     public let platform: Platform
 
@@ -84,6 +90,8 @@ public final class CoreRuntime {
         notices = .empty
         player = .closed
         couch = .idle
+        rank = .none
+        profileEditor = .idle
         initial.forEach(assign)
         executors.player.events = { [weak self] event in self?.send(event) }
     }
@@ -106,6 +114,8 @@ public final class CoreRuntime {
         notices = .empty
         player = .closed
         couch = .idle
+        rank = .none
+        profileEditor = .idle
         values.forEach(assign)
     }
 
@@ -134,6 +144,16 @@ public final class CoreRuntime {
     /// A listing as the core last rendered it, or loading before its screen opened.
     public func browse(_ key: BrowseKey) -> BrowseView {
         listings[key] ?? .opening(key)
+    }
+
+    /// A member's profile as the core last rendered it, or loading before its screen opened.
+    public func profile(_ username: String) -> ProfileView {
+        profiles[username] ?? .opening(username)
+    }
+
+    /// A leaderboard as the core last rendered it, or loading before its screen opened.
+    public func leaderboard(_ key: LeaderboardKey) -> LeaderboardView {
+        leaderboards[key] ?? .opening(key)
     }
 
     /// The shell's monotonic clock in the core's terms, e.g. for a pairing code's countdown.
@@ -215,10 +235,10 @@ public final class CoreRuntime {
             track { self.resolve(id, await live.storeQueue.run(store)) }
         case .render(let render):
             self.render(render.surfaces)
-        case .upload:
-            // nothing can hand the core a picked file until profile editing lands (Phase 8)
+        case .upload(let upload):
             track {
-                self.resolve(id, .httpFailed(HttpFailure(kind: .other, message: "uploads are not supported yet")))
+                let output = await live.executors.http.upload(upload)
+                self.resolve(id, output)
             }
         case .socket(.open(let open)):
             live.executors.sockets.open(id: id, request: open) { [weak self] output in
@@ -294,6 +314,10 @@ public final class CoreRuntime {
         case .player(let view): if player != view { player = view }
         case .downloads(let view): if downloads != view { downloads = view }
         case .couch(let view): if couch != view { couch = view }
+        case .rank(let view): if rank != view { rank = view }
+        case .profile(let username, let view): if profiles[username] != view { profiles[username] = view }
+        case .leaderboard(let key, let view): if leaderboards[key] != view { leaderboards[key] = view }
+        case .profileEditor(let view): if profileEditor != view { profileEditor = view }
         }
     }
 

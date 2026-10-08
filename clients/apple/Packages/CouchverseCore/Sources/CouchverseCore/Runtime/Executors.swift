@@ -4,6 +4,9 @@ import Foundation
 /// understands.
 public protocol HTTPExecuting: Sendable {
     func perform(_ request: HttpRequest) async -> EffectOutput
+    /// Sends the picked file an `Upload` effect names as a multipart form, answering as `perform`
+    /// does.
+    func upload(_ request: UploadRequest) async -> EffectOutput
 }
 
 /// Runs the core's `Timer` effects on the main actor; `fire` resolves the effect.
