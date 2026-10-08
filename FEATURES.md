@@ -691,16 +691,17 @@ navigation, nothing else.
   `-uiTesting` (in-memory stores: a fresh install every launch).
 - **Root**: `AppView.phase` picks the screen: `welcome`/`signIn` -> `OnboardingFlow` (welcome,
   add server, sign in), `chooseAccount` -> "Who's watching?", `ready` -> `MainTabs` (the TV's
-  sidebar: Home, Movies, Series, Genres, My List, Settings, Search; on iPhone a Liquid Glass tab
-  bar with Home, Browse (movies, series and genres under a segmented control), My List, Settings
-  and a search tab, the same tabs as an adaptable sidebar on iPad; each tab its own
+  sidebar: Home, Movies, Series, Genres, My List, Couch, Settings, Search; on iPhone a Liquid
+  Glass tab bar with Home, Browse (movies, series and genres under a segmented control), My List,
+  Settings and a search tab, the same tabs as an adaptable sidebar on iPad; each tab its own
   `NavigationStack`). The root also follows the session's display language (`L10n.language`,
   observable, so strings switch without rebuilding the app) and accent, sends `appBecameActive`,
-  opens `couchverse://connect` and `couchverse://pair` links (`DeepLink` decides what to present;
-  the core parses the link), shows the core's notices as toasts (`NoticeDismissed` when one
-  goes), reports the device profile (`CapabilitiesReported`, again when the audio route
-  changes) and covers everything with the player while `PlayerView.target` is set; dismissing
-  the cover sends `PlayerClosed`.
+  opens `couchverse://connect`, `couchverse://pair` and `couchverse://couch` links (`DeepLink`
+  decides what to present; the core parses sign-in links, a couch link fills in the join screen),
+  shows the core's notices as toasts (`NoticeDismissed` when one goes), reports the device profile
+  (`CapabilitiesReported`, again when the audio route changes) and covers everything with
+  `AppCover`: the player while `PlayerView.target` is set (dismissing it sends `PlayerClosed`), or
+  a couch screen standing in for it (see Couch).
 - **Catalog** (`Catalog/`): Home (the featured hero, 8 s a slide unless a finger or the focus is
   on it, then the server's rows: Continue Watching as backdrop cards with progress that play at
   once, the newest titles and genre rows as posters), Movies, Series and a genre (`BrowseScreen`:
@@ -763,6 +764,33 @@ navigation, nothing else.
   keeps none (its storage is purgeable) and shows no download UI. Tested on the host (the
   executor over fake transfers, the downloads directory, a download through the real core) and
   in `DownloadsSnapshots`.
+- **Couch** (`Couch/`, plan 10.6): every couch screen reads `core.couch` (`CouchView`). Hosting
+  starts in the player: on TV a Couch menu in the transport bar (start, the panel with the code,
+  end; a follower's members and leave) beside a reactions menu; on iPhone and iPad the options
+  menu (start, the code, end) and, while a session is on, a sofa button (who is there, the panel)
+  and a reactions button whose popover offers the recent reactions, then a curated set. The panel
+  (`CouchPanel`) shows the host the join page's QR code (`CouchView.shareUrl`, the server's
+  `/couch/<code>`) and the six-digit code, large on TV (a translucent cover over the playing
+  video, Done focused first) and in a sheet on phones, then who is there (the host first, the
+  host stepping away, members paused for themselves dimmed) and End (confirmed: on TV it may be
+  the only button in reach) or Leave. Joining (`JoinCouchForm`): Settings' "Join a couch session"
+  on every idiom and the TV's Couch tab (`CouchHubScreen`, the live panel while this TV is on a
+  couch), a digit pad on TV and the number pad on phones, "Use as a remote" and the VisionKit
+  scanner on iPhone; `couchverse://couch/<code>` links and a scanned join page fill in the code
+  (`CouchLink`; the core gets the code, not the link) and wait for an account. One full-screen
+  cover (`AppCover`) shows the player, a follower waiting for the host (choosing, away,
+  connecting), the phone as a remote (`CouchRemoteScreen`: play and pause, 10 s skips from the
+  host's extrapolated position, the episodes either side) and, for 3 s, why a session this device
+  watched or steered ended; moving between them never presents a modal over one being dismissed.
+  Closing a follower's player leaves the couch, or the host's next title would bring it back.
+  Over the picture everyone sees reactions rise and fade (Reduce Motion fades them in place) and a
+  follower what the host is doing (paused, away, resynced); a follower's own pause or play in the
+  system controls (`requiresLinearPlayback` keeps them off the timeline) is told apart from the
+  core's commands (`LocalPause`) and becomes `CouchLocalPauseChanged`, so the host's next update
+  does not undo it. Logic tests cover links, codes, the status line, the cover's choice, the
+  local pause and the transport bar menu; `CouchSnapshots` every couch screen and state. Not yet:
+  joining without an account (the core joins only through an account on native) and the Live
+  Activity (Phase 9).
 - **Sign-in**: password, or "Sign in with another device" (the code large, a QR code of the
   pairing page and a countdown from `expiresAtMs` on the runtime's clock). A TV shows both side
   by side and starts pairing on its own; a phone shows one at a time. Approving another device

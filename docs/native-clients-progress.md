@@ -93,7 +93,18 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
   guest endpoint, follower drift sync, reactions, a follower's failed player refetched through
   the couch).
 - Done: the Android couch (Phase 12).
-- Pending: the Apple couch.
+- Done, on simulators pending: the Apple couch on iPhone, iPad and Apple TV (`CoreRuntime`
+  publishes `couch`; hosting from the TV's transport bar and the touch options menu, the panel
+  with the join page's QR code and the code, large on TV; joining by code from Settings or the TV's
+  Couch tab, by a scanned QR code or a `couchverse://couch` link, as a viewer or a remote; one
+  cover for the player, a waiting follower, the phone as a remote and a session's end; floating
+  reactions and the status line over the picture; a follower's own pause reported as the core's
+  local pause). Compiled for iOS and tvOS and linted; the runtime's couch tests pass on the Mac.
+- Pending: the couch snapshot references (and the Settings ones, re-recorded for its new couch
+  row) recorded on the pinned simulators, the couch walkthrough (docs/apple.md) on simulators
+  and devices, the TV info panel's couch tab, the "more" button for the system emoji keyboard.
+- Blocked on the core: joining a native couch without an account (D11; `CouchJoinRequested` only
+  joins through the active account on native).
 
 ## Phase 8: ranks and profiles - in progress
 
@@ -211,6 +222,8 @@ Collected from the phases as they land; each item is verified on simulators/emul
 first.
 
 - Apple TV 4K: pairing from an iPhone, Who's watching animation, HDR/Atmos playback (Phase 6).
+- Apple couch (docs/apple.md, items 20 to 23): the TV's QR panel read across the room, an iPhone
+  as the TV's remote, follower drift on an iPhone and an Apple TV over an hour, reactions.
 - iPhone: QR scan of a Connect-a-device code, Keychain persistence across reinstalls.
 - Apple apps (full list in docs/apple.md): free-team signing and trusting the certificate,
   wireless pairing to the Apple TV in Xcode, the Local Network prompt and the not-encrypted

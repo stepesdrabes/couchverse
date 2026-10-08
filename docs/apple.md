@@ -133,6 +133,25 @@ simulator (a `make apple-test` elsewhere, say) uninstall each other's runners.
 
 `xcrun simctl io <device> recordVideo` captures the profile switch.
 
+**The couch** has no live UI test yet; with a server running (and media ingested) walk through it
+on the simulators or devices, each signed in to the same server:
+
+1. On the TV, play a title and pick Couch > Start a couch session in the transport bar: the panel
+   shows the join page's QR code and the six-digit code over the video (Done has the focus, Back
+   closes it and the video keeps playing).
+2. On the iPhone, signed in as the same account, Settings > Join a couch session, type the code,
+   Use as a remote: the remote shows the TV's position and play state, and play/pause, the 10 s
+   skips and the next and previous episode move the TV. `xcrun simctl openurl <device>
+   couchverse://couch/<code>` opens the same screen with the code filled in.
+3. In a browser, open the join page from the QR code (a phone's camera, or the address under the
+   code) and join without an account: the TV's panel lists the guest.
+4. On the iPad, signed in as another account, join by the code: the host's title plays without a
+   timeline; pausing in the system controls marks you paused in the host's panel and resuming
+   jumps back to the host; reactions from the popover rise on every screen.
+5. On the TV, close the player: the followers wait for the host to choose; play another title:
+   they follow. End the session from the TV's Couch tab (it asks first): the followers and the
+   remote say the host ended it, and close after 3 s.
+
 ## Downloads and offline
 
 On iPhone and iPad the title page downloads a movie or an episode at a chosen quality, and the
@@ -231,3 +250,15 @@ The simulators cover the flows (see the Phase 3 report); on hardware, also check
     removing one (swipe, or the title page's menu) frees the space in the system's iPhone Storage,
     and the downloads add nothing to the iCloud backup. A full disk shows "Not enough space on
     this device".
+20. **The TV's couch panel**: from across the room an iPhone's camera reads the panel's QR code
+    (it opens the web join page; the app's own scanner fills in the code instead) and the code is
+    legible; the panel sits over the playing video and Back closes it.
+21. **Phone as a remote**: an iPhone joined with "Use as a remote" steers the Apple TV (play and
+    pause, the skips, the next and previous episode) without noticeable lag, its clock keeps up
+    with the TV's picture, and locking the phone and coming back reconnects it.
+22. **Follower drift on hardware**: an iPhone and an Apple TV following a web or TV host stay
+    within the 3 s drift threshold for an hour ("Resynced with the host" shows rarely); a local
+    pause holds and resuming snaps back; the host stepping away pauses everyone; when the host
+    ends the session the followers' players close after 3 s.
+23. **Reactions**: the popover on iPhone and iPad and the transport bar menu on the TV send
+    reactions that rise over every member's picture (with Reduce Motion they fade in place).
