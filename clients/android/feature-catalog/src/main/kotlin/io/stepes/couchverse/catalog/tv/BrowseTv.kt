@@ -27,8 +27,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.FilterChip
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import io.stepes.couchverse.catalog.BrowseActions
@@ -43,6 +41,7 @@ import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.SkeletonBox
 import io.stepes.couchverse.design.components.loadingSemantics
+import io.stepes.couchverse.design.tv.TvFilterChip
 import io.stepes.couchverse.design.tv.TvPosterCard
 import io.stepes.couchverse.design.tv.ScreenFocus
 import io.stepes.couchverse.design.tv.TvSafe
@@ -51,7 +50,7 @@ import io.stepes.couchverse.design.tv.screenFocus
 
 private val PosterColumn = 136.dp
 
-@OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun BrowseTv(state: BrowseState, actions: BrowseActions, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize().padding(top = TvSafe.vertical), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -67,7 +66,7 @@ internal fun BrowseTv(state: BrowseState, actions: BrowseActions, content: @Comp
                 modifier = Modifier.padding(end = 16.dp).semantics { heading() },
             )
             SortOptions.forEach { sort ->
-                FilterChip(selected = state.sort == sort, onClick = { actions.onSort(sort) }) { Text(sort.label()) }
+                TvFilterChip(sort.label(), selected = state.sort == sort, onClick = { actions.onSort(sort) })
             }
         }
         val genres = state.genres?.genres.orEmpty()
@@ -78,15 +77,14 @@ internal fun BrowseTv(state: BrowseState, actions: BrowseActions, content: @Comp
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item(key = "all") {
-                    FilterChip(selected = state.genre == null, onClick = { actions.onGenre(null) }) {
-                        Text(stringResource(R.string.catalog_filter_all))
-                    }
+                    TvFilterChip(stringResource(R.string.catalog_filter_all), selected = state.genre == null, onClick = { actions.onGenre(null) })
                 }
                 items(genres, key = { it.name }) { genre ->
-                    FilterChip(
+                    TvFilterChip(
+                        genre.label,
                         selected = state.genre == genre.name,
                         onClick = { actions.onGenre(genre.name.takeIf { it != state.genre }) },
-                    ) { Text(genre.label) }
+                    )
                 }
             }
         }

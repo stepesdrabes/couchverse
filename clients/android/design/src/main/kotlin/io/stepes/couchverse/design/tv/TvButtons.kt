@@ -9,7 +9,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.FilterChip
+import androidx.tv.material3.FilterChipDefaults
 import androidx.tv.material3.Icon
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.theme.LocalAccent
@@ -55,4 +59,23 @@ fun TvActionButton(
         }
         Text(text)
     }
+}
+
+/**
+ * A TV choice among a few (a sort, a genre, a board). Focused, a chosen chip turns white like
+ * any focused one: Compose for TV would fill it with `onPrimaryContainer` and write on it in
+ * `onPrimary`, which are both the accent's text colour here.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+fun TvFilterChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier,
+        colors = FilterChipDefaults.colors(
+            focusedSelectedContainerColor = MaterialTheme.colorScheme.onSurface,
+            focusedSelectedContentColor = MaterialTheme.colorScheme.inverseOnSurface,
+        ),
+    ) { Text(label) }
 }
