@@ -51,7 +51,7 @@ struct PairingPanel: View {
         QRCodeView(pairing.verifyUrl)
             .frame(width: qrSize, height: qrSize)
             .opacity(waiting ? 1 : 0.2)
-            .animation(Tokens.Motion.smooth, value: waiting)
+            .motion(Tokens.Motion.smooth, value: waiting)
         VStack(alignment: .leading, spacing: Tokens.Spacing.lg) {
             Text(L10n.accountsPairingInstructions)
                 .typeRole(Tokens.TypeRamp.body)

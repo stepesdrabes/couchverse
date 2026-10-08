@@ -41,7 +41,7 @@ struct CouchPanel: View {
                 startButton
             }
         }
-        .animation(Tokens.Motion.smooth, value: view)
+        .motion(Tokens.Motion.smooth, value: view)
     }
 
     @ViewBuilder private var live: some View {
@@ -160,6 +160,7 @@ struct CouchMemberRow: View {
 struct CouchPanelScreen: View {
     @Environment(CoreRuntime.self) private var core
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @FocusState private var doneFocused: Bool
 
     var body: some View {
@@ -179,7 +180,7 @@ struct CouchPanelScreen: View {
             .scrollClipDisabled()
             // a stray click must not end the session for everyone
             .defaultFocus($doneFocused, true)
-            .background(Tokens.Palette.bg.opacity(0.88))
+            .background(Tokens.Palette.bg.opacity(reduceTransparency ? 1 : 0.88))
             .presentationBackground(.clear)
         #else
             NavigationStack {

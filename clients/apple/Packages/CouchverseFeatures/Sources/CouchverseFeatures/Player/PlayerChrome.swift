@@ -71,7 +71,7 @@ final class ChromeVisibility {
                 }
             }
             .animation(Tokens.Motion.standard, value: chrome.visible)
-            .animation(Tokens.Motion.smooth, value: view.nextUp?.target)
+            .motion(Tokens.Motion.smooth, value: view.nextUp?.target)
             .onChange(of: controller.playing, initial: true) { _, playing in chrome.keep(hiding: playing) }
         }
     }

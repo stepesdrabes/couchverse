@@ -60,7 +60,7 @@ struct HeroCarousel: View {
                         .padding(.bottom, Idiom.isTV ? 48 : Tokens.Spacing.xl)
                 }
             }
-            .animation(Tokens.Motion.smooth, value: index)
+            .motion(Tokens.Motion.smooth, value: index)
             #if os(iOS)
                 .simultaneousGesture(swipe)
             #endif

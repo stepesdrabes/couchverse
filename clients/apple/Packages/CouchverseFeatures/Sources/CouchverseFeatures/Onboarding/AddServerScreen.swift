@@ -6,6 +6,7 @@ import SwiftUI
 /// to signing in once the core accepts it.
 struct AddServerScreen: View {
     @Environment(CoreRuntime.self) private var core
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var address = ""
     @FocusState private var fieldFocused: Bool
 
@@ -37,7 +38,7 @@ struct AddServerScreen: View {
 
                 if add.status == .failed, let problem = add.problem {
                     ProblemBanner(problem)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                 }
 
                 Button(action: connect) {
@@ -48,7 +49,7 @@ struct AddServerScreen: View {
             }
             .readableWidth(Idiom.isTV ? 900 : 520)
             .padding(Tokens.Spacing.xl)
-            .animation(Tokens.Motion.smooth, value: add.status)
+            .motion(Tokens.Motion.smooth, value: add.status)
         }
         .scrollBounceBehavior(.basedOnSize)
         .background { GlowBackdrop(tint: Tokens.Palette.glowViolet, intensity: 0.6) }

@@ -128,7 +128,7 @@ struct JoinCouchForm: View {
                 }
             }
         }
-        .animation(Tokens.Motion.smooth, value: problem)
+        .motion(Tokens.Motion.smooth, value: problem)
         #if os(iOS)
             .sheet(isPresented: $scanning) {
                 QRScannerSheet(expecting: .couch) { url in

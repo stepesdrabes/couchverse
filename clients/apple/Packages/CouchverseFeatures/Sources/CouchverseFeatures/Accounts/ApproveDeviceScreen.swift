@@ -32,7 +32,7 @@ struct ApproveDeviceScreen: View {
                 }
                 .readableWidth(Idiom.isTV ? 900 : 520)
                 .padding(Tokens.Spacing.xl)
-                .animation(Tokens.Motion.smooth, value: approval)
+                .motion(Tokens.Motion.smooth, value: approval)
             }
             .scrollBounceBehavior(.basedOnSize)
             .navigationTitle(L10n.pairingApproveTitle)

@@ -36,7 +36,7 @@ public struct CouchverseRoot: View {
             ProfileChoreographyOverlay(choreography: choreography)
             if connecting && core.signIn.status == .loading {
                 ConnectingBanner()
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
             NoticeToasts()
             // a cover over the app (the player, a couch screen) shows its own
@@ -44,9 +44,9 @@ public struct CouchverseRoot: View {
                 CelebrationOverlay()
             }
         }
-        .animation(reduceMotion ? .easeInOut(duration: 0.3) : Tokens.Motion.smooth, value: core.app.phase)
-        .animation(reduceMotion ? .easeInOut(duration: 0.3) : Tokens.Motion.smooth, value: pickingProfile)
-        .animation(Tokens.Motion.smooth, value: core.app.activeAccount)
+        .motion(Tokens.Motion.smooth, value: core.app.phase)
+        .motion(Tokens.Motion.smooth, value: pickingProfile)
+        .motion(Tokens.Motion.smooth, value: core.app.activeAccount)
         .environment(choreography)
         .environment(\.showProfilePicker, RootAction(name: "profile-picker") { pickingProfile = true })
         .environment(\.showAccountSwitcher, RootAction(name: "account-switcher") { switchingAccount = true })
@@ -115,7 +115,7 @@ public struct CouchverseRoot: View {
             MainTabs()
                 // a switch on a phone cross-fades the whole app to the new account
                 .id(core.app.activeAccount)
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.98)))
         }
     }
 

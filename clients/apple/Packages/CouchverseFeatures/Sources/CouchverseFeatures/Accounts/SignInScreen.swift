@@ -85,8 +85,8 @@ struct SignInScreen: View {
                     .padding(Tokens.Spacing.xl)
                 }
             }
-            .animation(Tokens.Motion.smooth, value: showsPairing)
-            .animation(Tokens.Motion.smooth, value: core.signIn)
+            .motion(Tokens.Motion.smooth, value: showsPairing)
+            .motion(Tokens.Motion.smooth, value: core.signIn)
         }
         .scrollBounceBehavior(.basedOnSize)
         // the field a remote user needs first; the code next to it needs no focus at all

@@ -25,7 +25,7 @@ struct NoticeToasts: View {
         }
         .padding(Tokens.Spacing.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: Idiom.isTV ? .top : .bottom)
-        .animation(Tokens.Motion.smooth, value: core.notices.notices)
+        .motion(Tokens.Motion.smooth, value: core.notices.notices)
     }
 
     private func dismiss(_ notice: Notice) {
