@@ -64,7 +64,7 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
   the hero and Continue Watching, Movies, Series, genres, My List, Search, the title page with
   seasons and episodes, notices as toasts), with snapshot references for every state (en, cs at
   the largest text) on simulators pinned to the references' screen scale.
-- Left for later: zoom transitions from cards and `couchverse://title`/`watch` links on Apple.
+- Left for later: zoom transitions from cards.
 
 ## Phase 6: playback - in progress
 
@@ -148,9 +148,33 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
   its new profile rows): `make apple-test` twice on the pinned simulators, then review. The
   real-device checks (docs/apple.md, items 24 to 27).
 
-## Phase 9: Apple system integration - pending
+## Phase 9: Apple system integration - in progress
 
-Top Shelf, widget, Live Activity (per spike S1), App Intents, Shortcuts, Spotlight.
+- Done: `couchverse://title/<slug>` and `couchverse://play/<movie|episode>/<id>` links on iPhone,
+  iPad and Apple TV (Android's shapes), through one `OpenRequest` the signed-in tabs take once an
+  account is in, which links, Spotlight, intents, the widget and Top Shelf all use.
+- Done: the shelf snapshot (`CouchverseShared`, a library without the core): the active account's
+  Continue Watching and My List with the extensions' words in the display language, kept from the
+  core's views and written to the App Group container, else the app's caches.
+- Done, always on (no capability): App Intents and App Shortcuts on iPhone and iPad (open a title,
+  continue watching, open My List, join a couch by code; phrases in English and Czech, titles from
+  `contract/i18n`, which codegen also writes into the app's own catalog), and Spotlight (Continue
+  Watching and My List titles in the account's domain, dropped on sign-out or a switch).
+- Done behind `EXTENSIONS_ENABLED` (off by default, docs/apple.md "Outside the app"): the widget
+  extension (Continue Watching widget, couch Live Activity with local updates and a stale date)
+  and the Top Shelf extension (Continue Watching through the artwork grant URLs). With the switch
+  off the extensions compile but stay out of the apps, with no entitlements. Both apps and both
+  extensions build for the simulators with it on and off; host tests cover the snapshot, its file
+  format, the links and the Spotlight entries; logic tests (compiled, to run with `make
+  apple-test`) the links, the requests, the intents' parameters and the Live Activity's content.
+- Pending: `make apple-test` on the pinned simulators, and the real-device checks (docs/apple.md,
+  items 31 to 37): links, Siri and Shortcuts in both languages, Spotlight, the widget, the Live
+  Activity on the Lock Screen and in the Dynamic Island, Top Shelf.
+- Blocked on spike S1 (the user's Apple ID): whether a free personal team can provision the App
+  Group and the extensions' App IDs, which decides whether the widget, the Live Activity and Top
+  Shelf can be on for free-team builds or stay a paid-team option; and spike S6 (Top Shelf images
+  through artwork grants, also over plain http) on a real Apple TV. Top Shelf shows Continue
+  Watching only; a featured carousel waits for S1/S6 (plan 16).
 
 ## Phase 10: downloads - in progress
 
@@ -286,6 +310,10 @@ first.
 - Downloads (Phase 10): a background transfer finishing while the app is suspended or killed,
   playback in airplane mode, progress syncing on reconnect, storage and removal.
 - Free personal team: 7-day provisioning, at most 3 apps, wireless pairing to the TV (spike S1).
+- Apple system integration (Phase 9, docs/apple.md items 31 to 37): title and play links, Siri
+  and Shortcuts phrases in English and Czech, Spotlight results, and with `EXTENSIONS_ENABLED` the
+  widget on the home screen, the couch Live Activity on the Lock Screen and in the Dynamic Island,
+  Top Shelf on the TV (spike S6) and whether a free team can provision them at all (spike S1).
 - Android (full list in docs/android.md): a Google TV device (launcher banner, D-pad focus and
   Back on every screen, the keyboard beside fields, pairing QR scanned across the room), phone
   camera scans, Keystore persistence across reboots and updates, Czech and the largest font,

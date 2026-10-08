@@ -17,18 +17,22 @@ there is no App Store build, and everything here works with a free Apple ID.
 
 ```
 clients/apple/
-  Couchverse.xcodeproj    two apps and their UI test bundles; folder-synchronized groups, so adding a
-                          file never touches the project file
-  Config/                 Base.xcconfig (shared), one xcconfig and Info.plist per target,
-                          Local.xcconfig.template (copy to the gitignored Local.xcconfig)
-  Couchverse/             iOS/iPadOS app entry and assets
+  Couchverse.xcodeproj    two apps, their UI test bundles and two app extensions; folder-synchronized
+                          groups, so adding a file never touches the project file
+  Config/                 Base.xcconfig (shared), one xcconfig and Info.plist per target, the App
+                          Group entitlements, Local.xcconfig.template (copy to the gitignored
+                          Local.xcconfig)
+  Couchverse/             iOS/iPadOS app entry, assets, App Intents and App Shortcuts
   CouchverseTV/           tvOS app entry and assets
+  CouchverseWidgets/      iOS widget extension: Continue Watching, the couch Live Activity
+  CouchverseTopShelf/     tvOS Top Shelf extension: Continue Watching
   CouchverseUITests/      smoke UI test (iPhone/iPad simulator)
   CouchverseTVUITests/    smoke UI test (Apple TV simulator)
   Packages/
     CouchverseCore        the xcframework, the generated message types, CoreRuntime and the
                           effect executors (HTTP and uploads, timers, WebSockets, Keychain,
-                          files/user defaults, background downloads)
+                          files/user defaults, background downloads); CouchverseShared, what the
+                          apps share with their extensions (which never run the core)
     CouchverseDesign      tokens, typography, accent, components, generated strings
     CouchverseFeatures    the screens by feature (Accounts, Onboarding, Settings, Home, Catalog,
                           Player, Ranks) and the root the apps show
@@ -182,6 +186,46 @@ downloads: tvOS may purge anything outside user defaults.
 A transfer outliving the app, airplane mode and the storage figures are checked on a device (items
 16 to 19 below).
 
+## Outside the app
+
+What the apps offer the system (FEATURES.md, Apple clients, "Outside the app"):
+
+- **Links**: `couchverse://title/<slug>` opens a title and `couchverse://play/<movie|episode>/<id>`
+  plays it from where it stopped, the same shapes as on Android, on iPhone, iPad and Apple TV. A
+  link that launches the app waits for an account (on the TV, for "Who's watching?"). On a
+  simulator: `xcrun simctl openurl <device> couchverse://title/glass-harbor`.
+- **App Intents and App Shortcuts** (iPhone and iPad, always on, no capability): Open a Title,
+  Continue Watching (the first title, or a chosen one in progress), Open My List and Join a Couch
+  Session (the code goes to the join screen). They show up in the Shortcuts app and in Spotlight,
+  and Siri runs them by their phrases, in English and Czech (`Couchverse/AppShortcuts.xcstrings`;
+  the intents' titles and descriptions are the `intent_` keys in `contract/i18n`). The titles they
+  offer come from the shelf snapshot, so they work before the app has loaded anything.
+- **Spotlight** (iPhone and iPad, always on): the signed-in account's Continue Watching and My
+  List titles, with posters the app has already shown; choosing one opens its page. Signing out
+  removes them, switching accounts replaces them.
+- **Extensions** (behind `EXTENSIONS_ENABLED`, off by default): the Continue Watching widget and
+  the couch Live Activity on iPhone and iPad (`CouchverseWidgets`), Continue Watching on the Apple
+  TV's Top Shelf (`CouchverseTopShelf`). They read a snapshot the app writes into an App Group
+  and never run the core.
+
+**Turning the extensions on.** They need an App Group shared by each app and its extension,
+which a paid team can provision; whether a free personal team can is spike S1 (plan 16), still
+open. In `Config/Local.xcconfig` set
+
+```
+EXTENSIONS_ENABLED = YES
+```
+
+(exactly `YES`), then build the apps as usual: Xcode builds, signs and embeds the extensions
+(`<BUNDLE_ID_ROOT>.widgets` in the iPhone app, `<BUNDLE_ID_ROOT>.topshelf` in the TV app), gives
+both apps and both extensions the App Group `group.<BUNDLE_ID_ROOT>` and turns on Live
+Activities in the iPhone app's Info.plist. Automatic signing registers the two extension App IDs
+and the group with your team; each extension is an App ID of its own (the free team's weekly
+limit of 10 counts them). From the command line pass it to `xcodebuild` instead:
+`xcodebuild ... EXTENSIONS_ENABLED=YES`. With `NO` (the default) the extensions are still
+compiled, unsigned, but stay out of the apps, and nothing about signing changes: no entitlements,
+no extra App IDs.
+
 ## Free personal team limits
 
 Building for your own devices with a free Apple ID works, with these limits (plan 10.9):
@@ -189,8 +233,10 @@ Building for your own devices with a free Apple ID works, with these limits (pla
 - Apps are provisioned for **7 days**: reinstall from Xcode weekly (your data and Keychain stay).
 - At most **3 apps** you built can be installed on a device at once.
 - New App IDs are limited per week (10); using one bundle id for both apps keeps this to one.
-- No App Groups or Keychain Sharing guarantees, so widgets and Top Shelf (later phases) stay off
-  behind `EXTENSIONS_ENABLED`; no Associated Domains, so links use the `couchverse://` scheme.
+- No App Groups or Keychain Sharing guarantees (spike S1), so the widget, the Live Activity and
+  Top Shelf stay off behind `EXTENSIONS_ENABLED` (see Outside the app); App Intents, App
+  Shortcuts and Spotlight need no capability and are always on. No Associated Domains, so links
+  use the `couchverse://` scheme.
 - An Apple TV is installed over Xcode's **wireless pairing**: on the TV open Settings > Remotes and
   Devices > Remote App and Devices, then in Xcode Window > Devices and Simulators pair it.
 
@@ -311,3 +357,36 @@ The simulators cover the flows (see the Phase 3 report); on hardware, also check
 30. **The couch in the TV's info panel**: swiping down while on a couch shows "On the couch" beside
     the episodes (a follower sees only the couch), the remote walks along a couch wider than the
     screen, and members joining or leaving update it without closing the panel.
+31. **Title and play links**: on the iPhone, `couchverse://title/<slug>` typed in Safari opens the
+    title over Home and `couchverse://play/episode/<id>` plays from where it stopped, both from a
+    running app and from a cold launch (after the account loads); on the TV, after
+    "Who's watching?".
+32. **Siri and Shortcuts in both languages**: with the iPhone in English, "Continue watching in
+    Couchverse" resumes the first title, "Open my list in Couchverse" opens My List, "Join a couch
+    in Couchverse" opens the join screen, and "Open <a title in My List> in Couchverse" opens it;
+    the Shortcuts app lists the four actions with their parameters (a title, a title in progress,
+    a code) and runs them from a closed app. With the iPhone in Czech the Shortcuts app and
+    Spotlight show the Czech titles and phrases ("Pokračovat ve sledování v Couchverse"), and
+    Siri takes them where it speaks Czech.
+33. **Spotlight results**: searching for a title in Continue Watching or My List shows it with its
+    poster and "Continue Watching" or "My List"; choosing it opens the title. Signing out removes
+    the results; switching to another account shows that account's.
+34. **The widget on the home screen** (`EXTENSIONS_ENABLED`): the small and medium Continue
+    Watching widgets show the titles with their progress, in the app's display language; a tap
+    plays from where it stopped; after watching on, once the app's Home has shown the new
+    progress the widget shows it too; signed out it shows the empty message.
+35. **The Live Activity on the Lock Screen and in the Dynamic Island** (`EXTENSIONS_ENABLED`):
+    starting or joining a couch on an iPhone shows the title, the members and the code; a member
+    joining or leaving and the host pausing update it; locked while the video plays it stays
+    current; left in the background without playing it says "Open Couchverse to catch up" after
+    about three minutes; ending or leaving the session removes it, and one left by a killed app
+    goes at the next launch.
+36. **Top Shelf on the TV** (`EXTENSIONS_ENABLED`, spike S6): with Couchverse in the top row the
+    Top Shelf shows Continue Watching with backdrops (also from a plain http server); choosing
+    one opens its page and Play plays it from where it stopped, after "Who's watching?". After a
+    week without opening the app the artwork grant expires and the images go blank until the app
+    runs again.
+37. **A free team with the extensions** (spike S1): with `EXTENSIONS_ENABLED = YES` and a free
+    personal team, note whether Xcode provisions the App Group and the two extension App IDs,
+    how the 3-app limit counts the extensions, and whether the widget, the Live Activity and Top
+    Shelf then work; record the outcome here and in docs/native-clients-progress.md.

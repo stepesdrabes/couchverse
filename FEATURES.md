@@ -686,9 +686,13 @@ navigation, nothing else.
 
 - **Layout**: `Couchverse.xcodeproj` (folder-synchronized groups; settings in `Config/*.xcconfig`,
   per-builder team and bundle id in the gitignored `Config/Local.xcconfig`) holds two thin app
-  targets and their UI test bundles; the code lives in three local packages. `CouchverseCore`:
-  the xcframework, `Generated/Messages.swift`, `CoreRuntime` and the executors (it alone also
-  builds for the Mac, for `swift test`). `CouchverseDesign`: tokens, typography, the accent
+  targets, their UI test bundles and two app extensions (`CouchverseWidgets`,
+  `CouchverseTopShelf`), which go into the apps only with `EXTENSIONS_ENABLED` (see Outside the
+  app); the code lives in three local packages. `CouchverseCore`: the xcframework,
+  `Generated/Messages.swift`, `CoreRuntime` and the executors (it alone also builds for the Mac,
+  for `swift test`), plus `CouchverseShared`, a library without the core for what the apps share
+  with their extensions (the shelf snapshot, the `couchverse://` title and play links, the App
+  Group container, the Live Activity's content). `CouchverseDesign`: tokens, typography, the accent
   environment, components, generated strings. `CouchverseFeatures`: screens by feature folder
   (`Onboarding`, `Accounts`, `Settings`, `Home`, `Catalog`, `Player`, `Couch`, `Ranks`,
   `Downloads`) and `CouchverseRoot`, the view both apps show; `LiveRuntime.make()` returns the
@@ -722,8 +726,10 @@ navigation, nothing else.
   Settings and a search tab, the same tabs as an adaptable sidebar on iPad; each tab its own
   `NavigationStack`). The root also follows the session's display language (`L10n.language`,
   observable, so strings switch without rebuilding the app) and accent, sends `appBecameActive`,
-  opens `couchverse://connect`, `couchverse://pair` and `couchverse://couch` links (`DeepLink`
-  decides what to present; the core parses sign-in links, a couch link fills in the join screen),
+  opens `couchverse://connect`, `couchverse://pair`, `couchverse://couch`,
+  `couchverse://title/<slug>` and `couchverse://play/<movie|episode>/<id>` links (`DeepLink`
+  decides what to present; the core parses sign-in links, a couch link fills in the join screen,
+  title and play links, the same shapes as Android's, become an `OpenRequest`, see Outside the app),
   shows the core's notices as toasts (`NoticeDismissed` when one goes) and achievement unlocks
   (`CelebrationOverlay`), reports the device profile (`CapabilitiesReported`, again when the
   audio route changes) and covers everything with `AppCover`: the player while
@@ -828,7 +834,7 @@ navigation, nothing else.
   and sends every emoji typed (`Reactions.emoji`). Logic tests cover links and their servers,
   codes, the status line, the cover's choice (a guest's join without an account), typed emoji,
   the local pause and the transport bar menu; `CouchSnapshots` every couch screen and state, the
-  guest's join form among them. Not yet: the Live Activity (Phase 9).
+  guest's join form among them. The Live Activity is under Outside the app.
 - **Ranks** (`Ranks/`, plan Phase 8), absent rather than locked while the server has rankings
   off: a member's profile (`ProfileScreen`: the avatar in the `RankRing` over the banner or a
   glow in its colour, name, handle and joining date, XP towards the next level, the bio through
@@ -850,6 +856,41 @@ navigation, nothing else.
   taking the focus, then sends `CelebrationDismissed` for the next; the root shows it over the
   app and `AppCover` inside its cover, which a root overlay cannot reach. Codes become words in
   `RanksWords`.
+- **Outside the app** (`Integration/`, plan 10.9). Anything that asks the app to open something
+  (a link, a Spotlight result, an intent, a widget or Top Shelf item) leaves an `OpenRequest` in
+  `OpenRequests` (a title, play a movie or an episode, the first of Continue Watching, My List, a
+  couch code), which the signed-in tabs (`MainTabs`) take once they are up, so a cold launch waits
+  for the account and a TV for "Who's watching?": a title opens over Home, play plays from where it
+  stopped, Continue Watching waits for the home to settle and plays its first card, My List
+  selects its tab, a couch code goes to the join screen. What the app leaves outside itself is the
+  **shelf snapshot** (`ShelfSnapshot`, like Android's `widget/continue.json`): the active
+  account's Continue Watching and My List with the words the extensions show, already in the
+  display language. `Shelf` keeps it from the core's views (emptied once its profile is no longer
+  signed in, started over for another one, each part replaced only by a loaded view, so a TV on
+  "Who's watching?" keeps it) in the App Group container (`Library/Caches/shelf.json`) when the
+  build has one, else in the app's caches; each change reloads the widget or Top Shelf,
+  re-indexes Spotlight and updates the App Shortcuts' parameters. **Spotlight** (iPhone and iPad,
+  `SpotlightIndex`): Continue Watching then My List, one CoreSpotlight item per title in the
+  account's domain, its title link as the identifier, the poster when the image cache already
+  holds it; each change
+  replaces the account's items, signing out drops them all, and a result opens its title. My List
+  is held open while an account is signed in, since the core loads it only while something shows
+  it. **App Intents** (the iPhone app's `Intents/`, no capability needed): open a title, continue
+  watching (the first title, or a chosen one in progress), open My List, join a couch by code; each
+  opens the app and leaves a request through the `OpenRequests` the app registers as an intent
+  dependency at launch. Their entities come from the snapshot, so a query needs neither the core
+  nor the network; App Shortcuts phrases in English and Czech (`AppShortcuts.xcstrings`), titles
+  and descriptions from `contract/i18n` (`intent_` keys, which codegen also writes into the app's
+  own catalog: the system reads them from the app bundle). **Extensions**, only with
+  `EXTENSIONS_ENABLED` (docs/apple.md): `CouchverseWidgets` holds a Continue Watching widget
+  (small and medium, each title a tap from `couchverse://play`) and the couch **Live Activity**
+  (the title, the members and the code on the Lock Screen and in the Dynamic Island), which
+  `CouchActivities` starts when this device is on a couch, updates while the app runs, renews
+  every minute against a 3-minute stale date (local updates only: pushes need a paid team) and
+  ends with the session; `CouchverseTopShelf` puts Continue Watching on the Apple TV's Top Shelf
+  (backdrops through their artwork grant URLs, play and display actions as links). Extensions
+  read the snapshot and never run the core; their own strings (the widget gallery) are the
+  `widget_` keys, generated into the extension.
 - **Sign-in**: password, or "Sign in with another device" (the code large, a QR code of the
   pairing page and a countdown from `expiresAtMs` on the runtime's clock). A TV shows both side
   by side and starts pairing on its own; a phone shows one at a time. Approving another device
@@ -870,10 +911,12 @@ navigation, nothing else.
   level-up). `Ambience` (`live|still|flat`) quiets the decoration for screenshots and
   snapshots.
 - **Tests**: Swift Testing throughout. `CouchverseCore`: the runtime over the real core with
-  fake executors (ranks surfaces, an upload round trip), and the executors (the multipart form,
-  uploads through a stubbed session, picked photos made JPEGs). `CouchverseDesign`: identicons
-  against the web's output, localization and Czech plurals, colours, QR, markdown.
-  `CouchverseFeatures`: deep links, code input, the countdown, the choreography, catalog labels,
+  fake executors (ranks surfaces, an upload round trip), the executors (the multipart form,
+  uploads through a stubbed session, picked photos made JPEGs), and the shelf snapshot (its
+  updates from the views, its file format, the links) and its Spotlight entries. `CouchverseDesign`:
+  identicons against the web's output, localization and Czech plurals, colours, QR, markdown.
+  `CouchverseFeatures`: deep links, open requests and the intents' parameters, the Live Activity's
+  content, code input, the countdown, the choreography, catalog labels,
   WebVTT and stream languages, ranks words, the heatmap and clock layouts, achievement groups,
   the device profile against the contract fixture (in `CouchverseCore`), and `ScreenSnapshots`
   (swift-snapshot-testing) of every key screen and load state on iPhone, iPad and TV, English
