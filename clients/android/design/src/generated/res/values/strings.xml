@@ -221,6 +221,7 @@
     <string name="couch_join">Join</string>
     <string name="couch_join_code">Six-digit code</string>
     <string name="couch_join_failed">Could not join - the session may have ended</string>
+    <string name="couch_join_guest_hint">No account needed: the address of the host\'s server and the code are enough.</string>
     <string name="couch_join_heading">%1$s invited you to watch together</string>
     <string name="couch_join_hint">Enter the code the host\'s screen shows, or scan its QR code.</string>
     <string name="couch_join_remote">Use as a remote</string>
@@ -236,6 +237,7 @@
     <string name="couch_open_in_app">Open in the app</string>
     <string name="couch_participants_title">On the couch</string>
     <string name="couch_react">Send a reaction</string>
+    <string name="couch_react_more">More emoji</string>
     <string name="couch_reconnecting">Reconnecting...</string>
     <string name="couch_remote_next">Next episode</string>
     <string name="couch_remote_previous">Previous episode</string>

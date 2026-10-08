@@ -31,6 +31,19 @@ struct CouchLinkTests {
         #expect(CouchLink.code(url) == nil)
         #expect(DeepLink(url) != .couch)
     }
+
+    @Test(
+        arguments: [
+            ("couchverse://couch/123456", nil),
+            ("couchverse://couch/123456?server=http%3A%2F%2F192.168.1.5%3A8080", "http://192.168.1.5:8080"),
+            ("couchverse://couch/123456?server=", nil),
+            ("https://media.example.com/couch/123456", "https://media.example.com"),
+            ("http://10.0.2.2:8092/couch/654321/?from=qr#top", "http://10.0.2.2:8092"),
+            ("http://[fd00::5]:8080/couch/654321", "http://[fd00::5]:8080"),
+        ] as [(String, String?)])
+    func couchLinksNameTheirServer(url: String, server: String?) {
+        #expect(CouchLink.invite(url)?.server == server)
+    }
 }
 
 struct CouchCodeInputTests {
@@ -58,6 +71,11 @@ struct ReactionTests {
         #expect(Array(choices.prefix(3)) == ["🦄", "🔥", "❤️"])
         #expect(Set(choices).count == choices.count)
         #expect(choices.count == Reactions.quick.count + 1)
+    }
+
+    @Test func theKeyboardSendsEachEmojiAndNothingElse() {
+        #expect(Reactions.emoji(in: "a😂 b🇨🇿1️⃣7#👍🏽❤️👩‍👩‍👧") == ["😂", "🇨🇿", "1️⃣", "👍🏽", "❤️", "👩‍👩‍👧"])
+        #expect(Reactions.emoji(in: "hello 42") == [])
     }
 }
 
@@ -120,7 +138,7 @@ struct AppCoverTests {
 
     @Test func thePlayerComesFirst() {
         let requests = CoverRequests()
-        requests.joining = "123456"
+        requests.joining = CouchInvite(code: "123456")
         #expect(requests.cover(playing: true, couch: Fixtures.couch("remote"), ready: true) == .player)
     }
 
@@ -134,11 +152,24 @@ struct AppCoverTests {
 
     @Test func aJoinScreenWaitsForAnAccountAndCloses() {
         let requests = CoverRequests()
-        requests.joining = "123456"
+        let invite = CouchInvite(code: "123456")
+        requests.joining = invite
         #expect(requests.cover(playing: false, couch: idle, ready: false) == nil)
-        #expect(requests.cover(playing: false, couch: idle, ready: true) == .join(code: "123456"))
+        #expect(requests.cover(playing: false, couch: idle, ready: true) == .join(invite))
         requests.seated(.follower)
         #expect(requests.joining == nil)
+    }
+
+    @Test func aJoinNamingItsServerNeedsNoAccount() {
+        let requests = CoverRequests()
+        let link = CouchInvite(code: "123456", server: "http://192.168.1.5:8080")
+        requests.joining = link
+        #expect(requests.cover(playing: false, couch: idle, ready: false) == .join(link))
+        // the welcome screen's: the server is typed
+        requests.joining = CouchInvite(server: "")
+        #expect(requests.cover(playing: false, couch: idle, ready: false) == .join(CouchInvite(server: "")))
+        // a guest seated as a follower waits for the host like anyone
+        #expect(requests.cover(playing: false, couch: Fixtures.couch("waiting"), ready: false) == .waiting)
     }
 
     @Test func theEndIsShownToAViewerUntilSeen() {

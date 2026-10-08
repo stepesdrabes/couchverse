@@ -22,7 +22,10 @@ struct PlayerScreen: View {
                 controller: controller, view: view, nativeAudio: controller.nativeAudio,
                 nativeSubtitles: controller.nativeSubtitles, linear: controller.linear,
                 send: { core.send($0) }, onTap: { chrome.touched() },
-                couch: CouchMenu(core.couch, enabled: core.session.features.couch), onCouchPanel: { couchPanel = true }
+                couch: CouchMenu(core.couch, enabled: core.couchOn),
+                seats: core.couch.isLive
+                    ? CouchInfoPanel(members: core.couch.members, hostAway: core.couch.hostAway) : nil,
+                onCouchPanel: { couchPanel = true }
             )
             .ignoresSafeArea()
             .opacity(view.status == .loaded || view.status == .stale ? 1 : 0)

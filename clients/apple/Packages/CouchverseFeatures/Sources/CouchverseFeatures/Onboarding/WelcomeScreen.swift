@@ -2,12 +2,14 @@ import CouchverseCore
 import CouchverseDesign
 import SwiftUI
 
-/// The first screen of a fresh install: what Couchverse is and the ways to reach a server.
+/// The first screen of a fresh install: what Couchverse is, the ways to reach a server and, for a
+/// guest without an account, joining someone's couch.
 struct WelcomeScreen: View {
     let onAddServer: () -> Void
 
     @Environment(CoreRuntime.self) private var core
     @Environment(\.accent) private var accent
+    @Environment(\.showCouchJoin) private var showCouchJoin
     @State private var scanning = false
     /// A scanned connect link is being redeemed; its outcome shows here until sign-in takes over.
     @State private var connecting = false
@@ -82,6 +84,14 @@ struct WelcomeScreen: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             #endif
+            Button {
+                showCouchJoin()
+            } label: {
+                ActionLabel(L10n.couchJoinTitle, systemImage: "sofa")
+            }
+            .secondaryAction()
+            .disabled(busy)
+            .accessibilityIdentifier("welcome-join-couch")
         }
         .frame(maxWidth: Idiom.isTV ? 600 : .infinity)
     }

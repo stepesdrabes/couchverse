@@ -48,7 +48,7 @@ public struct CouchverseRoot: View {
         .environment(choreography)
         .environment(\.showProfilePicker, RootAction(name: "profile-picker") { pickingProfile = true })
         .environment(\.showAccountSwitcher, RootAction(name: "account-switcher") { switchingAccount = true })
-        .environment(\.showCouchJoin, RootAction(name: "couch-join") { cover.joining = "" })
+        .environment(\.showCouchJoin, RootAction(name: "couch-join") { showCouchJoin() })
         .accent(core.session.accent)
         .environment(\.locale, L10n.locale)
         .preferredColorScheme(.dark)
@@ -75,6 +75,11 @@ public struct CouchverseRoot: View {
                 reportCapabilities()
             }
         }
+    }
+
+    /// Without an account the join screen asks for the server as well, and joins as a guest.
+    private func showCouchJoin() {
+        cover.joining = CouchInvite(server: core.app.phase == .ready ? nil : "")
     }
 
     private func reportCapabilities() {
@@ -113,8 +118,8 @@ public struct CouchverseRoot: View {
         case .connect:
             connecting = true
         case .couch:
-            // the core joins by code, not by link: the join screen sends it
-            cover.joining = CouchLink.code(url.absoluteString) ?? ""
+            // the core joins by code and server, not by link: the join screen sends them
+            cover.joining = CouchLink.invite(url.absoluteString) ?? CouchInvite()
             return
         }
         core.send(.linkOpened(Link(url: url.absoluteString)))

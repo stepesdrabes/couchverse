@@ -27,7 +27,17 @@ extension ScreenSnapshots {
             default: ("", "idle")
             }
         snapshot("couch-join-\(state)", Self.ready + [.couch(Fixtures.couch(couch))]) {
-            JoinCouchScreen(code: code, attempted: state != "empty" && state != "typed") {}
+            JoinCouchScreen(invite: CouchInvite(code: code), attempted: state != "empty" && state != "typed") {}
+        }
+    }
+
+    /// Joining without an account: the server's address too, from a link here.
+    @Test func joinCouchAsAGuest() {
+        let welcome: [SurfaceValue] = [
+            .app(AppView(phase: .welcome, activeAccount: nil)), .couch(Fixtures.couch("idle")),
+        ]
+        snapshot("couch-join-guest", welcome) {
+            JoinCouchScreen(invite: CouchInvite(code: "123456", server: "http://192.168.1.5:8080")) {}
         }
     }
 

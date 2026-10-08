@@ -4,14 +4,15 @@ import SwiftUI
 
 /// What covers the whole app: the player while the core plays something, else the screen that
 /// stands in for it on a couch (this device as a remote, a follower waiting for the host, the end
-/// of the session for a moment), else a join screen a link or Settings asked for. One cover shows
-/// them all, so moving between them never presents one modal over another being dismissed.
+/// of the session for a moment), else a join screen a link, Settings or the welcome screen asked
+/// for. One cover shows them all, so moving between them never presents one modal over another
+/// being dismissed.
 enum AppCover: Equatable {
     case player
     case remote
     case waiting
     case ended
-    case join(code: String)
+    case join(CouchInvite)
 }
 
 /// The cover's presentation state: the join screen asked for, and what this device was on the
@@ -19,8 +20,9 @@ enum AppCover: Equatable {
 @MainActor
 @Observable
 final class CoverRequests {
-    /// A link's code, or empty for a join screen opened from Settings.
-    var joining: String?
+    /// A link's code and server, or empty fields for a join screen opened from Settings or the
+    /// welcome screen.
+    var joining: CouchInvite?
     private(set) var lastRole: CouchRole?
     /// The end of a session this device watched or steered has been shown long enough.
     var endSeen = false
@@ -40,8 +42,9 @@ final class CoverRequests {
         if couch.status == .ended && couch.ended != "left" && viewer && !endSeen {
             return .ended
         }
-        if let joining, ready {
-            return .join(code: joining)
+        // a join naming its server needs no account; one without waits for one
+        if let joining, ready || joining.server != nil {
+            return .join(joining)
         }
         return nil
     }
@@ -145,7 +148,7 @@ private struct AppCoverContent: View {
             case .remote: CouchRemoteScreen()
             case .waiting: CouchWaitingScreen()
             case .ended: CouchEndedScreen { requests.endSeen = true }
-            case .join(let code): JoinCouchScreen(code: code) { requests.joining = nil }
+            case .join(let invite): JoinCouchScreen(invite: invite) { requests.joining = nil }
             case nil: Color.black.ignoresSafeArea()
             }
         }

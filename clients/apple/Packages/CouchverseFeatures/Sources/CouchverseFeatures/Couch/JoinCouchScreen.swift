@@ -2,10 +2,10 @@ import CouchverseCore
 import CouchverseDesign
 import SwiftUI
 
-/// Joining a couch session over the app, from a link or Settings; once the core seats this device
-/// the cover moves on to the player or the remote.
+/// Joining a couch session over the app, from a link, Settings or the welcome screen; once the core
+/// seats this device the cover moves on to the player or the remote.
 struct JoinCouchScreen: View {
-    let code: String
+    let invite: CouchInvite
     /// Shows the outcome of a join already asked for (snapshots).
     var attempted = false
     let close: () -> Void
@@ -16,7 +16,7 @@ struct JoinCouchScreen: View {
         ZStack(alignment: .topLeading) {
             GlowBackdrop(tint: accent.color, intensity: 0.6)
             ScrollView {
-                JoinCouchForm(code: code, attempted: attempted)
+                JoinCouchForm(invite: invite, attempted: attempted)
                     .readableWidth(Idiom.isTV ? 1500 : 520)
                     .padding(.horizontal, Idiom.isTV ? 80 : Tokens.Spacing.xl)
                     .padding(.vertical, Idiom.isTV ? 60 : 72)
@@ -39,22 +39,30 @@ struct JoinCouchScreen: View {
 
 /// The six-digit code, which a link or a scanned QR code fills in, and the ways to join with it: as
 /// a viewer, or on a phone as a remote for this account's own player. A TV types it on a digit pad.
+/// Without an account it also takes the server's address (filled in by a link or a scanned join
+/// page too) and joins as a guest.
 struct JoinCouchForm: View {
     @State private var code: String
+    /// The server a link or a scanned join page named, or the one typed without an account.
+    @State private var server: String
     /// This form asked to join, so the core's couch view describes its attempt.
     @State private var attempted: Bool
     @State private var scanning = false
     @FocusState private var focus: JoinFocus?
     @Environment(CoreRuntime.self) private var core
 
-    init(code: String = "", attempted: Bool = false) {
-        _code = State(initialValue: CouchCodeInput.format(code))
+    init(invite: CouchInvite = CouchInvite(), attempted: Bool = false) {
+        _code = State(initialValue: CouchCodeInput.format(invite.code))
+        _server = State(initialValue: invite.server ?? "")
         _attempted = State(initialValue: attempted)
     }
 
+    /// No account to join through: the server is asked for, and the join is a guest's.
+    private var guest: Bool { core.app.phase != .ready }
+    private var address: String { server.trimmingCharacters(in: .whitespaces) }
     private var joining: Bool { attempted && core.couch.status == .connecting && core.couch.role == nil }
     private var problem: Problem? { attempted && core.couch.status == .idle ? core.couch.problem : nil }
-    private var ready: Bool { CouchCodeInput.isComplete(code) && !joining }
+    private var ready: Bool { CouchCodeInput.isComplete(code) && !joining && !(guest && address.isEmpty) }
 
     var body: some View {
         Group {
@@ -62,6 +70,9 @@ struct JoinCouchForm: View {
                 HStack(alignment: .top, spacing: 96) {
                     VStack(alignment: .leading, spacing: Tokens.Spacing.xl) {
                         header
+                        if guest {
+                            serverField
+                        }
                         CodeSlots(code: code)
                         failure
                         joinButton
@@ -71,16 +82,20 @@ struct JoinCouchForm: View {
                     DigitPad(code: $code, focus: $focus)
                         .tvFocusSection()
                 }
-                .defaultFocus($focus, CouchCodeInput.isComplete(code) ? .join : .digit("1"))
+                .defaultFocus($focus, startingFocus)
                 .onChange(of: code) { _, code in
                     if CouchCodeInput.isComplete(code) {
-                        focus = .join
+                        focus = guest && address.isEmpty ? .server : .join
                     }
                 }
             } else {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.xl) {
                     header
+                    if guest {
+                        serverField
+                    }
                     FormField(L10n.couchJoinCode, text: $code, prompt: "123456", kind: .digits)
+                        .focused($focus, equals: .code)
                         .onChange(of: code) { _, typed in
                             let formatted = CouchCodeInput.format(typed)
                             if formatted != typed {
@@ -92,13 +107,16 @@ struct JoinCouchForm: View {
                         .accessibilityIdentifier("couch-code-field")
                     failure
                     joinButton
-                    Button {
-                        join(remote: true)
-                    } label: {
-                        ActionLabel(L10n.couchJoinRemote, systemImage: "appletvremote.gen4.fill")
+                    // a remote steers this account's own player, which a guest has none of
+                    if !guest {
+                        Button {
+                            join(remote: true)
+                        } label: {
+                            ActionLabel(L10n.couchJoinRemote, systemImage: "appletvremote.gen4.fill")
+                        }
+                        .secondaryAction()
+                        .disabled(!ready)
                     }
-                    .secondaryAction()
-                    .disabled(!ready)
                     #if os(iOS)
                         Button {
                             scanning = true
@@ -115,10 +133,21 @@ struct JoinCouchForm: View {
             .sheet(isPresented: $scanning) {
                 QRScannerSheet(expecting: .couch) { url in
                     scanning = false
-                    code = CouchLink.code(url) ?? code
+                    if let invite = CouchLink.invite(url) {
+                        code = invite.code
+                        server = invite.server ?? server
+                    }
                 }
             }
         #endif
+    }
+
+    /// The TV starts on what is still missing: the server, then the code, then joining.
+    private var startingFocus: JoinFocus {
+        if guest && address.isEmpty {
+            return .server
+        }
+        return CouchCodeInput.isComplete(code) ? .join : .digit("1")
     }
 
     private var header: some View {
@@ -131,11 +160,21 @@ struct JoinCouchForm: View {
                 .typeRole(Tokens.TypeRamp.title)
                 .foregroundStyle(Tokens.Palette.text)
                 .accessibilityAddTraits(.isHeader)
-            Text(L10n.couchJoinHint)
+            Text(guest ? L10n.couchJoinGuestHint : L10n.couchJoinHint)
                 .typeRole(Tokens.TypeRamp.body)
                 .foregroundStyle(Tokens.Palette.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var serverField: some View {
+        FormField(
+            L10n.serversAddressLabel, text: $server, prompt: L10n.serversAddressPlaceholder, kind: .address
+        )
+        .focused($focus, equals: .server)
+        .submitLabel(.next)
+        .onSubmit { focus = Idiom.isTV ? .digit("1") : .code }
+        .accessibilityIdentifier("couch-server-field")
     }
 
     @ViewBuilder private var failure: some View {
@@ -159,12 +198,15 @@ struct JoinCouchForm: View {
     private func join(remote: Bool) {
         guard ready else { return }
         attempted = true
-        let request = CouchCode(code: code)
-        core.send(remote ? .couchRemoteRequested(request) : .couchJoinRequested(request))
+        // the core joins through the account on its own server, and as a guest anywhere else
+        let request = CouchCode(code: code, server: address.isEmpty ? nil : address)
+        core.send(remote ? .couchRemoteRequested(CouchCode(code: code)) : .couchJoinRequested(request))
     }
 }
 
 enum JoinFocus: Hashable {
+    case server
+    case code
     case join
     case digit(String)
 }

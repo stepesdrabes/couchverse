@@ -49,7 +49,7 @@ final class ChromeVisibility {
                 // their own audio and subtitle menu; this sits between their top corners
                 if chrome.visible {
                     HStack(spacing: Tokens.Spacing.sm) {
-                        if core.session.features.couch && core.couch.isLive {
+                        if core.couchOn && core.couch.isLive {
                             CouchPlayerButtons(showCouch: showCouch, onOpen: { chrome.keep(hiding: false) })
                         }
                         if !view.linear {

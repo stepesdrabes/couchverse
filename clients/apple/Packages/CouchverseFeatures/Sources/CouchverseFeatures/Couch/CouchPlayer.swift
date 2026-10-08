@@ -9,7 +9,7 @@ struct CouchPlayerOverlay: View {
 
     var body: some View {
         let couch = core.couch
-        if core.session.features.couch && couch.isLive {
+        if core.couchOn && couch.isLive {
             ZStack(alignment: .top) {
                 ReactionsOverlay(reactions: couch.reactions)
                 CouchStatusPill(view: couch)
@@ -77,6 +77,55 @@ struct CouchStatusPill: View {
                 .accessibilityAddTraits(.updatesFrequently)
                 .transition(.opacity)
         }
+    }
+}
+
+/// Who is on the couch, in the TV player's info panel: the host first, a member paused for
+/// themselves dimmed.
+struct CouchInfoPanel: View, Equatable {
+    let members: [CouchMember]
+    let hostAway: Bool
+
+    #if os(tvOS)
+        static func controller(_ panel: CouchInfoPanel) -> UIHostingController<CouchInfoPanel> {
+            let controller = UIHostingController(rootView: panel)
+            controller.title = L10n.couchParticipantsTitle
+            controller.preferredContentSize = CGSize(width: 0, height: 300)
+            return controller
+        }
+    #endif
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: 48) {
+                ForEach(CouchPanel.seated(members), id: \.id) { member in
+                    let badges = CouchLabels.badges(member, hostAway: hostAway)
+                    VStack(spacing: Tokens.Spacing.sm) {
+                        AvatarView(url: member.avatar?.url, seed: member.seed, name: member.displayName)
+                            .frame(width: 120, height: 120)
+                        Text(member.displayName)
+                            .typeRole(Tokens.TypeRamp.card)
+                            .foregroundStyle(Tokens.Palette.text)
+                            .lineLimit(1)
+                        if !badges.isEmpty {
+                            Text(badges)
+                                .typeRole(Tokens.TypeRamp.caption)
+                                .foregroundStyle(Tokens.Palette.muted)
+                                .lineLimit(1)
+                        }
+                    }
+                    .frame(width: 240)
+                    .opacity(member.paused || (member.host && hostAway) ? 0.55 : 1)
+                    // focus walks a couch wider than the screen
+                    .focusable()
+                    .hoverEffect(.highlight)
+                    .accessibilityElement(children: .combine)
+                }
+            }
+            .padding(.horizontal, 80)
+            .padding(.vertical, 30)
+        }
+        .scrollClipDisabled()
     }
 }
 
@@ -190,9 +239,11 @@ struct CouchMenu: Equatable {
     }
 
     /// The reactions to send, what the viewer sent lately first; it stays up for a few in a row.
+    /// "More" brings up the system emoji keyboard for any other.
     struct ReactionBar: View {
         let choices: [String]
         let send: (String) -> Void
+        @State private var typing = false
 
         var body: some View {
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(48), spacing: Tokens.Spacing.xs), count: 6)) {
@@ -206,9 +257,73 @@ struct CouchMenu: Equatable {
                     }
                     .buttonStyle(.plain)
                 }
+                Button {
+                    typing.toggle()
+                } label: {
+                    Image(systemName: typing ? "keyboard.chevron.compact.down" : "ellipsis")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(Tokens.Palette.text)
+                        .frame(width: 48, height: 48)
+                        .background(Tokens.Palette.surface2, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.couchReactMore)
+                .accessibilityIdentifier("couch-react-more")
             }
             .padding(Tokens.Spacing.md)
+            .background { EmojiKeyboard(typing: $typing, send: send).frame(width: 0, height: 0) }
             .accessibilityLabel(L10n.couchReact)
+        }
+    }
+
+    /// An invisible field that holds the system emoji keyboard up while `typing` (the plain
+    /// keyboard for a viewer without the emoji one) and sends each emoji typed as a reaction.
+    private struct EmojiKeyboard: UIViewRepresentable {
+        @Binding var typing: Bool
+        let send: (String) -> Void
+
+        func makeUIView(context: Context) -> EmojiField {
+            let field = EmojiField()
+            field.tintColor = .clear
+            field.delegate = context.coordinator
+            field.addTarget(context.coordinator, action: #selector(Coordinator.typed(_:)), for: .editingChanged)
+            return field
+        }
+
+        func updateUIView(_ field: EmojiField, context: Context) {
+            context.coordinator.parent = self
+            if typing && !field.isFirstResponder {
+                field.becomeFirstResponder()
+            } else if !typing && field.isFirstResponder {
+                field.resignFirstResponder()
+            }
+        }
+
+        func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+        final class Coordinator: NSObject, UITextFieldDelegate {
+            var parent: EmojiKeyboard
+
+            init(parent: EmojiKeyboard) {
+                self.parent = parent
+            }
+
+            @objc func typed(_ field: UITextField) {
+                Reactions.emoji(in: field.text ?? "").forEach(parent.send)
+                field.text = ""
+            }
+
+            func textFieldDidEndEditing(_ textField: UITextField) {
+                parent.typing = false
+            }
+        }
+    }
+
+    final class EmojiField: UITextField {
+        // UIKit offers no emoji keyboard type: the field asks for the emoji input mode, which the
+        // system uses while the viewer has that keyboard
+        override var textInputMode: UITextInputMode? {
+            UITextInputMode.activeInputModes.first { $0.primaryLanguage == "emoji" } ?? super.textInputMode
         }
     }
 
@@ -219,7 +334,7 @@ struct CouchMenu: Equatable {
         @Environment(CoreRuntime.self) private var core
 
         var body: some View {
-            if let menu = CouchMenu(core.couch, enabled: core.session.features.couch) {
+            if let menu = CouchMenu(core.couch, enabled: core.couchOn) {
                 let titles = menu.entries
                 Section {
                     if menu.role == nil {

@@ -5,7 +5,8 @@ import SwiftUI
 
 /// `AVPlayerViewController` for SwiftUI (`VideoPlayer` has none of the hooks below). On TV the
 /// core's options go into the transport bar, the next episode into a contextual action and the
-/// episodes into an info panel; on touch devices a tap on the picture also toggles the overlay.
+/// episodes and who is on the couch into info panels; on touch devices a tap on the picture also
+/// toggles the overlay.
 struct SystemPlayer: UIViewControllerRepresentable {
     let controller: PlayerController
     let view: PlayerView
@@ -16,6 +17,8 @@ struct SystemPlayer: UIViewControllerRepresentable {
     var onTap: (() -> Void)?
     /// The couch's transport bar menus on TV; nil while the server has couch sessions off.
     var couch: CouchMenu?
+    /// Who is on the couch, for the TV's info panel; nil off a couch.
+    var seats: CouchInfoPanel?
     var onCouchPanel: () -> Void = {}
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -50,6 +53,7 @@ struct SystemPlayer: UIViewControllerRepresentable {
             context.coordinator.update(
                 player, view: view, nativeAudio: nativeAudio, nativeSubtitles: nativeSubtitles, couch: couch,
                 send: send, couchPanel: onCouchPanel)
+            context.coordinator.updatePanels(player, seasons: linear ? [] : view.seasons, seats: seats, send: send)
         #endif
     }
 
@@ -71,6 +75,7 @@ struct SystemPlayer: UIViewControllerRepresentable {
             private var menus: TransportMenus?
             private var next: NextUp?
             private var seasons: [PlayerSeason]?
+            private var seats: UIHostingController<CouchInfoPanel>?
 
             /// Replaces the system's items only when what they show changed: a menu rebuilt
             /// under the viewer's finger would close.
@@ -96,10 +101,39 @@ struct SystemPlayer: UIViewControllerRepresentable {
                             ]
                         } ?? []
                 }
-                if view.seasons != seasons {
-                    seasons = view.seasons
-                    player.customInfoViewControllers =
-                        view.seasons.isEmpty ? [] : [EpisodesPanel.controller(view.seasons, send: send)]
+            }
+
+            /// The info panels: the episodes (not a follower's, whose episode is the host's) and
+            /// who is on the couch, updated in place as people come and go.
+            func updatePanels(
+                _ player: AVPlayerViewController, seasons: [PlayerSeason], seats: CouchInfoPanel?,
+                send: @escaping (Event) -> Void
+            ) {
+                var changed = seasons != self.seasons
+                self.seasons = seasons
+                switch (seats, self.seats) {
+                case (let panel?, let shown?):
+                    if shown.rootView != panel {
+                        shown.rootView = panel
+                    }
+                case (let panel?, nil):
+                    self.seats = CouchInfoPanel.controller(panel)
+                    changed = true
+                case (nil, .some):
+                    self.seats = nil
+                    changed = true
+                case (nil, nil):
+                    break
+                }
+                if changed {
+                    var panels: [UIViewController] = []
+                    if !seasons.isEmpty {
+                        panels.append(EpisodesPanel.controller(seasons, send: send))
+                    }
+                    if let couch = self.seats {
+                        panels.append(couch)
+                    }
+                    player.customInfoViewControllers = panels
                 }
             }
         #endif

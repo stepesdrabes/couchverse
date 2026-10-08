@@ -222,6 +222,7 @@
     <string name="couch_join">Připojit se</string>
     <string name="couch_join_code">Šestimístný kód</string>
     <string name="couch_join_failed">Připojení se nezdařilo - sledování možná skončilo</string>
+    <string name="couch_join_guest_hint">Účet nepotřebujete: stačí adresa serveru hostitele a kód.</string>
     <string name="couch_join_heading">%1$s vás pozval(a) ke společnému sledování</string>
     <string name="couch_join_hint">Zadejte kód z obrazovky hostitele, nebo naskenujte jeho QR kód.</string>
     <string name="couch_join_remote">Použít jako ovladač</string>
@@ -237,6 +238,7 @@
     <string name="couch_open_in_app">Otevřít v aplikaci</string>
     <string name="couch_participants_title">Na gauči</string>
     <string name="couch_react">Poslat reakci</string>
+    <string name="couch_react_more">Další emoji</string>
     <string name="couch_reconnecting">Opětovné připojování...</string>
     <string name="couch_remote_next">Další epizoda</string>
     <string name="couch_remote_previous">Předchozí epizoda</string>

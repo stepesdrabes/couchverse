@@ -3740,6 +3740,23 @@
         }
       }
     },
+    "couch_join_guest_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Účet nepotřebujete: stačí adresa serveru hostitele a kód."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No account needed: the address of the host's server and the code are enough."
+          }
+        }
+      }
+    },
     "couch_join_heading": {
       "extractionState": "manual",
       "localizations": {
@@ -3991,6 +4008,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Send a reaction"
+          }
+        }
+      }
+    },
+    "couch_react_more": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Další emoji"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More emoji"
           }
         }
       }
