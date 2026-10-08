@@ -9,6 +9,9 @@ import UIKit
 public struct LiveApp {
     public let runtime: CoreRuntime
     public let player: PlayerController
+    /// The background session downloads run in (iPhone and iPad), whose events the app takes
+    /// when the system wakes it for them.
+    public let downloads: BackgroundTransfers?
 }
 
 /// Wires the core to this device's executors; the apps call it once at launch.
@@ -20,13 +23,17 @@ public enum LiveRuntime {
         let bundle = Bundle.main.bundleIdentifier ?? "io.stepes.couchverse"
         let ephemeral = arguments.contains(uiTestingArgument)
         let player = PlayerController()
-        let executors = Executors(
+        var executors = Executors(
             http: HTTPExecutor(userAgent: userAgent),
             timers: TimerExecutor(),
             sockets: SocketExecutor(),
             player: player,
             secureStore: ephemeral ? MemoryStore() : KeychainStore(service: "\(bundle).tokens"),
             store: ephemeral ? MemoryStore() : persistentStore(bundle))
+        let downloads = downloadTransfers()
+        if let downloads {
+            executors.downloads = DownloadExecutor(transfers: downloads, files: downloads.files)
+        }
         let config = CoreConfig(
             platform: platform, authMode: .bearer, deviceName: UIDevice.current.name,
             locale: Locale.preferredLanguages.first ?? "en", origin: "")
@@ -36,7 +43,7 @@ public enum LiveRuntime {
             let runtime = try CoreRuntime(config: config, executors: executors)
             L10n.language = runtime.session.language
             runtime.start()
-            return LiveApp(runtime: runtime, player: player)
+            return LiveApp(runtime: runtime, player: player, downloads: downloads)
         } catch {
             // the configuration is built right here; the core rejecting it is a programming error
             fatalError("the core rejected its configuration: \(error)")
@@ -56,6 +63,22 @@ public enum LiveRuntime {
             DefaultsStore(suiteName: "\(bundle).core")
         #else
             FileStore.applicationSupport()
+        #endif
+    }
+
+    /// The background session the iPhone and iPad app's downloads run in.
+    public static var downloadsSession: String {
+        "\(Bundle.main.bundleIdentifier ?? "io.stepes.couchverse").downloads"
+    }
+
+    /// None on tvOS, whose storage the system may reclaim at any time.
+    private static func downloadTransfers() -> BackgroundTransfers? {
+        #if os(tvOS)
+            nil
+        #else
+            BackgroundTransfers(
+                identifier: downloadsSession, files: DownloadFiles(directory: PlayerController.downloadsDirectory),
+                userAgent: userAgent)
         #endif
     }
 
