@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use couchverse_api::types::{
     BrowseTitlesSort, CardItem, ContinueItem, FeaturedItem, Genre, Home, HomeRow,
-    HomeRowKind as ApiRowKind, MediaFileVideoRange, TitleDetail,
+    HomeRowKind as ApiRowKind, MediaFile, MediaFileVideoRange, TitleDetail,
 };
 use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
@@ -155,7 +155,7 @@ pub struct HomeView {
 
 /// The highest resolution a title is available in.
 #[typeshare]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Quality {
     Sd,
@@ -165,14 +165,21 @@ pub enum Quality {
 }
 
 impl Quality {
-    fn of_height(height: i64) -> Option<Self> {
-        match height {
+    /// A width x height picture's class, by the height of the 16:9 picture as
+    /// sharp: a 1920x800 scope film is 1080p though it is only 800 lines tall.
+    fn of_size(width: i64, height: i64) -> Option<Self> {
+        match height.max(width * 9 / 16) {
             h if h >= 2000 => Some(Quality::Uhd),
             h if h >= 1000 => Some(Quality::Hd1080),
             h if h >= 700 => Some(Quality::Hd720),
             h if h > 0 => Some(Quality::Sd),
             _ => None,
         }
+    }
+
+    /// The best class among a title's files.
+    fn best(files: &[MediaFile]) -> Option<Self> {
+        files.iter().filter_map(|f| Self::of_size(f.width, f.height)).max()
     }
 }
 
@@ -573,8 +580,6 @@ pub fn title(detail: &TitleDetail, images: &Images, listed: &Listed) -> TitleDet
             })
         }),
     };
-    let max_height = detail.media_files.iter().map(|f| f.height).max().unwrap_or(0);
-
     TitleDetailView {
         id: t.id.clone(),
         slug: t.slug.clone(),
@@ -589,7 +594,7 @@ pub fn title(detail: &TitleDetail, images: &Images, listed: &Listed) -> TitleDet
         logo: logo(images, detail.logo_id.as_ref(), detail.logo_ver, detail.logo_aspect),
         accent: backdrop.as_ref().and_then(|b| b.accent.as_deref()).map(theme::palette),
         backdrop,
-        quality: Quality::of_height(max_height),
+        quality: Quality::best(&detail.media_files),
         hdr: detail.media_files.iter().any(|f| {
             !matches!(f.video_range, MediaFileVideoRange::Sdr | MediaFileVideoRange::Unknown)
         }),

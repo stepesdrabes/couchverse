@@ -259,6 +259,21 @@ fn signing_out_forgets_the_last_home() {
 }
 
 #[test]
+fn a_scope_film_is_full_hd_though_it_is_800_lines_tall() {
+    let mut shell = signed_in();
+    let surface = Surface::Title("glass-harbor".into());
+    open(&mut shell, surface.clone());
+    let mut scope = media_file("m1", Some("e1"), 800, "sdr");
+    scope["width"] = json!(1920);
+    let mut payload = title_payload();
+    payload["mediaFiles"] = json!([scope]);
+    shell.respond("GET", &format!("{API}/titles/glass-harbor?lang=en"), 200, payload);
+
+    let view: TitleView = shell.view(&surface);
+    assert_eq!(view.detail.expect("detail").quality, Some(Quality::Hd1080));
+}
+
+#[test]
 fn title_detail_shows_only_playable_episodes_and_what_play_does() {
     let mut shell = signed_in();
     let surface = Surface::Title("glass-harbor".into());
