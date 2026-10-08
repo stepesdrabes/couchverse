@@ -182,7 +182,9 @@ repository secrets; debug-signed when they are absent, docs/android.md "Signing 
 
 ## Done outside the plan
 
-- The web build is served precompressed (brotli/gzip), the wasm core 232 KB instead of 885 KB.
+- The web build is served precompressed (brotli/gzip): the wasm core goes out as 282 KB of
+  brotli instead of 1.1 MB (2026-10-08, with ranks and devices on the core; 382 KB gzipped,
+  95% of the 400 KB budget `core.yml` enforces).
 - Fixed by the e2e suite: couch followers now receive `session_ended` before their socket
   closes, guests' artwork keeps its grant with a size, stale SWR answers no longer overwrite a
   newer My List toggle, unhandled data-promise rejections.
