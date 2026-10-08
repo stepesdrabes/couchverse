@@ -6,8 +6,8 @@ import Testing
 /// Ranks and profile editing through the runtime over the real core.
 extension RuntimeTests {
     /// A phone signed in as the admin on `Payload.storedServer`, its session loaded.
-    func signedInRuntime() async throws -> CoreRuntime {
-        let runtime = try makeRuntime(store: MemoryStore(Payload.signedIn))
+    func signedInRuntime(clock: MillisecondClock? = nil) async throws -> CoreRuntime {
+        let runtime = try makeRuntime(store: MemoryStore(Payload.signedIn), clock: clock)
         try secure.write("token.\(Payload.accountId)", value: "tok-1")
         Payload.routeSession(http, base: "http://tv.home", user: Payload.user(1, "admin"))
         runtime.start()

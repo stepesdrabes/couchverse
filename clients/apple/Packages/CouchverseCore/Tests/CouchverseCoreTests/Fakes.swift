@@ -72,6 +72,16 @@ final class ManualTimers: TimerScheduling {
     }
 }
 
+/// The runtime's monotonic milliseconds, moved on by the test.
+@MainActor
+final class MillisecondClock {
+    var nowMs: UInt64
+
+    init(_ nowMs: UInt64 = 1_000) {
+        self.nowMs = nowMs
+    }
+}
+
 struct FailingStore: KeyValueStore {
     struct Broken: Error {}
 

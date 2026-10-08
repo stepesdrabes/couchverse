@@ -13,7 +13,7 @@ struct RuntimeTests {
 
     func makeRuntime(
         platform: Platform = .ios, locale: String = "cs-CZ", store: (any KeyValueStore)? = nil,
-        now: UInt64 = 1_000
+        now: UInt64 = 1_000, clock: MillisecondClock? = nil
     ) throws -> CoreRuntime {
         let config = CoreConfig(
             platform: platform, authMode: .bearer, deviceName: "Living Room", locale: locale,
@@ -21,7 +21,7 @@ struct RuntimeTests {
         let executors = Executors(
             http: http, timers: timers, sockets: SocketExecutor(), player: SilentPlayer(), secureStore: secure,
             store: store ?? self.store)
-        return try CoreRuntime(config: config, executors: executors, now: { now })
+        return try CoreRuntime(config: config, executors: executors, now: { clock?.nowMs ?? now })
     }
 
     @Test func theRuntimeStartsFromTheCoresOwnDefaults() throws {

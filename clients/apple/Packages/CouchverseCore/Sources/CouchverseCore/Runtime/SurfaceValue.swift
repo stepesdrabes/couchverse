@@ -36,9 +36,14 @@ public enum SurfaceValue: Sendable, Hashable {
     ]
 
     static func publishes(_ surface: Surface) -> Bool {
+        keyed(surface) || fixed.contains(surface)
+    }
+
+    /// The surfaces published per slug, listing, username or board.
+    static func keyed(_ surface: Surface) -> Bool {
         switch surface {
         case .title, .browse, .profile, .leaderboard: true
-        default: fixed.contains(surface)
+        default: false
         }
     }
 

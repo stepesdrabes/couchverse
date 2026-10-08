@@ -38,6 +38,11 @@ public final class CoreRuntime {
     public private(set) var profiles: [String: ProfileView] = [:]
     public private(set) var leaderboards: [LeaderboardKey: LeaderboardView] = [:]
 
+    /// How long a title page, listing, profile or leaderboard stays published once no screen holds
+    /// it open: going back to it within that shows it at once, and a long session does not keep
+    /// every page it ever opened.
+    public static let keptIdleMs: UInt64 = 5 * 60_000
+
     public let platform: Platform
 
     /// What a fixture runtime was sent, for tests and previews; a live runtime forwards instead.
@@ -47,6 +52,10 @@ public final class CoreRuntime {
     @ObservationIgnored private var renderGeneration: UInt64 = 0
     @ObservationIgnored private var publishedGeneration: [Surface: UInt64] = [:]
     @ObservationIgnored private var markdownCache: [String: MarkdownDoc] = [:]
+    /// How many screens hold each keyed surface open, counted from the events they send.
+    @ObservationIgnored private var holds: [Surface: Int] = [:]
+    /// Since when each published keyed surface has had no screen holding it.
+    @ObservationIgnored private var idleSince: [Surface: UInt64] = [:]
     @ObservationIgnored private var inFlight = 0
     @ObservationIgnored private var idleWaiters: [CheckedContinuation<Void, Never>] = []
 
@@ -129,6 +138,7 @@ public final class CoreRuntime {
             sentEvents.append(event)
             return
         }
+        follow(event, now: live.now())
         perform {
             let wallMs = UInt64(Date().timeIntervalSince1970 * 1000)
             return try live.bridge.send(
@@ -291,6 +301,46 @@ public final class CoreRuntime {
             }
             publishedGeneration[surface] = generation
             assign(value)
+            // the core also renders what no screen asked for (a board's other metrics, an answer
+            // that came after its screen closed), which ages from now
+            if let live, SurfaceValue.keyed(surface), holds[surface] == nil, idleSince[surface] == nil {
+                idleSince[surface] = live.now()
+            }
+        }
+    }
+
+    /// Counts the screens holding each keyed surface open, from the events they send, and drops
+    /// the ones no screen has held for `keptIdleMs`.
+    private func follow(_ event: Event, now: UInt64) {
+        switch event {
+        case .screenOpened(let surface) where SurfaceValue.keyed(surface):
+            holds[surface, default: 0] += 1
+            idleSince[surface] = nil
+        case .screenClosed(let surface) where SurfaceValue.keyed(surface):
+            guard let count = holds[surface] else { return }
+            if count > 1 {
+                holds[surface] = count - 1
+            } else {
+                holds[surface] = nil
+                idleSince[surface] = now
+            }
+        default:
+            return
+        }
+        for (surface, since) in idleSince where now - min(since, now) >= Self.keptIdleMs {
+            drop(surface)
+        }
+    }
+
+    private func drop(_ surface: Surface) {
+        idleSince[surface] = nil
+        publishedGeneration[surface] = nil
+        switch surface {
+        case .title(let slug) where titles[slug] != nil: titles[slug] = nil
+        case .browse(let key) where listings[key] != nil: listings[key] = nil
+        case .profile(let username) where profiles[username] != nil: profiles[username] = nil
+        case .leaderboard(let key) where leaderboards[key] != nil: leaderboards[key] = nil
+        default: break
         }
     }
 
