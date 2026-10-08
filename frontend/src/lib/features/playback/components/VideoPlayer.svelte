@@ -555,10 +555,11 @@
 
 	async function attachHls(url: string, pinName: string | null) {
 		if (!video) return;
-		// Safari plays HLS natively but exposes no level API - adaptive only. TV browsers
-		// claim native HLS too, but there hls.js keeps the quality and audio menus working.
+		// Safari plays HLS natively but exposes no level API - adaptive only. Chrome and TV
+		// browsers claim native HLS too but have no audioTracks, so there hls.js keeps the
+		// quality and audio menus working.
 		const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') !== '';
-		if (nativeHls && !isTV) {
+		if (nativeHls && !isTV && 'audioTracks' in video) {
 			videoSrc = url;
 			return;
 		}
