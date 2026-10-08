@@ -707,13 +707,17 @@ navigation, nothing else.
   surface keeps the generation it was published at, so a late batch never wins). Title pages,
   listings, profiles and leaderboards are published per slug, `BrowseKey`, username and
   `LeaderboardKey` once a screen opens them (`core.title(slug)`, `core.browse(key)`,
-  `core.profile(username)`, `core.leaderboard(key)`, a loading view before). `player` commands
-  go to a `PlayerExecuting` (`PlayerController` in the apps, `SilentPlayer` in tests). `upload`
-  effects are the `HTTPExecutor`'s: the picked file behind the handle goes as the one part of a
-  multipart form, answered as an `http` effect is; a screen makes the handle with `UploadFiles`
-  (a photo as a JPEG of at most the slot's size in the temporary directory, its file URL the
-  handle; servers take JPEG, PNG and WebP, phones shoot HEIC). `download` effects go to a
-  `DownloadExecuting` (`DownloadExecutor` on iPhone and iPad, `NoDownloads` on the TV and by
+  `core.profile(username)`, `core.leaderboard(key)`, a loading view before). The runtime counts
+  the screens holding each open (their `ScreenOpened`/`ScreenClosed`) and lets one go once none
+  has held it for five minutes (`CoreRuntime.keptIdleMs`, checked as screens open and close; one
+  the core renders without a screen, a board's other metrics, ages from when it arrives), so
+  going back shows it at once and a long session keeps no more than it may go back to. `player`
+  commands go to a `PlayerExecuting` (`PlayerController` in the apps, `SilentPlayer` in tests).
+  `upload` effects are the `HTTPExecutor`'s: the picked file behind the handle goes as the one
+  part of a multipart form, answered as an `http` effect is; a screen makes the handle with
+  `UploadFiles` (a photo as a JPEG of at most the slot's size in the temporary directory, its
+  file URL the handle; servers take JPEG, PNG and WebP, phones shoot HEIC). `download` effects go
+  to a `DownloadExecuting` (`DownloadExecutor` on iPhone and iPad, `NoDownloads` on the TV and by
   default in tests). Screens read `core.<surface>` and `core.send(event)`; their own state is
   presentation only (focus, sheets, a field being typed). `CoreRuntime(fixture:)` shows fixed
   view models for previews and snapshots and records what it is sent. UI tests launch with
@@ -749,7 +753,11 @@ navigation, nothing else.
   meanwhile. `CatalogStateView` shows content whenever there is some (stale beats blank, with a
   note when it could not refresh), else the screen's skeleton, else not found or failed with a
   retry; pull to refresh on touch devices. Cards use the TV's card button style (lift and
-  parallax); hover-free focus works with the remote throughout.
+  parallax); hover-free focus works with the remote throughout. On iPhone and iPad a title zooms
+  out of the poster or backdrop card it was opened from and back into it (`zoomSource` on the
+  card, `zoomed(from:)` on the title: the system's zoom navigation transition in a namespace per
+  tab, each card named by its shelf since a title can be on two); one opened from a link or a
+  button is pushed as usual.
 - **Player** (`Player/`): `PlayerController` executes `PlayerCommand`s on one `AVPlayer`: `load`
   (a URL, a file name in the downloads directory for `download`; the start position once the
   item is ready, `maxHeight` as `preferredMaximumResolution`, Now Playing metadata with the
@@ -896,32 +904,61 @@ navigation, nothing else.
   by side and starts pairing on its own; a phone shows one at a time. Approving another device
   (Settings, or a link) takes the code typed, from a pair link, or scanned from the TV's QR code
   (VisionKit on iPhone; the core opens a server's `/pair?code=` page as a pair link).
-- **"Who's watching?"** (plan 12.3): glass profile tiles with an identicon-hued ring (the web's
-  minidenticons, ported in `Identicon`), the backdrop tinted by the focused profile. On TV,
-  choosing one runs `ProfileChoreography`: the others blow outward and the backdrop goes dark,
-  the chosen avatar flies into the sidebar header (its frame reported by `ProfileAvatar`) while
-  home rises from black behind it; with Reduce Motion it is a cross-fade. Phones use a sheet
-  (`AccountSwitcherSheet`) with a haptic tick and a cross-fade to the new account. A
-  signed-out profile signs in again instead.
+- **"Who's watching?"** (plan 12.3): glass profile tiles, each avatar in its rank ring (`RankRing`
+  in the tier's colour, filled to the progress through it) once the device has seen the
+  account's rank (`AccountCard.rank`), else in a ring of the profile's own colour. Focus lifts a
+  tile, brightens and widens its ring and reveals the rank title above the server; the backdrop
+  takes the focused profile's banner accent (`AccountCard.accent`, else its identicon's hue: the
+  web's minidenticons, ported in `Identicon`) and cross-fades as the focus moves (with Reduce
+  Motion nothing drifts or lifts and the tint fades). On TV, choosing one runs
+  `ProfileChoreography`: the others blow outward and the backdrop goes dark, the chosen avatar
+  flies from its ring into the sidebar header (its frame reported by `ProfileAvatar`) while home
+  rises from black behind it; with Reduce Motion it is a cross-fade. Phones show the rank under
+  each name and switch from a sheet (`AccountSwitcherSheet`, with a haptic tick and a cross-fade
+  to the new account), whose rows, like Settings', put the ring around each avatar
+  (`AccountAvatar`). At the accessibility text sizes the picker shows half as many tiles a row
+  and lets the names wrap. A signed-out profile signs in again instead.
+- **Accessibility** (plan 10.10, every screen audited in code): VoiceOver labels and values on
+  every control (episodes say how far they were watched, skeletons that the page is loading, the
+  heatmap and the watch clock are one summary each, couch codes are read digit by digit, rank
+  rings and artwork are decoration, and rows that name someone do not repeat their picture),
+  headers on section titles, and announcements for what appears away from the focus: problems,
+  notices, a save's outcome, a pairing approval, the couch's status over the video and why a
+  session ended, a QR code that is not Couchverse's. On touch devices the hero holds still under
+  VoiceOver and Switch Control and its dots are an adjustable page control. Dynamic Type: text
+  styles throughout, and layouts that wrap or reflow rather than clip at the accessibility sizes
+  (Who's watching, the welcome screen, genre tiles, leaderboard rows with the podium stepping
+  aside, the next-episode card, the remote's clock); the player's small glass buttons show their
+  name in the Large Content Viewer. Reduce Motion: `motion(_:value:)` eases layout changes rather
+  than springing them, and transitions fade rather than slide or scale. Reduce Transparency: the
+  glass is the system's, which adapts; the TV's couch panel covers the video. Increase Contrast:
+  secondary text and lines (`Tokens.Palette.mutedText`, `faintText`, `edgeLine`) brighten
+  towards the text colour, and progress tracks and the heatmap's quiet levels stand further
+  apart. Sidecar subtitles follow the viewer's caption style (`CaptionStyle`, MediaAccessibility).
+  A TV reaches every control with the remote (the devices list's rows take the focus). What
+  needs the app running is in docs/apple.md (items 38 to 44).
 - **Design**: `primaryAction()` (glass prominent in the accent, the core's contrast-checked
   `onAccent` label; on TV the system's focused label), `secondaryAction()`, `FormField`,
   `AvatarView`, `GlowBackdrop` (radial gradients, no blur), `Skeleton`, `MarkdownView` (the
   core's safe tree), `QRCodeView`, `InsecureBadge`, `ProblemBanner` (every `Problem.code` in
-  words), `RankRing` (the tier's arc around an avatar with the level chip, flashing once on a
-  level-up). `Ambience` (`live|still|flat`) quiets the decoration for screenshots and
-  snapshots.
+  words, announced as it appears), `RankRing` (the tier's arc around an avatar with an optional
+  level chip, flashing once on a level-up), `motion(_:value:)` (an animation that eases instead of
+  springing under Reduce Motion) and the contrast-aware `mutedText`, `faintText` and `edgeLine`.
+  `Ambience` (`live|still|flat`) quiets the decoration for screenshots and snapshots.
 - **Tests**: Swift Testing throughout. `CouchverseCore`: the runtime over the real core with
-  fake executors (ranks surfaces, an upload round trip), the executors (the multipart form,
-  uploads through a stubbed session, picked photos made JPEGs), and the shelf snapshot (its
-  updates from the views, its file format, the links) and its Spotlight entries. `CouchverseDesign`:
-  identicons against the web's output, localization and Czech plurals, colours, QR, markdown.
-  `CouchverseFeatures`: deep links, open requests and the intents' parameters, the Live Activity's
-  content, code input, the countdown, the choreography, catalog labels,
-  WebVTT and stream languages, ranks words, the heatmap and clock layouts, achievement groups,
-  the device profile against the contract fixture (in `CouchverseCore`), and `ScreenSnapshots`
-  (swift-snapshot-testing) of every key screen and load state on iPhone, iPad and TV, English
-  and Czech at the largest Dynamic Type, on the pinned simulators `make apple-sims` creates (the
-  suite refuses a simulator of another screen scale). UI tests: a smoke test per app, and
+  fake executors (ranks surfaces, an upload round trip, pages no screen holds let go after a
+  while), the executors (the multipart form, uploads through a stubbed session, picked photos
+  made JPEGs), and the shelf snapshot (its updates from the views, its file format, the links)
+  and its Spotlight entries. `CouchverseDesign`: identicons against the web's output,
+  localization and Czech plurals, colours, QR, markdown. `CouchverseFeatures`: deep links, open
+  requests and the intents' parameters, the Live Activity's content, code input, the countdown,
+  the choreography, Who's watching's tints and rank lines, catalog labels and episodes' watched
+  state, WebVTT and stream languages, ranks words, the heatmap and clock layouts, achievement
+  groups, the device profile against the contract fixture (in `CouchverseCore`), and
+  `ScreenSnapshots` (swift-snapshot-testing) of every key screen and load state on iPhone, iPad
+  and TV, English and Czech at the largest Dynamic Type (Who's watching and the switcher sheet
+  also with rank rings and a banner's tint), on the pinned simulators `make apple-sims` creates
+  (the suite refuses a simulator of another screen scale). UI tests: a smoke test per app, and
   `LiveFlowTests` that pair a TV from a phone and browse to a title and play it on both against a
   running server (skipped without `CV_LIVE_SERVER`). `make apple-test`, `make apple-uitest` and
   `make apple-lint` (swift-format) run them; `apple.yml` runs them all in CI.

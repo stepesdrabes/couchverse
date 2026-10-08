@@ -104,9 +104,12 @@ of a reference recorded on a 1080p Apple TV (1x) differ from a 4K one (2x) every
 fail the largest-text variants: the suite records an issue instead of comparing when the
 simulator's scale is not the references' (3x iPhone, 2x Apple TV). Catalog screens render from
 `CatalogFixtures`, whose artwork points at a host that never resolves, so every image shows its
-accent-tinted placeholder and the references do not depend on the network. The ranks screens
-(profiles, leaderboards, the profile editor, a celebration) are `RanksSnapshots`, an extension
-of the suite with `RanksFixtures`, whose references live in `__Snapshots__/RanksSnapshots`.
+accent-tinted placeholder and the references do not depend on the network. Who's watching and the
+account switcher are also drawn from `Fixtures.rankedAccounts` (rank rings, one profile's banner
+tint), the picker with its glow (`Ambience.still`) at the default text size; a snapshot has no
+focus, so the rank title a focused TV tile reveals is checked on a device (item 38). The ranks
+screens (profiles, leaderboards, the profile editor, a celebration) are `RanksSnapshots`, an
+extension of the suite with `RanksFixtures`, whose references live in `__Snapshots__/RanksSnapshots`.
 
 **UI tests.** The smoke tests launch the apps with `-uiTesting`, which keeps the stores in memory
 so every launch is a fresh install. `LiveFlowTests` drive the real flows against a running
@@ -390,3 +393,40 @@ The simulators cover the flows (see the Phase 3 report); on hardware, also check
     personal team, note whether Xcode provisions the App Group and the two extension App IDs,
     how the 3-app limit counts the extensions, and whether the widget, the Live Activity and Top
     Shelf then work; record the outcome here and in docs/native-clients-progress.md.
+38. **Who's watching with ranks and banners**: with rankings on, one profile with a banner and
+    one without a rank yet, relaunch the TV app: each ranked profile wears its ring in its tier's
+    colour, filled to its progress, and the new one a ring of its own colour; moving the focus
+    lifts a tile, widens its ring, shows "<tier> · Level <n>" above the server and cross-fades the
+    glow to that profile's banner colour (its identicon's for one without a banner); choosing one
+    flies its avatar from the ring into the sidebar. With Reduce Motion nothing drifts or lifts
+    and the glow fades. On the iPhone the switcher sheet and Settings show each avatar in its ring.
+39. **Zoom transitions** (iPhone and iPad): a poster on Home, in Movies, Series, a genre, My List
+    or Search, Continue Watching's More info and a profile's Most watched open the title zooming
+    out of that very card (also for a title on two shelves), and Back or a swipe down zooms it
+    back in; a title opened from a link or the hero's More info is pushed. Note what the system
+    does with Reduce Motion on.
+40. **VoiceOver on iPhone and iPad**: walk Welcome, sign-in, Who's watching (each tile's rank in
+    its value, Sign out among its actions), Home (the hero holds still, a swipe up or down on its
+    dots changes the title), a title (Play, My List, each episode's length and how far it was
+    watched), Search, My List, Settings (each account's rank), Devices, Downloads, a profile (the
+    heatmap and the clock one summary each), the leaderboard (the podium read first to third,
+    after the switchers), the player (the options and couch buttons, the next episode's
+    countdown) and the couch (the code read digit by digit, the reactions popover a group of
+    emoji). A failed sign-in, a My List notice, a saved profile, an approved device, the host
+    pausing and a session's end are announced without moving the focus.
+41. **VoiceOver on the Apple TV**: every screen reads as on the iPhone and every control is
+    reachable with the remote; the devices list's rows take the focus and a long press signs a
+    device out; the hero keeps moving once the focus leaves it.
+42. **The largest text sizes** (Accessibility > Display & Text Size > Larger Text, at the
+    largest): Who's watching shows one tile a row with whole names, Welcome scrolls instead of
+    clipping its words, genre tiles and leaderboard rows wrap and the podium steps aside, the
+    next-episode card stacks its buttons, the remote's clock grows; holding the player's options,
+    couch, reactions or close button shows it in the Large Content Viewer.
+43. **Reduce Motion, Reduce Transparency, Increase Contrast**: with Reduce Motion layout changes
+    ease without bouncing and an account switch, the connecting banner and a problem fade in
+    place; with Reduce Transparency the system's glass is drawn more solid and the TV's couch
+    panel hides the video behind it; with Increase Contrast secondary text, field outlines, rank
+    ring and progress tracks and the heatmap's quiet days are clearly brighter.
+44. **Caption style**: with Accessibility > Subtitles & Captioning > Style set to Large Text (or a
+    custom style, say yellow text on a solid background), a direct-played file's WebVTT sidecar
+    draws its lines in that style, and changing the style while it plays restyles the next line.

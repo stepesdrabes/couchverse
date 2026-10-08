@@ -64,7 +64,6 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
   the hero and Continue Watching, Movies, Series, genres, My List, Search, the title page with
   seasons and episodes, notices as toasts), with snapshot references for every state (en, cs at
   the largest text) on simulators pinned to the references' screen scale.
-- Left for later: zoom transitions from cards.
 
 ## Phase 6: playback - in progress
 
@@ -257,7 +256,28 @@ TV emulators against a local server, the TV signed in by pairing.
   Android 13 and newer only, the media session service is exported for the system's
   controls on purpose), the couch XP sources named by the keys the core sends (checked
   against `contract/` by a test), and a focused chosen chip that stays readable on TV.
-- Pending: native accessibility passes (VoiceOver, TalkBack), the HTML overview with
+- Done: the Apple accessibility pass (plan 10.10), every screen audited in code on iPhone, iPad
+  and Apple TV: VoiceOver labels, values and headers (episodes' progress, skeletons as loading,
+  couch codes digit by digit, rows that name someone without their picture's label, the podium
+  read in order, the reactions popover a group), announcements for what appears away from the
+  focus (problems, notices, saves, approvals, the couch's status and end), the hero held still
+  under VoiceOver and Switch Control with adjustable dots, the devices list reachable with the
+  remote; layouts that wrap rather than clip at the accessibility text sizes and the Large
+  Content Viewer on the player's small buttons; Reduce Motion (eased rather than sprung layout
+  changes, fades instead of slides), Reduce Transparency (the TV's couch panel) and Increase
+  Contrast (brighter secondary text and lines, progress tracks and heatmap levels); sidecar
+  subtitles in the viewer's caption style. Compiled for iOS and tvOS with logic tests.
+- Done: "Who's watching?" on Apple as plan 12.3 draws it: each avatar in its rank ring in the
+  tier's colour, the rank title revealed with the focus on TV, the glow tinted with the focused
+  profile's banner accent (its identicon's hue without one) and cross-faded as the focus moves;
+  the phone's picker, switcher sheet and Settings show the rings too.
+- Done: card zoom transitions on iPhone and iPad (posters and backdrops into titles and back),
+  and `CoreRuntime` lets go of title pages, listings, profiles and boards no screen has held for
+  five minutes, as Android's runtime drops the surfaces nobody collects (host tests).
+- Pending: recording the snapshot references removed for re-recording (Who's watching; on TV the
+  devices list and the largest-text genres; on iPhone the largest-text genres and next episode)
+  and the new ones (Who's watching and the switcher sheet with rank rings); the Apple checks on
+  devices (docs/apple.md, items 38 to 44); the TalkBack pass, the HTML overview with
   screenshots of every client, cleanup.
 
 ## Release automation (part of Phase 13) - done
@@ -314,6 +334,10 @@ first.
   and Shortcuts phrases in English and Czech, Spotlight results, and with `EXTENSIONS_ENABLED` the
   widget on the home screen, the couch Live Activity on the Lock Screen and in the Dynamic Island,
   Top Shelf on the TV (spike S6) and whether a free team can provision them at all (spike S1).
+- Apple accessibility and polish (Phase 13, docs/apple.md items 38 to 44): Who's watching's rank
+  rings and banner tints with the remote, zoom transitions from cards, VoiceOver on the iPhone
+  and the Apple TV, the largest text sizes, Reduce Motion, Reduce Transparency, Increase
+  Contrast and caption styles.
 - Android (full list in docs/android.md): a Google TV device (launcher banner, D-pad focus and
   Back on every screen, the keyboard beside fields, pairing QR scanned across the room), phone
   camera scans, Keystore persistence across reboots and updates, Czech and the largest font,
