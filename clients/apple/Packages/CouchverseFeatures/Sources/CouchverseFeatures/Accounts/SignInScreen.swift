@@ -51,6 +51,7 @@ struct SignInScreen: View {
                             Text(L10n.accountsUsePassword)
                                 .typeRole(Tokens.TypeRamp.section)
                                 .foregroundStyle(Tokens.Palette.text)
+                                .accessibilityAddTraits(.isHeader)
                             passwordForm
                         }
                         .frame(width: 540)

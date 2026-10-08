@@ -113,7 +113,14 @@ private struct BrowseMenu: View {
         } label: {
             Label(L10n.catalogSortLabel, systemImage: "line.3.horizontal.decrease")
         }
+        .accessibilityValue(
+            [CatalogLabels.sort(key.sort), key.genre.map(genreLabel)].compactMap { $0 }.joined(separator: ", ")
+        )
         .accessibilityIdentifier("browse-menu")
+    }
+
+    private func genreLabel(_ name: String) -> String {
+        core.genres.genres.first { $0.name == name }?.label ?? name
     }
 
     private var sort: Binding<BrowseSort> {
@@ -154,6 +161,9 @@ private struct BrowseMenu: View {
                 } label: {
                     Label(CatalogLabels.sort(key.sort), systemImage: "arrow.up.arrow.down")
                 }
+                // the menus show only what is chosen; VoiceOver also says what they choose
+                .accessibilityLabel(L10n.catalogSortLabel)
+                .accessibilityValue(CatalogLabels.sort(key.sort))
                 if key.kind != nil {
                     Menu {
                         genreButton(nil, label: L10n.catalogFilterAll)
@@ -166,6 +176,9 @@ private struct BrowseMenu: View {
                                 ?? L10n.catalogFilterGenre,
                             systemImage: "line.3.horizontal.decrease")
                     }
+                    .accessibilityLabel(L10n.catalogFilterGenre)
+                    .accessibilityValue(
+                        core.genres.genres.first { $0.name == key.genre }?.label ?? key.genre ?? L10n.catalogFilterAll)
                 }
             }
             .padding(.horizontal, CardMetrics.edge)
