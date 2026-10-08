@@ -26,6 +26,7 @@ public final class CoreRuntime {
     public private(set) var player: PlayerView
     /// The account's downloads on this device (iPhone and iPad).
     public private(set) var downloads: DownloadsView = .idle
+    public private(set) var couch: CouchView
     /// Title pages and listings by slug and key, once a screen opened them; read through
     /// `title(_:)` and `browse(_:)`.
     public private(set) var titles: [String: TitleView] = [:]
@@ -82,6 +83,7 @@ public final class CoreRuntime {
         search = .idle
         notices = .empty
         player = .closed
+        couch = .idle
         initial.forEach(assign)
         executors.player.events = { [weak self] event in self?.send(event) }
     }
@@ -103,6 +105,7 @@ public final class CoreRuntime {
         search = .idle
         notices = .empty
         player = .closed
+        couch = .idle
         values.forEach(assign)
     }
 
@@ -290,6 +293,7 @@ public final class CoreRuntime {
         case .notices(let view): if notices != view { notices = view }
         case .player(let view): if player != view { player = view }
         case .downloads(let view): if downloads != view { downloads = view }
+        case .couch(let view): if couch != view { couch = view }
         }
     }
 

@@ -18,6 +18,7 @@ public enum SurfaceValue: Sendable, Hashable {
     case notices(NoticesView)
     case player(PlayerView)
     case downloads(DownloadsView)
+    case couch(CouchView)
 
     /// The surfaces with one view each, read at start-up; `Title` and `Browse` exist per slug and
     /// listing once a screen opens them, `Markdown` is read on demand, and the rest get screens
@@ -26,6 +27,7 @@ public enum SurfaceValue: Sendable, Hashable {
         .app, .servers, .accounts, .signIn, .devices, .pairingApproval, .session, .home, .genres,
         .myList, .search, .notices, .player,
         .downloads,
+        .couch,
     ]
 
     static func publishes(_ surface: Surface) -> Bool {
@@ -53,6 +55,7 @@ public enum SurfaceValue: Sendable, Hashable {
         case .notices: .notices
         case .player: .player
         case .downloads: .downloads
+        case .couch: .couch
         }
     }
 
@@ -78,6 +81,7 @@ public enum SurfaceValue: Sendable, Hashable {
         case .notices: .notices(try decoder.decode(NoticesView.self, from: data))
         case .player: .player(try decoder.decode(PlayerView.self, from: data))
         case .downloads: .downloads(try decoder.decode(DownloadsView.self, from: data))
+        case .couch: .couch(try decoder.decode(CouchView.self, from: data))
         default: nil
         }
     }

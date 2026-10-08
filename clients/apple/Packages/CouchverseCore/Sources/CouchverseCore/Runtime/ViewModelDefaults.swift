@@ -84,3 +84,9 @@ extension PlayerView {
 extension DownloadsView {
     public static let idle = DownloadsView(status: .idle, items: [], usedBytes: 0)
 }
+
+extension CouchView {
+    public static let idle = CouchView(
+        status: .idle, members: [], playing: false, positionSeconds: 0, positionAtMs: 0, hostAway: false,
+        waiting: false, localPaused: false, reactions: [], recentEmojis: [], resynced: false)
+}
