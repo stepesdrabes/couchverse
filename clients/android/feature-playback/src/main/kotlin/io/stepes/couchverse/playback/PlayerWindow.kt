@@ -2,7 +2,9 @@ package io.stepes.couchverse.playback
 
 import android.app.PictureInPictureParams
 import android.content.pm.ActivityInfo
+import android.graphics.Rect
 import android.util.Rational
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
@@ -52,27 +54,42 @@ fun rememberPlayerWindow(player: Player?, playing: Boolean): PlayerWindowState {
             bars.show(WindowInsetsCompat.Type.systemBars())
             if (!tv) {
                 activity.requestedOrientation = orientation
-                activity.setPictureInPictureParams(pipParams(autoEnter = false))
+                activity.setPictureInPictureParams(pipParams(autoEnter = false, window.decorView))
             }
         }
     }
     LaunchedEffect(activity, playing) {
-        if (activity != null && !tv) activity.setPictureInPictureParams(pipParams(autoEnter = playing))
+        if (activity != null && !tv) activity.setPictureInPictureParams(pipParams(autoEnter = playing, activity.window.decorView))
     }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         if (activity?.isInPictureInPictureMode != true) player?.pause()
     }
     val enter: (() -> Unit)? = if (activity != null && !tv) {
-        { activity.enterPictureInPictureMode(pipParams(autoEnter = playing)) }
+        { activity.enterPictureInPictureMode(pipParams(autoEnter = playing, activity.window.decorView)) }
     } else {
         null
     }
     return PlayerWindowState(pictureInPicture, enter)
 }
 
-private fun pipParams(autoEnter: Boolean): PictureInPictureParams =
+/**
+ * Entered on its own while [autoEnter] (playing). The window shrinks from where the picture is
+ * on the full-screen player, [screen], rather than from the whole screen.
+ */
+private fun pipParams(autoEnter: Boolean, screen: View): PictureInPictureParams =
     PictureInPictureParams.Builder()
         .setAspectRatio(Rational(16, 9))
         .setAutoEnterEnabled(autoEnter)
         .setSeamlessResizeEnabled(true)
+        .setSourceRectHint(pictureIn(screen.width, screen.height))
         .build()
+
+/** A 16:9 picture fitted and centred in a [width] by [height] screen; `null` before layout. */
+internal fun pictureIn(width: Int, height: Int): Rect? {
+    if (width <= 0 || height <= 0) return null
+    val wide = minOf(width, height * 16 / 9)
+    val tall = wide * 9 / 16
+    val left = (width - wide) / 2
+    val top = (height - tall) / 2
+    return Rect(left, top, left + wide, top + tall)
+}
