@@ -60,7 +60,13 @@ export function formatEta(totalSeconds: number): string {
 	return `${m}m ${`${s % 60}`.padStart(2, '0')}s`;
 }
 
-/** media file height → quality badge label */
+/** The height of the 16:9 picture as sharp as a width x height one: a 1920x800 scope
+ * film is 1080p though it is only 800 lines tall (the server's media.ClassHeight). */
+export function classHeight(width: number, height: number): number {
+	return Math.max(height, Math.floor((width * 9) / 16));
+}
+
+/** class height (see classHeight) → quality badge label */
 export function qualityLabel(height: number): string | null {
 	if (height >= 2000) return '4K';
 	if (height >= 1000) return '1080P';

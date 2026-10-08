@@ -9,7 +9,7 @@
 	import FileVariants from '$lib/features/library/components/FileVariants.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import { formatBytes, qualityLabel } from '$lib/utils/format';
+	import { classHeight, formatBytes, qualityLabel } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
 	import AudioLangControl from './AudioLangControl.svelte';
 	import SubtitlesModal from './SubtitlesModal.svelte';
@@ -100,8 +100,8 @@
 				<li class="text-xs">
 					<p class="truncate font-mono text-muted" title={file.path}>{file.path}</p>
 					<p class="mt-1 flex flex-wrap gap-1">
-						{#if qualityLabel(file.height)}
-							<Badge>{qualityLabel(file.height)}</Badge>
+						{#if qualityLabel(classHeight(file.width, file.height))}
+							<Badge>{qualityLabel(classHeight(file.width, file.height))}</Badge>
 						{/if}
 						{#if file.videoRange !== 'sdr'}
 							<Badge>HDR</Badge>

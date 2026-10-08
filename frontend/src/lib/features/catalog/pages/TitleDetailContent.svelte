@@ -10,7 +10,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import { accentVars } from '$lib/theme';
-	import { formatClock, formatRuntime, qualityLabel } from '$lib/utils/format';
+	import { classHeight, formatClock, formatRuntime, qualityLabel } from '$lib/utils/format';
 	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: Awaited<ReturnType<typeof catalog.getTitle>> } = $props();
@@ -27,7 +27,9 @@
 	const fileByEpisode = $derived(
 		new Map(data.mediaFiles.filter((f) => f.episodeId).map((f) => [f.episodeId as string, f]))
 	);
-	const maxHeight = $derived(Math.max(0, ...data.mediaFiles.map((f) => f.height)));
+	const maxHeight = $derived(
+		Math.max(0, ...data.mediaFiles.map((f) => classHeight(f.width, f.height)))
+	);
 	const hdr = $derived(data.mediaFiles.some((f) => f.videoRange !== 'sdr'));
 
 	// watch mode only surfaces episodes that actually have a playable file, and
