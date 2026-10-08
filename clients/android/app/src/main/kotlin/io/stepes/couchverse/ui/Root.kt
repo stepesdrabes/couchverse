@@ -322,8 +322,9 @@ private fun RootNavigation(links: PendingLinks, version: String) {
 
 /**
  * Follows this device's couch role: a follower watches in the player, a remote steers from
- * the remote screen, and both come back a moment after the session ends. A guest without an
- * account follows the same way.
+ * the remote screen (as does a host whose account went on hosting on another device), and
+ * both come back a moment after the session ends. A guest without an account follows the
+ * same way.
  */
 @Composable
 private fun CouchNavigation(nav: androidx.navigation.NavHostController) {
@@ -342,7 +343,15 @@ private fun CouchNavigation(nav: androidx.navigation.NavHostController) {
                 nav.popBackStack()
             }
             target != null && view.active && here?.isRoute<WatchCouch>() != true && here?.isRoute<CouchRemote>() != true ->
-                nav.navigate(target) { popUpTo<JoinCouch> { inclusive = true } }
+                nav.navigate(target) {
+                    // the remote stands in for a player the core closed when the account went on
+                    // hosting elsewhere, so leaving it does not open that title again here
+                    if (view.role == CouchRole.Remote && here?.isRoute<Watch>() == true) {
+                        popUpTo<Watch> { inclusive = true }
+                    } else {
+                        popUpTo<JoinCouch> { inclusive = true }
+                    }
+                }
         }
     }
 }
