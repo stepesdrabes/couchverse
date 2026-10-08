@@ -18,6 +18,8 @@ public struct CouchverseRoot: View {
     @State private var cover = CoverRequests()
     /// Absent in previews and snapshots, which never play.
     @Environment(PlayerController.self) private var player: PlayerController?
+    /// Absent in previews and snapshots.
+    @Environment(OpenRequests.self) private var requests: OpenRequests?
 
     public init() {}
 
@@ -64,6 +66,12 @@ public struct CouchverseRoot: View {
             }
         }
         .onOpenURL(perform: open)
+        .onChange(of: requests?.pending, initial: true) { _, request in
+            if case .couch(let code) = request {
+                showCouchJoin(code: code)
+                requests?.finish(.couch(code: code))
+            }
+        }
         .sheet(isPresented: $switchingAccount) { AccountSwitcherSheet() }
         .modal(isPresented: $approving) { ApproveDeviceScreen(openedFromLink: true) }
         .appCover(player: player, requests: cover)
@@ -78,8 +86,8 @@ public struct CouchverseRoot: View {
     }
 
     /// Without an account the join screen asks for the server as well, and joins as a guest.
-    private func showCouchJoin() {
-        cover.joining = CouchInvite(server: core.app.phase == .ready ? nil : "")
+    private func showCouchJoin(code: String = "") {
+        cover.joining = CouchInvite(code: code, server: core.app.phase == .ready ? nil : "")
     }
 
     private func reportCapabilities() {
@@ -120,6 +128,12 @@ public struct CouchverseRoot: View {
         case .couch:
             // the core joins by code and server, not by link: the join screen sends them
             cover.joining = CouchLink.invite(url.absoluteString) ?? CouchInvite()
+            return
+        case .title(let slug):
+            requests?.open(.title(slug: slug))
+            return
+        case .play(let target):
+            requests?.open(.play(target))
             return
         }
         core.send(.linkOpened(Link(url: url.absoluteString)))

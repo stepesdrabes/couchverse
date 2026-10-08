@@ -12,6 +12,8 @@ public struct LiveApp {
     /// The background session downloads run in (iPhone and iPad), whose events the app takes
     /// when the system wakes it for them.
     public let downloads: BackgroundTransfers?
+    /// What links and intents ask the app to open, for `CouchverseRoot`'s environment.
+    public let requests = OpenRequests()
 }
 
 /// Wires the core to this device's executors; the apps call it once at launch.

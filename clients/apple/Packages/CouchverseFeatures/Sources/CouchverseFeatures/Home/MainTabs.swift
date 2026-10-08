@@ -22,12 +22,15 @@ struct MainTabs: View {
     }
 
     @Environment(CoreRuntime.self) private var core
+    /// Absent in previews and snapshots.
+    @Environment(OpenRequests.self) private var requests: OpenRequests?
     @State private var selection = Destination.home
+    @State private var homePath = NavigationPath()
 
     var body: some View {
         TabView(selection: $selection) {
             Tab(L10n.navHome, systemImage: "house", value: Destination.home) {
-                CatalogStack { HomeScreen() }
+                CatalogStack(path: $homePath) { HomeScreen() }
             }
             #if os(tvOS)
                 Tab(L10n.navMovies, systemImage: "film", value: Destination.movies) {
@@ -77,17 +80,46 @@ struct MainTabs: View {
             }
         }
         .offlineDownloads()
+        .onChange(of: requests?.pending, initial: true) { openRequested() }
+        .onChange(of: requests?.pending == .continueWatching ? core.home : nil) { openRequested() }
+    }
+
+    /// Acts on a link or an intent: a title opens over Home, Continue Watching waits for the home.
+    private func openRequested() {
+        guard let requests, let request = requests.pending, let step = request.step(home: core.home) else { return }
+        switch step {
+        case .showTitle(let slug):
+            selection = .home
+            homePath = NavigationPath([CatalogRoute.title(slug: slug)])
+        case .showMyList:
+            selection = .myList
+        case .play(let target):
+            core.send(.playRequested(target))
+        case .showHome, .wait:
+            selection = .home
+        }
+        if step != .wait {
+            requests.finish(request)
+        }
     }
 }
 
-/// A tab's navigation stack, which titles, listings, profiles and the leaderboard are pushed onto.
+/// A tab's navigation stack, which titles, listings, profiles and the leaderboard are pushed onto;
+/// `path` when something outside the stack pushes onto it too.
 private struct CatalogStack<Root: View>: View {
+    var path: Binding<NavigationPath>?
     @ViewBuilder let root: () -> Root
 
     var body: some View {
-        NavigationStack {
-            root().catalogDestinations().ranksDestinations()
+        if let path {
+            NavigationStack(path: path) { content }
+        } else {
+            NavigationStack { content }
         }
+    }
+
+    private var content: some View {
+        root().catalogDestinations().ranksDestinations()
     }
 }
 

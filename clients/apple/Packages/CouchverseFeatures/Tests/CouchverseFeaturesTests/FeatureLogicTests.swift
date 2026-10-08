@@ -12,13 +12,24 @@ struct DeepLinkTests {
         ("COUCHVERSE://Pair?code=WDJB-MJHT", .approve),
         ("http://192.168.1.5:8080/pair?code=WDJB-MJHT", .approve),
         ("https://media.example.com/pair/?code=WDJB-MJHT", .approve),
+        ("couchverse://title/glass-harbor-2025", .title(slug: "glass-harbor-2025")),
+        ("COUCHVERSE://Title/glass-harbor/", .title(slug: "glass-harbor")),
+        ("couchverse://play/episode/e2", .play(PlayTarget(kind: .episode, id: "e2"))),
+        ("couchverse://play/Movie/0b9e6c1a-77d4-4c3e", .play(PlayTarget(kind: .movie, id: "0b9e6c1a-77d4-4c3e"))),
     ])
     func linksOpenTheirScreen(url: String, link: DeepLink) {
         #expect(DeepLink(url) == link)
     }
 
     @Test(arguments: [
-        "couchverse://title/glass-harbor",
+        "couchverse://title",
+        "couchverse://title/",
+        "couchverse://title/glass-harbor/extras",
+        "couchverse://play/song/s1",
+        "couchverse://play/movie",
+        "couchverse://play/episode/e2/again",
+        "couchverse://admin",
+        "https://media.example.com/title/glass-harbor",
         "https://media.example.com/pair",
         "https://media.example.com/connect?server=x&code=y",
         "https://media.example.com/watch?code=WDJB-MJHT",

@@ -11,6 +11,7 @@ struct CouchverseTVApp: App {
             CouchverseRoot()
                 .environment(app.runtime)
                 .environment(app.player)
+                .environment(app.requests)
         }
     }
 }

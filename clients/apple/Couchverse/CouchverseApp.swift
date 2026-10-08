@@ -11,6 +11,7 @@ struct CouchverseApp: App {
             CouchverseRoot()
                 .environment(app.runtime)
                 .environment(app.player)
+                .environment(app.requests)
         }
         // a download that ended while the app was suspended or gone wakes it: the session's
         // delegate keeps the file, then the system may suspend the app again

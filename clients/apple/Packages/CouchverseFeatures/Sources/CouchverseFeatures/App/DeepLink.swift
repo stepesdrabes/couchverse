@@ -1,3 +1,4 @@
+import CouchverseCore
 import Foundation
 
 /// Which screen a link opened in the app needs. The core parses and acts on sign-in links itself
@@ -12,6 +13,11 @@ enum DeepLink: Equatable {
     /// `couchverse://couch/123456`, or the join page a host's QR code shows: join a couch session
     /// (`CouchLink` reads the code).
     case couch
+    /// `couchverse://title/<slug>`: a title's page.
+    case title(slug: String)
+    /// `couchverse://play/<movie|episode>/<id>`: play it from where it stopped (Continue Watching
+    /// outside the app). The same shapes as on Android.
+    case play(PlayTarget)
 
     init?(_ url: URL) {
         if CouchLink.code(url.absoluteString) != nil {
@@ -20,9 +26,16 @@ enum DeepLink: Equatable {
         }
         switch url.scheme?.lowercased() {
         case "couchverse":
+            let path = url.pathComponents.filter { $0 != "/" }
             switch url.host()?.lowercased() {
             case "connect": self = .connect
             case "pair": self = .approve
+            case "title":
+                guard path.count == 1 else { return nil }
+                self = .title(slug: path[0])
+            case "play":
+                guard path.count == 2, let kind = PlayKind(rawValue: path[0].lowercased()) else { return nil }
+                self = .play(PlayTarget(kind: kind, id: path[1]))
             default: return nil
             }
         case "http", "https":
