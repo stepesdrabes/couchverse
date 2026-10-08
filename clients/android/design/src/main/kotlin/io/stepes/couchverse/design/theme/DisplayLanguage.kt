@@ -34,6 +34,13 @@ fun ProvideDisplayLanguage(language: String, content: @Composable () -> Unit) {
 }
 
 /**
+ * This context with its resources in the display [language], for what the app words outside its
+ * screens (notifications), which would otherwise follow the system's language.
+ */
+fun android.content.Context.inDisplayLanguage(language: String): android.content.Context =
+    createConfigurationContext(Configuration(resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) })
+
+/**
  * The activity with localized resources: navigation, permission launchers and the like still find
  * the activity behind it, while `getString` answers in the display language.
  */

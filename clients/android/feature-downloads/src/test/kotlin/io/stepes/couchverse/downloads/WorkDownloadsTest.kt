@@ -1,6 +1,7 @@
 package io.stepes.couchverse.downloads
 
 import android.content.Context
+import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.WorkManager
@@ -45,7 +46,7 @@ class WorkDownloadsTest {
             Configuration.Builder().setExecutor(SynchronousExecutor()).build(),
         )
         work = WorkManager.getInstance(context)
-        downloads = WorkDownloads(work, downloadsDirectory(context), scope)
+        downloads = WorkDownloads(work, downloadsDirectory(context), language = { "cs" }, scope = scope)
     }
 
     @After
@@ -93,6 +94,12 @@ class WorkDownloadsTest {
         val failed = assertIs<EffectOutput.DownloadFailed>(awaitEnd())
         assertEquals(null, failed.content.noSpace)
         assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `the progress notification speaks the display language, not the system's`() {
+        assertEquals("Stažené", NotificationCompat.getContentTitle(progressNotification(context, "cs", 0.5f)).toString())
+        assertEquals("Downloads", NotificationCompat.getContentTitle(progressNotification(context, null, 0f)).toString())
     }
 
     /** The transfer waits for a network, which the test's WorkManager never sees on its own. */

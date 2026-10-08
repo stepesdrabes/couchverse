@@ -8,7 +8,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -17,7 +16,7 @@ import io.stepes.couchverse.core.CouchView
 import io.stepes.couchverse.core.Event
 import io.stepes.couchverse.core.runtime.CoreRuntime
 import io.stepes.couchverse.design.R
-import java.util.Locale
+import io.stepes.couchverse.design.theme.inDisplayLanguage
 
 /** The application, which owns the one runtime a notification's buttons talk to. */
 interface CoreHost {
@@ -40,7 +39,7 @@ class CouchNotification(private val context: Context) {
             return
         }
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        val words = localized(language)
+        val words = context.inDisplayLanguage(language)
         if (!channel) {
             context.getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(NotificationChannel(CHANNEL, words.getString(R.string.couch_open), NotificationManager.IMPORTANCE_LOW))
@@ -71,12 +70,6 @@ class CouchNotification(private val context: Context) {
             .addAction(0, words.getString(if (host) R.string.couch_end_session else R.string.couch_leave), leave)
             .build()
         runCatching { manager.notify(ID, notification) }
-    }
-
-    /** The display language the app shows, which can differ from the system's. */
-    private fun localized(language: String): Context {
-        val configuration = Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) }
-        return context.createConfigurationContext(configuration)
     }
 
     private fun couchStatusLine(view: CouchView, words: Context): String? = when {

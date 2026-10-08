@@ -84,7 +84,7 @@ class CouchverseApp : Application(), SingletonImageLoader.Factory, PlaybackHost,
         )
         playback = PlaybackEngine(this, http, downloadsDirectory(this)) { runtime.send(Event.PlayerReported(it)) }
         // downloads are for phones; a TV streams
-        val downloads = if (tv) NoDownloads else WorkDownloads(WorkManager.getInstance(this), downloadsDirectory(this))
+        val downloads = if (tv) NoDownloads else WorkDownloads(WorkManager.getInstance(this), downloadsDirectory(this), ::displayLanguage)
         runtime = androidCoreRuntime(this, config, http, player = playback, downloads = downloads)
         runtime.send(Event.AppStarted)
         continueWatching()
@@ -127,6 +127,9 @@ class CouchverseApp : Application(), SingletonImageLoader.Factory, PlaybackHost,
                 }
         }
     }
+
+    /** The language the app shows, for what it words outside its screens. */
+    private fun displayLanguage(): String = runtime.view<SessionView>(Surface.Session).value?.language ?: "en"
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)

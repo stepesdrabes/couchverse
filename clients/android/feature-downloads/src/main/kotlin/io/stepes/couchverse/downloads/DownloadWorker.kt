@@ -1,5 +1,6 @@
 package io.stepes.couchverse.downloads
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -13,6 +14,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import io.stepes.couchverse.design.R
+import io.stepes.couchverse.design.theme.inDisplayLanguage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -66,37 +68,48 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
     }
 
     private fun foreground(fraction: Float): ForegroundInfo {
-        val manager = applicationContext.getSystemService(NotificationManager::class.java)
-        val title = applicationContext.getString(R.string.downloads_title)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, title, NotificationManager.IMPORTANCE_LOW))
-        val notification = NotificationCompat.Builder(applicationContext, CHANNEL)
-            .setSmallIcon(io.stepes.couchverse.downloads.R.drawable.ic_download)
-            .setContentTitle(title)
-            .setProgress(100, (fraction * 100).toInt(), fraction <= 0f)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .build()
+        val notification = progressNotification(applicationContext, inputData.getString(LANGUAGE), fraction)
         return ForegroundInfo(id.hashCode(), notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
 
     companion object {
         const val URL = "url"
         const val NAME = "name"
+
+        /** The app's display language when the download was asked for, for its notification. */
+        const val LANGUAGE = "language"
         const val RECEIVED = "received"
         const val TOTAL = "total"
         const val BYTES = "bytes"
         const val MESSAGE = "message"
         const val NO_SPACE = "noSpace"
-        private const val CHANNEL = "downloads"
+        internal const val CHANNEL = "downloads"
         private const val PROGRESS_MS = 1000L
         private const val MAX_ATTEMPTS = 5
 
         /** Shared by every transfer; the app's network security settings apply to it as well. */
         private val client by lazy { OkHttpClient.Builder().readTimeout(60, TimeUnit.SECONDS).build() }
 
-        fun request(url: String, name: String) = OneTimeWorkRequestBuilder<DownloadWorker>()
-            .setInputData(workDataOf(URL to url, NAME to name))
+        fun request(url: String, name: String, language: String) = OneTimeWorkRequestBuilder<DownloadWorker>()
+            .setInputData(workDataOf(URL to url, NAME to name, LANGUAGE to language))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
     }
+}
+
+/**
+ * A transfer's progress, worded in the display [language], or the system's for work an earlier
+ * version of the app queued without one.
+ */
+internal fun progressNotification(context: Context, language: String?, fraction: Float): Notification {
+    val title = (language?.let(context::inDisplayLanguage) ?: context).getString(R.string.downloads_title)
+    context.getSystemService(NotificationManager::class.java)
+        .createNotificationChannel(NotificationChannel(DownloadWorker.CHANNEL, title, NotificationManager.IMPORTANCE_LOW))
+    return NotificationCompat.Builder(context, DownloadWorker.CHANNEL)
+        .setSmallIcon(io.stepes.couchverse.downloads.R.drawable.ic_download)
+        .setContentTitle(title)
+        .setProgress(100, (fraction * 100).toInt(), fraction <= 0f)
+        .setOngoing(true)
+        .setOnlyAlertOnce(true)
+        .build()
 }

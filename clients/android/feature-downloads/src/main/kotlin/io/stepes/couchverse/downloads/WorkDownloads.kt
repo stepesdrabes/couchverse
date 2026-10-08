@@ -21,11 +21,13 @@ import java.io.File
 /**
  * The core's downloads as WorkManager transfers into [directory]. A transfer is unique by its
  * file's name, so a start after a relaunch attaches to the one already running (or finds the
- * finished file) instead of fetching again.
+ * finished file) instead of fetching again. Its notification speaks the app's display
+ * [language] as it was when the transfer was asked for.
  */
 class WorkDownloads(
     private val work: WorkManager,
     private val directory: File,
+    private val language: () -> String,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : DownloadExecutor {
     override fun start(request: DownloadStart, events: (EffectOutput) -> Unit): DownloadTransfer {
@@ -40,7 +42,7 @@ class WorkDownloads(
                     return@launch
                 }
             } else {
-                work.enqueueUniqueWork(unique, ExistingWorkPolicy.KEEP, DownloadWorker.request(request.url, name))
+                work.enqueueUniqueWork(unique, ExistingWorkPolicy.KEEP, DownloadWorker.request(request.url, name, language()))
             }
             var reported = -1L
             work.getWorkInfosForUniqueWorkFlow(unique)
