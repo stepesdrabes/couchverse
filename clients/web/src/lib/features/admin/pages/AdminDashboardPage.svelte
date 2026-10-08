@@ -313,22 +313,24 @@
 					{m.admin_load_1m()}
 				</dt>
 				{#if system.load1 >= 0}
-					<dd class="mt-1 flex items-baseline gap-2">
-						<span class="text-lg font-bold tnum" style="color: {usageColor(loadPerCore * 100)}">
-							{system.load1.toFixed(2)}
-						</span>
-						<span class="text-[11px]" style="color: {usageColor(loadPerCore * 100)}">
-							{loadLabel}
-						</span>
+					<dd class="mt-1">
+						<div class="flex items-baseline gap-2">
+							<span class="text-lg font-bold tnum" style="color: {usageColor(loadPerCore * 100)}">
+								{system.load1.toFixed(2)}
+							</span>
+							<span class="text-[11px]" style="color: {usageColor(loadPerCore * 100)}">
+								{loadLabel}
+							</span>
+						</div>
+						<div class="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-2">
+							<div
+								class="h-full rounded-full"
+								style="width: {Math.min(100, loadPerCore * 100)}%; background: {usageColor(
+									loadPerCore * 100
+								)}"
+							></div>
+						</div>
 					</dd>
-					<div class="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-2">
-						<div
-							class="h-full rounded-full"
-							style="width: {Math.min(100, loadPerCore * 100)}%; background: {usageColor(
-								loadPerCore * 100
-							)}"
-						></div>
-					</div>
 				{:else}
 					<dd class="mt-1 text-lg font-bold text-faint">{m.admin_not_available()}</dd>
 				{/if}
