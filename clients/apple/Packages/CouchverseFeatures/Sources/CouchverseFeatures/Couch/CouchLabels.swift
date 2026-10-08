@@ -63,7 +63,7 @@ enum CouchLabels {
         return badges.joined(separator: " \u{00B7} ")
     }
 
-    /// Where the host is now: its last position, moved on by the time since while it plays.
+    /// Where the host is now: its last known position plus, while it plays, the time since.
     static func position(_ view: CouchView, now: UInt64) -> Double {
         guard view.playing, now > view.positionAtMs else { return view.positionSeconds }
         return view.positionSeconds + Double(now - view.positionAtMs) / 1000
