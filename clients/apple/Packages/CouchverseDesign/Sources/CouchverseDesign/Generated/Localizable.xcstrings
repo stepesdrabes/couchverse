@@ -3791,6 +3791,23 @@
         }
       }
     },
+    "couch_member_paused": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozastaveno"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused"
+          }
+        }
+      }
+    },
     "couch_on_couch_count": {
       "extractionState": "manual",
       "localizations": {
@@ -8022,6 +8039,23 @@
         }
       }
     },
+    "problem_not_host": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jako ovladač může gauč používat jen účet hostitele."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the host's account can use the couch as a remote."
+          }
+        }
+      }
+    },
     "problem_offline": {
       "extractionState": "manual",
       "localizations": {
@@ -8069,6 +8103,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "This server is too old for this app. Update Couchverse on the server."
+          }
+        }
+      }
+    },
+    "problem_session_full": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento gauč je plný."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This couch is full."
           }
         }
       }

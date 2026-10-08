@@ -14,6 +14,9 @@ extension Problem {
         case "rate_limited", "slow_down": L10n.problemRateLimited
         case "invalid_code": L10n.problemInvalidCode
         case "unauthorized": L10n.problemUnauthorized
+        case "no_session", "session_ended": L10n.couchJoinFailed
+        case "not_host": L10n.problemNotHost
+        case "session_full": L10n.problemSessionFull
         default: L10n.problemGeneric
         }
     }

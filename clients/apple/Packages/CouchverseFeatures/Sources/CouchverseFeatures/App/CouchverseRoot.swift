@@ -5,7 +5,7 @@ import SwiftUI
 
 /// The app's root: shows what `AppView.phase` asks for, keeps the display language and accent in
 /// step with the session, opens `couchverse://` links, reports returns to the foreground and shows
-/// the core's notices and, over everything, the player.
+/// the core's notices and, over everything, the player or the couch screens standing in for it.
 public struct CouchverseRoot: View {
     @Environment(CoreRuntime.self) private var core
     @Environment(\.scenePhase) private var scenePhase
@@ -15,6 +15,7 @@ public struct CouchverseRoot: View {
     @State private var switchingAccount = false
     @State private var approving = false
     @State private var connecting = false
+    @State private var cover = CoverRequests()
     /// Absent in previews and snapshots, which never play.
     @Environment(PlayerController.self) private var player: PlayerController?
 
@@ -43,6 +44,7 @@ public struct CouchverseRoot: View {
         .environment(choreography)
         .environment(\.showProfilePicker, RootAction(name: "profile-picker") { pickingProfile = true })
         .environment(\.showAccountSwitcher, RootAction(name: "account-switcher") { switchingAccount = true })
+        .environment(\.showCouchJoin, RootAction(name: "couch-join") { cover.joining = "" })
         .accent(core.session.accent)
         .environment(\.locale, L10n.locale)
         .preferredColorScheme(.dark)
@@ -60,15 +62,7 @@ public struct CouchverseRoot: View {
         .onOpenURL(perform: open)
         .sheet(isPresented: $switchingAccount) { AccountSwitcherSheet() }
         .modal(isPresented: $approving) { ApproveDeviceScreen(openedFromLink: true) }
-        .fullScreenCover(isPresented: playing) {
-            if let player {
-                PlayerScreen()
-                    .environment(core)
-                    .environment(player)
-                    .accent(core.session.accent)
-                    .environment(\.locale, L10n.locale)
-            }
-        }
+        .appCover(player: player, requests: cover)
         .task(id: player == nil) {
             guard player != nil else { return }
             reportCapabilities()
@@ -77,18 +71,6 @@ public struct CouchverseRoot: View {
                 reportCapabilities()
             }
         }
-    }
-
-    /// Up while the core has something playing; dismissing it (a swipe, the remote's Back)
-    /// closes the player in the core.
-    private var playing: Binding<Bool> {
-        Binding(
-            get: { player != nil && core.player.target != nil },
-            set: { presented in
-                if !presented && core.player.target != nil {
-                    core.send(.playerClosed)
-                }
-            })
     }
 
     private func reportCapabilities() {
@@ -119,6 +101,10 @@ public struct CouchverseRoot: View {
             approving = true
         case .connect:
             connecting = true
+        case .couch:
+            // the core joins by code, not by link: the join screen sends it
+            cover.joining = CouchLink.code(url.absoluteString) ?? ""
+            return
         }
         core.send(.linkOpened(Link(url: url.absoluteString)))
     }

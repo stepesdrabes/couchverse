@@ -222,6 +222,7 @@ extension L10n {
     public static var couchLeftToast: String { string("couch_left_toast") }
     public static var couchLinkCopied: String { string("couch_link_copied") }
     public static var couchLoading: String { string("couch_loading") }
+    public static var couchMemberPaused: String { string("couch_member_paused") }
     public static func couchOnCouchCount(count: String) -> String { format("couch_on_couch_count", [count]) }
     public static var couchOpen: String { string("couch_open") }
     public static var couchParticipantsTitle: String { string("couch_participants_title") }
@@ -465,9 +466,11 @@ extension L10n {
     public static var problemNoTmdbId: String { string("problem_no_tmdb_id") }
     public static var problemNoTmdbKey: String { string("problem_no_tmdb_key") }
     public static var problemNotAServer: String { string("problem_not_a_server") }
+    public static var problemNotHost: String { string("problem_not_host") }
     public static var problemOffline: String { string("problem_offline") }
     public static var problemRateLimited: String { string("problem_rate_limited") }
     public static var problemServerOutdated: String { string("problem_server_outdated") }
+    public static var problemSessionFull: String { string("problem_session_full") }
     public static var problemTimeout: String { string("problem_timeout") }
     public static var problemTls: String { string("problem_tls") }
     public static var problemTmdbError: String { string("problem_tmdb_error") }

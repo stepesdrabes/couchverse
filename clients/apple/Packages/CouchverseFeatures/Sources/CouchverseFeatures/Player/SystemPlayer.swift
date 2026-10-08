@@ -14,6 +14,9 @@ struct SystemPlayer: UIViewControllerRepresentable {
     let linear: Bool
     let send: (Event) -> Void
     var onTap: (() -> Void)?
+    /// The couch's transport bar menus on TV; nil while the server has couch sessions off.
+    var couch: CouchMenu?
+    var onCouchPanel: () -> Void = {}
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -45,7 +48,8 @@ struct SystemPlayer: UIViewControllerRepresentable {
         }
         #if os(tvOS)
             context.coordinator.update(
-                player, view: view, nativeAudio: nativeAudio, nativeSubtitles: nativeSubtitles, send: send)
+                player, view: view, nativeAudio: nativeAudio, nativeSubtitles: nativeSubtitles, couch: couch,
+                send: send, couchPanel: onCouchPanel)
         #endif
     }
 
@@ -72,12 +76,13 @@ struct SystemPlayer: UIViewControllerRepresentable {
             /// under the viewer's finger would close.
             func update(
                 _ player: AVPlayerViewController, view: PlayerView, nativeAudio: Bool, nativeSubtitles: Bool,
-                send: @escaping (Event) -> Void
+                couch: CouchMenu?, send: @escaping (Event) -> Void, couchPanel: @escaping () -> Void
             ) {
-                let menus = TransportMenus(view: view, nativeAudio: nativeAudio, nativeSubtitles: nativeSubtitles)
+                let menus = TransportMenus(
+                    view: view, nativeAudio: nativeAudio, nativeSubtitles: nativeSubtitles, couch: couch)
                 if menus != self.menus {
                     self.menus = menus
-                    player.transportBarCustomMenuItems = menus.items(send: send)
+                    player.transportBarCustomMenuItems = menus.items(send: send, couchPanel: couchPanel)
                 }
                 if view.nextUp != next {
                     next = view.nextUp
@@ -103,7 +108,7 @@ struct SystemPlayer: UIViewControllerRepresentable {
 
 #if os(tvOS)
     /// The transport bar's own items: quality, the core's audio and subtitles when the system's
-    /// menus cannot list them (another language's file, a sidecar file), and shuffle.
+    /// menus cannot list them (another language's file, a sidecar file), shuffle, and the couch.
     struct TransportMenus: Equatable {
         let qualities: [QualityOption]
         let quality: String
@@ -112,8 +117,9 @@ struct SystemPlayer: UIViewControllerRepresentable {
         let subtitles: [TrackOption]
         let subtitleSelected: String?
         let shuffle: Bool?
+        let couch: CouchMenu?
 
-        init(view: PlayerView, nativeAudio: Bool, nativeSubtitles: Bool) {
+        init(view: PlayerView, nativeAudio: Bool, nativeSubtitles: Bool, couch: CouchMenu? = nil) {
             qualities = view.qualities.count > 1 ? view.qualities : []
             quality = view.quality
             audio = !nativeAudio && view.audio.count > 1 ? view.audio : []
@@ -121,9 +127,10 @@ struct SystemPlayer: UIViewControllerRepresentable {
             subtitles = nativeSubtitles ? [] : view.subtitles
             subtitleSelected = view.subtitleSelected
             shuffle = view.shuffleAvailable ? view.shuffle : nil
+            self.couch = couch
         }
 
-        func items(send: @escaping (Event) -> Void) -> [UIMenuElement] {
+        func items(send: @escaping (Event) -> Void, couchPanel: @escaping () -> Void = {}) -> [UIMenuElement] {
             var items: [UIMenuElement] = []
             if !qualities.isEmpty {
                 items.append(
@@ -167,6 +174,9 @@ struct SystemPlayer: UIViewControllerRepresentable {
                     UIAction(
                         title: L10n.playerShuffle, image: UIImage(systemName: "shuffle"), state: shuffle ? .on : .off
                     ) { _ in send(.shuffleToggled) })
+            }
+            if let couch {
+                items += couch.items(send: send, panel: couchPanel)
             }
             return items
         }

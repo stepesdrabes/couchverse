@@ -67,6 +67,8 @@ extension EnvironmentValues {
     @Entry var showProfilePicker = RootAction(name: "none") {}
     /// Opens the account switcher sheet (the phone's way).
     @Entry var showAccountSwitcher = RootAction(name: "none") {}
+    /// Opens the join-a-couch screen over the app.
+    @Entry var showCouchJoin = RootAction(name: "none") {}
     /// The date relative times are measured from; `nil` means now (snapshots pin it).
     @Entry var referenceDate: Date?
 }

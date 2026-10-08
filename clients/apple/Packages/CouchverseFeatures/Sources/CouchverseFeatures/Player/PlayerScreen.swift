@@ -5,13 +5,14 @@ import SwiftUI
 
 /// The player, over everything while the core has something playing: the system player with
 /// its own transport, scrubbing, PiP and AirPlay, plus what only Couchverse knows (quality, the
-/// core's tracks, episodes, shuffle, the next episode) in the system's extension points on TV
-/// and a light overlay on touch devices. Closing it tells the core, which saves progress and
+/// core's tracks, episodes, shuffle, the next episode, the couch) in the system's extension points
+/// on TV and a light overlay on touch devices. Closing it tells the core, which saves progress and
 /// frees a transcode.
 struct PlayerScreen: View {
     @Environment(CoreRuntime.self) private var core
     @Environment(PlayerController.self) private var controller
     @State private var chrome = ChromeVisibility()
+    @State private var couchPanel = false
 
     var body: some View {
         let view = core.player
@@ -20,13 +21,15 @@ struct PlayerScreen: View {
             SystemPlayer(
                 controller: controller, view: view, nativeAudio: controller.nativeAudio,
                 nativeSubtitles: controller.nativeSubtitles, linear: controller.linear,
-                send: { core.send($0) }, onTap: { chrome.touched() }
+                send: { core.send($0) }, onTap: { chrome.touched() },
+                couch: CouchMenu(core.couch, enabled: core.session.features.couch), onCouchPanel: { couchPanel = true }
             )
             .ignoresSafeArea()
             .opacity(view.status == .loaded || view.status == .stale ? 1 : 0)
             if let caption = controller.caption {
                 CaptionView(text: caption)
             }
+            CouchPlayerOverlay()
             switch view.status {
             case .loading, .idle:
                 PlayerWaiting(view: view, close: close)
@@ -34,16 +37,17 @@ struct PlayerScreen: View {
                 PlayerProblem(view: view, close: close)
             default:
                 #if os(iOS)
-                    PlayerChrome(view: view, chrome: chrome)
+                    PlayerChrome(view: view, chrome: chrome, showCouch: { couchPanel = true })
                 #else
                     EmptyView()
                 #endif
             }
         }
         .preferredColorScheme(.dark)
+        .modal(isPresented: $couchPanel) { CouchPanelScreen() }
         .onChange(of: view.audio, initial: true) { _, audio in controller.audioTracks = audio }
         // the remote's Back or the system player's close dismisses the cover, which closes the
-        // player in the core (see `CouchverseRoot`)
+        // player in the core (see `AppCover`)
         #if os(iOS)
             .persistentSystemOverlays(.hidden)
             .statusBarHidden()
@@ -51,7 +55,7 @@ struct PlayerScreen: View {
     }
 
     private func close() {
-        core.send(.playerClosed)
+        core.closePlayer()
     }
 }
 

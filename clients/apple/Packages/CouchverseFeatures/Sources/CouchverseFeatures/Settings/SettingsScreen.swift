@@ -2,7 +2,8 @@ import CouchverseCore
 import CouchverseDesign
 import SwiftUI
 
-/// Accounts, servers, display language, devices and approving another device (plan 10.4).
+/// Accounts, servers, display language, devices, approving another device and joining a couch
+/// (plan 10.4).
 struct SettingsScreen: View {
     @Environment(CoreRuntime.self) private var core
     @State private var setup: AccountSetup?
@@ -29,6 +30,7 @@ struct SettingsScreen: View {
                 }
                 .accessibilityIdentifier("approve-device")
             }
+            CouchSettingsSection()
             about
         }
         .navigationTitle(L10n.navSettings)

@@ -32,11 +32,14 @@ final class ChromeVisibility {
 
 #if os(iOS)
     /// What the system player cannot show on a phone or tablet: closing back to the title, the
-    /// title, and an options menu with quality, the core's tracks, the episodes and shuffle; the
-    /// next episode's countdown near the end.
+    /// title, and an options menu with quality, the core's tracks, the episodes, shuffle and the
+    /// couch; who is on the couch and reactions while a session is on; the next episode's
+    /// countdown near the end.
     struct PlayerChrome: View {
         let view: PlayerView
         let chrome: ChromeVisibility
+        let showCouch: () -> Void
+        @Environment(CoreRuntime.self) private var core
         @Environment(PlayerController.self) private var controller
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -44,11 +47,18 @@ final class ChromeVisibility {
             ZStack {
                 // the system's controls bring close, AirPlay, PiP, the title, the scrubber and
                 // their own audio and subtitle menu; this sits between their top corners
-                if chrome.visible && !view.linear {
-                    PlayerOptions(
-                        view: view, nativeAudio: controller.nativeAudio, nativeSubtitles: controller.nativeSubtitles,
-                        onOpen: { chrome.keep(hiding: false) }
-                    )
+                if chrome.visible {
+                    HStack(spacing: Tokens.Spacing.sm) {
+                        if core.session.features.couch && core.couch.isLive {
+                            CouchPlayerButtons(showCouch: showCouch, onOpen: { chrome.keep(hiding: false) })
+                        }
+                        if !view.linear {
+                            PlayerOptions(
+                                view: view, nativeAudio: controller.nativeAudio,
+                                nativeSubtitles: controller.nativeSubtitles, showCouch: showCouch,
+                                onOpen: { chrome.keep(hiding: false) })
+                        }
+                    }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .transition(.opacity)
                 }
@@ -66,11 +76,13 @@ final class ChromeVisibility {
         }
     }
 
-    /// Quality, the audio and subtitles the system's menu does not list, episodes and shuffle.
+    /// Quality, the audio and subtitles the system's menu does not list, episodes, shuffle and the
+    /// couch.
     struct PlayerOptions: View {
         let view: PlayerView
         let nativeAudio: Bool
         let nativeSubtitles: Bool
+        let showCouch: () -> Void
         let onOpen: () -> Void
         @Environment(CoreRuntime.self) private var core
 
@@ -140,6 +152,7 @@ final class ChromeVisibility {
                         Label(L10n.playerShuffle, systemImage: "shuffle")
                     }
                 }
+                CouchOptions(showCouch: showCouch)
             } label: {
                 // sized and coloured like the system player's own buttons beside it
                 Image(systemName: "slider.horizontal.3")

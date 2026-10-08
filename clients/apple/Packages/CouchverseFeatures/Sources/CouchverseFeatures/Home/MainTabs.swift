@@ -2,9 +2,9 @@ import CouchverseCore
 import CouchverseDesign
 import SwiftUI
 
-/// The signed-in app (plan 10.3): a sidebar on TV (Home, Movies, Series, Genres, My List, Search,
-/// Settings), a Liquid Glass tab bar on iPhone with Search as its own tab, and the same tabs as an
-/// adaptable sidebar on iPad. Each tab keeps its own navigation stack.
+/// The signed-in app (plan 10.3): a sidebar on TV (Home, Movies, Series, Genres, My List, Couch,
+/// Search, Settings), a Liquid Glass tab bar on iPhone with Search as its own tab, and the same tabs
+/// as an adaptable sidebar on iPad. Each tab keeps its own navigation stack.
 struct MainTabs: View {
     enum Destination: Hashable {
         case home
@@ -15,8 +15,10 @@ struct MainTabs: View {
         case myList
         case search
         case settings
+        case couch
     }
 
+    @Environment(CoreRuntime.self) private var core
     @State private var selection = Destination.home
 
     var body: some View {
@@ -42,6 +44,13 @@ struct MainTabs: View {
             Tab(L10n.navMyList, systemImage: "bookmark", value: Destination.myList) {
                 CatalogStack { MyListScreen() }
             }
+            #if os(tvOS)
+                if core.session.features.couch {
+                    Tab(L10n.couchOpen, systemImage: "sofa", value: Destination.couch) {
+                        NavigationStack { CouchHubScreen() }
+                    }
+                }
+            #endif
             Tab(L10n.navSettings, systemImage: "gearshape", value: Destination.settings) {
                 NavigationStack { SettingsScreen() }
             }

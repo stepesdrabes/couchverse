@@ -42,6 +42,7 @@ public final class PlayerController: PlayerExecuting {
     /// Set from a load until the item is ready and at its start position: the first frames sit
     /// at zero, which the core would take for a seek and save as progress.
     @ObservationIgnored private var settling = false
+    @ObservationIgnored private var localPause = LocalPause()
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private let downloads: URL
 
@@ -60,6 +61,7 @@ public final class PlayerController: PlayerExecuting {
                 if playing != self.playing {
                     self.playing = playing
                 }
+                self.followerPaused(playing: playing)
                 self.report()
             }
         }
@@ -75,8 +77,10 @@ public final class PlayerController: PlayerExecuting {
         case .load(let load):
             start(load)
         case .play:
+            localPause.commanded(playing: true)
             player.play()
         case .pause:
+            localPause.commanded(playing: false)
             player.pause()
         case .seek(let seek):
             let time = CMTime(seconds: seek.seconds, preferredTimescale: 600)
@@ -106,6 +110,7 @@ public final class PlayerController: PlayerExecuting {
         audioLang = load.audioLang
         audioIndex = nil
         linear = load.linear
+        localPause = LocalPause()
         settling = true
         guard let url = url(for: load) else {
             settling = false
@@ -150,6 +155,7 @@ public final class PlayerController: PlayerExecuting {
         await describeOptions(item, load: load)
         guard generation == self.generation else { return }
         settling = false
+        localPause.commanded(playing: load.autoplay)
         if load.autoplay {
             player.play()
         }
@@ -223,6 +229,17 @@ public final class PlayerController: PlayerExecuting {
     }
 
     // MARK: - Reports
+
+    /// A couch follower's player started or stopped without the core asking: the viewer pressed
+    /// play or pause in the system's controls (or a call paused it). The core keeps them paused for
+    /// themselves, rather than snapping them back to the host at its next update.
+    private func followerPaused(playing: Bool) {
+        guard linear, !settling, let item = player.currentItem, item.status == .readyToPlay else { return }
+        // the end of the item pauses it too; the host's next title follows
+        let end = item.duration.isNumeric && item.currentTime().seconds >= item.duration.seconds - 1
+        guard !end, let paused = localPause.observed(playing: playing) else { return }
+        events?(.couchLocalPauseChanged(CouchPause(paused: paused)))
+    }
 
     private func report(ended: Bool = false, failed: String? = nil) {
         guard let load, let item = player.currentItem else { return }
@@ -435,5 +452,24 @@ nonisolated private final class Once: Sendable {
             defer { claimed = true }
             return !claimed
         }
+    }
+}
+
+/// Tells a pause or play the viewer made from one the core asked for: whatever differs from the
+/// core's last command was the viewer's own.
+struct LocalPause {
+    /// What the core last asked for: playing, or paused; nil before it asked.
+    private(set) var expected: Bool?
+
+    mutating func commanded(playing: Bool) {
+        expected = playing
+    }
+
+    /// The player started (true) or stopped; returns the viewer's own pause (true) or resume
+    /// (false), or nil when it is what the core asked for.
+    mutating func observed(playing: Bool) -> Bool? {
+        guard let expected, expected != playing else { return nil }
+        self.expected = playing
+        return !playing
     }
 }

@@ -7,6 +7,8 @@ public enum FieldKind {
     case password
     case code
     case name
+    /// A numeric code, typed on the number pad.
+    case digits
 }
 
 /// A labelled text field. On TV it is the system field (it opens the full-screen keyboard and
@@ -62,7 +64,7 @@ public struct FormField: View {
         .autocorrectionDisabled()
         .textInputAutocapitalization(capitalization)
         .keyboardType(keyboard)
-        .font(kind == .code ? .system(.title3, design: .monospaced, weight: .semibold) : .body)
+        .font(kind == .code || kind == .digits ? .system(.title3, design: .monospaced, weight: .semibold) : .body)
         .foregroundStyle(Tokens.Palette.text)
     }
 
@@ -71,7 +73,7 @@ public struct FormField: View {
         case .address: .URL
         case .username: .username
         case .password: .password
-        case .code: .oneTimeCode
+        case .code, .digits: .oneTimeCode
         case .name: nil
         }
     }
@@ -88,6 +90,7 @@ public struct FormField: View {
         switch kind {
         case .address: .URL
         case .code: .asciiCapable
+        case .digits: .numberPad
         default: .default
         }
     }

@@ -82,6 +82,8 @@ enum CatalogLabels {
         case "visibility_failed": L10n.profilesPrivacyFailed
         case "download_unsupported": L10n.downloadFailedUnsupported
         case "downloads_disabled": L10n.downloadsDisabled
+        case "couch_disabled": L10n.couchStartFailed
+        case "couch_nothing_playing": L10n.couchStartFromVideo
         default: L10n.problemGeneric
         }
     }

@@ -224,6 +224,7 @@
     <string name="couch_left_toast">You left the couch</string>
     <string name="couch_link_copied">Link copied</string>
     <string name="couch_loading">Loading the couch...</string>
+    <string name="couch_member_paused">Paused</string>
     <string name="couch_on_couch_count">On the couch · %1$s</string>
     <string name="couch_open">Couch session</string>
     <string name="couch_participants_title">On the couch</string>
@@ -473,9 +474,11 @@
     <string name="problem_no_tmdb_id">Link this title to TMDB first.</string>
     <string name="problem_no_tmdb_key">Add a TMDB API key in Settings first.</string>
     <string name="problem_not_a_server">Something answered at this address, but it isn\'t a Couchverse server.</string>
+    <string name="problem_not_host">Only the host\'s account can use the couch as a remote.</string>
     <string name="problem_offline">Can\'t reach the server. Check the address and your network.</string>
     <string name="problem_rate_limited">Too many attempts. Try again in a minute.</string>
     <string name="problem_server_outdated">This server is too old for this app. Update Couchverse on the server.</string>
+    <string name="problem_session_full">This couch is full.</string>
     <string name="problem_timeout">The server took too long to answer.</string>
     <string name="problem_tls">A secure connection to the server failed.</string>
     <string name="problem_tmdb_error">TMDB didn\'t answer. Try again later.</string>
