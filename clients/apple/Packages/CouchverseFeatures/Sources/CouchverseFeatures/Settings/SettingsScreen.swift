@@ -95,7 +95,7 @@ struct SettingsScreen: View {
                     ServerLabel(name: server.name, url: server.url, insecure: server.insecure)
                     Text(L10n.serversVersion(version: server.version))
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.faint)
+                        .foregroundStyle(Tokens.Palette.faintText)
                 }
                 .focusable(Idiom.isTV)
                 .contextMenu {
@@ -168,7 +168,7 @@ struct AccountRow: View {
                     .foregroundStyle(Tokens.Palette.text)
                 Text(card.signedIn ? card.serverName : "\(card.serverName) \u{00B7} \(L10n.accountsSignedOut)")
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
             }
             Spacer()
             if current {

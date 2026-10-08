@@ -101,7 +101,7 @@ private struct HeroSlide: View {
             Text(([L10n.catalogFeatured] + card.genres.prefix(2)).joined(separator: " \u{00B7} "))
                 .typeRole(Tokens.TypeRamp.eyebrow)
                 .textCase(.uppercase)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
             TitleLogo(
                 logo: card.logo, name: card.name, maxWidth: Idiom.isTV ? 640 : 300,
                 maxHeight: Idiom.isTV ? 200 : 110)
@@ -110,7 +110,7 @@ private struct HeroSlide: View {
                     year: card.year, rating: card.contentRating, runtime: card.runtimeMinutes, kind: card.kind)
             )
             .typeRole(Tokens.TypeRamp.caption)
-            .foregroundStyle(Tokens.Palette.muted)
+            .foregroundStyle(Tokens.Palette.mutedText)
             if !card.overview.isEmpty {
                 Text(card.overview)
                     .typeRole(Tokens.TypeRamp.body)

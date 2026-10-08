@@ -62,7 +62,7 @@ struct CatalogMessage: View {
         VStack(spacing: Tokens.Spacing.md) {
             Image(systemName: systemImage)
                 .font(.system(size: Idiom.isTV ? 72 : 44, weight: .light))
-                .foregroundStyle(Tokens.Palette.faint)
+                .foregroundStyle(Tokens.Palette.faintText)
                 .accessibilityHidden(true)
             Text(title)
                 .typeRole(Tokens.TypeRamp.section)
@@ -71,7 +71,7 @@ struct CatalogMessage: View {
             if let message {
                 Text(message)
                     .typeRole(Tokens.TypeRamp.body)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                     .multilineTextAlignment(.center)
             }
         }
@@ -92,7 +92,7 @@ struct StaleNote: View {
         if let problem {
             Label(problem.message, systemImage: "wifi.slash")
                 .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .padding(.horizontal, CardMetrics.edge)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

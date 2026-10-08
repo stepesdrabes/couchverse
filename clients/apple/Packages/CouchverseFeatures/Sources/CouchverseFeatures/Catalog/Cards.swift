@@ -51,7 +51,7 @@ struct PosterCard: View {
             .accessibilityValue(card.year.map(String.init) ?? "")
             Text(card.name)
                 .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .lineLimit(1)
                 .frame(width: width, alignment: .leading)
                 .accessibilityHidden(true)
@@ -100,7 +100,7 @@ struct ContinueCardView: View {
                 if let label = card.episodeLabel {
                     Text(label)
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                 }
             }
             .lineLimit(1)
@@ -114,11 +114,12 @@ struct ContinueCardView: View {
 struct ProgressBar: View {
     let fraction: Double
     @Environment(\.accent) private var accent
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.25))
+                Capsule().fill(.white.opacity(contrast == .increased ? 0.5 : 0.25))
                 Capsule().fill(accent.color)
                     .frame(width: geometry.size.width * min(max(fraction, 0), 1))
             }

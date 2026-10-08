@@ -55,7 +55,7 @@ private struct Shimmer: View {
                 let phase = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.6) / 1.6
                 GeometryReader { geometry in
                     LinearGradient(
-                        colors: [.clear, Tokens.Palette.edge.opacity(0.6), .clear],
+                        colors: [.clear, Tokens.Palette.edgeLine.opacity(0.6), .clear],
                         startPoint: .leading, endPoint: .trailing
                     )
                     .frame(width: geometry.size.width * 0.6)

@@ -78,7 +78,7 @@ struct CouchRemoteScreen: View {
                     if let status = CouchLabels.status(view) {
                         Text(status)
                             .typeRole(Tokens.TypeRamp.body)
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                     }
                     CouchAvatars(members: view.members, size: 40)
                     TimelineView(.periodic(from: .now, by: 0.5)) { _ in
@@ -198,7 +198,7 @@ struct CouchHubScreen: View {
                         JoinCouchForm()
                         Label(L10n.couchStartFromVideo, systemImage: "play.rectangle")
                             .typeRole(Tokens.TypeRamp.body)
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                     }
                 }
             }

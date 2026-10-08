@@ -119,7 +119,7 @@ private struct TitleContent: View {
                 if !detail.genres.isEmpty {
                     Text(detail.genres.joined(separator: " \u{00B7} "))
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.faint)
+                        .foregroundStyle(Tokens.Palette.faintText)
                 }
                 TitleActions(detail: detail)
                     .padding(.top, Tokens.Spacing.sm)
@@ -144,11 +144,11 @@ private struct TitleFacts: View {
         // one line where it fits, the badges below the text at large sizes
         ViewThatFits(in: .horizontal) {
             HStack(spacing: Tokens.Spacing.sm) {
-                Text(text).foregroundStyle(Tokens.Palette.muted)
+                Text(text).foregroundStyle(Tokens.Palette.mutedText)
                 badges
             }
             VStack(alignment: .leading, spacing: Tokens.Spacing.sm) {
-                Text(text).foregroundStyle(Tokens.Palette.muted)
+                Text(text).foregroundStyle(Tokens.Palette.mutedText)
                 HStack(spacing: Tokens.Spacing.sm) { badges }
             }
         }
@@ -177,7 +177,7 @@ private struct FactBadge: View {
             .foregroundStyle(Tokens.Palette.text)
             .padding(.horizontal, Tokens.Spacing.sm)
             .padding(.vertical, Tokens.Spacing.xxs)
-            .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(Tokens.Palette.muted.opacity(0.6)) }
+            .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(Tokens.Palette.mutedText.opacity(0.6)) }
     }
 }
 
@@ -377,7 +377,7 @@ private struct SeasonsSection: View {
                     if let length = EpisodeLabels.length(episode) {
                         Text(length)
                             .typeRole(Tokens.TypeRamp.caption)
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                     }
                 }
                 .frame(width: width, alignment: .leading)
@@ -421,12 +421,12 @@ private struct SeasonsSection: View {
                         if let length = EpisodeLabels.length(episode) {
                             Text(length)
                                 .typeRole(Tokens.TypeRamp.caption)
-                                .foregroundStyle(Tokens.Palette.muted)
+                                .foregroundStyle(Tokens.Palette.mutedText)
                         }
                         if !episode.overview.isEmpty {
                             Text(episode.overview)
                                 .typeRole(Tokens.TypeRamp.caption)
-                                .foregroundStyle(Tokens.Palette.faint)
+                                .foregroundStyle(Tokens.Palette.faintText)
                                 .lineLimit(3)
                         }
                     }

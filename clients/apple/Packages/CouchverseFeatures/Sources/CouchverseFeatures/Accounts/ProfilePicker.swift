@@ -219,7 +219,7 @@ private struct ProfileTileLabel: View {
             VStack(spacing: Tokens.Spacing.xs) {
                 Text(card.displayName)
                     .typeRole(Tokens.TypeRamp.card)
-                    .foregroundStyle(lit ? Tokens.Palette.text : Tokens.Palette.muted)
+                    .foregroundStyle(lit ? Tokens.Palette.text : Tokens.Palette.mutedText)
                     .lineLimit(2)
                 details
                     .typeRole(Tokens.TypeRamp.caption)
@@ -259,7 +259,7 @@ private struct ProfileTileLabel: View {
                 Text(line).foregroundStyle(color)
             }
             Text(card.signedIn ? card.serverName : L10n.accountsSignedOut)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
         }
     }
 }
@@ -289,13 +289,13 @@ private struct AddProfileLabel: View {
         VStack(spacing: Tokens.Spacing.lg) {
             Image(systemName: "plus")
                 .font(.system(size: diameter * 0.3, weight: .light))
-                .foregroundStyle(focused ? Tokens.Palette.text : Tokens.Palette.muted)
+                .foregroundStyle(focused ? Tokens.Palette.text : Tokens.Palette.mutedText)
                 .frame(width: diameter, height: diameter)
                 .glassEffect(.regular, in: Circle())
                 .scaleEffect(focused && !reduceMotion ? 1.12 : 1)
             Text(L10n.accountsAddAccount)
                 .typeRole(Tokens.TypeRamp.card)
-                .foregroundStyle(focused || !Idiom.isTV ? Tokens.Palette.text : Tokens.Palette.muted)
+                .foregroundStyle(focused || !Idiom.isTV ? Tokens.Palette.text : Tokens.Palette.mutedText)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .frame(width: labelWidth(diameter, dynamicTypeSize))

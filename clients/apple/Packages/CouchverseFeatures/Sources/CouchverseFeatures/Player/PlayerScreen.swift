@@ -79,7 +79,7 @@ private struct PlayerWaiting: View {
                         .foregroundStyle(Tokens.Palette.text)
                     Text(L10n.playerPreparingDescription)
                         .typeRole(Tokens.TypeRamp.body)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                         .multilineTextAlignment(.center)
                     ProgressView(value: Double(min(percent, 100)), total: 100)
                         .frame(maxWidth: Idiom.isTV ? 600 : 280)
@@ -91,7 +91,7 @@ private struct PlayerWaiting: View {
                     if !view.title.isEmpty {
                         Text([view.title, view.subtitle].filter { !$0.isEmpty }.joined(separator: " \u{00B7} "))
                             .typeRole(Tokens.TypeRamp.card)
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                     }
                 }
             }
@@ -116,7 +116,7 @@ private struct PlayerProblem: View {
         VStack(spacing: Tokens.Spacing.lg) {
             Image(systemName: unsupported ? "film.stack" : "exclamationmark.triangle")
                 .font(.system(size: Idiom.isTV ? 80 : 48, weight: .light))
-                .foregroundStyle(Tokens.Palette.faint)
+                .foregroundStyle(Tokens.Palette.faintText)
                 .accessibilityHidden(true)
             Text(unsupported ? L10n.playerUnsupportedTitle : L10n.playerFailedTitle)
                 .typeRole(Tokens.TypeRamp.section)
@@ -124,7 +124,7 @@ private struct PlayerProblem: View {
                 .multilineTextAlignment(.center)
             Text(unsupported ? L10n.playerUnsupportedDescription : (view.problem?.message ?? L10n.problemGeneric))
                 .typeRole(Tokens.TypeRamp.body)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .multilineTextAlignment(.center)
             Button(action: close) {
                 Label(L10n.playerBackToTitle, systemImage: "chevron.backward")

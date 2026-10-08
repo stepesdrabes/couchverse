@@ -78,7 +78,7 @@ struct CelebrationCard: View {
                 if let description = RanksWords.achievementDescription(card.code) {
                     Text(description)
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                 }
                 Text(reward)
                     .typeRole(Tokens.TypeRamp.caption)

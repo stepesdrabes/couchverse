@@ -97,7 +97,7 @@ import SwiftUI
                     if let episode = item.episode {
                         Text(CatalogLabels.episode(episode))
                             .typeRole(Tokens.TypeRamp.caption)
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                     }
                     Text(DownloadLabels.name(item))
                         .typeRole(Tokens.TypeRamp.card)
@@ -105,7 +105,7 @@ import SwiftUI
                         .lineLimit(2)
                     Text(DownloadLabels.state(item))
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(item.state == .failed ? Tokens.Palette.danger : Tokens.Palette.muted)
+                        .foregroundStyle(item.state == .failed ? Tokens.Palette.danger : Tokens.Palette.mutedText)
                         .monospacedDigit()
                 }
                 .multilineTextAlignment(.leading)
@@ -168,13 +168,13 @@ import SwiftUI
         var body: some View {
             ZStack {
                 if item.state == .queued {
-                    Circle().stroke(Tokens.Palette.muted, style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
+                    Circle().stroke(Tokens.Palette.mutedText, style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
                 } else {
-                    Circle().stroke(Tokens.Palette.edge, lineWidth: 2.5)
+                    Circle().stroke(Tokens.Palette.edgeLine, lineWidth: 2.5)
                     Circle()
                         .trim(from: 0, to: max(item.progress, 0.03))
                         .stroke(
-                            item.state == .fetching ? accent.ink : Tokens.Palette.muted,
+                            item.state == .fetching ? accent.ink : Tokens.Palette.mutedText,
                             style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))

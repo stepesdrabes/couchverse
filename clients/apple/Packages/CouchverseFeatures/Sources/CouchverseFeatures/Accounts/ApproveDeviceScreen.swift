@@ -64,7 +64,7 @@ struct ApproveDeviceScreen: View {
     @ViewBuilder private var codeEntry: some View {
         Text(L10n.accountsPairingInstructions)
             .typeRole(Tokens.TypeRamp.body)
-            .foregroundStyle(Tokens.Palette.muted)
+            .foregroundStyle(Tokens.Palette.mutedText)
         FormField(L10n.pairingCodeLabel, text: $code, prompt: "XXXX-XXXX", kind: .code)
             .onChange(of: code) { _, typed in
                 let formatted = UserCodeInput.format(typed)
@@ -98,7 +98,7 @@ struct ApproveDeviceScreen: View {
                 Text(approval.code)
                     .font(.system(.title3, design: .monospaced, weight: .semibold))
             }
-            .foregroundStyle(Tokens.Palette.muted)
+            .foregroundStyle(Tokens.Palette.mutedText)
         case .notFound:
             outcome(L10n.pairingNotFound, systemImage: "questionmark.circle.fill", tint: Tokens.Palette.danger)
             tryAnotherCode
@@ -118,7 +118,7 @@ struct ApproveDeviceScreen: View {
                 outcome(
                     approved ? L10n.pairingApproved(device: name) : L10n.pairingDenied(device: name),
                     systemImage: approved ? "checkmark.circle.fill" : "xmark.circle.fill",
-                    tint: approved ? Tokens.Palette.success : Tokens.Palette.muted)
+                    tint: approved ? Tokens.Palette.success : Tokens.Palette.mutedText)
                 Button(L10n.commonDone) { dismiss() }
                     .primaryAction()
             } else {
@@ -146,7 +146,7 @@ struct ApproveDeviceScreen: View {
                 .fixedSize(horizontal: false, vertical: true)
                 Text("\(DevicePlatform.name(approval.platform)) \u{00B7} \(approval.code)")
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
             }
         }
         .accessibilityElement(children: .combine)

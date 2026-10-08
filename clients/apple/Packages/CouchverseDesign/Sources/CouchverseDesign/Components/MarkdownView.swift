@@ -45,14 +45,14 @@ private struct BlockView: View {
         case .quote(let blocks):
             HStack(alignment: .top, spacing: Tokens.Spacing.md) {
                 Capsule().fill(accent.color).frame(width: 3)
-                AnyView(BlockStack(blocks: blocks)).foregroundStyle(Tokens.Palette.muted)
+                AnyView(BlockStack(blocks: blocks)).foregroundStyle(Tokens.Palette.mutedText)
             }
         case .list(let list):
             VStack(alignment: .leading, spacing: Tokens.Spacing.sm) {
                 ForEach(Array(list.items.enumerated()), id: \.offset) { index, item in
                     HStack(alignment: .firstTextBaseline, spacing: Tokens.Spacing.sm) {
                         Text(list.start.map { "\(Int($0) + index)." } ?? "\u{2022}")
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                             .monospacedDigit()
                         AnyView(BlockStack(blocks: item.blocks))
                     }
@@ -67,7 +67,7 @@ private struct BlockView: View {
                     Tokens.Palette.surface2,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.input, style: .continuous))
         case .rule:
-            Divider().overlay(Tokens.Palette.edge)
+            Divider().overlay(Tokens.Palette.edgeLine)
         case .table(let table):
             Grid(alignment: .leading, horizontalSpacing: Tokens.Spacing.lg, verticalSpacing: Tokens.Spacing.sm) {
                 GridRow {
@@ -75,7 +75,7 @@ private struct BlockView: View {
                         Text(Inlines.attributed(cell.inlines)).bold()
                     }
                 }
-                Divider().overlay(Tokens.Palette.edge)
+                Divider().overlay(Tokens.Palette.edgeLine)
                 ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
                     GridRow {
                         ForEach(Array(row.cells.enumerated()), id: \.offset) { _, cell in

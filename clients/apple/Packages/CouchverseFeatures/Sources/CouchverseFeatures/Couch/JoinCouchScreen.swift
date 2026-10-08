@@ -162,7 +162,7 @@ struct JoinCouchForm: View {
                 .accessibilityAddTraits(.isHeader)
             Text(guest ? L10n.couchJoinGuestHint : L10n.couchJoinHint)
                 .typeRole(Tokens.TypeRamp.body)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -230,7 +230,7 @@ private struct CodeSlots: View {
                     )
                     .overlay {
                         RoundedRectangle(cornerRadius: Tokens.Radius.input, style: .continuous)
-                            .strokeBorder(index == digits.count ? accent.ink : Tokens.Palette.edge, lineWidth: 2)
+                            .strokeBorder(index == digits.count ? accent.ink : Tokens.Palette.edgeLine, lineWidth: 2)
                     }
                     .padding(.leading, index == 3 ? Tokens.Spacing.lg : 0)
             }

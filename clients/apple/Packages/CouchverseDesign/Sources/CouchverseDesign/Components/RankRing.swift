@@ -30,7 +30,7 @@ public struct RankRing<Content: View>: View {
             .padding(lineWidth * 1.5)
             .overlay {
                 ZStack {
-                    Circle().stroke(Tokens.Palette.edge, lineWidth: lineWidth)
+                    Circle().stroke(Tokens.Palette.edgeLine, lineWidth: lineWidth)
                     Circle()
                         .trim(from: 0, to: progress)
                         .stroke(

@@ -22,7 +22,7 @@ struct AddServerScreen: View {
                         .accessibilityAddTraits(.isHeader)
                     Text(L10n.serversAddressHint)
                         .typeRole(Tokens.TypeRamp.body)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                 }
                 .fixedSize(horizontal: false, vertical: true)
 

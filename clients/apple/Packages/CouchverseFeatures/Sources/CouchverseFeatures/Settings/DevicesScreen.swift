@@ -35,7 +35,7 @@ struct DevicesScreen: View {
                         .listRowBackground(Color.clear)
                 }
                 if devices.devices.isEmpty {
-                    Text(L10n.devicesEmpty).foregroundStyle(Tokens.Palette.muted)
+                    Text(L10n.devicesEmpty).foregroundStyle(Tokens.Palette.mutedText)
                 }
                 ForEach(devices.devices, id: \.id) { device in
                     row(device)
@@ -80,7 +80,7 @@ struct DevicesScreen: View {
         HStack(spacing: Tokens.Spacing.lg) {
             Image(systemName: DevicePlatform.symbol(device.platform))
                 .font(.title2)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .frame(width: 36)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
@@ -96,7 +96,7 @@ struct DevicesScreen: View {
                 }
                 Text("\(DevicePlatform.name(device.platform)) \u{00B7} \(lastSeen(device))")
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
             }
         }
         .padding(.vertical, Tokens.Spacing.xs)

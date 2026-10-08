@@ -92,7 +92,7 @@ private struct ProfileContent: View {
             if profile.heatmap.activeDays == 0 {
                 Text(L10n.profilesNoActivity)
                     .typeRole(Tokens.TypeRamp.body)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
             } else {
                 HeatmapView(heatmap: profile.heatmap)
             }
@@ -101,7 +101,7 @@ private struct ProfileContent: View {
             if profile.hours.allSatisfy({ $0 == 0 }) {
                 Text(L10n.profilesClockEmpty)
                     .typeRole(Tokens.TypeRamp.body)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
             } else {
                 WatchClockView(hours: profile.hours)
                     .frame(maxWidth: .infinity)
@@ -165,7 +165,7 @@ private struct ProfileHero: View {
                 .accessibilityAddTraits(.isHeader)
             Text(identity)
                 .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
             XPProgress(badge: profile.rank, total: profile.xpTotal, color: tierColor)
                 .frame(maxWidth: wide ? 560 : .infinity)
                 .padding(.top, Tokens.Spacing.sm)
@@ -220,7 +220,7 @@ private struct XPProgress: View {
                     .monospacedDigit()
                 Text(L10n.rankXp)
                     .typeRole(Tokens.TypeRamp.card)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                 Spacer(minLength: Tokens.Spacing.md)
                 Text(L10n.rankLevel(level: String(badge.tier.level)))
                     .typeRole(Tokens.TypeRamp.card)
@@ -240,7 +240,7 @@ private struct XPProgress: View {
                 }
             }
             .typeRole(Tokens.TypeRamp.caption)
-            .foregroundStyle(Tokens.Palette.muted)
+            .foregroundStyle(Tokens.Palette.mutedText)
             .monospacedDigit()
         }
         .multilineTextAlignment(.leading)
@@ -265,7 +265,7 @@ private struct OwnProfileActions: View {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.sm) {
                     Label(L10n.profilesPrivateSelfNotice, systemImage: "eye.slash")
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                         .fixedSize(horizontal: false, vertical: true)
                     Button(L10n.profilesMakePublic) {
                         core.send(.profileVisibilityChanged(PublicChoice(public: true)))
@@ -359,7 +359,7 @@ private struct TopTitleCard: View {
                     .foregroundStyle(Tokens.Palette.text)
                 Text(RanksWords.watchTime(seconds: title.seconds))
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
             }
             .lineLimit(1)
             .frame(width: width, alignment: .leading)
@@ -384,7 +384,7 @@ private struct XPSources: View {
                             .foregroundStyle(Tokens.Palette.text)
                         Spacer(minLength: Tokens.Spacing.md)
                         Text(L10n.rankXpValue(xp: RanksWords.number(line.xp)))
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                             .monospacedDigit()
                     }
                     .typeRole(Tokens.TypeRamp.body)

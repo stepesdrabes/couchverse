@@ -94,7 +94,7 @@ struct LeaderboardScreen: View {
             if metric == .xp {
                 Label(L10n.leaderboardPeriodLocked, systemImage: "info.circle")
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
             } else {
                 Picker(L10n.leaderboardPeriod, selection: $period) {
                     ForEach([Period.all, .month, .week], id: \.self) { period in
@@ -145,7 +145,7 @@ private struct HiddenNotice: View {
     @ViewBuilder private var content: some View {
         Label(L10n.leaderboardHiddenNotice, systemImage: "eye.slash")
             .typeRole(Tokens.TypeRamp.body)
-            .foregroundStyle(Tokens.Palette.muted)
+            .foregroundStyle(Tokens.Palette.mutedText)
             .fixedSize(horizontal: false, vertical: true)
         Spacer(minLength: 0)
         NavigationLink(value: RanksRoute.editor) {
@@ -213,7 +213,7 @@ private struct Podium: View {
                     .minimumScaleFactor(0.7)
                 Text(String(index + 1))
                     .typeRole(Tokens.TypeRamp.title)
-                    .foregroundStyle(Tokens.Palette.faint)
+                    .foregroundStyle(Tokens.Palette.faintText)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: plinth, alignment: .top)
                     .padding(.top, Tokens.Spacing.sm)
@@ -280,7 +280,7 @@ private struct LeaderLine: View {
         HStack(spacing: Tokens.Spacing.md) {
             Text(place)
                 .typeRole(Tokens.TypeRamp.card)
-                .foregroundStyle(metal?.ring ?? Tokens.Palette.muted)
+                .foregroundStyle(metal?.ring ?? Tokens.Palette.mutedText)
                 .monospacedDigit()
                 .frame(width: placeWidth)
             AvatarView(url: row.avatar?.url, seed: row.username, name: row.displayName)
@@ -294,12 +294,12 @@ private struct LeaderLine: View {
                     if row.isSelf {
                         Text(L10n.leaderboardYou)
                             .typeRole(Tokens.TypeRamp.caption)
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                     }
                 }
                 Text(RanksWords.rankLine(tier: row.tierCode, level: row.level))
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -331,7 +331,7 @@ private struct MyPlace: View {
                     : L10n.leaderboardUnranked
             )
             .typeRole(Tokens.TypeRamp.caption)
-            .foregroundStyle(Tokens.Palette.muted)
+            .foregroundStyle(Tokens.Palette.mutedText)
             LeaderLine(row: row, metric: view.key.metric, place: ranked ? String(row.position) : "-", medal: false)
         }
         .padding(.horizontal, Tokens.Spacing.md)

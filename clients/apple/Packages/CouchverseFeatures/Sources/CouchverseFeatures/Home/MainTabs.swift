@@ -191,7 +191,7 @@ struct AccountHeader: View {
                         .lineLimit(1)
                     Text(L10n.accountsSwitch)
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                         .lineLimit(1)
                     RankCaption()
                 }

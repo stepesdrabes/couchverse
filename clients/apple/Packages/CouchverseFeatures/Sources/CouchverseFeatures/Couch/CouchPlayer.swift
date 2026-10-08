@@ -110,7 +110,7 @@ struct CouchInfoPanel: View, Equatable {
                         if !badges.isEmpty {
                             Text(badges)
                                 .typeRole(Tokens.TypeRamp.caption)
-                                .foregroundStyle(Tokens.Palette.muted)
+                                .foregroundStyle(Tokens.Palette.mutedText)
                                 .lineLimit(1)
                         }
                     }

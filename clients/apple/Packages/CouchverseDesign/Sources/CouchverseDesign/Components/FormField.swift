@@ -33,7 +33,7 @@ public struct FormField: View {
             VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
                 Text(label)
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                 field
                     .padding(.horizontal, Tokens.Spacing.md)
                     .padding(.vertical, Tokens.Spacing.md)
@@ -43,7 +43,7 @@ public struct FormField: View {
                     )
                     .overlay {
                         RoundedRectangle(cornerRadius: Tokens.Radius.input, style: .continuous)
-                            .strokeBorder(Tokens.Palette.edge)
+                            .strokeBorder(Tokens.Palette.edgeLine)
                     }
                     .accessibilityLabel(label)
             }
@@ -52,7 +52,7 @@ public struct FormField: View {
 
     @ViewBuilder private var field: some View {
         // the label sits above the field on touch devices, so only a TV repeats it inside
-        let placeholder = Text(prompt ?? (Idiom.isTV ? label : "")).foregroundStyle(Tokens.Palette.faint)
+        let placeholder = Text(prompt ?? (Idiom.isTV ? label : "")).foregroundStyle(Tokens.Palette.faintText)
         Group {
             if kind == .password {
                 SecureField(label, text: $text, prompt: placeholder)

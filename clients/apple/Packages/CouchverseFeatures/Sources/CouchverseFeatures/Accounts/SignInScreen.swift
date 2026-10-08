@@ -45,7 +45,7 @@ struct SignInScreen: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .tvFocusSection()
                         Rectangle()
-                            .fill(Tokens.Palette.edge)
+                            .fill(Tokens.Palette.edgeLine)
                             .frame(width: 1)
                         VStack(alignment: .leading, spacing: Tokens.Spacing.xl) {
                             Text(L10n.accountsUsePassword)
@@ -117,7 +117,7 @@ struct SignInScreen: View {
             HStack(spacing: Tokens.Spacing.sm) {
                 Text(server.map { PairingPanel.displayed($0.url) } ?? "")
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                 if server?.insecure == true {
                     InsecureBadge()
                 }
@@ -159,11 +159,11 @@ struct SignInScreen: View {
 
     private var orDivider: some View {
         HStack(spacing: Tokens.Spacing.md) {
-            Rectangle().fill(Tokens.Palette.edge).frame(height: 1)
+            Rectangle().fill(Tokens.Palette.edgeLine).frame(height: 1)
             Text(L10n.accountsOr)
                 .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.faint)
-            Rectangle().fill(Tokens.Palette.edge).frame(height: 1)
+                .foregroundStyle(Tokens.Palette.faintText)
+            Rectangle().fill(Tokens.Palette.edgeLine).frame(height: 1)
         }
         .accessibilityHidden(true)
     }

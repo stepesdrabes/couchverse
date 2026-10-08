@@ -106,12 +106,17 @@ struct HeatmapView: View {
     let heatmap: Heatmap
 
     @Environment(\.accent) private var accent
+    @Environment(\.colorSchemeContrast) private var contrast
     @State private var width: CGFloat = 0
     @ScaledMetric(relativeTo: .caption) private var monthsHeight: CGFloat = 18
 
     static let weeks = 26
-    /// How bright each level is over the empty cell's surface.
+    /// How bright each level is over the empty cell's surface; the quiet levels stand further
+    /// apart with Increase Contrast.
     static let levelOpacity: [Double] = [0, 0.22, 0.45, 0.7, 1]
+    static let raisedLevelOpacity: [Double] = [0, 0.4, 0.6, 0.8, 1]
+
+    private var levels: [Double] { contrast == .increased ? Self.raisedLevelOpacity : Self.levelOpacity }
 
     private var layout: HeatmapLayout { HeatmapLayout(heatmap, weeks: Self.weeks) }
     private var maxPitch: CGFloat { Idiom.isTV ? 40 : 26 }
@@ -155,7 +160,7 @@ struct HeatmapView: View {
     private var summaryText: some View {
         Text(summary)
             .typeRole(Tokens.TypeRamp.caption)
-            .foregroundStyle(Tokens.Palette.muted)
+            .foregroundStyle(Tokens.Palette.mutedText)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityHidden(true)
     }
@@ -163,16 +168,16 @@ struct HeatmapView: View {
     private var legend: some View {
         HStack(spacing: Tokens.Spacing.xs) {
             Text(L10n.profilesActivityLess)
-            ForEach(0..<Self.levelOpacity.count, id: \.self) { level in
+            ForEach(0..<levels.count, id: \.self) { level in
                 RoundedRectangle(cornerRadius: 2)
                     .fill(Tokens.Palette.surface2)
-                    .overlay { RoundedRectangle(cornerRadius: 2).fill(accent.color.opacity(Self.levelOpacity[level])) }
+                    .overlay { RoundedRectangle(cornerRadius: 2).fill(accent.color.opacity(levels[level])) }
                     .frame(width: 10, height: 10)
             }
             Text(L10n.profilesActivityMore)
         }
         .typeRole(Tokens.TypeRamp.caption)
-        .foregroundStyle(Tokens.Palette.faint)
+        .foregroundStyle(Tokens.Palette.faintText)
         .accessibilityHidden(true)
     }
 
@@ -188,7 +193,7 @@ struct HeatmapView: View {
             let label = context.resolve(
                 Text(mark.date.formatted(month))
                     .font(Tokens.TypeRamp.caption.font)
-                    .foregroundStyle(Tokens.Palette.faint))
+                    .foregroundStyle(Tokens.Palette.faintText))
             // a month starting in this week stays inside the grid
             let width = label.measure(in: CGSize(width: CGFloat.infinity, height: monthsHeight)).width
             let x = min(start + CGFloat(mark.column) * pitch, CGFloat(Self.weeks) * pitch - width)
@@ -202,7 +207,7 @@ struct HeatmapView: View {
                     height: cell)
                 let shape = Path(roundedRect: rect, cornerRadius: corner)
                 context.fill(shape, with: .color(Tokens.Palette.surface2))
-                let opacity = Self.levelOpacity[min(Int(day.level), Self.levelOpacity.count - 1)]
+                let opacity = levels[min(Int(day.level), levels.count - 1)]
                 if opacity > 0 {
                     context.fill(shape, with: .color(accent.color.opacity(opacity)))
                 }
@@ -226,7 +231,7 @@ struct WatchClockView: View {
             let inner = outer * 0.35
             context.stroke(
                 Path(ellipseIn: CGRect(x: center.x - outer, y: center.y - outer, width: outer * 2, height: outer * 2)),
-                with: .color(Tokens.Palette.edge), lineWidth: 1)
+                with: .color(Tokens.Palette.edgeLine), lineWidth: 1)
             for wedge in wedges where wedge.fraction > 0 {
                 let radius = inner + (outer - inner) * wedge.fraction
                 var path = Path()
@@ -242,7 +247,7 @@ struct WatchClockView: View {
             for hour in [0, 6, 12, 18] {
                 let label = Text(String(hour))
                     .font(Tokens.TypeRamp.caption.font)
-                    .foregroundStyle(Tokens.Palette.faint)
+                    .foregroundStyle(Tokens.Palette.faintText)
                 let point = WatchClockLayout.labelPoint(hour: hour, center: center, radius: outer + labelInset / 2)
                 context.draw(label, at: point)
             }

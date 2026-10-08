@@ -55,20 +55,20 @@ struct PairingPanel: View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.lg) {
             Text(L10n.accountsPairingInstructions)
                 .typeRole(Tokens.TypeRamp.body)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .fixedSize(horizontal: false, vertical: true)
             Text(pairing.userCode)
                 .font(.system(size: codeSize, weight: .bold, design: .monospaced))
                 .tracking(codeSize * 0.08)
-                .foregroundStyle(waiting ? Tokens.Palette.text : Tokens.Palette.faint)
-                .strikethrough(!waiting, color: Tokens.Palette.faint)
+                .foregroundStyle(waiting ? Tokens.Palette.text : Tokens.Palette.faintText)
+                .strikethrough(!waiting, color: Tokens.Palette.faintText)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 .speechSpellsOutCharacters()
                 .accessibilityIdentifier("pairing-code")
             Text(L10n.accountsPairingVisit(url: Self.displayed(pairing.verifyUrl)))
                 .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
             status(pairing)
         }
     }
@@ -83,7 +83,7 @@ struct PairingPanel: View {
                         .monospacedDigit()
                 }
                 .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .accessibilityElement(children: .combine)
             }
         case .expired, .denied:

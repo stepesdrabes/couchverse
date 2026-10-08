@@ -35,7 +35,7 @@ public struct ServerLabel: View {
                 .foregroundStyle(Tokens.Palette.text)
             Text(url)
                 .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .lineLimit(1)
                 .truncationMode(.middle)
             if insecure {

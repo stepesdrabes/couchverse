@@ -18,7 +18,7 @@ struct AchievementsSection: View {
                     .accessibilityAddTraits(.isHeader)
                 Text(L10n.achievementCount(unlocked: String(won), total: String(cards.count)))
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                     .monospacedDigit()
             }
             if cards.isEmpty {
@@ -29,7 +29,7 @@ struct AchievementsSection: View {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
                     Text(RanksWords.category(group.category))
                         .typeRole(Tokens.TypeRamp.card)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                         .accessibilityAddTraits(.isHeader)
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: tileWidth), spacing: Tokens.Spacing.md)],
@@ -85,16 +85,16 @@ private struct AchievementTile: View {
                 Spacer(minLength: 0)
                 Text(RanksWords.medal(card.tier))
                     .typeRole(Tokens.TypeRamp.eyebrow)
-                    .foregroundStyle(card.unlocked ? medal.ring : Tokens.Palette.faint)
+                    .foregroundStyle(card.unlocked ? medal.ring : Tokens.Palette.faintText)
             }
             Text(RanksWords.achievementName(card.code))
                 .typeRole(Tokens.TypeRamp.card)
-                .foregroundStyle(card.unlocked ? Tokens.Palette.text : Tokens.Palette.muted)
+                .foregroundStyle(card.unlocked ? Tokens.Palette.text : Tokens.Palette.mutedText)
                 .fixedSize(horizontal: false, vertical: true)
             if let description = RanksWords.achievementDescription(card.code) {
                 Text(description)
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
@@ -105,7 +105,7 @@ private struct AchievementTile: View {
         .background(Tokens.Palette.surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
-                .strokeBorder(card.unlocked ? medal.ring.opacity(0.6) : Tokens.Palette.edge)
+                .strokeBorder(card.unlocked ? medal.ring.opacity(0.6) : Tokens.Palette.edgeLine)
         }
         .accessibilityElement(children: .combine)
         .accessibilityValue(card.unlocked ? L10n.achievementUnlocked : L10n.achievementLocked)
@@ -124,7 +124,7 @@ private struct AchievementTile: View {
             if let date = card.unlockedAt.flatMap(RanksWords.date) {
                 Text(L10n.achievementUnlockedOn(date: date))
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
             }
         } else {
             VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
@@ -135,7 +135,7 @@ private struct AchievementTile: View {
                     )
                 )
                 .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .monospacedDigit()
             }
         }

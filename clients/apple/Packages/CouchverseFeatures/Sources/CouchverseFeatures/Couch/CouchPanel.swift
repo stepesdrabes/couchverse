@@ -25,7 +25,7 @@ struct CouchPanel: View {
                     Text(L10n.couchStarting)
                 }
                 .typeRole(Tokens.TypeRamp.body)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .accessibilityElement(children: .combine)
             } else if view.status == .ended {
                 CatalogMessage(systemImage: "sofa", title: CouchLabels.status(view) ?? "", message: nil)
@@ -36,7 +36,7 @@ struct CouchPanel: View {
             } else {
                 Text(L10n.couchStartSessionHint)
                     .typeRole(Tokens.TypeRamp.body)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                     .fixedSize(horizontal: false, vertical: true)
                 startButton
             }
@@ -52,7 +52,7 @@ struct CouchPanel: View {
         if let status = CouchLabels.status(view) {
             Text(status)
                 .typeRole(Tokens.TypeRamp.body)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
         }
         if view.role == .host, let code = view.code, let share = view.shareUrl {
             ViewThatFits(in: .horizontal) {
@@ -96,7 +96,7 @@ struct CouchPanel: View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
             Text(L10n.couchShareLabel)
                 .typeRole(Tokens.TypeRamp.body)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .fixedSize(horizontal: false, vertical: true)
             Text(CouchLabels.spaced(code))
                 .font(.system(size: codeSize, weight: .bold, design: .monospaced))
@@ -108,7 +108,7 @@ struct CouchPanel: View {
                 .accessibilityIdentifier("couch-code")
             Text(PairingPanel.displayed(share))
                 .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .lineLimit(2)
         }
     }
@@ -146,7 +146,7 @@ struct CouchMemberRow: View {
                 if !badges.isEmpty {
                     Text(badges)
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                 }
             }
         }

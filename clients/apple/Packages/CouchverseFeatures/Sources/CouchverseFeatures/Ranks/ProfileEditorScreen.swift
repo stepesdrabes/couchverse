@@ -122,7 +122,7 @@ struct ProfileEditorScreen: View {
                         .foregroundStyle(Tokens.Palette.text)
                     Text(L10n.profilesPublicHint)
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -196,7 +196,7 @@ private struct BioField: View {
     var body: some View {
         let field = TextField(
             L10n.profileBio, text: $text,
-            prompt: Text(L10n.profileBioPlaceholder).foregroundStyle(Tokens.Palette.faint), axis: .vertical
+            prompt: Text(L10n.profileBioPlaceholder).foregroundStyle(Tokens.Palette.faintText), axis: .vertical
         )
         .lineLimit(4...12)
         .foregroundStyle(Tokens.Palette.text)
@@ -211,7 +211,7 @@ private struct BioField: View {
             VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
                 Text(L10n.profileBio)
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                 field
                     .padding(Tokens.Spacing.md)
                     .background(
@@ -220,13 +220,13 @@ private struct BioField: View {
                     )
                     .overlay {
                         RoundedRectangle(cornerRadius: Tokens.Radius.input, style: .continuous)
-                            .strokeBorder(Tokens.Palette.edge)
+                            .strokeBorder(Tokens.Palette.edgeLine)
                     }
                     .accessibilityLabel(L10n.profileBio)
                 if text.count > limit - 200 {
                     Text("\(text.count) / \(limit)")
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.faint)
+                        .foregroundStyle(Tokens.Palette.faintText)
                         .monospacedDigit()
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
@@ -288,7 +288,7 @@ private struct SaveOutcome: View {
                 }
                 Text(L10n.profileBannerHint)
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.faint)
+                    .foregroundStyle(Tokens.Palette.faintText)
                     .fixedSize(horizontal: false, vertical: true)
                 outcome(.banner)
                 HStack(spacing: Tokens.Spacing.lg) {
@@ -326,7 +326,7 @@ private struct SaveOutcome: View {
                     Rectangle().fill(Tokens.Palette.surface2)
                     Label(L10n.profileBanner, systemImage: "photo")
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.faint)
+                        .foregroundStyle(Tokens.Palette.faintText)
                 }
                 if busy(.banner) {
                     ProgressView()
@@ -440,12 +440,12 @@ private struct SaveOutcome: View {
                         .accessibilityAddTraits(.isHeader)
                     Text(L10n.profilePicturesOnPhoneHint)
                         .typeRole(Tokens.TypeRamp.body)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                         .fixedSize(horizontal: false, vertical: true)
                     if let profileURL {
                         Text(PairingPanel.displayed(profileURL))
                             .typeRole(Tokens.TypeRamp.caption)
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                     }
                     HStack(spacing: Tokens.Spacing.lg) {
                         if user?.avatarId != nil {

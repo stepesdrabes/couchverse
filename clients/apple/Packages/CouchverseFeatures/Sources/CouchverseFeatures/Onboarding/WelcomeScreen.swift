@@ -31,7 +31,7 @@ struct WelcomeScreen: View {
                             .accessibilityAddTraits(.isHeader)
                         Text(L10n.onboardingWelcomeMessage)
                             .typeRole(Tokens.TypeRamp.body)
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                     }
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -80,7 +80,7 @@ struct WelcomeScreen: View {
                 .disabled(busy)
                 Text(L10n.onboardingScanHint)
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             #endif

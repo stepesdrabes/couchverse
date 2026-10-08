@@ -41,7 +41,7 @@ struct ReadingBlock<Content: View>: View {
                     if let detail {
                         Text(detail)
                             .typeRole(Tokens.TypeRamp.caption)
-                            .foregroundStyle(Tokens.Palette.muted)
+                            .foregroundStyle(Tokens.Palette.mutedText)
                             .monospacedDigit()
                     }
                 }
@@ -70,7 +70,7 @@ private struct ReadingFocus: ViewModifier {
                     .overlay {
                         RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
                             .strokeBorder(
-                                focused ? Tokens.Palette.text : Tokens.Palette.edge, lineWidth: focused ? 3 : 1)
+                                focused ? Tokens.Palette.text : Tokens.Palette.edgeLine, lineWidth: focused ? 3 : 1)
                     }
                     .focusable()
                     .focused($focused)
@@ -133,7 +133,7 @@ struct MedalBadge: View {
             }
             Image(systemName: RanksWords.achievementSymbol(card.code))
                 .font(.system(size: size * 0.42, weight: .semibold))
-                .foregroundStyle(card.unlocked ? Tokens.Accent.onAccentDark : Tokens.Palette.faint)
+                .foregroundStyle(card.unlocked ? Tokens.Accent.onAccentDark : Tokens.Palette.faintText)
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
@@ -161,7 +161,7 @@ struct StatTile: View {
                 .minimumScaleFactor(0.7)
             Text(label)
                 .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.muted)
+                .foregroundStyle(Tokens.Palette.mutedText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Idiom.isTV ? Tokens.Spacing.xl : Tokens.Spacing.md)
@@ -187,7 +187,7 @@ struct RankCaption: View {
                 }
                 Text(RanksWords.rankLine(badge))
                     .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.muted)
+                    .foregroundStyle(Tokens.Palette.mutedText)
                     .lineLimit(1)
             }
             .accessibilityElement(children: .combine)

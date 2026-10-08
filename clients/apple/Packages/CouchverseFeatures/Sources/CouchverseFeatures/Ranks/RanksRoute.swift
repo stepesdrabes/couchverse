@@ -77,7 +77,7 @@ private struct PublicProfileRow: View {
         let badge = core.rank.rank
         HStack(spacing: Tokens.Spacing.md) {
             RankRing(
-                color: badge.map { RanksStyle.tier($0.tier.code) } ?? Tokens.Palette.edge,
+                color: badge.map { RanksStyle.tier($0.tier.code) } ?? Tokens.Palette.edgeLine,
                 progress: Double(badge?.percent ?? 0) / 100, lineWidth: 3, flashes: core.rank.levelUps
             ) {
                 AvatarView(url: card?.avatarUrl, seed: user.username, name: user.displayName)
@@ -90,7 +90,7 @@ private struct PublicProfileRow: View {
                 if let badge {
                     Text(RanksWords.rankLine(badge))
                         .typeRole(Tokens.TypeRamp.caption)
-                        .foregroundStyle(Tokens.Palette.muted)
+                        .foregroundStyle(Tokens.Palette.mutedText)
                 }
             }
         }
