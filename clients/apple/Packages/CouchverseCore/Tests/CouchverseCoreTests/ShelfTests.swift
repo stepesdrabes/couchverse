@@ -125,6 +125,15 @@ struct ShelfSnapshotTests {
         #expect(ShelfSnapshot.read(from: directory) == snapshot)
     }
 
+    /// A build without `EXTENSIONS_ENABLED` names no App Group, and the snapshot stays in the app's
+    /// own caches.
+    @Test func withoutAGroupTheSnapshotStaysInTheAppsCaches() {
+        #expect(SharedContainer.group(in: .main) == nil)
+        #expect(!SharedContainer.extensionsEnabled(in: .main))
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        #expect(SharedContainer.directory(bundle: .main) == caches)
+    }
+
     /// The format the extensions decode, which may be older or newer than the app writing it.
     @Test func theFileKeepsItsShape() throws {
         let json = """
