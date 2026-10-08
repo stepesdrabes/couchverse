@@ -14,6 +14,18 @@ public enum OpenRequest: Hashable, Sendable {
     case couch(code: String)
 }
 
+extension OpenRequest {
+    /// What a `couchverse://title` or `couchverse://play` link asks for (Spotlight, the intents);
+    /// `nil` for any other link.
+    public init?(link: String) {
+        switch DeepLink(link) {
+        case .title(let slug): self = .title(slug: slug)
+        case .play(let target): self = .play(target)
+        default: return nil
+        }
+    }
+}
+
 /// The request waiting for the app to act on it. It waits for an account: the signed-in screens
 /// take it once they are up (after "Who's watching?" on a TV), the root takes a couch code, whose
 /// join screen waits by itself. A newer request replaces one not yet taken.
