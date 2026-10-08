@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The featured titles, one at a time over their backdrops, moving on every 8 seconds (plan 12.2)
 /// unless the viewer is busy with it: a focused button on TV, a finger on a phone. Under VoiceOver
-/// or Switch Control it holds still, and the page dots move it on instead.
+/// or Switch Control on a phone it holds still, and the page dots move it on instead.
 struct HeroCarousel: View {
     let featured: [FeaturedCard]
 
@@ -26,7 +26,8 @@ struct HeroCarousel: View {
 
     var body: some View {
         let current = featured[min(index, featured.count - 1)]
-        let held = voiceOver || switchControl
+        // a TV's VoiceOver follows the focus, which holds the slide still already
+        let held = !Idiom.isTV && (voiceOver || switchControl)
         // the slide sets the height, at least the backdrop's, so large text grows the hero
         HeroSlide(card: current, focus: $focused)
             .id("slide-\(current.titleId)")
