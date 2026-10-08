@@ -33,6 +33,8 @@ struct PairingPanel: View {
                         Skeleton(width: codeSize * 4, height: 18)
                     }
                 }
+                .accessibilityElement()
+                .accessibilityLabel(L10n.commonLoading)
             } else if let problem {
                 ProblemBanner(problem, retry: onNewCode)
             } else {
@@ -85,6 +87,7 @@ struct PairingPanel: View {
                 .typeRole(Tokens.TypeRamp.caption)
                 .foregroundStyle(Tokens.Palette.mutedText)
                 .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.updatesFrequently)
             }
         case .expired, .denied:
             VStack(alignment: .leading, spacing: Tokens.Spacing.md) {

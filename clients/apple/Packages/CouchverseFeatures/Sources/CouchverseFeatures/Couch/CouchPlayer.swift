@@ -76,6 +76,9 @@ struct CouchStatusPill: View {
                 .glassEffect(ambience == .flat ? .identity : .regular, in: Capsule())
                 .accessibilityAddTraits(.updatesFrequently)
                 .transition(.opacity)
+                // over a playing video nothing else would tell VoiceOver the host paused
+                .onAppear { AccessibilityNotification.Announcement(status).post() }
+                .onChange(of: status) { _, status in AccessibilityNotification.Announcement(status).post() }
         }
     }
 }
@@ -103,6 +106,7 @@ struct CouchInfoPanel: View, Equatable {
                     VStack(spacing: Tokens.Spacing.sm) {
                         AvatarView(url: member.avatar?.url, seed: member.seed, name: member.displayName)
                             .frame(width: 120, height: 120)
+                            .accessibilityHidden(true)
                         Text(member.displayName)
                             .typeRole(Tokens.TypeRamp.card)
                             .foregroundStyle(Tokens.Palette.text)
@@ -272,6 +276,8 @@ struct CouchMenu: Equatable {
             }
             .padding(Tokens.Spacing.md)
             .background { EmojiKeyboard(typing: $typing, send: send).frame(width: 0, height: 0) }
+            // a named group, so the label does not replace each emoji's own
+            .accessibilityElement(children: .contain)
             .accessibilityLabel(L10n.couchReact)
         }
     }

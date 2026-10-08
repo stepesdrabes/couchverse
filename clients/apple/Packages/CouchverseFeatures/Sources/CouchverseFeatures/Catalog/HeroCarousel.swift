@@ -3,12 +3,15 @@ import CouchverseDesign
 import SwiftUI
 
 /// The featured titles, one at a time over their backdrops, moving on every 8 seconds (plan 12.2)
-/// unless the viewer is busy with it: a focused button on TV, a finger on a phone.
+/// unless the viewer is busy with it: a focused button on TV, a finger on a phone. Under VoiceOver
+/// or Switch Control it holds still, and the page dots move it on instead.
 struct HeroCarousel: View {
     let featured: [FeaturedCard]
 
     @Environment(CoreRuntime.self) private var core
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+    @Environment(\.accessibilitySwitchControlEnabled) private var switchControl
     @State private var index = 0
     @State private var touching = false
     @FocusState private var focused: Bool
@@ -23,6 +26,7 @@ struct HeroCarousel: View {
 
     var body: some View {
         let current = featured[min(index, featured.count - 1)]
+        let held = voiceOver || switchControl
         // the slide sets the height, at least the backdrop's, so large text grows the hero
         HeroSlide(card: current, focus: $focused)
             .id("slide-\(current.titleId)")
@@ -55,7 +59,7 @@ struct HeroCarousel: View {
             }
             .overlay(alignment: .bottomTrailing) {
                 if featured.count > 1 {
-                    PageDots(count: featured.count, index: index)
+                    PageDots(count: featured.count, index: $index, current: current.name)
                         .padding(.trailing, CardMetrics.edge)
                         .padding(.bottom, Idiom.isTV ? 48 : Tokens.Spacing.xl)
                 }
@@ -66,15 +70,20 @@ struct HeroCarousel: View {
             #endif
             .accessibilityElement(children: .contain)
             .accessibilityLabel(L10n.catalogFeaturedTitles)
-            .task(id: featured.map(\.titleId)) {
+            .task(id: Rotation(titles: featured.map(\.titleId), held: held)) {
                 index = 0
-                while !Task.isCancelled {
+                while !Task.isCancelled && !held {
                     try? await Task.sleep(for: Tokens.Motion.heroInterval)
                     if !focused && !touching && featured.count > 1 {
                         index = (index + 1) % featured.count
                     }
                 }
             }
+    }
+
+    private struct Rotation: Equatable {
+        let titles: [String]
+        let held: Bool
     }
 
     #if os(iOS)
@@ -189,9 +198,12 @@ struct MyListButton: View {
     }
 }
 
+/// Which title is showing; for VoiceOver one adjustable element, as a page control is, swiped up
+/// or down to the next or the previous title.
 private struct PageDots: View {
     let count: Int
-    let index: Int
+    @Binding var index: Int
+    let current: String
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.sm) {
@@ -201,6 +213,15 @@ private struct PageDots: View {
                     .frame(width: i == index ? 22 : 8, height: 8)
             }
         }
-        .accessibilityHidden(true)
+        .accessibilityElement()
+        .accessibilityLabel(L10n.catalogFeatured)
+        .accessibilityValue(current)
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: index = (index + 1) % count
+            case .decrement: index = (index + count - 1) % count
+            @unknown default: break
+            }
+        }
     }
 }

@@ -135,5 +135,7 @@ struct GridSkeleton: View {
             }
         }
         .padding(.horizontal, CardMetrics.edge)
+        .accessibilityElement()
+        .accessibilityLabel(L10n.commonLoading)
     }
 }

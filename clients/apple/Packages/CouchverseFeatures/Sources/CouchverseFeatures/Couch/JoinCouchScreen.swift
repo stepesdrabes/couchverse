@@ -237,7 +237,7 @@ private struct CodeSlots: View {
         }
         .accessibilityElement()
         .accessibilityLabel(L10n.couchJoinCode)
-        .accessibilityValue(code)
+        .accessibilityValue(CouchLabels.spokenDigits(code))
     }
 }
 

@@ -16,6 +16,8 @@ struct NoticeToasts: View {
                         reduceMotion ? .opacity : .move(edge: Idiom.isTV ? .top : .bottom).combined(with: .opacity)
                     )
                     .task(id: notice.id) {
+                        // gone in a few seconds, so VoiceOver says it at once
+                        AccessibilityNotification.Announcement(CatalogLabels.notice(notice.code)).post()
                         try? await Task.sleep(for: .seconds(4))
                         if !Task.isCancelled {
                             dismiss(notice)

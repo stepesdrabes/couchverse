@@ -1,7 +1,8 @@
 import CouchverseCore
 import SwiftUI
 
-/// A failure the core reported, in words, with an optional way to try again.
+/// A failure the core reported, in words, with an optional way to try again. VoiceOver says it as
+/// it appears, since it answers something the viewer just did.
 public struct ProblemBanner: View {
     let problem: Problem
     let retry: (() -> Void)?
@@ -32,5 +33,11 @@ public struct ProblemBanner: View {
             in: RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
         )
         .accessibilityElement(children: .combine)
+        .onAppear(perform: announce)
+        .onChange(of: problem) { announce() }
+    }
+
+    private func announce() {
+        AccessibilityNotification.Announcement(problem.message).post()
     }
 }

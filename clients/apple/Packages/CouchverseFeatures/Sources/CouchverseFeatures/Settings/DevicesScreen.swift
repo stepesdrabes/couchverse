@@ -23,6 +23,8 @@ struct DevicesScreen: View {
                         }
                     }
                     .padding(.vertical, Tokens.Spacing.xs)
+                    .accessibilityElement()
+                    .accessibilityLabel(L10n.commonLoading)
                 }
             case .failed where devices.devices.isEmpty:
                 if let problem = devices.problem {
@@ -39,6 +41,7 @@ struct DevicesScreen: View {
                 }
                 ForEach(devices.devices, id: \.id) { device in
                     row(device)
+                        .focusable(Idiom.isTV)
                         .swipeToRemove(L10n.devicesRevoke, enabled: !device.current) { revoking = device }
                         .contextMenu {
                             if !device.current {

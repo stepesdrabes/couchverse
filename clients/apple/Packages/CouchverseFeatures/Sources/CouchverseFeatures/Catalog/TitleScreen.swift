@@ -368,7 +368,9 @@ private struct SeasonsSection: View {
                 }
                 .buttonStyle(.card)
                 .accessibilityLabel(EpisodeLabels.name(episode))
-                .accessibilityValue(EpisodeLabels.length(episode) ?? "")
+                .accessibilityValue(
+                    [EpisodeLabels.length(episode), EpisodeLabels.progress(episode)].compactMap { $0 }
+                        .joined(separator: ", "))
                 VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
                     Text("\(episode.number). \(EpisodeLabels.name(episode))")
                         .typeRole(Tokens.TypeRamp.card)
@@ -438,6 +440,7 @@ private struct SeasonsSection: View {
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
+            .accessibilityValue(EpisodeLabels.progress(episode) ?? "")
         }
     }
 #endif
@@ -476,6 +479,15 @@ enum EpisodeLabels {
         let minutes = episode.runtimeMinutes ?? episode.durationSeconds.map { UInt32(($0 + 30) / 60) }
         return minutes.flatMap { $0 > 0 ? CatalogLabels.runtime(minutes: $0) : nil }
     }
+
+    /// How far in, as the still's bar and check show it; nil before it is started.
+    static func progress(_ episode: EpisodeView) -> String? {
+        if episode.completed {
+            return L10n.catalogWatched
+        }
+        let percent = Int((min(max(episode.progress, 0), 1) * 100).rounded())
+        return percent > 0 ? L10n.catalogProgress(percent: String(percent)) : nil
+    }
 }
 
 /// A title page's shape while it first loads.
@@ -500,7 +512,7 @@ private struct TitleSkeleton: View {
         }
         .ignoresSafeArea(edges: .top)
         .accessibilityElement()
-        .accessibilityLabel(L10n.commonProcessing)
+        .accessibilityLabel(L10n.commonLoading)
     }
 }
 

@@ -199,8 +199,13 @@ struct AccountHeader: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(L10n.accountsSwitch)
-        .accessibilityValue(card?.displayName ?? "")
+        .accessibilityValue([card?.displayName, rankLine].compactMap { $0 }.joined(separator: ", "))
         .accessibilityIdentifier("account-header")
+    }
+
+    /// The rank the header shows under the name, while rankings are on.
+    private var rankLine: String? {
+        core.session.features.rankings ? core.rank.rank.map(RanksWords.rankLine) : nil
     }
 }
 

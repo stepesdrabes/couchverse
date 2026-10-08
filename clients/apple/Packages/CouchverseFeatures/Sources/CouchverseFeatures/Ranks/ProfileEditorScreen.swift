@@ -212,6 +212,7 @@ private struct BioField: View {
                 Text(L10n.profileBio)
                     .typeRole(Tokens.TypeRamp.caption)
                     .foregroundStyle(Tokens.Palette.mutedText)
+                    .accessibilityHidden(true)
                 field
                     .padding(Tokens.Spacing.md)
                     .background(
@@ -235,8 +236,8 @@ private struct BioField: View {
     }
 }
 
-/// How a save of this visit went: the success line, or what went wrong. While it runs its button
-/// says so.
+/// How a save of this visit went: the success line, or what went wrong, which VoiceOver says as
+/// it appears. While it runs its button says so.
 private struct SaveOutcome: View {
     let state: SaveState
     let saved: String
@@ -248,14 +249,21 @@ private struct SaveOutcome: View {
             Label(saved, systemImage: "checkmark.circle.fill")
                 .typeRole(Tokens.TypeRamp.caption)
                 .foregroundStyle(Tokens.Palette.success)
+                .onAppear { announce(saved) }
         case .failed, .notFound:
-            Label(RanksWords.failure(state.problem, fallback: failed), systemImage: "exclamationmark.triangle.fill")
+            let failure = RanksWords.failure(state.problem, fallback: failed)
+            Label(failure, systemImage: "exclamationmark.triangle.fill")
                 .typeRole(Tokens.TypeRamp.caption)
                 .foregroundStyle(Tokens.Palette.danger)
                 .fixedSize(horizontal: false, vertical: true)
+                .onAppear { announce(failure) }
         default:
             EmptyView()
         }
+    }
+
+    private func announce(_ outcome: String) {
+        AccessibilityNotification.Announcement(outcome).post()
     }
 }
 

@@ -213,6 +213,8 @@ import SwiftUI
                 }
             }
             .padding(.vertical, Tokens.Spacing.xs)
+            .accessibilityElement()
+            .accessibilityLabel(L10n.commonLoading)
         }
     }
 #endif

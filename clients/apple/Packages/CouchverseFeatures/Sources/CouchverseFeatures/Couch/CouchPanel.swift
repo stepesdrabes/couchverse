@@ -103,8 +103,7 @@ struct CouchPanel: View {
                 .foregroundStyle(Tokens.Palette.text)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
-                .speechSpellsOutCharacters()
-                .accessibilityLabel(L10n.couchCode(code: code))
+                .accessibilityLabel(L10n.couchCode(code: CouchLabels.spokenDigits(code)))
                 .accessibilityIdentifier("couch-code")
             Text(PairingPanel.displayed(share))
                 .typeRole(Tokens.TypeRamp.caption)
@@ -139,6 +138,7 @@ struct CouchMemberRow: View {
         HStack(spacing: Tokens.Spacing.md) {
             AvatarView(url: member.avatar?.url, seed: member.seed, name: member.displayName)
                 .frame(width: Idiom.isTV ? 64 : 40, height: Idiom.isTV ? 64 : 40)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
                 Text(member.displayName)
                     .typeRole(Tokens.TypeRamp.card)

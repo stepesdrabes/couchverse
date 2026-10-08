@@ -83,11 +83,12 @@ private struct PlayerWaiting: View {
                         .multilineTextAlignment(.center)
                     ProgressView(value: Double(min(percent, 100)), total: 100)
                         .frame(maxWidth: Idiom.isTV ? 600 : 280)
-                        .accessibilityValue("\(percent) %")
+                        .accessibilityValue(
+                            (Double(min(percent, 100)) / 100).formatted(.percent.locale(L10n.locale)))
                 } else {
                     ProgressView()
                         .controlSize(.large)
-                        .accessibilityLabel(L10n.commonProcessing)
+                        .accessibilityLabel(L10n.commonLoading)
                     if !view.title.isEmpty {
                         Text([view.title, view.subtitle].filter { !$0.isEmpty }.joined(separator: " \u{00B7} "))
                             .typeRole(Tokens.TypeRamp.card)

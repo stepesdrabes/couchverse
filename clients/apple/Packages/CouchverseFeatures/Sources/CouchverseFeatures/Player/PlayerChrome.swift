@@ -186,6 +186,7 @@ final class ChromeVisibility {
                 .typeRole(Tokens.TypeRamp.caption)
                 .foregroundStyle(.white.opacity(0.75))
                 .contentTransition(.numericText(countsDown: true))
+                .accessibilityAddTraits(.updatesFrequently)
                 Text(PlayerLabels.nextUp(next))
                     .typeRole(Tokens.TypeRamp.card)
                     .foregroundStyle(.white)

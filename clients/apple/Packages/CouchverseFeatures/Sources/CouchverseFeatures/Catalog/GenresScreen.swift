@@ -34,6 +34,8 @@ struct GenresScreen: View {
                     }
                 } skeleton: {
                     tiles(count: 8) { _ in Skeleton(height: tileHeight, cornerRadius: Tokens.Radius.card) }
+                        .accessibilityElement()
+                        .accessibilityLabel(L10n.commonLoading)
                 }
             }
             .padding(.vertical, Idiom.isTV ? 40 : Tokens.Spacing.lg)

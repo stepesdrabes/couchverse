@@ -423,6 +423,6 @@ private struct ProfileSkeleton: View {
         }
         .padding(.horizontal, CardMetrics.edge)
         .accessibilityElement()
-        .accessibilityLabel(L10n.commonProcessing)
+        .accessibilityLabel(L10n.commonLoading)
     }
 }

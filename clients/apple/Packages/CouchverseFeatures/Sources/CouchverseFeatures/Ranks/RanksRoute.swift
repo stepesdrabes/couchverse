@@ -83,6 +83,7 @@ private struct PublicProfileRow: View {
                 AvatarView(url: card?.avatarUrl, seed: user.username, name: user.displayName)
                     .frame(width: 36, height: 36)
             }
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
                 Text(L10n.navPublicProfile)
                     .typeRole(Tokens.TypeRamp.card)

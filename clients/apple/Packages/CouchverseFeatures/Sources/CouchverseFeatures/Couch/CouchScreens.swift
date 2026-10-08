@@ -87,6 +87,7 @@ struct CouchRemoteScreen: View {
                             .monospacedDigit()
                             .foregroundStyle(Tokens.Palette.text)
                             .contentTransition(.numericText())
+                            .accessibilityAddTraits(.updatesFrequently)
                     }
                     transport(playing: view.playing)
                     episodes

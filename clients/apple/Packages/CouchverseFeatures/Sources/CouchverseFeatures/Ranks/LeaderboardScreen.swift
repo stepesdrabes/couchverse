@@ -171,6 +171,8 @@ private struct Podium: View {
             place(0)
             place(2)
         }
+        // the places' sort priorities read them first to third within the podium only
+        .accessibilityElement(children: .contain)
         .frame(maxWidth: .infinity)
         .tvFocusSection()
         .onAppear {
@@ -285,6 +287,7 @@ private struct LeaderLine: View {
                 .frame(width: placeWidth)
             AvatarView(url: row.avatar?.url, seed: row.username, name: row.displayName)
                 .frame(width: avatarSize, height: avatarSize)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
                 HStack(spacing: Tokens.Spacing.sm) {
                     Text(row.displayName)
@@ -376,6 +379,6 @@ private struct LeaderboardSkeleton: View {
             }
         }
         .accessibilityElement()
-        .accessibilityLabel(L10n.commonProcessing)
+        .accessibilityLabel(L10n.commonLoading)
     }
 }

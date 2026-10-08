@@ -31,9 +31,11 @@ public struct FormField: View {
             field.accessibilityLabel(label)
         #else
             VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
+                // the field itself carries the label for VoiceOver
                 Text(label)
                     .typeRole(Tokens.TypeRamp.caption)
                     .foregroundStyle(Tokens.Palette.mutedText)
+                    .accessibilityHidden(true)
                 field
                     .padding(.horizontal, Tokens.Spacing.md)
                     .padding(.vertical, Tokens.Spacing.md)

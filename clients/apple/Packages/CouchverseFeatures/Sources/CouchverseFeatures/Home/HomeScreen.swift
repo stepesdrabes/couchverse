@@ -96,7 +96,7 @@ private struct HomeSkeleton: View {
             ShelfSkeleton()
         }
         .accessibilityElement()
-        .accessibilityLabel(L10n.commonProcessing)
+        .accessibilityLabel(L10n.commonLoading)
     }
 }
 
@@ -114,6 +114,7 @@ struct AccountButton: View {
                 .frame(width: 32, height: 32)
         }
         .accessibilityLabel(L10n.accountsSwitch)
+        .accessibilityValue(card?.displayName ?? "")
         .accessibilityIdentifier("account-switcher")
     }
 }

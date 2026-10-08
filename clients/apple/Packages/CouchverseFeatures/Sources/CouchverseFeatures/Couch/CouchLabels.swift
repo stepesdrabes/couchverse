@@ -64,6 +64,11 @@ enum CouchLabels {
         code.count == 6 ? "\(code.prefix(3)) \(code.suffix(3))" : code
     }
 
+    /// "1 2 3 4 5 6": a code as VoiceOver should say it, digit by digit rather than as a number.
+    static func spokenDigits(_ code: String) -> String {
+        code.map(String.init).joined(separator: " ")
+    }
+
     /// A member's badges: the host (and whether they stepped away), this device, a paused member.
     static func badges(_ member: CouchMember, hostAway: Bool) -> String {
         var badges: [String] = []

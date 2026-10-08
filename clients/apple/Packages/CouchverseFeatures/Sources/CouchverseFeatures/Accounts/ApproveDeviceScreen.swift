@@ -180,6 +180,7 @@ struct ApproveDeviceScreen: View {
         .secondaryAction()
     }
 
+    /// What came of the code, which VoiceOver says as it appears.
     private func outcome(_ text: String, systemImage: String, tint: Color) -> some View {
         Label {
             Text(text)
@@ -190,6 +191,7 @@ struct ApproveDeviceScreen: View {
             Image(systemName: systemImage).foregroundStyle(tint)
         }
         .font(.title2)
+        .onAppear { AccessibilityNotification.Announcement(text).post() }
     }
 
     private func submitCode() {
