@@ -331,6 +331,20 @@
     <string name="home_row_recently_added">Nově přidané</string>
     <string name="home_server_accent">Barva serveru</string>
     <string name="home_welcome_back">Vítejte zpět, %1$s</string>
+    <string name="intent_continue_watching">Pokračovat ve sledování</string>
+    <string name="intent_continue_watching_description">Přehraje první titul z Pokračovat ve sledování, nebo ten, který vyberete, od místa, kde jste skončili.</string>
+    <string name="intent_couch_code">Kód</string>
+    <string name="intent_in_progress">Rozkoukaný titul</string>
+    <string name="intent_join_couch">Připojit se ke společnému sledování</string>
+    <string name="intent_join_couch_description">Otevře připojení ke společnému sledování s vyplněným šestimístným kódem.</string>
+    <string name="intent_join_couch_short">Připojit se ke sledování</string>
+    <string name="intent_my_list">Můj seznam</string>
+    <string name="intent_open_my_list">Otevřít Můj seznam</string>
+    <string name="intent_open_my_list_description">Zobrazí tituly, které jste si uložili na později.</string>
+    <string name="intent_open_title">Otevřít titul</string>
+    <string name="intent_open_title_description">Otevře film nebo seriál v Couchverse.</string>
+    <string name="intent_title">Titul</string>
+    <string name="intent_title_prompt">Který titul?</string>
     <string name="lang_czech">Čeština</string>
     <string name="lang_english">English</string>
     <string name="language_label">Jazyk</string>
@@ -622,4 +636,6 @@
     <string name="tv_exit_title">Už odcházíte?</string>
     <string name="widget_continue_description">Pokračujte tam, kde jste skončili</string>
     <string name="widget_continue_empty">Pusťte si něco v Couchverse a počká to tady.</string>
+    <string name="widget_continue_name">Pokračovat ve sledování</string>
+    <string name="widget_couch_stale">Aktuální stav uvidíte v Couchverse</string>
 </resources>

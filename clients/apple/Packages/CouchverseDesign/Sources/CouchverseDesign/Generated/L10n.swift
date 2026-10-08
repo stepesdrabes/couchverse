@@ -324,6 +324,20 @@ extension L10n {
     public static var homeRowRecentlyAdded: String { string("home_row_recently_added") }
     public static var homeServerAccent: String { string("home_server_accent") }
     public static func homeWelcomeBack(name: String) -> String { format("home_welcome_back", [name]) }
+    public static var intentContinueWatching: String { string("intent_continue_watching") }
+    public static var intentContinueWatchingDescription: String { string("intent_continue_watching_description") }
+    public static var intentCouchCode: String { string("intent_couch_code") }
+    public static var intentInProgress: String { string("intent_in_progress") }
+    public static var intentJoinCouch: String { string("intent_join_couch") }
+    public static var intentJoinCouchDescription: String { string("intent_join_couch_description") }
+    public static var intentJoinCouchShort: String { string("intent_join_couch_short") }
+    public static var intentMyList: String { string("intent_my_list") }
+    public static var intentOpenMyList: String { string("intent_open_my_list") }
+    public static var intentOpenMyListDescription: String { string("intent_open_my_list_description") }
+    public static var intentOpenTitle: String { string("intent_open_title") }
+    public static var intentOpenTitleDescription: String { string("intent_open_title_description") }
+    public static var intentTitle: String { string("intent_title") }
+    public static var intentTitlePrompt: String { string("intent_title_prompt") }
     public static var langCzech: String { string("lang_czech") }
     public static var langEnglish: String { string("lang_english") }
     public static var languageLabel: String { string("language_label") }
@@ -599,4 +613,6 @@ extension L10n {
     public static var tvExitTitle: String { string("tv_exit_title") }
     public static var widgetContinueDescription: String { string("widget_continue_description") }
     public static var widgetContinueEmpty: String { string("widget_continue_empty") }
+    public static var widgetContinueName: String { string("widget_continue_name") }
+    public static var widgetCouchStale: String { string("widget_couch_stale") }
 }

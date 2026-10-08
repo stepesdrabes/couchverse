@@ -6,6 +6,10 @@
 //! `[{"declarations": ["input n", "local nPlural = n: plural"], "selectors": ["nPlural"],
 //!    "match": {"nPlural=one": "...", "nPlural=*": "..."}}]`.
 //! Admin-only strings (by key prefix) are left out of the native outputs.
+//!
+//! What the system shows for the Apple apps in its own language (Shortcuts and Siri, the widget
+//! gallery) it reads from the app's and the extension's own bundles, so each also gets a small
+//! catalog of the keys with its prefix.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
@@ -23,6 +27,10 @@ const SOURCE: &str = "contract/i18n";
 
 const APPLE_DIR: &str =
     "clients/apple/Packages/CouchverseDesign/Sources/CouchverseDesign/Generated";
+const APPLE_SYSTEM: [(&str, &str); 2] = [
+    ("clients/apple/Couchverse/Generated", "intent_"),
+    ("clients/apple/CouchverseWidgets/Generated", "widget_"),
+];
 const ANDROID_RES: &str = "clients/android/design/src/generated/res";
 
 #[derive(Debug, Clone, PartialEq)]
@@ -89,8 +97,14 @@ pub fn generate(root: &Path, written: &mut Vec<PathBuf>) -> Result<(), String> {
         native.iter().map(|key| (*key, Layout::of(&catalogs[BASE][*key]))).collect();
 
     let apple = root.join(APPLE_DIR);
-    out::write(&apple.join("Localizable.xcstrings"), &xcstrings(&catalogs, &layouts), written)?;
+    let all = xcstrings(&catalogs, layouts.iter().map(|(key, layout)| (*key, layout)));
+    out::write(&apple.join("Localizable.xcstrings"), &all, written)?;
     out::write(&apple.join("L10n.swift"), &swift_accessors(&layouts), written)?;
+    for (dir, prefix) in APPLE_SYSTEM {
+        let keys = layouts.iter().filter(|(key, _)| key.starts_with(prefix));
+        let catalog = xcstrings(&catalogs, keys.map(|(key, layout)| (*key, layout)));
+        out::write(&root.join(dir).join("Localizable.xcstrings"), &catalog, written)?;
+    }
 
     for locale in LOCALES {
         let dir = if locale == BASE { "values".to_string() } else { format!("values-{locale}") };
@@ -273,14 +287,17 @@ fn apple_param(layout: &Layout, name: &str) -> String {
     format!("%{}${spec}", layout.position(name))
 }
 
-fn xcstrings(catalogs: &BTreeMap<&str, Catalog>, layouts: &BTreeMap<&String, Layout>) -> String {
+fn xcstrings<'a>(
+    catalogs: &BTreeMap<&str, Catalog>,
+    layouts: impl IntoIterator<Item = (&'a String, &'a Layout)>,
+) -> String {
     let mut strings = Map::new();
     for (key, layout) in layouts {
         let mut localizations = Map::new();
         for (locale, catalog) in catalogs {
             let unit =
                 |value: String| json!({"stringUnit": {"state": "translated", "value": value}});
-            let localization = match &catalog[*key] {
+            let localization = match &catalog[key] {
                 Message::Text(pattern) => {
                     unit(format_pattern(pattern, layout, |n| apple_param(layout, n)))
                 }
@@ -309,7 +326,7 @@ fn xcstrings(catalogs: &BTreeMap<&str, Catalog>, layouts: &BTreeMap<&String, Lay
             localizations.insert((*locale).to_string(), localization);
         }
         strings.insert(
-            (*key).clone(),
+            key.clone(),
             json!({"extractionState": "manual", "localizations": localizations}),
         );
     }

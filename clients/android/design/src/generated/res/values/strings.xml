@@ -329,6 +329,20 @@
     <string name="home_row_recently_added">Up on the Marquee</string>
     <string name="home_server_accent">Server accent</string>
     <string name="home_welcome_back">Welcome back, %1$s</string>
+    <string name="intent_continue_watching">Continue Watching</string>
+    <string name="intent_continue_watching_description">Plays the first title in Continue Watching, or the one you choose, from where you stopped.</string>
+    <string name="intent_couch_code">Code</string>
+    <string name="intent_in_progress">Title in Progress</string>
+    <string name="intent_join_couch">Join a Couch Session</string>
+    <string name="intent_join_couch_description">Opens the join screen with the six-digit code filled in.</string>
+    <string name="intent_join_couch_short">Join a Couch</string>
+    <string name="intent_my_list">My List</string>
+    <string name="intent_open_my_list">Open My List</string>
+    <string name="intent_open_my_list_description">Shows the titles you saved for later.</string>
+    <string name="intent_open_title">Open a Title</string>
+    <string name="intent_open_title_description">Opens a movie or a series in Couchverse.</string>
+    <string name="intent_title">Title</string>
+    <string name="intent_title_prompt">Which title?</string>
     <string name="lang_czech">Čeština</string>
     <string name="lang_english">English</string>
     <string name="language_label">Language</string>
@@ -616,4 +630,6 @@
     <string name="tv_exit_title">Leaving already?</string>
     <string name="widget_continue_description">Pick up where you left off</string>
     <string name="widget_continue_empty">Start something in Couchverse and it waits here.</string>
+    <string name="widget_continue_name">Continue Watching</string>
+    <string name="widget_couch_stale">Open Couchverse to catch up</string>
 </resources>
