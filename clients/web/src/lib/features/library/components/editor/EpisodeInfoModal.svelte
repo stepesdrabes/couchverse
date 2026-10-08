@@ -15,7 +15,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Textarea from '$lib/components/ui/Textarea.svelte';
 	import { FormState } from '$lib/utils/form-state.svelte';
-	import { formatBytes, formatYearDate, qualityLabel } from '$lib/utils/format';
+	import { classHeight, formatBytes, formatYearDate, qualityLabel } from '$lib/utils/format';
 	import { langLabel } from '$lib/i18n/content-langs';
 	import SubtitleManager from './SubtitleManager.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -199,8 +199,8 @@
 					</h3>
 					<p class="truncate text-sm text-muted" title={file.path}>{file.path}</p>
 					<p class="mt-2 flex flex-wrap gap-1">
-						{#if qualityLabel(file.height)}
-							<Badge>{qualityLabel(file.height)}</Badge>
+						{#if qualityLabel(classHeight(file.width, file.height))}
+							<Badge>{qualityLabel(classHeight(file.width, file.height))}</Badge>
 						{/if}
 						{#if file.videoRange !== 'sdr'}
 							<Badge>HDR</Badge>
