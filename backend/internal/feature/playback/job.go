@@ -98,6 +98,12 @@ func (h *JobHandler) Handle(ctx context.Context, j *jobs.Job, report func(int)) 
 	if err == nil {
 		err = h.describe(run)
 	}
+	if err == nil {
+		// an output that cannot be recorded fails the run like a broken encode:
+		// left alone, its variants would stay processing forever, and the retry
+		// encodes into fresh directories anyway
+		err = h.markReady(ctx, mf.ID, run)
+	}
 	if err != nil {
 		finishCtx := context.WithoutCancel(ctx)
 		status := "failed"
@@ -112,14 +118,18 @@ func (h *JobHandler) Handle(ctx context.Context, j *jobs.Job, report func(int)) 
 		}
 		return err
 	}
+	h.maybeDeleteSource(ctx, mf, lib.Path, j.ID, settings)
+	return nil
+}
 
+// markReady records every variant of a finished run with its playlist and size.
+func (h *JobHandler) markReady(ctx context.Context, mediaFileID string, run *job) error {
 	for _, v := range run.variants {
-		rel := filepath.Join("cache", "hls", mf.ID, v.Name, "index.m3u8")
-		if err := h.Files.SetVariantStatus(ctx, v.ID, "ready", rel, h.variantSize(mf.ID, v.Name)); err != nil {
+		rel := filepath.Join("cache", "hls", mediaFileID, v.Name, "index.m3u8")
+		if err := h.Files.SetVariantStatus(ctx, v.ID, "ready", rel, h.variantSize(mediaFileID, v.Name)); err != nil {
 			return err
 		}
 	}
-	h.maybeDeleteSource(ctx, mf, lib.Path, j.ID, settings)
 	return nil
 }
 

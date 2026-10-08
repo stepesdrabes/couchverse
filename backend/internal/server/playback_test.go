@@ -23,6 +23,7 @@ import (
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/feature/subtitles"
 	"couchverse/internal/hls"
+	"couchverse/internal/media"
 	"couchverse/internal/settings"
 )
 
@@ -192,6 +193,68 @@ func TestPlaybackTiers(t *testing.T) {
 	}
 }
 
+// TestUnrecordedTranscodeFails checks that a package ffmpeg finished but the
+// database would not mark ready (as it refused sizes over 2 GiB) leaves its
+// variants failed and no output behind, instead of processing forever.
+func TestUnrecordedTranscodeFails(t *testing.T) {
+	if testing.Short() {
+		t.Skip("encodes video")
+	}
+	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skipf("%s is not installed", tool)
+		}
+	}
+	env := newTestEnv(t, func(cfg *config.Config) { cfg.FFmpegPath, cfg.FFprobePath = "ffmpeg", "ffprobe" })
+	ctx := context.Background()
+	w := newWorker(t, env)
+
+	s := sample{title: "Test Pattern (2026)", file: "Test Pattern (2026).mp4",
+		args: []string{"-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac"}}
+	path := filepath.Join(env.cfg.DataDir, "media", "movies", s.title, s.file)
+	generate(t, path, s)
+	fileID := w.ingest(ctx, path)
+	w.drain(ctx)
+
+	if _, err := env.pool.Exec(ctx, `
+		CREATE FUNCTION refuse_ready() RETURNS trigger LANGUAGE plpgsql AS $$
+			BEGIN RAISE EXCEPTION 'refusing to mark a variant ready'; END $$;
+		CREATE TRIGGER refuse_ready BEFORE UPDATE ON transcode_variants
+			FOR EACH ROW WHEN (NEW.status = 'ready') EXECUTE FUNCTION refuse_ready();`); err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := json.Marshal(playback.Payload{MediaFileID: fileID, Variant: media.VariantPackage})
+	if err := w.transcode.Handle(ctx, &jobs.Job{Type: "transcode_hls", Payload: payload}, func(int) {}); err == nil {
+		t.Fatal("the package was recorded despite the refusal")
+	}
+
+	variants, err := w.files.VariantsForMediaFile(ctx, fileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packaged := 0
+	for _, v := range variants {
+		if v.Name != media.VariantSource && v.Name != media.VariantAudio {
+			continue
+		}
+		packaged++
+		if v.Status != "failed" {
+			t.Errorf("%s variant is %s, want failed", v.Name, v.Status)
+		}
+	}
+	if packaged != 2 {
+		t.Fatalf("the package filled %d variants, want source and audio", packaged)
+	}
+	base := filepath.Join(env.cfg.DataDir, "cache", "hls", fileID)
+	left, _ := filepath.Glob(filepath.Join(base, "audio-*"))
+	if _, err := os.Stat(filepath.Join(base, media.VariantSource)); err == nil {
+		left = append(left, media.VariantSource)
+	}
+	if len(left) > 0 {
+		t.Errorf("output left behind: %v", left)
+	}
+}
+
 // generate writes a sample with lavfi sources: test pattern video, a 440 Hz
 // tone in stereo and a 5.1 one, plus SRT subtitle tracks.
 func generate(t *testing.T, path string, s sample) {
@@ -253,7 +316,8 @@ func newWorker(t *testing.T, env *testEnv) *worker {
 	}
 }
 
-func (w *worker) ingest(ctx context.Context, path string) {
+// ingest registers the file and queues its probe, returning the media file id.
+func (w *worker) ingest(ctx context.Context, path string) string {
 	st, err := os.Stat(path)
 	if err != nil {
 		w.t.Fatal(err)
@@ -270,6 +334,7 @@ func (w *worker) ingest(ctx context.Context, path string) {
 	if _, err := w.jobs.EnqueueJob(ctx, "probe", library.ProbePayload{MediaFileID: id}, jobs.EnqueueOpts{}); err != nil {
 		w.t.Fatal(err)
 	}
+	return id
 }
 
 // drain runs queued jobs until none is left.
