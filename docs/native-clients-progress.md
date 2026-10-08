@@ -122,7 +122,15 @@ Top Shelf, widget, Live Activity (per spike S1), App Intents, Shortcuts, Spotlig
   unsaved progress replayed with the time it was watched, sign-out deleting the account's
   files), the `wallMs` message clock, `PlayerSource.download`, in-file subtitles.
 - Done: Android downloads (Phase 12, WorkManager).
-- Pending: the iOS/iPadOS downloads UI and offline mode (background `URLSession` executor).
+- Done: iOS/iPadOS downloads: `DownloadExecutor` over a background `URLSession` (one task per
+  file, an earlier launch's transfers picked up by name, resume data kept and refused resume data
+  started over, the system waking the app for a transfer that ended while it was gone), the title
+  page's download buttons with the quality menu and each state, the Downloads screen from Settings
+  (progress, size, storage used, play, retry, remove), offline mode in place of the tabs. Host
+  tests cover the executor over fake transfers and a download through the real core.
+- Pending: the snapshot references of the downloads screens and of the title and settings screens
+  that gained a download control (removed; the next `make apple-test` records them for review),
+  and the exit on hardware (docs/apple.md, items 16 to 19).
 
 ## Phase 11: Android foundation - done
 
@@ -210,7 +218,7 @@ first.
   poll and a new code after expiry, the Reduce Motion cross-fade, Keychain and storage across
   the weekly reinstall and a delete-and-reinstall, the display language surviving a relaunch.
 - Downloads (Phase 10): a background transfer finishing while the app is suspended or killed,
-  playback in airplane mode, progress syncing on reconnect.
+  playback in airplane mode, progress syncing on reconnect, storage and removal.
 - Free personal team: 7-day provisioning, at most 3 apps, wireless pairing to the TV (spike S1).
 - Android (full list in docs/android.md): a Google TV device (launcher banner, D-pad focus and
   Back on every screen, the keyboard beside fields, pairing QR scanned across the room), phone

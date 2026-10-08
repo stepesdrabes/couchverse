@@ -669,9 +669,10 @@ navigation, nothing else.
   the xcframework, `Generated/Messages.swift`, `CoreRuntime` and the executors (it alone also
   builds for the Mac, for `swift test`). `CouchverseDesign`: tokens, typography, the accent
   environment, components, generated strings. `CouchverseFeatures`: screens by feature folder
-  (`Onboarding`, `Accounts`, `Settings`, `Home`, `Catalog`, `Player`) and `CouchverseRoot`, the
-  view both apps show; `LiveRuntime.make()` returns the runtime and the `PlayerController` it
-  drives, which the apps put into the environment.
+  (`Onboarding`, `Accounts`, `Settings`, `Home`, `Catalog`, `Player`, `Downloads`) and
+  `CouchverseRoot`, the view both apps show; `LiveRuntime.make()` returns the runtime and the
+  `PlayerController` it drives, which the apps put into the environment, and on iPhone and iPad
+  the background session downloads run in.
 - **Runtime**: `CoreRuntime` (`@Observable`, main actor) is the only stateful service. It stamps
   `nowMs` from the continuous clock, runs one executor per effect (`HTTPExecutor` over an
   ephemeral URLSession, `TimerExecutor`, `SocketExecutor` over `URLSessionWebSocketTask`,
@@ -681,9 +682,10 @@ navigation, nothing else.
   surface keeps the generation it was published at, so a late batch never wins). Title pages and
   listings are published per slug and `BrowseKey` once a screen opens them (`core.title(slug)`,
   `core.browse(key)`, a loading view before). `player` commands go to a `PlayerExecuting`
-  (`PlayerController` in the apps, `SilentPlayer` in tests). Until their slices land, `upload`
-  effects fail as `httpFailed` (no image picking yet) and `download` effects as
-  `downloadFailed`. Screens read `core.<surface>` and `core.send(event)`; their own state is
+  (`PlayerController` in the apps, `SilentPlayer` in tests). Until its slice lands, `upload`
+  effects fail as `httpFailed` (no image picking yet). `download` effects go to a
+  `DownloadExecuting` (`DownloadExecutor` on iPhone and iPad, `NoDownloads` on the TV and by
+  default in tests). Screens read `core.<surface>` and `core.send(event)`; their own state is
   presentation only (focus, sheets, a field being typed). `CoreRuntime(fixture:)` shows fixed
   view models for previews and snapshots and records what it is sent. UI tests launch with
   `-uiTesting` (in-memory stores: a fresh install every launch).
@@ -736,6 +738,31 @@ navigation, nothing else.
   choices plus the episodes, and a glass card counts down to the next episode (Play now,
   Cancel). Waiting, preparing (with its progress), unsupported and failed states cover the
   player with the backdrop. The iOS app has the `audio` background mode for PiP.
+- **Downloads** (`Downloads/`, iPhone and iPad, plan 10.8): `DownloadExecutor` runs the core's
+  `download` effects as one transfer per file the core names, in a background `URLSession`
+  (`BackgroundTransfers`: not discretionary, each task named by its file in `taskDescription`,
+  which the system keeps, so a relaunch finds an earlier launch's tasks). A start attaches to a
+  running transfer of its name or finishes at once when the file is there (a start without a URL
+  only picks one up), progress goes out at most once a second, and a finished file is moved into
+  the player's downloads directory (Application Support/Downloads), out of backups, before the
+  delegate returns; anything but a 2xx answer is the server refusing. An interrupted transfer
+  keeps the system's resume data on disk and continues from it, three times on its own and then
+  on the core's next start (resume data the server refuses, an expired grant, starts over from
+  the core's latest address); a full disk is reported as `noSpace`. The iOS app hands the
+  session's events over in `.backgroundTask(.urlSession(...))` when the system wakes it for a
+  transfer that ended while it was suspended or gone. The title page offers each movie and
+  episode (`DownloadButton`: a quality menu, then the state from `DownloadsView` as a ring while
+  waiting, preparing or coming down, a check when downloaded, a warning when failed, with retry
+  and remove), unless `features.downloads` is off and the device keeps none of it.
+  `DownloadsScreen` (Settings > Downloads) lists them with state, progress, size and the room
+  they take; a finished one plays from the device (`DownloadPlayRequested`, its artwork kept
+  beside it showing offline), a failed one is asked for again, any is removed by a swipe or the
+  context menu. While `SessionView.offline` the downloads take the place of the tabs, with the
+  account switcher. The core polls preparation on a timer, so a download the server finishes
+  while the app is in the background starts coming down when the app is next opened. The TV
+  keeps none (its storage is purgeable) and shows no download UI. Tested on the host (the
+  executor over fake transfers, the downloads directory, a download through the real core) and
+  in `DownloadsSnapshots`.
 - **Sign-in**: password, or "Sign in with another device" (the code large, a QR code of the
   pairing page and a countdown from `expiresAtMs` on the runtime's clock). A TV shows both side
   by side and starts pairing on its own; a phone shows one at a time. Approving another device

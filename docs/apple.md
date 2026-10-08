@@ -28,7 +28,7 @@ clients/apple/
   Packages/
     CouchverseCore        the xcframework, the generated message types, CoreRuntime and the
                           effect executors (HTTP, timers, WebSockets, Keychain, files/user
-                          defaults)
+                          defaults, background downloads)
     CouchverseDesign      tokens, typography, accent, components, generated strings
     CouchverseFeatures    the screens by feature (Accounts, Onboarding, Settings, Home) and the
                           root the apps show
@@ -133,6 +133,20 @@ simulator (a `make apple-test` elsewhere, say) uninstall each other's runners.
 
 `xcrun simctl io <device> recordVideo` captures the profile switch.
 
+## Downloads and offline
+
+On iPhone and iPad the title page downloads a movie or an episode at a chosen quality, and the
+Downloads screen in Settings lists what the device keeps (FEATURES.md, Apple clients). The server
+prepares an MP4 for the device's profile; the core polls it every 5 s and then fetches it in a
+background `URLSession`, which needs no capability or background mode, so it works with a free
+team. Files land in `Application Support/Downloads`, excluded from backups. While the server is out
+of reach the Downloads screen takes the place of the tabs, plays from the device and keeps the
+progress until the server answers again (checked on every return to the app). The Apple TV keeps no
+downloads: tvOS may purge anything outside user defaults.
+
+A transfer outliving the app, airplane mode and the storage figures are checked on a device (items
+16 to 19 below).
+
 ## Free personal team limits
 
 Building for your own devices with a free Apple ID works, with these limits (plan 10.9):
@@ -201,3 +215,19 @@ The simulators cover the flows (see the Phase 3 report); on hardware, also check
 15. **Next episode and shuffle**: the last 20 s of an episode count down (a card on the phone, a
     contextual action on the TV) and the next one starts at zero; Cancel keeps the credits;
     Shuffle in the menu and Random episode on the title pick another episode.
+16. **Downloads in the background**: on Wi-Fi, download a movie (720p) from its title page and
+    lock the phone: the transfer goes on and the title shows Downloaded afterwards. Start another
+    and leave the app until the system has suspended and reclaimed it (open many other apps): it is
+    woken in the background when the transfer ends and the Downloads screen shows the file ready.
+    After a force-quit in the app switcher the system stops the transfer; the next launch carries
+    on from where it stopped rather than from the start.
+17. **Airplane mode**: with downloads ready, turn on airplane mode and return to the app: the
+    Downloads screen with the offline banner replaces the tabs, artwork shows from the device, a
+    download plays with its subtitles in the system menu, and stopping halfway then playing again
+    resumes there.
+18. **Progress on reconnect**: turn airplane mode off and return to the app: the tabs come back,
+    and the title (and the web's Continue Watching) shows how far it was watched offline.
+19. **Storage and removal**: the Downloads screen shows each size and the room they take;
+    removing one (swipe, or the title page's menu) frees the space in the system's iPhone Storage,
+    and the downloads add nothing to the iCloud backup. A full disk shows "Not enough space on
+    this device".
