@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +41,7 @@ internal fun LeaderboardPhone(view: LeaderboardView?, key: LeaderboardKey, onKey
         onKey,
         gutter = PhoneGutter,
         contentPadding = PaddingValues(top = 0.dp, bottom = 32.dp),
+        standing = Modifier.navigationBarsPadding().padding(horizontal = PhoneGutter, vertical = 8.dp),
         modifier = Modifier.statusBarsPadding(),
         title = {
             Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {

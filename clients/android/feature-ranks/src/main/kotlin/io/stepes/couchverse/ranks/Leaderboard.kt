@@ -1,5 +1,7 @@
 package io.stepes.couchverse.ranks
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -42,6 +46,7 @@ import io.stepes.couchverse.design.components.StatusMessage
 import io.stepes.couchverse.design.runtime.rememberSurface
 import io.stepes.couchverse.design.text.displayLocale
 import io.stepes.couchverse.design.text.formatRuntime
+import io.stepes.couchverse.design.theme.LocalAccent
 import io.stepes.couchverse.design.theme.LocalIsTv
 import io.stepes.couchverse.ranks.phone.LeaderboardPhone
 import io.stepes.couchverse.ranks.tv.LeaderboardTv
@@ -61,7 +66,8 @@ internal typealias BoardChip = @Composable (selected: Boolean, label: String, on
 /**
  * The board as one list, the same on both idioms: [title], the metric and period drawn with
  * [chip], then the rows, each in the idiom's [line] that opens the member's profile, or why
- * there are none.
+ * there are none. Below it, placed by [standing], where the viewer stands while that is out of
+ * sight at the top.
  */
 @Composable
 internal fun LeaderboardList(
@@ -70,13 +76,32 @@ internal fun LeaderboardList(
     onKey: (LeaderboardKey) -> Unit,
     gutter: Dp,
     contentPadding: PaddingValues,
+    standing: Modifier,
     modifier: Modifier = Modifier,
     title: @Composable () -> Unit,
     chip: BoardChip,
     line: @Composable (row: LeaderRow, content: @Composable () -> Unit) -> Unit,
 ) {
+    Column(Modifier.fillMaxSize().then(modifier)) {
+        Board(view, key, onKey, gutter, contentPadding, Modifier.weight(1f), title, chip, line)
+        view?.pinnedRow()?.let { me -> Standing(me, view, key.metric, standing) }
+    }
+}
+
+@Composable
+private fun Board(
+    view: LeaderboardView?,
+    key: LeaderboardKey,
+    onKey: (LeaderboardKey) -> Unit,
+    gutter: Dp,
+    contentPadding: PaddingValues,
+    modifier: Modifier,
+    title: @Composable () -> Unit,
+    chip: BoardChip,
+    line: @Composable (row: LeaderRow, content: @Composable () -> Unit) -> Unit,
+) {
     LazyColumn(
-        Modifier.fillMaxSize().then(modifier),
+        modifier,
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -112,18 +137,52 @@ internal fun LeaderboardList(
                         Text(stringResource(R.string.leaderboard_hidden_notice), color = Tokens.Palette.muted, modifier = Modifier.padding(horizontal = gutter))
                     }
                 }
-                view.myPosition?.let { position ->
-                    item(key = "mine") {
-                        Text(
-                            stringResource(R.string.leaderboard_your_position, position.toString(), view.total.toString()),
-                            color = Tokens.Palette.text,
-                            modifier = Modifier.padding(horizontal = gutter),
-                        )
-                    }
-                }
                 items(view.rows, key = { it.username }) { row -> line(row) { LeaderLine(row, key.metric, view.podium) } }
             }
         }
+    }
+}
+
+/**
+ * The viewer's own row while it is pinned below the board, as the web pins it: while they are
+ * hidden from the board, or below its first three.
+ */
+internal fun LeaderboardView.pinnedRow(): LeaderRow? = me?.takeIf { hidden || (myPosition ?: 0u) > 3u }
+
+/** Where the viewer stands: their place (none while hidden), name and score. */
+@Composable
+private fun Standing(me: LeaderRow, view: LeaderboardView, metric: Metric, modifier: Modifier) {
+    val shape = RoundedCornerShape(Tokens.Radius.card)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Tokens.Palette.surface2)
+            .border(1.dp, LocalAccent.current.accent.copy(alpha = 0.5f), shape)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .semantics(mergeDescendants = true) {},
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (view.hidden) "-" else "#${me.position}",
+            style = MaterialTheme.typography.titleMedium,
+            color = LocalAccent.current.ink,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.width(44.dp),
+        )
+        Avatar(me.avatar?.url, seed = me.username, size = 36.dp)
+        Text(me.displayName, color = Tokens.Palette.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text(
+            if (view.hidden) {
+                stringResource(R.string.leaderboard_unranked)
+            } else {
+                stringResource(R.string.leaderboard_your_position, me.position.toString(), view.total.toString())
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = Tokens.Palette.muted,
+        )
+        Text(metricValue(me, metric), style = MaterialTheme.typography.titleSmall, color = Tokens.Palette.text)
     }
 }
 

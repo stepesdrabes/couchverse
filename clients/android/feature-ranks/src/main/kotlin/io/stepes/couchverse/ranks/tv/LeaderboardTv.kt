@@ -34,6 +34,7 @@ internal fun LeaderboardTv(view: LeaderboardView?, key: LeaderboardKey, onKey: (
         onKey,
         gutter = TvSafe.horizontal,
         contentPadding = PaddingValues(top = TvSafe.vertical, bottom = 32.dp),
+        standing = Modifier.padding(start = TvSafe.horizontal, top = 8.dp, end = TvSafe.horizontal, bottom = TvSafe.vertical),
         title = {
             Row(Modifier.padding(horizontal = TvSafe.horizontal), verticalAlignment = Alignment.CenterVertically) { LeaderboardHeading() }
         },
