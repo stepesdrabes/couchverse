@@ -235,17 +235,17 @@ private struct ProfileTileLabel: View {
             .multilineTextAlignment(.center)
             .frame(width: labelWidth(diameter, dynamicTypeSize))
         }
-        // a fade rather than a spring with Reduce Motion, which also keeps the tile from growing
+        // with Reduce Motion the tile does not lift, and the ring and the words fade in
         .animation(reduceMotion ? Tokens.Motion.standard : Tokens.Motion.bouncy, value: focused)
     }
 
     /// The rank ring in the tier's colour, brighter and wider with the focus; a profile without a
-    /// rank keeps a ring in its own colour.
+    /// rank keeps a ring in its own colour. The words below say the level, so there is no chip,
+    /// which a lifted tile would push into the name.
     @ViewBuilder private var ring: some View {
         if let rank = card.rank, let color = card.rankColor {
             RankRing(
-                color: color.opacity(lit ? 1 : 0.6), progress: Double(rank.percent) / 100,
-                level: String(rank.tier.level), lineWidth: focused ? 6 : 4
+                color: color.opacity(lit ? 1 : 0.6), progress: Double(rank.percent) / 100, lineWidth: focused ? 6 : 4
             ) {
                 Color.clear
             }
