@@ -37,11 +37,21 @@ struct ShelfSnapshotTests {
 
     static let ready = AppView(phase: .ready, activeAccount: "a1")
 
+    static func accounts(signedIn: Bool = true) -> AccountsView {
+        let card = AccountCard(
+            id: "a1", serverId: "s1", serverName: "Home Media", insecure: true, username: "nora",
+            displayName: "Nora", signedIn: signedIn)
+        return AccountsView(accounts: [card], active: nil)
+    }
+
     func update(
         _ snapshot: ShelfSnapshot = ShelfSnapshot(account: nil, language: "en", words: words, accent: "#e50914"),
-        app: AppView = ready, home: HomeView = home(.loaded), myList: MyListView = myList(.loaded)
+        app: AppView = ready, accounts: AccountsView = accounts(), home: HomeView = home(.loaded),
+        myList: MyListView = myList(.loaded)
     ) -> ShelfSnapshot {
-        snapshot.updated(app: app, home: home, myList: myList, language: "cs", words: Self.words, accent: "#3a6ea5")
+        snapshot.updated(
+            app: app, accounts: accounts, home: home, myList: myList, language: "cs", words: Self.words,
+            accent: "#3a6ea5")
     }
 
     @Test func linksHaveTheShapesEveryClientUses() {
@@ -105,6 +115,16 @@ struct ShelfSnapshotTests {
     func choosingAProfileKeepsIt(phase: AppPhase) {
         let before = update()
         #expect(update(before, app: AppView(phase: phase, activeAccount: nil), home: .idle, myList: .idle) == before)
+    }
+
+    @Test(arguments: [accounts(signedIn: false), AccountsView(accounts: [], active: nil)])
+    func aProfileSignedOutOnWhosWatchingTakesItsTitles(accounts: AccountsView) {
+        let after = update(
+            update(), app: AppView(phase: .chooseAccount, activeAccount: nil), accounts: accounts, home: .idle,
+            myList: .idle)
+        #expect(after.account == nil)
+        #expect(after.continueWatching.isEmpty)
+        #expect(after.myList.isEmpty)
     }
 
     @Test func titlesAreEachNamedOnceAndFoundIgnoringAccents() {

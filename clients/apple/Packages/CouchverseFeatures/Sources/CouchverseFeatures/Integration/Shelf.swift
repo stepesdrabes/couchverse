@@ -39,8 +39,8 @@ final class Shelf {
             snapshot
             ?? ShelfSnapshot(account: nil, language: session.language, words: words, accent: session.accent.accent)
         let next = base.updated(
-            app: core.app, home: core.home, myList: core.myList, language: session.language, words: words,
-            accent: session.accent.accent)
+            app: core.app, accounts: core.accounts, home: core.home, myList: core.myList,
+            language: session.language, words: words, accent: session.accent.accent)
         guard next != snapshot else { return nil }
         snapshot = next
         if let directory {
@@ -64,6 +64,7 @@ final class Shelf {
 /// What the shelf is made from, so it is looked at again only when one of them changes.
 struct ShelfInputs: Equatable {
     let app: AppView
+    let accounts: AccountsView
     let home: HomeView
     let myList: MyListView
     let language: String
@@ -71,6 +72,7 @@ struct ShelfInputs: Equatable {
 
     init(_ core: CoreRuntime) {
         app = core.app
+        accounts = core.accounts
         home = core.home
         myList = core.myList
         language = core.session.language

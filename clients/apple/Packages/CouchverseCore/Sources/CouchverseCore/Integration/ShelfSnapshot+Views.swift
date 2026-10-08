@@ -1,16 +1,21 @@
 import CouchverseShared
 
 extension ShelfSnapshot {
-    /// The snapshot once the core's views changed. It empties when no account is left and starts
-    /// over for another account, so one profile's titles never show for the next. Continue Watching
-    /// and My List are replaced only by views that have loaded: a launch that has not loaded them
-    /// yet, or a TV on "Who's watching?", keeps what was there.
+    /// The snapshot once the core's views changed. It empties when its account is no longer signed
+    /// in and starts over for another account, so one profile's titles never show for the next.
+    /// Continue Watching and My List are replaced only by views that have loaded: a launch that has
+    /// not loaded them yet, or a TV on "Who's watching?", keeps what was there.
     public func updated(
-        app: AppView, home: HomeView, myList: MyListView, language: String, words: Words, accent: String
+        app: AppView, accounts: AccountsView, home: HomeView, myList: MyListView, language: String, words: Words,
+        accent: String
     ) -> ShelfSnapshot {
+        let empty = ShelfSnapshot(account: nil, language: language, words: words, accent: accent)
         switch app.phase {
         case .welcome, .signIn:
-            return ShelfSnapshot(account: nil, language: language, words: words, accent: accent)
+            return empty
+        case .chooseAccount:
+            let signedIn = accounts.accounts.contains { $0.id == account && $0.signedIn }
+            return account == nil || signedIn ? self : empty
         case .ready:
             guard let active = app.activeAccount else { return self }
             var next =
@@ -26,7 +31,7 @@ extension ShelfSnapshot {
                 next.myList = myList.cards.map(TitleItem.init)
             }
             return next
-        case .starting, .chooseAccount:
+        case .starting:
             return self
         }
     }
