@@ -33,6 +33,13 @@ struct ProfileScreen: View {
         }
         .closesWithoutRankings()
         .navigationBarTitleDisplayModeInline()
+        .onAppear {
+            // your achievements are on show: anything earned since the last check (a tenth title
+            // on My List) unlocks now; the core throttles it
+            if username == core.session.user?.username {
+                core.send(.achievementsCheckRequested(CheckRequest(force: false)))
+            }
+        }
     }
 }
 
