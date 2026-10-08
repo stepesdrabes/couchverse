@@ -55,16 +55,11 @@ jobs:
             [ "$have" -gt 0 ] || xcodebuild -downloadPlatform "$platform"
           done
           xcrun simctl list runtimes
+      # the device types the snapshot references were recorded on (an iPhone 17, an Apple TV 4K
+      # at 4K), on the newest runtimes
       - name: Create simulators
         if: env.FULL == '1'
-        run: |
-          runtime() { xcrun simctl list runtimes -j | jq -r --arg p "$1" \
-            '[.runtimes[] | select(.platform == $p and .isAvailable and (.version | startswith("27")))] | last | .identifier'; }
-          # the devices the snapshot references were recorded on (the Makefile's defaults)
-          xcrun simctl create "CI iPhone" "iPhone 17" "$(runtime iOS)"
-          xcrun simctl create "CI Apple TV" "Apple TV 4K (3rd generation)" "$(runtime tvOS)"
-          echo "IOS_SIM=CI iPhone" >> "$GITHUB_ENV"
-          echo "TV_SIM=CI Apple TV" >> "$GITHUB_ENV"
+        run: make apple-sims
       - name: Package tests
         if: env.FULL == '1'
         run: make apple-test

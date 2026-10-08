@@ -8,6 +8,11 @@ import UIKit
 /// app, so `drawHierarchy` is not available and an early layer render comes out blank.
 @MainActor
 enum ScreenRenderer {
+    /// The scale of the simulator's screen, which text is rasterized at.
+    static var screenScale: CGFloat {
+        UIWindow(frame: .zero).screen.scale
+    }
+
     static func image(of view: some View, config: ViewImageConfig, traits: UITraitCollection) -> UIImage {
         let size = config.size ?? CGSize(width: 390, height: 844)
         let controller = UIHostingController(rootView: view)

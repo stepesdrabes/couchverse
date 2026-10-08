@@ -134,12 +134,27 @@ struct ScreenSnapshots {
         }
     }
 
+    /// The screen scale the references were recorded at. Text is rasterized at the simulator's
+    /// scale even though screens render into a 1x image, so a 1080p Apple TV (1x) or an iPad (2x)
+    /// shifts every glyph edge: `make apple-test` runs on the pinned simulators (`make apple-sims`).
+    static let referenceScale: CGFloat = Idiom.isTV ? 2 : 3
+
     private func snapshot(
         _ name: String, _ values: [SurfaceValue], ambience: Ambience = .flat, variants: [Variant] = Self.variants,
         fileID: StaticString = #fileID,
         file: StaticString = #filePath, testName: String = #function, line: UInt = #line,
         column: UInt = #column, @ViewBuilder _ screen: () -> some View
     ) {
+        let scale = ScreenRenderer.screenScale
+        guard scale == Self.referenceScale else {
+            Issue.record(
+                """
+                Snapshot references are recorded on a \(Int(Self.referenceScale))x simulator and this one is \
+                \(Int(scale))x: run them on the simulators `make apple-sims` creates (Apple TV 4K at 4K, \
+                iPhone 17), as `make apple-test` does.
+                """)
+            return
+        }
         for variant in variants {
             L10n.language = variant.language
             let core = CoreRuntime(fixture: Idiom.isTV ? .tvos : .ios, values)

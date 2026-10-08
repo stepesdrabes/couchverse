@@ -1,5 +1,5 @@
 .PHONY: run-backend run-web build lint check format test e2e contract sample-media clean \
-	core-test core-apple core-android core-wasm apple-test apple-uitest apple-lint apple-format \
+	core-test core-apple core-android core-wasm apple-sims apple-test apple-uitest apple-lint apple-format \
 	android-test hls-check hls-apple ingest-samples hls-server-check e2e-playback
 
 # dev database (compose service `db` published on 5432)
@@ -74,17 +74,26 @@ core-android:
 core-wasm:
 	cd core && cargo xtask wasm
 
-# Apple clients (docs/apple.md). Simulators are picked by name; override them for other Xcodes.
-IOS_SIM ?= iPhone 17
-TV_SIM ?= Apple TV 4K (3rd generation)
+# Apple clients (docs/apple.md). The tests run on simulators of pinned device types, created by
+# `apple-sims`: snapshot text is rasterized at the screen's scale, so the references only match
+# on an iPhone 17 (3x) and an Apple TV 4K at 4K (2x), never on the 1080p Apple TV (1x).
+IOS_SIM ?= Couchverse iPhone 17
+TV_SIM ?= Couchverse Apple TV 4K
+IOS_SIM_TYPE ?= com.apple.CoreSimulator.SimDeviceType.iPhone-17
+TV_SIM_TYPE ?= com.apple.CoreSimulator.SimDeviceType.Apple-TV-4K-3rd-generation-4K
 APPLE_DD := $(CURDIR)/clients/apple/.build/DerivedData
 IOS_DEST := -destination 'platform=iOS Simulator,name=$(IOS_SIM)'
 TV_DEST := -destination 'platform=tvOS Simulator,name=$(TV_SIM)'
 APPLE_SOURCES = find clients/apple -name '*.swift' -not -path '*/Generated/*' -not -path '*/FFI/*' \
 	-not -path '*/.build/*' -print0
 
+# the test simulators, on the newest runtimes installed
+apple-sims:
+	@xcrun simctl list devices available | grep -qF "$(IOS_SIM) (" || xcrun simctl create "$(IOS_SIM)" $(IOS_SIM_TYPE)
+	@xcrun simctl list devices available | grep -qF "$(TV_SIM) (" || xcrun simctl create "$(TV_SIM)" $(TV_SIM_TYPE)
+
 # runtime and executors on the host; design and screens (incl. snapshots) on iOS and tvOS
-apple-test: core-apple
+apple-test: core-apple apple-sims
 	cd clients/apple/Packages/CouchverseCore && swift test
 	cd clients/apple/Packages/CouchverseDesign && xcodebuild test -quiet -scheme CouchverseDesign \
 		-derivedDataPath $(APPLE_DD) $(IOS_DEST)
@@ -94,7 +103,7 @@ apple-test: core-apple
 		-derivedDataPath $(APPLE_DD) $(TV_DEST)
 
 # smoke UI tests of both apps on simulators
-apple-uitest: core-apple
+apple-uitest: core-apple apple-sims
 	xcodebuild test -quiet -project clients/apple/Couchverse.xcodeproj -scheme Couchverse \
 		-derivedDataPath $(APPLE_DD) $(IOS_DEST)
 	xcodebuild test -quiet -project clients/apple/Couchverse.xcodeproj -scheme 'Couchverse TV' \
