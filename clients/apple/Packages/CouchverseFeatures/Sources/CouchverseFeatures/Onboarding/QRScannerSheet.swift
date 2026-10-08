@@ -35,6 +35,11 @@
                         .glassEffect(.regular, in: Capsule())
                         .padding(Tokens.Spacing.xl)
                 }
+                .onChange(of: rejected) { _, rejected in
+                    if rejected {
+                        AccessibilityNotification.Announcement(L10n.scannerNotCouchverse).post()
+                    }
+                }
                 .navigationTitle(L10n.scannerTitle)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

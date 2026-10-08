@@ -72,6 +72,12 @@ struct ProfilePicker: View {
                         }
                     }
                 }
+                // the menu's one action, in VoiceOver's actions too
+                .accessibilityActions {
+                    if let onSignOut {
+                        Button(L10n.navSignOut) { onSignOut(card) }
+                    }
+                }
                 .opacity(card.id == chosen ? 0 : 1)
                 .modifier(Dissolve(offset: chosenIndex.map { index - $0 } ?? 0, active: dissolved))
             }

@@ -56,6 +56,12 @@ struct CouchEndedScreen: View {
                     .fixedSize()
             }
         }
+        // the cover goes again in a few seconds
+        .onAppear {
+            if let status = CouchLabels.status(core.couch) {
+                AccessibilityNotification.Announcement(status).post()
+            }
+        }
     }
 }
 
