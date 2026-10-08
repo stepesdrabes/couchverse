@@ -13,6 +13,7 @@ struct SettingsScreen: View {
 
     var body: some View {
         List {
+            ProfileSettingsSection()
             accounts
             servers
             language

@@ -3,8 +3,9 @@ import CouchverseDesign
 import SwiftUI
 
 /// The signed-in app (plan 10.3): a sidebar on TV (Home, Movies, Series, Genres, My List, Couch,
-/// Search, Settings), a Liquid Glass tab bar on iPhone with Search as its own tab, and the same tabs
-/// as an adaptable sidebar on iPad. Each tab keeps its own navigation stack.
+/// Profile and Leaderboard while rankings are on, Settings, Search), a Liquid Glass tab bar on
+/// iPhone with Search as its own tab, and the same tabs as an adaptable sidebar on iPad. Each tab
+/// keeps its own navigation stack.
 struct MainTabs: View {
     enum Destination: Hashable {
         case home
@@ -16,6 +17,8 @@ struct MainTabs: View {
         case search
         case settings
         case couch
+        case profile
+        case leaderboard
     }
 
     @Environment(CoreRuntime.self) private var core
@@ -50,9 +53,17 @@ struct MainTabs: View {
                         NavigationStack { CouchHubScreen() }
                     }
                 }
+                if core.session.features.rankings, let me = core.session.user?.username {
+                    Tab(L10n.navProfile, systemImage: "person.crop.circle", value: Destination.profile) {
+                        CatalogStack { ProfileScreen(username: me) }
+                    }
+                    Tab(L10n.navLeaderboard, systemImage: "trophy", value: Destination.leaderboard) {
+                        CatalogStack { LeaderboardScreen() }
+                    }
+                }
             #endif
             Tab(L10n.navSettings, systemImage: "gearshape", value: Destination.settings) {
-                NavigationStack { SettingsScreen() }
+                CatalogStack { SettingsScreen() }
             }
             Tab(L10n.navSearch, systemImage: "magnifyingglass", value: Destination.search, role: .search) {
                 CatalogStack { SearchScreen() }
@@ -60,17 +71,22 @@ struct MainTabs: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewSidebarHeader { AccountHeader() }
+        .onChange(of: core.session.features.rankings) { _, on in
+            if !on && (selection == .profile || selection == .leaderboard) {
+                selection = .home
+            }
+        }
         .offlineDownloads()
     }
 }
 
-/// A tab's navigation stack, which titles and listings are pushed onto.
+/// A tab's navigation stack, which titles, listings, profiles and the leaderboard are pushed onto.
 private struct CatalogStack<Root: View>: View {
     @ViewBuilder let root: () -> Root
 
     var body: some View {
         NavigationStack {
-            root().catalogDestinations()
+            root().catalogDestinations().ranksDestinations()
         }
     }
 }
@@ -145,6 +161,7 @@ struct AccountHeader: View {
                         .typeRole(Tokens.TypeRamp.caption)
                         .foregroundStyle(Tokens.Palette.muted)
                         .lineLimit(1)
+                    RankCaption()
                 }
             }
         }

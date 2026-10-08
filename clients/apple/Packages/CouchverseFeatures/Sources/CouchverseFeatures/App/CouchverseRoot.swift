@@ -37,6 +37,10 @@ public struct CouchverseRoot: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
             NoticeToasts()
+            // a cover over the app (the player, a couch screen) shows its own
+            if !covered {
+                CelebrationOverlay()
+            }
         }
         .animation(reduceMotion ? .easeInOut(duration: 0.3) : Tokens.Motion.smooth, value: core.app.phase)
         .animation(reduceMotion ? .easeInOut(duration: 0.3) : Tokens.Motion.smooth, value: pickingProfile)
@@ -76,6 +80,13 @@ public struct CouchverseRoot: View {
     private func reportCapabilities() {
         let measured = DeviceCapabilities.measure(screen: DeviceCapabilities.currentScreen)
         core.send(.capabilitiesReported(.avPlayer(measured)))
+    }
+
+    /// Whether `appCover` is up; previews and snapshots, which never play, have none.
+    private var covered: Bool {
+        guard player != nil else { return false }
+        let playing = core.player.target != nil
+        return cover.cover(playing: playing, couch: core.couch, ready: core.app.phase == .ready) != nil
     }
 
     @ViewBuilder private var phaseContent: some View {

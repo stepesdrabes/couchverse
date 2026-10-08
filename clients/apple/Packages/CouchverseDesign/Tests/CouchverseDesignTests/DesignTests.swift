@@ -66,6 +66,7 @@ struct LocalizationTests {
     @Test func problemCodesHaveMessages() {
         L10n.language = "en"
         #expect(Problem(code: "invalid_credentials", detail: "").message == "Wrong username or password.")
+        #expect(Problem(code: "invalid_password", detail: "").message == "The current password is wrong.")
         #expect(Problem(code: "network", detail: "").message == L10n.problemOffline)
         #expect(Problem(code: "something_new", detail: "").message == L10n.problemGeneric)
     }

@@ -85,6 +85,7 @@ private struct AppCoverPresenter: ViewModifier {
             .fullScreenCover(isPresented: presented) {
                 if let player {
                     AppCoverContent(requests: requests)
+                        .overlay { CelebrationOverlay() }
                         .environment(core)
                         .environment(player)
                         .accent(core.session.accent)

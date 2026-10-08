@@ -11,6 +11,7 @@ extension Problem {
         case "timeout": L10n.problemTimeout
         case "tls": L10n.problemTls
         case "invalid_credentials": L10n.problemInvalidCredentials
+        case "invalid_password": L10n.problemInvalidPassword
         case "rate_limited", "slow_down": L10n.problemRateLimited
         case "invalid_code": L10n.problemInvalidCode
         case "unauthorized": L10n.problemUnauthorized
