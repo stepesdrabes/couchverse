@@ -171,6 +171,7 @@ struct CloseButton: View {
         .buttonStyle(.glass)
         .buttonBorderShape(.circle)
         .accessibilityLabel(L10n.playerBackToTitle)
+        .accessibilityShowsLargeContentViewer { Label(L10n.playerBackToTitle, systemImage: "xmark") }
         .accessibilityIdentifier("player-close")
     }
 }

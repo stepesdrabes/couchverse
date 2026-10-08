@@ -5,6 +5,7 @@ import SwiftUI
 /// Every genre as a tile, leading to its listing.
 struct GenresScreen: View {
     @Environment(CoreRuntime.self) private var core
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var genres: GenresView { core.genres }
 
@@ -51,12 +52,18 @@ struct GenresScreen: View {
 
     private var tileHeight: CGFloat { Idiom.isTV ? 160 : 88 }
 
+    /// Wider at the accessibility text sizes, so a genre's name fits a tile.
+    private var tileWidth: CGFloat {
+        if Idiom.isTV { return 360 }
+        return dynamicTypeSize.isAccessibilitySize ? 300 : 160
+    }
+
     private var grid: some View {
         tiles(count: genres.genres.count) { index in
             let genre = genres.genres[index]
             NavigationLink(value: CatalogRoute.browse(BrowseKey(kind: nil, genre: genre.name, sort: .added))) {
                 GenreTile(label: genre.label, seed: genre.name)
-                    .frame(height: tileHeight)
+                    .frame(minHeight: tileHeight)
             }
             .cardButtonStyle()
         }
@@ -64,7 +71,7 @@ struct GenresScreen: View {
 
     private func tiles(count: Int, @ViewBuilder tile: @escaping (Int) -> some View) -> some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: Idiom.isTV ? 360 : 160), spacing: CardMetrics.spacing)],
+            columns: [GridItem(.adaptive(minimum: tileWidth), spacing: CardMetrics.spacing)],
             spacing: CardMetrics.spacing
         ) {
             ForEach(0..<count, id: \.self, content: tile)

@@ -44,8 +44,9 @@ struct WelcomeScreen: View {
                 }
                 .readableWidth(Idiom.isTV ? 900 : 520)
                 .padding(Tokens.Spacing.xl)
-                .containerRelativeFrame(.vertical, alignment: .center) { length, _ in length }
             }
+            // centred while it fits; large text makes it taller than the screen, and it scrolls
+            .defaultScrollAnchor(.center, for: .alignment)
             .scrollBounceBehavior(.basedOnSize)
         }
         .toolbarVisibility(.hidden, for: .navigationBar)

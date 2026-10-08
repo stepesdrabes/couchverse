@@ -7,6 +7,7 @@ import SwiftUI
 /// member below is a row leading to their profile, and the viewer's own place stays in view.
 struct LeaderboardScreen: View {
     @Environment(CoreRuntime.self) private var core
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var metric = Metric.xp
     @State private var period = Period.all
 
@@ -116,7 +117,8 @@ struct LeaderboardScreen: View {
                 systemImage: "trophy", title: L10n.leaderboardMetricEmpty, message: RanksWords.metric(view.key.metric))
         } else {
             VStack(alignment: .leading, spacing: Idiom.isTV ? 40 : Tokens.Spacing.xl) {
-                if view.podium, view.rows.count >= 3 {
+                // at the accessibility text sizes the rows below say the same without clipping names
+                if view.podium, view.rows.count >= 3, Idiom.isTV || !dynamicTypeSize.isAccessibilitySize {
                     Podium(rows: Array(view.rows.prefix(3)), metric: view.key.metric)
                 }
                 LazyVStack(spacing: Idiom.isTV ? Tokens.Spacing.md : Tokens.Spacing.sm) {
@@ -276,6 +278,10 @@ private struct LeaderLine: View {
 
     @ScaledMetric(relativeTo: .body) private var placeWidth: CGFloat = Idiom.isTV ? 64 : 36
     @ScaledMetric(relativeTo: .body) private var avatarSize: CGFloat = Idiom.isTV ? 64 : 36
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// At the accessibility text sizes the value goes under the name rather than squeezing it.
+    private var stacked: Bool { dynamicTypeSize.isAccessibilitySize }
 
     var body: some View {
         let metal = medal && (1...3).contains(row.position) ? RanksStyle.podium[Int(row.position) - 1] : nil
@@ -293,7 +299,7 @@ private struct LeaderLine: View {
                     Text(row.displayName)
                         .typeRole(Tokens.TypeRamp.card)
                         .foregroundStyle(Tokens.Palette.text)
-                        .lineLimit(1)
+                        .lineLimit(stacked ? 2 : 1)
                     if row.isSelf {
                         Text(L10n.leaderboardYou)
                             .typeRole(Tokens.TypeRamp.caption)
@@ -303,17 +309,26 @@ private struct LeaderLine: View {
                 Text(RanksWords.rankLine(tier: row.tierCode, level: row.level))
                     .typeRole(Tokens.TypeRamp.caption)
                     .foregroundStyle(Tokens.Palette.mutedText)
-                    .lineLimit(1)
+                    .lineLimit(stacked ? 2 : 1)
+                if stacked {
+                    value
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Text(RanksWords.value(row.value, metric: metric))
-                .typeRole(Tokens.TypeRamp.card)
-                .foregroundStyle(Tokens.Palette.text)
-                .monospacedDigit()
-                .lineLimit(1)
+            if !stacked {
+                value
+            }
         }
         .multilineTextAlignment(.leading)
         .accessibilityElement(children: .combine)
+    }
+
+    private var value: some View {
+        Text(RanksWords.value(row.value, metric: metric))
+            .typeRole(Tokens.TypeRamp.card)
+            .foregroundStyle(Tokens.Palette.text)
+            .monospacedDigit()
+            .lineLimit(1)
     }
 }
 

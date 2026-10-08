@@ -156,6 +156,16 @@ struct CatalogLabelTests {
         L10n.language = "en"
     }
 
+    @Test func anEpisodeSaysHowFarItWasWatched() {
+        let episode = { (progress: Double, completed: Bool) in
+            EpisodeView(id: "e", number: 1, name: "", overview: "", progress: progress, completed: completed)
+        }
+        #expect(EpisodeLabels.progress(episode(0, false)) == nil)
+        #expect(EpisodeLabels.progress(episode(0.004, false)) == nil, "less than a percent says nothing yet")
+        #expect(EpisodeLabels.progress(episode(0.42, false)) == "42% watched")
+        #expect(EpisodeLabels.progress(episode(0.97, true)) == "Watched")
+    }
+
     @Test func factsJoinWhatIsKnown() {
         #expect(
             CatalogLabels.facts(year: 2024, rating: "PG-13", runtime: 112, kind: .movie)

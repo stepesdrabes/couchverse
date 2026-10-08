@@ -31,6 +31,7 @@ struct JoinCouchScreen: View {
                 .buttonStyle(.glass)
                 .buttonBorderShape(.circle)
                 .accessibilityLabel(L10n.commonCancel)
+                .accessibilityShowsLargeContentViewer { Label(L10n.commonCancel, systemImage: "xmark") }
                 .padding(Tokens.Spacing.lg)
             #endif
         }

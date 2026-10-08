@@ -111,6 +111,11 @@ struct CouchLabelTests {
         #expect(CouchLabels.spaced("12345") == "12345")
     }
 
+    @Test func voiceOverSaysACodeDigitByDigit() {
+        #expect(CouchLabels.spokenDigits("123456") == "1 2 3 4 5 6")
+        #expect(L10n.couchCode(code: CouchLabels.spokenDigits("042")) == "Code 0 4 2")
+    }
+
     @Test func membersShowTheirPlaceOnTheCouch() {
         let members = Fixtures.hostingMembers
         #expect(CouchLabels.badges(members[0], hostAway: false) == "Host · You")

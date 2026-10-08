@@ -64,6 +64,7 @@ struct CouchEndedScreen: View {
 struct CouchRemoteScreen: View {
     @Environment(CoreRuntime.self) private var core
     @Environment(\.accent) private var accent
+    @ScaledMetric(relativeTo: .largeTitle) private var clockSize: CGFloat = 64
 
     var body: some View {
         let view = core.couch
@@ -83,8 +84,10 @@ struct CouchRemoteScreen: View {
                     CouchAvatars(members: view.members, size: 40)
                     TimelineView(.periodic(from: .now, by: 0.5)) { _ in
                         Text(CatalogLabels.clock(seconds: UInt64(max(position, 0))))
-                            .font(.system(size: 64, weight: .semibold, design: .rounded))
+                            .font(.system(size: clockSize, weight: .semibold, design: .rounded))
                             .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
                             .foregroundStyle(Tokens.Palette.text)
                             .contentTransition(.numericText())
                             .accessibilityAddTraits(.updatesFrequently)

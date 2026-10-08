@@ -219,6 +219,9 @@ struct CouchMenu: Equatable {
             }
             .buttonStyle(.glass)
             .accessibilityLabel(L10n.couchOnCouchCount(count: String(couch.members.count)))
+            .accessibilityShowsLargeContentViewer {
+                Label(L10n.couchOnCouchCount(count: String(couch.members.count)), systemImage: "sofa.fill")
+            }
             .accessibilityIdentifier("player-couch")
             Button {
                 onOpen()
@@ -232,6 +235,7 @@ struct CouchMenu: Equatable {
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
             .accessibilityLabel(L10n.couchReact)
+            .accessibilityShowsLargeContentViewer { Label(L10n.couchReact, systemImage: "face.smiling") }
             .accessibilityIdentifier("player-react")
             .popover(isPresented: $reacting) {
                 ReactionBar(choices: Reactions.choices(recent: couch.recentEmojis)) { emoji in

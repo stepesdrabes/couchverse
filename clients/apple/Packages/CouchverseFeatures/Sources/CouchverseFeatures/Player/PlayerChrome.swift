@@ -164,6 +164,9 @@ final class ChromeVisibility {
             .buttonBorderShape(.circle)
             .simultaneousGesture(TapGesture().onEnded(onOpen))
             .accessibilityLabel(L10n.playerOptions)
+            .accessibilityShowsLargeContentViewer {
+                Label(L10n.playerOptions, systemImage: "slider.horizontal.3")
+            }
             .accessibilityIdentifier("player-options")
         }
 
@@ -176,6 +179,7 @@ final class ChromeVisibility {
     private struct NextUpCard: View {
         let next: NextUp
         @Environment(CoreRuntime.self) private var core
+        @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
         var body: some View {
             VStack(alignment: .leading, spacing: Tokens.Spacing.sm) {
@@ -190,19 +194,25 @@ final class ChromeVisibility {
                 Text(PlayerLabels.nextUp(next))
                     .typeRole(Tokens.TypeRamp.card)
                     .foregroundStyle(.white)
-                    .lineLimit(2)
-                HStack(spacing: Tokens.Spacing.sm) {
-                    Button(L10n.playerPlayNow) { core.send(.nextEpisodeRequested) }
-                        .primaryAction()
-                    Button(L10n.commonCancel) { core.send(.nextEpisodeCancelled) }
-                        .secondaryAction()
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 2)
+                // side by side where they fit, else one under the other
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Tokens.Spacing.sm) { buttons }
+                        .fixedSize()
+                    VStack(alignment: .leading, spacing: Tokens.Spacing.sm) { buttons }
                 }
-                .fixedSize()
             }
             .padding(Tokens.Spacing.lg)
-            .frame(maxWidth: 320, alignment: .leading)
+            .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? 480 : 320, alignment: .leading)
             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous))
             .accessibilityElement(children: .contain)
+        }
+
+        @ViewBuilder private var buttons: some View {
+            Button(L10n.playerPlayNow) { core.send(.nextEpisodeRequested) }
+                .primaryAction()
+            Button(L10n.commonCancel) { core.send(.nextEpisodeCancelled) }
+                .secondaryAction()
         }
     }
 #endif
