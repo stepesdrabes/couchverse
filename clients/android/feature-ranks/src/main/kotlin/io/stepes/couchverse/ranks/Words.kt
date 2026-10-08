@@ -86,8 +86,8 @@ internal val TierNames: Map<String, Int> = mapOf(
 
 internal val XpSources: Map<String, Int> = mapOf(
     "achievements" to R.string.rank_source_achievements,
-    "couch_hosted" to R.string.rank_source_couch_hosted,
-    "couch_joined" to R.string.rank_source_couch_joined,
+    "couchHosted" to R.string.rank_source_couch_hosted,
+    "couchJoined" to R.string.rank_source_couch_joined,
     "episodes" to R.string.rank_source_episodes,
     "movies" to R.string.rank_source_movies,
     "video" to R.string.rank_source_video,
