@@ -336,8 +336,9 @@ private struct TopTitleCard: View {
 
     var body: some View {
         let width = CardMetrics.posterWidth
+        let zoom = "top/\(title.slug)"
         VStack(alignment: .leading, spacing: CardMetrics.captionGap) {
-            NavigationLink(value: CatalogRoute.title(slug: title.slug)) {
+            NavigationLink(value: CatalogRoute.title(slug: title.slug, card: zoom)) {
                 ArtworkImage(image: title.poster)
                     .overlay(alignment: .bottomLeading) {
                         if title.poster == nil {
@@ -349,6 +350,7 @@ private struct TopTitleCard: View {
                     }
                     .frame(width: width, height: width * 1.5)
                     .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous))
+                    .zoomSource(zoom)
             }
             .cardButtonStyle()
             .accessibilityLabel(title.name)

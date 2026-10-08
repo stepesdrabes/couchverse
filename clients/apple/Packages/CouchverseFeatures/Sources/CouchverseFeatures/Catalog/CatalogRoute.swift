@@ -3,7 +3,8 @@ import SwiftUI
 
 /// Where a card or a link in the catalog leads, pushed onto the tab's navigation stack.
 enum CatalogRoute: Hashable {
-    case title(slug: String)
+    /// `card` names the card the title opens from, which it zooms out of (`zoomSource`).
+    case title(slug: String, card: String? = nil)
     case browse(BrowseKey)
 }
 
@@ -25,7 +26,7 @@ extension View {
     func catalogDestinations() -> some View {
         navigationDestination(for: CatalogRoute.self) { route in
             switch route {
-            case .title(let slug): TitleScreen(slug: slug)
+            case .title(let slug, let card): TitleScreen(slug: slug).zoomed(from: card)
             case .browse(let key): BrowseScreen(key: key)
             }
         }

@@ -68,7 +68,7 @@ private struct HomeRow: View {
                 }
             } else {
                 ForEach(row.cards, id: \.titleId) { card in
-                    PosterCard(card: card)
+                    PosterCard(card: card, shelf: row.id)
                 }
             }
         }

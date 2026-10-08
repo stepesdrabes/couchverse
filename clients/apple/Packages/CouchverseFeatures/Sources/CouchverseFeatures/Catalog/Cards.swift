@@ -26,14 +26,18 @@ enum CardMetrics {
     static var edge: CGFloat { Idiom.isTV ? 80 : Tokens.Spacing.lg }
 }
 
-/// A title's poster, leading to its page. On TV the system's card style lifts it with parallax.
+/// A title's poster, leading to its page, which zooms out of it on iPhone and iPad. On TV the
+/// system's card style lifts it with parallax.
 struct PosterCard: View {
     let card: Card
     var width: CGFloat = CardMetrics.posterWidth
+    /// The shelf it is on, which tells it apart from the same title on another one.
+    var shelf = "grid"
 
     var body: some View {
+        let zoom = "\(shelf)/\(card.titleId)"
         VStack(alignment: .leading, spacing: CardMetrics.captionGap) {
-            NavigationLink(value: CatalogRoute.title(slug: card.slug)) {
+            NavigationLink(value: CatalogRoute.title(slug: card.slug, card: zoom)) {
                 ArtworkImage(image: card.poster)
                     .overlay(alignment: .bottomLeading) {
                         if card.poster == nil {
@@ -45,6 +49,7 @@ struct PosterCard: View {
                     }
                     .frame(width: width, height: width * 1.5)
                     .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous))
+                    .zoomSource(zoom)
             }
             .cardButtonStyle()
             .accessibilityLabel(card.name)
@@ -66,6 +71,7 @@ struct ContinueCardView: View {
 
     var body: some View {
         let width = CardMetrics.backdropWidth
+        let zoom = "continue/\(card.slug)"
         VStack(alignment: .leading, spacing: CardMetrics.captionGap) {
             Button {
                 core.send(.playRequested(card.play))
@@ -84,10 +90,11 @@ struct ContinueCardView: View {
                             .glassEffect(.regular, in: Circle())
                     }
                     .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous))
+                    .zoomSource(zoom)
             }
             .cardButtonStyle()
             .contextMenu {
-                NavigationLink(value: CatalogRoute.title(slug: card.slug)) {
+                NavigationLink(value: CatalogRoute.title(slug: card.slug, card: zoom)) {
                     Label(L10n.catalogMoreInfo, systemImage: "info.circle")
                 }
             }

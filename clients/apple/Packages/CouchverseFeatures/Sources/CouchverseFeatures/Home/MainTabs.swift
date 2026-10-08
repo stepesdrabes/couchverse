@@ -105,17 +105,24 @@ struct MainTabs: View {
 }
 
 /// A tab's navigation stack, which titles, listings, profiles and the leaderboard are pushed onto;
-/// `path` when something outside the stack pushes onto it too.
+/// `path` when something outside the stack pushes onto it too. On iPhone and iPad a title zooms out
+/// of the card it was opened from.
 private struct CatalogStack<Root: View>: View {
     var path: Binding<NavigationPath>?
     @ViewBuilder let root: () -> Root
+    @Namespace private var zoom
 
     var body: some View {
-        if let path {
-            NavigationStack(path: path) { content }
-        } else {
-            NavigationStack { content }
+        Group {
+            if let path {
+                NavigationStack(path: path) { content }
+            } else {
+                NavigationStack { content }
+            }
         }
+        #if os(iOS)
+            .environment(\.cardZoom, zoom)
+        #endif
     }
 
     private var content: some View {
