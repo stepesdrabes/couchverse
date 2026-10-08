@@ -76,6 +76,24 @@ test.describe('viewer pages', () => {
 	});
 });
 
+test.describe('the couch join page', () => {
+	// hosted by an account no couch test hosts as
+	test.use({ storageState: authFile('admin') });
+
+	test('is accessible to a guest', async ({ request, browser, errors }) => {
+		const created = await request.post('/api/v1/couch', { data: { kind: 'movie', id: movie.id } });
+		const { shareToken } = await created.json();
+		const guestContext = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+		errors.watch(guestContext);
+		const guest = await guestContext.newPage();
+		await guest.goto(`/couch/${shareToken}`);
+		await expect(guest.getByRole('link', { name: t('couch_open_in_app') })).toBeVisible();
+		await audit(guest);
+		await guestContext.close();
+		await request.post(`/api/v1/couch/${shareToken}/end`);
+	});
+});
+
 test.describe('admin pages', () => {
 	test.use({ storageState: authFile('admin') });
 

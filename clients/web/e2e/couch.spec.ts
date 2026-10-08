@@ -51,6 +51,15 @@ test('an anonymous viewer joins a couch session by its code and follows the host
 	const code = (await shareLink.inputValue()).split('/').pop();
 	const pausedAt = await videoTime(host);
 
+	// another tab of the hosting browser cannot join: the browser's one couch cookie is the
+	// playing tab's
+	errors.allow(/status of 409 /);
+	const tab = await host.context().newPage();
+	await tab.goto(`/couch/${code}`);
+	await tab.getByRole('button', { name: t('couch_join_start') }).click();
+	await expect(tab.getByText(t('problem_already_hosting'))).toBeVisible();
+	await tab.close();
+
 	// contexts made in a test inherit its options, nora's cookies included
 	const guestContext = await browser.newContext({ storageState: { cookies: [], origins: [] } });
 	errors.watch(guestContext);
@@ -138,12 +147,45 @@ test.describe(() => {
 		const guest = await guestContext.newPage();
 		await guest.goto(`/couch/${shareToken}`);
 		await expect(guest.getByText(t('couch_join_heading', { name: 'Otto' }))).toBeVisible();
+		// the apps join this server's couch by its code, without an account if need be
+		const server = encodeURIComponent(new URL(guest.url()).origin);
+		await expect(guest.getByRole('link', { name: t('couch_open_in_app') })).toHaveAttribute(
+			'href',
+			`couchverse://couch/${shareToken}?server=${server}`
+		);
 		await guest.getByRole('button', { name: t('couch_join_start') }).click();
 		await couchButton(guest).click();
 		await guest.getByRole('button', { name: t('couch_leave') }).click();
 		await expect(guest).toHaveURL(/\/login$/);
 		await guestContext.close();
 
+		expect((await request.get(`/api/v1/couch/${shareToken}/info`)).ok()).toBe(true);
+		await request.post(`/api/v1/couch/${shareToken}/end`);
+	});
+});
+
+test.describe(() => {
+	// the host's own account on another device: a member no other couch test hosts as
+	test.use({ storageState: authFile('vera') });
+
+	test("the host's account joining by code steers the host's player as a remote", async ({
+		page,
+		request
+	}) => {
+		// the request context hosts, the page is the account's other device
+		const created = await request.post('/api/v1/couch', { data: { kind: 'movie', id: movie.id } });
+		const { shareToken } = await created.json();
+
+		await page.goto(`/couch/${shareToken}`);
+		await page.getByRole('button', { name: t('couch_join_start') }).click();
+		await expect(page.getByRole('heading', { name: t('couch_remote_title') })).toBeVisible();
+		await expect(page.getByRole('button', { name: t('player_forward_10_seconds') })).toBeVisible();
+		await expect(page.getByRole('button', { name: t('couch_remote_next') })).toBeVisible();
+		await page.getByRole('button', { name: t('common_play'), exact: true }).click();
+
+		// putting the remote down leaves the session to the host's player
+		await page.getByRole('button', { name: t('couch_leave') }).click();
+		await expect(page).toHaveURL(/\/$/);
 		expect((await request.get(`/api/v1/couch/${shareToken}/info`)).ok()).toBe(true);
 		await request.post(`/api/v1/couch/${shareToken}/end`);
 	});

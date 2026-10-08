@@ -118,6 +118,11 @@ export class CoreRuntime {
 		this.#startup = options.startup ?? (() => []);
 	}
 
+	/** The clock messages are stamped with, which positions in the core's views are on. */
+	nowMs(): number {
+		return this.#now();
+	}
+
 	/**
 	 * Hands the core's player commands to `host` until the returned detach. Commands that came
 	 * while no player was attached are replayed from the last load on.

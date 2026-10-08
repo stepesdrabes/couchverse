@@ -8,6 +8,7 @@ import {
 	CouchStatus,
 	type CouchMember,
 	type CouchView,
+	type RemoteControl,
 	type Surface
 } from '$lib/generated/core';
 import * as m from '$lib/paraglide/messages';
@@ -53,6 +54,11 @@ class Couch {
 
 	get isFollower() {
 		return this.active && this.view?.role === CouchRole.Follower;
+	}
+
+	/** The host's account on this device steers the host's player instead of playing. */
+	get isRemote() {
+		return this.active && this.view?.role === CouchRole.Remote;
 	}
 
 	get participants(): CouchMember[] {
@@ -146,7 +152,12 @@ class Couch {
 		void core.send({ type: 'couchLocalPauseChanged', content: { paused } });
 	}
 
-	/** The host ended the session on a follower: nothing is left to watch. */
+	/** A remote's play, pause, seek or episode change for the host's player. */
+	steer(control: RemoteControl) {
+		void core.send({ type: 'couchRemoteCommanded', content: control });
+	}
+
+	/** The host ended the session on a follower or a remote: nothing is left to watch. */
 	ended() {
 		if (this.#leaving) return;
 		if (session.user) {
@@ -161,11 +172,14 @@ class Couch {
 export const couch = new Couch();
 
 $effect.root(() => {
-	let follower = false;
+	// following or steering from the join page, which has nothing left to show once it ends
+	let joined = false;
 	$effect(() => {
 		const view = couch.view;
 		const ended = view?.status === CouchStatus.Ended;
-		if (follower && ended) untrack(() => couch.ended());
-		if (view?.role || ended) follower = view?.role === CouchRole.Follower;
+		if (joined && ended) untrack(() => couch.ended());
+		if (view?.role || ended) {
+			joined = view?.role === CouchRole.Follower || view?.role === CouchRole.Remote;
+		}
 	});
 });

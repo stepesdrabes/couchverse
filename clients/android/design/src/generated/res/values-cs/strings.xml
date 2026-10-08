@@ -234,6 +234,7 @@
     <string name="couch_member_paused">Pozastaveno</string>
     <string name="couch_on_couch_count">Na gauči · %1$s</string>
     <string name="couch_open">Společné sledování</string>
+    <string name="couch_open_in_app">Otevřít v aplikaci</string>
     <string name="couch_participants_title">Na gauči</string>
     <string name="couch_react">Poslat reakci</string>
     <string name="couch_reconnecting">Opětovné připojování...</string>

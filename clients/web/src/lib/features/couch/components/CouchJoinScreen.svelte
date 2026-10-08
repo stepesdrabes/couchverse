@@ -1,20 +1,27 @@
 <script lang="ts">
-	import { Loader, Play } from 'lucide-svelte';
+	import { page } from '$app/state';
+	import { Loader, Play, Smartphone } from 'lucide-svelte';
 	import { artworkUrl } from '$lib/features/catalog/api';
 	import UserAvatar from '$lib/components/ui/UserAvatar.svelte';
 	import type { CouchInfo } from '$lib/features/couch/api';
 	import { accentVars } from '$lib/theme';
+	import { isTV } from '$lib/tv/tv';
 	import * as m from '$lib/paraglide/messages';
 
+	// error: why the last join failed, in words; empty when it did not
 	let {
 		info,
 		joining,
 		error,
 		onstart
-	}: { info: CouchInfo; joining: boolean; error: boolean; onstart: () => void } = $props();
+	}: { info: CouchInfo; joining: boolean; error: string; onstart: () => void } = $props();
 
 	const accentStyle = $derived(
 		info.display?.backdropAccent ? accentVars(info.display.backdropAccent) : ''
+	);
+	// the apps join this server's couch by its code, without an account if need be
+	const appLink = $derived(
+		`couchverse://couch/${info.shareCode}?server=${encodeURIComponent(page.url.origin)}`
 	);
 </script>
 
@@ -67,8 +74,19 @@
 			{m.couch_join_start()}
 		</button>
 
+		{#if !isTV}
+			<a
+				href={appLink}
+				class="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-edge px-5
+					text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-text"
+			>
+				<Smartphone class="size-4" />
+				{m.couch_open_in_app()}
+			</a>
+		{/if}
+
 		{#if error}
-			<p class="text-sm text-danger">{m.couch_join_failed()}</p>
+			<p class="text-sm text-danger">{error}</p>
 		{:else if info.participants > 0}
 			<p class="text-xs text-faint">{m.couch_on_couch_count({ count: info.participants })}</p>
 		{/if}

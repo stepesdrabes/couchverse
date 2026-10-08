@@ -233,6 +233,7 @@
     <string name="couch_member_paused">Paused</string>
     <string name="couch_on_couch_count">On the couch · %1$s</string>
     <string name="couch_open">Couch session</string>
+    <string name="couch_open_in_app">Open in the app</string>
     <string name="couch_participants_title">On the couch</string>
     <string name="couch_react">Send a reaction</string>
     <string name="couch_reconnecting">Reconnecting...</string>

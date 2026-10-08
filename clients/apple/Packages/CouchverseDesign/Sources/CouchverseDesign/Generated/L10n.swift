@@ -231,6 +231,7 @@ extension L10n {
     public static var couchMemberPaused: String { string("couch_member_paused") }
     public static func couchOnCouchCount(count: String) -> String { format("couch_on_couch_count", [count]) }
     public static var couchOpen: String { string("couch_open") }
+    public static var couchOpenInApp: String { string("couch_open_in_app") }
     public static var couchParticipantsTitle: String { string("couch_participants_title") }
     public static var couchReact: String { string("couch_react") }
     public static var couchReconnecting: String { string("couch_reconnecting") }
