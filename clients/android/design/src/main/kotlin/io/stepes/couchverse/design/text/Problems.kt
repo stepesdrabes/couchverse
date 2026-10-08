@@ -21,7 +21,13 @@ fun problemText(code: String?): Int = when (code) {
     "invalid_credentials" -> R.string.problem_invalid_credentials
     "rate_limited", "slow_down" -> R.string.problem_rate_limited
     "invalid_code" -> R.string.problem_invalid_code
+    "invalid_password" -> R.string.problem_invalid_password
     "unauthorized" -> R.string.problem_unauthorized
+    "forbidden" -> R.string.problem_forbidden
+    "conflict" -> R.string.problem_conflict
     "not_found" -> R.string.error_not_found
+    "not_host" -> R.string.problem_not_host
+    "session_full" -> R.string.problem_session_full
+    "already_hosting" -> R.string.problem_already_hosting
     else -> R.string.problem_generic
 }

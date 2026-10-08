@@ -19,10 +19,13 @@ import io.stepes.couchverse.design.runtime.rememberSend
 import io.stepes.couchverse.design.runtime.rememberSurface
 import io.stepes.couchverse.design.theme.LocalIsTv
 
-/** The first screen without a server: what Couchverse is, and how to add one. */
+/**
+ * The first screen without a server: what Couchverse is, how to add one, and joining someone's
+ * couch without an account.
+ */
 @Composable
-fun WelcomeScreen(onAddServer: () -> Unit, onScan: () -> Unit) {
-    if (LocalIsTv.current) WelcomeTv(onAddServer) else WelcomePhone(onAddServer, onScan)
+fun WelcomeScreen(onAddServer: () -> Unit, onScan: () -> Unit, onJoinCouch: () -> Unit) {
+    if (LocalIsTv.current) WelcomeTv(onAddServer, onJoinCouch) else WelcomePhone(onAddServer, onScan, onJoinCouch)
 }
 
 /** Adding a server by address; [onScan] is the phone's way in with a "Connect a device" QR. */

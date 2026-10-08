@@ -10,6 +10,9 @@ import io.stepes.couchverse.design.text.problemText
 import io.stepes.couchverse.design.theme.AccentColors
 import io.stepes.couchverse.design.theme.colorOf
 import io.stepes.couchverse.core.LoadStatus
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -57,6 +60,15 @@ class DesignTest {
         assertEquals(R.string.problem_rate_limited, problemText("slow_down"))
         assertEquals(R.string.problem_generic, problemText("http_502"))
         assertEquals(R.string.problem_generic, problemText(null))
+    }
+
+    @Test
+    fun `every code the catalogs word is worded`() {
+        val catalog = Json.parseToJsonElement(File("../../../contract/i18n/en.json").readText()).jsonObject.keys
+        // the admin's TMDB failures never reach a native client
+        val codes = catalog.mapNotNull { it.removePrefix("problem_").takeIf { code -> code != it } } - setOf("generic", "no_tmdb_id", "no_tmdb_key", "tmdb_error")
+        val unworded = codes.filter { problemText(it) != R.string::class.java.getField("problem_$it").getInt(null) }
+        assertEquals(emptyList(), unworded)
     }
 
     @Test

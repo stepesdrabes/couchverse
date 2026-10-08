@@ -100,9 +100,9 @@ data class WatchDownload(val id: String)
 @Serializable
 object WatchCouch
 
-/** Joining a couch session; a link or a scanned code fills in [code]. */
+/** Joining a couch session; a link or a scanned code fills in [code] and the [server] they name. */
 @Serializable
-data class JoinCouch(val code: String = "")
+data class JoinCouch(val code: String = "", val server: String = "")
 
 /** A phone steering this account's player on another device. */
 @Serializable

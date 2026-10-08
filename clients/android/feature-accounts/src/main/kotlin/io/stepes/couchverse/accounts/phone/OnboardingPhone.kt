@@ -61,7 +61,7 @@ import io.stepes.couchverse.design.text.problemMessage
 import io.stepes.couchverse.design.theme.Motion
 
 @Composable
-internal fun WelcomePhone(onAddServer: () -> Unit, onScan: () -> Unit) {
+internal fun WelcomePhone(onAddServer: () -> Unit, onScan: () -> Unit, onJoinCouch: () -> Unit) {
     Box(Modifier.fillMaxSize()) {
         GlowBackdrop()
         val shown = remember { MutableTransitionState(false).apply { targetState = true } }
@@ -98,6 +98,11 @@ internal fun WelcomePhone(onAddServer: () -> Unit, onScan: () -> Unit) {
                     Icon(CouchverseIcons.ScanCode, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.scanner_title))
+                }
+                TextButton(onClick = onJoinCouch, colors = inkButtonColors(), modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                    Icon(CouchverseIcons.Couch, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.couch_join_title))
                 }
             }
         }

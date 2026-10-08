@@ -5,7 +5,9 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import io.stepes.couchverse.couch.couchCode
+import io.stepes.couchverse.core.AppPhase
+import io.stepes.couchverse.couch.CouchInvite
+import io.stepes.couchverse.couch.couchInvite
 
 /** What a `couchverse://` link asks for. */
 sealed interface AppLink {
@@ -18,7 +20,11 @@ sealed interface AppLink {
     data class OpenTitle(val slug: String) : AppLink
 
     /** Join a couch session by its code. */
-    data class Couch(val code: String) : AppLink
+    data class Couch(val invite: CouchInvite) : AppLink {
+        /** One naming its server needs no account, so it opens over any screen; one without waits for an account. */
+        fun opensIn(phase: AppPhase?): Boolean =
+            phase == AppPhase.Ready || invite.server != null && phase != null && phase != AppPhase.Starting
+    }
 
     /** Play a movie or an episode where it stopped (Continue Watching outside the app). */
     data class Play(val kind: String, val id: String) : AppLink
@@ -31,7 +37,7 @@ sealed interface AppLink {
                 "connect" -> Connect(url)
                 "pair" -> Pair(url)
                 "title" -> uri.pathSegments.firstOrNull()?.let(::OpenTitle)
-                "couch" -> couchCode(url)?.let(::Couch)
+                "couch" -> couchInvite(url)?.let(::Couch)
                 "play" -> uri.pathSegments.takeIf { it.size == 2 && it[0] in PlayKinds }?.let { Play(it[0], it[1]) }
                 else -> null
             }

@@ -45,6 +45,7 @@ import io.stepes.couchverse.core.LoadStatus
 import io.stepes.couchverse.core.ServersView
 import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.Tokens
+import io.stepes.couchverse.design.components.CouchverseIcons
 import io.stepes.couchverse.design.components.GlowBackdrop
 import io.stepes.couchverse.design.components.LogoMark
 import io.stepes.couchverse.design.text.problemMessage
@@ -55,7 +56,7 @@ import io.stepes.couchverse.design.tv.focusOnStart
 import io.stepes.couchverse.design.tv.remoteLeavesField
 
 @Composable
-internal fun WelcomeTv(onAddServer: () -> Unit) {
+internal fun WelcomeTv(onAddServer: () -> Unit, onJoinCouch: () -> Unit) {
     val focus = remember { FocusRequester() }
     TvOnboardingPage {
         LogoMark(size = 88.dp)
@@ -70,12 +71,15 @@ internal fun WelcomeTv(onAddServer: () -> Unit) {
             style = MaterialTheme.typography.titleMedium,
             color = Tokens.Palette.muted,
         )
-        TvActionButton(
-            stringResource(R.string.servers_add_title),
-            onClick = onAddServer,
-            primary = true,
-            modifier = Modifier.padding(top = 16.dp).focusOnStart(focus),
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 16.dp)) {
+            TvActionButton(
+                stringResource(R.string.servers_add_title),
+                onClick = onAddServer,
+                primary = true,
+                modifier = Modifier.focusOnStart(focus),
+            )
+            TvActionButton(stringResource(R.string.couch_join_title), onClick = onJoinCouch, icon = CouchverseIcons.Couch)
+        }
     }
 }
 

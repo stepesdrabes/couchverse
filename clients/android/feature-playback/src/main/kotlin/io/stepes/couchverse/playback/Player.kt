@@ -77,7 +77,7 @@ class PlayerState(
     val player: Player?,
     /** Inside a picture-in-picture window: only the video. */
     val pictureInPicture: Boolean = false,
-    /** The couch session, when the server has couch sessions on. */
+    /** The couch session, when the account's server has couch sessions on or one is live. */
     val couch: CouchView? = null,
     val couchEnabled: Boolean = false,
 )
@@ -120,8 +120,10 @@ fun PlayerRoute(start: PlayerStart, onBack: () -> Unit) {
     val send = rememberSend()
     val view by rememberSurface<PlayerView>(Surface.Player)
     val session by rememberSurface<SessionView>(Surface.Session)
-    val couchEnabled = session?.features?.couch == true
-    val couch = if (couchEnabled) rememberSurface<CouchView>(Surface.Couch).value else null
+    val couchView by rememberSurface<CouchView>(Surface.Couch)
+    // a live couch counts as couch sessions being on: a guest has no account to say so
+    val couchEnabled = session?.accountId != null && session?.features?.couch == true || couchView?.active == true
+    val couch = couchView.takeIf { couchEnabled }
     val engine = LocalPlaybackEngine.current
     val player by remember(engine) { engine?.player ?: MutableStateFlow(null) }.collectAsStateWithLifecycle()
     val requested = remember(start) {

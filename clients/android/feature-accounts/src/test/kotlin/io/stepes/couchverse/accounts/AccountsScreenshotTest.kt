@@ -27,7 +27,7 @@ class AccountsScreenshotTest {
 
     @Test
     fun welcome() = Device.entries.forEach { device ->
-        Languages.forEach { language -> screenshot("welcome", device, language) { WelcomeScreen({}, {}) } }
+        Languages.forEach { language -> screenshot("welcome", device, language) { WelcomeScreen({}, {}, {}) } }
     }
 
     @Test

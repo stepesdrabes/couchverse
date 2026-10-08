@@ -54,7 +54,8 @@ import io.stepes.couchverse.core.runtime.CoreRuntime
 import io.stepes.couchverse.couch.CouchRemoteRoute
 import io.stepes.couchverse.couch.JoinCouchRoute
 import io.stepes.couchverse.couch.active
-import io.stepes.couchverse.couch.couchCode
+import io.stepes.couchverse.couch.CouchInvite
+import io.stepes.couchverse.couch.couchInvite
 import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.LogoMark
@@ -111,10 +112,9 @@ fun CouchverseRoot(runtime: CoreRuntime, playback: PlaybackEngine?, tv: Boolean,
                 Box(Modifier.fillMaxSize().background(Tokens.Palette.bg)) {
                     RootNavigation(links, version)
                     Notices()
-                    if (session?.status == LoadStatus.Loaded) {
-                        NotificationPermission()
-                        CelebrationRoute()
-                    }
+                    // a guest's couch has its notification too, without an account
+                    NotificationPermission()
+                    if (session?.status == LoadStatus.Loaded) CelebrationRoute()
                 }
             }
         }
@@ -168,9 +168,9 @@ private fun RootNavigation(links: PendingLinks, version: String) {
                 links.consume()
                 pendingTitle = link.slug
             }
-            is AppLink.Couch -> if (phase == AppPhase.Ready) {
+            is AppLink.Couch -> if (link.opensIn(phase)) {
                 links.consume()
-                nav.navigate(JoinCouch(link.code))
+                nav.navigate(JoinCouch(link.invite.code, link.invite.server.orEmpty()))
             }
             is AppLink.Play -> if (phase == AppPhase.Ready) {
                 links.consume()
@@ -181,7 +181,7 @@ private fun RootNavigation(links: PendingLinks, version: String) {
     }
 
     val back: () -> Unit = { nav.popBackStack() }
-    CouchNavigation(nav, phase == AppPhase.Ready)
+    CouchNavigation(nav)
     val reduced = LocalReducedMotion.current
     val enter = Motion.enter<Float>()
     val rise = Motion.smooth<IntOffset>()
@@ -204,7 +204,11 @@ private fun RootNavigation(links: PendingLinks, version: String) {
             ) {
                 screen<Splash> { SplashScreen() }
                 screen<Welcome> {
-                    WelcomeScreen(onAddServer = { nav.navigate(AddServer) }, onScan = { nav.navigate(Scan()) })
+                    WelcomeScreen(
+                        onAddServer = { nav.navigate(AddServer) },
+                        onScan = { nav.navigate(Scan()) },
+                        onJoinCouch = { nav.navigate(JoinCouch()) },
+                    )
                 }
                 screen<AddServer> {
                     AddServerRoute(
@@ -223,10 +227,10 @@ private fun RootNavigation(links: PendingLinks, version: String) {
                     QrScannerScreen(
                         hint = stringResource(if (approve) R.string.scanner_hint else R.string.onboarding_scan_hint),
                         onLink = { url ->
-                            val couch = couchCode(url)
+                            val couch = couchInvite(url)
                             if (couch == null) runtime.send(Event.LinkOpened(Link(url)))
                             val next: Any = when {
-                                couch != null -> JoinCouch(couch)
+                                couch != null -> JoinCouch(couch.code, couch.server.orEmpty())
                                 isConnectLink(url) -> Connecting
                                 else -> Approve(opened = true)
                             }
@@ -303,8 +307,9 @@ private fun RootNavigation(links: PendingLinks, version: String) {
                     )
                 }
                 screen<JoinCouch> { entry ->
+                    val route = entry.toRoute<JoinCouch>()
                     JoinCouchRoute(
-                        initialCode = entry.toRoute<JoinCouch>().code,
+                        invite = CouchInvite(route.code, route.server.ifEmpty { null }),
                         onScan = if (tv) null else ({ nav.navigate(Scan()) }),
                         onBack = back,
                     )
@@ -317,12 +322,11 @@ private fun RootNavigation(links: PendingLinks, version: String) {
 
 /**
  * Follows this device's couch role: a follower watches in the player, a remote steers from
- * the remote screen, and both come back a moment after the session ends.
+ * the remote screen, and both come back a moment after the session ends. A guest without an
+ * account follows the same way.
  */
 @Composable
-private fun CouchNavigation(nav: androidx.navigation.NavHostController, ready: Boolean) {
-    val session by rememberSurface<SessionView>(Surface.Session)
-    if (!ready || session?.features?.couch != true) return
+private fun CouchNavigation(nav: androidx.navigation.NavHostController) {
     val couch by rememberSurface<CouchView>(Surface.Couch)
     val view = couch ?: return
     LaunchedEffect(view.role, view.status) {

@@ -14,13 +14,23 @@ import kotlin.test.assertNull
 
 @RunWith(RobolectricTestRunner::class)
 class CouchTest {
+    private val actions = JoinCouchActions(onJoin = {}, onRemote = {}, onScan = {}, onBack = {})
+
     @Test
-    fun `couch links carry their code`() {
-        assertEquals("123456", couchCode("couchverse://couch/123456"))
-        assertEquals("123456", couchCode("https://media.example.com/couch/123456"))
-        assertEquals("654321", couchCode("http://10.0.2.2:8092/couch/654321/"))
-        assertNull(couchCode("https://media.example.com/pair?code=WDJB-MJHT"))
-        assertNull(couchCode("https://media.example.com/couch/12345"))
+    fun `couch links carry their code and the server they name`() {
+        assertEquals(CouchInvite("123456"), couchInvite("couchverse://couch/123456"))
+        assertEquals(
+            CouchInvite("123456", "http://192.168.1.5:8080"),
+            couchInvite("couchverse://couch/123456?server=http%3A%2F%2F192.168.1.5%3A8080"),
+        )
+        assertEquals(CouchInvite("123456"), couchInvite("couchverse://couch/123456?server="))
+        // a join page's server is its origin
+        assertEquals(CouchInvite("123456", "https://media.example.com"), couchInvite("https://media.example.com/couch/123456"))
+        assertEquals(CouchInvite("654321", "http://10.0.2.2:8092"), couchInvite("http://10.0.2.2:8092/couch/654321/"))
+        assertNull(couchInvite("https://media.example.com/pair?code=WDJB-MJHT"))
+        assertNull(couchInvite("https://media.example.com/couch/12345"))
+        assertNull(couchInvite("couchverse://pair?code=123456"))
+        assertNull(couchInvite("not a link"))
     }
 
     @Test
@@ -40,7 +50,11 @@ class CouchTest {
         }
         Device.entries.forEach { device ->
             screenshot("couch_join", device) {
-                JoinCouchScreen(null, "123456", JoinCouchActions(onJoin = {}, onRemote = {}, onScan = {}, onBack = {}))
+                JoinCouchScreen(null, CouchInvite("123456"), guest = false, actions)
+            }
+            // without an account the server is asked for too, and there is no player to steer
+            screenshot("couch_join_guest", device, "cs") {
+                JoinCouchScreen(null, CouchInvite("123456"), guest = true, actions)
             }
         }
         screenshot("couch_remote", Device.Phone, "cs") {
