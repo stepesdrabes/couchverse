@@ -52,7 +52,7 @@ ladder, model-B audio siblings stay outside the multivariant playlists, legacy T
 not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
 `mediastreamvalidator` never run (needs an Apple ID download; `make hls-apple`).
 
-## Phase 5: browse and titles - in progress
+## Phase 5: browse and titles - done
 
 - Done: core `catalog` (stale-while-revalidate, warm start, search, My List, image URLs), title
   logos (backend, TMDB, admin), logos in the core's views.
@@ -60,7 +60,11 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
   notices as toasts; the catalog SWR cache and fetchers deleted), with the My List race, the
   shared warm home on sign-out and episode lengths fixed in the core; navigation at parity
   (revisits 40-100 ms, cold visits one round trip).
-- In progress: Apple browse and titles together with the Apple player (Phases 5 and 6).
+- Done: Apple browse and titles on iPhone, iPad and Apple TV (tabs, the TV's sidebar, Home with
+  the hero and Continue Watching, Movies, Series, genres, My List, Search, the title page with
+  seasons and episodes, notices as toasts), with snapshot references for every state (en, cs at
+  the largest text) on simulators pinned to the references' screen scale.
+- Left for later: zoom transitions from cards and `couchverse://title`/`watch` links on Apple.
 
 ## Phase 6: playback - in progress
 
@@ -73,7 +77,12 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
 - Done: the web player on the core (`ElementPlayer` over the video element and hls.js, the
   browser's device profile, every tier, track and quality switching, next episode, resume),
   with the web's resume, beacons, JIT keepalive and next-episode code deleted.
-- In progress: the Apple player.
+- Done: the Apple player (`PlayerController` executing the core's player commands on AVPlayer
+  inside `AVPlayerViewController`: every tier, sidecar WebVTT and in-stream subtitles, audio and
+  subtitles from the system menus, the Quality menu, next episode, shuffle, PiP, AirPlay, Now
+  Playing, display criteria on the TV) and the device profile measured from the hardware.
+- Pending: the exit on hardware (docs/apple.md, items 9 to 15), the celebrations overlay (with
+  Apple ranks, Phase 8).
 
 ## Phase 7: couch - in progress
 
@@ -83,7 +92,8 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
 - Done: the web couch on the core (socket effect, anonymous guests through a cookie-mode
   guest endpoint, follower drift sync, reactions, a follower's failed player refetched through
   the couch).
-- Pending: Apple couch, Android couch.
+- Done: the Android couch (Phase 12).
+- Pending: the Apple couch.
 
 ## Phase 8: ranks and profiles - in progress
 
@@ -93,6 +103,7 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
   board's size), profile edits with uploads through the upload effect, achievement checks
   (a forced check the server throttled is asked once more) and the devices list over the
   cookie; the web's SWR cache is gone, the core is its only cache.
+- Done: Android ranks and profiles (Phase 12).
 - Pending: Apple adoption.
 
 ## Phase 9: Apple system integration - pending

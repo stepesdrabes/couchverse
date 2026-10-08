@@ -628,7 +628,8 @@ messages and perform the effects it asks for.
   undoes one), `ranks` (rank badge and level-ups, throttled achievement
   checks, celebration queue, profiles with the heatmap, leaderboards), `profile` (edits,
   password, avatar/banner uploads), `playback` (the device profile and `resolvePlayback`,
-  sources by tier, resume, watched-time accounting and progress saves, JIT keepalive,
+  sources by tier (the server's media paths made whole URLs against the account's server for
+  native players), resume, watched-time accounting and progress saves, JIT keepalive,
   preparing poll, qualities, tracks, next episode, shuffle; a downloaded title plays from the
   device with source `download` and in-file subtitles), `couch` (the socket protocol,
   reconnects, host broadcast, follower drift sync, remote control, reactions), `downloads`
@@ -668,26 +669,73 @@ navigation, nothing else.
   the xcframework, `Generated/Messages.swift`, `CoreRuntime` and the executors (it alone also
   builds for the Mac, for `swift test`). `CouchverseDesign`: tokens, typography, the accent
   environment, components, generated strings. `CouchverseFeatures`: screens by feature folder
-  (`Onboarding`, `Accounts`, `Settings`, `Home`) and `CouchverseRoot`, the view both apps show.
+  (`Onboarding`, `Accounts`, `Settings`, `Home`, `Catalog`, `Player`) and `CouchverseRoot`, the
+  view both apps show; `LiveRuntime.make()` returns the runtime and the `PlayerController` it
+  drives, which the apps put into the environment.
 - **Runtime**: `CoreRuntime` (`@Observable`, main actor) is the only stateful service. It stamps
   `nowMs` from the continuous clock, runs one executor per effect (`HTTPExecutor` over an
   ephemeral URLSession, `TimerExecutor`, `SocketExecutor` over `URLSessionWebSocketTask`,
   `KeychainStore` with `AfterFirstUnlock` for tokens, `FileStore` in Application Support on iOS
   and `DefaultsStore` on tvOS, whose only guaranteed storage is user defaults), re-reads just the
   surfaces a `Render` names and publishes them as properties, decoded off the main actor (each
-  surface keeps the generation it was published at, so a late batch never wins). Until their
-  slices land, `upload` effects fail as `httpFailed` (no image picking yet) and `player` commands
-  are ignored (nothing starts playback yet). Screens read `core.<surface>` and `core.send(event)`; their own state is
+  surface keeps the generation it was published at, so a late batch never wins). Title pages and
+  listings are published per slug and `BrowseKey` once a screen opens them (`core.title(slug)`,
+  `core.browse(key)`, a loading view before). `player` commands go to a `PlayerExecuting`
+  (`PlayerController` in the apps, `SilentPlayer` in tests). Until their slices land, `upload`
+  effects fail as `httpFailed` (no image picking yet) and `download` effects as
+  `downloadFailed`. Screens read `core.<surface>` and `core.send(event)`; their own state is
   presentation only (focus, sheets, a field being typed). `CoreRuntime(fixture:)` shows fixed
   view models for previews and snapshots and records what it is sent. UI tests launch with
   `-uiTesting` (in-memory stores: a fresh install every launch).
 - **Root**: `AppView.phase` picks the screen: `welcome`/`signIn` -> `OnboardingFlow` (welcome,
-  add server, sign in), `chooseAccount` -> "Who's watching?", `ready` -> `MainTabs` (a sidebar
-  on TV and iPad, a Liquid Glass tab bar on iPhone; Home is a placeholder until the catalog
-  slice). The root also follows the session's display language (`L10n.language`, observable, so
-  strings switch without rebuilding the app) and accent, sends `appBecameActive`, and opens
-  `couchverse://connect` and `couchverse://pair` links (`DeepLink` decides what to present; the
-  core parses the link).
+  add server, sign in), `chooseAccount` -> "Who's watching?", `ready` -> `MainTabs` (the TV's
+  sidebar: Home, Movies, Series, Genres, My List, Settings, Search; on iPhone a Liquid Glass tab
+  bar with Home, Browse (movies, series and genres under a segmented control), My List, Settings
+  and a search tab, the same tabs as an adaptable sidebar on iPad; each tab its own
+  `NavigationStack`). The root also follows the session's display language (`L10n.language`,
+  observable, so strings switch without rebuilding the app) and accent, sends `appBecameActive`,
+  opens `couchverse://connect` and `couchverse://pair` links (`DeepLink` decides what to present;
+  the core parses the link), shows the core's notices as toasts (`NoticeDismissed` when one
+  goes), reports the device profile (`CapabilitiesReported`, again when the audio route
+  changes) and covers everything with the player while `PlayerView.target` is set; dismissing
+  the cover sends `PlayerClosed`.
+- **Catalog** (`Catalog/`): Home (the featured hero, 8 s a slide unless a finger or the focus is
+  on it, then the server's rows: Continue Watching as backdrop cards with progress that play at
+  once, the newest titles and genre rows as posters), Movies, Series and a genre (`BrowseScreen`:
+  a poster grid, sort and genre menus that make a new `BrowseKey`, `BrowseMoreRequested` as the
+  last rows appear), Genres, My List, Search (`.searchable`, every keystroke a `SearchChanged`,
+  the kept query restored) and a title (`TitleScreen`: backdrop, logo, facts, Play or Resume
+  from the core's `PlayAction`, My List via `WatchlistChanged`, a random episode with shuffle
+  switched on, seasons with each episode's progress as rows on touch devices and a shelf of
+  stills on TV; tinted with the title's palette). A screen holds its surface open while it is up
+  (`coreScreen`: `ScreenOpened`/`ScreenClosed` bracket the view's task), and home and a title
+  also send `RefreshRequested` when the player over them closes, since they stayed open
+  meanwhile. `CatalogStateView` shows content whenever there is some (stale beats blank, with a
+  note when it could not refresh), else the screen's skeleton, else not found or failed with a
+  retry; pull to refresh on touch devices. Cards use the TV's card button style (lift and
+  parallax); hover-free focus works with the remote throughout.
+- **Player** (`Player/`): `PlayerController` executes `PlayerCommand`s on one `AVPlayer`: `load`
+  (a URL, a file name in the downloads directory for `download`; the start position once the
+  item is ready, `maxHeight` as `preferredMaximumResolution`, Now Playing metadata with the
+  backdrop as `externalMetadata`), play, pause, seek, audio by language and subtitles: a sidecar
+  WebVTT file for a progressive source is parsed (`WebVTT`) and drawn by the screen, a track
+  inside the media (HLS renditions, a download's own subtitles) is selected as a legible option
+  by language (`cze`/`ces`/`cs` alike). It reports `PlayerReported` every second while playing
+  and on every change of state, buffering, the end and failures, but not while a new item
+  settles at zero; a language picked in the system's own menu becomes `SubtitlesChosen` or
+  `AudioChosen`. `DeviceCapabilities` measures the profile (`VTIsHardwareDecodeSupported`, Main
+  10 by `isPlayableExtendedMIMEType`, `eligibleForHDRPlayback`, the TV's display size and frame
+  rate, a 4K decode cap on phones and tablets, Atmos from spatial audio or a multichannel route)
+  and `DeviceProfile.avPlayer` shapes it like `contract/fixtures/device-profiles/apple-tv-4k.json`.
+  `PlayerScreen` wraps `AVPlayerViewController` (system transport, scrubbing, close, PiP started
+  automatically from inline, AirPlay, Now Playing and remote commands; on TV display criteria
+  matching). On TV the transport bar gets the core's Quality menu, Audio and Subtitles menus only
+  when the system's cannot list them (another language's file, a sidecar file), and Shuffle; the
+  info panel lists the episodes; the next episode is a contextual action with its countdown. On
+  iPhone and iPad a small options button between the system's top controls holds the same
+  choices plus the episodes, and a glass card counts down to the next episode (Play now,
+  Cancel). Waiting, preparing (with its progress), unsupported and failed states cover the
+  player with the backdrop. The iOS app has the `audio` background mode for PiP.
 - **Sign-in**: password, or "Sign in with another device" (the code large, a QR code of the
   pairing page and a countdown from `expiresAtMs` on the runtime's clock). A TV shows both side
   by side and starts pairing on its own; a phone shows one at a time. Approving another device
@@ -708,9 +756,12 @@ navigation, nothing else.
 - **Tests**: Swift Testing throughout. `CouchverseCore`: the runtime over the real core with
   fake executors, and the executors. `CouchverseDesign`: identicons against the web's output,
   localization and Czech plurals, colours, QR, markdown. `CouchverseFeatures`: deep links, code
-  input, the countdown, the choreography, and `ScreenSnapshots` (swift-snapshot-testing) of every
-  key screen and load state on iPhone, iPad and TV, English and Czech at the largest Dynamic
-  Type. UI tests: a smoke test per app, and `LiveFlowTests` that pair a TV from a phone against a
+  input, the countdown, the choreography, catalog labels, WebVTT and stream languages, the
+  device profile against the contract fixture (in `CouchverseCore`), and `ScreenSnapshots`
+  (swift-snapshot-testing) of every key screen and load state on iPhone, iPad and TV, English
+  and Czech at the largest Dynamic Type, on the pinned simulators `make apple-sims` creates (the
+  suite refuses a simulator of another screen scale). UI tests: a smoke test per app, and
+  `LiveFlowTests` that pair a TV from a phone and browse to a title and play it on both against a
   running server (skipped without `CV_LIVE_SERVER`). `make apple-test`, `make apple-uitest` and
   `make apple-lint` (swift-format) run them; `apple.yml` runs them all in CI.
 

@@ -78,7 +78,11 @@ xcodebuild -project clients/apple/Couchverse.xcodeproj -scheme 'Couchverse TV' \
 | `make apple-uitest` | The smoke UI test of each app on a simulator (fresh install, no server needed). |
 | `make apple-lint` / `make apple-format` | `swift-format` over every hand-written Swift file (`clients/apple/.swift-format`); CI runs the lint. |
 
-`IOS_SIM` and `TV_SIM` choose the simulators by name (`make apple-test IOS_SIM='iPhone 17 Pro'`).
+The tests run on two simulators of pinned device types, an iPhone 17 and an Apple TV 4K at 4K,
+which `make apple-sims` creates (`Couchverse iPhone 17`, `Couchverse Apple TV 4K`) on the newest
+runtimes; `apple-test` and `apple-uitest` depend on it. `IOS_SIM`/`TV_SIM` (names) and
+`IOS_SIM_TYPE`/`TV_SIM_TYPE` (device types) override them, but the snapshots only match on a 3x
+iPhone and a 2x Apple TV (see below).
 Design and Features are iOS and tvOS packages, so they build with `xcodebuild -scheme <package>`
 inside the package directory, no project needed; only `CouchverseCore` also builds for the Mac.
 
@@ -90,7 +94,13 @@ recorded on the first run and that run fails, so new screens are reviewed before
 committed. After an intended visual change, delete the affected references, run `make apple-test`
 twice and review the new images. Package tests have no host app, so the screens are drawn with
 `Ambience.flat` (no glow, solid instead of glass buttons: a prominent glass button at the largest
-text sizes renders nothing without one); `designGallery` draws the glow and glass once.
+text sizes renders nothing without one); `designGallery` draws the glow and glass once. Screens
+render into 1x images, but text is rasterized at the simulator's screen scale, so the glyph edges
+of a reference recorded on a 1080p Apple TV (1x) differ from a 4K one (2x) everywhere, enough to
+fail the largest-text variants: the suite records an issue instead of comparing when the
+simulator's scale is not the references' (3x iPhone, 2x Apple TV). Catalog screens render from
+`CatalogFixtures`, whose artwork points at a host that never resolves, so every image shows its
+accent-tinted placeholder and the references do not depend on the network.
 
 **UI tests.** The smoke tests launch the apps with `-uiTesting`, which keeps the stores in memory
 so every launch is a fresh install. `LiveFlowTests` drive the real flows against a running
@@ -112,7 +122,14 @@ xcodebuild test ... -only-testing:CouchverseUITests/LiveFlowTests/test2ApproveTh
 # TV: add a second profile (nora/couchverse by default), then switch profiles
 xcodebuild test ... -only-testing:CouchverseTVUITests/LiveFlowTests/test2AddASecondProfileWithAPassword
 xcodebuild test ... -only-testing:CouchverseTVUITests/LiveFlowTests/test3SwitchProfiles
+# both: browse to a title (TEST_RUNNER_CV_TITLE, Glass Harbor by default), play it, come back
+# to "Resume from" (the server needs media: `make sample-media` and `make ingest-samples`)
+xcodebuild test ... -only-testing:CouchverseUITests/LiveFlowTests/test3BrowseToATitleAndPlayIt
+xcodebuild test ... -only-testing:CouchverseTVUITests/LiveFlowTests/test4BrowseToATitleAndPlayIt
 ```
+
+Run the live flows on simulators nothing else uses at the time: two `xcodebuild test` runs on one
+simulator (a `make apple-test` elsewhere, say) uninstall each other's runners.
 
 `xcrun simctl io <device> recordVideo` captures the profile switch.
 
@@ -158,3 +175,29 @@ The simulators cover the flows (see the Phase 3 report); on hardware, also check
    sleeping and the system reclaiming space.
 8. **Display language**: switching to Čeština in Settings changes every string at once and
    survives a relaunch (it is saved as the account's preference).
+9. **Focus and parallax on the TV**: posters, Continue Watching cards and episode stills lift
+   with the system's parallax under the Siri Remote's touch surface; the hero stops moving on
+   while one of its buttons has the focus; Back walks from the player to the title, the listing
+   and the sidebar.
+10. **Device profile**: on an Apple TV 4K connected to a 4K HDR TV, the profile the app sends
+    (the server's log of `resolvePlayback`, or a proxy) lists HEVC Main 10, HDR10, HLG and Dolby
+    Vision 5/8 and 3840x2160; on a 1080p SDR TV it is capped at 1920x1080 without HDR; an iPhone
+    sends 4K. Plug in an Atmos receiver or pair AirPods: E-AC-3 turns `atmos: true` without a
+    relaunch (the audio route changed).
+11. **HDR, frame rate and Atmos on Apple TV 4K**: with Match Content (dynamic range and frame
+    rate) on in the TV's settings, an HDR10 and a Dolby Vision 8.1 sample switch the display mode
+    when playback starts and back when it ends; a 24p film switches to 24 Hz; an E-AC-3 JOC
+    sample shows Atmos on the receiver.
+12. **Picture in Picture and AirPlay on iPhone and iPad**: going home while playing starts PiP
+    (the background audio mode), and returning restores the player; AirPlay to an Apple TV
+    plays the same title from the same position (the URLs carry the grant).
+13. **Now Playing and remote commands**: the lock screen and Control Center show the title,
+    episode and backdrop and their play/pause and skip controls work; on the TV the info panel
+    shows the same.
+14. **Tracks**: a title with two audio languages and subtitles switches both from the system's
+    menus (HLS renditions) and the choice is remembered for the next title (the core's
+    preferences); a direct-played file with a WebVTT sidecar draws its lines over the picture;
+    the Quality menu (TV transport bar, phone options button) pins 720p and back to Auto.
+15. **Next episode and shuffle**: the last 20 s of an episode count down (a card on the phone, a
+    contextual action on the TV) and the next one starts at zero; Cancel keeps the credits;
+    Shuffle in the menu and Random episode on the title pick another episode.
