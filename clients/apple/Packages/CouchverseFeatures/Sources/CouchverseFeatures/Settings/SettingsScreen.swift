@@ -150,16 +150,18 @@ struct SettingsScreen: View {
     }
 }
 
-/// An account in a list: avatar, name, server, and whether it is the one in use or signed out.
+/// An account in a list: avatar (in its rank ring), name, server, and whether it is the one in use
+/// or signed out.
 struct AccountRow: View {
     let card: AccountCard
     let current: Bool
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.md) {
-            AvatarView(url: card.avatarUrl, seed: card.username, name: card.displayName)
-                .frame(width: Idiom.isTV ? 64 : 40, height: Idiom.isTV ? 64 : 40)
+            AccountAvatar(card: card, size: Idiom.isTV ? 64 : 40)
                 .saturation(card.signedIn ? 1 : 0)
+                // the name follows, so the picture says nothing more
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
                 Text(card.displayName)
                     .typeRole(Tokens.TypeRamp.card)
@@ -180,6 +182,7 @@ struct AccountRow: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityValue(card.rankLine ?? "")
     }
 }
 

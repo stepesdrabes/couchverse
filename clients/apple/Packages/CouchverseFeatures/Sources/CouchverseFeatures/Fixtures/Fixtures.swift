@@ -15,12 +15,13 @@ public enum Fixtures {
         version: "1.4.0", apiLevel: 1, accent: "#e50914", insecure: false)
 
     public static func account(
-        _ username: String, _ displayName: String, server: Server = server, signedIn: Bool = true
+        _ username: String, _ displayName: String, server: Server = server, signedIn: Bool = true,
+        rank: RankBadge? = nil, accent: AccentPalette? = nil
     ) -> AccountCard {
         AccountCard(
             id: "\(server.id)/\(username)", serverId: server.id, serverName: server.name,
             insecure: server.insecure, username: username, displayName: displayName, avatarUrl: nil,
-            signedIn: signedIn)
+            signedIn: signedIn, rank: rank, accent: accent)
     }
 
     public static let accounts = AccountsView(
@@ -29,6 +30,25 @@ public enum Fixtures {
             account("admin", "Štěpán"),
             account("kids", "Kids Corner"),
             account("oskar", "Oskar", server: secureServer, signedIn: false),
+        ],
+        active: "\(serverId)/nora")
+
+    /// The same profiles with the ranks and banner colours this device last saw: Nora's amber
+    /// banner tints the picker, Kids Corner has neither and keeps its identicon's colour.
+    public static let rankedAccounts = AccountsView(
+        accounts: [
+            account(
+                "nora", "Nora", rank: rankBadge,
+                accent: AccentPalette(
+                    accent: "#d97706", strong: "#a95d05", soft: "#d9770629", onAccent: "#0b0c10", ink: "#e5912c")),
+            account(
+                "admin", "Štěpán",
+                rank: RankBadge(
+                    tier: tier("marathoner", 6, 15000), next: tier("sage", 7, 25000), xp: 17200, percent: 22)),
+            account("kids", "Kids Corner"),
+            account(
+                "oskar", "Oskar", server: secureServer, signedIn: false,
+                rank: RankBadge(tier: tier("remote", 2, 500), next: tier("snack", 3, 1500), xp: 1300, percent: 80)),
         ],
         active: "\(serverId)/nora")
 

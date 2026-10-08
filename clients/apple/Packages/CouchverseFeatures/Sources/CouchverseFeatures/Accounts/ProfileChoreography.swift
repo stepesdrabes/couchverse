@@ -103,9 +103,11 @@ struct ProfileChoreographyOverlay: View {
         let source = choreography.source
         let target = choreography.target ?? CGRect(x: 92, y: 58, width: 72, height: 72)
         let frame = choreography.flown ? target : source
+        // it leaves in the tile's ring and lands in the header's
+        let ring = choreography.flown ? card.tint : card.rankColor ?? card.tint
         return AvatarView(url: card.avatarUrl, seed: card.username, name: card.displayName)
-            .overlay { Circle().strokeBorder(card.tint, lineWidth: choreography.flown ? 2 : 6) }
-            .shadow(color: card.tint.opacity(choreography.flown ? 0 : 0.7), radius: 36)
+            .overlay { Circle().strokeBorder(ring, lineWidth: choreography.flown ? 2 : 6) }
+            .shadow(color: ring.opacity(choreography.flown ? 0 : 0.7), radius: 36)
             .frame(width: frame.width, height: frame.height)
             .position(x: frame.midX - origin.x, y: frame.midY - origin.y)
     }

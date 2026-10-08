@@ -2,14 +2,9 @@ import CouchverseCore
 import CouchverseDesign
 import SwiftUI
 
-extension AccountCard {
-    /// The profile's own colour: its identicon hue, the same on every client. It tints the
-    /// picker's backdrop and ring until profiles carry a banner accent and a rank tier.
-    var tint: Color { Identicon(seed: username).color }
-}
-
-/// "Who's watching?": the profiles as large glass tiles over a backdrop tinted by the focused one.
-/// A plain view of the accounts it is given, so the choreography can redraw it as it dissolves.
+/// "Who's watching?": the profiles as large glass tiles, each in its rank ring, over a backdrop
+/// tinted by the focused one, which cross-fades as the focus moves. A plain view of the accounts
+/// it is given, so the choreography can redraw it as it dissolves.
 struct ProfilePicker: View {
     let accounts: [AccountCard]
     let active: String?
@@ -22,6 +17,7 @@ struct ProfilePicker: View {
 
     @FocusState private var focused: String?
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var tintAccount: AccountCard? {
         let id = focused ?? chosen ?? active
@@ -45,8 +41,9 @@ struct ProfilePicker: View {
                 .padding(.vertical, Idiom.isTV ? 120 : Tokens.Spacing.xxxl)
                 .padding(.horizontal, Tokens.Spacing.xl)
                 .frame(maxWidth: .infinity)
-                .containerRelativeFrame(.vertical, alignment: .center) { length, _ in length }
             }
+            // centred while it fits; large text makes it taller than the screen, and it scrolls
+            .defaultScrollAnchor(.center, for: .alignment)
             .scrollBounceBehavior(.basedOnSize)
         }
         .defaultFocus($focused, active ?? accounts.first?.id)
@@ -54,10 +51,12 @@ struct ProfilePicker: View {
 
     @ViewBuilder private var tiles: some View {
         let chosenIndex = accounts.firstIndex { $0.id == chosen }
+        // half as many a row at the accessibility text sizes, so the names have room to wrap
+        let columns = (sizeClass == .regular ? 4 : 2) / (dynamicTypeSize.isAccessibilitySize ? 2 : 1)
         let layout =
             Idiom.isTV
             ? AnyLayout(HStackLayout(alignment: .top, spacing: 72))
-            : AnyLayout(GridFlowLayout(columns: sizeClass == .regular ? 4 : 2, spacing: Tokens.Spacing.xl))
+            : AnyLayout(GridFlowLayout(columns: columns, spacing: Tokens.Spacing.xl))
         layout {
             ForEach(Array(accounts.enumerated()), id: \.element.id) { index, card in
                 ProfileTile(card: card, diameter: diameter) { frame in
@@ -137,8 +136,8 @@ private struct GridFlowLayout: Layout {
     }
 }
 
-/// One profile: a glass disc holding the avatar inside its ring, and the name below. Focus lifts
-/// it, brightens the ring and reveals which server it is on.
+/// One profile: a glass disc holding the avatar inside its ring (the rank's, once one is known),
+/// and the name below. Focus lifts it, brightens the ring and reveals the rank and the server.
 struct ProfileTile: View {
     let card: AccountCard
     let diameter: CGFloat
@@ -152,9 +151,14 @@ struct ProfileTile: View {
             ProfileTileLabel(card: card, diameter: diameter, avatarFrame: $avatarFrame)
         }
         .buttonStyle(ProfileTileStyle())
-        .accessibilityLabel("\(card.displayName), \(card.serverName)")
-        .accessibilityValue(card.signedIn ? "" : L10n.accountsSignedOut)
+        .accessibilityLabel(card.displayName)
+        .accessibilityValue(Self.details(card).joined(separator: ", "))
         .accessibilityIdentifier("profile-\(card.username)")
+    }
+
+    /// What the tile says under the name: the rank and the server, or that it is signed out.
+    static func details(_ card: AccountCard) -> [String] {
+        card.signedIn ? [card.rankLine, card.serverName].compactMap { $0 } : [L10n.accountsSignedOut]
     }
 }
 
@@ -166,12 +170,22 @@ private struct ProfileTileStyle: ButtonStyle {
     }
 }
 
+/// How wide a tile's words may run: wider at the accessibility text sizes, where the picker shows
+/// fewer tiles a row.
+private func labelWidth(_ diameter: CGFloat, _ size: DynamicTypeSize) -> CGFloat {
+    diameter * (size.isAccessibilitySize && !Idiom.isTV ? 2.4 : 1.3)
+}
+
 private struct ProfileTileLabel: View {
     let card: AccountCard
     let diameter: CGFloat
     @Binding var avatarFrame: CGRect
     @Environment(\.isFocused) private var focused
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// A TV dims what is not focused; touch devices have no focus to wait for.
+    private var lit: Bool { focused || !Idiom.isTV }
 
     var body: some View {
         VStack(spacing: Tokens.Spacing.lg) {
@@ -188,9 +202,7 @@ private struct ProfileTileLabel: View {
                     .padding(diameter * 0.07)
                     .saturation(card.signedIn ? 1 : 0)
                     .opacity(card.signedIn ? 1 : 0.6)
-                Circle()
-                    .strokeBorder(card.tint.opacity(focused ? 1 : 0.55), lineWidth: focused ? 6 : 4)
-                    .shadow(color: card.tint.opacity(focused ? 0.8 : 0), radius: 18)
+                ring
                 if !card.signedIn {
                     Image(systemName: "lock.fill")
                         .font(.system(size: diameter * 0.16, weight: .semibold))
@@ -207,23 +219,48 @@ private struct ProfileTileLabel: View {
             VStack(spacing: Tokens.Spacing.xs) {
                 Text(card.displayName)
                     .typeRole(Tokens.TypeRamp.card)
-                    .foregroundStyle(focused || !Idiom.isTV ? Tokens.Palette.text : Tokens.Palette.muted)
-                    .lineLimit(1)
-                Group {
-                    if card.signedIn {
-                        Text(card.serverName)
-                    } else {
-                        Text(L10n.accountsSignedOut)
-                    }
-                }
-                .typeRole(Tokens.TypeRamp.caption)
-                .foregroundStyle(Tokens.Palette.muted)
-                .lineLimit(1)
-                .opacity(focused || !Idiom.isTV ? 1 : 0)
+                    .foregroundStyle(lit ? Tokens.Palette.text : Tokens.Palette.muted)
+                    .lineLimit(2)
+                details
+                    .typeRole(Tokens.TypeRamp.caption)
+                    .lineLimit(2)
+                    .opacity(lit ? 1 : 0)
             }
-            .frame(width: diameter * 1.3)
+            .multilineTextAlignment(.center)
+            .frame(width: labelWidth(diameter, dynamicTypeSize))
         }
-        .animation(reduceMotion ? nil : Tokens.Motion.bouncy, value: focused)
+        // a fade rather than a spring with Reduce Motion, which also keeps the tile from growing
+        .animation(reduceMotion ? Tokens.Motion.standard : Tokens.Motion.bouncy, value: focused)
+    }
+
+    /// The rank ring in the tier's colour, brighter and wider with the focus; a profile without a
+    /// rank keeps a ring in its own colour.
+    @ViewBuilder private var ring: some View {
+        if let rank = card.rank, let color = card.rankColor {
+            RankRing(
+                color: color.opacity(lit ? 1 : 0.6), progress: Double(rank.percent) / 100,
+                level: String(rank.tier.level), lineWidth: focused ? 6 : 4
+            ) {
+                Color.clear
+            }
+            .saturation(card.signedIn ? 1 : 0)
+            .shadow(color: color.opacity(focused ? 0.8 : 0), radius: 18)
+        } else {
+            Circle()
+                .strokeBorder(card.tint.opacity(focused ? 1 : 0.55), lineWidth: focused ? 6 : 4)
+                .shadow(color: card.tint.opacity(focused ? 0.8 : 0), radius: 18)
+        }
+    }
+
+    /// The rank title in the tier's colour, then the server; or that the profile is signed out.
+    @ViewBuilder private var details: some View {
+        VStack(spacing: Tokens.Spacing.xxs) {
+            if let line = card.rankLine, let color = card.rankColor {
+                Text(line).foregroundStyle(color)
+            }
+            Text(card.signedIn ? card.serverName : L10n.accountsSignedOut)
+                .foregroundStyle(Tokens.Palette.muted)
+        }
     }
 }
 
@@ -246,6 +283,7 @@ private struct AddProfileLabel: View {
     let diameter: CGFloat
     @Environment(\.isFocused) private var focused
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: Tokens.Spacing.lg) {
@@ -258,10 +296,11 @@ private struct AddProfileLabel: View {
             Text(L10n.accountsAddAccount)
                 .typeRole(Tokens.TypeRamp.card)
                 .foregroundStyle(focused || !Idiom.isTV ? Tokens.Palette.text : Tokens.Palette.muted)
-                .lineLimit(1)
-                .frame(width: diameter * 1.3)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: labelWidth(diameter, dynamicTypeSize))
             Text(" ").typeRole(Tokens.TypeRamp.caption).accessibilityHidden(true)
         }
-        .animation(reduceMotion ? nil : Tokens.Motion.bouncy, value: focused)
+        .animation(reduceMotion ? Tokens.Motion.standard : Tokens.Motion.bouncy, value: focused)
     }
 }

@@ -83,6 +83,18 @@ struct ScreenSnapshots {
         }
     }
 
+    /// The profiles in their rank rings, with the glow in the active profile's banner colour at the
+    /// default text size (drawn flat at the largest, like the other screens).
+    @Test func whosWatchingRanked() {
+        let values: [SurfaceValue] = [
+            .app(AppView(phase: .chooseAccount, activeAccount: nil)), .accounts(Fixtures.rankedAccounts),
+        ]
+        let largest = Self.variants.filter { $0.size.isAccessibilityCategory }
+        let regular = Self.variants.filter { !$0.size.isAccessibilityCategory }
+        snapshot("whos-watching-ranked", values, ambience: .still, variants: regular) { WhosWatchingScreen() }
+        snapshot("whos-watching-ranked", values, variants: largest) { WhosWatchingScreen() }
+    }
+
     @Test(arguments: [LoadStatus.loading, .loaded, .failed, .stale])
     func home(status: LoadStatus) {
         snapshot("home-\(status)", Self.ready + [.home(Fixtures.home(status))]) { NavigationStack { HomeScreen() } }
@@ -195,6 +207,12 @@ struct ScreenSnapshots {
     #if os(iOS)
         @Test func accountSwitcher() {
             snapshot("account-switcher", Self.ready) { AccountSwitcherSheet() }
+        }
+
+        @Test func accountSwitcherRanked() {
+            snapshot("account-switcher-ranked", Self.ready + [.accounts(Fixtures.rankedAccounts)]) {
+                AccountSwitcherSheet()
+            }
         }
     #endif
 

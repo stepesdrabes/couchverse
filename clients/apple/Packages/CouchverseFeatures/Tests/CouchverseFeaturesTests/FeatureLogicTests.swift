@@ -1,6 +1,7 @@
 import CouchverseCore
 import CouchverseDesign
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import CouchverseFeatures
@@ -103,6 +104,30 @@ struct ProfileChoreographyTests {
         #expect(!choreography.isRunning)
         #expect(!choreography.isFlying(card.id))
         #expect(choreography.card == nil)
+    }
+}
+
+@MainActor
+struct WhosWatchingTests {
+    let accounts = Fixtures.rankedAccounts.accounts
+
+    init() { L10n.language = "en" }
+
+    @Test func aProfileIsTintedByItsBannerElseByItsIdenticon() {
+        #expect(accounts[0].tint == Color(hex: "#d97706"))
+        #expect(accounts[2].tint == Identicon(seed: "kids").color)
+    }
+
+    @Test func theRingTakesTheTiersColourOnceARankIsKnown() {
+        #expect(accounts[1].rankColor == Tokens.Tier.marathoner.color)
+        #expect(accounts[2].rankColor == nil)
+    }
+
+    @Test func aTileTellsTheRankAndTheServerOrThatItIsSignedOut() {
+        #expect(ProfileTile.details(accounts[0]) == ["Binge Apprentice · Level 4", "Home Media"])
+        #expect(ProfileTile.details(accounts[2]) == ["Home Media"])
+        #expect(ProfileTile.details(accounts[3]) == ["Signed out"], "a profile that must sign in again shows no rank")
+        #expect(accounts[3].rankLine == nil)
     }
 }
 
