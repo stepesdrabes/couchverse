@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -42,8 +41,8 @@ import io.stepes.couchverse.design.runtime.rememberSend
 import io.stepes.couchverse.design.runtime.rememberSurface
 import io.stepes.couchverse.design.theme.LocalIsTv
 import io.stepes.couchverse.design.theme.colorOf
-import io.stepes.couchverse.design.tv.TvActionButton
-import io.stepes.couchverse.design.tv.focusOnStart
+import io.stepes.couchverse.ranks.phone.CelebrationPhone
+import io.stepes.couchverse.ranks.tv.CelebrationTv
 
 /** A tier's name in the display language, or its code for a tier this build does not know. */
 @Composable
@@ -93,7 +92,12 @@ fun RankChip(badge: RankBadge, modifier: Modifier = Modifier) {
  */
 @Composable
 fun CelebrationCard(card: AchievementCard, onDismiss: () -> Unit) {
-    val tv = LocalIsTv.current
+    if (LocalIsTv.current) CelebrationTv(card, onDismiss) else CelebrationPhone(card, onDismiss)
+}
+
+/** The card both idioms show; [done] is the idiom's button that dismisses it. */
+@Composable
+internal fun Celebration(card: AchievementCard, done: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
         Column(
             Modifier
@@ -116,11 +120,7 @@ fun CelebrationCard(card: AchievementCard, onDismiss: () -> Unit) {
                 Text(stringResource(achievementTier(card.tier)), color = tierColour(card.tier), style = MaterialTheme.typography.labelLarge)
                 Text(stringResource(R.string.achievement_reward, card.xp.toString()), color = Tokens.Palette.text, style = MaterialTheme.typography.labelLarge)
             }
-            if (tv) {
-                TvActionButton(stringResource(R.string.common_done), onClick = onDismiss, primary = true, modifier = Modifier.focusOnStart())
-            } else {
-                Button(onClick = onDismiss) { Text(stringResource(R.string.common_done)) }
-            }
+            done()
         }
     }
 }

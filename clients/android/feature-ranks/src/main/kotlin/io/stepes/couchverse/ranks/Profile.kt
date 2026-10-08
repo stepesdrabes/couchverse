@@ -2,19 +2,15 @@ package io.stepes.couchverse.ranks
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,37 +18,28 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.stepes.couchverse.core.AchievementCard
 import io.stepes.couchverse.core.Event
@@ -69,7 +56,6 @@ import io.stepes.couchverse.design.components.Artwork
 import io.stepes.couchverse.design.components.Avatar
 import io.stepes.couchverse.design.components.MarkdownView
 import io.stepes.couchverse.design.components.StatusMessage
-import io.stepes.couchverse.design.phone.PhoneGutter
 import io.stepes.couchverse.design.runtime.rememberSend
 import io.stepes.couchverse.design.runtime.rememberSurface
 import io.stepes.couchverse.design.text.displayLocale
@@ -77,8 +63,8 @@ import io.stepes.couchverse.design.text.formatRuntime
 import io.stepes.couchverse.design.text.problemMessage
 import io.stepes.couchverse.design.theme.LocalAccent
 import io.stepes.couchverse.design.theme.LocalIsTv
-import io.stepes.couchverse.design.tv.TvActionButton
-import io.stepes.couchverse.design.tv.TvSafe
+import io.stepes.couchverse.ranks.phone.ProfilePhone
+import io.stepes.couchverse.ranks.tv.ProfileTv
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -100,41 +86,47 @@ class ProfileActions(
  */
 @Composable
 fun ProfileScreen(view: ProfileView?, actions: ProfileActions) {
+    if (LocalIsTv.current) ProfileTv(view, actions) else ProfilePhone(view, actions)
+}
+
+/** The profile once it is there, else loading, not found, or failed with a retry. */
+@Composable
+internal fun BoxScope.ProfileStates(view: ProfileView?, onRetry: () -> Unit, content: @Composable (ProfileDetail) -> Unit) {
     val profile = view?.profile
-    Box(Modifier.fillMaxSize()) {
-        when {
-            profile != null -> ProfileContent(profile, actions)
-            view == null || view.status == LoadStatus.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-            view.status == LoadStatus.NotFound -> StatusMessage(stringResource(R.string.profiles_not_found), Modifier.align(Alignment.Center))
-            else -> StatusMessage(
-                stringResource(R.string.error_page_title),
-                Modifier.align(Alignment.Center),
-                message = problemMessage(view.problem),
-                action = { OutlinedButton(onClick = actions.onRetry) { Text(stringResource(R.string.common_retry)) } },
-            )
-        }
-        if (!LocalIsTv.current) {
-            actions.onBack?.let { back ->
-                IconButton(onClick = back, modifier = Modifier.statusBarsPadding().padding(8.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                }
-            }
-        }
+    when {
+        profile != null -> content(profile)
+        view == null || view.status == LoadStatus.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+        view.status == LoadStatus.NotFound -> StatusMessage(stringResource(R.string.profiles_not_found), Modifier.align(Alignment.Center))
+        else -> StatusMessage(
+            stringResource(R.string.error_page_title),
+            Modifier.align(Alignment.Center),
+            message = problemMessage(view.problem),
+            action = { OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.common_retry)) } },
+        )
     }
 }
 
+/**
+ * The profile as one list: [header], then the bio, numbers, activity, top titles, achievements
+ * and where the XP comes from. Each idiom frames a block with [section] and draws a top title
+ * with [topTitle].
+ */
 @Composable
-private fun ProfileContent(profile: ProfileDetail, actions: ProfileActions) {
-    val tv = LocalIsTv.current
-    val gutter = if (tv) TvSafe.horizontal else PhoneGutter
+internal fun ProfileList(
+    profile: ProfileDetail,
+    gutter: Dp,
+    header: @Composable () -> Unit,
+    section: @Composable (content: @Composable () -> Unit) -> Unit,
+    topTitle: @Composable (TopTitle) -> Unit,
+) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        item(key = "header") { Header(profile, actions, gutter) }
+        item(key = "header") { header() }
         if (profile.bio.blocks.isNotEmpty()) {
-            item(key = "bio") { Section(gutter) { MarkdownView(profile.bio) } }
+            item(key = "bio") { section { MarkdownView(profile.bio) } }
         }
-        item(key = "stats") { Section(gutter) { Stats(profile) } }
+        item(key = "stats") { section { Stats(profile) } }
         item(key = "activity") {
-            Section(gutter) {
+            section {
                 Heading(R.string.profiles_activity_heading)
                 if (profile.heatmap.activeDays == 0u) {
                     Text(stringResource(R.string.profiles_no_activity), color = Tokens.Palette.muted)
@@ -145,7 +137,7 @@ private fun ProfileContent(profile: ProfileDetail, actions: ProfileActions) {
         }
         if (profile.hours.any { it > 0u }) {
             item(key = "clock") {
-                Section(gutter) {
+                section {
                     Heading(R.string.profiles_clock_heading)
                     WatchClock(profile.hours)
                 }
@@ -156,13 +148,13 @@ private fun ProfileContent(profile: ProfileDetail, actions: ProfileActions) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.padding(horizontal = gutter)) { Heading(R.string.profiles_top_titles_heading) }
                     LazyRow(contentPadding = PaddingValues(horizontal = gutter), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(profile.topTitles, key = { it.slug }) { title -> TopTitleCard(title, actions.onOpenTitle) }
+                        items(profile.topTitles, key = { it.slug }) { title -> topTitle(title) }
                     }
                 }
             }
         }
         item(key = "achievements") {
-            Section(gutter) {
+            section {
                 Heading(R.string.achievement_heading)
                 Text(
                     stringResource(R.string.achievement_count, profile.achievementsWon.toString(), profile.achievements.size.toString()),
@@ -173,7 +165,7 @@ private fun ProfileContent(profile: ProfileDetail, actions: ProfileActions) {
         }
         if (profile.xpSources.isNotEmpty()) {
             item(key = "xp") {
-                Section(gutter) {
+                section {
                     Heading(R.string.rank_sources_heading)
                     profile.xpSources.forEach { line ->
                         Row(Modifier.fillMaxWidth()) {
@@ -187,11 +179,14 @@ private fun ProfileContent(profile: ProfileDetail, actions: ProfileActions) {
     }
 }
 
+/**
+ * The banner, avatar, names and rank. On the viewer's own profile [own] adds the idiom's ways
+ * to edit it and to choose whether it is public.
+ */
 @Composable
-private fun Header(profile: ProfileDetail, actions: ProfileActions, gutter: androidx.compose.ui.unit.Dp) {
-    val tv = LocalIsTv.current
+internal fun ProfileHeader(profile: ProfileDetail, gutter: Dp, bannerHeight: Dp, own: @Composable RowScope.() -> Unit) {
     Column {
-        Box(Modifier.fillMaxWidth().height(if (tv) 200.dp else 160.dp)) {
+        Box(Modifier.fillMaxWidth().height(bannerHeight)) {
             Artwork(profile.banner?.url, accent = profile.banner?.accent, modifier = Modifier.fillMaxSize())
         }
         Row(
@@ -216,25 +211,7 @@ private fun Header(profile: ProfileDetail, actions: ProfileActions, gutter: andr
         Column(Modifier.padding(horizontal = gutter).offset(y = (-20).dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             RankChip(profile.rank)
             if (profile.isSelf) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (tv) {
-                        TvActionButton(stringResource(R.string.profiles_edit_profile), onClick = actions.onEdit, icon = Icons.Filled.Edit)
-                        TvActionButton(
-                            stringResource(R.string.profiles_public_label),
-                            onClick = { actions.onPublic(!profile.public) },
-                            icon = if (profile.public) Icons.Filled.Check else Icons.Filled.Close,
-                        )
-                    } else {
-                        OutlinedButton(onClick = actions.onEdit) {
-                            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.profiles_edit_profile))
-                        }
-                        Spacer(Modifier.weight(1f))
-                        Text(stringResource(R.string.profiles_public_label), color = Tokens.Palette.text)
-                        Switch(checked = profile.public, onCheckedChange = actions.onPublic)
-                    }
-                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically, content = own)
                 if (!profile.public) {
                     Text(stringResource(R.string.profiles_private_self_notice), style = MaterialTheme.typography.bodySmall, color = Tokens.Palette.muted)
                 }
@@ -243,33 +220,9 @@ private fun Header(profile: ProfileDetail, actions: ProfileActions, gutter: andr
     }
 }
 
-/**
- * A block of the page. On a TV it takes focus, so the remote can scroll a page that is mostly
- * reading; the focused block is outlined.
- */
+/** How long a top title was watched, below its poster. */
 @Composable
-private fun Section(gutter: androidx.compose.ui.unit.Dp, content: @Composable () -> Unit) {
-    val tv = LocalIsTv.current
-    val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
-    Column(
-        Modifier
-            .padding(horizontal = gutter)
-            .fillMaxWidth()
-            .then(
-                if (tv) {
-                    Modifier
-                        .clip(RoundedCornerShape(Tokens.Radius.card))
-                        .border(2.dp, if (focused) Tokens.Palette.text else Tokens.Palette.edge, RoundedCornerShape(Tokens.Radius.card))
-                        .focusable(interactionSource = interaction)
-                        .padding(16.dp)
-                } else {
-                    Modifier
-                },
-            ),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) { content() }
-}
+internal fun watchedFor(title: TopTitle): String = formatRuntime((title.seconds / 60u).toInt(), displayLocale())
 
 @Composable
 private fun Heading(label: Int) {
@@ -353,36 +306,6 @@ private fun WatchClock(hours: List<ULong>) {
     Row(Modifier.fillMaxWidth()) {
         listOf(0, 6, 12, 18).forEach { hour ->
             Text(stringResource(R.string.profiles_clock_hour, hour.toString()), style = MaterialTheme.typography.labelSmall, color = Tokens.Palette.muted, modifier = Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun TopTitleCard(title: TopTitle, onOpen: (String) -> Unit) {
-    val tv = LocalIsTv.current
-    val width = if (tv) 120.dp else 96.dp
-    if (tv) {
-        io.stepes.couchverse.design.tv.TvPosterCard(
-            name = title.name,
-            posterUrl = title.poster?.url,
-            accent = title.poster?.accent,
-            caption = formatRuntime((title.seconds / 60u).toInt(), displayLocale()),
-            onClick = { onOpen(title.slug) },
-            width = width,
-        )
-    } else {
-        Column(
-            Modifier.width(width).clickable(role = Role.Button) { onOpen(title.slug) },
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Artwork(
-                title.poster?.url,
-                accent = title.poster?.accent,
-                fallbackName = title.name,
-                modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(10.dp)),
-            )
-            Text(title.name, style = MaterialTheme.typography.bodySmall, color = Tokens.Palette.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(formatRuntime((title.seconds / 60u).toInt(), displayLocale()), style = MaterialTheme.typography.labelSmall, color = Tokens.Palette.muted)
         }
     }
 }

@@ -4,31 +4,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,7 +19,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -58,18 +40,12 @@ import io.stepes.couchverse.core.SessionView
 import io.stepes.couchverse.core.Surface
 import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.Tokens
-import io.stepes.couchverse.design.components.Artwork
-import io.stepes.couchverse.design.components.Avatar
-import io.stepes.couchverse.design.phone.PhoneGutter
-import io.stepes.couchverse.design.phone.inkButtonColors
 import io.stepes.couchverse.design.runtime.rememberSend
 import io.stepes.couchverse.design.runtime.rememberSurface
 import io.stepes.couchverse.design.text.problemMessage
 import io.stepes.couchverse.design.theme.LocalIsTv
-import io.stepes.couchverse.design.tv.TvActionButton
-import io.stepes.couchverse.design.tv.TvSafe
-import io.stepes.couchverse.design.tv.focusOnStart
-import io.stepes.couchverse.design.tv.remoteLeavesField
+import io.stepes.couchverse.ranks.phone.ProfileEditorPhone
+import io.stepes.couchverse.ranks.tv.ProfileEditorTv
 
 class ProfileEditorActions(
     val onSave: (ProfileEdit) -> Unit,
@@ -94,79 +70,51 @@ class ProfileEditorState(
  */
 @Composable
 fun ProfileEditorScreen(state: ProfileEditorState, actions: ProfileEditorActions) {
-    val tv = LocalIsTv.current
+    if (LocalIsTv.current) ProfileEditorTv(state, actions) else ProfileEditorPhone(state, actions)
+}
+
+/** The idiom's button that saves one part of the editor. */
+internal typealias EditorAction = @Composable (label: String, primary: Boolean, enabled: Boolean, onClick: () -> Unit) -> Unit
+
+/** What the idiom adds to each of the editor's fields: on a TV, the remote's way out of it. */
+internal typealias FieldExtras = @Composable (value: String, start: Boolean) -> Modifier
+
+@Composable
+internal fun EditorHeading() {
+    Text(stringResource(R.string.profile_heading), style = MaterialTheme.typography.headlineSmall, color = Tokens.Palette.text, modifier = Modifier.semantics { heading() })
+}
+
+/** The name and bio, then the password, as both idioms show them under the heading. */
+@Composable
+internal fun ColumnScope.EditorForm(state: ProfileEditorState, actions: ProfileEditorActions, extras: FieldExtras, action: EditorAction) {
     val user = state.user
     var name by rememberSaveable(user?.displayName) { mutableStateOf(user?.displayName.orEmpty()) }
     var bio by rememberSaveable(user?.bio) { mutableStateOf(user?.bio.orEmpty()) }
     var current by rememberSaveable { mutableStateOf("") }
     var new by rememberSaveable { mutableStateOf("") }
     var confirm by rememberSaveable { mutableStateOf("") }
-    Column(
-        Modifier
-            .fillMaxSize()
-            .then(if (tv) Modifier.padding(horizontal = TvSafe.horizontal, vertical = TvSafe.vertical) else Modifier.statusBarsPadding().imePadding())
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = if (tv) 0.dp else PhoneGutter, vertical = 8.dp)
-            .widthIn(max = 640.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (!tv) {
-                actions.onBack?.let { back ->
-                    IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back)) }
-                }
-            }
-            Text(stringResource(R.string.profile_heading), style = MaterialTheme.typography.headlineSmall, color = Tokens.Palette.text, modifier = Modifier.semantics { heading() })
-        }
 
-        actions.onPick?.let { pick ->
-            Pictures(state, pick, actions.onRemove)
-        }
+    Field(name, { name = it }, R.string.profile_display_name, extras, start = true)
+    Field(bio, { bio = it.take(BIO_LIMIT) }, R.string.profile_bio, extras, singleLine = false, placeholder = R.string.profile_bio_placeholder)
+    SaveRow(state.view?.details, R.string.profile_saved, R.string.profile_save_failed) {
+        action(stringResource(R.string.common_save), true, name.isNotBlank()) { actions.onSave(ProfileEdit(name.trim(), bio)) }
+    }
 
-        Field(name, { name = it }, R.string.profile_display_name, start = true)
-        Field(bio, { bio = it.take(BIO_LIMIT) }, R.string.profile_bio, singleLine = false, placeholder = R.string.profile_bio_placeholder)
-        SaveRow(state.view?.details, R.string.profile_saved, R.string.profile_save_failed) {
-            Action(stringResource(R.string.common_save), primary = true, enabled = name.isNotBlank()) { actions.onSave(ProfileEdit(name.trim(), bio)) }
-        }
-
-        Text(stringResource(R.string.profile_password_heading), style = MaterialTheme.typography.titleMedium, color = Tokens.Palette.text, modifier = Modifier.semantics { heading() })
-        Field(current, { current = it }, R.string.profile_current_password, password = true)
-        Field(new, { new = it }, R.string.profile_new_password, password = true)
-        Field(confirm, { confirm = it }, R.string.profile_confirm_password, password = true)
-        val problem = when {
-            new.isNotEmpty() && new.length < MIN_PASSWORD -> pluralStringResource(R.plurals.profile_password_too_short, MIN_PASSWORD, MIN_PASSWORD)
-            confirm.isNotEmpty() && confirm != new -> stringResource(R.string.profile_password_mismatch)
-            else -> null
-        }
-        problem?.let { Text(it, color = Tokens.Palette.danger, style = MaterialTheme.typography.bodySmall) }
-        SaveRow(state.view?.password, R.string.profile_password_changed, R.string.profile_password_change_failed) {
-            Action(stringResource(R.string.profile_password_heading), primary = false, enabled = problem == null && current.isNotEmpty() && new.isNotEmpty() && confirm == new) {
-                actions.onPassword(PasswordForm(current, new))
-            }
+    Text(stringResource(R.string.profile_password_heading), style = MaterialTheme.typography.titleMedium, color = Tokens.Palette.text, modifier = Modifier.semantics { heading() })
+    Field(current, { current = it }, R.string.profile_current_password, extras, password = true)
+    Field(new, { new = it }, R.string.profile_new_password, extras, password = true)
+    Field(confirm, { confirm = it }, R.string.profile_confirm_password, extras, password = true)
+    val problem = when {
+        new.isNotEmpty() && new.length < MIN_PASSWORD -> pluralStringResource(R.plurals.profile_password_too_short, MIN_PASSWORD, MIN_PASSWORD)
+        confirm.isNotEmpty() && confirm != new -> stringResource(R.string.profile_password_mismatch)
+        else -> null
+    }
+    problem?.let { Text(it, color = Tokens.Palette.danger, style = MaterialTheme.typography.bodySmall) }
+    SaveRow(state.view?.password, R.string.profile_password_changed, R.string.profile_password_change_failed) {
+        action(stringResource(R.string.profile_password_heading), false, problem == null && current.isNotEmpty() && new.isNotEmpty() && confirm == new) {
+            actions.onPassword(PasswordForm(current, new))
         }
     }
-}
-
-@Composable
-private fun Pictures(state: ProfileEditorState, pick: (ImageSlot) -> Unit, remove: (ImageSlot) -> Unit) {
-    Box(Modifier.fillMaxWidth().aspectRatio(3f).clip(RoundedCornerShape(Tokens.Radius.card))) {
-        Artwork(state.bannerUrl, modifier = Modifier.fillMaxSize())
-        if (state.view?.banner?.status == LoadStatus.Loading) CircularProgressIndicator(Modifier.align(Alignment.Center))
-    }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { pick(ImageSlot.Banner) }) { Text(stringResource(if (state.bannerUrl == null) R.string.profile_banner_upload else R.string.profile_banner_replace)) }
-        if (state.bannerUrl != null) TextButton(onClick = { remove(ImageSlot.Banner) }, colors = inkButtonColors()) { Text(stringResource(R.string.profile_banner_remove)) }
-    }
-    state.view?.banner?.problem?.let { Text(problemMessage(it), color = Tokens.Palette.danger) }
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box {
-            Avatar(state.avatarUrl, seed = state.user?.username.orEmpty(), size = 72.dp)
-            if (state.view?.avatar?.status == LoadStatus.Loading) CircularProgressIndicator(Modifier.align(Alignment.Center))
-        }
-        OutlinedButton(onClick = { pick(ImageSlot.Avatar) }) { Text(stringResource(R.string.profile_change_picture)) }
-        if (state.avatarUrl != null) TextButton(onClick = { remove(ImageSlot.Avatar) }, colors = inkButtonColors()) { Text(stringResource(R.string.profile_remove_picture)) }
-    }
-    state.view?.avatar?.problem?.let { Text(problemMessage(it), color = Tokens.Palette.danger) }
 }
 
 @Composable
@@ -174,12 +122,12 @@ private fun Field(
     value: String,
     onChange: (String) -> Unit,
     label: Int,
+    extras: FieldExtras,
     singleLine: Boolean = true,
     password: Boolean = false,
     placeholder: Int? = null,
     start: Boolean = false,
 ) {
-    val tv = LocalIsTv.current
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
@@ -189,9 +137,7 @@ private fun Field(
         minLines = if (singleLine) 1 else 3,
         visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else KeyboardType.Text),
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (tv) Modifier.remoteLeavesField(value.isEmpty()).then(if (start) Modifier.focusOnStart() else Modifier) else Modifier),
+        modifier = Modifier.fillMaxWidth().then(extras(value, start)),
     )
 }
 
@@ -205,15 +151,6 @@ private fun SaveRow(save: SaveState?, saved: Int, failed: Int, button: @Composab
             LoadStatus.Failed -> Text(save.problem?.let { problemMessage(it) } ?: stringResource(failed), color = Tokens.Palette.danger)
             else -> {}
         }
-    }
-}
-
-@Composable
-private fun Action(label: String, primary: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    when {
-        LocalIsTv.current -> TvActionButton(label, onClick = onClick, primary = primary, enabled = enabled)
-        primary -> Button(onClick = onClick, enabled = enabled) { Text(label) }
-        else -> OutlinedButton(onClick = onClick, enabled = enabled) { Text(label) }
     }
 }
 

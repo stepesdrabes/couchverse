@@ -1,7 +1,5 @@
 package io.stepes.couchverse.ranks
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,17 +8,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,13 +21,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.stepes.couchverse.core.LeaderRow
 import io.stepes.couchverse.core.LeaderboardKey
@@ -49,13 +39,12 @@ import io.stepes.couchverse.design.R
 import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.Avatar
 import io.stepes.couchverse.design.components.StatusMessage
-import io.stepes.couchverse.design.phone.PhoneGutter
 import io.stepes.couchverse.design.runtime.rememberSurface
 import io.stepes.couchverse.design.text.displayLocale
 import io.stepes.couchverse.design.text.formatRuntime
 import io.stepes.couchverse.design.theme.LocalIsTv
-import io.stepes.couchverse.design.tv.TvSafe
-import io.stepes.couchverse.design.tv.focusOnStart
+import io.stepes.couchverse.ranks.phone.LeaderboardPhone
+import io.stepes.couchverse.ranks.tv.LeaderboardTv
 
 /**
  * Who leads, by XP, watch time or achievements, over all time, this month or this week. The
@@ -63,35 +52,39 @@ import io.stepes.couchverse.design.tv.focusOnStart
  */
 @Composable
 fun LeaderboardScreen(view: LeaderboardView?, key: LeaderboardKey, onKey: (LeaderboardKey) -> Unit, onProfile: (String) -> Unit, onBack: (() -> Unit)?) {
-    val tv = LocalIsTv.current
-    val gutter = if (tv) TvSafe.horizontal else PhoneGutter
+    if (LocalIsTv.current) LeaderboardTv(view, key, onKey, onProfile) else LeaderboardPhone(view, key, onKey, onProfile, onBack)
+}
+
+/** A choice of board drawn by the idiom; [first] is the first of them, where a TV's focus starts. */
+internal typealias BoardChip = @Composable (selected: Boolean, label: String, onClick: () -> Unit, first: Boolean) -> Unit
+
+/**
+ * The board as one list, the same on both idioms: [title], the metric and period drawn with
+ * [chip], then the rows, each in the idiom's [line] that opens the member's profile, or why
+ * there are none.
+ */
+@Composable
+internal fun LeaderboardList(
+    view: LeaderboardView?,
+    key: LeaderboardKey,
+    onKey: (LeaderboardKey) -> Unit,
+    gutter: Dp,
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+    title: @Composable () -> Unit,
+    chip: BoardChip,
+    line: @Composable (row: LeaderRow, content: @Composable () -> Unit) -> Unit,
+) {
     LazyColumn(
-        Modifier.fillMaxSize().then(if (tv) Modifier else Modifier.statusBarsPadding()),
-        contentPadding = PaddingValues(top = if (tv) TvSafe.vertical else 0.dp, bottom = 32.dp),
+        Modifier.fillMaxSize().then(modifier),
+        contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item(key = "title") {
-            Row(Modifier.padding(horizontal = if (tv) gutter else 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (!tv && onBack != null) {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back)) }
-                }
-                Text(
-                    stringResource(R.string.leaderboard_heading),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Tokens.Palette.text,
-                    modifier = Modifier.semantics { heading() },
-                )
-            }
-        }
+        item(key = "title") { title() }
         item(key = "metrics") {
             Row(Modifier.padding(horizontal = gutter), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Metric.entries.forEachIndexed { index, metric ->
-                    Chip(
-                        selected = key.metric == metric,
-                        label = metricLabel(metric),
-                        onClick = { onKey(key.copy(metric = metric)) },
-                        modifier = if (tv && index == 0) Modifier.focusOnStart() else Modifier,
-                    )
+                    chip(key.metric == metric, metricLabel(metric), { onKey(key.copy(metric = metric)) }, index == 0)
                 }
             }
         }
@@ -101,7 +94,7 @@ fun LeaderboardScreen(view: LeaderboardView?, key: LeaderboardKey, onKey: (Leade
                     Text(stringResource(R.string.leaderboard_period_locked), style = MaterialTheme.typography.bodySmall, color = Tokens.Palette.muted)
                 } else {
                     Period.entries.forEach { period ->
-                        Chip(selected = key.period == period, label = periodLabel(period), onClick = { onKey(key.copy(period = period)) })
+                        chip(key.period == period, periodLabel(period), { onKey(key.copy(period = period)) }, false)
                     }
                 }
             }
@@ -128,67 +121,50 @@ fun LeaderboardScreen(view: LeaderboardView?, key: LeaderboardKey, onKey: (Leade
                         )
                     }
                 }
-                items(view.rows, key = { it.username }) { row -> LeaderLine(row, key.metric, view.podium, gutter, onProfile) }
+                items(view.rows, key = { it.username }) { row -> line(row) { LeaderLine(row, key.metric, view.podium) } }
             }
         }
     }
 }
 
+/** The heading both idioms start the board with. */
 @Composable
-private fun LeaderLine(row: LeaderRow, metric: Metric, podium: Boolean, gutter: androidx.compose.ui.unit.Dp, onProfile: (String) -> Unit) {
+internal fun LeaderboardHeading() {
+    Text(
+        stringResource(R.string.leaderboard_heading),
+        style = MaterialTheme.typography.headlineSmall,
+        color = Tokens.Palette.text,
+        modifier = Modifier.semantics { heading() },
+    )
+}
+
+/** A member's place, picture, name, rank and score. */
+@Composable
+private fun LeaderLine(row: LeaderRow, metric: Metric, podium: Boolean) {
     val medal = if (podium && row.position <= 3u) listOf("gold", "silver", "bronze")[row.position.toInt() - 1] else null
-    val content: @Composable () -> Unit = {
-        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "#${row.position}",
+            style = MaterialTheme.typography.titleMedium,
+            color = medal?.let(::tierColour) ?: Tokens.Palette.muted,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.width(44.dp),
+        )
+        Avatar(row.avatar?.url, seed = row.username, size = 36.dp)
+        Column(Modifier.weight(1f)) {
+            Text(row.displayName, color = Tokens.Palette.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "#${row.position}",
-                style = MaterialTheme.typography.titleMedium,
-                color = medal?.let(::tierColour) ?: Tokens.Palette.muted,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.width(44.dp),
+                "${tierName(row.tierCode)} · ${stringResource(R.string.rank_level, row.level.toString())}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Tokens.Palette.muted,
             )
-            Avatar(row.avatar?.url, seed = row.username, size = 36.dp)
-            Column(Modifier.weight(1f)) {
-                Text(row.displayName, color = Tokens.Palette.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    "${tierName(row.tierCode)} · ${stringResource(R.string.rank_level, row.level.toString())}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Tokens.Palette.muted,
-                )
-            }
-            Text(metricValue(row, metric), style = MaterialTheme.typography.titleSmall, color = Tokens.Palette.text)
         }
-    }
-    val shape = RoundedCornerShape(Tokens.Radius.card)
-    val background = if (row.isSelf) Tokens.Palette.surface2 else Tokens.Palette.surface
-    if (LocalIsTv.current) {
-        androidx.tv.material3.Surface(
-            onClick = { onProfile(row.username) },
-            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape),
-            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = background, focusedContainerColor = Tokens.Palette.edge),
-            modifier = Modifier.padding(horizontal = gutter).fillMaxWidth(),
-        ) { content() }
-    } else {
-        Box(
-            Modifier
-                .padding(horizontal = gutter)
-                .fillMaxWidth()
-                .clip(shape)
-                .background(background)
-                .clickable(role = Role.Button) { onProfile(row.username) },
-        ) { content() }
+        Text(metricValue(row, metric), style = MaterialTheme.typography.titleSmall, color = Tokens.Palette.text)
     }
 }
 
-/** A choice of board: Compose for TV's chip on a TV, Material's on a phone. */
-@OptIn(androidx.tv.material3.ExperimentalTvMaterial3Api::class)
-@Composable
-private fun Chip(selected: Boolean, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    if (LocalIsTv.current) {
-        androidx.tv.material3.FilterChip(selected = selected, onClick = onClick, modifier = modifier) { androidx.tv.material3.Text(label) }
-    } else {
-        FilterChip(selected = selected, onClick = onClick, label = { Text(label) }, modifier = modifier)
-    }
-}
+/** The viewer's own row stands out from the others. */
+internal fun lineBackground(row: LeaderRow) = if (row.isSelf) Tokens.Palette.surface2 else Tokens.Palette.surface
 
 @Composable
 private fun metricLabel(metric: Metric): String = stringResource(
