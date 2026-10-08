@@ -59,6 +59,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import io.stepes.couchverse.accounts.accountInk
 import io.stepes.couchverse.accounts.accountTint
 import io.stepes.couchverse.core.AccountCard
 import io.stepes.couchverse.core.AccountsView
@@ -69,9 +70,12 @@ import io.stepes.couchverse.design.components.GlowBackdrop
 import io.stepes.couchverse.design.theme.LocalAccent
 import io.stepes.couchverse.design.theme.LocalReducedMotion
 import io.stepes.couchverse.design.theme.Motion
+import io.stepes.couchverse.design.theme.colorOf
 import io.stepes.couchverse.design.theme.sharedAvatar
 import io.stepes.couchverse.design.tv.TvSafe
 import io.stepes.couchverse.design.tv.focusOnStart
+import io.stepes.couchverse.ranks.RankRing
+import io.stepes.couchverse.ranks.rankLine
 import kotlinx.coroutines.delay
 
 /** Tiles shrink once five no longer fit across the screen. */
@@ -160,6 +164,7 @@ private fun ProfileTile(
     focus: FocusRequester? = null,
 ) {
     val tint = accountTint(account)
+    val rank = account.rank
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val ring by animateColorAsState(if (focused) tint else tint.copy(alpha = 0.4f), Motion.standard(), label = "ring")
@@ -167,6 +172,7 @@ private fun ProfileTile(
     val reduced = LocalReducedMotion.current
     val label = listOfNotNull(
         account.displayName,
+        rank?.takeIf { account.signedIn }?.let { rankLine(it) },
         account.serverName,
         stringResource(R.string.accounts_sign_in_again).takeIf { !account.signedIn },
     ).joinToString(", ")
@@ -177,10 +183,15 @@ private fun ProfileTile(
             shape = ClickableSurfaceDefaults.shape(CircleShape),
             scale = ClickableSurfaceDefaults.scale(focusedScale = if (reduced) 1f else 1.12f),
             glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(tint.copy(alpha = 0.55f), 28.dp)),
-            border = ClickableSurfaceDefaults.border(
-                border = Border(BorderStroke(ringWidth, ring), shape = CircleShape),
-                focusedBorder = Border(BorderStroke(ringWidth, ring), shape = CircleShape),
-            ),
+            // a ranked account wears its rank ring instead
+            border = if (rank != null) {
+                ClickableSurfaceDefaults.border(border = Border.None, focusedBorder = Border.None)
+            } else {
+                ClickableSurfaceDefaults.border(
+                    border = Border(BorderStroke(ringWidth, ring), shape = CircleShape),
+                    focusedBorder = Border(BorderStroke(ringWidth, ring), shape = CircleShape),
+                )
+            },
             colors = ClickableSurfaceDefaults.colors(
                 containerColor = Tokens.Palette.surface2.copy(alpha = 0.55f),
                 focusedContainerColor = Tokens.Palette.surface2.copy(alpha = 0.85f),
@@ -197,6 +208,7 @@ private fun ProfileTile(
                 size = LocalTileSize.current - 18.dp,
                 modifier = Modifier.align(Alignment.Center).sharedAvatar(account.id),
             )
+            rank?.let { RankRing(it, Modifier.fillMaxSize(), stroke = ringWidth + 1.dp, bright = focused) }
         }
         Text(
             account.displayName,
@@ -210,15 +222,22 @@ private fun ProfileTile(
             enter = fadeIn(Motion.standard()) + expandVertically(Motion.snappy()),
             exit = fadeOut(Motion.standard()) + shrinkVertically(Motion.snappy()),
         ) {
-            Text(
-                if (account.signedIn) account.serverName else stringResource(R.string.accounts_sign_in_again),
-                style = MaterialTheme.typography.bodySmall,
-                color = if (account.signedIn) tint else Tokens.Palette.danger,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (!account.signedIn) {
+                    Reveal(stringResource(R.string.accounts_sign_in_again), Tokens.Palette.danger)
+                } else {
+                    rank?.let { Reveal(rankLine(it), colorOf(it.tier.colour) ?: tint) }
+                    Reveal(account.serverName, if (rank != null) Tokens.Palette.muted else accountInk(account))
+                }
+            }
         }
     }
+}
+
+/** A line focus reveals below a tile's name. */
+@Composable
+private fun Reveal(text: String, color: Color) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable

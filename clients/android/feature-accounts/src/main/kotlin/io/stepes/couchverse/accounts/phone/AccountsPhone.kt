@@ -1,7 +1,7 @@
 package io.stepes.couchverse.accounts.phone
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +48,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.stepes.couchverse.accounts.accountTint
 import io.stepes.couchverse.core.AccountCard
@@ -57,15 +58,22 @@ import io.stepes.couchverse.design.Tokens
 import io.stepes.couchverse.design.components.Avatar
 import io.stepes.couchverse.design.components.GlowBackdrop
 import io.stepes.couchverse.design.components.InsecureBadge
+import io.stepes.couchverse.design.theme.LocalAccent
 import io.stepes.couchverse.design.theme.Motion
+import io.stepes.couchverse.design.theme.colorOf
+import io.stepes.couchverse.ranks.RankRing
+import io.stepes.couchverse.ranks.rankLine
 
 /** The phone's "Who's watching?": a lighter take on the TV's, with a haptic tick on the pick. */
 @Composable
 internal fun AccountPickerPhone(view: AccountsView?, onPick: (AccountCard) -> Unit, onAdd: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     var chosen by remember { mutableStateOf<String?>(null) }
+    // the glow takes the colour of the account picked, or of the one used last
+    val shown = view?.accounts?.firstOrNull { it.id == (chosen ?: view.active) }
+    val tint by animateColorAsState(shown?.let(::accountTint) ?: LocalAccent.current.accent, Motion.ambient(900), label = "tint")
     Box(Modifier.fillMaxSize()) {
-        GlowBackdrop()
+        GlowBackdrop(accent = tint)
         LazyVerticalGrid(
             columns = GridCells.Adaptive(132.dp),
             modifier = Modifier.fillMaxSize().safeDrawingPadding(),
@@ -111,12 +119,7 @@ private fun ProfileTilePhone(account: AccountCard, onClick: () -> Unit, modifier
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Avatar(
-            account.avatarUrl,
-            seed = account.username,
-            size = 104.dp,
-            modifier = Modifier.border(BorderStroke(3.dp, tint.copy(alpha = 0.7f)), CircleShape),
-        )
+        AccountAvatar(account, 104.dp, ring = 4.dp, unranked = tint.copy(alpha = 0.7f))
         Text(
             account.displayName,
             style = MaterialTheme.typography.titleMedium,
@@ -124,6 +127,15 @@ private fun ProfileTilePhone(account: AccountCard, onClick: () -> Unit, modifier
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        account.rank?.takeIf { account.signedIn }?.let { rank ->
+            Text(
+                rankLine(rank),
+                style = MaterialTheme.typography.labelMedium,
+                color = colorOf(rank.tier.colour) ?: tint,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Text(
             if (account.signedIn) account.serverName else stringResource(R.string.accounts_sign_in_again),
             style = MaterialTheme.typography.bodySmall,
@@ -158,20 +170,25 @@ internal fun AccountSwitcherSheet(
     onDismiss: () -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
+    val active = view?.accounts?.firstOrNull { it.id == view.active }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Tokens.Palette.surface,
     ) {
-        AccountList(
-            view = view,
-            onPick = { account ->
-                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                onPick(account)
-            },
-            onAdd = onAdd,
-            modifier = Modifier.navigationBarsPadding().padding(bottom = 16.dp),
-        )
+        Box {
+            // the sheet glows in the colour of the account watching now
+            active?.let { GlowBackdrop(Modifier.matchParentSize(), accent = accountTint(it), intensity = 0.6f) }
+            AccountList(
+                view = view,
+                onPick = { account ->
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onPick(account)
+                },
+                onAdd = onAdd,
+                modifier = Modifier.navigationBarsPadding().padding(bottom = 16.dp),
+            )
+        }
     }
 }
 
@@ -202,7 +219,7 @@ fun AccountList(
             ListItem(
                 colors = colors,
                 modifier = Modifier.clickable(role = Role.Button) { onPick(account) },
-                leadingContent = { Avatar(account.avatarUrl, seed = account.username, size = 44.dp) },
+                leadingContent = { AccountAvatar(account, 44.dp, ring = 3.dp, unranked = Tokens.Palette.edge) },
                 headlineContent = { Text(account.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 supportingContent = {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -229,5 +246,22 @@ fun AccountList(
             },
             headlineContent = { Text(stringResource(R.string.accounts_add_account)) },
         )
+    }
+}
+
+/**
+ * An account's picture inside its ring: the rank's once a rank is known (the tier's colour,
+ * filled to the progress through it), else a plain ring in [unranked].
+ */
+@Composable
+private fun AccountAvatar(account: AccountCard, size: Dp, ring: Dp, unranked: Color) {
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        Avatar(account.avatarUrl, seed = account.username, size = size - ring * 4)
+        val rank = account.rank
+        if (rank != null) {
+            RankRing(rank, Modifier.fillMaxSize(), stroke = ring)
+        } else {
+            Box(Modifier.fillMaxSize().border(ring, unranked, CircleShape))
+        }
     }
 }

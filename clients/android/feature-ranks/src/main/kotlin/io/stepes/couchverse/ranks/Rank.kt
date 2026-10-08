@@ -1,5 +1,7 @@
 package io.stepes.couchverse.ranks
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,12 +23,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.stepes.couchverse.core.AchievementCard
 import io.stepes.couchverse.core.Event
@@ -40,6 +47,7 @@ import io.stepes.couchverse.design.components.CouchverseIcons
 import io.stepes.couchverse.design.runtime.rememberSend
 import io.stepes.couchverse.design.runtime.rememberSurface
 import io.stepes.couchverse.design.theme.LocalIsTv
+import io.stepes.couchverse.design.theme.Motion
 import io.stepes.couchverse.design.theme.colorOf
 import io.stepes.couchverse.ranks.phone.CelebrationPhone
 import io.stepes.couchverse.ranks.tv.CelebrationTv
@@ -83,6 +91,24 @@ fun RankChip(badge: RankBadge, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall,
             color = Tokens.Palette.muted,
         )
+    }
+}
+
+/**
+ * The rank around an avatar: a ring in the tier's colour, filled as far as the member is
+ * through the tier, as the web draws it. Dimmed until [bright] (a focused tile).
+ */
+@Composable
+fun RankRing(badge: RankBadge, modifier: Modifier = Modifier, stroke: Dp = 4.dp, bright: Boolean = true) {
+    val colour = colorOf(badge.tier.colour) ?: Tokens.Tier.named(badge.tier.code).color
+    val alpha by animateFloatAsState(if (bright) 1f else 0.6f, Motion.standard(), label = "rank ring")
+    Canvas(modifier) {
+        val width = stroke.toPx()
+        val topLeft = Offset(width / 2, width / 2)
+        val arc = Size(size.width - width, size.height - width)
+        drawArc(Tokens.Palette.edge, 0f, 360f, useCenter = false, topLeft = topLeft, size = arc, style = Stroke(width))
+        val sweep = 360f * badge.percent.coerceAtMost(100u).toFloat() / 100f
+        drawArc(colour.copy(alpha = alpha), -90f, sweep, useCenter = false, topLeft = topLeft, size = arc, style = Stroke(width, cap = StrokeCap.Round))
     }
 }
 

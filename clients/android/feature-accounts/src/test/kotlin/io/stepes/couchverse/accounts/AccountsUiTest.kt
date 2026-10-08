@@ -90,7 +90,7 @@ class AccountsUiTest {
         InstrumentationRegistry.getInstrumentation().setInTouchMode(false)
         compose.setContent { Fixture(Device.Tv) { WhosWatchingScreen(Fixtures.accounts, onPick = { picked += it }, onAdd = {}) } }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Nora, Home Media").assertIsFocused()
+        compose.onNodeWithContentDescription("Nora, Binge Apprentice · Level 4, Home Media").assertIsFocused()
 
         compose.onRoot().performKeyInput { pressKey(Key.DirectionRight) }
         compose.onNodeWithContentDescription("Otto, Home Media, Sign in again").assertIsFocused()

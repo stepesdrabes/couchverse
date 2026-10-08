@@ -15,6 +15,7 @@ import io.stepes.couchverse.core.Surface
 import io.stepes.couchverse.design.runtime.rememberSend
 import io.stepes.couchverse.design.runtime.rememberSurface
 import io.stepes.couchverse.design.theme.LocalIsTv
+import io.stepes.couchverse.design.theme.colorOf
 
 /**
  * "Who's watching?": the TV's first screen whenever accounts exist (D10) and the phone's when
@@ -61,7 +62,10 @@ private fun pick(account: AccountCard, send: (Event) -> Unit, onSignInAgain: (Ac
 }
 
 /**
- * The colour an account tints "Who's watching?" with: the hue of its identicon, so it matches
- * the placeholder avatar. Accounts do not carry their banner's accent yet (see docs/android.md).
+ * The colour an account tints "Who's watching?" with: its banner's accent, or without one the
+ * hue of its identicon, so it matches the placeholder avatar.
  */
-fun accountTint(account: AccountCard): Color = Identicon.colorOf(account.username)
+fun accountTint(account: AccountCard): Color = colorOf(account.accent?.accent) ?: Identicon.colorOf(account.username)
+
+/** An account's colour for text on the app's surfaces: its banner's ink, else its tint. */
+fun accountInk(account: AccountCard): Color = colorOf(account.accent?.ink) ?: accountTint(account)
