@@ -249,6 +249,12 @@ export interface CoreConfig {
 export interface CouchCode {
 	/** The six-digit share code. */
 	code: string;
+	/**
+	 * The server the session is on, when a link, a scanned join page or the viewer named it:
+	 * a session on another server than the active account's, or without one, is joined as a
+	 * guest.
+	 */
+	server?: string;
 }
 
 export interface CouchMember {

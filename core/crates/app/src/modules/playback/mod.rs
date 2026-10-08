@@ -263,8 +263,8 @@ pub enum PlaybackChange {
     },
     /// A progress save never reached the server (offline): keep it and send it later.
     Unsaved(Box<ProgressReport>),
-    /// A couch follower's player failed: its payload comes from the couch, which fetches a
-    /// fresh one.
+    /// A couch follower's player failed, or its title is still being prepared: its payload
+    /// comes from the couch, which fetches a fresh one.
     Refollow,
 }
 
@@ -740,6 +740,11 @@ impl Playback {
             Request::PreparingTick => {
                 if let Some(session) = self.session.as_mut() {
                     session.preparing_timer = None;
+                    // a follower asks the couch again: its payload is the session's, which
+                    // a guest without an account could not fetch for itself
+                    if session.linear {
+                        return PlaybackChange::Refollow;
+                    }
                 }
                 if let Some(env) = env {
                     self.fetch(ctx, env);

@@ -19,6 +19,16 @@ fn signed_in() -> Shell {
     shell
 }
 
+/// A code typed or read without its server: joined through the account.
+fn code(code: &str) -> CouchCode {
+    CouchCode { code: code.into(), server: None }
+}
+
+/// A code with the server it is on, from a link, a scanned join page or typed beside it.
+fn at(server: &str, code: &str) -> CouchCode {
+    CouchCode { code: code.into(), server: Some(server.into()) }
+}
+
 fn player_info() -> Value {
     json!({
         "mode": "direct", "mediaFileId": "f1", "grant": GRANT,
@@ -249,7 +259,7 @@ fn the_host_ends_the_session_for_everyone() {
 
 fn following() -> (Shell, U53) {
     let mut shell = signed_in();
-    shell.send(Event::CouchJoinRequested(CouchCode { code: " 123456 ".into() }));
+    shell.send(Event::CouchJoinRequested(code(" 123456 ")));
     assert_eq!(couch(&shell).status, CouchStatus::Connecting);
     shell.respond(
         "POST",
@@ -410,7 +420,7 @@ fn a_followers_failed_player_reloads_the_hosts_media_from_the_couch() {
 #[test]
 fn the_hosts_phone_steers_as_a_remote() {
     let mut shell = signed_in();
-    shell.send(Event::CouchRemoteRequested(CouchCode { code: "123456".into() }));
+    shell.send(Event::CouchRemoteRequested(code("123456")));
     shell.respond(
         "POST",
         &format!("{API}/couch/123456/join?delivery=body&remote=true"),
@@ -468,7 +478,7 @@ fn a_web_guest_without_an_account_follows_on_its_couch_cookie() {
     assert_eq!(shell.phase(), AppPhase::SignIn);
 
     // the flags are unknown without an account, so the server decides
-    shell.send(Event::CouchJoinRequested(CouchCode { code: "123456".into() }));
+    shell.send(Event::CouchJoinRequested(code("123456")));
     let mut joined = session("follower", "unused");
     joined["participantToken"] = Value::Null;
     joined["isAnonymous"] = json!(true);
@@ -496,4 +506,194 @@ fn a_web_guest_without_an_account_follows_on_its_couch_cookie() {
     shell.send(Event::CouchLeft);
     shell.request("POST", "/api/v1/couch/123456/leave");
     assert_eq!(shell.player.last(), Some(&PlayerCommand::Stop));
+}
+
+#[test]
+fn the_hosts_account_joining_by_code_steers_as_a_remote() {
+    let mut shell = signed_in();
+    // a plain join on the host's second device: the server seats it as the player's remote
+    shell.send(Event::CouchJoinRequested(code("123456")));
+    shell.respond(
+        "POST",
+        &format!("{API}/couch/123456/join?delivery=body"),
+        200,
+        session("remote", "phone-tok"),
+    );
+    let socket = shell.socket(SOCKET);
+    opened(&mut shell, socket);
+    assert_eq!(couch(&shell).role, Some(CouchRole::Remote));
+
+    // nothing of its own to broadcast over the player's state
+    assert!(!shell.timers().iter().any(|(_, after, repeat)| *after == 2_000 && *repeat));
+    shell.frame(socket, &state_frame(3, true, 640.0));
+    assert_eq!(shell.sent_frames(socket), empty::<Value>());
+    assert_eq!(shell.player, empty::<PlayerCommand>());
+
+    // and leaving takes only this device off the couch
+    shell.send(Event::CouchLeft);
+    let (_, leave) = shell.request("POST", &format!("{API}/couch/123456/leave"));
+    assert_eq!(header(&leave, "X-Couch-Token"), Some("phone-tok"));
+    assert!(shell.find_request("POST", &format!("{API}/couch/123456/end")).is_none());
+}
+
+const GUEST: &str = "http://tv.local:8080";
+
+/// A guest's seat: anonymous, with the session's own artwork grant.
+fn guest_session() -> Value {
+    let mut joined = session("follower", "guest-tok");
+    joined["isAnonymous"] = json!(true);
+    joined["artworkGrant"] = json!("g-guest");
+    joined
+}
+
+/// The host's media as a server hands it out: paths, which a native player needs whole.
+fn guest_media() -> Value {
+    let mut info = player_info();
+    info["streamUrl"] = json!(format!("/api/v1/media/{GRANT}/stream"));
+    json!({ "media": { "kind": "movie", "titleId": "m1" }, "player": info })
+}
+
+fn loaded(shell: &Shell) -> crate::messages::PlayerLoad {
+    shell
+        .player
+        .iter()
+        .rev()
+        .find_map(|c| match c {
+            PlayerCommand::Load(load) => Some(load.clone()),
+            _ => None,
+        })
+        .expect("a load")
+}
+
+#[test]
+fn a_guest_without_an_account_joins_a_servers_couch_by_its_address() {
+    let mut shell = launched(Shell::new(Platform::Ios));
+    assert_eq!(shell.phase(), AppPhase::Welcome);
+
+    // typed without a scheme: https first, then http
+    shell.send(Event::CouchJoinRequested(at("TV.local:8080", "123456")));
+    let tls = "https://tv.local:8080/api/v1/couch/123456/join?delivery=body";
+    shell.fail("POST", tls, HttpFailureKind::Tls);
+    let join = format!("{GUEST}/api/v1/couch/123456/join?delivery=body");
+    assert_eq!(header(&shell.request("POST", &join).1, "Authorization"), None);
+    shell.respond("POST", &join, 200, guest_session());
+
+    // the guest's token stands in for an account on every couch request
+    let playback = format!("{GUEST}/api/v1/couch/123456/playback?lang=cs");
+    assert_eq!(header(&shell.request("GET", &playback).1, "X-Couch-Token"), Some("guest-tok"));
+    shell.respond("GET", &playback, 200, guest_media());
+    let socket = shell.socket("ws://tv.local:8080/api/v1/couch/123456/ws");
+    opened(&mut shell, socket);
+
+    let load = loaded(&shell);
+    assert_eq!(load.url, format!("{GUEST}/api/v1/media/{GRANT}/stream"));
+    assert!(load.linear);
+    let view = couch(&shell);
+    assert_eq!((view.status, view.role), (CouchStatus::Open, Some(CouchRole::Follower)));
+    assert_eq!(
+        view.members[0].avatar.as_ref().map(|a| a.url.clone()),
+        Some(format!("{GUEST}/api/v1/artwork/av?size=w342&g=g-guest"))
+    );
+
+    // leaving forgets the server: a code alone has nowhere to go without an account
+    shell.send(Event::CouchLeft);
+    let (_, leave) = shell.request("POST", &format!("{GUEST}/api/v1/couch/123456/leave"));
+    assert_eq!(header(&leave, "X-Couch-Token"), Some("guest-tok"));
+    assert_eq!(shell.player.last(), Some(&PlayerCommand::Stop));
+    shell.send(Event::CouchJoinRequested(code("654321")));
+    assert!(shell.http_summary().iter().all(|r| !r.contains("654321")));
+}
+
+#[test]
+fn a_guests_title_being_prepared_is_polled_through_the_couch() {
+    let mut shell = launched(Shell::new(Platform::Tvos));
+    shell.send(Event::CouchJoinRequested(at(GUEST, "123456")));
+    let join = format!("{GUEST}/api/v1/couch/123456/join?delivery=body");
+    shell.respond("POST", &join, 200, guest_session());
+    let playback = format!("{GUEST}/api/v1/couch/123456/playback?lang=cs");
+    let mut preparing = guest_media();
+    preparing["player"]["mode"] = json!("preparing");
+    shell.respond("GET", &playback, 200, preparing);
+
+    let (timer, after, _) =
+        *shell.timers().iter().find(|(_, after, _)| *after == 3_000).expect("a poll");
+    shell.fire(timer, after);
+    // a guest has no account to fetch the title with: the couch hands it out again
+    shell.respond("GET", &playback, 200, guest_media());
+    assert_eq!(loaded(&shell).url, format!("{GUEST}/api/v1/media/{GRANT}/stream"));
+}
+
+#[test]
+fn a_couch_on_another_server_is_joined_as_a_guest_while_signed_in() {
+    let mut shell = signed_in();
+    let friend = "https://friend.example.org/api/v1/couch/123456";
+    shell.send(Event::CouchJoinRequested(at("https://friend.example.org/couch/123456", "123456")));
+    // the account's token stays with the account's server
+    let join = format!("{friend}/join?delivery=body");
+    assert_eq!(header(&shell.request("POST", &join).1, "Authorization"), None);
+    shell.respond("POST", &join, 200, guest_session());
+    shell.respond("GET", &format!("{friend}/playback?lang=en"), 200, guest_media());
+    let socket = shell.socket("wss://friend.example.org/api/v1/couch/123456/ws");
+    opened(&mut shell, socket);
+    assert_eq!(
+        loaded(&shell).url,
+        format!("https://friend.example.org/api/v1/media/{GRANT}/stream")
+    );
+
+    // playing a title of the account's own leaves the other server's couch
+    shell.send(Event::PlayRequested(PlayTarget { kind: PlayKind::Movie, id: "m2".into() }));
+    shell.request("POST", &format!("{friend}/leave"));
+    let (_, own) = shell.request("GET", &format!("{API}/playback/movie/m2?lang=en"));
+    assert_eq!(header(&own, "Authorization"), Some("Bearer tok-1"));
+    assert_eq!(couch(&shell).ended.as_deref(), Some("left"));
+}
+
+#[test]
+fn a_link_to_the_accounts_own_server_joins_through_the_account() {
+    let mut shell = signed_in();
+    shell.send(Event::CouchJoinRequested(at("media.example.com", "123456")));
+    let (_, join) = shell.request("POST", &format!("{API}/couch/123456/join?delivery=body"));
+    assert_eq!(header(&join, "Authorization"), Some("Bearer tok-1"));
+}
+
+#[test]
+fn signing_in_ends_a_guests_couch() {
+    let mut shell = launched(returning(Platform::Tvos, &[(1, "admin", Some("tok-1"))], 1));
+    assert_eq!(shell.phase(), AppPhase::ChooseAccount);
+    shell.send(Event::CouchJoinRequested(at(GUEST, "123456")));
+    let join = format!("{GUEST}/api/v1/couch/123456/join?delivery=body");
+    shell.respond("POST", &join, 200, guest_session());
+    let playback = format!("{GUEST}/api/v1/couch/123456/playback?lang=cs");
+    shell.respond("GET", &playback, 200, guest_media());
+
+    let account = crate::modules::accounts::AccountRef { account_id: account_id(1) };
+    shell.send(Event::AccountSelected(account));
+    shell.request("POST", &format!("{GUEST}/api/v1/couch/123456/leave"));
+    assert_eq!(shell.player.last(), Some(&PlayerCommand::Stop));
+    let view = couch(&shell);
+    assert_eq!((view.status, view.role), (CouchStatus::Ended, None));
+    shell.answer_session(HTTPS, user(1, "admin"), Some("en"));
+    assert_eq!(shell.phase(), AppPhase::Ready);
+}
+
+#[test]
+fn a_guest_join_that_goes_nowhere_says_why() {
+    let mut shell = launched(Shell::new(Platform::Ios));
+    shell.send(Event::CouchJoinRequested(at("my server", "123456")));
+    assert_eq!(shell.http_summary(), empty::<String>());
+    let view = couch(&shell);
+    assert_eq!(view.status, CouchStatus::Idle);
+    assert_eq!(view.problem.map(|p| p.code), Some("invalid_address".to_string()));
+
+    shell.send(Event::CouchJoinRequested(at(GUEST, "123456")));
+    shell.respond(
+        "POST",
+        &format!("{GUEST}/api/v1/couch/123456/join?delivery=body"),
+        404,
+        json!({ "error": { "code": "no_session", "message": "gone" } }),
+    );
+    assert_eq!(couch(&shell).problem.map(|p| p.code), Some("no_session".to_string()));
+    // the server is forgotten with the attempt
+    shell.send(Event::CouchJoinRequested(code("123456")));
+    assert_eq!(shell.http_summary(), empty::<String>());
 }

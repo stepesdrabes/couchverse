@@ -372,9 +372,14 @@ public struct CoreConfig: Codable, Sendable, Hashable {
 public struct CouchCode: Codable, Sendable, Hashable {
 	/// The six-digit share code.
 	public let code: String
+	/// The server the session is on, when a link, a scanned join page or the viewer named it:
+	/// a session on another server than the active account's, or without one, is joined as a
+	/// guest.
+	public let server: String?
 
-	public init(code: String) {
+	public init(code: String, server: String? = nil) {
 		self.code = code
+		self.server = server
 	}
 }
 

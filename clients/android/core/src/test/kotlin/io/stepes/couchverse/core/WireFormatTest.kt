@@ -106,6 +106,8 @@ class WireFormatTest {
             Event.CouchStartRequested to """{"type":"couchStartRequested"}""",
             Event.CouchJoinRequested(CouchCode("123456")) to
                 """{"type":"couchJoinRequested","content":{"code":"123456"}}""",
+            Event.CouchJoinRequested(CouchCode("123456", server = "http://192.168.1.5:8080")) to
+                """{"type":"couchJoinRequested","content":{"code":"123456","server":"http://192.168.1.5:8080"}}""",
             Event.CouchRemoteRequested(CouchCode("123456")) to
                 """{"type":"couchRemoteRequested","content":{"code":"123456"}}""",
             Event.CouchLeft to """{"type":"couchLeft"}""",

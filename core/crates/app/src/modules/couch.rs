@@ -1,7 +1,8 @@
-//! Couch sessions (synced watch parties) from a client's side: hosting, joining by code, the
-//! session socket with reconnect and backoff, participants and reactions, the host broadcasting
-//! its play state, a follower kept within a few seconds of the host, and the host's other
-//! devices steering its player as remotes.
+//! Couch sessions (synced watch parties) from a client's side: hosting, joining by code (through
+//! the account, or as a guest on a server this device has no account on), the session socket
+//! with reconnect and backoff, participants and reactions, the host broadcasting its play state,
+//! a follower kept within a few seconds of the host, and the host's other devices steering its
+//! player as remotes.
 
 use std::collections::VecDeque;
 
@@ -53,6 +54,11 @@ const TOKEN_HEADER: &str = "X-Couch-Token";
 pub struct CouchCode {
     /// The six-digit share code.
     pub code: String,
+    /// The server the session is on, when a link, a scanned join page or the viewer named it:
+    /// a session on another server than the active account's, or without one, is joined as a
+    /// guest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server: Option<String>,
 }
 
 #[typeshare]
@@ -201,6 +207,12 @@ pub struct CouchPending {
 #[derive(Debug, Clone, PartialEq)]
 enum Request {
     Session(Call<CouchSession>),
+    /// Joining as a guest at the module's guest address; the addresses left are tried in turn
+    /// when it cannot be reached (an address typed without a scheme: https, then http).
+    Guest {
+        call: Call<CouchSession>,
+        fallback: Vec<String>,
+    },
     Player(Call<CouchPlayback>),
     /// The socket: resolved on open, for every frame and once when it closes.
     Socket,
@@ -252,6 +264,9 @@ pub struct Couch {
     generation: u64,
     live: Option<Live>,
     joining: bool,
+    /// The server of a session joined as a guest (on another server than the active account's,
+    /// or without one): its requests go there without a session.
+    guest: Option<Endpoint>,
     /// The recent emojis are read once, when the first session of a launch starts.
     recent_read: bool,
     ended: Option<String>,
@@ -273,6 +288,11 @@ impl Couch {
     /// The session's artwork grant, for a guest without an account.
     pub fn artwork_grant(&self) -> Option<&str> {
         self.live.as_ref().map(|l| l.artwork_grant.as_str()).filter(|g| !g.is_empty())
+    }
+
+    /// The server of a session joined as a guest.
+    pub fn guest(&self) -> Option<&Endpoint> {
+        self.guest.as_ref()
     }
 
     fn pending(&self, request: Request) -> Pending {
@@ -316,6 +336,28 @@ impl Couch {
         ctx.http(env.endpoint.request(&call.request), self.pending(Request::Session(call)));
     }
 
+    /// Joins a session on a server this device has no account on, as a guest: at the first of
+    /// the server's `candidates` addresses that answers.
+    pub fn join_guest(&mut self, ctx: &mut Ctx, code: &str, mut candidates: Vec<String>) {
+        self.begin(ctx);
+        if candidates.is_empty() {
+            self.joining = false;
+            self.problem = Some(Problem::new("invalid_address", "nothing to connect to"));
+            return;
+        }
+        let query = JoinCouchQuery { delivery: Some(JoinCouchDelivery::Body), remote: None };
+        let call = ops::join_couch(code.trim(), &query);
+        let first = candidates.remove(0);
+        self.join_at(ctx, call, &first, candidates);
+    }
+
+    fn join_at(&mut self, ctx: &mut Ctx, call: Call<CouchSession>, base: &str, rest: Vec<String>) {
+        let endpoint = Endpoint::anonymous(base);
+        let request = endpoint.request(&call.request);
+        ctx.http(request, self.pending(Request::Guest { call, fallback: rest }));
+        self.guest = Some(endpoint);
+    }
+
     /// Leaves the session; a host leaving ends it for everyone.
     pub fn leave(&mut self, ctx: &mut Ctx, env: &Env, end: bool) -> CouchChange {
         let Some(live) = &self.live else { return CouchChange::None };
@@ -340,6 +382,7 @@ impl Couch {
     }
 
     fn teardown(&mut self, ctx: &mut Ctx) {
+        self.guest = None;
         if let Some(live) = self.live.take() {
             if let Some(socket) = live.socket {
                 ctx.socket_close(socket);
@@ -476,9 +519,14 @@ impl Couch {
             }
             Request::Ignored => CouchChange::None,
             _ if pending.generation != self.generation => CouchChange::None,
-            Request::Session(call) => match decode(&call, output) {
-                Ok(session) => self.joined(ctx, env, session),
-                Err(failure) => self.failed(ctx, &failure),
+            Request::Session(call) => self.answered(ctx, env, decode(&call, output)),
+            Request::Guest { call, mut fallback } => match decode(&call, output) {
+                Err(Failure::Network(_)) if !fallback.is_empty() => {
+                    let next = fallback.remove(0);
+                    self.join_at(ctx, call, &next, fallback);
+                    CouchChange::None
+                }
+                result => self.answered(ctx, env, result),
             },
             Request::Player(call) => match decode(&call, output) {
                 Ok(CouchPlayback { player: Some(info), media }) => match target(&media) {
@@ -540,12 +588,27 @@ impl Couch {
         }
     }
 
+    fn answered(
+        &mut self,
+        ctx: &mut Ctx,
+        env: Option<&Env>,
+        result: Result<CouchSession, Failure>,
+    ) -> CouchChange {
+        match result {
+            Ok(session) => self.joined(ctx, env, session),
+            Err(failure) => self.failed(ctx, &failure),
+        }
+    }
+
     fn failed(&mut self, ctx: &mut Ctx, failure: &Failure) -> CouchChange {
         self.joining = false;
         self.problem = Some(failure.problem());
         ctx.render(Surface::Couch);
-        // a dead couch cookie is not a dead account: only a 401 on joining one signs out
-        if failure.unauthorized() && self.live.is_none() {
+        if self.live.is_some() {
+            return CouchChange::None;
+        }
+        // a dead couch cookie is not a dead account: only a 401 joining through one signs out
+        if self.guest.take().is_none() && failure.unauthorized() {
             CouchChange::Unauthorized
         } else {
             CouchChange::None

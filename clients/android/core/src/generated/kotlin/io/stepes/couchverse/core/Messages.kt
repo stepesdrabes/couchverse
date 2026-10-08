@@ -307,7 +307,11 @@ data class CoreConfig (
 @Serializable
 data class CouchCode (
 	/// The six-digit share code.
-	val code: String
+	val code: String,
+	/// The server the session is on, when a link, a scanned join page or the viewer named it:
+	/// a session on another server than the active account's, or without one, is joined as a
+	/// guest.
+	val server: String? = null
 )
 
 @Serializable
