@@ -1,4 +1,5 @@
 import CouchverseCore
+import CouchverseShared
 import SwiftUI
 
 #if os(iOS)
@@ -8,8 +9,8 @@ import SwiftUI
 extension View {
     /// Keeps what the app leaves outside itself in step with the core (plan 10.9): the shelf
     /// snapshot the widget, Top Shelf and the intents read, and on iPhone and iPad Spotlight, whose
-    /// results open their title. Only in the running app (`live`): previews and snapshots leave the
-    /// system alone.
+    /// results open their title, and the couch Live Activity. Only in the running app (`live`):
+    /// previews and snapshots leave the system alone.
     func systemIntegration(live: Bool) -> some View {
         modifier(SystemIntegration(live: live))
     }
@@ -34,6 +35,7 @@ private struct SystemIntegration: ViewModifier {
     @State private var shelf: Shelf?
     #if os(iOS)
         @State private var spotlight = SpotlightIndex()
+        @State private var activities = CouchActivities()
     #endif
 
     func body(content: Content) -> some View {
@@ -64,11 +66,32 @@ private struct SystemIntegration: ViewModifier {
                         requests?.open(request)
                     }
                 }
+                .onChange(of: couchActivity, initial: true) { _, content in
+                    if live && Self.liveActivities {
+                        activities.show(content, session: core.couch.code)
+                    }
+                }
+                .task(id: couchActivity != nil) {
+                    // renewed while the app runs, so it goes out of date only once the app stops
+                    while couchActivity != nil {
+                        try? await Task.sleep(for: .seconds(60))
+                        guard !Task.isCancelled else { return }
+                        activities.show(couchActivity, session: core.couch.code)
+                    }
+                }
             #endif
     }
 
     /// The signed-in account, while the app runs.
     private var listedAccount: String? {
         live && core.app.phase == .ready ? core.app.activeAccount : nil
+    }
+
+    /// Only with the widget extension, which draws the Live Activity (`EXTENSIONS_ENABLED`).
+    private static let liveActivities = SharedContainer.extensionsEnabled()
+
+    private var couchActivity: CouchActivityContent? {
+        guard live && Self.liveActivities else { return nil }
+        return CouchActivityContent.make(couch: core.couch, player: core.player, accent: core.session.accent.accent)
     }
 }

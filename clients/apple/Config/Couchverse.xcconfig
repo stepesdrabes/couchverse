@@ -22,6 +22,15 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPort
 INFOPLIST_KEY_NSCameraUsageDescription = Scan the QR code a TV or the Couchverse website shows.
 INFOPLIST_KEY_NSLocalNetworkUsageDescription = Couchverse connects to your media server on this network.
 
+// the widget extension (Continue Watching, the couch Live Activity) is always built but embedded,
+// like the App Group, only with EXTENSIONS_ENABLED (Base.xcconfig)
+CODE_SIGN_ENTITLEMENTS = $(COUCHVERSE_ENTITLEMENTS_$(EXTENSIONS_ENABLED))
+EXCLUDED_SOURCE_FILE_NAMES = CouchverseWidgets.appex
+INCLUDED_SOURCE_FILE_NAMES = $(COUCHVERSE_EMBEDDED_$(EXTENSIONS_ENABLED))
+COUCHVERSE_EMBEDDED_YES = CouchverseWidgets.appex
+INFOPLIST_KEY_NSSupportsLiveActivities = $(COUCHVERSE_LIVE_ACTIVITIES_$(EXTENSIONS_ENABLED))
+COUCHVERSE_LIVE_ACTIVITIES_YES = YES
+
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor
 LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks

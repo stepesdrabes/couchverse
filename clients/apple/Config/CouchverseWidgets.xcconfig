@@ -1,0 +1,20 @@
+// The iPhone and iPad widget extension: Continue Watching and the couch Live Activity. Always built,
+// but signed and embedded in the app only with EXTENSIONS_ENABLED (Base.xcconfig).
+
+SDKROOT = iphoneos
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator
+SUPPORTS_MACCATALYST = NO
+TARGETED_DEVICE_FAMILY = 1,2
+
+PRODUCT_NAME = CouchverseWidgets
+PRODUCT_BUNDLE_IDENTIFIER = $(BUNDLE_ID_ROOT).widgets
+
+INFOPLIST_FILE = Config/CouchverseWidgets-Info.plist
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_KEY_CFBundleDisplayName = Couchverse
+
+CODE_SIGNING_ALLOWED = $(COUCHVERSE_SIGN_EXTENSIONS_$(EXTENSIONS_ENABLED))
+CODE_SIGN_ENTITLEMENTS = $(COUCHVERSE_ENTITLEMENTS_$(EXTENSIONS_ENABLED))
+APPLICATION_EXTENSION_API_ONLY = YES
+SKIP_INSTALL = YES
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks @executable_path/../../Frameworks

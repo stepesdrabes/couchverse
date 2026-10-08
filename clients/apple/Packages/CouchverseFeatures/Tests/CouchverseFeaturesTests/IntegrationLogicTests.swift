@@ -1,8 +1,55 @@
 import CouchverseCore
+import CouchverseDesign
+import CouchverseShared
 import Foundation
 import Testing
 
 @testable import CouchverseFeatures
+
+/// The couch Live Activity's content, in the display language.
+@MainActor
+struct CouchActivityContentTests {
+    init() {
+        L10n.language = "en"
+    }
+
+    @Test func aHostSeesItsTitleItsMembersAndTheCode() throws {
+        let content = try #require(
+            CouchActivityContent.make(
+                couch: Fixtures.couch("hosting"), player: Fixtures.followerPlayer, accent: "#3a6ea5"))
+        #expect(content.heading == L10n.couchOpen)
+        #expect(content.title == "Glass Harbor")
+        #expect(content.detail == nil)
+        #expect(content.members == ["Nora", "Otto", "Sleepy Otter"])
+        #expect(content.count == 3)
+        #expect(content.membersLine == L10n.couchOnCouchCount(count: "3"))
+        #expect(content.code == "123 456")
+        #expect(content.codeLine == L10n.couchCode(code: "123 456"))
+        #expect(content.status == nil)
+        #expect(content.staleNote == L10n.widgetCouchStale)
+        #expect(content.accent == "#3a6ea5")
+    }
+
+    @Test func theHostComesFirstAndAFollowerHearsWhatTheHostDoes() throws {
+        let content = try #require(
+            CouchActivityContent.make(couch: Fixtures.couch("host-paused"), player: Fixtures.followerPlayer, accent: "")
+        )
+        #expect(content.members.first == "Štěpán")
+        #expect(content.status == L10n.couchHostPaused)
+    }
+
+    @Test func aRemoteKnowsNoTitle() throws {
+        let content = try #require(
+            CouchActivityContent.make(couch: Fixtures.couch("remote"), player: .closed, accent: ""))
+        #expect(content.title == nil)
+        #expect(content.code == "123 456")
+    }
+
+    @Test(arguments: ["idle", "starting", "ended", "join-failed"])
+    func noCouchNoActivity(state: String) {
+        #expect(CouchActivityContent.make(couch: Fixtures.couch(state), player: .closed, accent: "") == nil)
+    }
+}
 
 struct OpenRequestTests {
     @Test func titlesListsAndPlayingNeedNoHome() {

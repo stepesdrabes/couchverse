@@ -7,5 +7,7 @@ DEVELOPMENT_TEAM =
 // Bundle ids must be unique per team; a free team cannot reuse io.stepes.couchverse.
 BUNDLE_ID_ROOT = com.example.couchverse
 
-// YES only with a team that can provision App Groups (plan 10.9).
+// YES only with a team that can provision App Groups (plan 10.9): embeds the widget extension
+// (Continue Watching, the couch Live Activity) and Top Shelf, and gives the apps and them the App
+// Group group.$(BUNDLE_ID_ROOT). Each extension needs its own App ID (docs/apple.md).
 EXTENSIONS_ENABLED = NO

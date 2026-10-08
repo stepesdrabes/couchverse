@@ -4,8 +4,16 @@
 BUNDLE_ID_ROOT = io.stepes.couchverse
 DEVELOPMENT_TEAM =
 // Widgets, Top Shelf and other extras that need capabilities a free personal team may lack
-// (plan 10.9); off until a builder turns them on.
+// (plan 10.9); off until a builder turns them on. Exactly YES turns them on: the settings below
+// pick their value by it.
 EXTENSIONS_ENABLED = NO
+// With them the apps and their extensions share an App Group, claimed in their entitlements and
+// named in their Info.plist, and the extensions are signed and embedded; without them none of
+// this exists, so a free personal team signs the apps as before.
+COUCHVERSE_APP_GROUP_YES = group.$(BUNDLE_ID_ROOT)
+COUCHVERSE_APP_GROUP = $(COUCHVERSE_APP_GROUP_$(EXTENSIONS_ENABLED))
+COUCHVERSE_ENTITLEMENTS_YES = Config/Couchverse.entitlements
+COUCHVERSE_SIGN_EXTENSIONS_YES = YES
 
 CODE_SIGN_STYLE = Automatic
 MARKETING_VERSION = 0.1.0

@@ -1,0 +1,19 @@
+// The Apple TV's Top Shelf extension: Continue Watching above the app's icon. Always built, but
+// signed and embedded in the app only with EXTENSIONS_ENABLED (Base.xcconfig).
+
+SDKROOT = appletvos
+SUPPORTED_PLATFORMS = appletvos appletvsimulator
+TARGETED_DEVICE_FAMILY = 3
+
+PRODUCT_NAME = CouchverseTopShelf
+PRODUCT_BUNDLE_IDENTIFIER = $(BUNDLE_ID_ROOT).topshelf
+
+INFOPLIST_FILE = Config/CouchverseTopShelf-Info.plist
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_KEY_CFBundleDisplayName = Couchverse
+
+CODE_SIGNING_ALLOWED = $(COUCHVERSE_SIGN_EXTENSIONS_$(EXTENSIONS_ENABLED))
+CODE_SIGN_ENTITLEMENTS = $(COUCHVERSE_ENTITLEMENTS_$(EXTENSIONS_ENABLED))
+APPLICATION_EXTENSION_API_ONLY = YES
+SKIP_INSTALL = YES
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks @executable_path/../../Frameworks
