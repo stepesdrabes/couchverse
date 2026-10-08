@@ -8,12 +8,16 @@ public struct Accent: Equatable, Sendable {
     public let strong: Color
     public let soft: Color
     public let onAccent: Color
+    /// The accent lightened to read as text (WCAG AA) on every surface: the colour of
+    /// accent-coloured text, never `color`.
+    public let ink: Color
 
     public init(_ palette: AccentPalette) {
         color = Color(hex: palette.accent) ?? Tokens.Palette.accent
         strong = Color(hex: palette.strong) ?? Tokens.Palette.accentStrong
         soft = Color(hex: palette.soft) ?? Tokens.Palette.accentSoft
         onAccent = Color(hex: palette.onAccent) ?? Tokens.Palette.onAccent
+        ink = Color(hex: palette.ink) ?? color
     }
 
     public static let standard = Accent(.fallback)
@@ -24,10 +28,12 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Tints this subtree with `palette`: controls via `tint`, custom views via `\.accent`.
+    /// Tints this subtree with `palette`: controls via `tint`, custom views via `\.accent`. The
+    /// tint is the ink, since tinted controls mostly draw text (links, menus, plain buttons);
+    /// filled buttons set the accent itself.
     public func accent(_ palette: AccentPalette) -> some View {
         let accent = Accent(palette)
-        return environment(\.accent, accent).tint(accent.color)
+        return environment(\.accent, accent).tint(accent.ink)
     }
 }
 
