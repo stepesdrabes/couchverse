@@ -72,6 +72,7 @@ public struct CouchverseRoot: View {
                 requests?.finish(.couch(code: code))
             }
         }
+        .systemIntegration(live: player != nil)
         .sheet(isPresented: $switchingAccount) { AccountSwitcherSheet() }
         .modal(isPresented: $approving) { ApproveDeviceScreen(openedFromLink: true) }
         .appCover(player: player, requests: cover)

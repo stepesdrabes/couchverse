@@ -21,6 +21,7 @@ let package = Package(
             name: "CouchverseFeatures",
             dependencies: [
                 .product(name: "CouchverseCore", package: "CouchverseCore"),
+                .product(name: "CouchverseShared", package: "CouchverseCore"),
                 .product(name: "CouchverseDesign", package: "CouchverseDesign"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self), .treatAllWarnings(as: .error)]
