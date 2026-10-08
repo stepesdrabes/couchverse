@@ -664,6 +664,91 @@
         }
       }
     },
+    "achievement_category_couch": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Společné sledování"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couch"
+          }
+        }
+      }
+    },
+    "achievement_category_explorer": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objevování"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exploring"
+          }
+        }
+      }
+    },
+    "achievement_category_meta": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Milníky"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Milestones"
+          }
+        }
+      }
+    },
+    "achievement_category_streaks": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Série"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Streaks"
+          }
+        }
+      }
+    },
+    "achievement_category_watching": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sledování"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watching"
+          }
+        }
+      }
+    },
     "achievement_couch_host_1_desc": {
       "extractionState": "manual",
       "localizations": {
@@ -8328,6 +8413,23 @@
         }
       }
     },
+    "profile_banner_upload_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nahrání banneru selhalo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Banner upload failed"
+          }
+        }
+      }
+    },
     "profile_bio": {
       "extractionState": "manual",
       "localizations": {
@@ -8646,6 +8748,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Profile picture updated"
+          }
+        }
+      }
+    },
+    "profile_pictures_on_phone": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obrázek a banner změníš v telefonu"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change your picture and banner on your phone"
+          }
+        }
+      }
+    },
+    "profile_pictures_on_phone_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naskenuj kód fotoaparátem telefonu a otevře se ti tam tvůj profil."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan the code with your phone's camera to open your profile there."
           }
         }
       }

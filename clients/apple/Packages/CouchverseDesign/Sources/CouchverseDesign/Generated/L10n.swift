@@ -41,6 +41,11 @@ extension L10n {
     public static var achievementActiveDays50Name: String { string("achievement_active_days_50_name") }
     public static var achievementAvatarSetDesc: String { string("achievement_avatar_set_desc") }
     public static var achievementAvatarSetName: String { string("achievement_avatar_set_name") }
+    public static var achievementCategoryCouch: String { string("achievement_category_couch") }
+    public static var achievementCategoryExplorer: String { string("achievement_category_explorer") }
+    public static var achievementCategoryMeta: String { string("achievement_category_meta") }
+    public static var achievementCategoryStreaks: String { string("achievement_category_streaks") }
+    public static var achievementCategoryWatching: String { string("achievement_category_watching") }
     public static var achievementCouchHost1Desc: String { string("achievement_couch_host_1_desc") }
     public static var achievementCouchHost1Name: String { string("achievement_couch_host_1_name") }
     public static var achievementCouchHost25Desc: String { string("achievement_couch_host_25_desc") }
@@ -483,6 +488,7 @@ extension L10n {
     public static var profileBannerRemove: String { string("profile_banner_remove") }
     public static var profileBannerReplace: String { string("profile_banner_replace") }
     public static var profileBannerUpload: String { string("profile_banner_upload") }
+    public static var profileBannerUploadFailed: String { string("profile_banner_upload_failed") }
     public static var profileBio: String { string("profile_bio") }
     public static var profileBioPlaceholder: String { string("profile_bio_placeholder") }
     public static var profileChangePicture: String { string("profile_change_picture") }
@@ -499,6 +505,8 @@ extension L10n {
     public static var profilePasswordMismatch: String { string("profile_password_mismatch") }
     public static func profilePasswordTooShort(count: Int) -> String { format("profile_password_too_short", [count]) }
     public static var profilePictureUpdated: String { string("profile_picture_updated") }
+    public static var profilePicturesOnPhone: String { string("profile_pictures_on_phone") }
+    public static var profilePicturesOnPhoneHint: String { string("profile_pictures_on_phone_hint") }
     public static var profileRemovePicture: String { string("profile_remove_picture") }
     public static var profileRoleAdmin: String { string("profile_role_admin") }
     public static var profileRoleMember: String { string("profile_role_member") }

@@ -40,6 +40,11 @@
     <string name="achievement_active_days_50_name">Padesát dní</string>
     <string name="achievement_avatar_set_desc">Nahraj si profilový obrázek.</string>
     <string name="achievement_avatar_set_name">Tvář domu</string>
+    <string name="achievement_category_couch">Společné sledování</string>
+    <string name="achievement_category_explorer">Objevování</string>
+    <string name="achievement_category_meta">Milníky</string>
+    <string name="achievement_category_streaks">Série</string>
+    <string name="achievement_category_watching">Sledování</string>
     <string name="achievement_couch_host_1_desc">Uspořádej své první společné sledování.</string>
     <string name="achievement_couch_host_1_name">Držitel ovladače</string>
     <string name="achievement_couch_host_25_desc">Uspořádej dvacet pět společných sledování.</string>
@@ -494,6 +499,7 @@
     <string name="profile_banner_remove">Odebrat banner</string>
     <string name="profile_banner_replace">Nahradit</string>
     <string name="profile_banner_upload">Nahrát banner</string>
+    <string name="profile_banner_upload_failed">Nahrání banneru selhalo</string>
     <string name="profile_bio">O tobě</string>
     <string name="profile_bio_placeholder">Napiš ostatním, co tě baví. Můžeš použít Markdown.</string>
     <string name="profile_change_picture">Změnit profilový obrázek</string>
@@ -514,6 +520,8 @@
         <item quantity="other">Heslo musí mít alespoň %1$d znaků</item>
     </plurals>
     <string name="profile_picture_updated">Profilový obrázek aktualizován</string>
+    <string name="profile_pictures_on_phone">Obrázek a banner změníš v telefonu</string>
+    <string name="profile_pictures_on_phone_hint">Naskenuj kód fotoaparátem telefonu a otevře se ti tam tvůj profil.</string>
     <string name="profile_remove_picture">Odebrat obrázek</string>
     <string name="profile_role_admin">Administrátor</string>
     <string name="profile_role_member">Člen</string>

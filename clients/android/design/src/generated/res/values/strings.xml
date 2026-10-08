@@ -40,6 +40,11 @@
     <string name="achievement_active_days_50_name">Fifty Days</string>
     <string name="achievement_avatar_set_desc">Upload a profile picture.</string>
     <string name="achievement_avatar_set_name">Face of the House</string>
+    <string name="achievement_category_couch">Couch</string>
+    <string name="achievement_category_explorer">Exploring</string>
+    <string name="achievement_category_meta">Milestones</string>
+    <string name="achievement_category_streaks">Streaks</string>
+    <string name="achievement_category_watching">Watching</string>
     <string name="achievement_couch_host_1_desc">Host your first couch session.</string>
     <string name="achievement_couch_host_1_name">Remote Holder</string>
     <string name="achievement_couch_host_25_desc">Host twenty-five couch sessions.</string>
@@ -491,6 +496,7 @@
     <string name="profile_banner_remove">Remove banner</string>
     <string name="profile_banner_replace">Replace</string>
     <string name="profile_banner_upload">Upload banner</string>
+    <string name="profile_banner_upload_failed">Banner upload failed</string>
     <string name="profile_bio">About you</string>
     <string name="profile_bio_placeholder">Tell people what you are into. Markdown works here.</string>
     <string name="profile_change_picture">Change profile picture</string>
@@ -510,6 +516,8 @@
         <item quantity="other">Password must be at least %1$d characters</item>
     </plurals>
     <string name="profile_picture_updated">Profile picture updated</string>
+    <string name="profile_pictures_on_phone">Change your picture and banner on your phone</string>
+    <string name="profile_pictures_on_phone_hint">Scan the code with your phone\'s camera to open your profile there.</string>
     <string name="profile_remove_picture">Remove picture</string>
     <string name="profile_role_admin">Admin</string>
     <string name="profile_role_member">Member</string>
