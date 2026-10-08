@@ -189,14 +189,16 @@ func videoVariant(v rendition, codecs []string, peak, average int64, audio, subt
 	}
 }
 
-// orderLadder lists the rungs tallest first but starts with the one nearest
+// orderLadder lists the rungs sharpest first but starts with the one nearest
 // 720p: AVPlayer begins with the first variant before it measures bandwidth.
+// Rungs compare by class, so a scope film's 1280x532 rung is its 720p one.
 func orderLadder(rungs []rendition) []rendition {
 	out := slices.Clone(rungs)
-	slices.SortFunc(out, func(a, b rendition) int { return cmp.Compare(b.info.Height, a.info.Height) })
+	class := func(r rendition) int { return media.ClassHeight(r.info.Width, r.info.Height) }
+	slices.SortFunc(out, func(a, b rendition) int { return cmp.Compare(class(b), class(a)) })
 	start := 0
 	for i, r := range out {
-		if abs(r.info.Height-720) < abs(out[start].info.Height-720) {
+		if abs(class(r)-720) < abs(class(out[start])-720) {
 			start = i
 		}
 	}

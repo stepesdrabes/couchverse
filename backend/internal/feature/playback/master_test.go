@@ -129,3 +129,18 @@ func TestPreparedState(t *testing.T) {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 }
+
+// A scope film's rungs are 1920x800, 1280x532 and 854x354: the 800-line one is
+// nearest 720 lines but is its 1080p rung, so the ladder starts at 1280x532.
+func TestOrderLadderByClass(t *testing.T) {
+	rung := func(width, height int) rendition {
+		return rendition{info: renditionInfo{Width: width, Height: height}}
+	}
+	heights := []int{}
+	for _, r := range orderLadder([]rendition{rung(854, 354), rung(1920, 800), rung(1280, 532)}) {
+		heights = append(heights, r.info.Height)
+	}
+	if want := []int{532, 800, 354}; !slices.Equal(heights, want) {
+		t.Errorf("ladder heights %v, want %v", heights, want)
+	}
+}

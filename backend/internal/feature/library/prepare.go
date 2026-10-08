@@ -11,7 +11,7 @@ import (
 // Prepare queues HLS v2 renditions of a file: media.VariantSource for the copied
 // video and ladder rendition names. Every HLS presentation needs the audio
 // renditions and gets the trick-play rendition, so those come along with
-// anything queued. Renditions taller than the source are skipped rather than
+// anything queued. Renditions above the source's class are skipped rather than
 // upscaled. Variant rows are registered up front so the admin library shows
 // "Processing". It returns the names queued.
 func Prepare(ctx context.Context, files *Store, jb *jobs.Store, mf *media.MediaFile, hasAudio bool, names []string) ([]string, error) {
@@ -23,7 +23,7 @@ func Prepare(ctx context.Context, files *Store, jb *jobs.Store, mf *media.MediaF
 	queued := []string{}
 	for _, name := range names {
 		r, ok := media.Renditions[name]
-		if !ok || mf.Height > 0 && r.Height > mf.Height {
+		if !ok || mf.Height > 0 && r.Height > media.ClassHeight(mf.Width, mf.Height) {
 			continue
 		}
 		r = r.CappedAt(mf.Bitrate)

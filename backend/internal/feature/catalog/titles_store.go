@@ -528,7 +528,7 @@ type LibraryRow struct {
 	EpisodeCount    int       `json:"episodeCount"`
 	SizeBytes       int64     `json:"sizeBytes"`
 	TranscodedBytes int64     `json:"transcodedBytes"`
-	MaxHeight       int       `json:"maxHeight"`
+	MaxHeight       int       `json:"maxHeight"` // the best file's class height (media.ClassHeight)
 	HDR             bool      `json:"hdr"`
 	PosterID        *string   `json:"posterId"`
 	BackdropID      *string   `json:"backdropId"`
@@ -593,7 +593,7 @@ func (s *Store) ListLibrary(ctx context.Context, f LibraryFilter) ([]LibraryRow,
 				JOIN seasons s4 ON s4.id = e4.season_id
 				WHERE s4.title_id = t.id))
 			) AS transcoded_bytes,
-			COALESCE(max(mf.height), 0) AS max_height,
+			COALESCE(max(greatest(mf.height, mf.width * 9 / 16)), 0) AS max_height,
 			COALESCE(bool_or(mf.video_range <> 'sdr'), false) AS hdr,
 			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'poster') AS poster_id,
 			(SELECT a.id FROM artwork a WHERE a.owner_kind = 'title' AND a.owner_id = t.id::text AND a.kind = 'backdrop') AS backdrop_id,

@@ -36,7 +36,9 @@ func TestPlanDownload(t *testing.T) {
 		{"a lower rung transcodes", appleTV, h264MP4, "720p", nil, "v=h264:720:3000000;a=1:copy", 720},
 		{"a rung above the source copies it", appleTV, h264At720, "1080p", nil, "v=copy;a=1:copy", 0},
 		{"a rung never upscales", appleTV, vp9WebM, "1080p", nil, "v=h264:1080:3000000;a=1:aac2", 1080},
-		{"a small source keeps its height", chrome, with(vp9WebM, func(s *Source) { s.Height = 601 }), "720p", nil, "v=h264:600:3000000;a=1:aac2", 600},
+		{"a small source keeps its height", chrome, with(vp9WebM, func(s *Source) { s.Width, s.Height = 1068, 601 }), "720p", nil, "v=h264:600:3000000;a=1:aac2", 600},
+		{"a scope film fits the rung's box", chrome, with(vp9WebM, func(s *Source) { s.Width, s.Height = 1920, 800 }), "720p", nil, "v=h264:532:3000000;a=1:aac2", 532},
+		{"a scope film keeps its size at the top", chrome, with(hevcHDR10MKV, func(s *Source) { s.Width, s.Height = 1920, 800 }), QualityOriginal, nil, "v=h264:800:6000000;a=1:aac6", 800},
 		{"the rung bitrate is capped at the source", chrome, with(vp9WebM, func(s *Source) { s.Bitrate = 1_000_000 }), "720p", nil, "v=h264:720:1000000;a=1:aac2", 720},
 		{"requested languages in order", appleTV, czech, QualityOriginal, []string{"cs", "en"}, "v=copy;a=2:copy,1:copy", 0},
 		{"an unknown language falls back to the default track", appleTV, czech, QualityOriginal, []string{"de"}, "v=copy;a=1:copy", 0},
@@ -85,7 +87,7 @@ func TestDownloadArgs(t *testing.T) {
 	args := strings.Join(DownloadArgs(mf, "/in.mkv", plan, subs, "/out.mp4", "libx264", "veryfast", Features{ToneMap: true}), " ")
 	for _, want := range []string{
 		"-i /in.mkv -i /s/en.vtt -i /s/cs.vtt",
-		"-map 0:v:0 -vf scale=-2:720,zscale",
+		"-map 0:v:0 -vf scale=1280:720,zscale",
 		"-c:v libx264 -preset veryfast -profile:v high",
 		"-map 0:1 -c:a:0 aac -ac:a:0 6 -b:a:0 384k -metadata:s:a:0 language=eng -metadata:s:a:0 title=Atmos -disposition:a:0 default",
 		"-map 1:0 -c:s:0 mov_text -metadata:s:s:0 language=eng -disposition:s:0 0 -metadata:s:s:0 title=English",

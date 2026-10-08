@@ -155,10 +155,14 @@ func isHDR(v media.VideoStream) bool {
 	return v.HDR != media.HDRNone && v.HDR != "" && (v.HDR != media.HDRDolbyVision || v.DoviCompatibility != 2)
 }
 
-// videoFilter scales to height and always ends in 8-bit 4:2:0, so 10-bit and
-// HDR sources come out as H.264 every player decodes.
-func videoFilter(mf *media.MediaFile, height int, f Features) string {
+// videoFilter scales to width x height (a zero width keeps the aspect) and
+// always ends in 8-bit 4:2:0, so 10-bit and HDR sources come out as H.264
+// every player decodes.
+func videoFilter(mf *media.MediaFile, width, height int, f Features) string {
 	filter := fmt.Sprintf("scale=-2:%d", height)
+	if width > 0 {
+		filter = fmt.Sprintf("scale=%d:%d", width, height)
+	}
 	if isHDR(mf.Video) {
 		return filter + "," + toneMapFilter(f)
 	}
@@ -171,7 +175,8 @@ var sdrTags = []string{"-color_primaries", "bt709", "-color_trc", "bt709", "-col
 // rungVideoArgs encode one ladder rung: H.264 SDR with an IDR every two
 // seconds of source time, so every rung cuts its segments at the same instants.
 func rungVideoArgs(mf *media.MediaFile, r media.Rendition, encoder, preset string, f Features, startAt float64) []string {
-	args := []string{"-map", "0:v:0", "-vf", videoFilter(mf, r.Height, f)}
+	width, height := r.Fit(mf.Width, mf.Height)
+	args := []string{"-map", "0:v:0", "-vf", videoFilter(mf, width, height, f)}
 	args = append(args, encoderArgs(encoder, preset, r.VideoBitrate)...)
 	gop := int(max(mf.Video.FrameRate, 1)*keyframeSeconds + 0.5)
 	args = append(args, "-g", strconv.Itoa(gop),

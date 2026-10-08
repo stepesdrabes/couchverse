@@ -128,7 +128,7 @@ func (m *SessionManager) Create(ctx context.Context, appCtx context.Context, med
 
 	settings := media.LoadTranscodeSettings(ctx, m.Settings)
 	rendition := media.Renditions["720p"]
-	if mf.Height > 0 && mf.Height < 600 {
+	if mf.Height > 0 && media.ClassHeight(mf.Width, mf.Height) < 600 {
 		rendition = media.Renditions["480p"]
 	}
 	rendition = rendition.CappedAt(mf.Bitrate)

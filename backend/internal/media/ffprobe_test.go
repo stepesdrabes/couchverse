@@ -77,6 +77,8 @@ func TestAutoPrepare(t *testing.T) {
 	hdr.VideoCodec, hdr.Video = "hevc", VideoStream{BitDepth: 10, HDR: HDR10}
 	vp9 := h264("webm", 1080)
 	vp9.VideoCodec = "vp9"
+	scope := h264("mkv", 800)
+	scope.Width, scope.VideoCodec, scope.Video = 1920, "hevc", VideoStream{BitDepth: 10, HDR: HDR10}
 	off := TranscodeSettings{Ladder: []string{"720p"}, AutoPrepare: new(bool)}
 
 	for _, c := range []struct {
@@ -89,6 +91,7 @@ func TestAutoPrepare(t *testing.T) {
 		{"mkv gets its copy and the rungs below it", h264("mkv", 1080), settings, []string{VariantSource, "720p"}},
 		{"hdr gets its copy and the whole ladder", hdr, settings, []string{VariantSource, "1080p", "720p"}},
 		{"vp9 cannot be copied", vp9, settings, []string{"1080p", "720p"}},
+		{"a 1920x800 film is 1080p", scope, settings, []string{VariantSource, "1080p", "720p"}},
 		{"auto-prepare off still copies", hdr, off, []string{VariantSource}},
 	} {
 		if got := AutoPrepare(c.probe, c.settings); !slices.Equal(got, c.want) {

@@ -72,13 +72,35 @@ func TestRungVideoFilter(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := videoFilter(c.mf, 720, c.f)
+			got := videoFilter(c.mf, 0, 720, c.f)
 			for _, w := range c.want {
 				if !strings.Contains(got, w) {
 					t.Errorf("filter %q lacks %q", got, w)
 				}
 			}
 		})
+	}
+}
+
+// A rung fits the source into its 16:9 box, so a scope film keeps the box width
+// instead of growing past it at the box height.
+func TestRungFitsItsBox(t *testing.T) {
+	cases := []struct {
+		name          string
+		width, height int
+		want          string
+	}{
+		{"16:9 fills the box", 1920, 1080, "-vf scale=1280:720,"},
+		{"scope keeps the box width", 1920, 800, "-vf scale=1280:532,"},
+		{"an unknown size keeps the box height", 0, 0, "-vf scale=-2:720,"},
+	}
+	for _, c := range cases {
+		mf := &media.MediaFile{VideoCodec: "h264", Width: c.width, Height: c.height,
+			Video: media.VideoStream{BitDepth: 8, HDR: media.HDRNone}}
+		args := strings.Join(rungVideoArgs(mf, media.Renditions["720p"], "libx264", "veryfast", Features{}, 0), " ")
+		if !strings.Contains(args, c.want) {
+			t.Errorf("%s: args lack %q: %s", c.name, c.want, args)
+		}
 	}
 }
 

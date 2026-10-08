@@ -60,7 +60,7 @@ func PlanDownload(p DeviceProfile, mf *media.MediaFile, tracks []media.AudioStre
 		for name := range media.Renditions {
 			ladder = append(ladder, name)
 		}
-		picked := media.PrepareRenditions(ladder, mf.Height)
+		picked := media.PrepareRenditions(ladder, mf.Width, mf.Height)
 		plan.Rendition = slices.MaxFunc(picked, func(a, b media.Rendition) int { return a.Height - b.Height })
 	} else {
 		r, ok := media.Renditions[quality]
@@ -68,17 +68,15 @@ func PlanDownload(p DeviceProfile, mf *media.MediaFile, tracks []media.AudioStre
 			return DownloadPlan{}, fmt.Errorf("playback: unknown download quality %q", quality)
 		}
 		plan.Rendition = r
-		plan.Copy = copyable && mf.Height > 0 && mf.Height <= r.Height &&
+		plan.Copy = copyable && mf.Height > 0 && media.ClassHeight(mf.Width, mf.Height) <= r.Height &&
 			mf.Bitrate > 0 && mf.Bitrate <= r.VideoBitrate+r.AudioBitrate
 	}
 	if !plan.Copy {
 		if !p.video("h264").supports("high", 4.1, 8) {
 			return DownloadPlan{}, ErrNoDownload
 		}
-		// never upscale; scale needs an even height
-		if mf.Height > 0 && mf.Height < plan.Rendition.Height {
-			plan.Rendition.Height = mf.Height &^ 1
-		}
+		// the plan holds the picture made: the source fitted into the rung's box
+		plan.Rendition.Width, plan.Rendition.Height = plan.Rendition.Fit(mf.Width, mf.Height)
 		plan.Rendition = plan.Rendition.CappedAt(mf.Bitrate)
 	}
 	plan.Audio = downloadAudio(p, s, langs)
@@ -149,7 +147,7 @@ func DownloadArgs(mf *media.MediaFile, input string, plan DownloadPlan, subs []D
 	if plan.Copy {
 		args = append(args, sourceVideoArgs(mf, f)...)
 	} else {
-		args = append(args, "-map", "0:v:0", "-vf", videoFilter(mf, plan.Rendition.Height, f))
+		args = append(args, "-map", "0:v:0", "-vf", videoFilter(mf, plan.Rendition.Width, plan.Rendition.Height, f))
 		args = append(args, encoderArgs(encoder, preset, plan.Rendition.VideoBitrate)...)
 		args = append(args, sdrTags...)
 	}

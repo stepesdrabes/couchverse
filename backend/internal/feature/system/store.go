@@ -91,13 +91,15 @@ func (s *Store) LibraryStats(ctx context.Context) (*LibraryInsights, error) {
 	err := s.db.QueryRow(ctx, `
 		SELECT
 			COALESCE(sum(mf.duration_seconds), 0)::bigint,
-			count(*) FILTER (WHERE mf.height >= 2160),
-			count(*) FILTER (WHERE mf.height >= 1080 AND mf.height < 2160),
-			count(*) FILTER (WHERE mf.height >= 720 AND mf.height < 1080),
-			count(*) FILTER (WHERE mf.height > 0 AND mf.height < 720),
+			count(*) FILTER (WHERE q.class >= 2160),
+			count(*) FILTER (WHERE q.class >= 1080 AND q.class < 2160),
+			count(*) FILTER (WHERE q.class >= 720 AND q.class < 1080),
+			count(*) FILTER (WHERE q.class > 0 AND q.class < 720),
 			count(*) FILTER (WHERE mf.video_range <> 'sdr')
 		FROM media_files mf
 		JOIN libraries l ON l.id = mf.library_id
+		-- media.ClassHeight: a 1920x800 scope film is 1080p
+		CROSS JOIN LATERAL (SELECT greatest(mf.height, mf.width * 9 / 16) AS class) q
 		WHERE l.kind IN ('movies', 'series')`).
 		Scan(&ls.TotalRuntimeSeconds, &ls.Quality.UHD, &ls.Quality.FHD, &ls.Quality.HD, &ls.Quality.SD, &ls.HDR)
 	if err != nil {

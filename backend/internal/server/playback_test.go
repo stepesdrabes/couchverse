@@ -45,6 +45,7 @@ func deviceProfile(name string) json.RawMessage {
 type sample struct {
 	title string // "Name (Year)", also the movie's draft title
 	file  string
+	size  string   // the picture, 1280x720 when empty
 	args  []string // ffmpeg arguments after the lavfi inputs
 	// subs are SRT files muxed in as text subtitles
 	subs []string
@@ -104,6 +105,15 @@ func TestPlaybackTiers(t *testing.T) {
 			audio: 2, subtitles: 1,
 		},
 		{
+			// a 2.40:1 scope film in HEVC: Full HD, though only 800 lines tall, so
+			// the browser's ladder fits it into 16:9 boxes instead of scaling by height
+			title: "Wide Horizon (2026)", file: "Wide Horizon (2026).mkv", size: "1920x800",
+			args: []string{"-map", "0:v", "-map", "1:a", "-c:v", "libx265", "-preset", "ultrafast",
+				"-x265-params", "keyint=48:min-keyint=48:log-level=error", "-tag:v", "hvc1", "-c:a", "aac"},
+			want:  map[string]string{"chrome": "transcode/hls", "apple": "remux/hls"},
+			audio: 1,
+		},
+		{
 			// VP9/Opus in WebM direct-plays in a browser but never on Apple
 			title: "Neon Drift (2023)", file: "Neon Drift (2023).webm",
 			args: []string{"-map", "0:v", "-map", "1:a", "-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8",
@@ -113,12 +123,23 @@ func TestPlaybackTiers(t *testing.T) {
 	}
 
 	moviesDir := filepath.Join(env.cfg.DataDir, "media", "movies")
+	files := map[string]string{}
 	for _, s := range samples {
 		path := filepath.Join(moviesDir, s.title, s.file)
 		generate(t, path, s)
-		w.ingest(ctx, path)
+		files[s.title] = w.ingest(ctx, path)
 	}
 	w.drain(ctx)
+
+	// the scope film's 720p rung keeps the box width rather than 720 lines
+	var rung struct{ Width, Height int }
+	raw, err := os.ReadFile(filepath.Join(env.cfg.DataDir, "cache", "hls", files["Wide Horizon (2026)"], "720p", "rendition.json"))
+	if err == nil {
+		err = json.Unmarshal(raw, &rung)
+	}
+	if err != nil || rung.Width != 1280 || rung.Height != 532 {
+		t.Errorf("scope 720p rung %dx%d (%v), want 1280x532", rung.Width, rung.Height, err)
+	}
 
 	member := env.clients[memberName]
 	for _, s := range samples {
@@ -263,8 +284,12 @@ func generate(t *testing.T, path string, s sample) {
 		t.Fatal(err)
 	}
 	d := strconv.Itoa(sampleSeconds)
+	size := s.size
+	if size == "" {
+		size = "1280x720"
+	}
 	args := []string{"-y", "-hide_banner", "-loglevel", "error",
-		"-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=24:duration=" + d,
+		"-f", "lavfi", "-i", "testsrc2=size=" + size + ":rate=24:duration=" + d,
 		"-f", "lavfi", "-i", "sine=frequency=440:duration=" + d + ":sample_rate=48000",
 		"-f", "lavfi", "-i", "sine=frequency=330:duration=" + d + ":sample_rate=48000,pan=5.1|FL=c0|FR=c0|FC=c0|LFE=c0|BL=c0|BR=c0",
 	}
