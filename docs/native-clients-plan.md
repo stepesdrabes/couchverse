@@ -571,6 +571,17 @@ menu keeps working from the new master playlist attributes.
   sends `remote_command {action: play|pause|seek|next|previous, positionSeconds?}`; the Hub
   relays it to the host's playing connection, which applies it and broadcasts `host_state` as
   usual. The playing connection is the one that most recently sent `host_state`.
+- **Host handover** (decided 2026-10-08): the host's account starting the session on another
+  device while one plays for it hands the session over. The new device takes the host seat
+  with its first `host_state` (sent as its socket opens) and plays its own title for everyone,
+  since "Start a couch session" means "the couch watches what this device plays" on every
+  device; the session's media follows it. The old device stops broadcasting from that moment
+  and becomes the account's remote (D17): a fresh `hello` with `role: remote` tells it, its
+  token comes back as a remote's, and its late `host_state` is dropped. Followers keep their
+  seats and sockets. Tabs of one browser share the couch cookie, so a tab cannot take over from
+  another tab playing for the session (409 `already_hosting`). The change is additive (a later
+  `hello`, a dropped report), so the API level stays: an older client keeps playing on its own
+  with its reports ignored, and a newer client against an older server sees no handover.
 - QR payload for TV hosting: the public couch URL (`/couch/{code}`), which opens the web join
   page or, through an "Open in app" button, the app's `couchverse://couch/{code}` link.
 - Protocol changes are versioned through the API level; golden frames updated in

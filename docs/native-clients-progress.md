@@ -119,11 +119,21 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
 - Done: the TV player's info panel lists who is on the couch (a follower's has no episodes),
   and the iPhone and iPad reactions popover's "more" button sends any emoji from the system
   emoji keyboard.
+- Done: host handover (plan 8.7): starting the session on another device of the host's
+  account hands it over. The new device takes the seat with its first report, sent as its
+  socket opens, and plays its own title for everyone; the old one closes its player and
+  becomes the account's remote (a fresh `hello`, its token too); followers keep their seats
+  and follow the new title; a second tab of the hosting browser is refused (409
+  `already_hosting`). The web's hosting tab goes to the join page's remote, Apple's cover
+  already follows the role, and Android's remote now replaces the player screen. Verified by
+  the hub and socket tests, core scenarios for both devices and a follower, and the web couch
+  spec handing a session between two browsers of one account while a guest follows.
 - Pending: the couch snapshot references (with the guest's join form) and the Welcome ones,
   removed for re-recording after its new "Join a couch session" button (and the Settings ones,
   re-recorded for its couch row), recorded on the pinned simulators; the couch walkthrough
   (docs/apple.md, steps 1 to 7) on simulators and devices; Android's guest join on an
-  emulator against a local server.
+  emulator against a local server; the exit run (an Apple TV host, an iPhone remote, an
+  anonymous web follower and a web host handover within the drift threshold for an hour).
 
 ## Phase 8: ranks and profiles - in progress
 

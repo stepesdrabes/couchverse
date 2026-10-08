@@ -331,7 +331,8 @@ admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
   rooms), a scoped httpOnly **couch cookie** (mirrors the auth session cookie), the
   HTTP handlers and the WS endpoint, on `github.com/coder/websocket`. `Hub.LivePresence()`
   exposes live session/viewer counts to the admin dashboard's `/admin/live`.
-- Endpoints: `POST /couch` (create/reclaim, host must be logged in),
+- Endpoints: `POST /couch` (create, or hand the host's live session over to this device; host
+  must be logged in; 409 `already_hosting` from a browser whose other tab plays for it),
   `POST /couch/{token}/join` (public, anon OK; the host's own account always joins as a
   remote, `?remote=true` only asserts it and gets 403 `not_host` for anyone else; a browser
   playing for the session as its host in another tab gets 409 `already_hosting`, since its
@@ -351,10 +352,20 @@ admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
   seek) go to the host's playing connection, the one that last sent `host_state`, which applies
   them and broadcasts the result. A remote leaving keeps the session; a follower or anyone
   sending it is refused.
+- **Host handover**: the host's account starting the session on another device while one
+  plays for it hands it over. That device gets a host token and the room's *seat*, which it
+  takes with its first `host_state` (the core reports as soon as its socket opens): the
+  host's other connections become remotes, told by a fresh `hello` with `role: remote`, and
+  their tokens remotes' tokens, so those devices come back as remotes. Until then the old
+  device keeps playing for everyone, so nobody waits. The new device plays its own title: the
+  session's media moves with that first report (`media_changed`), and followers keep their
+  seats and sockets. A remote's late `host_state` is dropped, not a protocol violation. Tabs
+  of one browser share the couch cookie, so a tab cannot take over from another tab playing
+  for the session (409 `already_hosting`), while a reloaded tab, its socket gone, can.
 - WS protocol: host broadcasts authoritative `{media, playing, positionSeconds,
   serverTimestamp, seq}` (server-stamped) + emoji; followers extrapolate position
   from the last update + local elapsed and hard-seek past ~3s drift. Host identity
-  is tied to the user (multi-tab reclaim, 60s reconnect grace).
+  is tied to the user (a handover between its devices, 60s reconnect grace).
 - **Stream authorization (cross-feature):** followers (incl. anonymous ones) reach only
   the host's current media. `GET /couch/{token}/playback` builds their payload with
   `playback.BuildPlayback` and a `playback.Viewer` naming their participant, so every
@@ -372,8 +383,9 @@ admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
   couch call) and joins on the viewer's click, so the video may autoplay, for guests without
   an account too (the core rides on the couch cookie and the session's artwork grant). The
   host's own account joining there gets `CouchRemote` (the host's clock run on from its last
-  report, play and pause, 10 s skips, the episodes either side, leaving), a failed join says
-  why through `problemMessage`, and "Open in the app" links
+  report, play and pause, 10 s skips, the episodes either side, leaving), and so does a hosting
+  tab once its account hosts on another device (the core closed its player). A failed join or
+  start says why through `problemMessage`, and "Open in the app" links
   `couchverse://couch/<code>?server=<origin>` (not on a TV). The assembled accent-recoloured
   `Couch` (seated avatars + host remote), a management popover, couch buttons in the player
   control bar + TopNav and a bundled (no-CDN) emoji picker complete it. `VideoPlayer` is the
@@ -647,7 +659,10 @@ messages and perform the effects it asks for.
   native players), resume, watched-time accounting and progress saves, JIT keepalive,
   preparing poll, qualities, tracks, next episode, shuffle; a downloaded title plays from the
   device with source `download` and in-file subtitles), `couch` (the socket protocol,
-  reconnects, host broadcast, follower drift sync, remote control, reactions; a code that
+  reconnects, host broadcast, follower drift sync, remote control, reactions; a host reports
+  as soon as its socket opens, which takes a session over from the account's other devices,
+  and its own view follows what it plays; a `hello` naming a host a remote closes its player
+  and makes it the new host's remote; a code that
   names another server than the active account's, or comes without an account, is joined as
   a guest there: `CouchJoinRequested`'s `server` tried as https then http when typed without a
   scheme, the participant token in `X-Couch-Token`, the follower's media and the couch's
@@ -827,8 +842,9 @@ navigation, nothing else.
   the same controls as a member's (`CoreRuntime.couchOn`: a live couch counts as couch
   sessions being on). One full-screen cover (`AppCover`) shows the player, a follower waiting
   for the host (choosing, away, connecting), the phone as a remote (`CouchRemoteScreen`: play
-  and pause, 10 s skips from the host's extrapolated position, the episodes either side) and,
-  for 3 s, why a session this device watched or steered ended; moving between them never
+  and pause, 10 s skips from the host's extrapolated position, the episodes either side; also
+  a host's device once its account hosts on another one, the core having closed its player)
+  and, for 3 s, why a session this device watched or steered ended; moving between them never
   presents a modal over one being dismissed.
   Closing a follower's player leaves the couch, or the host's next title would bring it back.
   Over the picture everyone sees reactions rise and fade (Reduce Motion fades them in place) and a
@@ -991,7 +1007,8 @@ launch from the UI mode, on the shared core.
   scanned QR codes (CameraX + ZXing, phones only) go to the core as `LinkOpened`;
   `couchverse://couch/<code>` joins a couch and `couchverse://play/<kind>/<id>` plays (Watch
   Next, the widget). A couch follower is taken to the couch player and a remote to the remote,
-  whatever screen was showing.
+  whatever screen was showing; the remote replaces the player of a host whose account went on
+  hosting on another device.
 - **Playback** (`feature-playback`): `PlaybackEngine` carries out the core's `PlayerCommand`s
   on one ExoPlayer (whole URLs from the core, sidecar or in-stream subtitles, audio by index
   then language, `maxHeight` as a track cap, no retries on a 4xx) and reports about once a
