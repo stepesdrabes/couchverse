@@ -2,6 +2,7 @@ import { goto } from '$app/navigation';
 import { toast } from 'svelte-sonner';
 import { untrack } from 'svelte';
 import { core } from '$lib/core';
+import { problemMessage } from '$lib/api/problem';
 import { session } from '$lib/features/auth/session.svelte';
 import {
 	CouchRole,
@@ -110,11 +111,12 @@ class Couch {
 		return this.isFollower && !!this.view?.resynced;
 	}
 
-	/** Hosts a session around what is playing. */
+	/** Hosts a session around what is playing, or takes the account's live one over. */
 	async start() {
 		this.#leaving = false;
 		await core.send({ type: 'couchStartRequested' });
-		if (!this.active && this.view?.problem) toast.error(m.couch_start_failed());
+		const problem = this.view?.problem;
+		if (!this.active && problem) toast.error(problemMessage(problem, m.couch_start_failed()));
 	}
 
 	/** Joins on the viewer's click, which is what lets the follower's video start playing. */
@@ -181,5 +183,18 @@ $effect.root(() => {
 		if (view?.role || ended) {
 			joined = view?.role === CouchRole.Follower || view?.role === CouchRole.Remote;
 		}
+	});
+
+	// the account started hosting on another device: the core closed this one's player, and
+	// it steers that device from the join page's remote now
+	let hosting = false;
+	$effect(() => {
+		const view = couch.view;
+		const role = couch.active ? view?.role : undefined;
+		if (hosting && role === CouchRole.Remote && view?.code) {
+			const code = view.code;
+			untrack(() => goto(`/couch/${code}`, { replaceState: true }));
+		}
+		hosting = role === CouchRole.Host;
 	});
 });

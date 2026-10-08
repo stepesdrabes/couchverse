@@ -14,7 +14,7 @@ test.use({ storageState: authFile('nora') });
 
 const couchButton = (page: Page) => page.getByRole('button', { name: t('couch_open') }).first();
 
-test('an anonymous viewer joins a couch session by its code and follows the host', async ({
+test('an anonymous viewer joins a couch session by its code and follows the host from device to device', async ({
 	page: host,
 	browser,
 	errors
@@ -116,16 +116,52 @@ test('an anonymous viewer joins a couch session by its code and follows the host
 	await expect(guest.getByText(t('couch_resynced'))).toBeVisible();
 	await expect.poll(drift, { timeout: MEDIA_TIMEOUT }).toBeLessThan(3);
 
-	// Ending the session sends the follower, who has nowhere left to be, to the login page.
-	// The host pauses first so its progress stays clear of the end of the clip, which
-	// would drop the movie from continue watching for the specs that read it. By key:
-	// while playing, the controls hide (unmount) under the pointer every few seconds.
+	// The account hosts on another device, which plays for everyone from then on: this one
+	// becomes its remote and the follower keeps its seat. Both players pause first, so their
+	// progress stays clear of the end of the clip, which would drop the movie from continue
+	// watching for the specs that read it; the new one steps back ten seconds, so the follower
+	// has somewhere to go. By key: while playing, the controls hide (unmount) under the
+	// pointer every few seconds.
 	await host.keyboard.press('Space');
 	await expect.poll(() => videoPaused(host)).toBe(true);
-	await couchButton(host).click();
-	await host.getByRole('button', { name: t('couch_end_session') }).click();
+	const tvContext = await browser.newContext();
+	errors.watch(tvContext);
+	const tv = await tvContext.newPage();
+	await tv.goto(`/title/${movie.slug}`);
+	await tv.getByRole('button', { name: resume }).click();
+	await expect(tv).toHaveURL(`/watch/movie/${movie.id}`);
+	await expect.poll(() => videoPaused(tv), { timeout: MEDIA_TIMEOUT }).toBe(false);
+	await tv.keyboard.press('Space');
+	await expect.poll(() => videoPaused(tv)).toBe(true);
+	await tv.keyboard.press('ArrowLeft');
+	await couchButton(tv).click();
+	await tv.getByRole('button', { name: t('couch_start_session') }).click();
+	await expect(tv.getByRole('textbox')).toHaveValue(new RegExp(`/couch/${code}$`));
+	await expect(tv.getByText(t('couch_on_couch_count', { count: 2 }))).toBeVisible();
+	await tv.keyboard.press('Escape');
+
+	await expect(host.getByRole('heading', { name: t('couch_remote_title') })).toBeVisible();
+	await expect(host).toHaveURL(`/couch/${code}`);
+	const tvDrift = async () => Math.abs((await videoTime(guest)) - (await videoTime(tv)));
+	await expect.poll(tvDrift, { timeout: MEDIA_TIMEOUT }).toBeLessThan(3);
+
+	// the remote plays and pauses the new host, and the follower goes along
+	const tvPausedAt = await videoTime(tv);
+	await host.getByRole('button', { name: t('common_play'), exact: true }).click();
+	await expect
+		.poll(() => videoTime(guest), { timeout: MEDIA_TIMEOUT })
+		.toBeGreaterThan(tvPausedAt + 0.5);
+	await host.getByRole('button', { name: t('common_pause'), exact: true }).click();
+	await expect.poll(() => videoPaused(tv)).toBe(true);
+
+	// Ending the session sends the follower, who has nowhere left to be, to the login page,
+	// and the remote home.
+	await couchButton(tv).click();
+	await tv.getByRole('button', { name: t('couch_end_session') }).click();
 	await expect(guest).toHaveURL(/\/login$/);
+	await expect(host).toHaveURL('/');
 	await guestContext.close();
+	await tvContext.close();
 	const info = await host.request.get(`/api/v1/couch/${code}/info`);
 	expect(info.status()).toBe(404);
 });
