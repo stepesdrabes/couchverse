@@ -114,6 +114,11 @@ public struct ShelfSnapshot: Codable, Sendable, Hashable {
 extension ShelfSnapshot {
     public static let fileName = "shelf.json"
 
+    /// The snapshot this app or extension can see (`SharedContainer.directory`).
+    public static func current(bundle: Bundle = .main) -> ShelfSnapshot? {
+        SharedContainer.directory(bundle: bundle).flatMap(read(from:))
+    }
+
     /// The snapshot kept in `directory`, if there is a readable one.
     public static func read(from directory: URL) -> ShelfSnapshot? {
         guard let data = try? Data(contentsOf: directory.appending(path: fileName)) else { return nil }

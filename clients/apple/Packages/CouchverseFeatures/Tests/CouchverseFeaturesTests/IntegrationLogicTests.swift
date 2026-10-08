@@ -48,3 +48,40 @@ struct OpenRequestTests {
         #expect(requests.pending == nil)
     }
 }
+
+/// What Spotlight results and the intents' parameters turn into.
+struct IntentRequestTests {
+    @Test(arguments: [
+        ("couchverse://title/couch-tales", OpenRequest.title(slug: "couch-tales")),
+        ("couchverse://play/episode/e3", .play(PlayTarget(kind: .episode, id: "e3"))),
+        ("couchverse://play/movie/t4", .play(PlayTarget(kind: .movie, id: "t4"))),
+    ])
+    func linksBecomeRequests(link: String, request: OpenRequest) {
+        #expect(OpenRequest(link: link) == request)
+    }
+
+    @Test(arguments: [
+        "couchverse://couch/123456",
+        "couchverse://pair?code=WDJB-MJHT",
+        "couchverse://play/song/s1",
+        "https://media.example.com/title/couch-tales",
+        "",
+    ])
+    func otherLinksAreNoRequest(link: String) {
+        #expect(OpenRequest(link: link) == nil)
+    }
+
+    @Test(arguments: [
+        ("123456", "123456"),
+        ("123 456", "123456"),
+        ("one two", ""),
+        ("12345678", "123456"),
+    ])
+    func aSpokenCodeKeepsItsDigits(typed: String, code: String) {
+        #expect(OpenRequest.joinCouch(typed) == .couch(code: code))
+    }
+
+    @Test func noCodeOpensAnEmptyJoinScreen() {
+        #expect(OpenRequest.joinCouch(nil) == .couch(code: ""))
+    }
+}

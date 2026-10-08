@@ -1,0 +1,86 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Continue watching in ${applicationName}" : {
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pokračovat ve sledování v ${applicationName}"
+          }
+        }
+      }
+    },
+    "Join a couch in ${applicationName}" : {
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Připojit se ke gauči v ${applicationName}"
+          }
+        }
+      }
+    },
+    "Join a couch session in ${applicationName}" : {
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Připojit se ke společnému sledování v ${applicationName}"
+          }
+        }
+      }
+    },
+    "Open ${title} in ${applicationName}" : {
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otevřít ${title} v ${applicationName}"
+          }
+        }
+      }
+    },
+    "Open a title in ${applicationName}" : {
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otevřít titul v ${applicationName}"
+          }
+        }
+      }
+    },
+    "Open my list in ${applicationName}" : {
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otevřít můj seznam v ${applicationName}"
+          }
+        }
+      }
+    },
+    "Resume ${item} in ${applicationName}" : {
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pokračovat ve sledování ${item} v ${applicationName}"
+          }
+        }
+      }
+    },
+    "Show my list in ${applicationName}" : {
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ukázat můj seznam v ${applicationName}"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

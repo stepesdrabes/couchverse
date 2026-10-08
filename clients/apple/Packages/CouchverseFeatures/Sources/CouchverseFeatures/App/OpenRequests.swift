@@ -24,6 +24,12 @@ extension OpenRequest {
         default: return nil
         }
     }
+
+    /// A couch code as said or typed to an intent, digits only; without one the join screen opens
+    /// empty.
+    public static func joinCouch(_ typed: String?) -> OpenRequest {
+        .couch(code: CouchCodeInput.format(typed ?? ""))
+    }
 }
 
 /// The request waiting for the app to act on it. It waits for an account: the signed-in screens
