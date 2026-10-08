@@ -722,8 +722,8 @@ launch from the UI mode, on the shared core.
 - **Runtime** (`core/runtime/`): `CoreRuntime` owns the bridge on one serial thread for the
   process's life, stamps `SystemClock.elapsedRealtime` (and `wallMs` on messages), performs
   every effect (OkHttp for `http`/`upload`/`socket`, coroutine timers, files for `store`,
-  Keystore-sealed files for `secureStore`, a no-op `player` until Phase 12, `download` starts
-  failing until the downloads slice) and publishes one `StateFlow` per surface,
+  Keystore-sealed files for `secureStore`, Media3 for `player`, WorkManager for `download` on
+  phones) and publishes one `StateFlow` per surface,
   re-read only when a `render` names it. At launch it reports `CapabilitiesReported` from
   `MediaCodecList`, the display's HDR types and HDMI passthrough (`core/device/`).
 - **Screens** read view models (`rememberSurface`, which also opens catalog surfaces) and send
@@ -736,7 +736,28 @@ launch from the UI mode, on the shared core.
   TV starts on "Who's watching?" (focus lifts a tile, the glow takes the focused account's
   colour, the chosen avatar flies into the sidebar as a shared element); phones open the last
   account and switch from the profile tab's sheet. `couchverse://connect|pair|title` links and
-  scanned QR codes (CameraX + ZXing, phones only) go to the core as `LinkOpened`.
+  scanned QR codes (CameraX + ZXing, phones only) go to the core as `LinkOpened`;
+  `couchverse://couch/<code>` joins a couch and `couchverse://play/<kind>/<id>` plays (Watch
+  Next, the widget). A couch follower is taken to the couch player and a remote to the remote,
+  whatever screen was showing.
+- **Playback** (`feature-playback`): `PlaybackEngine` carries out the core's `PlayerCommand`s
+  on one ExoPlayer (whole URLs from the core, sidecar or in-stream subtitles, audio by index
+  then language, `maxHeight` as a track cap, no retries on a 4xx) and reports about once a
+  second while playing and on every change, `playing` meaning what the viewer asked for. Phone
+  and TV player screens draw `PlayerView`; a `MediaSessionService` gives the system controls,
+  phones get picture-in-picture.
+- **Downloads** (phones, `feature-downloads`): unique WorkManager work per file, a foreground
+  worker resuming with `Range` and reporting at most once a second, files in `files/downloads`;
+  the Downloads screen replaces the tabs while offline.
+- **Couch** (`feature-couch`): host panel with code and QR, joining by code, QR or link,
+  follower and remote, reactions, and an ongoing notification with Leave/End on phones.
+- **Ranks** (`feature-ranks`): profiles, leaderboards, celebrations, the profile editor (photo
+  picker into the `upload` effect), the rank beside the profile row in Settings.
+- **Outside the app**: Watch Next on Google TV and a Glance widget on phones, both from the
+  home's Continue Watching (kept as is until the home has loaded, cleared without an account).
+- **Releases**: `release.yml` attaches a signed APK to each `v*` release (keystore from
+  repository secrets, a debug-signed APK without them); `android.yml` builds the release APK
+  through R8 on every change.
 - **Design** (`design/`): Material 3 and Compose for TV themes over the tokens, tinted by the
   session's (or a title's) accent palette; spring motion with a cut under "Remove animations";
   the account's display language applied to resources at runtime; Coil for artwork URLs the

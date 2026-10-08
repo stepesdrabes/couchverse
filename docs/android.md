@@ -10,9 +10,13 @@ picked once at launch from `UiModeManager`; `LEANBACK_LAUNCHER` and an optional
 | `core` | The shared Rust core: `libcouchverse_ffi.so` per ABI, the UniFFI bindings (`io.stepes.couchverse.core.ffi.CoreBridge`), the generated message types (`io.stepes.couchverse.core`, kotlinx-serialization) and `Core`, which speaks the bridge in those types. `runtime/` runs it for the app (below); `device/` measures the playback capabilities. |
 | `design` | The generated tokens (`Tokens.kt`) and string catalogs (`res/values{,-cs}/strings.xml`), the phone (Material 3) and TV (Compose for TV) themes, motion, components and the runtime glue for screens (`LocalCoreRuntime`, `rememberSurface`). |
 | `feature-accounts` | Welcome, adding a server, the QR scanner (phone), password sign-in, pairing, connect links, "Who's watching?" and the phone's account switcher. |
-| `feature-catalog` | Home, Movies, Series, Genres, My List, Search, the title page and the playback placeholder. |
-| `feature-settings` | Servers, accounts, the display language, devices and approving another device. |
-| `app` | `CouchverseApp` (the runtime, Coil, lifecycle events), `MainActivity`, the root navigation by app phase, the phone tabs and the TV sidebar, deep links and notices. |
+| `feature-catalog` | Home, Movies, Series, Genres, My List, Search and the title page (with the download buttons on phones). |
+| `feature-playback` | The Media3 player (`PlaybackEngine`, the `player` effect's executor), the phone and TV player screens, the media session and picture-in-picture. |
+| `feature-downloads` | The `download` effect's WorkManager executor, the Downloads screen and the download button with its quality choice (phones only). |
+| `feature-couch` | Joining a couch, the couch panel, members, reactions, the remote and the ongoing-session notification. |
+| `feature-ranks` | The rank chip, celebrations, profiles (heatmap, watch clock, achievements), leaderboards and the profile editor. |
+| `feature-settings` | Servers, accounts, the display language, devices, approving another device, and the ways into the profile, leaderboards, downloads and joining a couch. |
+| `app` | `CouchverseApp` (the runtime, the player, downloads, Coil, lifecycle events, the couch notification, Watch Next and the widget), `MainActivity`, the root navigation by app phase, the phone tabs and the TV sidebar, deep links and notices. |
 | `testing` | The JVM test harness the UI modules share: Roborazzi devices and languages, fake artwork. |
 
 A feature module keeps its screens in `phone/` and `tv/` packages behind one entry point per
@@ -37,10 +41,11 @@ model.
   coroutine timers (one-shot and repeating, cancelled by `cancelTimer`), `store` as one file
   per key under `files/core/store`, `secureStore` sealed with AES-GCM under an Android Keystore
   key (`files/core/secure`; a value that no longer opens reads as missing, so the account asks
-  to sign in again), `player`, a no-op until Phase 12's Media3 player, and `download`, whose
-  start fails ("downloads are not supported yet") until the downloads slice, with nothing to
-  cancel or remove meanwhile. Store effects run one at a time in order, so a read always sees
-  earlier writes.
+  to sign in again), `player` through a `PlayerExecutor` (the app's `PlaybackEngine`) and
+  `download` through a `DownloadExecutor` (`WorkDownloads` on phones, `NoDownloads` on TVs,
+  whose start fails). The runtime forwards a transfer's events in order and drops any after
+  its terminal event or a cancel. Store effects run one at a time in order, so a read always
+  sees earlier writes.
 - View models are decoded on the core's thread and published as one `StateFlow` per surface,
   re-read only when a `render` names it; idle parametric surfaces are dropped after a while.
   Screens read them with `rememberSurface<T>(surface, open = true)`, which also sends
@@ -71,7 +76,92 @@ field keeps the arrow keys for its cursor once the keyboard has closed.
 
 Links (`couchverse://`, a custom scheme because App Links need one verified domain):
 `connect?server=...&code=...` signs this device in, `pair?code=...` (or a scanned
-`https://<server>/pair?code=...`) opens the approval, `title/<slug>` opens a title once signed in.
+`https://<server>/pair?code=...`) opens the approval, `title/<slug>` opens a title once signed
+in, `couch/<code>` (or a scanned `https://<server>/couch/<code>`) joins a couch session, and
+`play/<movie|episode>/<id>` plays where it stopped (Watch Next and the widget).
+
+## Playback
+
+`PlaybackEngine` (`feature-playback`) is the `player` effect's executor and the app's one
+ExoPlayer, created by the first `load` and released by `stop`. Commands arrive on the core's
+thread and run on the main thread. The core decides everything (the source, the start, the
+next episode, resume, what a couch follower does); the engine only carries it out:
+
+- Sources: `file` and `hls` are URLs the core makes whole (the server writes paths), fetched
+  through the app's OkHttp client; `download` is a file name in `files/downloads`.
+  `maxHeight` caps track selection. A 4xx is not retried (a refused grant fails at once,
+  so the core can refetch).
+- Subtitles: a track with a URL is a sidecar WebVTT (`SubtitleConfiguration`); one without is
+  in the stream and is chosen by language once the tracks are known. `selectAudio` takes the
+  rendition's `index` among the stream's audio groups when it has one, its language otherwise.
+- Reports go back as `PlayerReported` on every state change and about once a second while
+  playing. `playing` is what the viewer asked for (play requested, ready or buffering), as on
+  the web, so a host that stalls does not pause its followers. A failure reports `http_<code>`
+  or Media3's error code name.
+
+The player screen (`PlayerRoute`) sends `PlayRequested` (or `DownloadPlayRequested`) and
+`PlayerClosed`, and draws `PlayerView`: qualities, audio, subtitles, episodes, the next-episode
+card with its countdown, shuffle, and on the couch the panel, members and reactions. Phones get
+touch controls, landscape, hidden system bars and picture-in-picture (entered automatically
+while playing; leaving the app otherwise pauses). TVs get a remote layout: with the controls
+hidden, centre plays or pauses and left/right skip 10 s; Back closes a panel, then hides the
+controls while playing, then leaves the player. `PlaybackService` is a `MediaSessionService` over the same player, so
+the notification, lock screen, Bluetooth buttons and the TV's system controls work; the screen
+starts it by connecting a `MediaController`.
+
+## Couch
+
+The couch rides on the runtime's `socket` effect; the core runs the session and the shell
+follows `CouchView`:
+
+- The root navigation follows the role: a follower is taken to the couch player, which plays
+  whatever the core loads (the host's title, position and pause), and a remote to
+  `CouchRemote` (play/pause, 10 s skips, previous/next). When the session ends the screen
+  says so and closes after a few seconds.
+- The host starts a couch from the player's couch panel, which shows the code and its QR (the
+  web's `/couch/<code>` page). Joining is by code (Settings, Join a couch), a scanned QR or a
+  link, as a viewer or a remote.
+- Reactions rise over the video for everyone; the members list shows who is there and who is
+  away.
+- Phones keep an ongoing notification while in a session (promoted where the system allows),
+  with Leave, or End for the host (`CouchActionReceiver` sends the event to the runtime).
+  Android 13 and newer ask for the notification permission once per launch.
+
+## Downloads and offline
+
+Phones only; TVs never offer them (`NoDownloads`).
+
+- `WorkDownloads` runs each `download` start as unique WorkManager work named after its file
+  (`download:<name>`, keep the existing one), so a start after a relaunch, or one with an empty
+  URL, attaches to the running transfer or reports the finished file. `DownloadWorker` is a
+  foreground (`dataSync`) worker that resumes a partial file with a `Range` request, reports
+  progress at most once a second and fails with `noSpace` when the disk fills. Files live in
+  `files/downloads/` (app-private; the app allows no backups), the partial ones beside them as
+  `.part`.
+- The title page offers a download button per movie and episode with a quality choice, hidden
+  when the server turns downloads off (`SessionView.features.downloads`). Its states (queued,
+  preparing, fetching with progress, ready, failed with retry) come from `DownloadsView`.
+- The Downloads screen (from Settings) lists every download with its state, progress and size,
+  and plays, retries or removes it. While `SessionView.offline` it replaces the tabs; progress
+  watched offline is kept by the core and sent once the server is reachable.
+
+## Ranks and profiles
+
+From the core's `Rank`, `Profile`, `Leaderboard` and `ProfileEditor` surfaces, behind the
+server's `rankingsEnabled`: the tier and level beside the profile row in Settings, a
+celebration for each unlocked achievement, profiles (stats, the 26-week heatmap, the watch clock, the top title,
+achievements), leaderboards with a podium, and the profile editor. Avatars and banners are
+chosen with the system photo picker and sent through the `upload` effect; the bio is user
+markdown, shown with the core's document tree. Achievement, tier and XP-source codes map to
+strings through explicit tables (`Words.kt`), so R8 keeps every string.
+
+## Outside the app
+
+- **Watch Next** (Google TV): the home's Continue Watching becomes the app's Watch Next
+  programs, replaced as a whole whenever it changes; each opens `couchverse://play/...`.
+- **Widget** (phones): a Glance widget with up to three unfinished titles and their progress,
+  drawn from a snapshot the app writes (`files/widget/continue.json`) in the display language,
+  so it never needs the core or the network.
 
 ## Building from source
 
@@ -110,6 +200,27 @@ cd clients/android && ./gradlew :app:assembleDebug
   `./gradlew :app:assembleRelease -Pcouchverse.applicationId=org.example.couchverse
   -Pcouchverse.version=1.2.0`.
 
+## Signing and releases
+
+A release build (R8 with resource shrinking) is signed with the keystore named by
+`COUCHVERSE_KEYSTORE`, with `COUCHVERSE_KEYSTORE_PASSWORD`, `COUCHVERSE_KEY_ALIAS` and
+`COUCHVERSE_KEY_PASSWORD`. Without them it falls back to the debug key, so a build from source
+still installs (but cannot update an APK signed with another key).
+
+`release.yml` builds the APK on every `v*` tag and attaches `couchverse-<version>.apk` to the
+GitHub release (version code `major * 10000 + minor * 100 + patch`). It reads the keystore from
+repository secrets: `ANDROID_KEYSTORE` (the `.jks`, base64), `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`. Without them the job warns and publishes a
+debug-signed APK. To make a keystore once and store it:
+
+```sh
+keytool -genkeypair -v -keystore couchverse.jks -alias couchverse -keyalg RSA -keysize 4096 -validity 10000
+base64 -i couchverse.jks | gh secret set ANDROID_KEYSTORE
+gh secret set ANDROID_KEYSTORE_PASSWORD; gh secret set ANDROID_KEY_ALIAS; gh secret set ANDROID_KEY_PASSWORD
+```
+
+Keep the keystore safe: every later APK must be signed with it, or installed apps cannot update.
+
 ## Tests
 
 - `core`: the real core on the JVM through JNA (`jna.library.path` points at the host build):
@@ -126,8 +237,13 @@ cd clients/android && ./gradlew :app:assembleDebug
   `compareRoborazziDebug` writes diffs to `build/outputs/roborazzi`. They are recorded on macOS
   (Apple silicon), and CI verifies them on a macOS runner: text rasterizes slightly differently
   on Linux.
-- CI (`android.yml`): Linux builds the core, runs every JVM test, Android lint and a debug APK;
-  a macOS job verifies the screenshots against the same libraries and bindings.
+- The player runs a real ExoPlayer on Robolectric against a local clip and MockWebServer
+  (reports, commands, a refused URL failing without retries, the height cap, sidecar subtitles);
+  downloads run WorkManager's test driver against MockWebServer (progress, resuming, a refusal,
+  a relaunch finding the file or its absence, removal).
+- CI (`android.yml`): Linux builds the core, runs every JVM test, Android lint, a debug APK and
+  a release APK (R8); a macOS job verifies the screenshots against the same libraries and
+  bindings.
 
 ## Running against a local server
 
@@ -162,9 +278,31 @@ The emulators cover the flows; these need hardware before a release:
   character, and the "Not encrypted" badge is announced.
 - **Reduced motion** ("Remove animations"): the hero stops advancing, focus does not scale,
   and "Who's watching?" cross-fades.
+- **Playback on a Google TV device**: Original and the ladder on the TV's own decoders (HEVC,
+  HDR10 and Dolby Vision where the device has them; the display switching to the content's
+  frame rate and range), AC-3/E-AC-3 passing through HDMI to a receiver, the remote's
+  play/pause and skip keys, the system's media controls and "Continue watching" on the Google
+  TV home opening the right episode at its position.
+- **Playback on a phone**: picture-in-picture from the home gesture while playing and its
+  play/pause action, the lock-screen and Bluetooth headset controls, rotation, a call or
+  another app's audio pausing playback, audio continuing through a Bluetooth speaker.
+- **Downloads on a phone**: a transfer that survives leaving the app, the screen turning off
+  and a reboot (WorkManager resumes it), the progress notification, a full disk reported as
+  such, playing a download in airplane mode and the progress reaching the server after
+  reconnecting, a removal freeing the space.
+- **Couch on hardware**: the ongoing notification (and its promoted chip on Android 16) with
+  Leave/End, the notification permission prompt, a follower on a TV staying in sync with a
+  phone host through pauses and seeks, a QR code joined from a phone's camera, a phone as a
+  remote for a TV.
+- **Widget**: placing it on the home screen, its titles following the app's display language,
+  a tap playing the title, the list emptying after signing out.
+- **Release APK**: installing the published APK over a debug build is refused (different
+  keys); an update from one release to the next keeps the accounts.
 
-## Known gaps (Phase 12)
+## Known gaps
 
-Playback (the play button opens a placeholder), couch, ranks and profiles, downloads, the
-widget and Watch Next. "Who's watching?" tints each account with its identicon's hue rather
-than its banner's accent and shows no rank ring yet: `AccountCard` carries neither.
+- "Who's watching?" tints each account with its identicon's hue rather than its banner's accent
+  and shows no rank ring: `AccountCard` carries neither.
+- TVs have no downloads (by design) and no widget; phones have no Watch Next.
+- The player's quality menu lists the core's choices; ExoPlayer's own adaptive switching under
+  "Auto" is not shown.

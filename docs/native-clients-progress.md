@@ -110,8 +110,8 @@ Top Shelf, widget, Live Activity (per spike S1), App Intents, Shortcuts, Spotlig
   offline library per account, artwork kept beside it, playback from the device while offline,
   unsaved progress replayed with the time it was watched, sign-out deleting the account's
   files), the `wallMs` message clock, `PlayerSource.download`, in-file subtitles.
-- Pending: the iOS/iPadOS downloads UI and offline mode (background `URLSession` executor),
-  Android downloads (Phase 12).
+- Done: Android downloads (Phase 12, WorkManager).
+- Pending: the iOS/iPadOS downloads UI and offline mode (background `URLSession` executor).
 
 ## Phase 11: Android foundation - done
 
@@ -129,8 +129,21 @@ TV emulators against a local server, the TV signed in by pairing.
 
 ## Phase 12: Android playback, couch, ranks, downloads - in progress
 
-Media3 player, couch, ranks and profiles, downloads (WorkManager), Watch Next, widget, couch
-notification, signed APKs (`worktree-agent-ad92f5029f15e7764`).
+- Done: the Media3 player executing the core's player commands (direct, remux and HLS,
+  sidecar and in-stream subtitles, audio by index then language, the quality cap, resume, the
+  next-episode countdown, shuffle) on phone and TV layouts with the media session and
+  picture-in-picture; the couch (host panel with QR, join by code, QR or link, follower,
+  remote, reactions, the ongoing notification); ranks, profiles, leaderboards, celebrations
+  and the profile editor with photo-picker uploads; downloads through WorkManager with the
+  quality choice, the Downloads screen and offline mode; Watch Next on Google TV and a
+  continue-watching widget on phones; signed APKs on release tags (docs/android.md). The core
+  now hands native players whole media URLs and reads the rank from the viewer's stats when a
+  check is throttled. Verified by the JVM tests (a real ExoPlayer on Robolectric, WorkManager's
+  test driver), the Roborazzi screenshots, Android lint and the R8 release build.
+- Pending: a pass on Android 16 phone and TV emulators against a local server with the sample
+  media (a web browser joining the TV's couch).
+- Blocked: the first signed release needs a keystore in the repository secrets
+  (docs/android.md "Signing and releases").
 
 ## Phase 13: polish and release - in progress
 
@@ -145,15 +158,16 @@ notification, signed APKs (`worktree-agent-ad92f5029f15e7764`).
   v2, downloads and the Pi notes for them.
 - Done: Apple CI runs lint and the core's host tests on GitHub's Xcode 26.5 image and the
   simulator suites wherever Xcode 27 exists (GitHub has no Xcode 27 image yet).
-- Pending: native accessibility passes (VoiceOver, TalkBack), signed APKs (Android Phase 12),
-  the HTML overview with screenshots of every client, cleanup.
+- Pending: native accessibility passes (VoiceOver, TalkBack), the HTML overview with
+  screenshots of every client, cleanup.
 
 ## Release automation (part of Phase 13) - done
 
 `release.yml` publishes the multi-arch server image (amd64, arm64) to GHCR on a `v*` tag and
 creates the GitHub release; `docker.yml` keeps the image building on main and pull requests. The
 Rust, Node and Go stages build on the build host (Go cross-compiles), so only the slim runtime
-stage runs per platform. Signed APKs join once the Android app exists.
+stage runs per platform. The release also carries the signed Android APK (keystore from
+repository secrets; debug-signed when they are absent, docs/android.md "Signing and releases").
 
 ## Done outside the plan
 
@@ -188,7 +202,10 @@ first.
 - Android (full list in docs/android.md): a Google TV device (launcher banner, D-pad focus and
   Back on every screen, the keyboard beside fields, pairing QR scanned across the room), phone
   camera scans, Keystore persistence across reboots and updates, Czech and the largest font,
-  TalkBack, Remove animations.
+  TalkBack, Remove animations; playback on the TV's decoders with HDR and passthrough, the
+  remote's media keys and Watch Next; phone PiP, lock-screen and Bluetooth controls; downloads
+  across leaving the app and a reboot, offline playback and progress syncing back; the couch
+  notification and a TV follower with a phone host; the widget; updating a signed release.
 - Raspberry Pi 4 server: HLS v2 with the V4L2 encoder (spike S3): package, trickplay and 720p
   job timings, whether `h264_v4l2m2m` honours `-force_key_frames`, JIT first-segment and
   far-seek latency.
