@@ -6515,7 +6515,7 @@ pub mod couch {
     pub struct CouchHello {
         pub my_participant_id: String,
         pub participants: Vec<CouchParticipant>,
-        /// A remote receives host_state like a follower but plays nothing; it sends remote_command.
+        /// A remote receives host_state like a follower but plays nothing; it sends remote_command. The host's playing device becomes a remote when the host's account starts hosting on another device, and its host_state is ignored from then on.
         pub role: CouchHelloRole,
         /// The server's monotonic clock in milliseconds when the snapshot was taken.
         pub server_time: i64,
@@ -6523,7 +6523,7 @@ pub mod couch {
         pub state: CouchHostState,
     }
 
-    /// A remote receives host_state like a follower but plays nothing; it sends remote_command.
+    /// A remote receives host_state like a follower but plays nothing; it sends remote_command. The host's playing device becomes a remote when the host's account starts hosting on another device, and its host_state is ignored from then on.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum CouchHelloRole {
         #[serde(rename = "host")]
@@ -6680,7 +6680,7 @@ pub mod couch {
     #[derive(Debug, Clone, PartialEq, Serialize)]
     #[serde(tag = "type", content = "data")]
     pub enum ServerFrame {
-        /// Full snapshot, sent once on connect.
+        /// Full snapshot, sent on connect and again when the connection's role changes: the host's account started hosting on another device, so this one is its remote now.
         #[serde(rename = "hello")]
         Hello(CouchHello),
         /// The authoritative play state, stamped by the server.
@@ -6755,7 +6755,7 @@ pub mod couch {
     #[derive(Debug, Clone, PartialEq, Serialize)]
     #[serde(tag = "type", content = "data")]
     pub enum ClientFrame {
-        /// Host only: the host's play state.
+        /// Host only: the host's play state. The first one from the device the host's account last started hosting on hands the session to it: the host's other devices become remotes.
         #[serde(rename = "host_state")]
         HostState(CouchHostStateCommand),
         /// Send a reaction.

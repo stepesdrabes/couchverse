@@ -4,7 +4,7 @@
       "oneOf": [
         {
           "additionalProperties": false,
-          "description": "Host only: the host's play state.",
+          "description": "Host only: the host's play state. The first one from the device the host's account last started hosting on hands the session to it: the host's other devices become remotes.",
           "properties": {
             "data": {
               "$ref": "#/$defs/CouchHostStateCommand"
@@ -113,7 +113,7 @@
           "type": "array"
         },
         "role": {
-          "description": "A remote receives host_state like a follower but plays nothing; it sends remote_command.",
+          "description": "A remote receives host_state like a follower but plays nothing; it sends remote_command. The host's playing device becomes a remote when the host's account starts hosting on another device, and its host_state is ignored from then on.",
           "enum": [
             "host",
             "follower",
@@ -369,7 +369,7 @@
       "oneOf": [
         {
           "additionalProperties": false,
-          "description": "Full snapshot, sent once on connect.",
+          "description": "Full snapshot, sent on connect and again when the connection's role changes: the host's account started hosting on another device, so this one is its remote now.",
           "properties": {
             "data": {
               "$ref": "#/$defs/CouchHello"

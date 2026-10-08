@@ -18,6 +18,10 @@ func (rm *room) attach(c *conn) bool {
 		return false
 	}
 	rm.conns[c] = struct{}{}
+	// the seat moved to another of the host's devices after this one looked its token up
+	if c.isHost && rm.seated && c.tokenHash != rm.seat {
+		c.isHost, c.remote = false, true
+	}
 	hostReturned := false
 	// a remote is not the host being present: it plays nothing
 	if p := rm.participants[c.pid]; p != nil && !c.remote {
@@ -126,14 +130,23 @@ func (rm *room) broadcastParticipants() {
 	}
 }
 
-func (rm *room) helloFrame(c *conn) []byte {
-	role := roleFollower
+// roleOf is what a connection is on the session now: the host's account starting to host on
+// another device turns its other connections into remotes.
+func (rm *room) roleOf(c *conn) string {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
 	switch {
 	case c.remote:
-		role = roleRemote
+		return roleRemote
 	case c.isHost:
-		role = roleHost
+		return roleHost
 	}
+	return roleFollower
+}
+
+// helloFrame is the snapshot a connection starts with, sent again when its role changes.
+func (rm *room) helloFrame(c *conn) []byte {
+	role := rm.roleOf(c)
 	snap := rm.snapshotFor(c.pid, role)
 	return mustEnvelope(msgHello, CouchHello{
 		SessionID:       snap.SessionID,
@@ -185,7 +198,11 @@ func (rm *room) recomputeAllowed() {
 func (rm *room) onClientMessage(c *conn, env Envelope) {
 	switch env.Type {
 	case msgHostState:
-		if !c.isHost {
+		switch rm.roleOf(c) {
+		case roleRemote:
+			// a device the host's account moved away from reports until it hears it is a remote
+			return
+		case roleFollower:
 			c.ws.Close(websocket.StatusPolicyViolation, "host only")
 			c.beginClose()
 			return
@@ -195,9 +212,9 @@ func (rm *room) onClientMessage(c *conn, env Envelope) {
 			return
 		}
 		// the device that reports its state is the one playing, which remotes steer
-		rm.mu.Lock()
-		rm.playing = c
-		rm.mu.Unlock()
+		if !rm.hub.play(rm, c) {
+			return
+		}
 		if rm.applyHostState(cmd) {
 			rm.recomputeAllowed()
 			rm.mu.Lock()
@@ -228,7 +245,7 @@ func (rm *room) onClientMessage(c *conn, env Envelope) {
 		rm.broadcast(msgEmoji, CouchEmoji{FromParticipantID: c.pid, Emoji: emoji})
 
 	case msgRemote:
-		if !c.remote {
+		if rm.roleOf(c) != roleRemote {
 			c.ws.Close(websocket.StatusPolicyViolation, "remote only")
 			c.beginClose()
 			return

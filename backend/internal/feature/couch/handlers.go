@@ -49,6 +49,7 @@ func deliver(delivery, token string, session CouchSession, secure bool) *couchSe
 
 type createCouchInput struct {
 	Delivery string `query:"delivery" enum:"cookie,body" default:"cookie" doc:"body returns the participant token in the response instead of setting the couch cookie."`
+	Cookie   string `cookie:"couchverse_couch" doc:"The participant cookie this browser already holds, if any: a browser playing for the host's live session in another tab cannot host it from this one too (409 already_hosting)."`
 	Body     CouchStart
 }
 
@@ -59,8 +60,8 @@ type couchSessionOutput struct {
 	Body      CouchSession
 }
 
-// Create starts (or reclaims) a couch session for the logged-in host watching a
-// movie/episode and sets the host's couch cookie.
+// Create starts a couch session for the logged-in host watching a movie/episode, or hands
+// the host's live session over to this device, and sets the host's couch cookie.
 func (h *Handlers) Create(ctx context.Context, in *createCouchInput) (*couchSessionOutput, error) {
 	user := auth.UserFrom(ctx)
 	ref := CouchMediaRef{Kind: in.Body.Kind}
@@ -69,7 +70,14 @@ func (h *Handlers) Create(ctx context.Context, in *createCouchInput) (*couchSess
 	} else {
 		ref.EpisodeID = in.Body.ID
 	}
-	rm, host, token, created, err := h.hub.createOrReclaim(ctx, user, ref)
+	browserToken := in.Cookie
+	if in.Delivery == "body" {
+		browserToken = ""
+	}
+	rm, host, token, created, err := h.hub.createOrReclaim(ctx, user, ref, browserToken)
+	if errors.Is(err, errAlreadyHosting) {
+		return nil, httpx.Fail(http.StatusConflict, "already_hosting", "this browser is hosting the session")
+	}
 	if err != nil {
 		return nil, err
 	}

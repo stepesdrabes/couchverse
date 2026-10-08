@@ -45,7 +45,7 @@ type Frame struct {
 
 // ServerFrames are the messages the server sends.
 var ServerFrames = []Frame{
-	{msgHello, CouchHello{}, "Full snapshot, sent once on connect."},
+	{msgHello, CouchHello{}, "Full snapshot, sent on connect and again when the connection's role changes: the host's account started hosting on another device, so this one is its remote now."},
 	{msgHostState, CouchHostState{}, "The authoritative play state, stamped by the server."},
 	{msgParticipants, CouchParticipants{}, "Membership or a follower's local pause changed."},
 	{msgMediaChanged, CouchMediaChanged{}, "The host switched title or episode; followers fetch their playback payload again."},
@@ -58,7 +58,7 @@ var ServerFrames = []Frame{
 
 // ClientFrames are the messages clients send.
 var ClientFrames = []Frame{
-	{msgHostState, CouchHostStateCommand{}, "Host only: the host's play state."},
+	{msgHostState, CouchHostStateCommand{}, "Host only: the host's play state. The first one from the device the host's account last started hosting on hands the session to it: the host's other devices become remotes."},
 	{msgEmoji, CouchEmojiCommand{}, "Send a reaction."},
 	{msgPaused, CouchPausedCommand{}, "Follower only: paused or resumed locally."},
 	{msgRemote, CouchRemoteCommand{}, "Remote only: steer the host's player."},
@@ -99,7 +99,7 @@ type CouchParticipant struct {
 type CouchHello struct {
 	SessionID       string             `json:"sessionId"`
 	MyParticipantID string             `json:"myParticipantId"`
-	Role            string             `json:"role" enum:"host,follower,remote" doc:"A remote receives host_state like a follower but plays nothing; it sends remote_command."`
+	Role            string             `json:"role" enum:"host,follower,remote" doc:"A remote receives host_state like a follower but plays nothing; it sends remote_command. The host's playing device becomes a remote when the host's account starts hosting on another device, and its host_state is ignored from then on."`
 	State           CouchHostState     `json:"state"`
 	Participants    []CouchParticipant `json:"participants"`
 	ServerTimeMs    int64              `json:"serverTime" doc:"The server's monotonic clock in milliseconds when the snapshot was taken."`

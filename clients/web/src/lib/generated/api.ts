@@ -1721,7 +1721,7 @@ export interface CouchEmojiCommand {
 export interface CouchHello {
 	myParticipantId: string;
 	participants: CouchParticipant[];
-	/** A remote receives host_state like a follower but plays nothing; it sends remote_command. */
+	/** A remote receives host_state like a follower but plays nothing; it sends remote_command. The host's playing device becomes a remote when the host's account starts hosting on another device, and its host_state is ignored from then on. */
 	role: CouchHelloRole;
 	/** The server's monotonic clock in milliseconds when the snapshot was taken. */
 	serverTime: number;
@@ -1729,7 +1729,7 @@ export interface CouchHello {
 	state: CouchHostState;
 }
 
-/** A remote receives host_state like a follower but plays nothing; it sends remote_command. */
+/** A remote receives host_state like a follower but plays nothing; it sends remote_command. The host's playing device becomes a remote when the host's account starts hosting on another device, and its host_state is ignored from then on. */
 export type CouchHelloRole = 'host' | 'follower' | 'remote';
 
 export interface CouchHostAway {

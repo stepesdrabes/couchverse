@@ -64,7 +64,7 @@ func TestWSHostStateAndEmojiFanout(t *testing.T) {
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
-	rm, hostP, hostToken, _, err := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
+	rm, hostP, hostToken, _, err := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"}, "")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestWSPausedBroadcast(t *testing.T) {
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
-	rm, _, hostToken, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
+	rm, _, hostToken, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"}, "")
 	follower, followerToken, _, _ := h.join(rm, nil, false)
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/couch/" + rm.shareToken + "/ws"
 
@@ -178,7 +178,7 @@ func TestWSRemoteSteersTheHostsPlayer(t *testing.T) {
 	defer srv.Close()
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/couch/x/ws"
 
-	rm, _, hostToken, _, err := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
+	rm, _, hostToken, _, err := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"}, "")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestPlaysForNeedsTheHostsOpenSocket(t *testing.T) {
 	defer srv.Close()
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/couch/x/ws"
 
-	rm, _, hostToken, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
+	rm, _, hostToken, _, _ := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"}, "")
 	_, remoteToken, _, _ := h.join(rm, host(1), true)
 	_, followerToken, _, _ := h.join(rm, nil, false)
 	if h.playsFor(rm, hostToken) {
@@ -318,7 +318,7 @@ func TestWSEndDeliversSessionEnded(t *testing.T) {
 
 	// the teardown races the final write; rounds keep a lucky ordering from hiding a drop
 	for range 50 {
-		rm, _, hostToken, _, err := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"})
+		rm, _, hostToken, _, err := h.createOrReclaim(context.Background(), host(1), CouchMediaRef{Kind: "movie", TitleID: "t1"}, "")
 		if err != nil {
 			t.Fatalf("create: %v", err)
 		}
@@ -335,5 +335,173 @@ func TestWSEndDeliversSessionEnded(t *testing.T) {
 		}
 		waitForType(t, fc, msgSessionEnded)
 		fc.CloseNow()
+	}
+}
+
+// dialDevice opens a socket the way a native client does, with the token in a header.
+func dialDevice(t *testing.T, wsURL, token string) *websocket.Conn {
+	t.Helper()
+	hdr := http.Header{}
+	hdr.Set(CouchTokenHeader, token)
+	c, _, err := websocket.Dial(context.Background(), wsURL, &websocket.DialOptions{HTTPHeader: hdr})
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	return c
+}
+
+// waitForAny is the next frame on a socket.
+func waitForAny(t *testing.T, c *websocket.Conn) Envelope {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	var env Envelope
+	if err := wsjson.Read(ctx, c, &env); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	return env
+}
+
+func decode[T any](t *testing.T, env Envelope) T {
+	t.Helper()
+	var v T
+	if err := json.Unmarshal(env.Data, &v); err != nil {
+		t.Fatalf("decode %s: %v", env.Type, err)
+	}
+	return v
+}
+
+// The host's account starting a session on another device hands it over with nobody
+// rejoining: the old device plays for the follower until the new one reports, then hears it is
+// a remote and steers the new device, its late reports reach no one, its token brings it back
+// as a remote, and the follower follows the new device on the socket it had.
+func TestWSHandoverKeepsTheFollowers(t *testing.T) {
+	fm := &fakeMedia{files: map[string]*media.MediaFile{
+		"title:t1": {ID: "mf1", TitleID: ptr("t1")},
+		"title:t2": {ID: "mf2", TitleID: ptr("t2")},
+	}}
+	h := newTestHub(t, fm)
+	hand := &Handlers{hub: h, joinRate: newRateLimiter(1000, time.Minute)}
+	r := chi.NewRouter()
+	r.Get("/api/v1/couch/{token}/ws", hand.WS)
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/couch/x/ws"
+	ctx := context.Background()
+	t1, t2 := CouchMediaRef{Kind: "movie", TitleID: "t1"}, CouchMediaRef{Kind: "movie", TitleID: "t2"}
+	send := func(c *websocket.Conn, typ string, data any) {
+		t.Helper()
+		if err := wsjson.Write(ctx, c, Envelope{Type: typ, Data: mustJSON(data)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	playingAt := func(media CouchMediaRef, position float64) CouchHostStateCommand {
+		return CouchHostStateCommand{Media: media, Playing: true, PositionSeconds: position}
+	}
+
+	rm, _, laptopToken, _, err := h.createOrReclaim(ctx, host(1), t1, "")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	_, followerToken, _, _ := h.join(rm, nil, false)
+	laptop := dialWS(t, wsURL, laptopToken)
+	defer laptop.CloseNow()
+	waitForType(t, laptop, msgHello)
+	guest := dialWS(t, wsURL, followerToken)
+	defer guest.CloseNow()
+	waitForType(t, guest, msgHello)
+	send(laptop, msgHostState, playingAt(t1, 100))
+	waitForType(t, guest, msgHostState)
+
+	_, _, tvToken, _, err := h.createOrReclaim(ctx, host(1), t2, "")
+	if err != nil {
+		t.Fatalf("host on the tv: %v", err)
+	}
+	tv := dialDevice(t, wsURL, tvToken)
+	defer tv.CloseNow()
+	if hello := decode[CouchHello](t, waitForType(t, tv, msgHello)); hello.Role != roleHost {
+		t.Fatalf("the tv joined its own session as %q", hello.Role)
+	}
+	send(laptop, msgHostState, playingAt(t1, 102))
+	if st := decode[CouchHostState](t, waitForType(t, guest, msgHostState)); st.PositionSeconds != 102 {
+		t.Fatalf("before the tv played the follower heard %+v", st)
+	}
+
+	send(tv, msgHostState, playingAt(t2, 5))
+	if hello := decode[CouchHello](t, waitForType(t, laptop, msgHello)); hello.Role != roleRemote {
+		t.Fatalf("the laptop is a %q after the handover", hello.Role)
+	}
+	if changed := decode[CouchMediaChanged](t, waitForType(t, guest, msgMediaChanged)); changed.Media != t2 {
+		t.Fatalf("the follower switched to %+v", changed.Media)
+	}
+	if st := decode[CouchHostState](t, waitForType(t, guest, msgHostState)); st.Media != t2 || st.PositionSeconds != 5 {
+		t.Fatalf("the follower heard %+v from the tv", st)
+	}
+
+	// a report the laptop sent before it heard is dropped and its socket stays open: the
+	// reaction it sends next arrives, with nothing in between
+	send(laptop, msgHostState, playingAt(t1, 104))
+	send(laptop, msgEmoji, CouchEmojiCommand{Emoji: "👋"})
+	for env := waitForAny(t, guest); env.Type != msgEmoji; env = waitForAny(t, guest) {
+		if env.Type == msgHostState || env.Type == msgMediaChanged {
+			t.Fatalf("the laptop's report reached the follower: %s", env.Data)
+		}
+	}
+
+	send(laptop, msgRemote, CouchRemoteCommand{Action: "pause"})
+	if got := decode[CouchRemoteCommand](t, waitForType(t, tv, msgRemote)); got.Action != "pause" {
+		t.Fatalf("the tv got %+v from its remote", got)
+	}
+
+	again := dialWS(t, wsURL, laptopToken)
+	defer again.CloseNow()
+	if hello := decode[CouchHello](t, waitForType(t, again, msgHello)); hello.Role != roleRemote {
+		t.Fatalf("the laptop came back as a %q", hello.Role)
+	}
+	h.leaveByToken(laptopToken)
+	rm.mu.Lock()
+	live := rm.live
+	rm.mu.Unlock()
+	if _, ok := h.lookup(tvToken); !live || !ok {
+		t.Fatal("the laptop leaving ended the session for the tv")
+	}
+}
+
+// A browser keeps one couch cookie for all its tabs: a tab hosting the session another tab
+// plays for is refused, while another device, or the tab after a refresh (no socket left on
+// the cookie's token), hosts it.
+func TestCreateRefusesAnotherTabOfThePlayingBrowser(t *testing.T) {
+	fm := &fakeMedia{files: map[string]*media.MediaFile{"title:t1": {ID: "mf1", TitleID: ptr("t1")}}}
+	h := newTestHub(t, fm)
+	hand := &Handlers{hub: h, joinRate: newRateLimiter(1000, time.Minute)}
+	r := chi.NewRouter()
+	r.Get("/api/v1/couch/{token}/ws", hand.WS)
+	srv := httptest.NewServer(r)
+	defer srv.Close()
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/couch/x/ws"
+	ctx := context.Background()
+	t1 := CouchMediaRef{Kind: "movie", TitleID: "t1"}
+
+	rm, _, tabToken, _, _ := h.createOrReclaim(ctx, host(1), t1, "")
+	tab := dialWS(t, wsURL, tabToken)
+	waitForType(t, tab, msgHello)
+
+	if _, _, _, _, err := h.createOrReclaim(ctx, host(1), t1, tabToken); !errors.Is(err, errAlreadyHosting) {
+		t.Fatalf("another tab of the playing browser hosted: %v", err)
+	}
+	if _, _, _, _, err := h.createOrReclaim(ctx, host(1), t1, ""); err != nil {
+		t.Fatalf("another device could not host: %v", err)
+	}
+
+	tab.Close(websocket.StatusNormalClosure, "")
+	deadline := time.Now().Add(3 * time.Second)
+	for h.playsFor(rm, tabToken) {
+		if time.Now().After(deadline) {
+			t.Fatal("a closed tab still plays for the session")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if _, _, _, _, err := h.createOrReclaim(ctx, host(1), t1, tabToken); err != nil {
+		t.Fatalf("the refreshed tab could not host: %v", err)
 	}
 }

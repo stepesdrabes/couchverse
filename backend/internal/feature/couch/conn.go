@@ -14,7 +14,8 @@ const sendBuffer = 32
 
 // conn is one WebSocket. A participant may own several (multi-tab). Exactly one
 // goroutine writes (writePump, incl. pings) and one reads (readPump); coder's
-// Conn supports that split without an extra mutex.
+// Conn supports that split without an extra mutex. isHost and remote are read and written
+// under room.mu: the host's account hosting on another device turns a host's into a remote.
 type conn struct {
 	ws        *websocket.Conn
 	room      *room

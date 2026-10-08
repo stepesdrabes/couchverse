@@ -343,6 +343,8 @@ func apiCases() []apiCase {
 		// the host's account joining by code is a remote too, so its leaving keeps the session
 		{op: "joinCouch", as: "nora", method: "POST", path: "/couch/{{couch}}/join?delivery=body", status: 200, save: map[string]string{"phone": "participantToken"}},
 		{op: "leaveCouch", couchToken: "phone", method: "POST", path: "/couch/{{couch}}/leave", status: 204},
+		// the host's account starting the session on another device takes it over
+		{op: "createCouch", as: "nora", method: "POST", path: "/couch?delivery=body", body: map[string]any{"kind": "movie", "id": movieID}, status: 201},
 		{op: "getCouchInfo", as: "guest", method: "GET", path: "/couch/{{couch}}/info", status: 200},
 		{op: "endCouch", as: "admin", method: "POST", path: "/couch/{{couch}}/end", status: 403},
 		{op: "endCouch", as: "nora", method: "POST", path: "/couch/{{couch}}/end", status: 204},

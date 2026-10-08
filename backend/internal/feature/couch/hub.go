@@ -30,9 +30,10 @@ const (
 )
 
 var (
-	errRoomFull = errors.New("couch: session is full")
-	errNotLive  = errors.New("couch: session is no longer live")
-	errNotHost  = errors.New("couch: only the host's account can join as a remote")
+	errRoomFull       = errors.New("couch: session is full")
+	errNotLive        = errors.New("couch: session is no longer live")
+	errNotHost        = errors.New("couch: only the host's account can join as a remote")
+	errAlreadyHosting = errors.New("couch: another tab of this browser plays for the session")
 )
 
 // MediaResolver resolves the current media to its playable file set (satisfied
@@ -254,6 +255,10 @@ type room struct {
 	allowedMediaIDs map[string]struct{}
 	graceTimer      *time.Timer
 	playing         *conn // the host device that last reported its state; remotes steer it
+	// seat is the token of the host device the account last started hosting on; seated turns
+	// true with that device's first broadcast, which demotes the host's other devices (play).
+	seat   string
+	seated bool
 }
 
 func (rm *room) hostParticipantLocked() *participant {
@@ -313,11 +318,17 @@ func (h *Hub) resolveAllowed(ctx context.Context, ref CouchMediaRef) (map[string
 	return set, titleID, nil
 }
 
-// createOrReclaim starts a session for the host, or returns and refreshes the
-// host's existing live session (a refresh / second tab reclaims, never spawns a
-// duplicate). DB resolution happens before the lock. created is false on a
+// createOrReclaim starts a session for the host, or hands the host's live session to the
+// device asking (never a duplicate): it gets a host token and the seat, which it takes with
+// its first broadcast (play), so the device it moves from keeps playing for everyone until
+// then and the session's media changes with that broadcast. browserToken is the couch cookie
+// a browser sent: a tab of a browser whose other tab plays for the session is refused, since
+// its tabs share the cookie. DB resolution happens before the lock. created is false on a
 // reclaim, so the caller only counts genuinely new sessions.
-func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref CouchMediaRef) (rm *room, host *participant, token string, created bool, err error) {
+func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref CouchMediaRef, browserToken string) (rm *room, host *participant, token string, created bool, err error) {
+	if rm := h.hostedBy(user.ID); rm != nil && h.playsFor(rm, browserToken) {
+		return nil, nil, "", false, errAlreadyHosting
+	}
 	allowed, titleID, err := h.resolveAllowed(ctx, ref)
 	if err != nil {
 		return nil, nil, "", false, err
@@ -329,13 +340,11 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref CouchMed
 	if rm := h.byHost[user.ID]; rm != nil {
 		rm.mu.Lock()
 		if rm.live {
-			rm.state.Media = ref
-			rm.allowedMediaIDs = allowed
-			rm.titleID = titleID
-			rm.lastActive = time.Now()
 			host := rm.hostParticipantLocked()
-			rm.mu.Unlock()
 			token := h.issueTokenLocked(rm, host, false)
+			rm.seat, rm.seated = hashToken(token), false
+			rm.lastActive = time.Now()
+			rm.mu.Unlock()
 			return rm, host, token, false, nil
 		}
 		rm.mu.Unlock()
@@ -356,6 +365,7 @@ func (h *Hub) createOrReclaim(ctx context.Context, user *auth.User, ref CouchMed
 		allowedMediaIDs: allowed,
 	}
 	token = h.issueTokenLocked(rm, host, false)
+	rm.seat = hashToken(token)
 	h.rooms[rm.sessionID] = rm
 	h.byShare[rm.shareToken] = rm
 	h.byHost[user.ID] = rm
@@ -393,6 +403,68 @@ func (h *Hub) dropTokensLocked(p *participant) {
 		delete(h.byToken, hash)
 	}
 	p.tokenHashes = nil
+}
+
+// play makes the host connection c the playing device, the one remotes steer, as it reports
+// its state. The device holding the seat takes it with its first report: the host's other
+// connections become remotes, told so by a fresh hello, and its other device tokens become
+// remotes' tokens, so those devices come back as remotes. False when c is no longer a host
+// connection (it has just been demoted).
+func (h *Hub) play(rm *room, c *conn) bool {
+	rm.mu.Lock()
+	if !c.isHost || c.tokenHash != rm.seat || rm.seated {
+		if c.isHost {
+			rm.playing = c
+		}
+		rm.mu.Unlock()
+		return c.isHost
+	}
+	rm.mu.Unlock()
+
+	h.mu.Lock()
+	rm.mu.Lock()
+	if !c.isHost {
+		rm.mu.Unlock()
+		h.mu.Unlock()
+		return false
+	}
+	var demoted []*conn
+	if c.tokenHash == rm.seat && !rm.seated {
+		rm.seated = true
+		demoted = h.demoteOthersLocked(rm, c)
+	}
+	rm.playing = c
+	rm.mu.Unlock()
+	h.mu.Unlock()
+
+	for _, d := range demoted {
+		d.enqueue(rm.helloFrame(d))
+	}
+	return true
+}
+
+// demoteOthersLocked turns every host device but c's into a remote: tokens and open
+// connections. Caller holds h.mu and rm.mu.
+func (h *Hub) demoteOthersLocked(rm *room, c *conn) []*conn {
+	host := rm.participants[c.pid]
+	if host == nil {
+		return nil
+	}
+	for _, hash := range host.tokenHashes {
+		if ref := h.byToken[hash]; ref != nil && hash != c.tokenHash {
+			ref.remote = true
+		}
+	}
+	var demoted []*conn
+	for other := range rm.conns {
+		if other != c && other.isHost {
+			other.isHost, other.remote = false, true
+			// a remote is not the host being present (attach and detach count the rest)
+			host.connCount--
+			demoted = append(demoted, other)
+		}
+	}
+	return demoted
 }
 
 // join adds a participant (logged-in or anonymous) to a session. The host's account
@@ -626,6 +698,13 @@ func (h *Hub) roomByShare(shareToken string) *room {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.byShare[shareToken]
+}
+
+// hostedBy is the session the user hosts, if any.
+func (h *Hub) hostedBy(userID int64) *room {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.byHost[userID]
 }
 
 // Shutdown ends every session on graceful server stop.

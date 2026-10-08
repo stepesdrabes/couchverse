@@ -8898,6 +8898,15 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "description": "The participant cookie this browser already holds, if any: a browser playing for the host's live session in another tab cannot host it from this one too (409 already_hosting).",
+            "in": "cookie",
+            "name": "couchverse_couch",
+            "schema": {
+              "description": "The participant cookie this browser already holds, if any: a browser playing for the host's live session in another tab cannot host it from this one too (409 already_hosting).",
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
