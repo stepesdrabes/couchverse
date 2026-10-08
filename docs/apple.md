@@ -144,14 +144,28 @@ on the simulators or devices, each signed in to the same server:
 2. On the iPhone, signed in as the same account, Settings > Join a couch session, type the code,
    Use as a remote: the remote shows the TV's position and play state, and play/pause, the 10 s
    skips and the next and previous episode move the TV. `xcrun simctl openurl <device>
-   couchverse://couch/<code>` opens the same screen with the code filled in.
+   couchverse://couch/<code>` opens the same screen with the code filled in. Leave, then join
+   again with plain Join: the host's account is the TV's remote all the same, the followers keep
+   the TV's title, and leaving keeps the session.
 3. In a browser, open the join page from the QR code (a phone's camera, or the address under the
-   code) and join without an account: the TV's panel lists the guest.
+   code) and join without an account: the TV's panel lists the guest. "Open in the app" on that
+   page is the `couchverse://couch/<code>?server=<address>` link of step 6.
 4. On the iPad, signed in as another account, join by the code: the host's title plays without a
    timeline; pausing in the system controls marks you paused in the host's panel and resuming
-   jumps back to the host; reactions from the popover rise on every screen.
-5. On the TV, close the player: the followers wait for the host to choose; play another title:
-   they follow. End the session from the TV's Couch tab (it asks first): the followers and the
+   jumps back to the host; reactions from the popover rise on every screen, and its last button
+   (more) brings up the emoji keyboard: every emoji typed there rises too.
+5. On the TV, swipe down while the title plays: the info panel's "On the couch" lists who is
+   there and follows people joining and leaving. Close the player: the followers wait for the
+   host to choose; play another title: they follow.
+6. On a simulator with nothing signed in (a fresh install), Welcome > Join a couch session asks
+   for the server's address and the code and joins without an account: the guest follows like
+   the iPad, avatars and the backdrop load from that server, and closing the player leaves the
+   couch. `xcrun simctl openurl <device> 'couchverse://couch/<code>?server=http%3A%2F%2F<address>'`
+   (the join page's "Open in the app") opens the same screen with both filled in, also over the
+   welcome screen; on iPhone the join form's scanner reads the server from the join page's QR
+   code. On the Apple TV the address is typed with the remote's keyboard and the code on the
+   digit pad.
+7. End the session from the TV's Couch tab (it asks first): the followers, the guest and the
    remote say the host ended it, and close after 3 s.
 
 ## Downloads and offline
@@ -285,3 +299,15 @@ The simulators cover the flows (see the Phase 3 report); on hardware, also check
     with the remote, every block of a profile takes the focus so the page scrolls, a podium or
     row opens that member's profile, and switching rankings off in the web's admin removes both
     entries (and a pushed profile goes back).
+28. **Joining a couch without an account**: on an iPhone with no account, the system camera reads
+    the TV's couch QR code, Safari opens the join page and its "Open in the app" opens the app's
+    join screen with the server and the code filled in (the Local Network prompt appears for a
+    server on the LAN); joining follows the TV. On an Apple TV with no account, Welcome > Join a
+    couch session works with the remote's keyboard and the digit pad.
+29. **The emoji keyboard for reactions**: on the iPhone and the iPad the reactions popover's more
+    button brings up the emoji keyboard when it is among the device's keyboards (Settings >
+    General > Keyboard > Keyboards), the usual keyboard otherwise; only emoji are sent, several in
+    a row, and the keyboard goes when the popover does.
+30. **The couch in the TV's info panel**: swiping down while on a couch shows "On the couch" beside
+    the episodes (a follower sees only the couch), the remote walks along a couch wider than the
+    screen, and members joining or leaving update it without closing the panel.

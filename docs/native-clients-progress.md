@@ -100,11 +100,28 @@ not re-transcoded automatically, Homebrew's ffmpeg cannot tone-map (no zscale),
   cover for the player, a waiting follower, the phone as a remote and a session's end; floating
   reactions and the status line over the picture; a follower's own pause reported as the core's
   local pause). Compiled for iOS and tvOS and linted; the runtime's couch tests pass on the Mac.
-- Pending: the couch snapshot references (and the Settings ones, re-recorded for its new couch
-  row) recorded on the pinned simulators, the couch walkthrough (docs/apple.md) on simulators
-  and devices, the TV info panel's couch tab, the "more" button for the system emoji keyboard.
-- Blocked on the core: joining a native couch without an account (D11; `CouchJoinRequested` only
-  joins through the active account on native).
+- Done: the host's account on a second device is the player's remote, never a second host
+  (plan D17, 8.7, 10.6): the server seats the host's account joining by code as a remote whether
+  it asked to or not, so a plain Join no longer broadcasts "nothing playing" over the player or
+  ends the session by leaving (the web, Apple and Android shells already follow the role; the
+  web's join page gained a remote for it), and a browser tab is refused a seat on the session
+  another tab of it plays for (409 `already_hosting`, one couch cookie per browser).
+- Done: joining without an account (D11): the core joins a code that names another server than
+  the active account's, or comes without an account, as a guest there (https then http for a
+  typed address, `X-Couch-Token`, whole media and artwork URLs on that server, forgotten on
+  leaving, at the end and on signing in); the web's join page offers "Open in the app"
+  (`couchverse://couch/<code>?server=<origin>`); Apple joins as a guest from the Welcome screen
+  (server address and code), from such links and from a scanned join page, which now carry
+  their server. Android's generated types and `WireFormatTest` know the new field; its UI
+  waits for the `feature-couch` restructuring.
+- Done: the TV player's info panel lists who is on the couch (a follower's has no episodes),
+  and the iPhone and iPad reactions popover's "more" button sends any emoji from the system
+  emoji keyboard.
+- Pending: the couch snapshot references (with the guest's join form) and the Welcome ones,
+  removed for re-recording after its new "Join a couch session" button (and the Settings ones,
+  re-recorded for its couch row), recorded on the pinned simulators; the couch walkthrough
+  (docs/apple.md, steps 1 to 7) on simulators and devices; Android's guest join (an address
+  field and links carrying `server`).
 
 ## Phase 8: ranks and profiles - in progress
 
@@ -233,8 +250,10 @@ Collected from the phases as they land; each item is verified on simulators/emul
 first.
 
 - Apple TV 4K: pairing from an iPhone, Who's watching animation, HDR/Atmos playback (Phase 6).
-- Apple couch (docs/apple.md, items 20 to 23): the TV's QR panel read across the room, an iPhone
-  as the TV's remote, follower drift on an iPhone and an Apple TV over an hour, reactions.
+- Apple couch (docs/apple.md, items 20 to 23 and 28 to 30): the TV's QR panel read across the
+  room, an iPhone as the TV's remote, follower drift on an iPhone and an Apple TV over an hour,
+  reactions and the emoji keyboard, joining without an account from the web's "Open in the app",
+  the couch in the TV's info panel.
 - iPhone: QR scan of a Connect-a-device code, Keychain persistence across reinstalls.
 - Apple apps (full list in docs/apple.md): free-team signing and trusting the certificate,
   wireless pairing to the Apple TV in Xcode, the Local Network prompt and the not-encrypted

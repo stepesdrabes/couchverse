@@ -332,20 +332,25 @@ admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
   HTTP handlers and the WS endpoint, on `github.com/coder/websocket`. `Hub.LivePresence()`
   exposes live session/viewer counts to the admin dashboard's `/admin/live`.
 - Endpoints: `POST /couch` (create/reclaim, host must be logged in),
-  `POST /couch/{token}/join` (public, anon OK; `?remote=true` for the host's own account
-  on another device, 403 `not_host` for anyone else), `POST /couch/{token}/leave`,
+  `POST /couch/{token}/join` (public, anon OK; the host's own account always joins as a
+  remote, `?remote=true` only asserts it and gets 403 `not_host` for anyone else; a browser
+  playing for the session as its host in another tab gets 409 `already_hosting`, since its
+  tabs share one couch cookie), `POST /couch/{token}/leave`,
   `POST /couch/{token}/end` (any of the host's devices), `GET /couch/{token}/playback`
   (follower payload for the current media), `GET /couch/{token}/ws` (the sync socket;
   same-origin enforced for browsers).
 - **Participant tokens**: create and join mint a token per device (a participant may hold
   several, so a host joining from a phone does not sign out their TV). Browsers get it as the
   couch cookie; native apps pass `?delivery=body`, receive `participantToken` and send it as
-  `X-Couch-Token` wherever a browser sends the cookie (socket, playback, leave, end).
-- **Remote control**: a remote connection (the host's account joined with `remote=true`)
-  receives `host_state` like a follower but plays nothing; its `remote_command` frames
-  (`play|pause|seek|next|previous`, `positionSeconds` for seek) go to the host's playing
-  connection, the one that last sent `host_state`, which applies them and broadcasts the
-  result. A remote leaving keeps the session; a follower or anyone sending it is refused.
+  `X-Couch-Token` wherever a browser sends the cookie (socket, playback, leave, end). A native
+  guest without an account joins the same way, with no session at all.
+- **Remote control**: a remote connection (the host's account joining by code, on any device
+  but the playing one: never a second host, which would broadcast its own empty state over the
+  player's and end the session by leaving) receives `host_state` like a follower but plays
+  nothing; its `remote_command` frames (`play|pause|seek|next|previous`, `positionSeconds` for
+  seek) go to the host's playing connection, the one that last sent `host_state`, which applies
+  them and broadcasts the result. A remote leaving keeps the session; a follower or anyone
+  sending it is refused.
 - WS protocol: host broadcasts authoritative `{media, playing, positionSeconds,
   serverTimestamp, seq}` (server-stamped) + emoji; followers extrapolate position
   from the last update + local elapsed and hard-seek past ~3s drift. Host identity
@@ -366,9 +371,13 @@ admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
   `/couch/[token]` route previews the session (`GET /couch/{token}/info`, the web's only
   couch call) and joins on the viewer's click, so the video may autoplay, for guests without
   an account too (the core rides on the couch cookie and the session's artwork grant). The
-  assembled accent-recoloured `Couch` (seated avatars + host remote), a management popover,
-  couch buttons in the player control bar + TopNav and a bundled (no-CDN) emoji picker
-  complete it. `VideoPlayer` is the same for hosts and followers; a follower's is linear.
+  host's own account joining there gets `CouchRemote` (the host's clock run on from its last
+  report, play and pause, 10 s skips, the episodes either side, leaving), a failed join says
+  why through `problemMessage`, and "Open in the app" links
+  `couchverse://couch/<code>?server=<origin>` (not on a TV). The assembled accent-recoloured
+  `Couch` (seated avatars + host remote), a management popover, couch buttons in the player
+  control bar + TopNav and a bundled (no-CDN) emoji picker complete it. `VideoPlayer` is the
+  same for hosts and followers; a follower's is linear.
 
 ### ranks
 Player progression: XP, rank tiers, achievements, public profiles and the global
@@ -634,7 +643,13 @@ messages and perform the effects it asks for.
   native players), resume, watched-time accounting and progress saves, JIT keepalive,
   preparing poll, qualities, tracks, next episode, shuffle; a downloaded title plays from the
   device with source `download` and in-file subtitles), `couch` (the socket protocol,
-  reconnects, host broadcast, follower drift sync, remote control, reactions), `downloads`
+  reconnects, host broadcast, follower drift sync, remote control, reactions; a code that
+  names another server than the active account's, or comes without an account, is joined as
+  a guest there: `CouchJoinRequested`'s `server` tried as https then http when typed without a
+  scheme, the participant token in `X-Couch-Token`, the follower's media and the couch's
+  artwork made whole against that server, a follower's preparing poll through the couch; the
+  guest's server is forgotten on leaving, at the end and when an account signs in, and the
+  account's own playback leaves such a couch first), `downloads`
   (asks the server to prepare an MP4 for the device's profile, polls, fetches it and its
   artwork with the download effect, keeps the account's offline library in the store, plays
   it while `SessionView.offline`, and keeps progress that could not be saved, with the time it
@@ -784,21 +799,32 @@ navigation, nothing else.
   the only button in reach) or Leave. Joining (`JoinCouchForm`): Settings' "Join a couch session"
   on every idiom and the TV's Couch tab (`CouchHubScreen`, the live panel while this TV is on a
   couch), a digit pad on TV and the number pad on phones, "Use as a remote" and the VisionKit
-  scanner on iPhone; `couchverse://couch/<code>` links and a scanned join page fill in the code
-  (`CouchLink`; the core gets the code, not the link) and wait for an account. One full-screen
-  cover (`AppCover`) shows the player, a follower waiting for the host (choosing, away,
-  connecting), the phone as a remote (`CouchRemoteScreen`: play and pause, 10 s skips from the
-  host's extrapolated position, the episodes either side) and, for 3 s, why a session this device
-  watched or steered ended; moving between them never presents a modal over one being dismissed.
+  scanner on iPhone; the host's own account pressing Join becomes the player's remote too (the
+  server's rule). `couchverse://couch/<code>` links and a scanned join page fill in the code and
+  the server they name (`CouchLink.invite`: a link's `?server=`, a join page's origin; the core
+  gets a `CouchCode` with both, never the link). With an account the join goes through it on
+  its own server and as a guest on any other; without one (the Welcome screen's "Join a couch
+  session", or a link naming its server) the form also asks for the server's address and
+  joins as a guest, while a link without a server waits for an account. A guest's couch shows
+  the same controls as a member's (`CoreRuntime.couchOn`: a live couch counts as couch
+  sessions being on). One full-screen cover (`AppCover`) shows the player, a follower waiting
+  for the host (choosing, away, connecting), the phone as a remote (`CouchRemoteScreen`: play
+  and pause, 10 s skips from the host's extrapolated position, the episodes either side) and,
+  for 3 s, why a session this device watched or steered ended; moving between them never
+  presents a modal over one being dismissed.
   Closing a follower's player leaves the couch, or the host's next title would bring it back.
   Over the picture everyone sees reactions rise and fade (Reduce Motion fades them in place) and a
   follower what the host is doing (paused, away, resynced); a follower's own pause or play in the
   system controls (`requiresLinearPlayback` keeps them off the timeline) is told apart from the
   core's commands (`LocalPause`) and becomes `CouchLocalPauseChanged`, so the host's next update
-  does not undo it. Logic tests cover links, codes, the status line, the cover's choice, the
-  local pause and the transport bar menu; `CouchSnapshots` every couch screen and state. Not yet:
-  joining without an account (the core joins only through an account on native) and the Live
-  Activity (Phase 9).
+  does not undo it. On TV the player's info panel gains "On the couch" (`CouchInfoPanel`, the
+  members updated in place as they come and go) and a follower's has no episodes, whose choice
+  is the host's; on iPhone and iPad the reactions popover ends with a "more" button that holds
+  the system emoji keyboard up (`EmojiKeyboard`, a hidden field asking for the emoji input mode)
+  and sends every emoji typed (`Reactions.emoji`). Logic tests cover links and their servers,
+  codes, the status line, the cover's choice (a guest's join without an account), typed emoji,
+  the local pause and the transport bar menu; `CouchSnapshots` every couch screen and state, the
+  guest's join form among them. Not yet: the Live Activity (Phase 9).
 - **Ranks** (`Ranks/`, plan Phase 8), absent rather than locked while the server has rankings
   off: a member's profile (`ProfileScreen`: the avatar in the `RankRing` over the banner or a
   glow in its colour, name, handle and joining date, XP towards the next level, the bio through
@@ -889,7 +915,9 @@ launch from the UI mode, on the shared core.
   worker resuming with `Range` and reporting at most once a second, files in `files/downloads`;
   the Downloads screen replaces the tabs while offline.
 - **Couch** (`feature-couch`): host panel with code and QR, joining by code, QR or link,
-  follower and remote, reactions, and an ongoing notification with Leave/End on phones.
+  follower and remote, reactions, and an ongoing notification with Leave/End on phones. Not
+  yet: joining without an account (the core joins a `CouchCode` naming its server as a guest;
+  no screen asks for a server, and links and QR codes still pass only the code).
 - **Ranks** (`feature-ranks`): profiles, leaderboards, celebrations, the profile editor (photo
   picker into the `upload` effect), the rank beside the profile row in Settings.
 - **Outside the app**: Watch Next on Google TV and a Glance widget on phones, both from the
