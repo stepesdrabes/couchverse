@@ -211,7 +211,7 @@ struct ScreenSnapshots {
     /// shifts every glyph edge: `make apple-test` runs on the pinned simulators (`make apple-sims`).
     static let referenceScale: CGFloat = Idiom.isTV ? 2 : 3
 
-    private func snapshot(
+    func snapshot(
         _ name: String, _ values: [SurfaceValue], ambience: Ambience = .flat, variants: [Variant] = Self.variants,
         fileID: StaticString = #fileID,
         file: StaticString = #filePath, testName: String = #function, line: UInt = #line,

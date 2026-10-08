@@ -181,7 +181,8 @@ private struct FactBadge: View {
     }
 }
 
-/// Play or Resume, My List and a random episode; stacked when the text is too large for a row.
+/// Play or Resume, My List, a random episode and a movie's download (iPhone and iPad); stacked when
+/// the text is too large for a row.
 private struct TitleActions: View {
     let detail: TitleDetailView
     @Environment(CoreRuntime.self) private var core
@@ -233,6 +234,12 @@ private struct TitleActions: View {
             .secondaryAction()
             .fixedWidth(fixed)
         }
+        #if os(iOS)
+            if detail.kind == .movie, let play = detail.play {
+                DownloadButton(target: play.target, labelled: true)
+                    .fixedWidth(fixed)
+            }
+        #endif
     }
 
     /// A random episode, with shuffle switched on so the player keeps picking at random.
@@ -379,7 +386,8 @@ private struct SeasonsSection: View {
         }
     }
 #else
-    /// An episode as a row: its still with progress, number and name, length and overview.
+    /// An episode as a row: its still with progress, number and name, length and overview, and
+    /// its download beside it.
     private struct EpisodeRow: View {
         let episode: EpisodeView
         @Environment(CoreRuntime.self) private var core
@@ -387,6 +395,13 @@ private struct SeasonsSection: View {
         @Environment(\.horizontalSizeClass) private var sizeClass
 
         var body: some View {
+            HStack(spacing: Tokens.Spacing.sm) {
+                row
+                DownloadButton(target: PlayTarget(kind: .episode, id: episode.id))
+            }
+        }
+
+        private var row: some View {
             Button {
                 core.send(.playRequested(PlayTarget(kind: .episode, id: episode.id)))
             } label: {

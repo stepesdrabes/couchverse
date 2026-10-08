@@ -51,6 +51,7 @@ struct MainTabs: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .tabViewSidebarHeader { AccountHeader() }
+        .offlineDownloads()
     }
 }
 

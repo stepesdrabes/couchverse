@@ -21,6 +21,7 @@ struct SettingsScreen: View {
                 } label: {
                     Label(L10n.devicesTitle, systemImage: "laptopcomputer.and.iphone")
                 }
+                DownloadsLink()
                 Button {
                     approving = true
                 } label: {

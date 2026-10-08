@@ -80,6 +80,8 @@ enum CatalogLabels {
         switch code {
         case "watchlist_failed": L10n.catalogMyListUpdateFailed
         case "visibility_failed": L10n.profilesPrivacyFailed
+        case "download_unsupported": L10n.downloadFailedUnsupported
+        case "downloads_disabled": L10n.downloadsDisabled
         default: L10n.problemGeneric
         }
     }
