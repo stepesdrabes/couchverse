@@ -57,7 +57,9 @@ struct CouchPanel: View {
         if view.role == .host, let code = view.code, let share = view.shareUrl {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .center, spacing: Tokens.Spacing.xxl) { invite(code: code, share: share) }
-                VStack(alignment: .leading, spacing: Tokens.Spacing.xl) { invite(code: code, share: share) }
+                VStack(alignment: .leading, spacing: Tokens.Spacing.xl) {
+                    invite(code: code, share: share, stacked: true)
+                }
             }
         }
         VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
@@ -78,8 +80,8 @@ struct CouchPanel: View {
                 systemImage: view.role == .host ? "xmark.circle" : "rectangle.portrait.and.arrow.right")
         }
         .secondaryAction()
-        .fixedSize()
         .accessibilityIdentifier("couch-end")
+        .fixedWidthIfItFits()
         // on TV this is often the only button in reach: ending it for everyone takes a second yes
         .confirmationDialog(L10n.couchEndConfirm, isPresented: $ending, titleVisibility: .visible) {
             Button(L10n.couchEndSession, role: .destructive) {
@@ -90,9 +92,17 @@ struct CouchPanel: View {
     }
 
     /// The QR code of the join page beside the code itself, both large enough to read across a room.
-    @ViewBuilder private func invite(code: String, share: String) -> some View {
-        QRCodeView(share)
-            .frame(width: qrSize, height: qrSize)
+    /// Stacked, the QR code is never wider than the panel, as its scaled size would be at the
+    /// largest text sizes, and the width alone sets its size.
+    @ViewBuilder private func invite(code: String, share: String, stacked: Bool = false) -> some View {
+        if stacked {
+            QRCodeView(share)
+                .frame(maxWidth: qrSize)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            QRCodeView(share)
+                .frame(width: qrSize, height: qrSize)
+        }
         VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
             Text(L10n.couchShareLabel)
                 .typeRole(Tokens.TypeRamp.body)
@@ -119,7 +129,7 @@ struct CouchPanel: View {
             ActionLabel(L10n.couchStartSession, systemImage: "sofa")
         }
         .primaryAction()
-        .fixedSize()
+        .fixedWidthIfItFits()
     }
 
     /// The host first, then everyone in the order they sat down.

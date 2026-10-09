@@ -31,8 +31,8 @@ struct CouchWaitingScreen: View {
                     ActionLabel(L10n.couchLeave, systemImage: "rectangle.portrait.and.arrow.right")
                 }
                 .secondaryAction()
-                .fixedSize()
                 .accessibilityIdentifier("couch-leave")
+                .fixedWidthIfItFits()
             }
             .padding(Tokens.Spacing.xl)
             .readableWidth(Idiom.isTV ? 1000 : 520)
@@ -106,7 +106,7 @@ struct CouchRemoteScreen: View {
                         ActionLabel(L10n.couchLeave, systemImage: "rectangle.portrait.and.arrow.right")
                     }
                     .secondaryAction()
-                    .fixedSize()
+                    .fixedWidthIfItFits()
                 }
                 .padding(.horizontal, Tokens.Spacing.xl)
                 .padding(.vertical, 72)

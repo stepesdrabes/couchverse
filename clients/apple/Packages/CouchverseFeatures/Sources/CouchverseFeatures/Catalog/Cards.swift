@@ -212,6 +212,16 @@ extension View {
         }
     }
 
+    /// Keeps a button on its own at its label's width where that fits; at the largest text sizes,
+    /// where it would run off the screen, it takes the width there is and its words wrap, without
+    /// an icon to narrow them further.
+    func fixedWidthIfItFits() -> some View {
+        ViewThatFits(in: .horizontal) {
+            fixedSize()
+            labelStyle(.titleOnly)
+        }
+    }
+
     /// The tvOS card style (lift, parallax, specular highlight); plain on touch devices.
     func cardButtonStyle() -> some View {
         #if os(tvOS)
