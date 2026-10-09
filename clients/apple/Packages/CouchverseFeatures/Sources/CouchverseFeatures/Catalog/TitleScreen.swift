@@ -141,7 +141,7 @@ private struct TitleFacts: View {
             ? L10n.catalogSeasonCount(count: detail.seasons.count)
             : detail.runtimeMinutes.map(CatalogLabels.runtime(minutes:))
         let text = [detail.year.map(String.init), length].compactMap { $0 }.joined(separator: " \u{00B7} ")
-        // one line where it fits, the badges below the text at large sizes
+        // one line where it fits, the badges below the text at large sizes, wrapping as a group
         ViewThatFits(in: .horizontal) {
             HStack(spacing: Tokens.Spacing.sm) {
                 Text(text).foregroundStyle(Tokens.Palette.mutedText)
@@ -149,7 +149,7 @@ private struct TitleFacts: View {
             }
             VStack(alignment: .leading, spacing: Tokens.Spacing.sm) {
                 Text(text).foregroundStyle(Tokens.Palette.mutedText)
-                HStack(spacing: Tokens.Spacing.sm) { badges }
+                FlowLayout(spacing: Tokens.Spacing.sm) { badges }
             }
         }
         .typeRole(Tokens.TypeRamp.caption)
@@ -178,6 +178,58 @@ private struct FactBadge: View {
             .padding(.horizontal, Tokens.Spacing.sm)
             .padding(.vertical, Tokens.Spacing.xxs)
             .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(Tokens.Palette.mutedText.opacity(0.6)) }
+    }
+}
+
+/// Rows of views at their own width, left to right, starting a new row where the next one would
+/// not fit: the badges, which never break inside.
+private struct FlowLayout: Layout {
+    let spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = rows(subviews, width: proposal.width ?? .infinity)
+        return CGSize(
+            width: rows.map(\.width).max() ?? 0,
+            height: rows.map(\.height).reduce(0, +) + CGFloat(max(rows.count - 1, 0)) * spacing)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in rows(subviews, width: bounds.width) {
+            var x = bounds.minX
+            for index in row.items {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(
+                    at: CGPoint(x: x, y: y + (row.height - size.height) / 2), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += row.height + spacing
+        }
+    }
+
+    private struct Row {
+        var items: [Int] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func rows(_ subviews: Subviews, width: CGFloat) -> [Row] {
+        var rows: [Row] = []
+        var row = Row()
+        for (index, subview) in subviews.enumerated() {
+            let size = subview.sizeThatFits(.unspecified)
+            if !row.items.isEmpty, row.width + spacing + size.width > width {
+                rows.append(row)
+                row = Row()
+            }
+            row.width += (row.items.isEmpty ? 0 : spacing) + size.width
+            row.height = max(row.height, size.height)
+            row.items.append(index)
+        }
+        if !row.items.isEmpty {
+            rows.append(row)
+        }
+        return rows
     }
 }
 
