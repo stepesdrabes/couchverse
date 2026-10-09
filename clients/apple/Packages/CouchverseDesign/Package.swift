@@ -16,7 +16,10 @@ let package = Package(
     targets: [
         .target(
             name: "CouchverseDesign",
-            dependencies: [.product(name: "CouchverseCore", package: "CouchverseCore")],
+            dependencies: [
+                .product(name: "CouchverseCore", package: "CouchverseCore"),
+                .product(name: "CouchverseShared", package: "CouchverseCore"),
+            ],
             resources: [.process("Generated/Localizable.xcstrings")],
             swiftSettings: [.defaultIsolation(MainActor.self), .treatAllWarnings(as: .error)]
         ),
