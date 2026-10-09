@@ -87,15 +87,10 @@ struct DevicesScreen: View {
                 .frame(width: 36)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
-                HStack(spacing: Tokens.Spacing.sm) {
-                    Text(device.name)
-                        .typeRole(Tokens.TypeRamp.card)
-                        .foregroundStyle(Tokens.Palette.text)
-                    if device.current {
-                        Text(L10n.devicesThisDevice)
-                            .typeRole(Tokens.TypeRamp.caption)
-                            .foregroundStyle(Tokens.Palette.success)
-                    }
+                // "This device" under the name where the two do not fit on a line
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Tokens.Spacing.sm) { name(device) }
+                    VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) { name(device) }
                 }
                 Text("\(DevicePlatform.name(device.platform)) \u{00B7} \(lastSeen(device))")
                     .typeRole(Tokens.TypeRamp.caption)
@@ -104,6 +99,17 @@ struct DevicesScreen: View {
         }
         .padding(.vertical, Tokens.Spacing.xs)
         .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder private func name(_ device: DeviceCard) -> some View {
+        Text(device.name)
+            .typeRole(Tokens.TypeRamp.card)
+            .foregroundStyle(Tokens.Palette.text)
+        if device.current {
+            Text(L10n.devicesThisDevice)
+                .typeRole(Tokens.TypeRamp.caption)
+                .foregroundStyle(Tokens.Palette.success)
+        }
     }
 
     private func lastSeen(_ device: DeviceCard) -> String {
