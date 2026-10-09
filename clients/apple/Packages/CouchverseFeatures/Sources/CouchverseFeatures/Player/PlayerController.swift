@@ -17,15 +17,20 @@ public final class PlayerController: PlayerExecuting {
     /// The sidecar subtitle line to draw over the picture, if any.
     private(set) var caption: String?
     /// The system's own menus list the item's audio renditions or subtitles; when they do not,
-    /// the screen offers the core's tracks itself.
-    private(set) var nativeAudio = false
+    /// the screen offers the core's tracks itself. The core may also offer another language's
+    /// file, which no menu of the item's lists.
+    var nativeAudio: Bool { nativeAudioOptions > 1 && nativeAudioOptions >= audioTracks.count }
     private(set) var nativeSubtitles = false
+    /// The item's audio renditions, which the system's menu lists when there are two or more.
+    private(set) var nativeAudioOptions = 0
     /// A couch follower's player: no seeking or pausing.
     private(set) var linear = false
     /// Playing or waiting to, rather than paused.
     private(set) var playing = false
-    /// The core's audio tracks, to name a language picked in the system's menu.
+    /// The core's audio tracks and the chosen one, to name a language picked in the system's
+    /// menu.
     @ObservationIgnored var audioTracks: [TrackOption] = []
+    @ObservationIgnored var audioSelected: String?
 
     @ObservationIgnored private var load: PlayerLoad?
     @ObservationIgnored private var subtitle: String?
@@ -108,7 +113,7 @@ public final class PlayerController: PlayerExecuting {
         self.load = load
         subtitle = load.subtitle
         audioLang = load.audioLang
-        audioIndex = nil
+        audioIndex = load.audioIndex.map(Int.init)
         linear = load.linear
         localPause = LocalPause()
         settling = true
@@ -224,7 +229,7 @@ public final class PlayerController: PlayerExecuting {
         itemTokens.forEach(NotificationCenter.default.removeObserver)
         itemTokens = []
         clearCaptions()
-        nativeAudio = false
+        nativeAudioOptions = 0
         nativeSubtitles = false
     }
 
@@ -303,7 +308,7 @@ public final class PlayerController: PlayerExecuting {
     private func describeOptions(_ item: AVPlayerItem, load: PlayerLoad) async {
         let audible = try? await item.asset.loadMediaSelectionGroup(for: .audible)
         let legible = try? await item.asset.loadMediaSelectionGroup(for: .legible)
-        nativeAudio = (audible?.options.count ?? 0) > 1
+        nativeAudioOptions = audible?.options.count ?? 0
         let sidecars = load.source != .hls && load.subtitles.contains { $0.url != nil }
         nativeSubtitles = !(legible?.options.isEmpty ?? true) && !sidecars
     }
@@ -326,16 +331,13 @@ public final class PlayerController: PlayerExecuting {
                     events?(.subtitlesChosen(TrackChoice(id: id)))
                 }
             }
-            if nativeAudio, let group = try? await item.asset.loadMediaSelectionGroup(for: .audible),
+            if nativeAudioOptions > 1, let group = try? await item.asset.loadMediaSelectionGroup(for: .audible),
                 let option = item.currentMediaSelection.selectedMediaOption(in: group),
                 let index = group.options.firstIndex(of: option), index != audioIndex
             {
-                // the renditions are listed in the core's order when they are all of them; a
-                // language names one otherwise
                 let track =
-                    audioTracks.count == group.options.count
-                    ? audioTracks[index]
-                    : audioTracks.first { Self.normalized($0.lang) == Self.language(of: option) }
+                    itemTrack(at: index)
+                    ?? audioTracks.first { Self.normalized($0.lang) == Self.language(of: option) }
                 if let track {
                     audioLang = track.lang
                     audioIndex = index
@@ -343,6 +345,17 @@ public final class PlayerController: PlayerExecuting {
                 }
             }
         }
+    }
+
+    /// The core's track for the item's rendition at `index`. The core lists a file's renditions
+    /// together and in order, so the item's first sits as many tracks before the chosen one as
+    /// its place says; nil when the chosen one is a whole file, whose language names the track.
+    private func itemTrack(at index: Int) -> TrackOption? {
+        guard let place = audioIndex, let chosen = audioTracks.firstIndex(where: { $0.id == audioSelected }) else {
+            return nil
+        }
+        let at = chosen - place + index
+        return audioTracks.indices.contains(at) ? audioTracks[at] : nil
     }
 
     static func option(in group: AVMediaSelectionGroup, lang: String, forced: Bool) -> AVMediaSelectionOption? {

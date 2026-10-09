@@ -49,6 +49,7 @@ struct PlayerScreen: View {
         .preferredColorScheme(.dark)
         .modal(isPresented: $couchPanel) { CouchPanelScreen() }
         .onChange(of: view.audio, initial: true) { _, audio in controller.audioTracks = audio }
+        .onChange(of: view.audioSelected, initial: true) { _, id in controller.audioSelected = id }
         // the remote's Back or the system player's close dismisses the cover, which closes the
         // player in the core (see `AppCover`)
         #if os(iOS)
