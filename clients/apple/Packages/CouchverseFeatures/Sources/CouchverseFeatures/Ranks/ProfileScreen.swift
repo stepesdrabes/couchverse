@@ -213,19 +213,16 @@ private struct XPProgress: View {
     var body: some View {
         let progress = RanksWords.progress(badge)
         VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
-            HStack(alignment: .firstTextBaseline, spacing: Tokens.Spacing.sm) {
-                Text(RanksWords.number(total))
-                    .typeRole(Tokens.TypeRamp.title)
-                    .foregroundStyle(Tokens.Palette.text)
-                    .monospacedDigit()
-                Text(L10n.rankXp)
-                    .typeRole(Tokens.TypeRamp.card)
-                    .foregroundStyle(Tokens.Palette.mutedText)
-                Spacer(minLength: Tokens.Spacing.md)
-                Text(L10n.rankLevel(level: String(badge.tier.level)))
-                    .typeRole(Tokens.TypeRamp.card)
-                    .foregroundStyle(Tokens.Palette.text)
-                    .monospacedDigit()
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: Tokens.Spacing.sm) {
+                    xp
+                    Spacer(minLength: Tokens.Spacing.md)
+                    level
+                }
+                VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
+                    xp
+                    level
+                }
             }
             XPBar(fraction: Double(badge.percent) / 100, color: color)
             ViewThatFits(in: .horizontal) {
@@ -246,6 +243,25 @@ private struct XPProgress: View {
         .multilineTextAlignment(.leading)
         .accessibilityElement(children: .combine)
     }
+
+    private var xp: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Tokens.Spacing.sm) {
+            Text(RanksWords.number(total))
+                .typeRole(Tokens.TypeRamp.title)
+                .foregroundStyle(Tokens.Palette.text)
+                .monospacedDigit()
+            Text(L10n.rankXp)
+                .typeRole(Tokens.TypeRamp.card)
+                .foregroundStyle(Tokens.Palette.mutedText)
+        }
+    }
+
+    private var level: some View {
+        Text(L10n.rankLevel(level: String(badge.tier.level)))
+            .typeRole(Tokens.TypeRamp.card)
+            .foregroundStyle(Tokens.Palette.text)
+            .monospacedDigit()
+    }
 }
 
 /// Edit profile, and the way back to public when the profile is private.
@@ -259,8 +275,8 @@ private struct OwnProfileActions: View {
                 Label(L10n.profilesEditProfile, systemImage: "pencil")
             }
             .secondaryAction()
-            .fixedSize()
             .accessibilityIdentifier("edit-profile")
+            .fixedWidthIfItFits()
             if !profile.public {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.sm) {
                     Label(L10n.profilesPrivateSelfNotice, systemImage: "eye.slash")
@@ -271,7 +287,7 @@ private struct OwnProfileActions: View {
                         core.send(.profileVisibilityChanged(PublicChoice(public: true)))
                     }
                     .secondaryAction()
-                    .fixedSize()
+                    .fixedWidthIfItFits()
                 }
             }
         }
