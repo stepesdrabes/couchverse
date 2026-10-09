@@ -9,6 +9,7 @@ import (
 // BCP47 turns a stream's ISO 639-2 tag (eng, cze) into the BCP 47 form HLS and
 // the clients use (en, cs); unknown tags become und.
 func BCP47(lang string) string {
+	lang = strings.TrimSpace(lang)
 	if lang == "" {
 		return "und"
 	}

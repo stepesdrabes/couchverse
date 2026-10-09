@@ -204,7 +204,7 @@ type PlaybackInfo struct {
 	Display        PlaybackDisplay         `json:"display"`
 	NextEpisode    *catalog.EpisodeRef     `json:"nextEpisode,omitempty" doc:"The episode after this one; absent for movies and series finales."`
 	Subtitles      []PlaybackSubtitleTrack `json:"subtitles"`
-	Audio          []PlaybackAudioTrack    `json:"audio,omitempty" doc:"Selectable audio languages; absent when there is only one."`
+	Audio          []PlaybackAudioTrack    `json:"audio,omitempty" doc:"Selectable audio, one menu across this file's tracks and its separate-language siblings. A file's embedded tracks are listed together, in the order its player lists them. Absent when there is only one choice."`
 	Episodes       []catalog.SeriesEpisode `json:"episodes,omitempty" doc:"The series' playable episodes, for the in-player switcher."`
 	CurrentEpisode string                  `json:"currentEpisodeId,omitempty"`
 	OriginalURL    string                  `json:"originalUrl,omitempty" doc:"The \"Original\" quality: the source file (tier direct) or the multivariant playlist of the copied source video (tier remux). It stays outside the adaptive ladder."`
@@ -230,33 +230,36 @@ type PlaybackSubtitleTrack struct {
 	URL    string `json:"url" doc:"The track as WebVTT."`
 }
 
-// PlaybackAudioTrack is one selectable audio language. Source "file" (model B)
-// is a separate-language media file the player swaps to; "embedded" (model A)
-// is an in-stream HLS audio rendition.
+// PlaybackAudioTrack is one audio choice: a whole file in one language, or one
+// of a file's embedded tracks (model A), an HLS audio rendition or a track of
+// the file itself. A separate-language sibling's (model B) carry its URL, and
+// choosing one swaps the source; the payload's own play from its source.
 type PlaybackAudioTrack struct {
-	ID        string `json:"id" doc:"The media file id of a file track; embedded:<stream index> for an embedded one."`
+	ID        string `json:"id" doc:"The media file id of a file track; embedded:<media file id>:<stream index> for an embedded one."`
 	Lang      string `json:"lang" doc:"Language code (en, cs), as in the HLS audio renditions; und when unknown."`
 	Label     string `json:"label"`
-	Default   bool   `json:"default"`
-	Source    string `json:"source" enum:"file,embedded"`
-	StreamURL string `json:"streamUrl,omitempty" doc:"Direct stream of a file track that direct-plays."`
-	HLSURL    string `json:"hlsUrl,omitempty" doc:"HLS multivariant playlist of a file track that does not direct-play."`
+	Default   bool   `json:"default" doc:"Plays without a choice; always one of this file's own."`
+	Source    string `json:"source" enum:"file,embedded" doc:"file: a whole file in one language; embedded: one of a file's tracks, switched inside it."`
+	StreamURL string `json:"streamUrl,omitempty" doc:"The direct stream of the sibling file the track is in, which plays in place of this one. Absent for this file's own tracks, which play from its source at the chosen quality."`
+	HLSURL    string `json:"hlsUrl,omitempty" doc:"The multivariant playlist of the sibling file the track is in, when that file does not direct-play."`
 }
 
 var audioLangNames = map[string]string{
 	"en": "English", "cs": "Čeština", "sk": "Slovenčina", "de": "Deutsch",
 	"es": "Español", "fr": "Français", "it": "Italiano", "pl": "Polski",
+	"pt": "Português", "nl": "Nederlands", "hu": "Magyar",
 	"ko": "한국어", "ja": "日本語", "ru": "Русский", "zh": "中文",
 }
 
 func audioLabel(lang string) string {
-	if lang == "" || lang == "und" {
+	code := media.BCP47(lang)
+	if code == "und" {
 		return "Original"
 	}
-	if n, ok := audioLangNames[media.BCP47(lang)]; ok {
+	if n, ok := audioLangNames[code]; ok {
 		return n
 	}
-	return strings.ToUpper(lang)
+	return strings.ToUpper(strings.TrimSpace(lang))
 }
 
 // PlaybackDisplay is what the player shows about the title being played.
@@ -429,19 +432,15 @@ func (h *Stream) BuildPlayback(ctx context.Context, kind, id string, viewer View
 	decision := Decide(profile, sourceFacts(mf, tracks, len(subs)), prep, h.server(ctx))
 	h.apply(ctx, &info, decision, mf, g, variants)
 
-	// alternate-audio siblings (model B): a language switch in the player that
-	// swaps the whole file. Only populated when there is more than one file.
-	if siblings, serr := h.catalog.AudioSiblings(ctx, mf.TitleID, mf.EpisodeID, mf.ID); serr == nil && len(siblings) > 0 {
-		info.Audio = append(info.Audio, fileTrack(mf, info.StreamURL, info.Mode, true))
+	// one audio menu across the file's own tracks and its separate-language
+	// siblings, whose choice swaps the whole file
+	files := []audioFile{{file: mf, tracks: tracks, defaultAudioOnly: decision.DefaultAudioOnly}}
+	if siblings, serr := h.catalog.AudioSiblings(ctx, mf.TitleID, mf.EpisodeID, mf.ID); serr == nil {
 		for i := range siblings {
-			sg := h.mediaGrant(siblings[i].ID, viewer)
-			si := h.siblingPlayback(ctx, &siblings[i], profile, sg)
-			info.Audio = append(info.Audio, fileTrack(&siblings[i], si.StreamURL, si.Mode, false))
+			files = append(files, h.siblingAudio(ctx, &siblings[i], profile, viewer))
 		}
-	} else if len(tracks) >= 2 {
-		// embedded tracks (model A) switch inside the HLS audio group
-		info.Audio = embeddedTracks(tracks)
 	}
+	info.Audio = audioMenu(files)
 	return &info, nil
 }
 
@@ -475,49 +474,15 @@ func (h *Stream) apply(ctx context.Context, info *PlaybackInfo, d Decision, mf *
 	}
 }
 
-// siblingPlayback decides how a model-B sibling file plays for the same profile.
-func (h *Stream) siblingPlayback(ctx context.Context, mf *media.MediaFile, profile DeviceProfile, g string) PlaybackInfo {
+// siblingAudio decides how a model-B sibling file plays for the same profile,
+// under a grant of its own for the same viewer.
+func (h *Stream) siblingAudio(ctx context.Context, mf *media.MediaFile, profile DeviceProfile, viewer Viewer) audioFile {
 	var info PlaybackInfo
 	tracks, _ := h.library.AudioStreamsForFile(ctx, mf.ID)
 	variants, _ := h.library.VariantsForMediaFile(ctx, mf.ID)
 	d := Decide(profile, sourceFacts(mf, tracks, 0), preparedState(variants), Server{})
-	h.apply(ctx, &info, d, mf, g, variants)
-	return info
-}
-
-// fileTrack is a model-B language: its file's direct stream or HLS playlist.
-func fileTrack(mf *media.MediaFile, url, mode string, isDefault bool) PlaybackAudioTrack {
-	t := PlaybackAudioTrack{ID: mf.ID, Lang: mf.AudioLang, Label: audioLabel(mf.AudioLang), Default: isDefault, Source: "file"}
-	switch mode {
-	case "direct":
-		t.StreamURL = url
-	case "hls":
-		t.HLSURL = url
-	}
-	return t
-}
-
-func embeddedTracks(tracks []media.AudioStream) []PlaybackAudioTrack {
-	out := []PlaybackAudioTrack{}
-	hasDefault := false
-	for _, a := range tracks {
-		label := a.Title
-		if label == "" || label == a.Lang {
-			label = audioLabel(a.Lang)
-		}
-		out = append(out, PlaybackAudioTrack{
-			ID:      fmt.Sprintf("embedded:%d", a.Index),
-			Lang:    media.BCP47(a.Lang),
-			Label:   label,
-			Default: a.Default && !hasDefault,
-			Source:  "embedded",
-		})
-		hasDefault = hasDefault || a.Default
-	}
-	if !hasDefault && len(out) > 0 {
-		out[0].Default = true
-	}
-	return out
+	h.apply(ctx, &info, d, mf, h.mediaGrant(mf.ID, viewer), variants)
+	return audioFile{file: mf, tracks: tracks, mode: info.Mode, url: info.StreamURL, defaultAudioOnly: d.DefaultAudioOnly}
 }
 
 // sourceFacts describes a media file for the decision. Files the prober has

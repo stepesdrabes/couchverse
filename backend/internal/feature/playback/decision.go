@@ -89,6 +89,9 @@ type Decision struct {
 	// Ladder is set when the transcoded ladder is ready and suits the client,
 	// for the player's quality menu next to whatever plays.
 	Ladder bool
+	// DefaultAudioOnly is set when only the default one of the file's audio
+	// tracks reaches the client, so its player has no other to switch to.
+	DefaultAudioOnly bool
 }
 
 // Decide picks the cheapest tier the profile can play from what is prepared.
@@ -104,6 +107,10 @@ func Decide(p DeviceProfile, s Source, prep Prepared, srv Server) Decision {
 	ladder := transcoded && p.playsHLS() && prep.Ladder == PackageReady && audioReady
 	directVideo := s.Available && video.direct && withinBitrate(p, s.Bitrate) &&
 		slices.Contains(p.Containers, containerName(s.Container))
+	// the audio package and the pre-v2 multi-audio remux carry every track; a
+	// progressive file's only reach a client that switches between them itself
+	several := len(s.Audio) > 1
+	directSwitches := !several || p.AudioTrackSwitching && audioDirect(p, s)
 
 	switch {
 	case directVideo && audioDirect(p, s) && !needsRenditions(p, s):
@@ -113,7 +120,8 @@ func Decide(p DeviceProfile, s Source, prep Prepared, srv Server) Decision {
 	case ladder:
 		return Decision{Tier: TierTranscode, Mode: "hls", Master: Master{Video: "ladder", Surround: surround}, Ladder: true}
 	case transcoded && slices.Contains(p.HLS, "ts") && prep.Legacy == PackageReady:
-		return Decision{Tier: TierTranscode, Mode: "hls", Master: Master{Video: "legacy"}}
+		return Decision{Tier: TierTranscode, Mode: "hls", Master: Master{Video: "legacy"},
+			DefaultAudioOnly: several && !prep.LegacyMultiAudio}
 	}
 
 	// nothing prepared fits yet; a source that direct-plays except for its
@@ -122,12 +130,12 @@ func Decide(p DeviceProfile, s Source, prep Prepared, srv Server) Decision {
 		transcoded && (p.playsHLS() && prep.Ladder == PackagePending || prep.Legacy == PackagePending)
 	switch {
 	case directVideo && audioDefaultDirect(p, s):
-		return Decision{Tier: TierDirect, Mode: "direct"}
+		return Decision{Tier: TierDirect, Mode: "direct", DefaultAudioOnly: !directSwitches}
 	case pending:
 		return Decision{Mode: "preparing"}
 	case s.Available && srv.JIT && p.playsHLS() && transcoded:
 		plan := jitPlan(p, s)
-		return Decision{Tier: TierTranscode, Mode: "jit", JIT: &plan}
+		return Decision{Tier: TierTranscode, Mode: "jit", JIT: &plan, DefaultAudioOnly: several}
 	}
 	return Decision{Mode: "unsupported"}
 }

@@ -3233,21 +3233,24 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct PlaybackAudioTrack {
+        /// Plays without a choice; always one of this file's own.
         pub default: bool,
-        /// HLS multivariant playlist of a file track that does not direct-play.
+        /// The multivariant playlist of the sibling file the track is in, when that file does not direct-play.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub hls_url: Option<String>,
-        /// The media file id of a file track; embedded:<stream index> for an embedded one.
+        /// The media file id of a file track; embedded:<media file id>:<stream index> for an embedded one.
         pub id: String,
         pub label: String,
         /// Language code (en, cs), as in the HLS audio renditions; und when unknown.
         pub lang: String,
+        /// file: a whole file in one language; embedded: one of a file's tracks, switched inside it.
         pub source: PlaybackAudioTrackSource,
-        /// Direct stream of a file track that direct-plays.
+        /// The direct stream of the sibling file the track is in, which plays in place of this one. Absent for this file's own tracks, which play from its source at the chosen quality.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub stream_url: Option<String>,
     }
 
+    /// file: a whole file in one language; embedded: one of a file's tracks, switched inside it.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum PlaybackAudioTrackSource {
         #[serde(rename = "file")]
@@ -3294,7 +3297,7 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct PlaybackInfo {
         pub allow_random_playback: bool,
-        /// Selectable audio languages; absent when there is only one.
+        /// Selectable audio, one menu across this file's tracks and its separate-language siblings. A file's embedded tracks are listed together, in the order its player lists them. Absent when there is only one choice.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub audio: Option<Vec<PlaybackAudioTrack>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]

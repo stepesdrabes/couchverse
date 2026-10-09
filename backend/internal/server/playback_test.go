@@ -173,6 +173,8 @@ func TestPlaybackTiers(t *testing.T) {
 		}
 	}
 
+	env.checkAudioMenu(t, ctx, w)
+
 	// instant play: nothing prepared for a file a browser cannot decode
 	w.setTranscode(ctx, `{"jitEnabled": true, "autoPrepare": false}`)
 	jit := sample{title: "Late Signal (2022)", file: "Late Signal (2022).mkv",
@@ -211,6 +213,83 @@ func TestPlaybackTiers(t *testing.T) {
 	}
 	if got := keepalive(info.Grant); got != 204 {
 		t.Errorf("the owner's grant: %d, want 204", got)
+	}
+}
+
+// checkAudioMenu plays a film in English and Czech that has a German sibling,
+// itself with an English track, and checks the one audio menu across both files:
+// the film's own tracks play from its source, the sibling's name the sibling's.
+func (e *testEnv) checkAudioMenu(t *testing.T, ctx context.Context, w *worker) {
+	t.Helper()
+	languages := func(first, second string) []string {
+		return []string{"-map", "0:v", "-map", "1:a", "-map", "1:a", "-c:v", "libx264", "-preset", "ultrafast",
+			"-g", "48", "-c:a", "aac", "-metadata:s:a:0", "language=" + first, "-metadata:s:a:1", "language=" + second}
+	}
+	film := sample{title: "Two Voices (2026)", file: "Two Voices (2026).mp4", args: languages("eng", "ces"), audio: 2}
+	german := sample{title: film.title, file: "german.mp4", args: languages("deu", "eng"), audio: 2}
+	dir := filepath.Join(e.cfg.DataDir, "media", "movies", film.title)
+	ids := map[string]string{}
+	for _, s := range []sample{film, german} {
+		generate(t, filepath.Join(dir, s.file), s)
+		ids[s.file] = w.ingest(ctx, filepath.Join(dir, s.file))
+	}
+	w.drain(ctx)
+	for file, tag := range map[string]map[string]string{
+		film.file:   {"audioLang": "en", "audioRole": "primary"},
+		german.file: {"audioLang": "de", "audioRole": "audio_alt"},
+	} {
+		if status, body, _ := e.request(t, e.clients["admin"], "PATCH", "/admin/media-files/"+ids[file], tag); status != 204 {
+			t.Fatalf("tag %s: %d %s", file, status, body)
+		}
+	}
+
+	for profileName, profile := range map[string]json.RawMessage{"chrome": chromeProfile, "apple": appleProfile} {
+		name := film.title + "/" + profileName + " audio"
+		status, body, _ := e.request(t, e.clients[memberName], "POST", "/playback/movie/"+w.titleID(ctx, film.title), profile)
+		var info playback.PlaybackInfo
+		if err := json.Unmarshal(body, &info); status != 200 || err != nil {
+			t.Fatalf("%s: playback %d %s", name, status, body)
+		}
+		var langs []string
+		for _, a := range info.Audio {
+			langs = append(langs, a.Lang)
+		}
+		if fmt.Sprint(langs) != "[en cs de en]" || len(info.Audio) != 4 {
+			t.Fatalf("%s: audio %+v, want the film's English and Czech, then the sibling's German and English", name, info.Audio)
+		}
+		ids := map[string]bool{}
+		for i, a := range info.Audio {
+			ids[a.ID] = true
+			if a.Source != "embedded" || a.Default != (i == 0) {
+				t.Errorf("%s: track %d %+v", name, i, a)
+			}
+		}
+		own, sibling := info.Audio[:2], info.Audio[2:]
+		if len(ids) != 4 || own[0].StreamURL+own[0].HLSURL+own[1].StreamURL+own[1].HLSURL != "" {
+			t.Errorf("%s: the film's own tracks %+v", name, own)
+		}
+		url := sibling[0].StreamURL + sibling[0].HLSURL
+		if url == "" || sibling[1].StreamURL+sibling[1].HLSURL != url {
+			t.Errorf("%s: the sibling's tracks %+v", name, sibling)
+			continue
+		}
+		switch profileName {
+		case "chrome":
+			// a browser hears the second languages through the audio packages
+			if info.Tier != playback.TierRemux || sibling[0].HLSURL == "" {
+				t.Errorf("%s: tier %s, sibling %+v", name, info.Tier, sibling[0])
+				continue
+			}
+			e.checkHLS(t, name, info.StreamURL, film, true)
+			e.checkHLS(t, name+" sibling", sibling[0].HLSURL, german, true)
+		case "apple":
+			// AVPlayer switches the files' own tracks
+			if info.Tier != playback.TierDirect || sibling[0].StreamURL == "" {
+				t.Errorf("%s: tier %s, sibling %+v", name, info.Tier, sibling[0])
+				continue
+			}
+			e.checkAVPlayer(t, name+" sibling", sibling[0].StreamURL, nil)
+		}
 	}
 }
 

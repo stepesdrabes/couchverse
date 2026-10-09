@@ -3325,14 +3325,15 @@
         "additionalProperties": false,
         "properties": {
           "default": {
+            "description": "Plays without a choice; always one of this file's own.",
             "type": "boolean"
           },
           "hlsUrl": {
-            "description": "HLS multivariant playlist of a file track that does not direct-play.",
+            "description": "The multivariant playlist of the sibling file the track is in, when that file does not direct-play.",
             "type": "string"
           },
           "id": {
-            "description": "The media file id of a file track; embedded:\u003cstream index\u003e for an embedded one.",
+            "description": "The media file id of a file track; embedded:\u003cmedia file id\u003e:\u003cstream index\u003e for an embedded one.",
             "type": "string"
           },
           "label": {
@@ -3343,6 +3344,7 @@
             "type": "string"
           },
           "source": {
+            "description": "file: a whole file in one language; embedded: one of a file's tracks, switched inside it.",
             "enum": [
               "file",
               "embedded"
@@ -3350,7 +3352,7 @@
             "type": "string"
           },
           "streamUrl": {
-            "description": "Direct stream of a file track that direct-plays.",
+            "description": "The direct stream of the sibling file the track is in, which plays in place of this one. Absent for this file's own tracks, which play from its source at the chosen quality.",
             "type": "string"
           }
         },
@@ -3409,7 +3411,7 @@
             "type": "boolean"
           },
           "audio": {
-            "description": "Selectable audio languages; absent when there is only one.",
+            "description": "Selectable audio, one menu across this file's tracks and its separate-language siblings. A file's embedded tracks are listed together, in the order its player lists them. Absent when there is only one choice.",
             "items": {
               "$ref": "#/components/schemas/PlaybackAudioTrack"
             },

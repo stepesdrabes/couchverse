@@ -1013,19 +1013,22 @@ export interface PasswordChange {
 }
 
 export interface PlaybackAudioTrack {
+	/** Plays without a choice; always one of this file's own. */
 	default: boolean;
-	/** HLS multivariant playlist of a file track that does not direct-play. */
+	/** The multivariant playlist of the sibling file the track is in, when that file does not direct-play. */
 	hlsUrl?: string;
-	/** The media file id of a file track; embedded:<stream index> for an embedded one. */
+	/** The media file id of a file track; embedded:<media file id>:<stream index> for an embedded one. */
 	id: string;
 	label: string;
 	/** Language code (en, cs), as in the HLS audio renditions; und when unknown. */
 	lang: string;
+	/** file: a whole file in one language; embedded: one of a file's tracks, switched inside it. */
 	source: PlaybackAudioTrackSource;
-	/** Direct stream of a file track that direct-plays. */
+	/** The direct stream of the sibling file the track is in, which plays in place of this one. Absent for this file's own tracks, which play from its source at the chosen quality. */
 	streamUrl?: string;
 }
 
+/** file: a whole file in one language; embedded: one of a file's tracks, switched inside it. */
 export type PlaybackAudioTrackSource = 'file' | 'embedded';
 
 export interface PlaybackDisplay {
@@ -1041,7 +1044,7 @@ export interface PlaybackDisplay {
 
 export interface PlaybackInfo {
 	allowRandomPlayback: boolean;
-	/** Selectable audio languages; absent when there is only one. */
+	/** Selectable audio, one menu across this file's tracks and its separate-language siblings. A file's embedded tracks are listed together, in the order its player lists them. Absent when there is only one choice. */
 	audio?: PlaybackAudioTrack[];
 	currentEpisodeId?: string;
 	display: PlaybackDisplay;

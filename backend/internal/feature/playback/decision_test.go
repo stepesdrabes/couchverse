@@ -70,8 +70,12 @@ func video(codec, profile string, depth int, hdr string) media.VideoStream {
 var (
 	h264MP4 = Source{Container: "mp4", VideoCodec: "h264", Video: video("h264", "high", 8, media.HDRNone),
 		Width: 1920, Height: 1080, Bitrate: 5_000_000, Audio: []media.AudioStream{audio(1, "aac", 2)}, Available: true}
-	h264MP4Subs = with(h264MP4, func(s *Source) { s.Subtitles = 2 })
-	h264AC3MKV  = with(h264MP4, func(s *Source) {
+	h264MP4Subs      = with(h264MP4, func(s *Source) { s.Subtitles = 2 })
+	h264TwoLanguages = with(h264MP4, func(s *Source) {
+		s.Audio = []media.AudioStream{audio(1, "aac", 2), audio(2, "aac", 2)}
+		s.Audio[0].Lang, s.Audio[1].Lang = "eng", "ces"
+	})
+	h264AC3MKV = with(h264MP4, func(s *Source) {
 		s.Container, s.Audio = "mkv", []media.AudioStream{audio(1, "ac3", 6)}
 	})
 	hevcHDR10MKV = Source{Container: "mkv", VideoCodec: "hevc", Video: video("hevc", "main10", 10, media.HDR10),
@@ -141,10 +145,10 @@ func TestDecide(t *testing.T) {
 		{"android tv hdr10 mkv", androidTV, hevcHDR10MKV, nothing, jitOff, Decision{Tier: TierDirect, Mode: "direct"}},
 		{"chrome hdr10 preparing", chrome, hevcHDR10MKV, preparing, jitOn, Decision{Mode: "preparing"}},
 		{"chrome hdr10 jit", chrome, hevcHDR10MKV, nothing, jitOn,
-			Decision{Tier: TierTranscode, Mode: "jit", JIT: &JITPlan{Video: "transcode", AudioStream: 1, Audio: "aac"}}},
+			Decision{Tier: TierTranscode, Mode: "jit", JIT: &JITPlan{Video: "transcode", AudioStream: 1, Audio: "aac"}, DefaultAudioOnly: true}},
 		// instant play encodes the video but passes E-AC-3 through to the Apple TV
 		{"apple tv hdr10 jit keeps the audio", appleTV, hevcHDR10MKV, nothing, jitOn,
-			Decision{Tier: TierTranscode, Mode: "jit", JIT: &JITPlan{Video: "transcode", AudioStream: 1, Audio: "copy"}}},
+			Decision{Tier: TierTranscode, Mode: "jit", JIT: &JITPlan{Video: "transcode", AudioStream: 1, Audio: "copy"}, DefaultAudioOnly: true}},
 		{"chrome hdr10 nothing", chrome, hevcHDR10MKV, nothing, jitOff, Decision{Mode: "unsupported"}},
 		// HLG needs an HLG display
 		{"apple tv hlg", appleTV, hlgMKV, packaged, jitOff,
@@ -177,12 +181,28 @@ func TestDecide(t *testing.T) {
 			Decision{Tier: TierRemux, Mode: "hls", Master: Master{Video: "original", Surround: []string{"eac3", "ac3"}}}},
 		{"android tv dv7 truehd", androidTV, dv7MKV, packaged, jitOff,
 			Decision{Tier: TierRemux, Mode: "hls", Master: Master{Video: "original", Surround: []string{"eac3", "ac3"}}}},
-		// legacy MPEG-TS variants keep playing until prepared again
-		{"chrome legacy", chrome, hevcHDR10MKV, legacy, jitOff, Decision{Tier: TierTranscode, Mode: "hls", Master: Master{Video: "legacy"}}},
+		// legacy MPEG-TS variants keep playing until prepared again, with every
+		// language once the multi-audio remux is there
+		{"chrome legacy", chrome, hevcHDR10MKV, legacy, jitOff,
+			Decision{Tier: TierTranscode, Mode: "hls", Master: Master{Video: "legacy"}, DefaultAudioOnly: true}},
+		{"chrome legacy multiaudio", chrome, hevcHDR10MKV, Prepared{Legacy: PackageReady, LegacyMultiAudio: true}, jitOff,
+			Decision{Tier: TierTranscode, Mode: "hls", Master: Master{Video: "legacy"}}},
 		{"sdr phone no ts", sdrPhone, hevcHDR10MKV, legacy, jitOff, Decision{Mode: "unsupported"}},
 		// a deleted source leaves only what was prepared
 		{"chrome deleted source", chrome, with(h264MP4, func(s *Source) { s.Available = false }), laddered, jitOn,
 			Decision{Tier: TierTranscode, Mode: "hls", Master: Master{Video: "ladder", Surround: []string{}}, Ladder: true}},
+		// a browser hears a second language through the audio package and until then
+		// the default track; AVPlayer switches the file's own, ExoPlayer only when it
+		// decodes them all
+		{"chrome two languages", chrome, h264TwoLanguages, packaged, jitOff,
+			Decision{Tier: TierRemux, Mode: "hls", Master: Master{Video: "original", Surround: []string{}}}},
+		{"chrome two languages not packaged", chrome, h264TwoLanguages, preparing, jitOff,
+			Decision{Tier: TierDirect, Mode: "direct", DefaultAudioOnly: true}},
+		{"apple tv two languages", appleTV, h264TwoLanguages, nothing, jitOff, Decision{Tier: TierDirect, Mode: "direct"}},
+		{"apple tv two languages and subtitles not packaged", appleTV, with(h264TwoLanguages, func(s *Source) { s.Subtitles = 1 }),
+			preparing, jitOff, Decision{Tier: TierDirect, Mode: "direct"}},
+		{"android tv two languages one undecodable", androidTV, with(h264TwoLanguages, func(s *Source) { s.Audio[1].Codec = "truehd" }),
+			preparing, jitOff, Decision{Tier: TierDirect, Mode: "direct", DefaultAudioOnly: true}},
 		// the old GET form keeps its meaning
 		{"legacy caps hevc", LegacyProfile([]string{"hevc"}), hevcSDRMP4, nothing, jitOff, Decision{Tier: TierDirect, Mode: "direct"}},
 		{"legacy caps no hevc", LegacyProfile(nil), hevcSDRMP4, nothing, jitOn,
@@ -199,7 +219,8 @@ func TestDecide(t *testing.T) {
 }
 
 func equalDecision(a, b Decision) bool {
-	if a.Tier != b.Tier || a.Mode != b.Mode || a.Ladder != b.Ladder || a.Master.Video != b.Master.Video {
+	if a.Tier != b.Tier || a.Mode != b.Mode || a.Ladder != b.Ladder || a.Master.Video != b.Master.Video ||
+		a.DefaultAudioOnly != b.DefaultAudioOnly {
 		return false
 	}
 	if len(a.Master.Surround) != len(b.Master.Surround) || !slices.Equal(a.Master.Surround, b.Master.Surround) {
