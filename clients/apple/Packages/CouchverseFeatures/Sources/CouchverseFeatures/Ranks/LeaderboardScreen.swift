@@ -136,15 +136,15 @@ struct LeaderboardScreen: View {
 private struct HiddenNotice: View {
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: Tokens.Spacing.md) { content }
-            VStack(alignment: .leading, spacing: Tokens.Spacing.sm) { content }
+            HStack(spacing: Tokens.Spacing.md) { content(fixed: true) }
+            VStack(alignment: .leading, spacing: Tokens.Spacing.sm) { content(fixed: false) }
         }
         .padding(Tokens.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Tokens.Palette.surface2, in: RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous))
     }
 
-    @ViewBuilder private var content: some View {
+    @ViewBuilder private func content(fixed: Bool) -> some View {
         Label(L10n.leaderboardHiddenNotice, systemImage: "eye.slash")
             .typeRole(Tokens.TypeRamp.body)
             .foregroundStyle(Tokens.Palette.mutedText)
@@ -154,7 +154,7 @@ private struct HiddenNotice: View {
             Text(L10n.leaderboardHiddenAction)
         }
         .secondaryAction()
-        .fixedSize()
+        .fixedWidth(fixed)
     }
 }
 
@@ -285,15 +285,22 @@ private struct LeaderLine: View {
 
     var body: some View {
         let metal = medal && (1...3).contains(row.position) ? RanksStyle.podium[Int(row.position) - 1] : nil
-        HStack(spacing: Tokens.Spacing.md) {
-            Text(place)
-                .typeRole(Tokens.TypeRamp.card)
-                .foregroundStyle(metal?.ring ?? Tokens.Palette.mutedText)
-                .monospacedDigit()
-                .frame(width: placeWidth)
-            AvatarView(url: row.avatar?.url, seed: row.username, name: row.displayName)
-                .frame(width: avatarSize, height: avatarSize)
-                .accessibilityHidden(true)
+        // stacked on touch devices, the words go under the place and the avatar too; a TV has the room
+        let layout =
+            stacked && !Idiom.isTV
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Tokens.Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Tokens.Spacing.md))
+        layout {
+            HStack(spacing: Tokens.Spacing.md) {
+                Text(place)
+                    .typeRole(Tokens.TypeRamp.card)
+                    .foregroundStyle(metal?.ring ?? Tokens.Palette.mutedText)
+                    .monospacedDigit()
+                    .frame(width: placeWidth)
+                AvatarView(url: row.avatar?.url, seed: row.username, name: row.displayName)
+                    .frame(width: avatarSize, height: avatarSize)
+                    .accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
                 HStack(spacing: Tokens.Spacing.sm) {
                     Text(row.displayName)
