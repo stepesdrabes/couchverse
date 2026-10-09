@@ -52,7 +52,7 @@ struct SearchScreen: View {
                         Label(L10n.commonRetry, systemImage: "arrow.clockwise")
                     }
                     .primaryAction()
-                    .fixedSize()
+                    .fixedWidthIfItFits()
                 }
             default:
                 CatalogMessage(

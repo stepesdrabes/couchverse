@@ -45,7 +45,7 @@ struct LoadFailed: View {
                 Label(L10n.commonRetry, systemImage: "arrow.clockwise")
             }
             .primaryAction()
-            .fixedSize()
+            .fixedWidthIfItFits()
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Idiom.isTV ? 120 : 64)
