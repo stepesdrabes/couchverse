@@ -6,6 +6,7 @@ import SwiftUI
 public struct ProblemBanner: View {
     let problem: Problem
     let retry: (() -> Void)?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     public init(_ problem: Problem, retry: (() -> Void)? = nil) {
         self.problem = problem
@@ -13,15 +14,22 @@ public struct ProblemBanner: View {
     }
 
     public var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Tokens.Spacing.md) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(Tokens.Palette.danger)
-                .accessibilityHidden(true)
-            Text(problem.message)
-                .typeRole(Tokens.TypeRamp.body)
-                .foregroundStyle(Tokens.Palette.text)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
+        // at the accessibility sizes the message takes the whole width and Retry goes under it
+        let layout =
+            dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Tokens.Spacing.md))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Tokens.Spacing.md))
+        layout {
+            HStack(alignment: .firstTextBaseline, spacing: Tokens.Spacing.md) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Tokens.Palette.danger)
+                    .accessibilityHidden(true)
+                Text(problem.message)
+                    .typeRole(Tokens.TypeRamp.body)
+                    .foregroundStyle(Tokens.Palette.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let retry {
                 Button(L10n.commonRetry, action: retry)
                     .secondaryAction()
