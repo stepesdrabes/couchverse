@@ -115,19 +115,25 @@ struct SignInScreen: View {
                 .typeRole(Tokens.TypeRamp.title)
                 .foregroundStyle(Tokens.Palette.text)
                 .accessibilityAddTraits(.isHeader)
-            HStack(spacing: Tokens.Spacing.sm) {
-                Text(server.map { PairingPanel.displayed($0.url) } ?? "")
-                    .typeRole(Tokens.TypeRamp.caption)
-                    .foregroundStyle(Tokens.Palette.mutedText)
-                if server?.insecure == true {
-                    InsecureBadge()
-                }
+            // the badge under the address where the two do not fit on a line
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Tokens.Spacing.sm) { address }
+                VStack(alignment: .leading, spacing: Tokens.Spacing.xs) { address }
             }
             if let onChangeServer {
                 Button(L10n.accountsChangeServer, action: onChangeServer)
                     .buttonStyle(.borderless)
                     .typeRole(Tokens.TypeRamp.caption)
             }
+        }
+    }
+
+    @ViewBuilder private var address: some View {
+        Text(server.map { PairingPanel.displayed($0.url) } ?? "")
+            .typeRole(Tokens.TypeRamp.caption)
+            .foregroundStyle(Tokens.Palette.mutedText)
+        if server?.insecure == true {
+            InsecureBadge()
         }
     }
 

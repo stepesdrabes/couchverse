@@ -23,7 +23,7 @@ struct PairingPanel: View {
             if let pairing {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .center, spacing: Tokens.Spacing.xxl) { content(pairing) }
-                    VStack(alignment: .leading, spacing: Tokens.Spacing.xl) { content(pairing) }
+                    VStack(alignment: .leading, spacing: Tokens.Spacing.xl) { content(pairing, stacked: true) }
                 }
             } else if loading {
                 HStack(alignment: .center, spacing: Tokens.Spacing.xxl) {
@@ -43,17 +43,27 @@ struct PairingPanel: View {
                     ActionLabel(L10n.accountsPairingNewCode, systemImage: "qrcode")
                 }
                 .secondaryAction()
-                .fixedSize()
+                .fixedWidthIfItFits()
             }
         }
     }
 
-    @ViewBuilder private func content(_ pairing: PairingView) -> some View {
+    /// Stacked, the QR code is never wider than the panel, as its scaled size would be at the
+    /// largest text sizes, and the width alone sets its size.
+    @ViewBuilder private func content(_ pairing: PairingView, stacked: Bool = false) -> some View {
         let waiting = pairing.state == .waiting
-        QRCodeView(pairing.verifyUrl)
-            .frame(width: qrSize, height: qrSize)
-            .opacity(waiting ? 1 : 0.2)
-            .motion(Tokens.Motion.smooth, value: waiting)
+        Group {
+            if stacked {
+                QRCodeView(pairing.verifyUrl)
+                    .frame(maxWidth: qrSize)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                QRCodeView(pairing.verifyUrl)
+                    .frame(width: qrSize, height: qrSize)
+            }
+        }
+        .opacity(waiting ? 1 : 0.2)
+        .motion(Tokens.Motion.smooth, value: waiting)
         VStack(alignment: .leading, spacing: Tokens.Spacing.lg) {
             Text(L10n.accountsPairingInstructions)
                 .typeRole(Tokens.TypeRamp.body)
@@ -100,7 +110,7 @@ struct PairingPanel: View {
                     ActionLabel(L10n.accountsPairingNewCode, systemImage: "arrow.clockwise")
                 }
                 .primaryAction()
-                .fixedSize()
+                .fixedWidthIfItFits()
             }
         }
     }
