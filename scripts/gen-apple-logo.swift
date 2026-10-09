@@ -1,6 +1,7 @@
-// Renders the Apple app icons, tvOS image stacks and Top Shelf images from clients/web/static/logo.svg.
+// Makes the Apple apps' logo assets from clients/web/static/logo.svg: the path CouchverseLogo fills,
+// the app icons, the tvOS image stacks and the Top Shelf images.
 //
-// usage (from the repository root): swift scripts/gen-apple-icons.swift
+// usage (from the repository root): swift scripts/gen-apple-logo.swift
 // No SVG rasterizer is needed: the logo is one path of absolute M, L, H, V, C and Z commands,
 // drawn with Core Graphics in the default accent and its on-accent white.
 import CoreGraphics
@@ -20,7 +21,24 @@ let svg = try String(contentsOfFile: "clients/web/static/logo.svg", encoding: .u
 let viewBox = attribute("viewBox", in: svg).split(separator: " ").compactMap { Double($0) }
 guard viewBox.count == 4 else { fail("logo.svg has no viewBox") }
 let logoSize = CGSize(width: viewBox[2], height: viewBox[3])
-let logo = outline(attribute("d", in: svg))
+let pathData = attribute("d", in: svg)
+let logo = outline(pathData)
+
+// the shape the apps and their widgets draw, the same path wrapped at its spaces
+let swift = "\(apple)/Packages/CouchverseCore/Sources/CouchverseShared/CouchverseLogoPath.swift"
+let lines = wrapped(pathData, width: 110).map { "        \($0)" }.joined(separator: "\n")
+let source = """
+    extension CouchverseLogo {
+        /// The `d` attribute of `clients/web/static/logo.svg`, written by `scripts/gen-apple-logo.swift`
+        /// (`LogoTests` checks that the two still match).
+        static let pathData = \"\"\"
+    \(lines)
+            \"\"\"
+    }
+
+    """
+try source.write(toFile: swift, atomically: true, encoding: .utf8)
+print("wrote \(swift)")
 
 // iPhone and iPad: the white logo across two thirds of the accent square, like Android's launcher
 // icon; dark and tinted on a clear background, which the system fills
@@ -122,6 +140,21 @@ func write(_ image: CGImage, _ path: String) {
     CGImageDestinationAddImage(destination, image, options)
     guard CGImageDestinationFinalize(destination) else { fail("cannot write \(path)") }
     print("wrote \(path) (\(image.width)x\(image.height))")
+}
+
+/// `text` broken at its spaces into lines of at most `width` characters.
+func wrapped(_ text: String, width: Int) -> [String] {
+    var lines: [String] = []
+    var line = ""
+    for word in text.split(separator: " ", omittingEmptySubsequences: false) {
+        if !line.isEmpty && line.count + 1 + word.count > width {
+            lines.append(line)
+            line = String(word)
+        } else {
+            line = line.isEmpty ? String(word) : "\(line) \(word)"
+        }
+    }
+    return lines + [line]
 }
 
 /// The value of the first `name="..."` in `text`.

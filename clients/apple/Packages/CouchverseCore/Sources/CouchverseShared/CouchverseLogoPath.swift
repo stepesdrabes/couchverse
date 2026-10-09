@@ -1,6 +1,6 @@
 extension CouchverseLogo {
-    /// The `d` attribute of `clients/web/static/logo.svg`, wrapped at its spaces (`LogoTests` checks
-    /// that the two still match).
+    /// The `d` attribute of `clients/web/static/logo.svg`, written by `scripts/gen-apple-logo.swift`
+    /// (`LogoTests` checks that the two still match).
     static let pathData = """
         M947.485 382.737C1001.38 382.737 1045.08 426.432 1045.07 480.335C1045.07 534.232 1001.38 577.922 947.482
         577.922C945.757 577.922 944.048 577.873 942.344 577.785V631.809C942.349 632.204 942.376 632.597 942.376

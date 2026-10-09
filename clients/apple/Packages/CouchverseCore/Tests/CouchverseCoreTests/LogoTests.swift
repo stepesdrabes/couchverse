@@ -26,7 +26,7 @@ struct LogoTests {
         #expect(try Self.attribute("viewBox", in: svg) == "0 0 1046 745")
         #expect(
             CouchverseLogo.pathData.replacingOccurrences(of: "\n", with: " ") == (try Self.attribute("d", in: svg)),
-            "paste the new logo's d attribute into CouchverseLogoPath.swift")
+            "the logo changed: run swift scripts/gen-apple-logo.swift")
     }
 
     @Test func everyCommandInItIsDrawn() {
