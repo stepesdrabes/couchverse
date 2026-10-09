@@ -41,6 +41,7 @@ nonisolated struct ContinueProvider: TimelineProvider {
 struct ContinueWatchingView: View {
     let snapshot: ShelfSnapshot?
     @Environment(\.widgetFamily) private var family
+    @ScaledMetric(relativeTo: .headline) private var logoWidth: CGFloat = 24
 
     private var items: [ShelfSnapshot.ContinueItem] {
         Array((snapshot?.continueWatching ?? []).prefix(family == .systemSmall ? 1 : 3))
@@ -55,8 +56,7 @@ struct ContinueWatchingView: View {
                     .font(.headline)
                     .lineLimit(1)
             } icon: {
-                Image(systemName: "sofa.fill")
-                    .foregroundStyle(accent)
+                LogoGlyph(color: accent, width: logoWidth)
                     .widgetAccentable()
             }
             if items.isEmpty {

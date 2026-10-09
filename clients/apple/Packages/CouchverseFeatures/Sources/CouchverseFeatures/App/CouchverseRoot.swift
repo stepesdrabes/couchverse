@@ -148,12 +148,11 @@ struct LaunchView: View {
     var body: some View {
         ZStack {
             GlowBackdrop(tint: accent.color, intensity: 0.8)
-            Image(systemName: "sofa.fill")
-                .font(.system(size: Idiom.isTV ? 140 : 72, weight: .semibold))
-                .foregroundStyle(accent.color)
-                .shadow(color: accent.color.opacity(0.6), radius: 30)
-                .accessibilityLabel("Couchverse")
+            LogoMark(size: Idiom.isTV ? 160 : 72)
+                .shadow(color: accent.color.opacity(0.5), radius: 30)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Couchverse")
     }
 }
 

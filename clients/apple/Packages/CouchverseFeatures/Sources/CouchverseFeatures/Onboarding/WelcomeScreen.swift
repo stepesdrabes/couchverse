@@ -19,11 +19,8 @@ struct WelcomeScreen: View {
             GlowBackdrop(tint: accent.color)
             ScrollView {
                 VStack(spacing: Idiom.isTV ? Tokens.Spacing.xxxl : Tokens.Spacing.xl) {
-                    Image(systemName: "sofa.fill")
-                        .font(.system(size: Idiom.isTV ? 120 : 64, weight: .semibold))
-                        .foregroundStyle(accent.color)
-                        .shadow(color: accent.color.opacity(0.6), radius: 30)
-                        .accessibilityHidden(true)
+                    LogoMark(size: Idiom.isTV ? 160 : 72)
+                        .shadow(color: accent.color.opacity(0.5), radius: 30)
                     VStack(spacing: Tokens.Spacing.md) {
                         Text(L10n.onboardingWelcomeTitle)
                             .typeRole(Tokens.TypeRamp.hero)

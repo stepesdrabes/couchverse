@@ -41,13 +41,13 @@ struct CouchLiveActivity: Widget {
                         .lineLimit(1)
                 }
             } compactLeading: {
-                Image(systemName: "sofa.fill").foregroundStyle(accent)
+                LogoGlyph(color: accent, width: 24)
             } compactTrailing: {
                 Text(content.count, format: .number)
                     .monospacedDigit()
                     .accessibilityLabel(content.membersLine)
             } minimal: {
-                Image(systemName: "sofa.fill").foregroundStyle(accent)
+                LogoGlyph(color: accent, width: 24)
             }
             .keylineTint(accent)
         }
@@ -57,13 +57,11 @@ struct CouchLiveActivity: Widget {
 private struct CouchLockScreen: View {
     let content: CouchActivityContent
     let stale: Bool
+    @ScaledMetric(relativeTo: .title2) private var logoWidth: CGFloat = 34
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            Image(systemName: "sofa.fill")
-                .font(.title2)
-                .foregroundStyle(Color(accent: content.accent))
-                .accessibilityHidden(true)
+            LogoGlyph(color: Color(accent: content.accent), width: logoWidth)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: content.heading)
                     .font(.caption)

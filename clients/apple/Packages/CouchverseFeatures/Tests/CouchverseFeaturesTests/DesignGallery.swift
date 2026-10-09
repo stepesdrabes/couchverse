@@ -10,7 +10,10 @@ struct DesignGallery: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Tokens.Spacing.xl) {
-                Text("Couchverse").typeRole(Tokens.TypeRamp.hero)
+                HStack(spacing: Tokens.Spacing.md) {
+                    LogoMark(size: 56)
+                    Text("Couchverse").typeRole(Tokens.TypeRamp.hero)
+                }
                 HStack(spacing: Tokens.Spacing.lg) {
                     AvatarView(url: nil, seed: "nora", name: "Nora").frame(width: 64, height: 64)
                     AvatarView(url: nil, seed: "admin", name: "Admin").frame(width: 64, height: 64)

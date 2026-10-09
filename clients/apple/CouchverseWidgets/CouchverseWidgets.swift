@@ -19,3 +19,17 @@ extension Color {
         self.init(red: color.red, green: color.green, blue: color.blue)
     }
 }
+
+/// The Couchverse logo in one colour, `width` points wide: what tells a widget or an activity apart
+/// as the app's.
+struct LogoGlyph: View {
+    let color: Color
+    let width: CGFloat
+
+    var body: some View {
+        CouchverseLogo()
+            .fill(color)
+            .frame(width: width, height: width / CouchverseLogo.aspectRatio)
+            .accessibilityHidden(true)
+    }
+}
