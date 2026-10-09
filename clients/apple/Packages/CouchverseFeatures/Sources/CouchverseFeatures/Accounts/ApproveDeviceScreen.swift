@@ -65,13 +65,9 @@ struct ApproveDeviceScreen: View {
         Text(L10n.accountsPairingInstructions)
             .typeRole(Tokens.TypeRamp.body)
             .foregroundStyle(Tokens.Palette.mutedText)
+        // kept as typed and grouped when sent: rewriting the field's text while it is being typed
+        // into drops the keystrokes that follow
         FormField(L10n.pairingCodeLabel, text: $code, prompt: "XXXX-XXXX", kind: .code)
-            .onChange(of: code) { _, typed in
-                let formatted = UserCodeInput.format(typed)
-                if formatted != typed {
-                    code = formatted
-                }
-            }
             .submitLabel(.continue)
             .onSubmit(submitCode)
             .accessibilityIdentifier("pairing-code-field")
@@ -196,7 +192,7 @@ struct ApproveDeviceScreen: View {
 
     private func submitCode() {
         guard UserCodeInput.isComplete(code) else { return }
-        open { core.send(.pairingApprovalOpened(UserCode(code: code))) }
+        open { core.send(.pairingApprovalOpened(UserCode(code: UserCodeInput.format(code)))) }
     }
 
     private func open(_ send: () -> Void) {
@@ -206,8 +202,8 @@ struct ApproveDeviceScreen: View {
     }
 }
 
-/// A pairing user code as typed: letters only (the server's alphabet has no digits or vowels to
-/// mistake), upper case, grouped `XXXX-XXXX`.
+/// A pairing user code read from what was typed: letters only (the server's alphabet has no
+/// digits or vowels to mistake), upper case, grouped `XXXX-XXXX`.
 enum UserCodeInput {
     static func format(_ typed: String) -> String {
         let letters = typed.uppercased().filter { $0.isASCII && $0.isLetter }.prefix(8)
