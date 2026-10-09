@@ -61,11 +61,18 @@ struct CelebrationCard: View {
     let card: AchievementCard
 
     @Environment(\.ambience) private var ambience
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let medal = RanksStyle.medal(card.tier)
         let reward = "\(RanksWords.medal(card.tier)) \u{00B7} \(L10n.achievementReward(xp: RanksWords.number(card.xp)))"
-        HStack(alignment: .center, spacing: Idiom.isTV ? Tokens.Spacing.xl : Tokens.Spacing.lg) {
+        // at the largest text sizes on a phone or tablet the medal goes above the words, which
+        // need the width
+        let layout =
+            dynamicTypeSize.isAccessibilitySize && !Idiom.isTV
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Tokens.Spacing.md))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: Idiom.isTV ? Tokens.Spacing.xl : Tokens.Spacing.lg))
+        layout {
             MedalBadge(card: card, size: Idiom.isTV ? 104 : 60)
             VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
                 Text(L10n.achievementUnlocked)
