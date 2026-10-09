@@ -151,8 +151,8 @@ data class AppView (
 @Serializable
 data class AudioRendition (
 	val lang: String,
-	/// Its place among the stream's renditions, in the payload's order: two can share a
-	/// language (a film's own track and a commentary, or two codecs).
+	/// Its place among the source's audio renditions, in the payload's order: two can share
+	/// a language (a film's own track and a commentary, or two codecs).
 	val index: UInt? = null
 )
 
@@ -1458,6 +1458,8 @@ data class PlayerLoad (
 	val subtitle: String? = null,
 	/// The embedded audio rendition to start with.
 	val audioLang: String? = null,
+	/// That rendition's place among the source's, as in `AudioRendition`.
+	val audioIndex: UInt? = null,
 	/// A couch follower's player: no seeking or pausing of the shared timeline.
 	val linear: Boolean,
 	/// For the system's Now Playing and lock-screen controls.
@@ -2118,7 +2120,7 @@ sealed class PlayerCommand {
 	@Serializable
 	@SerialName("seek")
 	data class Seek(val content: PlayerSeek): PlayerCommand()
-	/// Switch to the stream's embedded audio rendition in this language.
+	/// Switch to an embedded audio rendition of the source that plays.
 	@Serializable
 	@SerialName("selectAudio")
 	data class SelectAudio(val content: AudioRendition): PlayerCommand()

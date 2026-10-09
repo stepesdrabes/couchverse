@@ -162,7 +162,7 @@ fn qualities_and_audio_files_reload_where_playback_was() {
     let mut shell = signed_in();
     let mut payload = info("direct");
     payload["audio"] = json!([
-        { "id": "a-en", "lang": "en", "label": "English", "default": true, "source": "file", "streamUrl": format!("{API}/media/{GRANT}/stream") },
+        { "id": "a-en", "lang": "en", "label": "English", "default": true, "source": "file" },
         { "id": "a-cs", "lang": "cs", "label": "Čeština", "default": false, "source": "file", "streamUrl": format!("{API}/media/g-cs/stream") },
     ]);
     play(&mut shell, movie(), payload);
@@ -203,6 +203,123 @@ fn qualities_and_audio_files_reload_where_playback_was() {
     assert!(
         matches!(shell.player.last(), Some(PlayerCommand::SelectAudio(r)) if rendition(r) == ("en".into(), Some(2)))
     );
+}
+
+/// One menu across a film in two languages and its separate-language siblings: the film's own
+/// tracks switch inside its source, a sibling's swap the source for that file's, and coming
+/// back swaps it again, always where playback was.
+#[test]
+fn audio_switches_across_a_titles_files_where_playback_was() {
+    let mut shell = signed_in();
+    let film = format!("{API}/media/{GRANT}/stream");
+    let german = format!("{API}/media/g-de/hls/master.m3u8?video=original");
+    let italian = format!("{API}/media/g-it/stream");
+    let mut payload = info("direct");
+    payload["audio"] = json!([
+        { "id": "embedded:f1:1", "lang": "en", "label": "English", "default": true, "source": "embedded" },
+        { "id": "embedded:f1:2", "lang": "cs", "label": "Čeština", "default": false, "source": "embedded" },
+        { "id": "embedded:f2:1", "lang": "de", "label": "Deutsch", "default": false, "source": "embedded", "hlsUrl": german },
+        { "id": "embedded:f2:3", "lang": "en", "label": "Commentary", "default": false, "source": "embedded", "hlsUrl": german },
+        { "id": "f3", "lang": "it", "label": "Italiano", "default": false, "source": "file", "streamUrl": italian },
+    ]);
+    play(&mut shell, movie(), payload);
+    let load = last_load(&shell);
+    assert_eq!(
+        (load.url.as_str(), load.audio_lang.as_deref(), load.audio_index),
+        (film.as_str(), Some("en"), Some(0))
+    );
+    report(&mut shell, 700.0, true);
+    let loads =
+        |shell: &Shell| shell.player.iter().filter(|c| matches!(c, PlayerCommand::Load(_))).count();
+    let switched = |shell: &Shell, lang: &str, index: u32| matches!(shell.player.last(), Some(PlayerCommand::SelectAudio(r)) if r.lang == lang && r.index == Some(index));
+
+    // the film's Czech is in the source that plays
+    let before = loads(&shell);
+    shell.send(Event::AudioChosen(TrackChoice { id: Some("embedded:f1:2".into()) }));
+    assert!(switched(&shell, "cs", 1));
+    assert_eq!(loads(&shell), before);
+
+    // the German sibling's tracks swap the source, then switch inside it
+    shell.send(Event::AudioChosen(TrackChoice { id: Some("embedded:f2:1".into()) }));
+    let load = last_load(&shell);
+    assert_eq!((load.url.as_str(), load.source), (german.as_str(), PlayerSource::Hls));
+    assert_eq!(
+        (load.audio_lang.as_deref(), load.audio_index, load.autoplay),
+        (Some("de"), Some(0), true)
+    );
+    assert!((load.start_seconds - 700.0).abs() < f64::EPSILON);
+    shell.send(Event::AudioChosen(TrackChoice { id: Some("embedded:f2:3".into()) }));
+    assert!(switched(&shell, "en", 1));
+
+    // back to the film's own: its source again, on the chosen track, paused as it was
+    shell.now += 1_000;
+    report(&mut shell, 701.0, false);
+    shell.send(Event::AudioChosen(TrackChoice { id: Some("embedded:f1:2".into()) }));
+    let load = last_load(&shell);
+    assert_eq!((load.url.as_str(), load.source), (film.as_str(), PlayerSource::File));
+    assert_eq!(
+        (load.audio_lang.as_deref(), load.audio_index, load.autoplay),
+        (Some("cs"), Some(1), false)
+    );
+    assert!((load.start_seconds - 701.0).abs() < f64::EPSILON);
+
+    // a sibling in one language plays its own file whatever the film's quality, which
+    // applies again on the way back
+    shell.send(Event::QualityChosen(QualityChoice { key: "720p".into() }));
+    shell.send(Event::AudioChosen(TrackChoice { id: Some("f3".into()) }));
+    let load = last_load(&shell);
+    assert_eq!(
+        (load.url.as_str(), load.source, load.max_height),
+        (italian.as_str(), PlayerSource::File, None)
+    );
+    assert_eq!((load.audio_lang.as_deref(), load.audio_index), (Some("it"), None));
+    let view: PlayerView = shell.view(&Surface::Player);
+    assert_eq!((view.audio.len(), view.audio_selected.as_deref()), (5, Some("f3")));
+    shell.send(Event::AudioChosen(TrackChoice { id: Some("embedded:f1:1".into()) }));
+    let load = last_load(&shell);
+    assert_eq!(
+        (load.source, load.max_height, load.audio_index),
+        (PlayerSource::Hls, Some(720), Some(0))
+    );
+}
+
+/// A title on an instant-play session swaps to a separate-language file and back to the session.
+#[test]
+fn an_instant_play_session_gives_way_to_a_sibling_and_back() {
+    let mut shell = signed_in();
+    let czech = format!("{API}/media/g-cs/stream");
+    let mut payload = info("jit");
+    payload["audio"] = json!([
+        { "id": "f1", "lang": "en", "label": "English", "default": true, "source": "file" },
+        { "id": "f2", "lang": "cs", "label": "Čeština", "default": false, "source": "file", "streamUrl": czech },
+    ]);
+    play(&mut shell, movie(), payload);
+    let session = format!("{API}/media/{GRANT}/jit/sid1/index.m3u8");
+    shell.respond(
+        "POST",
+        &format!("{API}/media/{GRANT}/jit"),
+        201,
+        json!({ "sessionId": "sid1", "playlistUrl": session }),
+    );
+    assert_eq!(last_load(&shell).url, session);
+
+    shell.send(Event::AudioChosen(TrackChoice { id: Some("f2".into()) }));
+    assert_eq!((last_load(&shell).url, last_load(&shell).source), (czech, PlayerSource::File));
+    shell.send(Event::AudioChosen(TrackChoice { id: Some("f1".into()) }));
+    assert_eq!((last_load(&shell).url, last_load(&shell).source), (session, PlayerSource::Hls));
+
+    // a fresh payload after a failure that plays the ladder prepared meanwhile leaves the
+    // session behind
+    shell.send(Event::PlayerReported(PlayerReport {
+        position_seconds: 30.0,
+        duration_seconds: 2400.0,
+        playing: false,
+        buffering: false,
+        ended: false,
+        failed: Some("forbidden".into()),
+    }));
+    shell.respond("GET", &format!("{API}/playback/movie/m1?lang=en"), 200, info("hls"));
+    assert_eq!(last_load(&shell).url, format!("{API}/media/{GRANT}/hls/master.m3u8"));
 }
 
 #[test]

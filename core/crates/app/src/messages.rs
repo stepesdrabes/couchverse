@@ -341,7 +341,7 @@ pub enum PlayerCommand {
     Play,
     Pause,
     Seek(PlayerSeek),
-    /// Switch to the stream's embedded audio rendition in this language.
+    /// Switch to an embedded audio rendition of the source that plays.
     SelectAudio(AudioRendition),
     /// Show this subtitle track, or none.
     SelectSubtitles(SubtitleSelection),
@@ -367,6 +367,9 @@ pub struct PlayerLoad {
     /// The embedded audio rendition to start with.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audio_lang: Option<String>,
+    /// That rendition's place among the source's, as in `AudioRendition`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_index: Option<u32>,
     /// A couch follower's player: no seeking or pausing of the shared timeline.
     pub linear: bool,
     /// For the system's Now Playing and lock-screen controls.
@@ -423,8 +426,8 @@ pub struct PlayerSeek {
 #[serde(rename_all = "camelCase")]
 pub struct AudioRendition {
     pub lang: String,
-    /// Its place among the stream's renditions, in the payload's order: two can share a
-    /// language (a film's own track and a commentary, or two codecs).
+    /// Its place among the source's audio renditions, in the payload's order: two can share
+    /// a language (a film's own track and a commentary, or two codecs).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub index: Option<u32>,
 }

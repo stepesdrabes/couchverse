@@ -131,8 +131,8 @@ export interface AppView {
 export interface AudioRendition {
 	lang: string;
 	/**
-	 * Its place among the stream's renditions, in the payload's order: two can share a
-	 * language (a film's own track and a commentary, or two codecs).
+	 * Its place among the source's audio renditions, in the payload's order: two can share
+	 * a language (a film's own track and a commentary, or two codecs).
 	 */
 	index?: number;
 }
@@ -1115,6 +1115,8 @@ export interface PlayerLoad {
 	subtitle?: string;
 	/** The embedded audio rendition to start with. */
 	audioLang?: string;
+	/** That rendition's place among the source's, as in `AudioRendition`. */
+	audioIndex?: number;
 	/** A couch follower's player: no seeking or pausing of the shared timeline. */
 	linear: boolean;
 	/** For the system's Now Playing and lock-screen controls. */
@@ -1629,7 +1631,7 @@ export type PlayerCommand =
 	| { type: "play", content?: undefined }
 	| { type: "pause", content?: undefined }
 	| { type: "seek", content: PlayerSeek }
-	/** Switch to the stream's embedded audio rendition in this language. */
+	/** Switch to an embedded audio rendition of the source that plays. */
 	| { type: "selectAudio", content: AudioRendition }
 	/** Show this subtitle track, or none. */
 	| { type: "selectSubtitles", content: SubtitleSelection }

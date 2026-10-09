@@ -197,8 +197,8 @@ public struct AppView: Codable, Sendable, Hashable {
 
 public struct AudioRendition: Codable, Sendable, Hashable {
 	public let lang: String
-	/// Its place among the stream's renditions, in the payload's order: two can share a
-	/// language (a film's own track and a commentary, or two codecs).
+	/// Its place among the source's audio renditions, in the payload's order: two can share
+	/// a language (a film's own track and a commentary, or two codecs).
 	public let index: UInt32?
 
 	public init(lang: String, index: UInt32? = nil) {
@@ -2389,12 +2389,14 @@ public struct PlayerLoad: Codable, Sendable, Hashable {
 	public let subtitle: String?
 	/// The embedded audio rendition to start with.
 	public let audioLang: String?
+	/// That rendition's place among the source's, as in `AudioRendition`.
+	public let audioIndex: UInt32?
 	/// A couch follower's player: no seeking or pausing of the shared timeline.
 	public let linear: Bool
 	/// For the system's Now Playing and lock-screen controls.
 	public let nowPlaying: NowPlaying
 
-	public init(url: String, source: PlayerSource, startSeconds: Double, autoplay: Bool, maxHeight: UInt32? = nil, subtitles: [PlayerSubtitle], subtitle: String? = nil, audioLang: String? = nil, linear: Bool, nowPlaying: NowPlaying) {
+	public init(url: String, source: PlayerSource, startSeconds: Double, autoplay: Bool, maxHeight: UInt32? = nil, subtitles: [PlayerSubtitle], subtitle: String? = nil, audioLang: String? = nil, audioIndex: UInt32? = nil, linear: Bool, nowPlaying: NowPlaying) {
 		self.url = url
 		self.source = source
 		self.startSeconds = startSeconds
@@ -2403,6 +2405,7 @@ public struct PlayerLoad: Codable, Sendable, Hashable {
 		self.subtitles = subtitles
 		self.subtitle = subtitle
 		self.audioLang = audioLang
+		self.audioIndex = audioIndex
 		self.linear = linear
 		self.nowPlaying = nowPlaying
 	}
@@ -3622,7 +3625,7 @@ public enum PlayerCommand: Codable, Sendable, Hashable {
 	case play
 	case pause
 	case seek(PlayerSeek)
-	/// Switch to the stream's embedded audio rendition in this language.
+	/// Switch to an embedded audio rendition of the source that plays.
 	case selectAudio(AudioRendition)
 	/// Show this subtitle track, or none.
 	case selectSubtitles(SubtitleSelection)

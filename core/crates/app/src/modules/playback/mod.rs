@@ -8,8 +8,8 @@ mod views;
 
 use couchverse_api::ops::{GetPlaybackQuery, ResolvePlaybackQuery};
 use couchverse_api::types::{
-    GetPlaybackKind, PlaybackAudioTrackSource, PlaybackInfo, PlaybackInfoMode, PlaybackInfoTier,
-    ProgressReport, ResolvePlaybackKind, StreamSession, StreamSessionStart,
+    GetPlaybackKind, PlaybackAudioTrack, PlaybackAudioTrackSource, PlaybackInfo, PlaybackInfoMode,
+    PlaybackInfoTier, ProgressReport, ResolvePlaybackKind, StreamSession, StreamSessionStart,
 };
 use couchverse_api::{Call, ops};
 use serde::{Deserialize, Serialize};
@@ -312,6 +312,8 @@ struct Jit {
     grant: String,
     session: String,
     keepalive: U53,
+    /// The session's multivariant playlist, the payload's source while it lasts.
+    playlist: String,
 }
 
 /// What follows this title, decided once near the end so the countdown and the jump agree.
@@ -637,31 +639,25 @@ impl Playback {
 
     pub fn choose_audio(&mut self, ctx: &mut Ctx, id: Option<&str>) {
         let Some(session) = self.session.as_mut() else { return };
-        let Some(track) = session
-            .info
-            .as_ref()
-            .and_then(|i| i.audio.as_ref()?.iter().find(|t| Some(t.id.as_str()) == id).cloned())
-        else {
+        let Some(info) = &session.info else { return };
+        let Some(track) = info.audio.iter().flatten().find(|t| Some(t.id.as_str()) == id) else {
             return;
         };
         if session.audio.as_deref() == Some(track.id.as_str()) {
             return;
         }
-        session.audio = Some(track.id.clone());
-        self.prefs.audio_lang = Some(track.lang.clone());
-        if track.source == PlaybackAudioTrackSource::Embedded {
-            // a rendition inside the stream switches in place
-            let index = session.info.as_ref().and_then(|i| {
-                i.audio
-                    .iter()
-                    .flatten()
-                    .filter(|t| t.source == PlaybackAudioTrackSource::Embedded)
-                    .position(|t| t.id == track.id)
-                    .and_then(|p| u32::try_from(p).ok())
-            });
-            ctx.player(PlayerCommand::SelectAudio(AudioRendition { lang: track.lang, index }));
+        // a rendition of the source that plays switches inside it; anything else, another
+        // file or this one again after a sibling, reloads where playback was
+        let playing = selected_audio(session, info).map_or((None, None), file_of);
+        let switch = (track.source == PlaybackAudioTrackSource::Embedded
+            && file_of(track) == playing)
+            .then(|| AudioRendition { lang: track.lang.clone(), index: rendition(info, track) });
+        let (id, lang) = (track.id.clone(), track.lang.clone());
+        session.audio = Some(id);
+        self.prefs.audio_lang = Some(lang);
+        if let Some(rendition) = switch {
+            ctx.player(PlayerCommand::SelectAudio(rendition));
         } else {
-            // another language is another file: reload it where playback was
             let (start, autoplay) = (session.position, session.playing);
             self.load(ctx, start, autoplay);
         }
@@ -838,8 +834,16 @@ impl Playback {
         let Some(session) = self.session.as_mut() else { return };
         let Some(info) = &session.info else { return };
         let keepalive = ctx.every(KEEPALIVE_MS, pending);
-        session.jit =
-            Some(Jit { grant: info.grant.clone(), session: started.session_id, keepalive });
+        let playlist = env.map_or_else(
+            || started.playlist_url.clone(),
+            |e| e.endpoint.absolute(&started.playlist_url),
+        );
+        session.jit = Some(Jit {
+            grant: info.grant.clone(),
+            session: started.session_id,
+            keepalive,
+            playlist,
+        });
         session.status = LoadStatus::Loaded;
         session.quality = Quality::Auto;
         session.audio = default_audio(info, self.prefs.audio_lang.as_deref());
@@ -847,15 +851,8 @@ impl Playback {
         let saved = info.resume_position as f64;
         session.saved_position = saved;
         session.duration = info.duration_seconds;
-        let url = env.map_or_else(
-            || started.playlist_url.clone(),
-            |e| e.endpoint.absolute(&started.playlist_url),
-        );
         let start = session.position;
-        let load = self.player_load(url, PlayerSource::Hls, None, start, true);
-        if let Some(load) = load {
-            ctx.player(PlayerCommand::Load(load));
-        }
+        self.load(ctx, start, true);
         ctx.render(Surface::Player);
     }
 
@@ -871,30 +868,23 @@ impl Playback {
             }
             return;
         }
-        let file_audio = session.audio.as_ref().and_then(|id| {
-            info.audio
-                .as_ref()?
-                .iter()
-                .find(|t| &t.id == id && t.source != PlaybackAudioTrackSource::Embedded)
-        });
-        let (url, source, max_height) = match (&session.quality, file_audio) {
-            // another language's file plays in place of the main one
-            (Quality::Original, Some(track)) if track.stream_url.is_some() => {
-                (track.stream_url.clone(), PlayerSource::File, None)
-            }
-            (_, Some(track)) if track.hls_url.is_some() => {
-                (track.hls_url.clone(), PlayerSource::Hls, None)
-            }
-            (Quality::Original, _) => {
+        let sibling = selected_audio(session, info).and_then(sibling_source);
+        // a fresh payload may play something else than the session it replaced
+        let jit = session.jit.as_ref().filter(|_| info.mode == PlaybackInfoMode::Jit);
+        let (url, source, max_height) = match (sibling, jit, &session.quality) {
+            // another language's file plays in place of this one, as the server decided for it
+            (Some((url, source)), _, _) => (Some(url), source, None),
+            (None, Some(jit), _) => (Some(jit.playlist.clone()), PlayerSource::Hls, None),
+            (None, None, Quality::Original) => {
                 let (url, source) = original(info);
                 (url, source, None)
             }
-            (Quality::Rendition(name), _) => {
+            (None, None, Quality::Rendition(name)) => {
                 let height =
                     info.variants.iter().flatten().find(|v| &v.name == name).map(|v| v.height);
                 (ladder(info), PlayerSource::Hls, height.and_then(|h| u32::try_from(h).ok()))
             }
-            (Quality::Auto, _) => (ladder(info), PlayerSource::Hls, None),
+            (None, None, Quality::Auto) => (ladder(info), PlayerSource::Hls, None),
         };
         let Some(url) = url else { return };
         if let Some(load) = self.player_load(url, source, max_height, start, autoplay) {
@@ -912,9 +902,7 @@ impl Playback {
     ) -> Option<PlayerLoad> {
         let session = self.session.as_ref()?;
         let info = session.info.as_ref()?;
-        let audio_lang = session.audio.as_ref().and_then(|id| {
-            info.audio.as_ref()?.iter().find(|t| &t.id == id).map(|t| t.lang.clone())
-        });
+        let audio = selected_audio(session, info);
         Some(PlayerLoad {
             url,
             source,
@@ -933,7 +921,8 @@ impl Playback {
                 })
                 .collect(),
             subtitle: session.subtitle.clone(),
-            audio_lang,
+            audio_lang: audio.map(|t| t.lang.clone()),
+            audio_index: audio.and_then(|t| rendition(info, t)),
             linear: session.linear,
             now_playing: NowPlaying {
                 title: info.display.title.clone(),
@@ -1152,6 +1141,41 @@ fn original(info: &PlaybackInfo) -> (Option<String>, PlayerSource) {
 fn ladder(info: &PlaybackInfo) -> Option<String> {
     let stream = info.stream_url.clone().filter(|_| info.mode != PlaybackInfoMode::Direct);
     info.hls_url.clone().or(stream)
+}
+
+/// The audio chosen for the session, while the payload lists it.
+fn selected_audio<'a>(session: &Session, info: &'a PlaybackInfo) -> Option<&'a PlaybackAudioTrack> {
+    let id = session.audio.as_ref()?;
+    info.audio.iter().flatten().find(|t| &t.id == id)
+}
+
+/// The file a track plays from: a separate-language sibling's by its URL, the payload's own by
+/// none.
+fn file_of(track: &PlaybackAudioTrack) -> (Option<&str>, Option<&str>) {
+    (track.stream_url.as_deref(), track.hls_url.as_deref())
+}
+
+/// A sibling's track plays from that file's own source, whatever the payload's quality.
+fn sibling_source(track: &PlaybackAudioTrack) -> Option<(String, PlayerSource)> {
+    match (&track.stream_url, &track.hls_url) {
+        (Some(url), _) => Some((url.clone(), PlayerSource::File)),
+        (None, Some(url)) => Some((url.clone(), PlayerSource::Hls)),
+        (None, None) => None,
+    }
+}
+
+/// An embedded track's place among the renditions of the file it plays from, which the server
+/// lists together in the order the player lists them.
+fn rendition(info: &PlaybackInfo, track: &PlaybackAudioTrack) -> Option<u32> {
+    if track.source != PlaybackAudioTrackSource::Embedded {
+        return None;
+    }
+    info.audio
+        .iter()
+        .flatten()
+        .filter(|t| t.source == PlaybackAudioTrackSource::Embedded && file_of(t) == file_of(track))
+        .position(|t| t.id == track.id)
+        .and_then(|p| u32::try_from(p).ok())
 }
 
 /// The cheapest tier the server chose plays first: the source when it can, else the ladder.
