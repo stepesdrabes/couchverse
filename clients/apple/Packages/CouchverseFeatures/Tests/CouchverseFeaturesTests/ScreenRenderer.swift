@@ -3,9 +3,9 @@ import SwiftUI
 import UIKit
 
 /// Renders a screen the way SnapshotTesting's view-controller strategy does (a window of the
-/// device's size and safe area, the layer drawn at scale 1), but lets SwiftUI settle first and
-/// renders again when it catches a frame before SwiftUI drew anything: package tests have no host
-/// app, so `drawHierarchy` is not available and an early layer render comes out blank.
+/// device's size and safe area, the layer drawn at scale 1), but renders again until SwiftUI has
+/// drawn and settled: package tests have no host app, so `drawHierarchy` is not available and an
+/// early layer render comes out blank, and list cells take their tint a pass after they first draw.
 @MainActor
 enum ScreenRenderer {
     /// The scale of the simulator's screen, which text is rasterized at.
@@ -35,16 +35,19 @@ enum ScreenRenderer {
 
         let format = UIGraphicsImageRendererFormat(for: UITraitCollection(displayScale: 1))
         var image = UIImage()
-        for _ in 0..<6 {
+        var previous: Data?
+        for _ in 0..<8 {
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
             controller.view.frame = window.bounds
             controller.view.layoutIfNeeded()
             image = UIGraphicsImageRenderer(size: size, format: format).image { context in
                 window.layer.render(in: context.cgContext)
             }
-            if !isUniform(image) {
+            let pixels = image.cgImage?.dataProvider?.data as Data?
+            if !isUniform(image), pixels == previous {
                 break
             }
+            previous = pixels
         }
         return image
     }
