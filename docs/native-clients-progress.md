@@ -284,10 +284,19 @@ TV emulators against a local server, the TV signed in by pairing.
 - Done: card zoom transitions on iPhone and iPad (posters and backdrops into titles and back),
   and `CoreRuntime` lets go of title pages, listings, profiles and boards no screen has held for
   five minutes, as Android's runtime drops the surfaces nobody collects (host tests).
-- Pending: recording the snapshot references removed for re-recording (Who's watching; on TV the
-  devices list and the largest-text genres; on iPhone the largest-text genres and next episode)
-  and the new ones (Who's watching and the switcher sheet with rank rings); the Apple checks on
-  devices (docs/apple.md, items 38 to 44); the TalkBack pass, the HTML overview with
+- Done: the real logo and accent in the native apps. Apple draws the web's `logo.svg` as a
+  shape (`CouchverseLogo`, checked against the web's file) and the app mark as the web and
+  Android do (`LogoMark`, in the session's accent) on the welcome and launch screens; the widget
+  and the couch Live Activity show the logo in the session's accent, and the sofa symbol is left
+  to the couch itself. The iPhone and iPad icon (with dark and tinted versions), the Apple TV's
+  image stacks and the Top Shelf images are drawn from `logo.svg` by
+  `scripts/gen-apple-logo.swift`, replacing the sofa symbol on a purple gradient. Snapshot
+  fixtures sign in with the default red instead of a made-up blue. Android already used the logo
+  and the default red everywhere; its widget now shows the logo in the session's accent and the
+  couch notification's small icon is the logo.
+- Pending: recording the Apple references removed for the default red and the app mark (every
+  screen that shows the session's accent, the welcome screen, the design gallery); the Apple
+  checks on devices (docs/apple.md, items 38 to 44); the TalkBack pass, the HTML overview with
   screenshots of every client, cleanup.
 
 ## Release automation (part of Phase 13) - done

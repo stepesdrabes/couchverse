@@ -229,6 +229,27 @@ limit of 10 counts them). From the command line pass it to `xcodebuild` instead:
 compiled, unsigned, but stay out of the apps, and nothing about signing changes: no entitlements,
 no extra App IDs.
 
+## Logo and icons
+
+The logo is the web's `clients/web/static/logo.svg`, one path. The apps draw it as
+`CouchverseLogo`, a shape in `CouchverseShared` (the widgets need it too), and show it as
+`LogoMark`, the web's app mark: the logo in the on-accent colour across 80 percent of a rounded
+square of the server's accent. The app icons are drawn from the same file; after the logo changes,
+run from the repository root
+
+```sh
+swift scripts/gen-apple-logo.swift
+```
+
+It needs nothing beyond Xcode: it reads the path's commands and draws them with Core Graphics.
+It writes the shape's path (`CouchverseLogoPath.swift`; `LogoTests` fails until it matches the
+web's file again), the iPhone and iPad icon (the white logo across two thirds of the default
+accent `#e50914`, plus dark and tinted versions on a clear background, which the system fills),
+the Apple TV's image stacks for the home screen and the App Store (a gradient from the accent into
+the dark background behind, the logo in front, so the focused icon has parallax) and the Top
+Shelf images, standard and wide, at both scales. Look at every image before committing them;
+icons always use the default red, whatever a server's accent.
+
 ## Free personal team limits
 
 Building for your own devices with a free Apple ID works, with these limits (plan 10.9):

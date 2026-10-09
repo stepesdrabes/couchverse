@@ -709,9 +709,9 @@ navigation, nothing else.
   `Generated/Messages.swift`, `CoreRuntime` and the executors (it alone also builds for the Mac,
   for `swift test`), plus `CouchverseShared`, a library without the core for what the apps share
   with their extensions (the shelf snapshot, the `couchverse://` title and play links, the App
-  Group container, the Live Activity's content). `CouchverseDesign`: tokens, typography, the accent
-  environment, components, generated strings. `CouchverseFeatures`: screens by feature folder
-  (`Onboarding`, `Accounts`, `Settings`, `Home`, `Catalog`, `Player`, `Couch`, `Ranks`,
+  Group container, the Live Activity's content, the logo). `CouchverseDesign`: tokens, typography,
+  the accent environment, components, generated strings. `CouchverseFeatures`: screens by feature
+  folder (`Onboarding`, `Accounts`, `Settings`, `Home`, `Catalog`, `Player`, `Couch`, `Ranks`,
   `Downloads`) and `CouchverseRoot`, the view both apps show; `LiveRuntime.make()` returns the
   runtime and the `PlayerController` it drives, which the apps put into the environment, and on
   iPhone and iPad the background session downloads run in.
@@ -963,6 +963,18 @@ navigation, nothing else.
   level chip, flashing once on a level-up), `motion(_:value:)` (an animation that eases instead of
   springing under Reduce Motion) and the contrast-aware `mutedText`, `faintText` and `edgeLine`.
   `Ambience` (`live|still|flat`) quiets the decoration for screenshots and snapshots.
+- **Logo and icons**: the logo is the web's `logo.svg`. `CouchverseLogo` (in `CouchverseShared`,
+  since the widgets draw it too) is its path as a one-colour shape, fitted into its frame; the
+  path is written by `scripts/gen-apple-logo.swift` and held against the web's file by
+  `LogoTests`. `LogoMark` is the app mark the web and Android show: the logo in the on-accent
+  colour across 80 percent of a rounded square of the accent, following the session's accent,
+  on the welcome and launch screens. The widget's header and the Live Activity's Lock Screen and
+  Dynamic Island glyph draw the logo in the session's accent; the sofa symbol stays where it
+  stands for the couch itself (the Couch tab, menus, member counts). The same script draws the
+  icons in the default red, whatever a server's accent: on iPhone and iPad the white logo across
+  two thirds of `#e50914`, with dark and tinted versions on a clear background the system fills;
+  on Apple TV image stacks (a gradient from the accent into the background behind, the logo in
+  front for parallax) for the home screen and the App Store, and the Top Shelf images.
 - **Tests**: Swift Testing throughout. `CouchverseCore`: the runtime over the real core with
   fake executors (ranks surfaces, an upload round trip, pages no screen holds let go after a
   while), the executors (the multipart form, uploads through a stubbed session, picked photos
@@ -1034,15 +1046,21 @@ launch from the UI mode, on the shared core.
   the profile row in Settings, and the rank ring "Who's watching?" draws. The API's codes
   (tiers, XP sources, achievements) map to strings through explicit tables, which a test checks
   against `contract/`.
-- **Outside the app**: Watch Next on Google TV and a Glance widget on phones, both from the
-  home's Continue Watching (kept as is until the home has loaded, cleared without an account).
+- **Outside the app**: Watch Next on Google TV and a Glance widget on phones (under the logo, in
+  the session's accent), both from the home's Continue Watching (kept as is until the home has
+  loaded, cleared without an account).
 - **Releases**: `release.yml` attaches a signed APK to each `v*` release (keystore from
   repository secrets, a debug-signed APK without them); `android.yml` builds the release APK
   through R8 on every change.
 - **Design** (`design/`): Material 3 and Compose for TV themes over the tokens, tinted by the
   session's (or a title's) accent palette; spring motion with a cut under "Remove animations";
   the account's display language applied to resources at runtime; Coil for artwork URLs the
-  core signs.
+  core signs. The logo is `couchverse_logo`, the web's `logo.svg` as a vector drawable:
+  `LogoMark` draws the app mark as the web does (the logo in the on-accent colour across 80
+  percent of an accent tile, following the session's accent) on the welcome and starting
+  screens; the launcher icon (adaptive, with a monochrome layer), the splash and the TV banner
+  show it in white on the default red (the banner fading into the background), and the couch
+  notification's small icon (its Live Update chip too) is the logo, the downloads' an arrow.
 
 ## Media grants (cross-cutting)
 
