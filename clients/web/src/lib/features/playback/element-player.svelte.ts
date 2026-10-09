@@ -161,7 +161,7 @@ export class ElementPlayer implements PlayerHost {
 				}
 			});
 			hls.on(HlsPlayer.Events.AUDIO_TRACKS_UPDATED, () => {
-				if (load.audioLang) this.#selectAudio(load.audioLang);
+				if (load.audioLang) this.#selectAudio(load.audioLang, load.audioIndex);
 			});
 			hls.on(HlsPlayer.Events.ERROR, (_, data) => {
 				if (data.fatal) this.#fail(`hls ${data.details}`);
@@ -197,7 +197,8 @@ export class ElementPlayer implements PlayerHost {
 		}
 		this.#restore = null;
 		this.#ready = true;
-		if (this.#load?.audioLang && !this.#hls) this.#selectAudio(this.#load.audioLang);
+		const load = this.#load;
+		if (load?.audioLang && !this.#hls) this.#selectAudio(load.audioLang, load.audioIndex);
 		this.#showSubtitle();
 		this.#emit();
 	}

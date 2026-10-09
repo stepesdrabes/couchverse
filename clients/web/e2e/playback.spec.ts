@@ -95,6 +95,12 @@ test.describe(() => {
 		await expect.poll(source).not.toBe(before);
 		await expect.poll(() => videoTime(page), { timeout: MEDIA_TIMEOUT }).toBeGreaterThan(at);
 		await expect(cues).toHaveText('The sea keeps a door.');
+
+		// choosing the film's own language again brings its source back, where playback was
+		const czech = await videoTime(page);
+		await choose(page, t('player_audio'), 'English');
+		await expect.poll(source).toBe(before);
+		await expect.poll(() => videoTime(page), { timeout: MEDIA_TIMEOUT }).toBeGreaterThan(czech);
 	});
 });
 

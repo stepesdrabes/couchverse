@@ -98,3 +98,32 @@ describe('a media reset the browser makes on its own', () => {
 		expect(video.currentTime).toBe(20);
 	});
 });
+
+/** Safari: HLS of its own, with the playlist's audio renditions as `audioTracks`. */
+class SafariVideo extends FakeVideo {
+	audioTracks = ['en', 'cs', 'en'].map((language, i) => ({ language, enabled: i === 0 }));
+	canPlayType(type?: string) {
+		return type === 'application/vnd.apple.mpegurl' ? 'maybe' : '';
+	}
+}
+
+describe('a source loaded for an audio choice', () => {
+	const hls = { ...load, source: PlayerSource.Hls, url: '/api/v1/media/g/hls/master.m3u8' };
+	const enabled = (video: SafariVideo) => video.audioTracks.map((t) => t.enabled);
+
+	it('starts on the rendition the core names, of two in one language', () => {
+		const video = new SafariVideo();
+		player = new ElementPlayer(video as unknown as HTMLVideoElement, () => {});
+		player.command({ type: 'load', content: { ...hls, audioLang: 'en', audioIndex: 2 } });
+		video.fire('loadedmetadata');
+		expect(enabled(video)).toEqual([false, false, true]);
+	});
+
+	it('finds it by its language without a place', () => {
+		const video = new SafariVideo();
+		player = new ElementPlayer(video as unknown as HTMLVideoElement, () => {});
+		player.command({ type: 'load', content: { ...hls, audioLang: 'cs' } });
+		video.fire('loadedmetadata');
+		expect(enabled(video)).toEqual([false, true, false]);
+	});
+});
