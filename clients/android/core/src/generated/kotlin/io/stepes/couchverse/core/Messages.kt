@@ -432,7 +432,7 @@ data class CouchView (
 data class DeviceCard (
 	val id: String,
 	val name: String,
-	/// `ios`, `ipados`, `tvos`, `android`, `androidtv` or `web`.
+	/// `ios`, `ipados`, `tvos`, `android`, `androidtv`, `desktop` or `web`.
 	val platform: String,
 	/// RFC 3339.
 	val lastSeenAt: String,

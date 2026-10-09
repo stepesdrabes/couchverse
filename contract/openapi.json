@@ -944,12 +944,14 @@
             "type": "string"
           },
           "platform": {
+            "description": "desktop is an app on a computer, such as the CouchPush uploader.",
             "enum": [
               "ios",
               "ipados",
               "tvos",
               "android",
-              "androidtv"
+              "androidtv",
+              "desktop"
             ],
             "type": "string"
           }
@@ -1440,6 +1442,7 @@
               "tvos",
               "android",
               "androidtv",
+              "desktop",
               "web"
             ],
             "type": "string"
@@ -1466,12 +1469,14 @@
             "type": "string"
           },
           "platform": {
+            "description": "desktop is an app on a computer, such as the CouchPush uploader.",
             "enum": [
               "ios",
               "ipados",
               "tvos",
               "android",
-              "androidtv"
+              "androidtv",
+              "desktop"
             ],
             "type": "string"
           }
@@ -1597,12 +1602,14 @@
             "type": "string"
           },
           "platform": {
+            "description": "desktop is an app on a computer, such as the CouchPush uploader.",
             "enum": [
               "ios",
               "ipados",
               "tvos",
               "android",
-              "androidtv"
+              "androidtv",
+              "desktop"
             ],
             "type": "string"
           },
@@ -3267,7 +3274,8 @@
               "ipados",
               "tvos",
               "android",
-              "androidtv"
+              "androidtv",
+              "desktop"
             ],
             "type": "string"
           },

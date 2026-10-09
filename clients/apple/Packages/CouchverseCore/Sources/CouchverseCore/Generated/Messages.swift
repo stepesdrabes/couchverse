@@ -544,7 +544,7 @@ public struct CouchView: Codable, Sendable, Hashable {
 public struct DeviceCard: Codable, Sendable, Hashable {
 	public let id: String
 	public let name: String
-	/// `ios`, `ipados`, `tvos`, `android`, `androidtv` or `web`.
+	/// `ios`, `ipados`, `tvos`, `android`, `androidtv`, `desktop` or `web`.
 	public let platform: String
 	/// RFC 3339.
 	public let lastSeenAt: String

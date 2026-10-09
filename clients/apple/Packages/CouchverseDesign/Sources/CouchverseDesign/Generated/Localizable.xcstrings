@@ -4658,6 +4658,23 @@
         }
       }
     },
+    "devices_platform_desktop": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Počítač"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Computer"
+          }
+        }
+      }
+    },
     "devices_platform_ios": {
       "extractionState": "manual",
       "localizations": {

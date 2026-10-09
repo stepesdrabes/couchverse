@@ -993,9 +993,11 @@ pub mod types {
         /// Shown in the account's devices list, e.g. "Living room Apple TV".
         /// From 1 to 60 characters.
         pub device_name: String,
+        /// desktop is an app on a computer, such as the CouchPush uploader.
         pub platform: ConnectRedemptionPlatform,
     }
 
+    /// desktop is an app on a computer, such as the CouchPush uploader.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum ConnectRedemptionPlatform {
         #[serde(rename = "ios")]
@@ -1008,6 +1010,8 @@ pub mod types {
         Android,
         #[serde(rename = "androidtv")]
         Androidtv,
+        #[serde(rename = "desktop")]
+        Desktop,
         /// A value this client does not know yet.
         #[serde(other)]
         Unknown,
@@ -1021,6 +1025,7 @@ pub mod types {
                 ConnectRedemptionPlatform::Tvos => "tvos",
                 ConnectRedemptionPlatform::Android => "android",
                 ConnectRedemptionPlatform::Androidtv => "androidtv",
+                ConnectRedemptionPlatform::Desktop => "desktop",
                 ConnectRedemptionPlatform::Unknown => "unknown",
             }
         }
@@ -1381,9 +1386,11 @@ pub mod types {
         /// Shown in the account's devices list, e.g. "Living room Apple TV".
         /// From 1 to 60 characters.
         pub device_name: String,
+        /// desktop is an app on a computer, such as the CouchPush uploader.
         pub platform: DeviceInfoPlatform,
     }
 
+    /// desktop is an app on a computer, such as the CouchPush uploader.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum DeviceInfoPlatform {
         #[serde(rename = "ios")]
@@ -1396,6 +1403,8 @@ pub mod types {
         Android,
         #[serde(rename = "androidtv")]
         Androidtv,
+        #[serde(rename = "desktop")]
+        Desktop,
         /// A value this client does not know yet.
         #[serde(other)]
         Unknown,
@@ -1409,6 +1418,7 @@ pub mod types {
                 DeviceInfoPlatform::Tvos => "tvos",
                 DeviceInfoPlatform::Android => "android",
                 DeviceInfoPlatform::Androidtv => "androidtv",
+                DeviceInfoPlatform::Desktop => "desktop",
                 DeviceInfoPlatform::Unknown => "unknown",
             }
         }
@@ -1459,6 +1469,8 @@ pub mod types {
         Android,
         #[serde(rename = "androidtv")]
         Androidtv,
+        #[serde(rename = "desktop")]
+        Desktop,
         #[serde(rename = "web")]
         Web,
         /// A value this client does not know yet.
@@ -1474,6 +1486,7 @@ pub mod types {
                 DevicePlatform::Tvos => "tvos",
                 DevicePlatform::Android => "android",
                 DevicePlatform::Androidtv => "androidtv",
+                DevicePlatform::Desktop => "desktop",
                 DevicePlatform::Web => "web",
                 DevicePlatform::Unknown => "unknown",
             }
@@ -1657,11 +1670,13 @@ pub mod types {
         pub device_name: String,
         /// At least 1 character.
         pub password: String,
+        /// desktop is an app on a computer, such as the CouchPush uploader.
         pub platform: DeviceSignInPlatform,
         /// At least 1 character.
         pub username: String,
     }
 
+    /// desktop is an app on a computer, such as the CouchPush uploader.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum DeviceSignInPlatform {
         #[serde(rename = "ios")]
@@ -1674,6 +1689,8 @@ pub mod types {
         Android,
         #[serde(rename = "androidtv")]
         Androidtv,
+        #[serde(rename = "desktop")]
+        Desktop,
         /// A value this client does not know yet.
         #[serde(other)]
         Unknown,
@@ -1687,6 +1704,7 @@ pub mod types {
                 DeviceSignInPlatform::Tvos => "tvos",
                 DeviceSignInPlatform::Android => "android",
                 DeviceSignInPlatform::Androidtv => "androidtv",
+                DeviceSignInPlatform::Desktop => "desktop",
                 DeviceSignInPlatform::Unknown => "unknown",
             }
         }
@@ -3157,6 +3175,8 @@ pub mod types {
         Android,
         #[serde(rename = "androidtv")]
         Androidtv,
+        #[serde(rename = "desktop")]
+        Desktop,
         /// A value this client does not know yet.
         #[serde(other)]
         Unknown,
@@ -3170,6 +3190,7 @@ pub mod types {
                 PairingRequestPlatform::Tvos => "tvos",
                 PairingRequestPlatform::Android => "android",
                 PairingRequestPlatform::Androidtv => "androidtv",
+                PairingRequestPlatform::Desktop => "desktop",
                 PairingRequestPlatform::Unknown => "unknown",
             }
         }

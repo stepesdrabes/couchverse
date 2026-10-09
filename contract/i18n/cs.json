@@ -453,6 +453,7 @@
 	"devices_load_failed": "Zařízení se nepodařilo načíst",
 	"devices_platform_android": "Android",
 	"devices_platform_androidtv": "Android TV",
+	"devices_platform_desktop": "Počítač",
 	"devices_platform_ios": "iPhone",
 	"devices_platform_ipados": "iPad",
 	"devices_platform_tvos": "Apple TV",

@@ -273,6 +273,7 @@ extension L10n {
     public static var devicesLoadFailed: String { string("devices_load_failed") }
     public static var devicesPlatformAndroid: String { string("devices_platform_android") }
     public static var devicesPlatformAndroidtv: String { string("devices_platform_androidtv") }
+    public static var devicesPlatformDesktop: String { string("devices_platform_desktop") }
     public static var devicesPlatformIos: String { string("devices_platform_ios") }
     public static var devicesPlatformIpados: String { string("devices_platform_ipados") }
     public static var devicesPlatformTvos: String { string("devices_platform_tvos") }

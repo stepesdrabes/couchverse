@@ -130,7 +130,7 @@ func (a *Handlers) PollPairing(ctx context.Context, in *pollPairingInput) (*pair
 type PairingRequest struct {
 	UserCode   string    `json:"userCode"`
 	DeviceName string    `json:"deviceName"`
-	Platform   string    `json:"platform" enum:"ios,ipados,tvos,android,androidtv"`
+	Platform   string    `json:"platform" enum:"ios,ipados,tvos,android,androidtv,desktop"`
 	ExpiresAt  time.Time `json:"expiresAt"`
 }
 

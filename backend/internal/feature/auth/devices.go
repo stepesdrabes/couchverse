@@ -12,7 +12,7 @@ import (
 // every devices list.
 type DeviceInfo struct {
 	DeviceName string `json:"deviceName" minLength:"1" maxLength:"60" doc:"Shown in the account's devices list, e.g. \"Living room Apple TV\"."`
-	Platform   string `json:"platform" enum:"ios,ipados,tvos,android,androidtv"`
+	Platform   string `json:"platform" enum:"ios,ipados,tvos,android,androidtv,desktop" doc:"desktop is an app on a computer, such as the CouchPush uploader."`
 }
 
 // DeviceSignIn is a password sign-in from a native client.
@@ -82,7 +82,7 @@ type Device struct {
 	ID         string    `json:"id" format:"uuid"`
 	Kind       string    `json:"kind" enum:"browser,device"`
 	Name       string    `json:"name" doc:"The app's device name, or the browser and OS read from a browser's user agent."`
-	Platform   string    `json:"platform" enum:"ios,ipados,tvos,android,androidtv,web"`
+	Platform   string    `json:"platform" enum:"ios,ipados,tvos,android,androidtv,desktop,web"`
 	CreatedAt  time.Time `json:"createdAt"`
 	LastSeenAt time.Time `json:"lastSeenAt"`
 	Current    bool      `json:"current" doc:"The session making this request."`

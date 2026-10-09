@@ -1,4 +1,12 @@
-import { Globe, MonitorSmartphone, Smartphone, Tablet, Tv, type Icon } from 'lucide-svelte';
+import {
+	Globe,
+	Monitor,
+	MonitorSmartphone,
+	Smartphone,
+	Tablet,
+	Tv,
+	type Icon
+} from 'lucide-svelte';
 import * as m from '$lib/paraglide/messages';
 import type { DevicePlatform } from './api';
 
@@ -8,6 +16,7 @@ const PLATFORMS: Record<DevicePlatform, { icon: typeof Icon; name: () => string 
 	tvos: { icon: Tv, name: m.devices_platform_tvos },
 	android: { icon: Smartphone, name: m.devices_platform_android },
 	androidtv: { icon: Tv, name: m.devices_platform_androidtv },
+	desktop: { icon: Monitor, name: m.devices_platform_desktop },
 	web: { icon: Globe, name: m.devices_platform_web }
 };
 

@@ -439,6 +439,10 @@ func apiCases() []apiCase {
 		{op: "getMe", bearer: "ipad", method: "GET", path: "/auth/me", status: 200},
 		{op: "getHome", bearer: "ipad", method: "GET", path: "/home", status: 200},
 		{op: "listDevices", as: "nora", method: "GET", path: "/me/devices", status: 200},
+		// the CouchPush uploader signs in as a desktop app
+		{op: "signInDevice", method: "POST", path: "/auth/token", body: map[string]any{"username": "admin", "password": "admin", "deviceName": "CouchPush on studio-pc", "platform": "desktop"}, status: 200, save: map[string]string{"couchpush": "token"}},
+		{op: "adminListLibrary", bearer: "couchpush", method: "GET", path: "/admin/library?type=movie", status: 200},
+		{op: "listDevices", as: "admin", method: "GET", path: "/me/devices", status: 200},
 		{op: "startPairing", method: "POST", path: "/auth/pairings", body: map[string]any{"deviceName": "Living room TV", "platform": "tvos"}, status: 201, save: map[string]string{"tv": "deviceCode", "tvCode": "userCode"}},
 		{op: "pollPairing", method: "POST", path: "/auth/pairings/poll", body: map[string]any{"deviceCode": "{{tv}}"}, status: 200},
 		{op: "getPairingRequest", as: "nora", method: "GET", path: "/me/pairings/{{tvCode}}", status: 200},

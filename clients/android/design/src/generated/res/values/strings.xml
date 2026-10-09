@@ -275,6 +275,7 @@
     <string name="devices_load_failed">Could not load your devices</string>
     <string name="devices_platform_android">Android</string>
     <string name="devices_platform_androidtv">Android TV</string>
+    <string name="devices_platform_desktop">Computer</string>
     <string name="devices_platform_ios">iPhone</string>
     <string name="devices_platform_ipados">iPad</string>
     <string name="devices_platform_tvos">Apple TV</string>

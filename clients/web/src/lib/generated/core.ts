@@ -363,7 +363,7 @@ export interface CouchView {
 export interface DeviceCard {
 	id: string;
 	name: string;
-	/** `ios`, `ipados`, `tvos`, `android`, `androidtv` or `web`. */
+	/** `ios`, `ipados`, `tvos`, `android`, `androidtv`, `desktop` or `web`. */
 	platform: string;
 	/** RFC 3339. */
 	lastSeenAt: string;

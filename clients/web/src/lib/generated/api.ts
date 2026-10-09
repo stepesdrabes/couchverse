@@ -286,10 +286,12 @@ export interface ConnectRedemption {
 	 * From 1 to 60 characters.
 	 */
 	deviceName: string;
+	/** desktop is an app on a computer, such as the CouchPush uploader. */
 	platform: ConnectRedemptionPlatform;
 }
 
-export type ConnectRedemptionPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv';
+/** desktop is an app on a computer, such as the CouchPush uploader. */
+export type ConnectRedemptionPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv' | 'desktop';
 
 export interface ContinueItem {
 	backdropAccent?: string;
@@ -449,14 +451,16 @@ export interface DeviceInfo {
 	 * From 1 to 60 characters.
 	 */
 	deviceName: string;
+	/** desktop is an app on a computer, such as the CouchPush uploader. */
 	platform: DeviceInfoPlatform;
 }
 
-export type DeviceInfoPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv';
+/** desktop is an app on a computer, such as the CouchPush uploader. */
+export type DeviceInfoPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv' | 'desktop';
 
 export type DeviceKind = 'browser' | 'device';
 
-export type DevicePlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv' | 'web';
+export type DevicePlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv' | 'desktop' | 'web';
 
 export interface DeviceProfile {
 	/** Audio codecs the client decodes or passes through to the receiver. */
@@ -499,12 +503,14 @@ export interface DeviceSignIn {
 	deviceName: string;
 	/** At least 1 character. */
 	password: string;
+	/** desktop is an app on a computer, such as the CouchPush uploader. */
 	platform: DeviceSignInPlatform;
 	/** At least 1 character. */
 	username: string;
 }
 
-export type DeviceSignInPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv';
+/** desktop is an app on a computer, such as the CouchPush uploader. */
+export type DeviceSignInPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv' | 'desktop';
 
 export interface DeviceToken {
 	deviceId: string;
@@ -997,7 +1003,7 @@ export interface PairingRequest {
 	userCode: string;
 }
 
-export type PairingRequestPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv';
+export type PairingRequestPlatform = 'ios' | 'ipados' | 'tvos' | 'android' | 'androidtv' | 'desktop';
 
 export interface PairingStatus {
 	device?: DeviceToken;

@@ -194,7 +194,7 @@ pub struct DevicesView {
 pub struct DeviceCard {
     pub id: String,
     pub name: String,
-    /// `ios`, `ipados`, `tvos`, `android`, `androidtv` or `web`.
+    /// `ios`, `ipados`, `tvos`, `android`, `androidtv`, `desktop` or `web`.
     pub platform: String,
     /// RFC 3339.
     pub last_seen_at: String,
