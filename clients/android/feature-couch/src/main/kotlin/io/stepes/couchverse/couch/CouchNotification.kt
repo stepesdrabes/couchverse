@@ -59,7 +59,7 @@ class CouchNotification(private val context: Context) {
             view.code?.let { words.getString(R.string.couch_code, spacedCode(it)) }.takeIf { host },
         ).joinToString(" · ")
         val notification = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(io.stepes.couchverse.couch.R.drawable.ic_couch)
+            .setSmallIcon(io.stepes.couchverse.couch.R.drawable.ic_notification)
             .setContentTitle(words.getString(R.string.couch_on_couch_count, view.members.size.toString()))
             .setContentText(text)
             .setContentIntent(open)

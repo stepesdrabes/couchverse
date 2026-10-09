@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- the logo across a square, the couch notification's small icon (also its Live Update chip) -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/couchverse_logo"
+    android:insetBottom="14.4%"
+    android:insetTop="14.4%" />
