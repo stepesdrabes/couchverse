@@ -117,12 +117,12 @@ class CouchverseApp : Application(), SingletonImageLoader.Factory, PlaybackHost,
         val session = runtime.view<SessionView>(Surface.Session)
         val watchNext = if (tv) WatchNext(this) else null
         scope.launch {
-            combine(app, home, session) { a, h, s -> continueWatching(a, h)?.let { it to (s?.language ?: "en") } }
+            combine(app, home, session) { a, h, s -> continueWatching(a, h)?.let { Triple(it, s?.language ?: "en", s?.accent?.accent) } }
                 .filterNotNull()
                 .distinctUntilChanged()
-                .collect { (cards, language) ->
+                .collect { (cards, language, accent) ->
                     withContext(Dispatchers.IO) {
-                        if (watchNext != null) watchNext.publish(cards) else ContinueWidgets.publish(this@CouchverseApp, cards, language)
+                        if (watchNext != null) watchNext.publish(cards) else ContinueWidgets.publish(this@CouchverseApp, cards, language, accent)
                     }
                 }
         }
