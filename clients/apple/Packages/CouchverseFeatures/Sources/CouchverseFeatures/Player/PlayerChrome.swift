@@ -46,22 +46,23 @@ final class ChromeVisibility {
         var body: some View {
             ZStack {
                 // the system's controls bring close, AirPlay, PiP, the title, the scrubber and
-                // their own audio and subtitle menu; this sits between their top corners
-                if chrome.visible {
-                    HStack(spacing: Tokens.Spacing.sm) {
-                        if core.couchOn && core.couch.isLive {
-                            CouchPlayerButtons(showCouch: showCouch, onOpen: { chrome.keep(hiding: false) })
-                        }
-                        if !view.linear {
-                            PlayerOptions(
-                                view: view, nativeAudio: controller.nativeAudio,
-                                nativeSubtitles: controller.nativeSubtitles, showCouch: showCouch,
-                                onOpen: { chrome.keep(hiding: false) })
-                        }
+                // their own audio and subtitle menu; this sits between their top corners. It fades
+                // rather than leaving: a button that leaves closes the menu it has open.
+                HStack(spacing: Tokens.Spacing.sm) {
+                    if core.couchOn && core.couch.isLive {
+                        CouchPlayerButtons(showCouch: showCouch, onOpen: { chrome.keep(hiding: false) })
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .transition(.opacity)
+                    if !view.linear {
+                        PlayerOptions(
+                            view: view, nativeAudio: controller.nativeAudio,
+                            nativeSubtitles: controller.nativeSubtitles, showCouch: showCouch,
+                            onOpen: { chrome.keep(hiding: false) })
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .opacity(chrome.visible ? 1 : 0)
+                .allowsHitTesting(chrome.visible)
+                .accessibilityHidden(!chrome.visible)
                 if let next = view.nextUp {
                     NextUpCard(next: next)
                         .padding(.trailing, Tokens.Spacing.xl)
