@@ -256,7 +256,9 @@ skipped and edge pixels un-premultiplied, so a logo accents to its own colour).
   `<kind>.<ext>`, or `<kind>-<lang>.<ext>` for a language-bound slot.
 - **Logos** (`kind='logo'`, titles only) are transparent PNG wordmarks for cinematic heroes:
   uploads must be `.png` (TMDB's SVG logos are never stored), and their resizes are cached as
-  PNG instead of JPEG so the alpha channel survives. `artwork.PickLogo` chooses which one a
+  PNG instead of JPEG so the alpha channel survives. Every stored logo is cropped to its
+  visible pixels: clients lay a logo out from the leading edge and by its aspect, so a
+  transparent margin would read as an indent. `artwork.PickLogo` chooses which one a
   viewer sees (see catalog). Dropping a content language deletes that language's logo
   (`Service.DeleteForLang`).
 

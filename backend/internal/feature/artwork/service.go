@@ -98,6 +98,12 @@ func slotPath(ownerKind, ownerID, kind, lang, ext string) string {
 // extracting its accent.
 func (s *Service) record(ctx context.Context, ownerKind, ownerID, kind, lang, rel, source string) (*Artwork, error) {
 	abs := filepath.Join(s.DataDir, rel)
+	if kind == "logo" {
+		// a logo that cannot be trimmed is still a logo; it keeps its padding
+		if err := trimTransparentMargins(abs); err != nil {
+			slog.Warn("trim logo", "path", rel, "err", err)
+		}
+	}
 	w, h := dimensions(abs)
 	art, err := s.Store.SetArtwork(ctx, ownerKind, ownerID, kind, lang, rel, w, h, source, AccentFor(abs))
 	if err != nil {

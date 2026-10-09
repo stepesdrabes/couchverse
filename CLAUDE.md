@@ -340,7 +340,8 @@ Full design in `FEATURES.md`; the conventions to follow:
   to a language), one `kind='logo'` row per (title, language), a slot being `(owner_kind,
   owner_id, kind, lang)`. Viewer reads expose `logoId`/`logoVer`/`logoAspect` picked by
   `artwork.PickLogo` (display language, base language, language-neutral, any). Logos are PNG
-  only and resize to PNG; TMDB apply replaces its own logos and keeps uploaded ones. Every
+  only, trimmed to their visible pixels when stored (clients draw them from the leading edge)
+  and resize to PNG; TMDB apply replaces its own logos and keeps uploaded ones. Every
   artwork save records the image's width and height (0 for WebP). Clients show them through
   the core's `Logo` (the web on the hero and the title page, the name kept as screen-reader
   text and as the fallback).
