@@ -196,11 +196,13 @@ final class ChromeVisibility {
                     .typeRole(Tokens.TypeRamp.card)
                     .foregroundStyle(.white)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 2)
-                // side by side where they fit, else one under the other
+                // side by side where they fit, else one under the other, their words wrapping
+                // rather than cut short where the card runs out of height
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: Tokens.Spacing.sm) { buttons }
                         .fixedSize()
                     VStack(alignment: .leading, spacing: Tokens.Spacing.sm) { buttons }
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .padding(Tokens.Spacing.lg)
