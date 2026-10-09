@@ -225,6 +225,7 @@ enum DevicePlatform {
         case "tvos": "appletv"
         case "android": "smartphone"
         case "androidtv": "tv"
+        case "desktop": "desktopcomputer"
         default: "globe"
         }
     }
@@ -236,6 +237,7 @@ enum DevicePlatform {
         case "tvos": L10n.devicesPlatformTvos
         case "android": L10n.devicesPlatformAndroid
         case "androidtv": L10n.devicesPlatformAndroidtv
+        case "desktop": L10n.devicesPlatformDesktop
         default: L10n.devicesPlatformWeb
         }
     }
