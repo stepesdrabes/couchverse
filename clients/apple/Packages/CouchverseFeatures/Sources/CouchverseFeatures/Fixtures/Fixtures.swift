@@ -8,7 +8,7 @@ public enum Fixtures {
 
     public static let server = Server(
         id: serverId, url: "http://192.168.1.5:8080", name: "Home Media", version: "1.4.0",
-        apiLevel: 1, accent: "#3a6ea5", insecure: true)
+        apiLevel: 1, accent: "#e50914", insecure: true)
 
     public static let secureServer = Server(
         id: "9b1d7a40-1c2e-4b8f-a3d1-7f0e2c9b5a66", url: "https://media.example.com", name: "Cabin",
@@ -88,8 +88,7 @@ public enum Fixtures {
         return SessionView(
             status: status, accountId: "\(serverId)/nora", user: hasUser ? user : nil,
             features: Features(couch: true, rankings: true, downloads: true), language: language,
-            accent: AccentPalette(
-                accent: "#3a6ea5", strong: "#2d5681", soft: "#3a6ea529", onAccent: "#ffffff", ink: "#5b87b4"),
+            accent: .fallback,
             problem: status == .failed || status == .stale ? Problem(code: "offline", detail: "") : nil,
             offline: status == .failed || status == .stale)
     }
