@@ -89,6 +89,8 @@ export type AdminSearchMetadataKind = 'movie' | 'series';
 
 export interface AdminTitle {
 	artwork: Artwork[];
+	/** Each probed file's audio tracks in stream order. A file not probed yet has no entry: its languages are unknown, not none. */
+	audioStreamsByFile: Record<string, AudioStream[]>;
 	mediaFiles: MediaFile[];
 	seasons: Season[];
 	subtitlesByFile: Record<string, Subtitle[]>;
@@ -190,6 +192,21 @@ export type ArtworkKind = 'poster' | 'backdrop' | 'thumb' | 'avatar' | 'banner' 
 export type ArtworkOwnerKind = 'title' | 'season' | 'episode' | 'user';
 
 export type ArtworkSource = 'tmdb' | 'uploaded' | 'embedded';
+
+export interface AudioStream {
+	channelLayout: string;
+	channels: number;
+	codec: string;
+	default: boolean;
+	/** The stream's index in the file, counted over all its streams. */
+	index: number;
+	/** The language tag as the file has it (eng, ces); und when it has none. */
+	lang: string;
+	profile: string;
+	sampleRate: number;
+	/** The track's name, or its language tag when the file names none. */
+	title: string;
+}
 
 export interface AudioSupport {
 	/** Dolby Atmos (E-AC-3 JOC, TrueHD) reaches the output as Atmos. */

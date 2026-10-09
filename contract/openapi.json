@@ -298,6 +298,16 @@
             },
             "type": "array"
           },
+          "audioStreamsByFile": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/AudioStream"
+              },
+              "type": "array"
+            },
+            "description": "Each probed file's audio tracks in stream order. A file not probed yet has no entry: its languages are unknown, not none.",
+            "type": "object"
+          },
           "mediaFiles": {
             "items": {
               "$ref": "#/components/schemas/MediaFile"
@@ -335,6 +345,7 @@
           "seasons",
           "mediaFiles",
           "subtitlesByFile",
+          "audioStreamsByFile",
           "artwork"
         ],
         "type": "object"
@@ -647,6 +658,56 @@
         "required": [
           "grant",
           "expiresIn"
+        ],
+        "type": "object"
+      },
+      "AudioStream": {
+        "additionalProperties": false,
+        "properties": {
+          "channelLayout": {
+            "type": "string"
+          },
+          "channels": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "codec": {
+            "type": "string"
+          },
+          "default": {
+            "type": "boolean"
+          },
+          "index": {
+            "description": "The stream's index in the file, counted over all its streams.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "lang": {
+            "description": "The language tag as the file has it (eng, ces); und when it has none.",
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "sampleRate": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "description": "The track's name, or its language tag when the file names none.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "codec",
+          "lang",
+          "title",
+          "channels",
+          "default",
+          "profile",
+          "channelLayout",
+          "sampleRate"
         ],
         "type": "object"
       },

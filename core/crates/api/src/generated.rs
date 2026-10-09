@@ -441,6 +441,8 @@ pub mod types {
     #[serde(rename_all = "camelCase")]
     pub struct AdminTitle {
         pub artwork: Vec<Artwork>,
+        /// Each probed file's audio tracks in stream order. A file not probed yet has no entry: its languages are unknown, not none.
+        pub audio_streams_by_file: BTreeMap<String, Vec<AudioStream>>,
         pub media_files: Vec<MediaFile>,
         pub seasons: Vec<Season>,
         pub subtitles_by_file: BTreeMap<String, Vec<Subtitle>>,
@@ -712,6 +714,23 @@ pub mod types {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct AudioStream {
+        pub channel_layout: String,
+        pub channels: i64,
+        pub codec: String,
+        pub default: bool,
+        /// The stream's index in the file, counted over all its streams.
+        pub index: i64,
+        /// The language tag as the file has it (eng, ces); und when it has none.
+        pub lang: String,
+        pub profile: String,
+        pub sample_rate: i64,
+        /// The track's name, or its language tag when the file names none.
+        pub title: String,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

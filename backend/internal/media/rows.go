@@ -76,10 +76,10 @@ func ScanMediaFile(row pgx.Row) (*MediaFile, error) {
 // multi-track). The library feature owns the audio_streams SQL; this shared row
 // type lets playback read it without a cyclic import.
 type AudioStream struct {
-	Index    int    `json:"index"`
+	Index    int    `json:"index" doc:"The stream's index in the file, counted over all its streams."`
 	Codec    string `json:"codec"`
-	Lang     string `json:"lang"`
-	Title    string `json:"title"`
+	Lang     string `json:"lang" doc:"The language tag as the file has it (eng, ces); und when it has none."`
+	Title    string `json:"title" doc:"The track's name, or its language tag when the file names none."`
 	Channels int    `json:"channels"`
 	Default  bool   `json:"default"`
 	// Profile is ffprobe's profile name, e.g. "Dolby Digital Plus + Dolby Atmos".

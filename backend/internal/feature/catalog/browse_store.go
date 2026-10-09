@@ -395,6 +395,33 @@ func (s *Store) SubtitlesForMediaFiles(ctx context.Context, mediaFileIDs []strin
 	return out, rows.Err()
 }
 
+// AudioStreamsForMediaFiles bulk-loads the probed audio tracks keyed by media
+// file id. A file the prober has not read yet has no entry rather than an empty
+// one, so an uploader never takes an unknown file for one without audio.
+func (s *Store) AudioStreamsForMediaFiles(ctx context.Context, mediaFileIDs []string) (map[string][]media.AudioStream, error) {
+	out := map[string][]media.AudioStream{}
+	if len(mediaFileIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx,
+		`SELECT media_file_id, stream_index, codec, lang, label, channels, is_default, profile, channel_layout, sample_rate
+		 FROM audio_streams WHERE media_file_id = ANY($1::uuid[]) ORDER BY media_file_id, stream_index`, mediaFileIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var a media.AudioStream
+		if err := rows.Scan(&id, &a.Index, &a.Codec, &a.Lang, &a.Title, &a.Channels, &a.Default,
+			&a.Profile, &a.ChannelLayout, &a.SampleRate); err != nil {
+			return nil, err
+		}
+		out[id] = append(out[id], a)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) MediaFilesForTitle(ctx context.Context, titleID string) ([]media.MediaFile, error) {
 	rows, err := s.db.Query(ctx,
 		`SELECT `+media.MediaFileCols+` FROM media_files

@@ -92,15 +92,16 @@ func (h *AdminHandlers) Create(ctx context.Context, in *createTitleInput) (*titl
 }
 
 // AdminTitle is everything the title editor needs in one read. Translations
-// are keyed by language code; Seasons is empty for movies. SubtitlesByFile is keyed by
-// media file id.
+// are keyed by language code; Seasons is empty for movies. SubtitlesByFile and
+// AudioStreamsByFile are keyed by media file id.
 type AdminTitle struct {
-	Title           *Title                      `json:"title"`
-	Translations    map[string]Translation      `json:"translations"`
-	Seasons         []Season                    `json:"seasons"`
-	MediaFiles      []media.MediaFile           `json:"mediaFiles"`
-	SubtitlesByFile map[string][]media.Subtitle `json:"subtitlesByFile"`
-	Artwork         []artwork.Artwork           `json:"artwork"`
+	Title              *Title                         `json:"title"`
+	Translations       map[string]Translation         `json:"translations"`
+	Seasons            []Season                       `json:"seasons"`
+	MediaFiles         []media.MediaFile              `json:"mediaFiles"`
+	SubtitlesByFile    map[string][]media.Subtitle    `json:"subtitlesByFile"`
+	AudioStreamsByFile map[string][]media.AudioStream `json:"audioStreamsByFile" doc:"Each probed file's audio tracks in stream order. A file not probed yet has no entry: its languages are unknown, not none."`
+	Artwork            []artwork.Artwork              `json:"artwork"`
 }
 
 type adminTitleOutput struct{ Body AdminTitle }
@@ -128,6 +129,9 @@ func (h *AdminHandlers) Get(ctx context.Context, in *idInput) (*adminTitleOutput
 		fileIDs[i] = f.ID
 	}
 	if out.SubtitlesByFile, err = h.store.SubtitlesForMediaFiles(ctx, fileIDs); err != nil {
+		return nil, err
+	}
+	if out.AudioStreamsByFile, err = h.store.AudioStreamsForMediaFiles(ctx, fileIDs); err != nil {
 		return nil, err
 	}
 	if out.Artwork, err = h.artwork.Store.ArtworkFor(ctx, "title", t.ID); err != nil {
