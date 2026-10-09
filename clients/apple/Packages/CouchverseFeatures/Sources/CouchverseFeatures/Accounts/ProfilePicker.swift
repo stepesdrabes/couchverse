@@ -229,7 +229,7 @@ private struct ProfileTileLabel: View {
                     .lineLimit(2)
                 details
                     .typeRole(Tokens.TypeRamp.caption)
-                    .lineLimit(2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize && !Idiom.isTV ? 4 : 2)
                     .opacity(lit ? 1 : 0)
             }
             .multilineTextAlignment(.center)
