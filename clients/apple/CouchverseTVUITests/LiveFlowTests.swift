@@ -95,14 +95,7 @@ final class LiveFlowTests: XCTestCase {
         Thread.sleep(forTimeInterval: 2)
         screenshot("tv-11-home")
 
-        // the sidebar opens on Home, to the left of the content; Movies is next
-        remote.press(.left)
-        Thread.sleep(forTimeInterval: 1)
-        remote.press(.left)
-        Thread.sleep(forTimeInterval: 1)
-        remote.press(.down)
-        Thread.sleep(forTimeInterval: 0.5)
-        remote.press(.select)
+        openTab("Movies")
         let card = app.buttons[environment["CV_TITLE"] ?? "Glass Harbor"].firstMatch
         focusInGrid(card)
         Thread.sleep(forTimeInterval: 1)
@@ -142,6 +135,26 @@ final class LiveFlowTests: XCTestCase {
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         return app
+    }
+
+    /// Selects a sidebar tab. The sidebar stays collapsed to a pill while the content has the focus
+    /// and opens when the focus leaves the content to the left; where the focus starts depends on
+    /// the screen, so this goes by where it is rather than by a fixed number of presses.
+    @MainActor
+    private func openTab(_ name: String, file: StaticString = #filePath, line: UInt = #line) {
+        let app = XCUIApplication()
+        let tab = app.buttons[name].firstMatch
+        let focused = app.descendants(matching: .any).element(matching: NSPredicate(format: "hasFocus == true"))
+        for _ in 0..<5 where !(tab.exists && tab.isEnabled && tab.frame.width > 0) {
+            remote.press(.left)
+            Thread.sleep(forTimeInterval: 1)
+        }
+        for _ in 0..<12 where !tab.hasFocus {
+            remote.press(focused.exists && tab.frame.midY < focused.frame.midY ? .up : .down)
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        XCTAssert(tab.hasFocus, "could not focus the \(name) tab", file: file, line: line)
+        remote.press(.select)
     }
 
     /// Moves the focus across a grid toward `element`, by where it is on screen.

@@ -50,7 +50,11 @@ final class LiveFlowTests: XCTestCase {
         let file = try XCTUnwrap(environment["CV_PAIRING_CODE_FILE"], "set CV_PAIRING_CODE_FILE")
         XCTAssert(app.buttons["account-switcher"].waitForExistence(timeout: 20))
         app.tabBars.buttons["Settings"].firstMatch.tap()
+        // below the profile, accounts and servers: a lazy list makes the row only once it scrolls in
         let approve = app.buttons["approve-device"]
+        for _ in 0..<6 where !approve.isHittable {
+            app.swipeUp()
+        }
         XCTAssert(approve.waitForExistence(timeout: 10))
         screenshot("phone-05-settings")
         approve.tap()
@@ -107,7 +111,8 @@ final class LiveFlowTests: XCTestCase {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
         screenshot("phone-11-player")
         options.tap()
-        XCTAssert(app.buttons["Quality"].firstMatch.waitForExistence(timeout: 5))
+        // the couch is always on offer; Quality only when the title has a ladder besides its original
+        XCTAssert(app.buttons["Start a couch session"].firstMatch.waitForExistence(timeout: 5))
         screenshot("phone-12-player-options")
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).tap()
 
