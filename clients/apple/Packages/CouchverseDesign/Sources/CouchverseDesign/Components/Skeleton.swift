@@ -18,28 +18,47 @@ extension EnvironmentValues {
 /// A placeholder block in the shape of the content it stands for, with a slow shimmer.
 public struct Skeleton: View {
     let width: CGFloat?
-    let height: CGFloat
+    let height: CGFloat?
+    /// Width over height, for a block as wide as it is offered: a grid cell's card.
+    let aspectRatio: CGFloat?
     let shape: AnyShape
 
     public init(width: CGFloat? = nil, height: CGFloat, cornerRadius: CGFloat = Tokens.Radius.input) {
         self.width = width
         self.height = height
+        aspectRatio = nil
+        shape = AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+
+    public init(aspectRatio: CGFloat, cornerRadius: CGFloat = Tokens.Radius.input) {
+        width = nil
+        height = nil
+        self.aspectRatio = aspectRatio
         shape = AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     public init(circle diameter: CGFloat) {
         width = diameter
         height = diameter
+        aspectRatio = nil
         shape = AnyShape(Circle())
     }
 
     public var body: some View {
-        shape
+        let block =
+            shape
             .fill(Tokens.Palette.surface2)
             .overlay { Shimmer().clipShape(shape) }
-            .frame(width: width, height: height)
-            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
-            .accessibilityHidden(true)
+        Group {
+            if let aspectRatio {
+                block.aspectRatio(aspectRatio, contentMode: .fit)
+            } else {
+                block
+                    .frame(width: width, height: height)
+                    .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 

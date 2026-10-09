@@ -21,6 +21,11 @@ enum CardMetrics {
     }
 
     static var spacing: CGFloat { Idiom.isTV ? 48 : Tokens.Spacing.md }
+    /// A poster grid's columns: as many as fit at about the poster width, each card filling its
+    /// column, so the posters use the whole width rather than leaving a strip on the right.
+    static var posterGrid: [GridItem] {
+        [GridItem(.adaptive(minimum: posterWidth * 0.9), spacing: spacing)]
+    }
     /// Between a card and its caption: on TV, clear of the card's focus lift.
     static var captionGap: CGFloat { Idiom.isTV ? 28 : Tokens.Spacing.sm }
     static var edge: CGFloat { Idiom.isTV ? 80 : Tokens.Spacing.lg }
@@ -30,7 +35,8 @@ enum CardMetrics {
 /// system's card style lifts it with parallax.
 struct PosterCard: View {
     let card: Card
-    var width: CGFloat = CardMetrics.posterWidth
+    /// A shelf's fixed width; `nil` fills a grid's column.
+    var width: CGFloat? = CardMetrics.posterWidth
     /// The shelf it is on, which tells it apart from the same title on another one.
     var shelf = "grid"
 
@@ -47,7 +53,7 @@ struct PosterCard: View {
                                 .padding(Tokens.Spacing.sm)
                         }
                     }
-                    .frame(width: width, height: width * 1.5)
+                    .posterSize(width)
                     .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous))
                     .zoomSource(zoom)
             }
@@ -58,8 +64,19 @@ struct PosterCard: View {
                 .typeRole(Tokens.TypeRamp.caption)
                 .foregroundStyle(Tokens.Palette.mutedText)
                 .lineLimit(1)
-                .frame(width: width, alignment: .leading)
+                .frame(maxWidth: width ?? .infinity, alignment: .leading)
                 .accessibilityHidden(true)
+        }
+    }
+}
+
+extension View {
+    /// A poster's 2:3 box: a shelf's fixed width, or the width of a grid's column when `nil`.
+    @ViewBuilder fileprivate func posterSize(_ width: CGFloat?) -> some View {
+        if let width {
+            frame(width: width, height: width * 1.5)
+        } else {
+            aspectRatio(2 / 3, contentMode: .fit)
         }
     }
 }
@@ -168,13 +185,9 @@ struct PosterGrid: View {
     var onNearEnd: (() -> Void)?
 
     var body: some View {
-        let width = CardMetrics.posterWidth
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: width, maximum: width * 1.25), spacing: CardMetrics.spacing)],
-            alignment: .leading, spacing: Idiom.isTV ? 56 : Tokens.Spacing.lg
-        ) {
+        LazyVGrid(columns: CardMetrics.posterGrid, alignment: .leading, spacing: Idiom.isTV ? 56 : Tokens.Spacing.lg) {
             ForEach(Array(cards.enumerated()), id: \.element.titleId) { index, card in
-                PosterCard(card: card, width: width)
+                PosterCard(card: card, width: nil)
                     .onAppear {
                         if index >= cards.count - 8 {
                             onNearEnd?()

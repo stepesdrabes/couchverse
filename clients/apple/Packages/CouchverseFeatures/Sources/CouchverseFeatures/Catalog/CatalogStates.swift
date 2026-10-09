@@ -125,13 +125,9 @@ struct ShelfSkeleton: View {
 /// A poster grid's skeleton.
 struct GridSkeleton: View {
     var body: some View {
-        let width = CardMetrics.posterWidth
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: width, maximum: width * 1.25), spacing: CardMetrics.spacing)],
-            alignment: .leading, spacing: Idiom.isTV ? 56 : Tokens.Spacing.lg
-        ) {
+        LazyVGrid(columns: CardMetrics.posterGrid, alignment: .leading, spacing: Idiom.isTV ? 56 : Tokens.Spacing.lg) {
             ForEach(0..<12, id: \.self) { _ in
-                Skeleton(height: width * 1.5, cornerRadius: Tokens.Radius.card)
+                Skeleton(aspectRatio: 2 / 3, cornerRadius: Tokens.Radius.card)
             }
         }
         .padding(.horizontal, CardMetrics.edge)
