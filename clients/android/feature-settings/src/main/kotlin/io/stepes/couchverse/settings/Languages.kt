@@ -20,6 +20,7 @@ fun platformName(platform: String): String = stringResource(
         "tvos" -> R.string.devices_platform_tvos
         "android" -> R.string.devices_platform_android
         "androidtv" -> R.string.devices_platform_androidtv
+        "desktop" -> R.string.devices_platform_desktop
         else -> R.string.devices_platform_web
     },
 )
