@@ -21,6 +21,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
+import io.stepes.couchverse.core.AudioRendition
 import io.stepes.couchverse.core.PlayerCommand
 import io.stepes.couchverse.core.PlayerLoad
 import io.stepes.couchverse.core.PlayerReport
@@ -62,6 +63,9 @@ class PlaybackEngine(
     /** The subtitle track to show once the tracks are known, `null` for none. */
     private var subtitle: PlayerSubtitle? = null
     private var subtitlePending = false
+
+    /** The audio rendition a load names by its place, chosen once the tracks are known. */
+    private var audioPending: AudioRendition? = null
     private var lastReport: PlayerReport? = null
 
     private val listener = object : Player.Listener {
@@ -82,6 +86,7 @@ class PlaybackEngine(
 
         override fun onTracksChanged(tracks: Tracks) {
             if (subtitlePending) chooseSubtitles(tracks)
+            chooseAudio(tracks)
         }
     }
 
@@ -103,6 +108,7 @@ class PlaybackEngine(
             PlayerCommand.Pause -> current.value?.pause()
             is PlayerCommand.Seek -> current.value?.seekTo((command.content.seconds * 1000).toLong())
             is PlayerCommand.SelectAudio -> current.value?.let { player ->
+                audioPending = null
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                     .selectAudio(command.content, player.currentTracks)
                     .build()
@@ -128,6 +134,18 @@ class PlaybackEngine(
         player.playWhenReady = load.autoplay
         player.prepare()
         chooseSubtitles(player.currentTracks)
+        // the language alone picks the first of two in one language
+        audioPending = load.audioLang?.let { lang -> load.audioIndex?.let { AudioRendition(lang, it) } }
+        chooseAudio(player.currentTracks)
+    }
+
+    private fun chooseAudio(tracks: Tracks) {
+        val player = current.value ?: return
+        val rendition = audioPending ?: return
+        // the audio only shows up once the media is prepared
+        if (tracks.groups.none { it.type == C.TRACK_TYPE_AUDIO }) return
+        audioPending = null
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().selectAudio(rendition, tracks).build()
     }
 
     private fun chooseSubtitles(tracks: Tracks) {

@@ -156,12 +156,30 @@ class PlaybackEngineTest {
         assertTrue(player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT))
     }
 
+    @Test
+    fun `a load starts on the audio rendition the core names, of two in one language`() {
+        folder.root.resolve("d2.mp4").writeBytes(resource("two-tracks.mp4"))
+        val audio = load("d2.mp4", PlayerSource.Download, autoplay = false).copy(audioLang = "en", audioIndex = 1u)
+        engine.perform(PlayerCommand.Load(audio))
+        idle()
+        val player = assertNotNull(engine.player.value)
+        advance(player).untilState(Player.STATE_READY)
+        idle()
+        advance(player).untilPendingCommandsAreFullyHandled()
+
+        val groups = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+        assertEquals(2, groups.size)
+        assertEquals(listOf(false, true), groups.map { it.isSelected })
+    }
+
     private fun idle() = shadowOf(Looper.getMainLooper()).idle()
 
     /** A loaded build machine decodes slowly; the helpers' 10 s default is not a statement about the engine. */
     private fun advance(player: ExoPlayer) = TestPlayerRunHelper.advance(player).withTimeoutMs(60_000)
 
-    private fun clip(): ByteArray = javaClass.classLoader!!.getResourceAsStream("clip.mp4")!!.readBytes()
+    private fun clip(): ByteArray = resource("clip.mp4")
+
+    private fun resource(name: String): ByteArray = javaClass.classLoader!!.getResourceAsStream(name)!!.readBytes()
 
     private fun load(
         url: String,
