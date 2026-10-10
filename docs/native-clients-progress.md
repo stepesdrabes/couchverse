@@ -5,6 +5,13 @@ lands; the plan stays the design, this file says where things stand.
 
 Legend: done, in progress, pending, blocked (needs the user).
 
+## Status (2026-10-10)
+
+`native-clients` is merged into `main` (`2fb3bdc`) and running on the production server, with the
+CouchPush uploader from `main` ported onto it. The Apple clients passed their simulator pass and
+were tested on an iPhone against production. Open: the Android emulator pass, a couch across every
+client, and the real-device checklist at the end of this file.
+
 ## Phase 0: cleanup and restructure - done
 
 Music removed, `frontend/` moved to `clients/web/`, CI for backend, web and the repo.
