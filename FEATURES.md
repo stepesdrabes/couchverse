@@ -71,7 +71,9 @@ Bootstraps the master admin account on a fresh database.
   cookie is reissued then), so active members are never signed out by a fixed lifetime.
   `GET /me/devices` lists them (browsers named from the user agent) and
   `DELETE /me/devices/{id}` revokes one; logout ends whichever session made the request;
-  disabling a user deletes all of theirs.
+  disabling a user deletes all of theirs. A device names its platform: `ios`, `ipados`,
+  `tvos`, `android`, `androidtv`, or `desktop` for an app on a computer (the CouchPush
+  uploader signs in as one, "CouchPush on <computer>").
 - **Pairing** (RFC 8628 style, `device_pairings`) for TVs without a keyboard:
   `POST /auth/pairings` returns a secret device code and an `XXXX-XXXX` user code
   (consonants only) plus `verifyPath` for a QR; a signed-in user approves or denies it
@@ -130,6 +132,12 @@ library table, title/season/episode CRUD and bulk actions.
   (incl. `DELETE /admin/titles/{id}/languages/{lang}` to drop a content language and
   `GET /admin/titles/{id}/storage` for the per-title disk-usage breakdown),
   `/admin/seasons/{id}...`, `/admin/episodes/{id}`.
+- **Audio inventories**: the admin title read (`adminGetTitle`) carries `audioStreamsByFile`
+  next to `subtitlesByFile`, keyed by media file id: each probed file's audio tracks in stream
+  order (`media.AudioStream`: index, codec, the language tag as the file has it, name,
+  channels, default, profile, layout, sample rate), read from `audio_streams` by SQL. A file the
+  prober has not read yet has no entry, not an empty one: its languages are unknown, so an
+  uploader replacing files (CouchPush) keeps it rather than taking it for one it covers.
 - **Title logos**: featured items (`GET /home`) and title detail (`GET /titles/{slug}`)
   embed `TitleLogo` - `logoId`, `logoVer` (the `v` token) and `logoAspect` (width / height,
   so a client lays the hero out before the PNG loads), all absent without a logo. The logo is
@@ -183,6 +191,19 @@ engine (ffmpeg, hardware encoder detection/probing) and transcode admin. Full de
   WebVTT drawn in the page's own overlay, audio renditions; it reports about once a second and
   on every change. The watch route's load only names the title, so preloading it cannot start
   a transcode. `lib/core/device-profile.ts` measures the browser once per launch.
+- **The audio menu** (`playbackInfo.audio`, built by the pure `audioMenu` in
+  `playback/audio.go`) spans the played file and its separate-language siblings (model B), each
+  sibling decided for the same profile under its own grant. A file offers its embedded tracks
+  (`embedded:<file>:<stream>`, labelled from their names or ISO 639-2 tags such as `eng`,
+  `cze`) where the device can switch between them, else itself as one choice in the language
+  it plays; `Decision.DefaultAudioOnly` says when only the default track reaches the device (a
+  progressive file it cannot switch tracks in before its audio package is ready, instant play,
+  pre-v2 MPEG-TS without the multi-audio remux), so those tracks are held back rather than
+  offered as a choice that does nothing. A sibling's choices carry the sibling's stream or
+  playlist and the played file's none, which play from its source at the chosen quality; only
+  the played file's default is selected; a sibling that cannot play on the device is left out.
+  A file's tracks are listed together in its player's order, which is how the core counts a
+  rendition's place.
 - Transcode ladder/settings policy and the auto-prepare policy (`media.AutoPrepare`) live in
   the `media` kernel and `library.Prepare` queues the jobs, so library's prober can prepare
   renditions without importing playback. Rendition bitrates are capped at the source bitrate
@@ -561,8 +582,16 @@ leave it empty so they see base text.
   HLS. The player switches via hls.js `audioTrack` (Safari: native `video.audioTracks`);
   AVPlayer and ExoPlayer show the group as their native audio menu. Files prepared before
   HLS v2 keep their `multiaudio` MPEG-TS remux (`-var_stream_map`, its own master.m3u8).
-- Both surface as `playbackInfo.audio` (source `file`|`embedded`); the player shows one
-  audio menu, selected independently of the display language (`localStorage cv.audioLang`).
+- Both surface as `playbackInfo.audio` (source `file`|`embedded`), and a title can mix them: a
+  file in English and Czech with a German file beside it lists English, Czech and German (or
+  the German file's own tracks), one menu (see playback). The core chooses by the language
+  picked last on the device (`player.prefs`), independently of the display language, else
+  the played file's default. A track of the source that plays switches inside it
+  (`PlayerCommand::SelectAudio` with its place among its file's renditions); a sibling's
+  swaps the source for that file's, and the played file's own again swaps back, where playback
+  was, playing or paused as it was; a load names the rendition to start on by language and
+  place (`PlayerLoad.audioLang`/`audioIndex`), so the second of two tracks in one language
+  survives a reload.
 
 ## API contract (cross-cutting)
 
@@ -659,9 +688,10 @@ messages and perform the effects it asks for.
   password, avatar/banner uploads), `playback` (the device profile and `resolvePlayback`,
   sources by tier (the server's media paths made whole URLs against the account's server for
   native players), resume, watched-time accounting and progress saves, JIT keepalive,
-  preparing poll, qualities, tracks, next episode, shuffle; a downloaded title plays from the
-  device with source `download` and in-file subtitles), `couch` (the socket protocol,
-  reconnects, host broadcast, follower drift sync, remote control, reactions; a host reports
+  preparing poll, qualities, tracks (audio across a title's files), next episode, shuffle; a
+  downloaded title plays from the device with source `download` and in-file subtitles),
+  `couch` (the socket protocol, reconnects, host broadcast, follower drift sync, remote
+  control, reactions; a host reports
   as soon as its socket opens, which takes a session over from the account's other devices,
   and its own view follows what it plays; a `hello` naming a host a remote closes its player
   and makes it the new host's remote; a code that
@@ -778,25 +808,27 @@ navigation, nothing else.
 - **Player** (`Player/`): `PlayerController` executes `PlayerCommand`s on one `AVPlayer`: `load`
   (a URL, a file name in the downloads directory for `download`; the start position once the
   item is ready, `maxHeight` as `preferredMaximumResolution`, Now Playing metadata with the
-  backdrop as `externalMetadata`), play, pause, seek, audio by language and subtitles: a sidecar
-  WebVTT file for a progressive source is parsed (`WebVTT`) and drawn by the screen, a track
-  inside the media (HLS renditions, a download's own subtitles) is selected as a legible option
-  by language (`cze`/`ces`/`cs` alike). It reports `PlayerReported` every second while playing
-  and on every change of state, buffering, the end and failures, but not while a new item
-  settles at zero; a language picked in the system's own menu becomes `SubtitlesChosen` or
-  `AudioChosen`. `DeviceCapabilities` measures the profile (`VTIsHardwareDecodeSupported`, Main
-  10 by `isPlayableExtendedMIMEType`, `eligibleForHDRPlayback`, the TV's display size and frame
-  rate, a 4K decode cap on phones and tablets, Atmos from spatial audio or a multichannel route)
-  and `DeviceProfile.avPlayer` shapes it like `contract/fixtures/device-profiles/apple-tv-4k.json`.
-  `PlayerScreen` wraps `AVPlayerViewController` (system transport, scrubbing, close, PiP started
-  automatically from inline, AirPlay, Now Playing and remote commands; on TV display criteria
-  matching). On TV the transport bar gets the core's Quality menu, Audio and Subtitles menus only
-  when the system's cannot list them (another language's file, a sidecar file), and Shuffle; the
-  info panel lists the episodes; the next episode is a contextual action with its countdown. On
-  iPhone and iPad a small options button between the system's top controls holds the same
-  choices plus the episodes, and a glass card counts down to the next episode (Play now,
-  Cancel). Waiting, preparing (with its progress), unsupported and failed states cover the
-  player with the backdrop. The iOS app has the `audio` background mode for PiP.
+  backdrop as `externalMetadata`), play, pause, seek, audio by place then language (a load's
+  too) and subtitles: a sidecar WebVTT file for a progressive source is parsed (`WebVTT`) and
+  drawn by the screen, a track inside the media (HLS renditions, a download's own subtitles) is
+  selected as a legible option by language (`cze`/`ces`/`cs` alike). It reports
+  `PlayerReported` every second while playing and on every change of state, buffering, the end
+  and failures, but not while a new item settles at zero; a language picked in the system's own
+  menu becomes `SubtitlesChosen` or `AudioChosen` (an audio rendition is named by its place
+  among the played file's tracks, which the core lists together). `DeviceCapabilities` measures
+  the profile (`VTIsHardwareDecodeSupported`, Main 10 by `isPlayableExtendedMIMEType`,
+  `eligibleForHDRPlayback`, the TV's display size and frame rate, a 4K decode cap on phones and
+  tablets, Atmos from spatial audio or a multichannel route) and `DeviceProfile.avPlayer`
+  shapes it like `contract/fixtures/device-profiles/apple-tv-4k.json`. `PlayerScreen` wraps
+  `AVPlayerViewController` (system transport, scrubbing, close, PiP started automatically from
+  inline, AirPlay, Now Playing and remote commands; on TV display criteria matching). On TV the
+  transport bar gets the core's Quality menu, Audio and Subtitles menus only when the system's
+  cannot list them all (another language's file, a sidecar file), and Shuffle; the info panel
+  lists the episodes; the next episode is a contextual action with its countdown. On iPhone and
+  iPad a small options button between the system's top controls holds the same choices plus
+  the episodes, and a glass card counts down to the next episode (Play now, Cancel). Waiting,
+  preparing (with its progress), unsupported and failed states cover the player with the
+  backdrop. The iOS app has the `audio` background mode for PiP.
 - **Downloads** (`Downloads/`, iPhone and iPad, plan 10.8): `DownloadExecutor` runs the core's
   `download` effects as one transfer per file the core names, in a background `URLSession`
   (`BackgroundTransfers`: not discretionary, each task named by its file in `taskDescription`,
@@ -1025,10 +1057,11 @@ launch from the UI mode, on the shared core.
   hosting on another device.
 - **Playback** (`feature-playback`): `PlaybackEngine` carries out the core's `PlayerCommand`s
   on one ExoPlayer (whole URLs from the core, sidecar or in-stream subtitles, audio by index
-  then language, `maxHeight` as a track cap, no retries on a 4xx) and reports about once a
-  second while playing and on every change, `playing` meaning what the viewer asked for. Phone
-  and TV player screens draw `PlayerView`; a `MediaSessionService` gives the system controls,
-  phones get picture-in-picture (shrinking from where the picture is).
+  then language, a load's once its tracks are known, `maxHeight` as a track cap, no retries on
+  a 4xx) and reports about once a second while playing and on every change, `playing` meaning
+  what the viewer asked for. Phone and TV player screens draw `PlayerView`; a
+  `MediaSessionService` gives the system controls, phones get picture-in-picture (shrinking
+  from where the picture is).
 - **Downloads** (phones, `feature-downloads`): unique WorkManager work per file, a foreground
   worker resuming with `Range` and reporting at most once a second (its notification in the
   display language the download was asked in), files in `files/downloads`; the Downloads
@@ -1304,6 +1337,36 @@ development (persisted in localStorage `cv.tv`; `?tv=0` clears it).
 - Getting it onto a TV: Titan OS apps are hosted URLs registered in the Titan OS Partner
   Portal; DevView on the TV launches unpublished ones, and Chrome DevTools attaches to
   `<tv-ip>:9222` or `:7001` with Debug Mode on (docs.titanos.tv).
+
+## CouchPush uploader (cross-cutting)
+
+`tools/couchpush` is a Windows desktop uploader (Python, PySide6): it probes and encodes on the
+PC with ffmpeg (NVENC or libx264) and uploads through the admin API, so the server has no
+route of its own for it. Setup, builds and its tests are in its
+[README](tools/couchpush/README.md).
+
+- **Sign-in** is a device session, as the native apps have: `signInDevice` with platform
+  `desktop`, named "CouchPush on <computer>", the token sent as `Authorization: Bearer` (over a
+  plain-HTTP LAN address, the fast path for large uploads, as well as HTTPS) and listed among
+  the account's devices, where it can be signed out. "Stay signed in" keeps the token, with
+  the server it belongs to so it is never sent to another, and the password in the OS keyring;
+  without it the session ends when the app closes.
+- **Operations**: `adminListLibrary`, `adminGetTitle` (seasons, episodes, files and
+  `audioStreamsByFile`), `adminCreateTitle`, `adminCreateSeason`, `adminCreateEpisode`, the
+  chunked upload (`adminCreateUpload`, `adminAppendUpload` in 8 MiB chunks, resuming from a
+  409's offset or `adminGetUpload` after a failure, `adminCompleteUpload`, `adminAbortUpload`),
+  `adminUpdateMediaFile` (audio language and role), `adminDeleteMediaFile` and
+  `adminUploadSubtitle` (embedded text subtitles extracted to WebVTT).
+- The queue scans folders and takes dropped files, with filters, retries and an explicit movie
+  target picker; title and year matching (Unicode, remakes) refuses ambiguous targets, and a new
+  movie's draft title is created before encoding, its id kept across retries.
+- Output defaults to 1080p, keeps the aspect ratio and never upscales; NVENC picks its own H.264
+  level and falls back to the CPU; compatible HDR sources are tone-mapped to SDR.
+- The default audio mode puts one matching track per requested language (`en, cs`) in one MP4,
+  which the server's audio package makes switchable in the player. A combined upload becomes
+  the primary file and earlier primaries alternates; a replacement deletes an existing file
+  only when its whole known language inventory (`audioStreamsByFile`) is covered, so files
+  with unknown or other languages stay.
 
 ## Backend dependency graph
 

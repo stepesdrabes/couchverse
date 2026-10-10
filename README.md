@@ -22,6 +22,8 @@ USB disk to a beefy home server.
   which plays it offline; progress watched offline syncs back once the server is reachable
 - Custom video player: subtitles (side-car VTT), quality menu, picture-in-picture,
   keyboard shortcuts, hover tooltips, and a seek bar with time + frame preview
+- One audio menu per title: the languages inside a file and separate-language files side by
+  side, switched where playback was
 - Subtitle support: upload `.srt`/`.vtt` or automatic extraction of embedded text subs
 - **Couch sessions** - synced watch parties: share a link and friends watch in sync
   (even without an account), with a playful couch of avatars and emoji reactions; the
@@ -40,6 +42,9 @@ USB disk to a beefy home server.
   editor, home-page row editor, and a Ranks page (level distribution, achievement
   rarity, per-member standing, editable XP rates and rank thresholds)
 - Media comes in through resumable chunked uploads (pause/resume survives disconnects)
+- [CouchPush](tools/couchpush/README.md): a Windows uploader that encodes on the PC's GPU,
+  picks the resolution, matches files to movies and episodes and puts several audio languages
+  (English and Czech, say) in one file; it signs in as one of your devices
 - Filename parsing (`Show/Season 01/Show S01E01.mkv`, `Movie (2024).mkv`) builds the
   catalog automatically
 - TMDB integration: search & apply metadata + artwork with one click
@@ -177,6 +182,9 @@ make e2e                     # Playwright smoke suite (and the axe accessibility
 make apple-test android-test # the native apps' package, snapshot and JVM tests
 make build                   # wasm core → SPA → embed → single binary at backend/bin/couchverse
 ```
+
+CouchPush (`tools/couchpush`, Python and Qt) has its own setup and tests, see its
+[README](tools/couchpush/README.md).
 
 ### End-to-end smoke suite
 
