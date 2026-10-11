@@ -168,15 +168,24 @@ fn the_web_reads_its_session_again_after_changing_it() {
 
     shell.send(Event::SessionChanged);
     assert_eq!(shell.view::<SessionView>(&Surface::Session).status, LoadStatus::Stale);
-    shell.respond("GET", "/api/v1/auth/me", 200, edited);
+    shell.respond("GET", "/api/v1/auth/me", 200, edited.clone());
     let user = shell.view::<SessionView>(&Surface::Session).user.expect("user");
     assert_eq!(user.display_name, "The Admin");
     assert_eq!(user.bio, "# Hi");
     assert_eq!(user.created_at, "2026-01-01T00:00:00Z");
 
+    // a server from before Couch TV does not send its flag: the channel stays off
     let flags = json!({"couchEnabled": false, "rankingsEnabled": true, "downloadsEnabled": true});
     shell.respond("GET", "/api/v1/features", 200, flags);
-    assert!(!shell.view::<SessionView>(&Surface::Session).features.couch);
+    let features = shell.view::<SessionView>(&Surface::Session).features;
+    assert!(!features.couch);
+    assert!(!features.couch_tv);
+
+    shell.send(Event::SessionChanged);
+    shell.respond("GET", "/api/v1/auth/me", 200, edited);
+    let flags = json!({"couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": true, "couchTvEnabled": true});
+    shell.respond("GET", "/api/v1/features", 200, flags);
+    assert!(shell.view::<SessionView>(&Surface::Session).features.couch_tv);
 }
 
 #[test]

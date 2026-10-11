@@ -87,7 +87,7 @@ public enum Fixtures {
         let hasUser = status == .loaded || status == .stale
         return SessionView(
             status: status, accountId: "\(serverId)/nora", user: hasUser ? user : nil,
-            features: Features(couch: true, rankings: true, downloads: true), language: language,
+            features: Features(couch: true, rankings: true, downloads: true, couchTv: false), language: language,
             accent: .fallback,
             problem: status == .failed || status == .stale ? Problem(code: "offline", detail: "") : nil,
             offline: status == .failed || status == .stale)

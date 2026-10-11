@@ -799,13 +799,16 @@ data class FeaturedCard (
 	val inList: Boolean
 )
 
-/// Optional server features; on until the server says otherwise, so nothing flickers away.
+/// Optional server features; on until the server says otherwise, so nothing flickers away,
+/// except Couch TV, which stays off until the server says it is on.
 @Serializable
 data class Features (
 	val couch: Boolean,
 	val rankings: Boolean,
 	/// Downloads for offline viewing (native apps).
-	val downloads: Boolean
+	val downloads: Boolean,
+	/// Couch TV, the live channel.
+	val couchTv: Boolean
 )
 
 @Serializable

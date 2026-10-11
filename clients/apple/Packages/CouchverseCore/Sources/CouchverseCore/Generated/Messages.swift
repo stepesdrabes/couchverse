@@ -1076,17 +1076,21 @@ public struct FeaturedCard: Codable, Sendable, Hashable {
 	}
 }
 
-/// Optional server features; on until the server says otherwise, so nothing flickers away.
+/// Optional server features; on until the server says otherwise, so nothing flickers away,
+/// except Couch TV, which stays off until the server says it is on.
 public struct Features: Codable, Sendable, Hashable {
 	public let couch: Bool
 	public let rankings: Bool
 	/// Downloads for offline viewing (native apps).
 	public let downloads: Bool
+	/// Couch TV, the live channel.
+	public let couchTv: Bool
 
-	public init(couch: Bool, rankings: Bool, downloads: Bool) {
+	public init(couch: Bool, rankings: Bool, downloads: Bool, couchTv: Bool) {
 		self.couch = couch
 		self.rankings = rankings
 		self.downloads = downloads
+		self.couchTv = couchTv
 	}
 }
 

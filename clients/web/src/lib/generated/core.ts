@@ -654,12 +654,17 @@ export interface FeaturedCard {
 	inList: boolean;
 }
 
-/** Optional server features; on until the server says otherwise, so nothing flickers away. */
+/**
+ * Optional server features; on until the server says otherwise, so nothing flickers away,
+ * except Couch TV, which stays off until the server says it is on.
+ */
 export interface Features {
 	couch: boolean;
 	rankings: boolean;
 	/** Downloads for offline viewing (native apps). */
 	downloads: boolean;
+	/** Couch TV, the live channel. */
+	couchTv: boolean;
 }
 
 export interface GenreView {

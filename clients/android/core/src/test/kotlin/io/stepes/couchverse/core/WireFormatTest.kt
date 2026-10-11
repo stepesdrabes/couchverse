@@ -221,7 +221,7 @@ class WireFormatTest {
             assertEquals(LoadStatus.Loaded, session.status)
             assertEquals("nora", session.user?.username)
             assertEquals("cs", session.language)
-            assertEquals(Features(couch = true, rankings = false, downloads = true), session.features)
+            assertEquals(Features(couch = true, rankings = false, downloads = true, couchTv = false), session.features)
             assertEquals("#3a6ea5", session.accent.accent)
             assertEquals(ACCOUNT, shell.view<AccountsView>(Surface.Accounts).accounts.single().id)
             assertEquals(BASE, shell.view<ServersView>(Surface.Servers).servers.single().url)

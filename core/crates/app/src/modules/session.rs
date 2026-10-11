@@ -61,20 +61,24 @@ pub struct SessionUser {
     pub created_at: String,
 }
 
-/// Optional server features; on until the server says otherwise, so nothing flickers away.
+/// Optional server features; on until the server says otherwise, so nothing flickers away,
+/// except Couch TV, which stays off until the server says it is on.
 #[typeshare]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(clippy::struct_excessive_bools)] // one switch per server feature flag
 pub struct Features {
     pub couch: bool,
     pub rankings: bool,
     /// Downloads for offline viewing (native apps).
     pub downloads: bool,
+    /// Couch TV, the live channel.
+    pub couch_tv: bool,
 }
 
 impl Default for Features {
     fn default() -> Self {
-        Self { couch: true, rankings: true, downloads: true }
+        Self { couch: true, rankings: true, downloads: true, couch_tv: false }
     }
 }
 
@@ -325,6 +329,8 @@ impl Session {
                         couch: flags.couch_enabled,
                         rankings: flags.rankings_enabled,
                         downloads: flags.downloads_enabled,
+                        // servers from before the channel do not send it
+                        couch_tv: flags.couch_tv_enabled.unwrap_or_default(),
                     };
                     self.features_known = true;
                     SessionChange::Features
