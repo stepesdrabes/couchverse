@@ -25,7 +25,8 @@ Feature inventory + per-feature docs (endpoints, tables, dependency graph) live 
 A feature owns its HTTP handlers, domain logic and SQL together.
 
 - Backend features live in `backend/internal/feature/<name>/` (analytics, artwork, auth,
-  catalog, couch, downloads, jobs, library, metadata, playback, ranks, subtitles, system).
+  catalog, couch, couchtv, downloads, jobs, library, metadata, playback, ranks, subtitles,
+  system).
   Each is one Go package with:
   - a per-feature `Store` struct over the shared pgx pool (`NewStore(pool)`) - SQL stays
     inside the feature;
@@ -71,6 +72,15 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     `/admin/ranks`, which stays reachable so an admin can retune progression while it is off.
     XP rates and tier thresholds are admin-editable (`ranks.RankConfig` in the `ranks` settings
     key) and threaded through the pure functions as an argument rather than read globally.
+  - **Couch TV** (`couchtv`, the live channel; decisions and roadmap in
+    `docs/couch-tv-plan.md`): the schedule comes from the pure `couchtv.Plan` (config, library
+    facts, history, fixed rows -> airings with UTC times), table-tested without a database like
+    `playback.Decide`; a rule change gets a case in `plan_test.go`. Programs record the `fill`
+    that chose them and the planner derives strip cursors, the movie rotation and the saga
+    from earlier rows, so replanning never rewinds stored state; a replan replaces auto rows by
+    diff and keeps admin, locked and started rows. `couchTvEnabled` is the one flag that is
+    **off** when unset (`flags.Load`, the core's `Features.couchTv`); the admin operations are
+    not gated, like `/admin/ranks`, and the plan job runs while the flag is off.
   - **User-authored markdown** (profile bios) is parsed by the core's `markdown` module into a
     document tree that can only express safe structure (raw HTML arrives as text, images as
     links, links are http(s)/mailto only); that module is the security boundary. The web

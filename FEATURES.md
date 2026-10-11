@@ -28,6 +28,7 @@ that render a `XxxPage.svelte` component from the owning feature.
 | couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
 | ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters` |
 | downloads | `internal/feature/downloads` | (native clients only) | `download_files`, `downloads` |
+| couchtv | `internal/feature/couchtv` | (admin toggle in `features/settings`; no viewer UI yet) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_clips`, `couchtv_breaks` |
 
 Shared kernel (backend): `internal/app` (wiring of stores, services and the job runner),
 `internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
@@ -242,6 +243,11 @@ as episode `thumb` artwork). API key comes from settings.
 - Endpoints (admin): `/admin/metadata/search`, `/admin/titles/{id}/metadata/apply`,
   `/admin/titles/{id}/metadata/seasons`, `/admin/titles/{id}/metadata/import-episodes`.
 - Job handlers: `fetch_metadata`, `import_episodes`.
+- Apply also keeps the base language's **tagline** (`titles.tagline`; the other languages keep
+  theirs in `translations`, and dropping the base language promotes the next one's) and a
+  movie's TMDB **collection** (`belongs_to_collection` as `collection_tmdb_id`,
+  `collection_name`, cleared when TMDB has none), for Couch TV's promos and Saga Sunday. No UI
+  shows them yet.
 - **Logos** (`metadata/logos.go`): one `GET /{movie|tv}/{id}/images` call with
   `include_image_language=<content languages>,null`; for each content language the
   best-voted PNG logo in that language (vote average, then vote count), else the best-voted
@@ -536,6 +542,85 @@ on the row, and records failures (`requestDownload` again re-queues a failed fil
 - Tests: `playback/download_test.go` (plans and ffmpeg arguments), `TestDownloads`
   (real MP4s copied and transcoded, inspected with ffprobe, shared files, range requests,
   grants, the cleanup).
+
+### couchtv
+Couch TV, one auto-programmed, always-on channel (decisions D1-D32 and the roadmap in
+`docs/couch-tv-plan.md`). Built so far (Phase 1): the config and weekly template, the pure
+schedule generator, the plan job and the admin operations; no viewer surface, rendering or
+stream yet. Gated by the admin `couchTvEnabled` flag, the one flag that is **off** while unset
+(`flags.Load` leaves it out of the "missing means on" default; `flags.CouchTvOn` guards the
+viewer routes to come; the core reads it as `SessionView.features.couchTv`, `false` from a
+server that does not send it). The admin settings page toggles it.
+- **Config** (`couchtv.CouchTvConfig`, settings key `couchtv`, `DefaultConfig`, `Validate`;
+  `LoadConfig` falls back part by part, like `ranks.RankConfig`): `timeZone` (default
+  `Europe/Prague`), `breakMinSeconds` (23), `rotation` (`primeRepeatMinDays` 5,
+  `primeRepeatFactor` 0.8, `movieGapDays` 2, `rerunGapDays` 14, `premiereWindowDays` 28,
+  `fillerMinMinutes` 5), `guestLink.enabled` (its hash is stored beside the config and never
+  served) and `template.slots`. A slot has a `key`, `days`, an optional `start` (HH:MM; an
+  `anchor` starts exactly then, a flow slot uses it as the time the block before it fills up
+  to; times before the day's first anchor are the night after it), a `fill` (`strip`,
+  `marathon`, `reruns`, `movie`, `matinee`, `premiere`, `saga`, `encore`), a `pick` (genre
+  preference: `any`, `comedy`, `animation`, `drama`, `family`, matched on English names and
+  their Czech labels), a `count` (episodes per day) and pinned `titles`. A weekday's slots in
+  template order are its **broadcast day**, from its first anchor to the next day's.
+- **Default template**: plan 5.1 written as rules, so it fits any library: morning comedy
+  reruns, daytime reruns, the 12:00 matinee (Sunday a family movie), the weekend marathon,
+  afternoon reruns, strips at 17:00 and 18:00 (two sitcom strips), 20:15 prime-time movie /
+  Saturday premiere / Saga Sunday, a drama strip (Mon-Thu) or another strip (Fri, Sun) or a
+  late movie (Sat), late animation reruns, the encore near 01:00 and overnight reruns.
+  Strips take the series with the most episodes of their genre, once per template (pinned
+  first, then genre strips, any-genre strips, marathons); a marathon with no free series
+  shares the biggest of its genre, cursor included. Pinning titles reproduces the owner's
+  lineup.
+- **The generator** (`couchtv.Plan`, pure, every rule table-tested in `plan_test.go` without a
+  database, including a week over a library shaped like production's): anchors start exactly;
+  flow starts on the next 5-minute mark after the previous program and the shortest break; a
+  block that would overrun the next anchor drops what does not fit (a strip episode longer
+  than its slot could ever hold is passed over); reruns fill up to the next slot's time
+  (each at least half over by a flow target) taking turns through the pool's series, aired
+  episodes outside `rerunGapDays` first; a gap of `fillerMinMinutes` or more before a fixed
+  time gets `filler` reruns (or a movie) while one fits. Prime time keeps a movie away for
+  max(`primeRepeatMinDays`, `primeRepeatFactor` x movie count) days; matinees rerun movies that
+  were in prime time recently, so they take nothing from the rotation; the premiere candidate
+  and the next saga film are held back from other slots. Saturday premieres the newest movie
+  added within `premiereWindowDays` that never aired (D24); Saga Sunday walks TMDB collections,
+  else names sharing a prefix ("Iron Man", "Iron Man 2"), in release order, then the
+  franchise shown longest ago (D30); a slot with neither runs the rotation (`fill: movie`).
+  Each day draws from a seed of its date, so an unchanged day plans the same. Fixed rows
+  (admin, locked, already started) are obstacles the flow fits around, and a slot they carry
+  does not run again. A program airs in full until credits markers exist (`Media.onAir`).
+- **Strip cursors are derived**: the next episode is the one after the series' latest strip or
+  marathon airing (seasons 1 and up in order, wrapping around), so replanning a day reads the
+  state the days before it left; reruns and stand-ins do not move it. `couchtv_strips` holds
+  an admin's restart (`next_episode_id` from `effective_from`) until the strip has aired past
+  it.
+- **Readiness**: until `couchtv_prepare` exists, a file is ready when its Playback v2 package is
+  (the copied source in fMP4 and every audio rendition, plus an H.264 rung for anything but
+  8-bit SDR H.264). Beyond 48 h it does not matter; within 48 h a free choice prefers
+  prepared media inside each rule's tier; within 6 h prepared media wins over every tier, an
+  unprepared strip episode or premiere gives way to a prepared stand-in, and
+  `couchtv.SwapUnready` swaps already planned rows (the break after a stand-in grows and loses
+  its composition).
+- **The `couchtv_plan` job** (`couchtv.Scheduler`, one slot): queued at startup, after every
+  config save and daily at 04:00 in the channel's zone (its payload names the day, and each
+  run queues the next one first, so a failing run cannot end the chain). It keeps the
+  broadcast days up to the one a week from now planned; a day that starts within 24 h keeps
+  its plan once it has one (frozen); the rest is replanned under an advisory lock and stored
+  by diff, so unchanged rows keep their ids; then the swaps. It runs while the flag is off, so
+  the schedule can be reviewed first.
+- Endpoints (admin, not flag-gated, like `/admin/ranks`): `GET/PUT /admin/couchtv`
+  (`adminGetCouchTv`, `adminUpdateCouchTv`: config plus `plannedUntil`; a save validates
+  pinned titles against their slot and queues a replan), `GET /admin/couchtv/airings?from&to`
+  (`adminListAirings`, at most 15 days, with title and episode names, `fill`, `slot` and
+  `ready`), `POST /admin/couchtv/days/{date}/regenerate` (`adminRegenerateDay`: replans that
+  day and the later ones, today to a week ahead, and answers with the day).
+- Tables: `couchtv_airings` (programs and breaks, UTC; `fill`, `slot`, `source`, `locked`,
+  `state`, `credits_at_ms`), `couchtv_strips`, `couchtv_titles` (the planner reads `excluded`;
+  promo audio, shots and mood are for later phases), `couchtv_clips` and `couchtv_breaks`
+  (later phases); `titles` gained `tagline`, `collection_tmdb_id`, `collection_name`.
+- Tests: `couchtv/plan_test.go` (the rules), `TestCouchTvPlanJob` (the job on the seeded
+  database: a gapless week, the next daily run, a no-op replan, frozen days and a locked row
+  kept, a swap), `TestCouchTvConfigStored`, `TestApplyMetadataTaglineAndCollection`.
 
 ## Internationalization & multi-language media (cross-cutting)
 
@@ -1383,6 +1468,7 @@ playback -> {auth, catalog, library, subtitles}
 ranks -> {auth, catalog}  (near-leaf; nothing imports ranks)
 downloads -> {auth, catalog, library, subtitles, playback}  (nothing imports downloads)
 couch -> {playback, auth}  (top of the DAG; nothing imports couch)
+couchtv -> {catalog}  (nothing imports couchtv; reads media and variant tables by SQL)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
 ```

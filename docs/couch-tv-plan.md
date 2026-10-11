@@ -242,6 +242,56 @@ rules):
 - Admin edits are rows with `source='admin'` and/or `locked=true`; regeneration keeps them
   and replans around them.
 
+### 5.4 Settled in Phase 1
+Details the decisions above left open, as built (`internal/feature/couchtv`, FEATURES.md
+"couchtv"):
+- **The template is rules, not titles.** The default (5.1) names no title: slots carry a
+  `fill` (strip, marathon, reruns, movie, matinee, premiere, saga, encore) and a genre `pick`
+  (any, comedy, animation, drama, family); strips go to the series with the most episodes of
+  their genre, each series once (pinned first, then genre strips, any-genre strips,
+  marathons). On a library shaped like production's (section 3, with TMDB's genres; the
+  week test in `plan_test.go`) that yields 5.1's lineup: Simpsonovi and South Park at 18:00,
+  Věřte nevěřte at 17:00, Dexter Mon-Thu, Invincible Fri and Sun. Genres are matched by their
+  English names and Czech labels, since TMDB names them in a title's base language. A slot
+  may pin `titles`, which is how the owner fixes the lineup whatever the genres say. The
+  weekend marathon finds no free drama there and shares Dexter's cursor, so the weekend
+  catches up on the weekday strip.
+- **A broadcast day** is a weekday's slots in template order, from its first anchor (06:00) to
+  the next day's; times before the first anchor are the night after it (01:00 encore). The
+  day's first slot must be an anchor. A flow slot with a `start` is a target: the reruns
+  before it fill up to it (each rerun at least half over by then), anchors are hard limits.
+- **Gaps**: a gap of `fillerMinMinutes` (5) or more before an anchor, a fixed row or the day's
+  end gets `filler` reruns (or a movie) while one fits; what remains grows the break. With
+  22-minute episodes on a 5-minute grid, breaks reach about 27 minutes in the worst case.
+- **Overruns**: a block drops what does not fit before the next anchor; that episode airs the
+  next day. A strip episode longer than its slot could ever hold is passed over, so a strip
+  never stalls.
+- **Strip cursors are derived, not stored** (the 6.2 question): the next episode follows the
+  series' latest strip or marathon airing, read from `couchtv_airings` (every program records
+  the `fill` that chose it), so replanning a day reads exactly what the days before it left
+  and nothing has to be rewound. `couchtv_strips` became an admin's restart point
+  (`next_episode_id` from `effective_from`), used until the strip airs again after it.
+- **Movies**: a matinee reruns a movie that was in prime time within the rotation window, so
+  it takes nothing from the rotation; the week's premiere candidate and the next saga film are
+  held back from other slots. Saga order is the TMDB collection, else names sharing a prefix
+  (two leading words of 8+ letters, or one name being the other's leading words), in release
+  order; a finished franchise passes to the one shown longest ago. A slot whose premiere or
+  saga cannot run airs the rotation with `fill: movie`, so promos never call it a premiere.
+- **Readiness** before `couchtv_prepare` exists: the Playback v2 package (fMP4 copied source,
+  every audio rendition, an H.264 rung for anything but 8-bit SDR H.264). Beyond 48 h it is
+  ignored; within 48 h free choices prefer prepared media inside each rule's tier; within 6 h
+  prepared media beats every tier, an unprepared strip episode or premiere gets a prepared
+  stand-in (a rerun, or the rotation) and the job swaps planned rows the same way. Swaps run
+  with every plan run for now; Phase 4 runs them as preparation finishes.
+- **Determinism**: each day's choices draw from a seed of its date; regenerating an unchanged
+  day gives the same rows, and the store writes by diff, so unchanged rows keep their ids
+  (and later a break its composition).
+- **The job**: `couchtv_plan` runs at startup, after a config save and daily at 04:00 local;
+  each run queues the next daily run first. "Frozen" is per broadcast day: a day starting
+  within 24 h keeps its plan once planned. The horizon reaches the broadcast day a week from
+  now. `adminRegenerateDay` replans the day and every later one, so strips stay in order.
+  The schedule is planned while `couchTvEnabled` is off.
+
 ---
 
 ## 6. Backend
@@ -261,12 +311,15 @@ rules):
 
 ### 6.2 Data model (new migration)
 - `couchtv_airings`: `id, starts_at, ends_at, kind (program|break), title_id, episode_id,
-  media_file_id, slot (template slot key), block (strip/marathon key), source (auto|admin),
-  locked, state (planned|ready|aired|failed|replaced), credits_at (offset where the squeeze
-  begins), created_at`. Index on `starts_at`.
-- `couchtv_strips`: `title_id, next_episode_id, updated_at` (strip and marathon cursors).
-- `couchtv_titles`: `title_id, excluded, promo_audio (file, start, duration, source),
-  shots jsonb (media file, start, duration, score), mood, analyzed_version`.
+  media_file_id, slot (template slot key), fill (the rule that chose the program: strip,
+  marathon, reruns, movie, matinee, premiere, saga, encore, filler; it replaced the planned
+  `block`), source (auto|admin), locked, state (planned|ready|aired|failed|replaced),
+  credits_at_ms (offset where the squeeze begins), created_at`. Index on `starts_at`.
+- `couchtv_strips`: `title_id, next_episode_id, effective_from, updated_at`: an admin's strip
+  restart; the cursors themselves are derived from airings (5.4).
+- `couchtv_titles`: `title_id, excluded, promo_audio_file_id, promo_audio_start_ms,
+  promo_audio_duration_ms, promo_audio_source, shots jsonb (media file, start, duration,
+  score), mood, analyzed_version`.
 - `couchtv_clips`: `id, kind (ident_full|ident_short|sting|promo_body|promo_end|upnext|lineup|squeeze),
   key (hash of template version + inputs), state, duration_ms, path, size_bytes,
   rendered_at, last_used_at`. Unique on `key`.
@@ -277,15 +330,16 @@ rules):
 - `analytics`: `tv_watch_time_daily (day, user_id null, title_id, seconds)` (null user for
   guests).
 - `ranks`: new counters and achievements (6.9).
-- `metadata`: keep the base-language **tagline** (currently discarded), add `collection_id`
-  and `collection_name` (TMDB `belongs_to_collection`) for Saga Sunday.
+- `metadata`: keep the base-language **tagline** (`titles.tagline`), add `collection_tmdb_id`
+  and `collection_name` (TMDB `belongs_to_collection`) for Saga Sunday. All of the above is
+  migration `0024_couchtv` except the markers, analytics and ranks tables.
 
 ### 6.3 Jobs
 No cron exists; every periodic job re-enqueues itself like `cleanup`.
 
 | Job | Where | Does |
 |---|---|---|
-| `couchtv_plan` | app | Daily at 04:00 local and on template/lock changes: extend to 7 days, replan unfrozen days, run readiness swaps. |
+| `couchtv_plan` | app | At startup, daily at 04:00 local and on template/lock changes: extend to 7 days, replan unfrozen days, run readiness swaps (built in Phase 1, 5.4). |
 | `couchtv_prepare` | app | Per airing: queue `library.Prepare` (the `package`; a 1080p H.264 rung for HEVC/AV1/10-bit/HDR sources); mark ready. |
 | `analyze_markers` | app (`library`) | Per season: chromaprint the first 8 and last 6 minutes of every episode, pairwise-match within the season for intro and outro; per movie: loudness profile of the last 12 minutes for credits music and black/text-frame detection for credits start. |
 | `couchtv_analyze` | app | Per title: pick the promo soundtrack excerpt (D25) and footage shots (`scdet` + motion energy, first 50% of the runtime, no faces-only close-ups at the end of acts), measure program loudness (ebur128). |
@@ -303,7 +357,9 @@ one clip (at most ~2 minutes of work), so a transcode never waits long.
 `adminRotateCouchTvLink`, `adminCouchTvRenderHealth`, `adminGetCouchTvTitle` /
 `adminUpdateCouchTvTitle` (excluded, promo audio, shots), `adminGetMediaMarkers` /
 `adminUpdateMediaMarkers` (in `library`), `adminCouchTvWaveform` (peaks for the picker).
-Every operation gets a `TestAPIConformance` case.
+Every operation gets a `TestAPIConformance` case. Built in Phase 1: `GET/PUT /admin/couchtv`,
+`GET /admin/couchtv/airings?from&to` and `POST /admin/couchtv/days/{date}/regenerate`, not
+gated by the flag.
 
 ### 6.5 Break composition
 - Inputs: the gap (next start minus this program's `credits_at`), the slot (top of hour?
