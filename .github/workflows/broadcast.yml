@@ -1,0 +1,41 @@
+name: broadcast
+
+on:
+  push:
+    paths: [clients/broadcast/**, contract/broadcast-spec.schema.json, .github/workflows/broadcast.yml]
+  pull_request:
+    paths: [clients/broadcast/**, contract/broadcast-spec.schema.json, .github/workflows/broadcast.yml]
+
+defaults:
+  run:
+    working-directory: clients/broadcast
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: clients/broadcast/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run lint
+      - run: npm test
+      - name: The spec schema matches the spec types
+        run: |
+          npm run schema
+          git diff --exit-code -- ../../contract/broadcast-spec.schema.json
+      - run: npx playwright install --with-deps chromium
+      - name: Golden frames and audio determinism
+        run: npm run golden
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: broadcast-golden
+          path: |
+            clients/broadcast/test-results
+            clients/broadcast/playwright-report
+          retention-days: 14

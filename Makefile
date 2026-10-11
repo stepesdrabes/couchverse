@@ -1,5 +1,5 @@
 .PHONY: run-backend run-web build lint check format test e2e contract sample-media clean \
-	core-test core-apple core-android core-wasm apple-sims apple-test apple-uitest apple-lint apple-format \
+	broadcast broadcast-test core-test core-apple core-android core-wasm apple-sims apple-test apple-uitest apple-lint apple-format \
 	android-test hls-check hls-apple ingest-samples hls-server-check e2e-playback live-spike
 
 # dev database (compose service `db` published on 5432)
@@ -52,6 +52,15 @@ test:
 e2e:
 	cd clients/web && npx playwright install chromium webkit
 	cd clients/web && E2E_DATABASE_URL=$(DEV_DB) npm run e2e
+
+# the Couch TV broadcast package: the spec schema (contract/) and the render page (dist/)
+broadcast:
+	cd clients/broadcast && npm run schema && npm run build
+
+# its type check, lint and unit tests, then golden frames and audio determinism in Chromium
+broadcast-test:
+	cd clients/broadcast && npm run check && npm run lint && npm test
+	cd clients/broadcast && npx playwright install chromium && npm run golden
 
 # regenerate everything derived from contract/ (and the spec itself from the Go handlers)
 contract:
