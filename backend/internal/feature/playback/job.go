@@ -33,7 +33,7 @@ type Payload struct {
 }
 
 func (h *JobHandler) hlsDir(mediaFileID string) string {
-	return filepath.Join(h.DataDir, "cache", "hls", mediaFileID)
+	return PackageDir(h.DataDir, mediaFileID)
 }
 
 // job is one ffmpeg run and the variant rows it fills.
@@ -42,7 +42,7 @@ type job struct {
 	variants []*library.TranscodeVariant
 	// dirs are the rendition directories the run writes, with what to record
 	// about each in its rendition.json
-	dirs map[string]renditionInfo
+	dirs map[string]RenditionInfo
 }
 
 func (h *JobHandler) Handle(ctx context.Context, j *jobs.Job, report func(int)) error {
@@ -154,7 +154,7 @@ func (h *JobHandler) packageJob(ctx context.Context, mf *media.MediaFile, input 
 	if err != nil {
 		return nil, err
 	}
-	run := &job{args: inputArgs(input, 0), dirs: map[string]renditionInfo{}}
+	run := &job{args: inputArgs(input, 0), dirs: map[string]RenditionInfo{}}
 	base := h.hlsDir(mf.ID)
 	if canCopySource(mf, f) {
 		v, err := h.Files.UpsertVariant(ctx, mf.ID, media.VariantSource, mf.Height, mf.Bitrate, 0, "copy")
@@ -164,7 +164,7 @@ func (h *JobHandler) packageJob(ctx context.Context, mf *media.MediaFile, input 
 		run.variants = append(run.variants, v)
 		dir := filepath.Join(base, media.VariantSource)
 		run.args = append(run.args, hlsOutput{dir: dir, codec: sourceVideoArgs(mf, f), video: true, segment: segmentSeconds}.args()...)
-		run.dirs[dir] = renditionInfo{FrameRate: mf.Video.FrameRate, VideoRange: videoRange(mf.Video)}
+		run.dirs[dir] = RenditionInfo{FrameRate: mf.Video.FrameRate, VideoRange: videoRange(mf.Video)}
 	} else if err := h.Files.DeleteVariantByName(ctx, mf.ID, media.VariantSource); err != nil {
 		// a source registered by the prober that cannot be copied would read as pending forever
 		return nil, err
@@ -185,7 +185,7 @@ func (h *JobHandler) packageJob(ctx context.Context, mf *media.MediaFile, input 
 		for _, a := range renditions {
 			dir := filepath.Join(base, a.dir())
 			run.args = append(run.args, hlsOutput{dir: dir, codec: a.args(), segment: segmentSeconds}.args()...)
-			run.dirs[dir] = renditionInfo{StreamIndex: a.track.Index, Language: media.BCP47(a.track.Lang),
+			run.dirs[dir] = RenditionInfo{StreamIndex: a.track.Index, Language: media.BCP47(a.track.Lang),
 				Name: a.track.Title, Default: a.track.Default}
 		}
 	}
@@ -205,7 +205,7 @@ func (h *JobHandler) rungJob(ctx context.Context, mf *media.MediaFile, input str
 	return &job{
 		args:     append(inputArgs(input, 0), out.args()...),
 		variants: []*library.TranscodeVariant{v},
-		dirs:     map[string]renditionInfo{dir: {FrameRate: mf.Video.FrameRate, VideoRange: "SDR"}},
+		dirs:     map[string]RenditionInfo{dir: {FrameRate: mf.Video.FrameRate, VideoRange: "SDR"}},
 	}, nil
 }
 
@@ -220,7 +220,7 @@ func (h *JobHandler) trickplayJob(ctx context.Context, mf *media.MediaFile, inpu
 		// only keyframes are decoded; the trick frames do not need more
 		args:     append(inputArgs(input, 0, "-skip_frame", "nokey"), out.args()...),
 		variants: []*library.TranscodeVariant{v},
-		dirs:     map[string]renditionInfo{dir: {VideoRange: "SDR"}},
+		dirs:     map[string]RenditionInfo{dir: {VideoRange: "SDR"}},
 	}, nil
 }
 

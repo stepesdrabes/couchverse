@@ -1,11 +1,14 @@
 package playback
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
+	"strings"
 
 	"couchverse/internal/hls"
 	"couchverse/internal/media"
@@ -210,9 +213,9 @@ func trickplayArgs(mf *media.MediaFile, f Features) []string {
 	return append(args, sdrTags...)
 }
 
-// renditionInfo describes a finished rendition directory (rendition.json), so
+// RenditionInfo describes a finished rendition directory (rendition.json), so
 // multivariant playlists are written without opening media files.
-type renditionInfo struct {
+type RenditionInfo struct {
 	Codec             string  `json:"codec"`
 	SupplementalCodec string  `json:"supplementalCodec,omitempty"`
 	Width             int     `json:"width,omitempty"`
@@ -233,7 +236,7 @@ const renditionFile = "rendition.json"
 
 // describeRendition measures a finished rendition directory and writes its
 // rendition.json; base carries what the media cannot tell (language, name...).
-func describeRendition(dir string, base renditionInfo) (renditionInfo, error) {
+func describeRendition(dir string, base RenditionInfo) (RenditionInfo, error) {
 	text, err := os.ReadFile(filepath.Join(dir, "index.m3u8"))
 	if err != nil {
 		return base, err
@@ -280,13 +283,80 @@ func describeRendition(dir string, base renditionInfo) (renditionInfo, error) {
 	return info, os.WriteFile(filepath.Join(dir, renditionFile), data, 0o644)
 }
 
-func readRendition(dir string) (renditionInfo, error) {
-	var info renditionInfo
+func readRendition(dir string) (RenditionInfo, error) {
+	var info RenditionInfo
 	data, err := os.ReadFile(filepath.Join(dir, renditionFile))
 	if err != nil {
 		return info, err
 	}
 	return info, json.Unmarshal(data, &info)
+}
+
+// PackageDir is the directory of a media file's HLS package.
+func PackageDir(dataDir, mediaFileID string) string {
+	return filepath.Join(dataDir, "cache", "hls", mediaFileID)
+}
+
+// PackageRendition is a finished rendition of a package: its directory
+// ("source", a rung such as "1080p", "audio-<stream>-<codec>"), its
+// rendition.json and its media playlist, whose URIs are relative to the directory.
+type PackageRendition struct {
+	Name     string
+	Info     RenditionInfo
+	Playlist *hls.Media
+}
+
+// Package is a media file's prepared fMP4 package as other features play it.
+type Package struct {
+	Source *PackageRendition
+	// Ladder lists the transcoded rungs, sharpest first.
+	Ladder []PackageRendition
+	// Stereo is the AAC rendition of every audio track (stereo, or mono for a
+	// mono track, which is copied), in stream order.
+	Stereo []PackageRendition
+}
+
+// ReadPackage reads the finished renditions of a media file's fMP4 package. A
+// rendition is finished once its rendition.json exists: the job writes it
+// after ffmpeg succeeded and removes the directory when it fails.
+func ReadPackage(dataDir, mediaFileID string) (*Package, error) {
+	dir := PackageDir(dataDir, mediaFileID)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	p := &Package{}
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == media.VariantTrickplay {
+			continue
+		}
+		info, err := readRendition(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue // unfinished, or a pre-v2 MPEG-TS variant
+		}
+		text, err := os.ReadFile(filepath.Join(dir, e.Name(), "index.m3u8"))
+		if err != nil {
+			return nil, err
+		}
+		pl, err := hls.Parse(string(text))
+		if err != nil || pl.Media == nil {
+			return nil, fmt.Errorf("%s/%s: not a media playlist", mediaFileID, e.Name())
+		}
+		r := PackageRendition{Name: e.Name(), Info: info, Playlist: pl.Media}
+		switch {
+		case e.Name() == media.VariantSource:
+			p.Source = &r
+		case strings.HasPrefix(e.Name(), "audio-"):
+			if strings.HasPrefix(info.Codec, "mp4a") {
+				p.Stereo = append(p.Stereo, r)
+			}
+		default:
+			p.Ladder = append(p.Ladder, r)
+		}
+	}
+	slices.SortFunc(p.Ladder, func(a, b PackageRendition) int { return cmp.Compare(b.Info.Height, a.Info.Height) })
+	slices.SortFunc(p.Stereo, func(a, b PackageRendition) int { return cmp.Compare(a.Info.StreamIndex, b.Info.StreamIndex) })
+	return p, nil
 }
 
 // writeIFramePlaylist lists the trick-play segments as I-frames: each one holds

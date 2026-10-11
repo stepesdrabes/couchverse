@@ -34,7 +34,7 @@ func masterURL(g string, m Master) string {
 // rendition is a ready rendition directory and what rendition.json says about it.
 type rendition struct {
 	dir  string
-	info renditionInfo
+	info RenditionInfo
 }
 
 // audioTrack is one source audio track with its prepared renditions.
@@ -52,7 +52,7 @@ type fileRenditions struct {
 }
 
 func (h *Stream) renditions(mediaFileID string, variants []library.TranscodeVariant) fileRenditions {
-	dir := filepath.Join(h.dataDir, "cache", "hls", mediaFileID)
+	dir := PackageDir(h.dataDir, mediaFileID)
 	read := func(name string) *rendition {
 		info, err := readRendition(filepath.Join(dir, name))
 		if err != nil {

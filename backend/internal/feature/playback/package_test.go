@@ -1,6 +1,8 @@
 package playback
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -170,5 +172,55 @@ func TestBCP47(t *testing.T) {
 		if got := media.BCP47(in); got != want {
 			t.Errorf("media.BCP47(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestReadPackage(t *testing.T) {
+	dataDir := t.TempDir()
+	dir := PackageDir(dataDir, "file")
+	playlist := "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:6\n#EXT-X-PLAYLIST-TYPE:VOD\n" +
+		"#EXT-X-MAP:URI=\"init.mp4\"\n#EXTINF:6.000000,\nseg_00000.m4s\n#EXTINF:2.500000,\nseg_00001.m4s\n#EXT-X-ENDLIST\n"
+	write := func(name, info string) {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name, "index.m3u8"), []byte(playlist), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if info != "" {
+			if err := os.WriteFile(filepath.Join(dir, name, renditionFile), []byte(info), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	write("source", `{"codec":"avc1.640028","width":1920,"height":1080}`)
+	write("480p", `{"codec":"avc1.64001e","width":854,"height":480}`)
+	write("720p", `{"codec":"avc1.64001f","width":1280,"height":720}`)
+	write("audio-2-aac", `{"codec":"mp4a.40.2","channels":"2","streamIndex":2,"language":"cs"}`)
+	write("audio-1-aac", `{"codec":"mp4a.40.2","channels":"2","streamIndex":1,"language":"en"}`)
+	write("audio-1-ac3", `{"codec":"ac-3","channels":"6","streamIndex":1,"language":"en"}`)
+	write("trickplay", `{"codec":"avc1.64000d","width":320,"height":180}`)
+	write("1080p", "") // still encoding
+
+	p, err := ReadPackage(dataDir, "file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Source == nil || p.Source.Info.Height != 1080 || len(p.Source.Playlist.Segments) != 2 ||
+		p.Source.Playlist.Segments[1].Duration != 2.5 || p.Source.Playlist.Segments[0].Map.URI != "init.mp4" {
+		t.Errorf("source %+v", p.Source)
+	}
+	var ladder, stereo []string
+	for _, r := range p.Ladder {
+		ladder = append(ladder, r.Name)
+	}
+	for _, r := range p.Stereo {
+		stereo = append(stereo, r.Name+"/"+r.Info.Language)
+	}
+	if !slices.Equal(ladder, []string{"720p", "480p"}) || !slices.Equal(stereo, []string{"audio-1-aac/en", "audio-2-aac/cs"}) {
+		t.Errorf("ladder %v, stereo %v", ladder, stereo)
+	}
+	if _, err := ReadPackage(dataDir, "missing"); err == nil {
+		t.Error("a file without a package")
 	}
 }

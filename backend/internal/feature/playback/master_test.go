@@ -11,19 +11,19 @@ import (
 )
 
 func rung(dir string, height int, codec string, peak int64) rendition {
-	return rendition{dir: dir, info: renditionInfo{Codec: codec, Width: height * 16 / 9, Height: height,
+	return rendition{dir: dir, info: RenditionInfo{Codec: codec, Width: height * 16 / 9, Height: height,
 		FrameRate: 23.976, VideoRange: "SDR", Peak: peak, Average: peak * 9 / 10}}
 }
 
 func audioRend(dir string, stream int, codec, channels, lang, name string, def bool, peak int64) rendition {
-	return rendition{dir: dir, info: renditionInfo{Codec: codec, Channels: channels, StreamIndex: stream,
+	return rendition{dir: dir, info: RenditionInfo{Codec: codec, Channels: channels, StreamIndex: stream,
 		Language: lang, Name: name, Default: def, Peak: peak, Average: peak}}
 }
 
 func renditionSet() fileRenditions {
 	surround := audioRend("audio-1-eac3", 1, "ec-3", "16/JOC", "en", "English", true, 768_000)
 	return fileRenditions{
-		source: &rendition{dir: "source", info: renditionInfo{Codec: "hvc1.2.4.L150.90", SupplementalCodec: "dvh1.08.06/db1p",
+		source: &rendition{dir: "source", info: RenditionInfo{Codec: "hvc1.2.4.L150.90", SupplementalCodec: "dvh1.08.06/db1p",
 			Width: 3840, Height: 2160, FrameRate: 24, VideoRange: "PQ", Peak: 25_000_000, Average: 18_000_000}},
 		ladder: []rendition{rung("480p", 480, "avc1.64001e", 1_300_000), rung("1080p", 1080, "avc1.640028", 6_500_000),
 			rung("720p", 720, "avc1.64001f", 3_300_000)},
@@ -31,7 +31,7 @@ func renditionSet() fileRenditions {
 			{stereo: audioRend("audio-1-aac", 1, "mp4a.40.2", "2", "en", "English", true, 170_000), surround: &surround},
 			{stereo: audioRend("audio-2-aac", 2, "mp4a.40.2", "2", "cs", "", false, 170_000)},
 		},
-		trickplay: &rendition{dir: "trickplay", info: renditionInfo{Codec: "avc1.64000d", Width: 320, Height: 180, Peak: 40_000, Average: 30_000}},
+		trickplay: &rendition{dir: "trickplay", info: RenditionInfo{Codec: "avc1.64000d", Width: 320, Height: 180, Peak: 40_000, Average: 30_000}},
 	}
 }
 
@@ -134,7 +134,7 @@ func TestPreparedState(t *testing.T) {
 // nearest 720 lines but is its 1080p rung, so the ladder starts at 1280x532.
 func TestOrderLadderByClass(t *testing.T) {
 	rung := func(width, height int) rendition {
-		return rendition{info: renditionInfo{Width: width, Height: height}}
+		return rendition{info: RenditionInfo{Width: width, Height: height}}
 	}
 	heights := []int{}
 	for _, r := range orderLadder([]rendition{rung(854, 354), rung(1920, 800), rung(1280, 532)}) {
