@@ -4,9 +4,13 @@
 // the audio and subtitle media selection groups, switches to every audio and
 // subtitle option while playing, and reports whether an I-frame playlist made
 // trick play (scrubbing thumbnails) available.
+// With --live it plays a live presentation for that many seconds instead, once a
+// second printing the program date it shows (`t=<elapsed> time=<s> date=<unix ms>
+// stalls=<n>`), turning English subtitles on a quarter in and switching audio
+// language at 40 %, and fails on an error, a stall or a date that stops advancing.
 //
 // usage: swift scripts/avplayer-probe.swift <url> [--duration <seconds>] [--play <seconds>]
-//        [--audio <n>] [--subtitles <n>] [--iframes]
+//        [--audio <n>] [--subtitles <n>] [--iframes] [--live <seconds>]
 // The --audio/--subtitles/--iframes flags turn expectations into failures: at least
 // n audible (legible) options, and fast forward through an I-frame playlist.
 import AVFoundation
@@ -20,6 +24,7 @@ struct Options {
     var audio = 0
     var subtitles = 0
     var iframes = false
+    var live: Double?
 }
 
 func parseOptions() -> Options {
@@ -34,7 +39,7 @@ func parseOptions() -> Options {
         let flag = args.removeFirst()
         switch flag {
         case "--iframes": opts.iframes = true
-        case "--duration", "--play", "--audio", "--subtitles":
+        case "--duration", "--play", "--audio", "--subtitles", "--live":
             guard let value = args.first.flatMap(Double.init) else {
                 fail("\(flag) needs a number")
             }
@@ -42,6 +47,7 @@ func parseOptions() -> Options {
             switch flag {
             case "--duration": opts.duration = value
             case "--play": opts.play = value
+            case "--live": opts.live = value
             case "--audio": opts.audio = Int(value)
             default: opts.subtitles = Int(value)
             }
@@ -180,12 +186,93 @@ func play(_ asset: AVURLAsset, seconds: Double, audible: AVMediaSelectionGroup?,
     return PlayResult(ok: ok, trickPlay: item.canPlayFastForward)
 }
 
+/// Plays a live presentation, sampling the program date on screen once a second.
+@MainActor
+func playLive(_ asset: AVURLAsset, seconds: Double, audible: AVMediaSelectionGroup?, legible: AVMediaSelectionGroup?) async -> Bool {
+    let item = AVPlayerItem(asset: asset)
+    let output = AVPlayerItemVideoOutput(pixelBufferAttributes: nil)
+    item.add(output)
+    let player = AVPlayer(playerItem: item)
+    player.isMuted = true
+    var stalls = 0
+    let observer = NotificationCenter.default.addObserver(forName: AVPlayerItem.playbackStalledNotification, object: item, queue: .main) { _ in
+        MainActor.assumeIsolated { stalls += 1 }
+    }
+    defer { NotificationCenter.default.removeObserver(observer) }
+    player.play()
+
+    let start = Date()
+    var frames = 0
+    var lastFrame = CMTime.invalid
+    var nextSample = 1.0
+    var subtitlesOn = false
+    var audioSwitched = false
+    var dates: [(at: Double, date: Double)] = []
+    while Date().timeIntervalSince(start) < seconds {
+        try? await Task.sleep(for: .milliseconds(50))
+        if item.status == .failed { break }
+        let now = item.currentTime()
+        if output.hasNewPixelBuffer(forItemTime: now), output.copyPixelBuffer(forItemTime: now, itemTimeForDisplay: nil) != nil, now != lastFrame {
+            frames += 1
+            lastFrame = now
+        }
+        let elapsed = Date().timeIntervalSince(start)
+        if !subtitlesOn, elapsed > seconds / 4, let group = legible {
+            item.select(group.options.first { $0.extendedLanguageTag == "en" }, in: group)
+            subtitlesOn = true
+            print("  subtitles: \(item.currentMediaSelection.selectedMediaOption(in: group)?.displayName ?? "off")")
+        }
+        if !audioSwitched, elapsed > seconds * 0.4, let group = audible {
+            let current = item.currentMediaSelection.selectedMediaOption(in: group)
+            item.select(group.options.first { $0 != current }, in: group)
+            audioSwitched = true
+            print("  audio: \(current?.displayName ?? "?") -> \(item.currentMediaSelection.selectedMediaOption(in: group)?.displayName ?? "?")")
+        }
+        if elapsed >= nextSample {
+            nextSample += 1
+            let date = item.currentDate().map { Int64($0.timeIntervalSince1970 * 1000) } ?? 0
+            if date > 0 {
+                if let last = dates.last, abs((Double(date) / 1000 - last.date) - (elapsed - last.at)) > 0.3 {
+                    print(String(format: "  the program date moved %.2fs off the clock", (Double(date) / 1000 - last.date) - (elapsed - last.at)))
+                }
+                dates.append((elapsed, Double(date) / 1000))
+            }
+            print(String(format: "  t=%.1f time=%.2f date=%lld stalls=%d", elapsed, now.seconds, date, stalls))
+        }
+    }
+    var ok = item.status == .readyToPlay && frames > 0 && stalls == 0 && dates.count > 2
+    print(String(format: "  live: %d frames decoded, %d stalls, status=%d", frames, stalls, item.status.rawValue))
+    if let error = item.error {
+        print("  error: \(error)")
+        ok = false
+    }
+    for event in item.errorLog()?.events ?? [] {
+        print("  errorLog: \(event.errorStatusCode) \(event.errorDomain) \(event.errorComment ?? "")")
+    }
+    for event in item.accessLog()?.events ?? [] {
+        print(String(format: "  accessLog: stalls=%d segments=%d indicated=%.0f observed=%.0f", event.numberOfStalls,
+                     event.numberOfMediaRequests, event.indicatedBitrate, event.observedBitrate))
+        if event.numberOfStalls > 0 { ok = false }
+    }
+    // the program date advances with the clock
+    if let first = dates.first, let last = dates.last {
+        let drift = (last.date - first.date) - (last.at - first.at)
+        print(String(format: "  program date advanced %.1fs in %.1fs (drift %.2fs)", last.date - first.date, last.at - first.at, drift))
+        if abs(drift) > 1.5 { ok = false }
+    }
+    player.pause()
+    return ok
+}
+
 let opts = parseOptions()
 let asset = AVURLAsset(url: opts.url)
 do {
     let (playable, duration) = try await asset.load(.isPlayable, .duration)
     print("\(opts.url.lastPathComponent): playable=\(playable) duration=\(String(format: "%.2f", duration.seconds))")
     check(playable, "not playable")
+    if opts.live != nil {
+        check(duration.isIndefinite, "a live presentation has an indefinite duration")
+    }
     if let expected = opts.duration {
         check(abs(duration.seconds - expected) <= 1, "duration \(duration.seconds) differs from \(expected)")
     }
@@ -202,7 +289,9 @@ do {
             print("  \(label): playable=\(ok) duration=\(String(format: "%.2f", d.seconds))")
             if kind == "variant" || kind == "audio" {
                 check(ok, "\(label) not playable on its own")
-                check(abs(d.seconds - duration.seconds) <= 1, "\(label) duration \(d.seconds) differs from \(duration.seconds)")
+                if opts.live == nil {
+                    check(abs(d.seconds - duration.seconds) <= 1, "\(label) duration \(d.seconds) differs from \(duration.seconds)")
+                }
             }
         }
     } else {
@@ -216,10 +305,14 @@ do {
     check((audible?.options.count ?? 0) >= opts.audio, "expected at least \(opts.audio) audio options")
     check((legible?.options.count ?? 0) >= opts.subtitles, "expected at least \(opts.subtitles) subtitle options")
 
-    let played = await play(asset, seconds: opts.play, audible: audible, legible: legible, expectVideo: expectVideo)
-    check(played.ok, "playback failed")
-    if opts.iframes {
-        check(played.trickPlay, "no trick play: the I-frame playlist was not usable")
+    if let live = opts.live {
+        check(await playLive(asset, seconds: live, audible: audible, legible: legible), "live playback failed")
+    } else {
+        let played = await play(asset, seconds: opts.play, audible: audible, legible: legible, expectVideo: expectVideo)
+        check(played.ok, "playback failed")
+        if opts.iframes {
+            check(played.trickPlay, "no trick play: the I-frame playlist was not usable")
+        }
     }
 } catch {
     fail("not playable: \(error)")

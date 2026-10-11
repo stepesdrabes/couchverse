@@ -1,6 +1,6 @@
 .PHONY: run-backend run-web build lint check format test e2e contract sample-media clean \
 	core-test core-apple core-android core-wasm apple-sims apple-test apple-uitest apple-lint apple-format \
-	android-test hls-check hls-apple ingest-samples hls-server-check e2e-playback
+	android-test hls-check hls-apple ingest-samples hls-server-check e2e-playback live-spike
 
 # dev database (compose service `db` published on 5432)
 DEV_DB ?= postgres://couchverse:couchverse@localhost:5432/couchverse
@@ -131,6 +131,13 @@ hls-check:
 hls-apple:
 	cd backend && COUCHVERSE_AVPLAYER=1 COUCHVERSE_APPLE_HLS_TOOLS=1 TEST_DATABASE_URL=$(DEV_DB) \
 		go test -count=1 -timeout 30m -run TestPlaybackTiers -v ./internal/server/
+
+# Couch TV spike S1: sample packages and break clips stitched into a looping live channel,
+# validated around item boundaries and played by hls.js (Chromium, WebKit) and, on macOS,
+# AVFoundation (docs/couch-tv-plan.md); COUCHVERSE_SAMPLES reuses a sample-media directory
+live-spike:
+	cd backend && COUCHVERSE_LIVE_SPIKE=1 TEST_DATABASE_URL=$(DEV_DB) \
+		go test -count=1 -timeout 30m -run TestLiveSpike -v ./internal/server/
 
 # upload data/samples into the server at SERVER (as admin/admin)
 ingest-samples:
