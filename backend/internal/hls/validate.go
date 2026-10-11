@@ -11,7 +11,9 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 
 	"couchverse/internal/media/mp4"
 )
@@ -107,27 +109,65 @@ type Options struct {
 type mediaInfo struct {
 	kind     string // video, audio, subtitles, iframes
 	duration float64
-	// track is the main (first) track; codecs lists every track's, for
-	// playlists that mux audio with the video
+	// live playlists have no EXT-X-ENDLIST and may change item (and init
+	// section) at every discontinuity
+	live bool
+	// track is the main (first) track; tracks holds the main track of every
+	// init section and codecs every track's codec, for playlists that mux
+	// audio with the video or change items
 	track  *mp4.Track
+	tracks []mp4.Track
 	codecs []string
+	inits  map[string]bool
 	// start is the presentation time of the first segment, in seconds.
 	start    float64
 	hasStart bool
+	// timeline places every segment; anchors map each discontinuity's media
+	// time onto the program date, and starts are the program dates at which
+	// the listed discontinuities begin.
+	timeline []segmentTime
+	anchors  map[int]anchor
+	starts   map[int]time.Time
 	// peak and average bit rates measured from the parsed segments (bits/s).
 	peak, average float64
 	frameRate     float64
-	format        string // fmp4, ts, webvtt
+	// frameRates are measured per init section (frames, seconds).
+	frameRates map[string][2]float64
+	format     string // fmp4, ts, webvtt
+}
+
+// segmentTime is where a segment sits: its start in the playlist (seconds),
+// its discontinuity sequence number and its program date, when known.
+type segmentTime struct {
+	start float64
+	dsn   int
+	date  time.Time
+}
+
+// anchor pins the media time of a discontinuity's first parsed segment to
+// its place in the playlist and its program date.
+type anchor struct {
+	media, pos float64
+	date       time.Time
+}
+
+// lenient reports whether the playlist plays several items, so a variant's
+// attributes must cover them rather than equal them.
+func (m *mediaInfo) lenient() bool {
+	return m.live || len(m.inits) > 1
 }
 
 type validator struct {
-	ctx     context.Context
-	fetch   Fetcher
-	opts    Options
-	report  *Report
-	media   map[string]*mediaInfo
-	inits   map[string]*mp4.Init
-	vttBase float64 // the presentation start subtitle cues are mapped against
+	ctx    context.Context
+	fetch  Fetcher
+	opts   Options
+	report *Report
+	media  map[string]*mediaInfo
+	inits  map[string]*mp4.Init
+	// vttBase is the presentation start subtitle cues are mapped against, and
+	// vttAnchors the same per discontinuity in a live presentation.
+	vttBase    float64
+	vttAnchors map[int]anchor
 }
 
 // Validate checks the presentation at rawURL: a multivariant playlist with
@@ -196,10 +236,15 @@ func (v *validator) multivariant(u *url.URL, pl *Playlist) {
 	}
 
 	// the first variant's timeline is the one subtitle cues are mapped onto
+	var first *mediaInfo
 	for i, vr := range m.Variants {
 		info := v.mediaAt(u, vr.URI, "variant")
-		if i == 0 && info != nil && info.hasStart {
-			v.vttBase = info.start
+		if i == 0 && info != nil {
+			first = info
+			if info.hasStart {
+				v.vttBase = info.start
+			}
+			v.vttAnchors = info.anchors
 		}
 	}
 	for _, rd := range m.Renditions {
@@ -230,16 +275,21 @@ func (v *validator) multivariant(u *url.URL, pl *Playlist) {
 	if hasHDR && !hasSDR {
 		r.add(SeverityWarning, "multivariant.sdr-fallback", uri, "HDR variants should come with SDR variants for SDR-only devices")
 	}
-	var lo, hi float64 = math.Inf(1), 0
-	for _, d := range durations {
-		lo, hi = math.Min(lo, d), math.Max(hi, d)
-	}
-	if hi-lo > 2 {
-		r.add(SeverityError, "multivariant.durations", uri, "variant and rendition durations differ by %.2fs", hi-lo)
-	}
-
-	if len(m.IFrameVariants) == 0 {
-		r.add(SeverityWarning, "multivariant.iframes", uri, "no I-frame playlist: trick play and scrubbing thumbnails are unavailable")
+	if first != nil && first.live {
+		// live playlists are snapshots fetched one after another, so their
+		// windows differ; what must agree is where every item starts
+		v.liveAlignment(u, m, first)
+	} else {
+		var lo, hi float64 = math.Inf(1), 0
+		for _, d := range durations {
+			lo, hi = math.Min(lo, d), math.Max(hi, d)
+		}
+		if hi-lo > 2 {
+			r.add(SeverityError, "multivariant.durations", uri, "variant and rendition durations differ by %.2fs", hi-lo)
+		}
+		if len(m.IFrameVariants) == 0 {
+			r.add(SeverityWarning, "multivariant.iframes", uri, "no I-frame playlist: trick play and scrubbing thumbnails are unavailable")
+		}
 	}
 	for _, iv := range m.IFrameVariants {
 		v.iframeVariant(u, iv)
@@ -311,7 +361,12 @@ func (v *validator) variant(u *url.URL, vr Variant, info *mediaInfo, groups map[
 		return
 	}
 
-	// every codec the variant can carry must be declared, and nothing else
+	// every codec the variant can carry must be declared, and nothing else;
+	// a variant of several items declares one string covering theirs
+	lenient := info.lenient()
+	covers := func(declared, actual string) bool {
+		return declared == actual || lenient && codecCovers(declared, actual)
+	}
 	present := []string{}
 	present = append(present, info.codecs...)
 	audioPeak, audioAverage := 0.0, 0.0
@@ -320,49 +375,36 @@ func (v *validator) variant(u *url.URL, vr Variant, info *mediaInfo, groups map[
 		if rd.URI == "" || ai == nil {
 			continue
 		}
-		if ai.track != nil {
-			present = append(present, ai.track.Codec)
-			v.channels(u, rd, ai.track)
+		for _, t := range ai.tracks {
+			present = append(present, t.Codec)
+			v.channels(u, rd, &t, ai.lenient())
 		}
 		audioPeak, audioAverage = math.Max(audioPeak, ai.peak), math.Max(audioAverage, ai.average)
 	}
 	for _, c := range present {
-		if c != "" && !slices.Contains(vr.Codecs, c) {
+		if c != "" && !slices.ContainsFunc(vr.Codecs, func(d string) bool { return covers(d, c) }) {
 			r.add(SeverityError, "variant.codecs", uri, "%s plays %s but CODECS is %q", label, c, strings.Join(vr.Codecs, ","))
 		}
 	}
 	for _, c := range vr.Codecs {
-		if !slices.Contains(present, c) {
+		if !slices.ContainsFunc(present, func(p string) bool { return covers(c, p) }) {
 			r.add(SeverityWarning, "variant.codecs", uri, "%s declares %s that none of its media uses", label, c)
 		}
 	}
 
-	if info.kind == "video" && info.track != nil {
-		t := info.track
-		if vr.Width != t.Width || vr.Height != t.Height {
-			r.add(SeverityError, "variant.resolution", uri, "%s RESOLUTION %dx%d, media is %dx%d", label, vr.Width, vr.Height, t.Width, t.Height)
+	if info.kind == "video" {
+		for _, t := range info.tracks {
+			v.variantVideo(u, vr, info, t)
 		}
 		if vr.FrameRate == 0 {
 			r.add(SeverityError, "variant.frame-rate", uri, "%s needs FRAME-RATE", label)
-		} else if info.frameRate > 0 && math.Abs(vr.FrameRate-info.frameRate) > 0.5 {
+		} else if !lenient && info.frameRate > 0 && math.Abs(vr.FrameRate-info.frameRate) > 0.5 {
 			r.add(SeverityWarning, "variant.frame-rate", uri, "%s FRAME-RATE %.3f, measured %.3f", label, vr.FrameRate, info.frameRate)
 		}
-		want := "SDR"
-		switch t.Transfer {
-		case 16:
-			want = "PQ"
-		case 18:
-			want = "HLG"
-		}
-		got := vr.VideoRange
-		if got == "" {
-			got = "SDR"
-		}
-		if t.Transfer != 0 && got != want {
-			r.add(SeverityError, "variant.video-range", uri, "%s VIDEO-RANGE=%s but the video is %s", label, got, want)
-		}
-		if t.DoviProfile > 0 && t.SupplementalCodec != "" && vr.SupplementalCodecs == "" {
-			r.add(SeverityWarning, "variant.supplemental-codecs", uri, "%s carries Dolby Vision %s; declare it in SUPPLEMENTAL-CODECS", label, t.SupplementalCodec)
+		for _, fr := range info.frameRates {
+			if lenient && fr[1] > 0 && fr[0]/fr[1] > vr.FrameRate+0.5 {
+				r.add(SeverityWarning, "variant.frame-rate", uri, "%s FRAME-RATE %.3f, an item measures %.3f", label, vr.FrameRate, fr[0]/fr[1])
+			}
 		}
 	}
 
@@ -376,11 +418,47 @@ func (v *validator) variant(u *url.URL, vr Variant, info *mediaInfo, groups map[
 	}
 }
 
-func (v *validator) channels(u *url.URL, rd Rendition, t *mp4.Track) {
+// variantVideo checks a variant's video attributes against the video of one
+// item (an init section); a variant of several items must fit the largest.
+func (v *validator) variantVideo(u *url.URL, vr Variant, info *mediaInfo, t mp4.Track) {
+	r, uri := v.report, u.String()
+	label := "variant " + vr.URI
+	if info.lenient() {
+		if t.Width > vr.Width || t.Height > vr.Height {
+			r.add(SeverityError, "variant.resolution", uri, "%s RESOLUTION %dx%d, an item is %dx%d", label, vr.Width, vr.Height, t.Width, t.Height)
+		}
+	} else if vr.Width != t.Width || vr.Height != t.Height {
+		r.add(SeverityError, "variant.resolution", uri, "%s RESOLUTION %dx%d, media is %dx%d", label, vr.Width, vr.Height, t.Width, t.Height)
+	}
+	want := "SDR"
+	switch t.Transfer {
+	case 16:
+		want = "PQ"
+	case 18:
+		want = "HLG"
+	}
+	got := vr.VideoRange
+	if got == "" {
+		got = "SDR"
+	}
+	if t.Transfer != 0 && got != want {
+		r.add(SeverityError, "variant.video-range", uri, "%s VIDEO-RANGE=%s but the video is %s", label, got, want)
+	}
+	if t.DoviProfile > 0 && t.SupplementalCodec != "" && vr.SupplementalCodecs == "" {
+		r.add(SeverityWarning, "variant.supplemental-codecs", uri, "%s carries Dolby Vision %s; declare it in SUPPLEMENTAL-CODECS", label, t.SupplementalCodec)
+	}
+}
+
+// channels checks an audio rendition's CHANNELS against one of its streams;
+// a rendition of several items declares the most any of them has.
+func (v *validator) channels(u *url.URL, rd Rendition, t *mp4.Track, lenient bool) {
 	count, _, _ := strings.Cut(rd.Channels, "/")
 	want := fmt.Sprint(t.Channels)
 	if t.JOC {
 		want = "16"
+	}
+	if declared, err := strconv.Atoi(count); lenient && err == nil && !t.JOC && t.Channels <= declared {
+		return
 	}
 	if count != want && t.Channels > 0 {
 		v.report.add(SeverityError, "media.channels", u.String(), "audio rendition %q CHANNELS=%q but the stream has %s", rd.Name, rd.Channels, want)
@@ -476,7 +554,8 @@ func segmentFormat(uri string) string {
 func (v *validator) mediaPlaylist(u *url.URL, pl *Playlist, kind string) *mediaInfo {
 	m := pl.Media
 	r, uri := v.report, u.String()
-	info := &mediaInfo{kind: kind}
+	info := &mediaInfo{kind: kind, live: !m.EndList && m.PlaylistType != "VOD", inits: map[string]bool{},
+		anchors: map[int]anchor{}, starts: map[int]time.Time{}, frameRates: map[string][2]float64{}}
 	if m.TargetDuration < 0 {
 		r.add(SeverityError, "media.target-duration", uri, "EXT-X-TARGETDURATION is required")
 	}
@@ -487,7 +566,7 @@ func (v *validator) mediaPlaylist(u *url.URL, pl *Playlist, kind string) *mediaI
 	if m.PlaylistType == "VOD" && !m.EndList {
 		r.add(SeverityError, "media.endlist", uri, "a VOD playlist must end with EXT-X-ENDLIST")
 	}
-	if m.PlaylistType == "" {
+	if m.PlaylistType == "" && m.EndList {
 		r.add(SeverityWarning, "media.playlist-type", uri, "on-demand playlists should say EXT-X-PLAYLIST-TYPE:VOD")
 	}
 	if kind == "iframes" && !m.IFramesOnly {
@@ -510,6 +589,17 @@ func (v *validator) mediaPlaylist(u *url.URL, pl *Playlist, kind string) *mediaI
 	}
 	if m.TargetDuration > 10 {
 		r.add(SeverityWarning, "media.target-duration", uri, "target duration %ds; Apple recommends 6", m.TargetDuration)
+	}
+
+	v.timeline(u, m, info)
+	if info.live {
+		var total float64
+		for _, seg := range m.Segments {
+			total += seg.Duration
+		}
+		if total < 3*float64(m.TargetDuration) {
+			r.add(SeverityError, "live.window", uri, "a live playlist must list three target durations (%ds), it lists %.3fs", 3*m.TargetDuration, total)
+		}
 	}
 
 	var (
@@ -541,6 +631,81 @@ func (v *validator) mediaPlaylist(u *url.URL, pl *Playlist, kind string) *mediaI
 	}
 	info.peak, info.average = Bitrates(durations, sizes, m.TargetDuration)
 	return info
+}
+
+// timeline places every segment by its discontinuity sequence number and
+// program date, and checks the dates: a jump without a discontinuity makes the
+// mapping ambiguous; a live item without a date cannot be lined up.
+func (v *validator) timeline(u *url.URL, m *Media, info *mediaInfo) {
+	r, uri := v.report, u.String()
+	info.timeline = make([]segmentTime, len(m.Segments))
+	var (
+		elapsed float64
+		dsn     = m.DiscontinuitySequence
+		next    time.Time
+	)
+	for i, s := range m.Segments {
+		if s.Discontinuity {
+			dsn++
+		}
+		date := next
+		if !s.ProgramDateTime.IsZero() {
+			if jump := s.ProgramDateTime.Sub(next).Seconds(); !next.IsZero() && math.Abs(jump) > 0.1 {
+				if s.Discontinuity {
+					r.add(SeverityWarning, "live.gap", uri, "segment %d: the program date jumps %.3fs at a discontinuity", i, jump)
+				} else {
+					r.add(SeverityError, "media.program-date-time", uri, "segment %d: the program date jumps %.3fs without a discontinuity", i, jump)
+				}
+			}
+			date = s.ProgramDateTime
+		} else if info.live && (s.Discontinuity || i == 0) {
+			r.add(SeverityWarning, "live.program-date-time", uri, "segment %d starts an item without EXT-X-PROGRAM-DATE-TIME", i)
+		}
+		if s.Discontinuity && !date.IsZero() {
+			info.starts[dsn] = date
+		}
+		info.timeline[i] = segmentTime{start: elapsed, dsn: dsn, date: date}
+		elapsed += s.Duration
+		if !date.IsZero() {
+			next = date.Add(time.Duration(s.Duration * float64(time.Second)))
+		}
+	}
+}
+
+// liveAlignment checks that every rendition of a live presentation starts each
+// item at the same program date as the first variant, under the same
+// discontinuity sequence number.
+func (v *validator) liveAlignment(u *url.URL, m *Multivariant, first *mediaInfo) {
+	r := v.report
+	var refs []string
+	for _, vr := range m.Variants[1:] {
+		refs = append(refs, vr.URI)
+	}
+	for _, rd := range m.Renditions {
+		if rd.URI != "" {
+			refs = append(refs, rd.URI)
+		}
+	}
+	for _, ref := range refs {
+		abs := resolve(u, ref)
+		info := v.media[abs]
+		if info == nil {
+			continue
+		}
+		if !info.live {
+			r.add(SeverityError, "live.alignment", abs, "a live presentation lists an on-demand playlist")
+			continue
+		}
+		for dsn, date := range info.starts {
+			for want, wantDate := range first.starts {
+				sameDate := math.Abs(date.Sub(wantDate).Seconds()) <= 0.1
+				if want == dsn && !sameDate || want != dsn && sameDate {
+					r.add(SeverityError, "live.alignment", abs, "discontinuity %d starts at %s; the video starts discontinuity %d there at %s",
+						dsn, FormatDateTime(date), want, FormatDateTime(wantDate))
+				}
+			}
+		}
+	}
 }
 
 // Bitrates measures the peak (Apple: the highest bit rate of any run of
@@ -609,7 +774,7 @@ func (v *validator) segment(u *url.URL, m *Media, i int, info *mediaInfo) (float
 		}
 		return float64(len(body)), 0, 0
 	case "webvtt":
-		v.webvtt(segURL, string(body), m, i)
+		v.webvtt(segURL, string(body), m, i, info)
 		return float64(len(body)), 0, 0
 	}
 
@@ -631,15 +796,21 @@ func (v *validator) segment(u *url.URL, m *Media, i int, info *mediaInfo) (float
 	main := in.Tracks[0]
 	if info.track == nil {
 		info.track = &main
-		for _, t := range in.Tracks {
-			info.codecs = append(info.codecs, t.Codec)
-		}
 		switch {
 		case info.kind == "iframes":
 		case main.Handler == "vide":
 			info.kind = "video"
 		case main.Handler == "soun":
 			info.kind = "audio"
+		}
+	}
+	if mapURI := resolve(u, s.Map.URI); !info.inits[mapURI] {
+		info.inits[mapURI] = true
+		info.tracks = append(info.tracks, main)
+		for _, t := range in.Tracks {
+			if !slices.Contains(info.codecs, t.Codec) {
+				info.codecs = append(info.codecs, t.Codec)
+			}
 		}
 	}
 	f := frags[0]
@@ -654,12 +825,14 @@ func (v *validator) segment(u *url.URL, m *Media, i int, info *mediaInfo) (float
 	start := (float64(f.BaseDecodeTime) + float64(f.FirstCompositionOffset)) / scale
 	if i == 0 {
 		info.start, info.hasStart = start, true
-	} else if info.hasStart && info.kind != "iframes" {
-		var expected float64
-		for _, d := range m.Segments[:i] {
-			expected += d.Duration
-		}
-		if drift := start - info.start - expected; math.Abs(drift) > 0.25 {
+	}
+	// every item has its own timeline: segments line up with the playlist
+	// from the first one parsed after each discontinuity
+	at := info.timeline[i]
+	if a, ok := info.anchors[at.dsn]; !ok {
+		info.anchors[at.dsn] = anchor{media: start, pos: at.start, date: at.date}
+	} else if info.kind != "iframes" {
+		if drift := start - a.media - (at.start - a.pos); math.Abs(drift) > 0.25 {
 			r.add(SeverityError, "fmp4.timeline", segURL.String(), "segment %d starts %.3fs off the playlist timeline", i, drift)
 		}
 	}
@@ -670,6 +843,9 @@ func (v *validator) segment(u *url.URL, m *Media, i int, info *mediaInfo) (float
 		}
 	}
 	if main.Handler == "vide" {
+		mapURI := resolve(u, s.Map.URI)
+		fr := info.frameRates[mapURI]
+		info.frameRates[mapURI] = [2]float64{fr[0] + float64(f.Samples), fr[1] + float64(f.Duration)/scale}
 		return float64(len(body)), f.Samples, float64(f.Duration) / scale
 	}
 	return float64(len(body)), 0, 0
@@ -700,7 +876,7 @@ func (v *validator) initAt(u *url.URL, m *Map) *mp4.Init {
 	return in
 }
 
-func (v *validator) webvtt(u *url.URL, text string, m *Media, i int) {
+func (v *validator) webvtt(u *url.URL, text string, m *Media, i int, info *mediaInfo) {
 	r := v.report
 	vtt, err := ParseWebVTT(text)
 	if err != nil {
@@ -717,11 +893,20 @@ func (v *validator) webvtt(u *url.URL, text string, m *Media, i int) {
 	}
 	end := start + m.Segments[i].Duration
 	offset := float64(vtt.TimestampMap.MPEGTS)/90000 - vtt.TimestampMap.Local - v.vttBase
+	mapped := true
+	if info.live {
+		// a live cue maps through the video of its own item, by program date
+		at := info.timeline[i]
+		a, ok := v.vttAnchors[at.dsn]
+		mapped = ok && !a.date.IsZero() && !at.date.IsZero()
+		start, end = 0, m.Segments[i].Duration
+		offset = float64(vtt.TimestampMap.MPEGTS)/90000 - vtt.TimestampMap.Local - a.media + a.date.Sub(at.date).Seconds()
+	}
 	for _, c := range vtt.Cues {
 		if c.End < c.Start {
 			r.add(SeverityError, "webvtt.cue", u.String(), "cue %s ends before it starts", FormatTimestamp(c.Start))
 		}
-		if c.End+offset <= start-0.5 || c.Start+offset >= end+0.5 {
+		if mapped && (c.End+offset <= start-0.5 || c.Start+offset >= end+0.5) {
 			r.add(SeverityWarning, "webvtt.cue-window", u.String(), "cue at %s falls outside segment %d (%.3f-%.3fs)", FormatTimestamp(c.Start), i, start, end)
 		}
 	}

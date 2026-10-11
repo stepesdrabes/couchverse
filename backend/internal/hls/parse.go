@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Playlist is the result of Parse: exactly one of the two is set.
@@ -87,6 +88,10 @@ func Parse(text string) (*Playlist, error) {
 			md.TargetDuration, err = strconv.Atoi(value)
 		case "#EXT-X-MEDIA-SEQUENCE":
 			md.MediaSequence, err = strconv.Atoi(value)
+		case "#EXT-X-DISCONTINUITY-SEQUENCE":
+			md.DiscontinuitySequence, err = strconv.Atoi(value)
+		case "#EXT-X-PROGRAM-DATE-TIME":
+			pending.ProgramDateTime, err = time.Parse(time.RFC3339Nano, value)
 		case "#EXT-X-PLAYLIST-TYPE":
 			md.PlaylistType = value
 		case "#EXT-X-I-FRAMES-ONLY":

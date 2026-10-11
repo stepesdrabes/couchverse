@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Multivariant is a multivariant (master) playlist.
@@ -60,14 +61,17 @@ type IFrameVariant struct {
 
 // Media is a media playlist.
 type Media struct {
-	Version             int
-	TargetDuration      int
-	MediaSequence       int
-	PlaylistType        string // VOD, EVENT or empty
-	IndependentSegments bool
-	IFramesOnly         bool
-	Segments            []Segment
-	EndList             bool
+	Version        int
+	TargetDuration int
+	MediaSequence  int
+	// DiscontinuitySequence is the discontinuity sequence number of the first
+	// segment; a live playlist counts the discontinuities it no longer lists.
+	DiscontinuitySequence int
+	PlaylistType          string // VOD, EVENT or empty
+	IndependentSegments   bool
+	IFramesOnly           bool
+	Segments              []Segment
+	EndList               bool
 }
 
 // Segment is one EXTINF entry.
@@ -80,6 +84,8 @@ type Segment struct {
 	Map *Map
 	// Discontinuity marks an EXT-X-DISCONTINUITY before the segment.
 	Discontinuity bool
+	// ProgramDateTime is the EXT-X-PROGRAM-DATE-TIME of the segment, if tagged.
+	ProgramDateTime time.Time
 }
 
 // Map is an EXT-X-MAP tag.
@@ -182,6 +188,9 @@ func (m *Media) String() string {
 	fmt.Fprintf(&b, "#EXT-X-VERSION:%d\n", max(m.Version, 1))
 	fmt.Fprintf(&b, "#EXT-X-TARGETDURATION:%d\n", m.TargetDuration)
 	fmt.Fprintf(&b, "#EXT-X-MEDIA-SEQUENCE:%d\n", m.MediaSequence)
+	if m.DiscontinuitySequence > 0 {
+		fmt.Fprintf(&b, "#EXT-X-DISCONTINUITY-SEQUENCE:%d\n", m.DiscontinuitySequence)
+	}
 	if m.PlaylistType != "" {
 		b.WriteString("#EXT-X-PLAYLIST-TYPE:" + m.PlaylistType + "\n")
 	}
@@ -196,7 +205,12 @@ func (m *Media) String() string {
 		if s.Discontinuity {
 			b.WriteString("#EXT-X-DISCONTINUITY\n")
 		}
-		if s.Map != nil && (current == nil || *current != *s.Map) {
+		if !s.ProgramDateTime.IsZero() {
+			b.WriteString("#EXT-X-PROGRAM-DATE-TIME:" + FormatDateTime(s.ProgramDateTime) + "\n")
+		}
+		// the map is repeated after a discontinuity: the next item may share
+		// its URI but players reset their parser there
+		if s.Map != nil && (current == nil || *current != *s.Map || s.Discontinuity) {
 			attrs := attrList{}
 			attrs.quoted("URI", s.Map.URI)
 			if s.Map.ByteRange.Length > 0 {
@@ -225,6 +239,11 @@ func TargetDuration(durations ...float64) int {
 		target = max(target, int(d+0.5))
 	}
 	return target
+}
+
+// FormatDateTime writes an EXT-X-PROGRAM-DATE-TIME value: UTC to the millisecond.
+func FormatDateTime(t time.Time) string {
+	return t.UTC().Format("2006-01-02T15:04:05.000Z07:00")
 }
 
 func yesNo(v bool) string {
