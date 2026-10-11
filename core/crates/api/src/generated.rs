@@ -1309,6 +1309,430 @@ pub mod types {
         }
     }
 
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvAiring {
+        /// Where the credits squeeze begins, in ms from the start; null while unknown.
+        pub credits_at_ms: Option<i64>,
+        pub ends_at: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub episode_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub episode_name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub episode_number: Option<i64>,
+        /// The rule that chose the program; filler fills a gap before a fixed time.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub fill: Option<CouchTvAiringFill>,
+        pub id: String,
+        pub kind: CouchTvAiringKind,
+        pub locked: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub media_file_id: Option<String>,
+        /// The program's media is prepared for the channel; always true for a break.
+        pub ready: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub season_number: Option<i64>,
+        /// The template slot that placed it; absent for fillers and admin rows.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub slot: Option<String>,
+        pub source: CouchTvAiringSource,
+        pub starts_at: String,
+        pub state: CouchTvAiringState,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub title_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub title_kind: Option<CouchTvAiringTitleKind>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub title_name: Option<String>,
+    }
+
+    /// The rule that chose the program; filler fills a gap before a fixed time.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvAiringFill {
+        #[serde(rename = "strip")]
+        Strip,
+        #[serde(rename = "marathon")]
+        Marathon,
+        #[serde(rename = "reruns")]
+        Reruns,
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "matinee")]
+        Matinee,
+        #[serde(rename = "premiere")]
+        Premiere,
+        #[serde(rename = "saga")]
+        Saga,
+        #[serde(rename = "encore")]
+        Encore,
+        #[serde(rename = "filler")]
+        Filler,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvAiringFill {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvAiringFill::Strip => "strip",
+                CouchTvAiringFill::Marathon => "marathon",
+                CouchTvAiringFill::Reruns => "reruns",
+                CouchTvAiringFill::Movie => "movie",
+                CouchTvAiringFill::Matinee => "matinee",
+                CouchTvAiringFill::Premiere => "premiere",
+                CouchTvAiringFill::Saga => "saga",
+                CouchTvAiringFill::Encore => "encore",
+                CouchTvAiringFill::Filler => "filler",
+                CouchTvAiringFill::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvAiringFill {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvAiringKind {
+        #[serde(rename = "program")]
+        Program,
+        #[serde(rename = "break")]
+        Break,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvAiringKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvAiringKind::Program => "program",
+                CouchTvAiringKind::Break => "break",
+                CouchTvAiringKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvAiringKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvAiringSource {
+        #[serde(rename = "auto")]
+        Auto,
+        #[serde(rename = "admin")]
+        Admin,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvAiringSource {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvAiringSource::Auto => "auto",
+                CouchTvAiringSource::Admin => "admin",
+                CouchTvAiringSource::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvAiringSource {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvAiringState {
+        #[serde(rename = "planned")]
+        Planned,
+        #[serde(rename = "ready")]
+        Ready,
+        #[serde(rename = "aired")]
+        Aired,
+        #[serde(rename = "failed")]
+        Failed,
+        #[serde(rename = "replaced")]
+        Replaced,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvAiringState {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvAiringState::Planned => "planned",
+                CouchTvAiringState::Ready => "ready",
+                CouchTvAiringState::Aired => "aired",
+                CouchTvAiringState::Failed => "failed",
+                CouchTvAiringState::Replaced => "replaced",
+                CouchTvAiringState::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvAiringState {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvAiringTitleKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "series")]
+        Series,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvAiringTitleKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvAiringTitleKind::Movie => "movie",
+                CouchTvAiringTitleKind::Series => "series",
+                CouchTvAiringTitleKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvAiringTitleKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvConfig {
+        /// The shortest break between programs.
+        /// From 5 to 600.
+        pub break_min_seconds: i64,
+        pub guest_link: CouchTvGuestLink,
+        pub rotation: CouchTvRotation,
+        pub template: CouchTvTemplate,
+        /// IANA time zone the template's times are in.
+        /// At least 1 character.
+        pub time_zone: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvGuestLink {
+        pub enabled: bool,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvOverview {
+        pub config: CouchTvConfig,
+        /// When the last planned airing ends; null before the first plan.
+        pub planned_until: Option<String>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvRotation {
+        /// A gap this long before a fixed time is filled with reruns where one fits; shorter gaps grow the break.
+        /// From 1 to 240.
+        pub filler_min_minutes: i64,
+        /// Days before a movie reruns outside prime time.
+        /// From 0 to 365.
+        pub movie_gap_days: i64,
+        /// How recently a movie must have been added to premiere.
+        /// From 0 to 365.
+        pub premiere_window_days: i64,
+        /// From 0 to 5.
+        pub prime_repeat_factor: f64,
+        /// A movie returns to prime time after max(this, primeRepeatFactor x the movie count) days.
+        /// From 0 to 365.
+        pub prime_repeat_min_days: i64,
+        /// Days before an episode reruns.
+        /// From 0 to 365.
+        pub rerun_gap_days: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvSchedule {
+        /// The airings overlapping the stretch, in order.
+        pub airings: Vec<CouchTvAiring>,
+        pub from: String,
+        /// The channel's time zone, for showing the times as the template has them.
+        pub time_zone: String,
+        pub to: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvSlot {
+        /// Starts exactly at start; programs before it are shortened or swapped to make room.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub anchor: Option<bool>,
+        /// Episodes a strip or marathon airs per day; 1 when omitted.
+        /// From 0 to 20.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub count: Option<i64>,
+        /// From 1 to 7 items.
+        pub days: Vec<CouchTvSlotDaysItem>,
+        pub fill: CouchTvSlotFill,
+        /// Stable name; airings record it.
+        /// At most 40 characters.
+        pub key: String,
+        /// Genre the slot prefers; any when omitted.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub pick: Option<CouchTvSlotPick>,
+        /// Local time (HH:MM). An anchor starts exactly then; for a flow slot it is the time the block before it fills up to. Times before the day's first anchor belong to the night after it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub start: Option<String>,
+        /// Pinned titles: a strip or marathon airs the first (a series), reruns and movie slots draw only from these. Without them the pick chooses.
+        /// At most 50 items.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub titles: Option<Vec<String>>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvSlotDaysItem {
+        #[serde(rename = "mon")]
+        Mon,
+        #[serde(rename = "tue")]
+        Tue,
+        #[serde(rename = "wed")]
+        Wed,
+        #[serde(rename = "thu")]
+        Thu,
+        #[serde(rename = "fri")]
+        Fri,
+        #[serde(rename = "sat")]
+        Sat,
+        #[serde(rename = "sun")]
+        Sun,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvSlotDaysItem {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvSlotDaysItem::Mon => "mon",
+                CouchTvSlotDaysItem::Tue => "tue",
+                CouchTvSlotDaysItem::Wed => "wed",
+                CouchTvSlotDaysItem::Thu => "thu",
+                CouchTvSlotDaysItem::Fri => "fri",
+                CouchTvSlotDaysItem::Sat => "sat",
+                CouchTvSlotDaysItem::Sun => "sun",
+                CouchTvSlotDaysItem::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvSlotDaysItem {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvSlotFill {
+        #[serde(rename = "strip")]
+        Strip,
+        #[serde(rename = "marathon")]
+        Marathon,
+        #[serde(rename = "reruns")]
+        Reruns,
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "matinee")]
+        Matinee,
+        #[serde(rename = "premiere")]
+        Premiere,
+        #[serde(rename = "saga")]
+        Saga,
+        #[serde(rename = "encore")]
+        Encore,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvSlotFill {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvSlotFill::Strip => "strip",
+                CouchTvSlotFill::Marathon => "marathon",
+                CouchTvSlotFill::Reruns => "reruns",
+                CouchTvSlotFill::Movie => "movie",
+                CouchTvSlotFill::Matinee => "matinee",
+                CouchTvSlotFill::Premiere => "premiere",
+                CouchTvSlotFill::Saga => "saga",
+                CouchTvSlotFill::Encore => "encore",
+                CouchTvSlotFill::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvSlotFill {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// Genre the slot prefers; any when omitted.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvSlotPick {
+        #[serde(rename = "any")]
+        Any,
+        #[serde(rename = "comedy")]
+        Comedy,
+        #[serde(rename = "animation")]
+        Animation,
+        #[serde(rename = "drama")]
+        Drama,
+        #[serde(rename = "family")]
+        Family,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvSlotPick {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvSlotPick::Any => "any",
+                CouchTvSlotPick::Comedy => "comedy",
+                CouchTvSlotPick::Animation => "animation",
+                CouchTvSlotPick::Drama => "drama",
+                CouchTvSlotPick::Family => "family",
+                CouchTvSlotPick::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvSlotPick {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvTemplate {
+        /// From 1 to 200 items.
+        pub slots: Vec<CouchTvSlot>,
+    }
+
     /// body returns the participant token in the response instead of setting the couch cookie.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum CreateCouchDelivery {
@@ -2056,6 +2480,9 @@ pub mod types {
     pub struct FeatureFlags {
         /// Couch sessions (synced watch parties).
         pub couch_enabled: bool,
+        /// Couch TV, the live channel; absent means off.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub couch_tv_enabled: Option<bool>,
         /// Downloads for offline viewing in the native apps (prepared MP4s use server disk and CPU).
         pub downloads_enabled: bool,
         /// Ranks, achievements, public profiles and leaderboards.
@@ -5195,6 +5622,12 @@ pub mod ops {
         ))
     }
 
+    /// `GET /admin/couchtv`
+    pub fn admin_get_couch_tv() -> Call<CouchTvOverview> {
+        let q = Vec::new();
+        build::json(build::request(Method::Get, "/admin/couchtv".to_string(), q, Body::Empty))
+    }
+
     /// `GET /admin/episodes/{id}/translations`
     pub fn admin_get_episode_translations(id: &str) -> Call<BTreeMap<String, Translation>> {
         let q = Vec::new();
@@ -5316,6 +5749,28 @@ pub mod ops {
         ))
     }
 
+    /// Query parameters of [`admin_list_airings`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct AdminListAiringsQuery {
+        /// Start of the stretch (RFC 3339); now when omitted.
+        pub from: Option<String>,
+        /// End of the stretch; a day after from when omitted, at most 15 days after it.
+        pub to: Option<String>,
+    }
+
+    /// `GET /admin/couchtv/airings`
+    pub fn admin_list_airings(query: &AdminListAiringsQuery) -> Call<CouchTvSchedule> {
+        let mut q = Vec::new();
+        build::push(&mut q, "from", query.from.as_ref());
+        build::push(&mut q, "to", query.to.as_ref());
+        build::json(build::request(
+            Method::Get,
+            "/admin/couchtv/airings".to_string(),
+            q,
+            Body::Empty,
+        ))
+    }
+
     /// Query parameters of [`admin_list_jobs`].
     #[derive(Debug, Clone, Default, PartialEq)]
     pub struct AdminListJobsQuery {
@@ -5417,6 +5872,19 @@ pub mod ops {
         ))
     }
 
+    /// `POST /admin/couchtv/days/{date}/regenerate`
+    ///
+    /// - `date`: The broadcast day, a date in the channel's time zone; it starts at the day's first anchor.
+    pub fn admin_regenerate_day(date: &str) -> Call<CouchTvSchedule> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Post,
+            format!("/admin/couchtv/days/{}/regenerate", build::segment(date)),
+            q,
+            Body::Empty,
+        ))
+    }
+
     /// `POST /admin/jobs/{id}/retry`
     pub fn admin_retry_job(id: i64) -> Call<NoContent> {
         let q = Vec::new();
@@ -5481,6 +5949,17 @@ pub mod ops {
         build::no_content(build::request(
             Method::Patch,
             format!("/admin/titles/{}/translations/{}", build::segment(id), build::segment(lang)),
+            q,
+            build::json_body(Some(body)),
+        ))
+    }
+
+    /// `PUT /admin/couchtv`
+    pub fn admin_update_couch_tv(body: &CouchTvConfig) -> Call<CouchTvOverview> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Put,
+            "/admin/couchtv".to_string(),
             q,
             build::json_body(Some(body)),
         ))

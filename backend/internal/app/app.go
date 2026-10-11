@@ -16,6 +16,7 @@ import (
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/couch"
+	"couchverse/internal/feature/couchtv"
 	"couchverse/internal/feature/downloads"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
@@ -103,6 +104,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 			Couch:     couchHub,
 			Grants:    grants,
 			Downloads: downloads.NewStore(pool),
+			CouchTv:   &couchtv.Scheduler{Store: couchtv.NewStore(pool), Settings: set, Jobs: jobsStore},
 		},
 		stop: stop,
 	}
@@ -137,6 +139,10 @@ func (a *App) Start(ctx context.Context) error {
 		Settings: d.Settings, DataDir: d.Config.DataDir, FFmpegPath: d.Config.FFmpegPath}).Handle)
 	runner.Register("cleanup", 1, cleanupHandler(d.Library, d.Auth, d.Jobs, d.Analytics, d.Uploads, d.Downloads, d.Config.DataDir))
 	if _, err := d.Jobs.EnqueueJobOnce(ctx, "cleanup", struct{}{}, jobs.EnqueueOpts{}); err != nil {
+		return err
+	}
+	runner.Register(couchtv.PlanJob, 1, d.CouchTv.Handle)
+	if err := d.CouchTv.Start(ctx); err != nil {
 		return err
 	}
 	// files an older prober read are brought up to date in the background

@@ -24,6 +24,7 @@ import (
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/feature/catalog"
 	"couchverse/internal/feature/couch"
+	"couchverse/internal/feature/couchtv"
 	"couchverse/internal/feature/downloads"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
@@ -60,6 +61,7 @@ type Deps struct {
 	Couch     *couch.Hub
 	Grants    *grant.Signer
 	Downloads *downloads.Store
+	CouchTv   *couchtv.Scheduler
 }
 
 type Server struct {
@@ -149,6 +151,7 @@ func (s *Server) register(v1 chi.Router) huma.API {
 	playback.NewModule(s.Stream, playback.NewAdminTranscode(s.Library, s.Settings, s.Jobs, s.Transcode, s.Config.FFmpegPath)).Register(rt)
 	couch.NewModule(s.Couch, s.Settings).Register(rt)
 	ranks.NewModule(s.Ranks, s.Settings).Register(rt)
+	couchtv.NewModule(s.CouchTv).Register(rt)
 	artwork.NewHandlers(s.Artwork).Register(rt)
 	subtitles.NewSubtitles(s.Subtitles.Subs, s.Library, s.Subtitles).Register(rt)
 	library.NewModule(s.Library, s.Uploads).Register(rt)

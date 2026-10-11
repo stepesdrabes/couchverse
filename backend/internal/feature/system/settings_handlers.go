@@ -37,11 +37,13 @@ type ServerSettings struct {
 }
 
 // FeatureFlags are the admin toggles for optional features (flags.Flags with
-// documentation; a flag missing from the stored value counts as enabled).
+// documentation; a flag missing from the stored value counts as enabled, except
+// couchTvEnabled, which is off until set).
 type FeatureFlags struct {
 	CouchEnabled     bool `json:"couchEnabled" doc:"Couch sessions (synced watch parties)."`
 	RankingsEnabled  bool `json:"rankingsEnabled" doc:"Ranks, achievements, public profiles and leaderboards."`
 	DownloadsEnabled bool `json:"downloadsEnabled" doc:"Downloads for offline viewing in the native apps (prepared MP4s use server disk and CPU)."`
+	CouchTvEnabled   bool `json:"couchTvEnabled,omitempty" doc:"Couch TV, the live channel; absent means off."`
 }
 
 type HomeSettings struct {

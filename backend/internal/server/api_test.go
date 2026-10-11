@@ -27,6 +27,7 @@ import (
 	"couchverse/internal/app"
 	"couchverse/internal/config"
 	"couchverse/internal/db"
+	"couchverse/internal/feature/couchtv"
 	"couchverse/internal/feature/library"
 	"couchverse/internal/server"
 )
@@ -87,6 +88,35 @@ type apiCase struct {
 type upload struct {
 	name    string
 	content []byte
+}
+
+// couchTvConfig is the shipped channel config, changed by mutate.
+func couchTvConfig(mutate func(*couchtv.CouchTvConfig)) couchtv.CouchTvConfig {
+	cfg := couchtv.DefaultConfig()
+	mutate(&cfg)
+	return cfg
+}
+
+func pinSlot(cfg *couchtv.CouchTvConfig, key, titleID string) {
+	for i := range cfg.Template.Slots {
+		if cfg.Template.Slots[i].Key == key {
+			cfg.Template.Slots[i].Titles = []string{titleID}
+		}
+	}
+}
+
+// couchTvDay is the date days from now in the channel's zone.
+func couchTvDay(days int) string {
+	loc, _ := time.LoadLocation(couchtv.DefaultConfig().TimeZone)
+	return time.Now().In(loc).AddDate(0, 0, days).Format(time.DateOnly)
+}
+
+// couchTvNoon is noon on the date days from now in the channel's zone, as a query
+// value (UTC, so it carries no "+").
+func couchTvNoon(days int) string {
+	loc, _ := time.LoadLocation(couchtv.DefaultConfig().TimeZone)
+	n := time.Now().In(loc)
+	return time.Date(n.Year(), n.Month(), n.Day()+days, 12, 0, 0, 0, loc).UTC().Format(time.RFC3339)
 }
 
 // pngImage is a small valid image for the avatar, banner and artwork uploads.
@@ -258,6 +288,24 @@ func apiCases() []apiCase {
 		}, status: 400},
 		{op: "adminGetAnalytics", as: "admin", method: "GET", path: "/admin/analytics/overview?days=7", status: 200},
 
+		{op: "adminGetCouchTv", as: "admin", method: "GET", path: "/admin/couchtv", status: 200},
+		{op: "adminGetCouchTv", as: "nora", method: "GET", path: "/admin/couchtv", status: 403},
+		{op: "adminUpdateCouchTv", as: "admin", method: "PUT", path: "/admin/couchtv", body: couchTvConfig(func(c *couchtv.CouchTvConfig) {
+			pinSlot(c, "sitcom-strip", seriesID)
+		}), status: 200},
+		{op: "adminUpdateCouchTv", as: "admin", method: "PUT", path: "/admin/couchtv", body: couchTvConfig(func(c *couchtv.CouchTvConfig) {
+			pinSlot(c, "sitcom-strip", movieID)
+		}), status: 400},
+		{op: "adminUpdateCouchTv", as: "admin", method: "PUT", path: "/admin/couchtv", body: couchTvConfig(func(c *couchtv.CouchTvConfig) {
+			c.TimeZone = "Mars/Olympus"
+		}), status: 400},
+		{op: "adminRegenerateDay", as: "admin", method: "POST", path: "/admin/couchtv/days/" + couchTvDay(1) + "/regenerate", status: 200},
+		{op: "adminRegenerateDay", as: "admin", method: "POST", path: "/admin/couchtv/days/" + couchTvDay(30) + "/regenerate", status: 400},
+		{op: "adminRegenerateDay", as: "admin", method: "POST", path: "/admin/couchtv/days/tomorrow/regenerate", status: 404},
+		{op: "adminListAirings", as: "admin", method: "GET", path: "/admin/couchtv/airings?from=" + couchTvNoon(1) + "&to=" + couchTvNoon(2), status: 200},
+		{op: "adminListAirings", as: "admin", method: "GET", path: "/admin/couchtv/airings", status: 200},
+		{op: "adminListAirings", as: "admin", method: "GET", path: "/admin/couchtv/airings?from=" + couchTvNoon(2) + "&to=" + couchTvNoon(1), status: 400},
+
 		{op: "getArtworkGrant", as: "nora", method: "GET", path: "/me/artwork-grant", status: 200, save: map[string]string{"artGrant": "grant"}},
 		{op: "getArtwork", method: "GET", path: "/artwork/" + moviePosterID, status: 401},
 		{op: "getArtwork", method: "GET", path: "/artwork/" + moviePosterID + "?g={{artGrant}}", status: 404},
@@ -407,7 +455,7 @@ func apiCases() []apiCase {
 			"tmdb.api_key": "",
 			"transcode": map[string]any{"hwAccel": "auto", "ladder": []string{"720p", "480p"}, "preset": "veryfast",
 				"maxConcurrent": 1, "jitEnabled": nil, "autoPrepare": true, "deleteSourceAfterTranscode": false},
-			"features":   map[string]bool{"couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": false},
+			"features":   map[string]bool{"couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": false, "couchTvEnabled": true},
 			"home":       map[string]int{"featuredCount": 4},
 			"appearance": map[string]string{"accent": "#3b82f6"},
 		}, status: 200},

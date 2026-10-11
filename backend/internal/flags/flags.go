@@ -14,10 +14,13 @@ type Flags struct {
 	CouchEnabled     bool `json:"couchEnabled"`
 	RankingsEnabled  bool `json:"rankingsEnabled"`
 	DownloadsEnabled bool `json:"downloadsEnabled"`
+	CouchTvEnabled   bool `json:"couchTvEnabled,omitempty"`
 }
 
-// Load reads the "features" settings key; absent or malformed means everything
-// is enabled (backwards compatible).
+// Load reads the "features" settings key; absent or malformed means every flag
+// that predates it is enabled (backwards compatible). Couch TV is the exception:
+// it stays off until an admin turns it on, since the channel needs a schedule and
+// rendered breaks first.
 func Load(ctx context.Context, st *settings.Store) Flags {
 	f := Flags{CouchEnabled: true, RankingsEnabled: true, DownloadsEnabled: true}
 	raw, err := st.Get(ctx, "features")
@@ -56,6 +59,17 @@ func DownloadsOn(st *settings.Store) func(context.Context) error {
 	return func(ctx context.Context) error {
 		if !Load(ctx, st).DownloadsEnabled {
 			return httpx.Fail(http.StatusNotFound, "feature_disabled", "downloads are disabled")
+		}
+		return nil
+	}
+}
+
+// CouchTvOn is an httpx.Guard check that hides the Couch TV viewer routes while the
+// channel is off. Its admin operations stay reachable so it can be set up first.
+func CouchTvOn(st *settings.Store) func(context.Context) error {
+	return func(ctx context.Context) error {
+		if !Load(ctx, st).CouchTvEnabled {
+			return httpx.Fail(http.StatusNotFound, "feature_disabled", "couch tv is disabled")
 		}
 		return nil
 	}

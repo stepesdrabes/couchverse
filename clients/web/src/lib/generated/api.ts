@@ -407,6 +407,147 @@ export interface CouchStart {
 
 export type CouchStartKind = 'movie' | 'episode';
 
+export interface CouchTvAiring {
+	/** Where the credits squeeze begins, in ms from the start; null while unknown. */
+	creditsAtMs: number | null;
+	endsAt: string;
+	episodeId?: string;
+	episodeName?: string;
+	episodeNumber?: number;
+	/** The rule that chose the program; filler fills a gap before a fixed time. */
+	fill?: CouchTvAiringFill;
+	id: string;
+	kind: CouchTvAiringKind;
+	locked: boolean;
+	mediaFileId?: string;
+	/** The program's media is prepared for the channel; always true for a break. */
+	ready: boolean;
+	seasonNumber?: number;
+	/** The template slot that placed it; absent for fillers and admin rows. */
+	slot?: string;
+	source: CouchTvAiringSource;
+	startsAt: string;
+	state: CouchTvAiringState;
+	titleId?: string;
+	titleKind?: CouchTvAiringTitleKind;
+	titleName?: string;
+}
+
+/** The rule that chose the program; filler fills a gap before a fixed time. */
+export type CouchTvAiringFill = 'strip' | 'marathon' | 'reruns' | 'movie' | 'matinee' | 'premiere' | 'saga' | 'encore' | 'filler';
+
+export type CouchTvAiringKind = 'program' | 'break';
+
+export type CouchTvAiringSource = 'auto' | 'admin';
+
+export type CouchTvAiringState = 'planned' | 'ready' | 'aired' | 'failed' | 'replaced';
+
+export type CouchTvAiringTitleKind = 'movie' | 'series';
+
+export interface CouchTvConfig {
+	/**
+	 * The shortest break between programs.
+	 * From 5 to 600.
+	 */
+	breakMinSeconds: number;
+	guestLink: CouchTvGuestLink;
+	rotation: CouchTvRotation;
+	template: CouchTvTemplate;
+	/**
+	 * IANA time zone the template's times are in.
+	 * At least 1 character.
+	 */
+	timeZone: string;
+}
+
+export interface CouchTvGuestLink {
+	enabled: boolean;
+}
+
+export interface CouchTvOverview {
+	config: CouchTvConfig;
+	/** When the last planned airing ends; null before the first plan. */
+	plannedUntil: string | null;
+}
+
+export interface CouchTvRotation {
+	/**
+	 * A gap this long before a fixed time is filled with reruns where one fits; shorter gaps grow the break.
+	 * From 1 to 240.
+	 */
+	fillerMinMinutes: number;
+	/**
+	 * Days before a movie reruns outside prime time.
+	 * From 0 to 365.
+	 */
+	movieGapDays: number;
+	/**
+	 * How recently a movie must have been added to premiere.
+	 * From 0 to 365.
+	 */
+	premiereWindowDays: number;
+	/** From 0 to 5. */
+	primeRepeatFactor: number;
+	/**
+	 * A movie returns to prime time after max(this, primeRepeatFactor x the movie count) days.
+	 * From 0 to 365.
+	 */
+	primeRepeatMinDays: number;
+	/**
+	 * Days before an episode reruns.
+	 * From 0 to 365.
+	 */
+	rerunGapDays: number;
+}
+
+export interface CouchTvSchedule {
+	/** The airings overlapping the stretch, in order. */
+	airings: CouchTvAiring[];
+	from: string;
+	/** The channel's time zone, for showing the times as the template has them. */
+	timeZone: string;
+	to: string;
+}
+
+export interface CouchTvSlot {
+	/** Starts exactly at start; programs before it are shortened or swapped to make room. */
+	anchor?: boolean;
+	/**
+	 * Episodes a strip or marathon airs per day; 1 when omitted.
+	 * From 0 to 20.
+	 */
+	count?: number;
+	/** From 1 to 7 items. */
+	days: CouchTvSlotDaysItem[];
+	fill: CouchTvSlotFill;
+	/**
+	 * Stable name; airings record it.
+	 * At most 40 characters.
+	 */
+	key: string;
+	/** Genre the slot prefers; any when omitted. */
+	pick?: CouchTvSlotPick;
+	/** Local time (HH:MM). An anchor starts exactly then; for a flow slot it is the time the block before it fills up to. Times before the day's first anchor belong to the night after it. */
+	start?: string;
+	/**
+	 * Pinned titles: a strip or marathon airs the first (a series), reruns and movie slots draw only from these. Without them the pick chooses.
+	 * At most 50 items.
+	 */
+	titles?: string[];
+}
+
+export type CouchTvSlotDaysItem = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export type CouchTvSlotFill = 'strip' | 'marathon' | 'reruns' | 'movie' | 'matinee' | 'premiere' | 'saga' | 'encore';
+
+/** Genre the slot prefers; any when omitted. */
+export type CouchTvSlotPick = 'any' | 'comedy' | 'animation' | 'drama' | 'family';
+
+export interface CouchTvTemplate {
+	/** From 1 to 200 items. */
+	slots: CouchTvSlot[];
+}
+
 /** body returns the participant token in the response instead of setting the couch cookie. */
 export type CreateCouchDelivery = 'cookie' | 'body';
 
@@ -659,6 +800,8 @@ export interface FFmpegUsage {
 export interface FeatureFlags {
 	/** Couch sessions (synced watch parties). */
 	couchEnabled: boolean;
+	/** Couch TV, the live channel; absent means off. */
+	couchTvEnabled?: boolean;
 	/** Downloads for offline viewing in the native apps (prepared MP4s use server disk and CPU). */
 	downloadsEnabled: boolean;
 	/** Ranks, achievements, public profiles and leaderboards. */
@@ -1974,6 +2117,10 @@ export interface AdminGetAnalyticsQuery {
 export const adminGetAnalytics = (query: AdminGetAnalyticsQuery = {}, opts?: CallOptions) =>
 	api<AnalyticsOverview>(`/admin/analytics/overview${qs({ days: query.days })}`, opts);
 
+/** `GET /admin/couchtv` */
+export const adminGetCouchTv = (opts?: CallOptions) =>
+	api<CouchTvOverview>(`/admin/couchtv`, opts);
+
 /** `GET /admin/episodes/{id}/translations` */
 export const adminGetEpisodeTranslations = (id: string, opts?: CallOptions) =>
 	api<Record<string, Translation>>(`/admin/episodes/${encodeURIComponent(id)}/translations`, opts);
@@ -2034,6 +2181,17 @@ export const adminImportEpisodes = (id: string, body?: EpisodeImport, opts?: Cal
 export const adminListActiveTranscodes = (opts?: CallOptions) =>
 	api<ActiveTranscode[]>(`/admin/transcode/active`, opts);
 
+export interface AdminListAiringsQuery {
+	/** Start of the stretch (RFC 3339); now when omitted. */
+	from?: string;
+	/** End of the stretch; a day after from when omitted, at most 15 days after it. */
+	to?: string;
+}
+
+/** `GET /admin/couchtv/airings` */
+export const adminListAirings = (query: AdminListAiringsQuery = {}, opts?: CallOptions) =>
+	api<CouchTvSchedule>(`/admin/couchtv/airings${qs({ from: query.from, to: query.to })}`, opts);
+
 export interface AdminListJobsQuery {
 	/** Only jobs in this state; all when omitted. */
 	status?: AdminListJobsStatus;
@@ -2082,6 +2240,14 @@ export const adminListUsers = (opts?: CallOptions) =>
 export const adminListVariants = (id: string, opts?: CallOptions) =>
 	api<TranscodeVariant[]>(`/admin/media-files/${encodeURIComponent(id)}/variants`, opts);
 
+/**
+ * `POST /admin/couchtv/days/{date}/regenerate`
+ *
+ * @param date The broadcast day, a date in the channel's time zone; it starts at the day's first anchor.
+ */
+export const adminRegenerateDay = (date: string, opts?: CallOptions) =>
+	api<CouchTvSchedule>(`/admin/couchtv/days/${encodeURIComponent(date)}/regenerate`, { ...opts, method: 'POST' });
+
 /** `POST /admin/jobs/{id}/retry` */
 export const adminRetryJob = (id: number, opts?: CallOptions) =>
 	api<void>(`/admin/jobs/${encodeURIComponent(id)}/retry`, { ...opts, method: 'POST' });
@@ -2113,6 +2279,14 @@ export const adminSetEpisodeTranslation = (id: string, lang: string, body: Trans
  */
 export const adminSetTitleTranslation = (id: string, lang: string, body: Translation, opts?: CallOptions) =>
 	api<void>(`/admin/titles/${encodeURIComponent(id)}/translations/${encodeURIComponent(lang)}`, { ...opts, method: 'PATCH', body });
+
+/**
+ * `PUT /admin/couchtv`
+ *
+ * @param body
+ */
+export const adminUpdateCouchTv = (body: CouchTvConfig, opts?: CallOptions) =>
+	api<CouchTvOverview>(`/admin/couchtv`, { ...opts, method: 'PUT', body });
 
 /**
  * `PATCH /admin/episodes/{id}`
