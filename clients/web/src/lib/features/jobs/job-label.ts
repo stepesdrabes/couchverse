@@ -8,7 +8,8 @@ const actionByType: Record<string, () => string> = {
 	extract_subtitles: m.jobs_action_extract_subtitles,
 	fetch_metadata: m.jobs_action_fetch_metadata,
 	import_episodes: m.jobs_action_import_episodes,
-	cleanup: m.jobs_action_cleanup
+	cleanup: m.jobs_action_cleanup,
+	couchtv_plan: m.jobs_action_couchtv_plan
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');

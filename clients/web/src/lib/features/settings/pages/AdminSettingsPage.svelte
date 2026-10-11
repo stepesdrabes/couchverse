@@ -48,8 +48,14 @@
 	let couchEnabled = $state(true);
 	let rankingsEnabled = $state(true);
 	let downloadsEnabled = $state(true);
+	let couchTvEnabled = $state(false);
 	let savingFeatures = $state(false);
-	const featuresForm = new FormState(() => ({ couchEnabled, rankingsEnabled, downloadsEnabled }));
+	const featuresForm = new FormState(() => ({
+		couchEnabled,
+		rankingsEnabled,
+		downloadsEnabled,
+		couchTvEnabled
+	}));
 
 	let featuredCount = $state('3');
 	let savingHome = $state(false);
@@ -90,6 +96,7 @@
 					couchEnabled = s.features?.couchEnabled ?? true;
 					rankingsEnabled = s.features?.rankingsEnabled ?? true;
 					downloadsEnabled = s.features?.downloadsEnabled ?? true;
+					couchTvEnabled = s.features?.couchTvEnabled ?? false;
 					featuresForm.reset();
 				}
 				if (!accentForm.dirty) {
@@ -185,7 +192,7 @@
 		savingFeatures = true;
 		try {
 			await settingsApi.adminUpdateSettings({
-				features: { couchEnabled, rankingsEnabled, downloadsEnabled }
+				features: { couchEnabled, rankingsEnabled, downloadsEnabled, couchTvEnabled }
 			});
 			await session.refresh();
 			featuresForm.reset();
@@ -482,6 +489,18 @@
 						</span>
 					</span>
 					<Switch bind:checked={downloadsEnabled} label={m.settings_downloads_label()} />
+				</label>
+
+				<label
+					class="flex items-center justify-between rounded-input border border-edge px-3.5 py-2.5"
+				>
+					<span>
+						<span class="block text-sm">{m.settings_couch_tv_label()}</span>
+						<span class="block text-[11px] text-faint">
+							{m.settings_couch_tv_hint()}
+						</span>
+					</span>
+					<Switch bind:checked={couchTvEnabled} label={m.settings_couch_tv_label()} />
 				</label>
 
 				<div class="flex justify-end">

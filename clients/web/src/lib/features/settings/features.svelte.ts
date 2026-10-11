@@ -7,5 +7,8 @@ export const features = {
 	},
 	get rankingsEnabled() {
 		return core.session.features.rankings;
+	},
+	get couchTvEnabled() {
+		return core.session.features.couchTv;
 	}
 };
