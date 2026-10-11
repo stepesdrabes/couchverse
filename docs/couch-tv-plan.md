@@ -375,18 +375,30 @@ gated by the flag.
   "couchtv"}` (6 h, re-issued on the socket). Routes on a new `Routes.Channel` group under
   `/tv/{grant}/...`; a segment request is only served if its file belongs to an airing in the
   current window (+-10 min), so a guest's grant never reaches the library.
-- **Playlists** are generated per request from the schedule (stateless, so a restart only
-  causes a reconnect):
-  - Multivariant: one video variant (v1, no ABR), an audio group (`cs`, `en`; each airing
-    contributes its best match per language, falling back to the original; breaks carry their
-    mix in both), a subtitle group (`cs`, `en`; empty WebVTT segments where missing).
-  - Media playlists: a sliding window (~2 min), `EXT-X-PROGRAM-DATE-TIME` at every
-    discontinuity, `EXT-X-DISCONTINUITY` at every program/break boundary, `EXT-X-MAP` per
-    item, a target duration covering the longest copied-source segment.
+- **Playlists** are generated per request from the schedule by `hls.LiveSchedule` (S1), so a
+  restart only causes a reconnect. Media sequence numbers count segments per rendition, so
+  they are chained airing to airing (`LiveOrigin.After`): each airing stores its **origin**
+  (media sequence per rendition, discontinuity sequence) once it goes on air, computed from
+  the airing before it; aired airings never change.
+  - Multivariant: one video variant (v1, no ABR) whose `CODECS` (`hls.CoverCodecs`),
+    `RESOLUTION`, `FRAME-RATE` and bandwidths cover every item, an audio group (`cs`, `en`,
+    `CHANNELS="2"`; each airing contributes its best match per language, falling back to the
+    original; breaks carry their mix in both), a subtitle group (`cs`, `en`; empty WebVTT
+    segments where missing). The default audio follows `?lang=`.
+  - Media playlists: a sliding window (2 min), `EXT-X-PROGRAM-DATE-TIME` on the first segment
+    and every discontinuity, `EXT-X-DISCONTINUITY` at every program/break boundary,
+    `EXT-X-MAP` repeated after each, a segment listed as soon as it goes on air, and a
+    **constant** target duration (RFC 8216 forbids changing it): 10 s, with programs whose
+    package has a longer segment (`LiveItem.MaxSegment`) airing from the 1080p rung.
   - Programs reuse their Playback v2 packages (copied source or the 1080p rung, the AAC
-    stereo audio renditions, the segmented WebVTT). Breaks are their assembled renditions.
-- **Sync**: hls.js `liveSyncDuration` ~3 target durations; every client's live edge comes
-  from the same server clock, so viewers stay within a segment or two. The Pi keeps NTP time.
+    audio renditions, the segmented WebVTT) and air to a video segment boundary; the audio
+    segment that runs past it is served **trimmed** (`mp4.Trim`, `LiveSchedule.Trim`),
+    because AVPlayer plays whole segments. Breaks are their assembled renditions.
+- **Sync**: hls.js's own live edge moves in whole segments, so viewers tuning in at different
+  moments end up a segment apart (4.6-5.4 s in S1). The client holds the **program date** at
+  server time minus the target latency (3 target durations): it plays up to 10 % faster or
+  slower for a drift under 2 s and seeks beyond. The server clock reaches the client in the
+  socket's `hello` (`serverTime`, ms). The Pi keeps NTP time.
 - **Fallbacks**: an unrendered break uses an **evergreen** recipe (cached ident, promo bodies
   with a generic "Coming up on Couch TV" end card, a generic up next). A missing program is
   swapped (5.2); worst case a pre-rendered "Technical difficulties" card loops to the next
@@ -505,6 +517,110 @@ per platform: the screens (TV-first layouts), the live overlays, presence and re
 - **S3 Analysis accuracy**: intro/outro for every series, credits start and credits music for
   every movie, footage picks for 3 movies; a report for the owner.
 - **Exit**: all three demonstrated on the Pi; numbers recorded here.
+
+### Spike results: S1 (live stitching), 2026-10-12
+
+**What ran** (`make live-spike`: backend `TestLiveSpike`, `clients/web/e2e/live.mjs`,
+`scripts/avplayer-probe.swift --live`, on an M1 Pro). Packages were made by the real probe
+and transcode jobs: *Glass Harbor* from `make sample-media` (copied H.264 720p24 Constrained
+Baseline, AC-3 5.1 as AAC stereo, English and Czech subtitles), *Static Bloom* from `make
+sample-media` (HEVC Main 10 HDR10 as the 720p H.264 rung, English and Czech audio, English
+subtitles), a generated *Night Shift* (copied H.264 High 1080p30, a keyframe every 10.5 s, one
+untagged **mono** AAC track) and two stand-in breaks (1080p25 H.264 High, CRF 18, 2 s GOP,
+AAC stereo 192k; 17.36 s and 12.48 s, packaged like a program). The loop *Glass Harbor,
+break, Static Bloom, break, Night Shift (cut at 31.5 s, a video boundary no audio boundary
+matches), break* aired through `hls.LiveSchedule` (2 min window, target duration 11, one
+covering variant, `cs`/`en` audio and subtitles, 6 s WebVTT segments, empty ones where an
+item has none). Players tuned in mid-item and played 130 s (3 to 5 boundaries each): five
+hls.js 1.6.16 viewers in Playwright Chromium (two pairs 20 s apart: one on hls.js's own live
+edge, one holding the program date) and one in Playwright WebKit, plus AVFoundation, all at
+once; each viewer switched audio language and turned subtitles on midway. `validate-hls` ran
+1.5 s before and after four boundaries. The pages sample the program date, the picture
+(breaks are plain blue) and the dominant tone (each item and language has its own) four times
+a second and check them against the schedule.
+
+| Player | Stalls | Item change vs program date (picture / sound) | Subtitles | Notes |
+|---|---|---|---|---|
+| hls.js, Chromium | 0 | 0 of 1600 samples off; boundary seen -0.02..0.22 s / 0.11..0.33 s after it (once 1.24 s, while the hold seeked across it) | every cue sample on time (20-24 per viewer), none out of place | audio switch and subtitles fine; mono to stereo fine |
+| hls.js, WebKit | one of 0.04 s | 0 of 426 off; 0.15..0.23 s | 22/22 | Web Audio reads MSE audio as silence, so sound was not measured |
+| AVFoundation (macOS) | 0 | program date never jumps (after the fix below) | 2 audio + 2 subtitle options, selection works | an audio switch pauses ~0.35 s |
+| `validate-hls` | - | 0 errors on 8 snapshots per run | - | warnings: target duration 11 > 10, `AVERAGE-BANDWIDTH` |
+
+Boundary offsets include the sampling step (0.25 s) and, for sound, the 170 ms FFT window.
+Codec, profile, resolution, frame-rate and channel changes across discontinuities
+(Constrained Baseline 720p24, High 1080p25, High 1080p30, mono and stereo AAC) caused no
+error, stall or blank frame in any player.
+
+**Sync.** Two viewers 20 s apart on hls.js's own live edge differ by **4.6-5.4 s** (Chromium
+and WebKit started together: 6.3 s): `liveSyncPosition` counts back from the playlist's last
+segment, which moves in whole segments. Holding the program date at server time minus the
+target latency brings them to **0.03-0.24 s median, 1.0-1.4 s worst** (worst while the
+seeking hold caught up). Under the full load (seven players on eight cores) Chromium played
+about 1 % slower than real time, drifting 1.2-1.7 s in two minutes; alone it kept time (0.99-1.00,
+run 3). A slow device falls behind on its own edge, which is what the hold corrects.
+
+**What broke and how it was fixed**
+- **AVPlayer plays whole segments.** A program leaves the air on a video segment boundary;
+  its audio segments are cut elsewhere (~6.0 s apart), so the last one runs past the item. With
+  only its `EXTINF` shortened, hls.js overwrites the overrun with the next item (no audible
+  tail), but AVPlayer played all of it: Night Shift ran 3.6 s long and the program date then
+  jumped back at the break. Fix: `LiveSchedule.Trim` lists that segment under a URI the server
+  answers with `mp4.Trim` (the AAC samples up to the cut, within half a frame); afterwards
+  AVPlayer kept the date and `validate-hls` lost its `fmp4.duration` warnings.
+- **The validator only knew VOD.** It now reads `EXT-X-DISCONTINUITY-SEQUENCE` and
+  `EXT-X-PROGRAM-DATE-TIME`, checks each item's timeline from its own first segment, lines up
+  every rendition with the video by program date and discontinuity number (`live.alignment`),
+  requires three target durations in a live window (`live.window`), warns about an item
+  without a date (`live.program-date-time`) or a date gap at a discontinuity (`live.gap`),
+  errors on a date jump without one, maps live cues through their own item, and accepts a
+  variant whose codec string, resolution and `CHANNELS` cover every item's.
+- **Mono audio.** A mono AAC track is copied into the package as is; under `CHANNELS="2"`
+  every player handled it (the validator now treats `CHANNELS` as a maximum for live).
+- **Numbering cannot be a function of time.** Media sequence numbers must be consecutive per
+  rendition, and an item's segment count differs per rendition (copied video cut at
+  keyframes, audio every ~6 s), so numbers are chained item to item from a stored origin
+  (`LiveOrigin.After`); the target duration is computed over all renditions so every playlist
+  of a request keeps the same window.
+
+**Settings to use**
+- Items: programs as packaged (6 s segments, longer for sparse keyframes), breaks segmented
+  at 6 s from their 2 s GOP; every item fitted to its time on air; the overrunning audio
+  segment trimmed.
+- `EXT-X-TARGETDURATION`: a channel constant (RFC 8216 forbids changing it), default 10;
+  11 played everywhere, `validate-hls` only warns above 10. ffmpeg cuts a copied source at the
+  first keyframe after each 6 s mark, so a segment can reach 6 s plus the longest GOP:
+  measure `LiveItem.MaxSegment` over the Pi's packages before fixing the constant, and air a
+  program whose package exceeds it from the 1080p rung.
+- Window 2 min; segments listed as soon as they go on air; `EXT-X-PROGRAM-DATE-TIME` (UTC, ms)
+  on the first segment and every discontinuity; a discontinuity at every item and
+  `EXT-X-MAP` repeated after it; `EXT-X-DISCONTINUITY-SEQUENCE` once one has scrolled out.
+- Multivariant: `hls.LiveMultivariant` with `CODECS` from `hls.CoverCodecs`
+  (`avc1.640028,mp4a.40.2` here), the largest `RESOLUTION` and `FRAME-RATE`, bandwidths
+  from the largest peaks; audio `CHANNELS="2"`, default from `?lang=`; subtitles
+  `DEFAULT=NO,AUTOSELECT=YES`.
+- Subtitles: the sidecar cues cut along a 6 s grid with `X-TIMESTAMP-MAP=MPEGTS:126000`
+  (the packages' 1.4 s offset); an empty WebVTT file (header and the same map) for every grid
+  step of an item without them. hls.js placed every cue right, also for viewers who joined
+  mid-item.
+- hls.js: `liveSyncDuration` = 3 target durations, `liveMaxLatencyDuration` = that plus 2;
+  then the program-date hold: up to 10 % faster or slower below a 2 s drift, a seek beyond (the
+  watch page and `e2e/live.mjs` use it; the measured runs above seeked at 0.5 s, which caught
+  up in visible steps under load).
+
+**Plan changes** (applied to 6.6): numbering origins stored per airing (`couchtv_airings`
+gains an `origin` column, written once the airing is on air); a constant target duration with
+the rung fallback in `couchtv_prepare`; the trimmed audio tail served by the channel route
+(its window check must accept the trimmed URI); sync by program date, which needs the server
+clock in the socket's `hello` (`serverTime`) and a program-date hold in `ElementPlayer`'s live
+mode (and later in the native players). Separate-language files (model B) cannot feed a live
+audio rendition unless they are cut to the played file's timeline, so v1 uses embedded tracks
+and falls back to the original.
+
+**Still to check on the Titan OS TV** (owner): `COUCHVERSE_SPIKE_ADDR=0.0.0.0:8099
+COUCHVERSE_SPIKE_HOLD=30m make live-spike`, then open `http://<mac>:8099/watch.html` on the
+TV and a laptop side by side: three boundaries without a stall or a blank frame (including
+720p24 to 1080p25/30), left/right switches audio, up/down subtitles, cues on time, the
+on-screen program date within 2 s of the laptop's, and no memory growth over the 30 minutes.
 
 ### Phase 1: Foundations
 Flag, settings (time zone, template), migrations, the pure generator + `couchtv_plan`, the

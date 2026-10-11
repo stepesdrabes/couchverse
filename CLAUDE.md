@@ -40,8 +40,9 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     its handlers. The feature import graph must stay acyclic (current DAG in FEATURES.md).
     SQL may JOIN any table - joins create no Go dependency.
   - Shared kernel: `internal/{app,config,db,grant,hls,httpx,media,settings,flags,slug,server,version}`
-    (`hls`: playlist parsing and writing, WebVTT segmenting, the HLS validator; `media/mp4`: the
-    fMP4 box reader behind codec strings and segment checks).
+    (`hls`: playlist parsing and writing, live playlists from a schedule (`LiveSchedule`), WebVTT
+    segmenting, the HLS validator; `media/mp4`: the fMP4 box reader behind codec strings and
+    segment checks, and `Trim` for a segment cut short).
     `r.RemoteAddr` is always the bare client IP: `internal/server`'s `clientIP` believes
     `X-Forwarded-For` only from `TRUSTED_PROXIES`, so never read forwarding headers yourself.
     `db.ErrNotFound` is the missing-row sentinel (aliased as `httpx.ErrNotFound`; a wrapped

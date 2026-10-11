@@ -1252,9 +1252,12 @@ with native audio and subtitle menus. Spikes: `docs/spikes/s3-apple-hls.md`,
   audio (copied when the profile takes it, else AAC or E-AC-3), restarts on far seeks, is
   bound to the grant's viewer (subject and couch participant) and is served behind a
   one-variant multivariant playlist with the subtitle renditions.
-- **Checks**: `couchverse validate-hls <url>` (rules in the S3 spike), `TestPlaybackTiers`
-  (every tier on generated media, validated; with `COUCHVERSE_AVPLAYER=1` played by
-  `scripts/avplayer-probe.swift`), `make hls-check|hls-apple|hls-server-check|e2e-playback`.
+- **Checks**: `couchverse validate-hls <url>` (rules in the S3 spike; live playlists too),
+  `TestPlaybackTiers` (every tier on generated media, validated; with `COUCHVERSE_AVPLAYER=1`
+  played by `scripts/avplayer-probe.swift`), `make hls-check|hls-apple|hls-server-check|e2e-playback`.
+- **Live** (Couch TV): `hls.LiveSchedule` writes the live playlists of a schedule of items
+  from their packages (`playback.ReadPackage`); `make live-spike` plays one in hls.js and
+  AVFoundation (results in `docs/couch-tv-plan.md`, "Spike results: S1").
 
 ## Optimistic navigation & caching (cross-cutting)
 
