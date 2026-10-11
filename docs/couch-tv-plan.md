@@ -104,6 +104,43 @@ in section 3.
   the couch follower is a linear player with drift correction but no wall-clock offset; the
   web has no animation library (Svelte transitions + CSS keyframes).
 
+### 3.1 Spike S3: analysis accuracy (2026-10-12, production library, read-only)
+
+Chromaprint (ffmpeg's `chromaprint` muxer, raw, mono) of the first 8 and last 6 minutes of
+episodes 2-4 of the first, middle and last season of every series; keyframe `signalstats` and
+`ebur128` momentary loudness of the last 12 minutes of all 12 movies. Pairs matched by the
+longest run of items within 10 differing bits (one-item dropouts tolerated, 0.1238 s per item).
+
+| Series | Intro | Outro (before the end) |
+|---|---|---|
+| Dexter | ~105 s, at 1:30-2:15 (S1 partly 34-108 s) | ~50-55 s at -50 to -60 s (S8 weaker) |
+| South Park | 32-36 s, at 0:00 (later seasons) or after the cold open (S1) | ~29 s at -29 to -32 s |
+| Věřte nevěřte | 35-40 s at 0:13-0:30 (S4: 11 s) | 6-13 s |
+| Simpsonovi | S1: 29-54 s at 0:21; **S18 and S36: no intro in the files** | S1: 6-11 s; none later |
+| Invincible | the 9-14 s title sting, at varying times (often past 8 min) | 62 s (S1), 90-200 s (S2, S4) |
+
+Movies: picture-only credits detection (dark, desaturated keyframes with bright text, YAVG < 45,
+SATAVG < 6, YMAX > 150) found the crawl in 7 of 12; it misses designed main-on-end sequences
+(Harry Potter 3's parchment map credits never look dark) and is confused by post-credits
+scenes (Iron Man 2 and 3). Credits music (the longest stretch of 10 s windows above -35 LUFS
+with under 3.5 LU spread) was found in all 12, but on its own it also catches score under a
+final scene.
+
+Consequences for `analyze_markers` and `couchtv_analyze`:
+- **Series**: intro = consensus of at least two of three pairs agreeing within 2 s, minimum
+  8 s (the Invincible sting); search the first 12 minutes; a season with no consensus has **no
+  intro marker** (expected, e.g. files whose opening was cut). Outro likewise from the tails.
+  The series' promo bed comes from the season with the strongest intro match.
+- **Movies**: `credits_at` combines the crawl detector (sampled at 2 fps at low resolution, plus
+  a vertical-scroll correlation between frames, which also catches crawls over pictures) with
+  the steady-music stretch, choosing the **later** candidate when they disagree, because
+  starting the squeeze late only shortens the credits while starting early would cut the
+  ending. A post-credits scene is not kept on the channel. No confident result: the squeeze
+  covers the movie's last 10 s.
+- The admin override (D25, markers editor) is the backstop for designed credits.
+- Cost: the whole sample took ~8 minutes of nice'd work on the Pi; the full library (about 1,300
+  episodes) is a few hours once, then incremental per new file.
+
 ---
 
 ## 4. The experience
