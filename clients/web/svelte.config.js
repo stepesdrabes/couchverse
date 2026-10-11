@@ -14,6 +14,8 @@ const config = {
 		// as the fallback for every non-/api route, and the precompressed .br/.gz
 		// siblings to clients that accept them (the wasm core shrinks to a third).
 		adapter: adapter({ fallback: 'index.html', precompress: true }),
+		// the Couch TV broadcast package, compiled from source (it has no runtime dependencies)
+		alias: { '@couchverse/broadcast': '../broadcast/src' },
 		typescript: {
 			// svelte-check type-checks the Playwright suite along with the app
 			config: (tsconfig) => {

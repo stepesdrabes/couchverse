@@ -1,6 +1,8 @@
 .git/
 node_modules/
 clients/web/node_modules/
+clients/broadcast/node_modules/
+clients/broadcast/dist/
 clients/web/build/
 clients/web/.svelte-kit/
 clients/web/src/lib/core/pkg/

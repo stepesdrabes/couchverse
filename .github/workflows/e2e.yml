@@ -7,6 +7,7 @@ on:
     paths:
       - backend/**
       - clients/web/**
+      - clients/broadcast/src/**
       - contract/**
       - core/**
       - scripts/e2e-server.sh
@@ -16,6 +17,7 @@ on:
     paths:
       - backend/**
       - clients/web/**
+      - clients/broadcast/src/**
       - contract/**
       - core/**
       - scripts/e2e-server.sh

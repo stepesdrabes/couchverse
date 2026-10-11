@@ -16,7 +16,9 @@ export default defineConfig({
 	server: {
 		proxy: {
 			'/api': 'http://localhost:8080'
-		}
+		},
+		// the broadcast package lives beside the app (`@couchverse/broadcast`)
+		fs: { allow: ['../broadcast/src'] }
 	},
 	test: {
 		include: ['src/**/*.test.ts']

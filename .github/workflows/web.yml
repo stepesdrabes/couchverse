@@ -2,9 +2,9 @@ name: web
 
 on:
   push:
-    paths: [clients/web/**, contract/i18n/**, contract/design/**, core/**, .github/workflows/web.yml]
+    paths: [clients/web/**, clients/broadcast/src/**, contract/i18n/**, contract/design/**, core/**, .github/workflows/web.yml]
   pull_request:
-    paths: [clients/web/**, contract/i18n/**, contract/design/**, core/**, .github/workflows/web.yml]
+    paths: [clients/web/**, clients/broadcast/src/**, contract/i18n/**, contract/design/**, core/**, .github/workflows/web.yml]
 
 env:
   CARGO_TERM_COLOR: always

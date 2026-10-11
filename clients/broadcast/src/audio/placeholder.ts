@@ -14,7 +14,7 @@ const A1 = 55.0;
 
 export async function placeholderBed(url: string): Promise<AudioBuffer> {
 	const kind = url.slice('synth:'.length);
-	const seconds = 32;
+	const seconds = 28;
 	const ctx = new OfflineAudioContext(2, seconds * SAMPLE_RATE, SAMPLE_RATE);
 	const kit = new Kit();
 	kit.build(ctx);

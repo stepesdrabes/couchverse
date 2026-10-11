@@ -26,6 +26,8 @@ WORKDIR /repo/clients/web
 COPY clients/web/package.json clients/web/package-lock.json ./
 RUN npm ci
 COPY contract/i18n /repo/contract/i18n
+# the admin Broadcast preview compiles the broadcast package from source
+COPY clients/broadcast/src /repo/clients/broadcast/src
 COPY clients/web/ ./
 COPY --from=core /repo/clients/web/src/lib/core/pkg ./src/lib/core/pkg
 RUN npm run build
