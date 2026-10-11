@@ -1,0 +1,469 @@
+# Couch TV - plan
+
+Status: **approved** (2026-10-12)
+Scope: one auto-programmed, always-on linear channel ("Couch TV") with pre-rendered, animated
+broadcast cutscenes, delivered as a live HLS stream; web first, native clients later.
+
+This document is the single source of truth for the effort. It records every decision made
+during planning (section 1), what viewers and admins get, the programming model, the
+architecture (scheduling, analysis, rendering, the live stream, clients), a phased roadmap with
+exit criteria, and the risks and spikes to resolve first. Facts measured during planning are
+in section 3.
+
+---
+
+## 1. Decisions
+
+| ID | Decision |
+|---|---|
+| D1 | **One flagship channel**, on screen **"Couch TV"**. Code name `couchtv` (the web's `lib/tv/` is TV *mode*, so the feature never uses the bare name `tv`). |
+| D2 | **True live**: everyone sees the same moment; tuning in joins mid-program; no pause or seek. **"Watch from the start"** opens the title in the normal on-demand player (signed-in viewers only). |
+| D3 | **Cutscenes only between programs.** Programs are never interrupted. |
+| D4 | **Anchors + flow**: fixed anchor slots start exactly on time (e.g. 18:00, 20:15); between anchors programs flow back to back, each break padding to the next 5-minute mark or anchor. |
+| D5 | **Series**: weekday **strips** that advance in order (a persisted cursor, e.g. Simpsonovi 2 episodes a day at 18:00) plus **weekend marathon** blocks of a drama. |
+| D6 | **24/7 with dayparts** (morning, afternoon, strips, prime time, late, overnight reruns). |
+| D7 | **Auto + admin editor**: generated a week ahead from a weekly template; the admin EPG can swap, pin, remove, insert, lock and regenerate a day. Locked slots survive regeneration. |
+| D8 | **Web first** (desktop, phones, and the Titan OS TV as the same SPA). Channel logic lives in the shared core so Apple and Android follow later with only screens left to build. |
+| D9 | **Cutscenes are pre-rendered video**, at the quality of the planning samples: the same HTML/CSS/Web Animations templates rendered by headless Chromium frame by frame, audio rendered by the same Web Audio graph in an `OfflineAudioContext`. |
+| D10 | **One live HLS stream**: the server stitches program packages and rendered breaks into a live playlist with `EXT-X-PROGRAM-DATE-TIME` and discontinuities. Every client just plays one URL. |
+| D11 | **Presence + emoji reactions** ("7 watching now", avatars, floating reactions). No chat. |
+| D12 | Channel watching counts toward **Continue watching**, **watch-time analytics** (its own TV bucket) and **ranks XP + new achievements** (time-based, social, loyalty). |
+| D13 | **Cutscenes are English only.** The surrounding web UI stays localized (en/cs). |
+| D14 | **Live client overlays** over programs: corner bug with LIVE and the clock, a "Now" caption at program start, a "Next" caption near the end. The **credits squeeze** is pre-rendered into the break, composited with the program's last seconds. |
+| D15 | **Renderer = a sidecar container on the Pi** (`couchverse-render`: the same Go binary in render mode plus Chromium, using the Pi's GPU), memory-capped, low priority, never rendering while a transcode runs. The main image stays slim. |
+| D16 | **Output: 1080p, 25 fps**, H.264 High (libx264, CRF ~18) + AAC stereo, loudness-managed. |
+| D17 | **Smart-mix breaks**: credits squeeze, short ident, 1-2 promos, up next; a lineup card in top-of-hour breaks; the full epic ident before the 20:15 movie; extra promos pad longer gaps. |
+| D18 | **Promos use artwork + real footage**: 3-6 short shots from the title itself (scene detection, first half of the runtime only, to avoid spoilers), cut on the soundtrack's beats. |
+| D19 | **Web surfaces**: "TV" in the top nav (`/tv`), a **Guide** (`/tv/guide`), a **Home "On now" card**. No TV-mode-specific remote features (the pages still follow the TV-mode rules: arrow-reachable, `data-tv-autofocus`). |
+| D20 | **Audio: the viewer picks.** The stream carries Czech and English audio renditions where a title has them (dub or original), defaulting to the display language; a missing language falls back to the original. |
+| D21 | **Subtitles where available**, as selectable renditions, off by default; the choice persists across programs. |
+| D22 | **No time-of-day content rules.** (The admin can still take a title off the channel entirely, see 6.4.) |
+| D23 | **Access: signed-in users and anyone with the channel link.** One unguessable link the admin can copy, rotate or turn off. Guests get the live channel only (no "Watch from the start", no library), appear in presence as "Guest" with a name they type, and can react. |
+| D24 | **Saturday premieres**: a recently added movie that has never aired takes the Saturday 20:15 slot, promoted all week. |
+| D25 | **Promo soundtrack: automatic + admin override.** Series: the theme found by fingerprinting episodes. Movies: the end-credits music (the steadiest loud stretch near the end). The title editor gets a "Promo audio" picker with a waveform. |
+| D26 | **No announcer voice in v1**; the audio mix reserves a voice bus so a local TTS voice can be added later. |
+| D27 | **Ident: a full cut (10-12 s) and a short cut (4-5 s)** from one design and one score: epic in scale and build, **clean and restrained in execution** (precise geometry, flat typography, no flares, particles or chrome; owner feedback on the samples). The theme is epic but modern: clean low end, precise hits, a memorable mnemonic. |
+| D28 | **Time zone**: a channel setting, default `Europe/Prague`; schedule rows are stored in UTC. |
+| D29 | **Gated** by an admin flag `couchTvEnabled` (mirrors `couchEnabled`), **off by default** until the channel has a rendered schedule. |
+| D30 | **The default weekly template is 5.1**, including **Saga Sunday** (the next film of a franchise every Sunday at 20:15, in order). |
+| D31 | **Branch**: a new `couch-tv` branch from `main`; `native-clients` is retired once its last docs commit is on `main`, so the remote keeps two branches (`main`, `couch-tv`). |
+| D32 | **The planning sample reel** (HTML/CSS/JS + README) is kept in `tools/couch-tv-samples/` as the reference for Phase 2; its media (soundtrack excerpts, artwork) is gitignored and fetched from the Pi read-only by a script. |
+
+---
+
+## 2. Goals, non-goals, success criteria
+
+**Goals**
+- A channel that feels like real, premium television: appointment programming, strips,
+  premieres, seamless cuts, cutscenes as polished as the planning samples, a recognizable
+  sonic identity.
+- Zero babysitting: the schedule, the analysis, the renders and the stream all run unattended
+  on the Raspberry Pi 4, recover from missing files and slow renders, and never stall the
+  stream.
+- Cheap for the Pi: programs reuse the existing Playback v2 packages; rendered video is reused
+  wherever the content allows; heavy work runs at low priority in bounded memory.
+- Clean architecture in the project's style: a feature package per side, a pure schedule
+  generator, a typed contract, scenario-tested core logic.
+
+**Non-goals (v1)**
+- More than one channel, per-user channels, chat, timeshift, ABR ladders on the channel, an
+  announcer voice, native client screens, cutscenes in Czech.
+
+**Success criteria**
+- Two browsers (and the Titan OS TV) tuned in show the same frame within ~2 s, across program
+  changes, for a week.
+- Over a 7-day soak on the Pi: no stream gaps; every break rendered before air (or replaced by
+  an evergreen fallback, logged); render work under ~3 h/day; no OOM; transcodes still
+  progress.
+- `validate-hls` passes on live playlist snapshots; hls.js and Safari play program-to-break
+  transitions without a visible stall.
+- The owner signs off on the ident, the theme and each promo type in the admin preview.
+
+---
+
+## 3. Facts measured during planning
+
+- **Library** (production, 2026-10-11): 12 movies with files (Harry Potter 1-8, Iron Man 1-3,
+  Pulp Fiction), series Simpsonovi (785 files), South Park (321), Dexter (96), Věřte nevěřte
+  (45), Invincible (33). Series fill most hours; the prime-time movie repeats roughly every
+  12 days, so rotation rules must scale with library size.
+- **Theme detection works on the Pi's ffmpeg** (7.1, `chromaprint` muxer present): comparing
+  the first minutes of two episodes found the shared theme in every series tried (Simpsonovi
+  29 s at 0:21, South Park 36 s, Dexter 34 s, Invincible's 9 s title sting).
+- **Credits music** shows up in a loudness profile (ebur128 momentary loudness per 10 s) as a
+  long, high, low-variance stretch near the end (Iron Man, Harry Potter, Pulp Fiction); Pulp
+  Fiction's opening titles stood out the same way.
+- **Render speed on the Pi 4** (headless Chromium 154 in Docker, a 1080p promo, seek + JPEG
+  capture per frame): 1.6 fps CPU-only, **2.5 fps with the GPU**, 2.1 fps for a UI-like card,
+  3.6 fps at 720p; PNG capture 0.7 fps. Peak container memory ~0.95 GB. Encoding is not the
+  bottleneck (libx264 veryfast 7 fps on 2.6 cores; `h264_v4l2m2m` 33 fps).
+- **Pi headroom**: 1.8 GB RAM with ~1.1 GB available (Postgres, Couchverse and other apps
+  share it); 4.5 TB free on the media disk; 14 GB free on the SD card.
+- **Code facts**: no cron (the hourly cleanup re-enqueues itself); no time zone handling (the
+  process runs in UTC); TMDB's base-language tagline is discarded; no intro/credits markers;
+  the couch follower is a linear player with drift correction but no wall-clock offset; the
+  web has no animation library (Svelte transitions + CSS keyframes).
+
+---
+
+## 4. The experience
+
+### 4.1 Viewers
+- **`/tv`**: the live channel, full-bleed. Live overlays (D14) are drawn by the client in the
+  Couchverse design language, timed from the stream's program date so they match the
+  picture, not the wall clock. Presence (avatars, count) and reactions sit in the player
+  chrome. Controls: volume, audio and subtitle menus, fullscreen, reactions, Guide, and
+  "Watch from the start" (signed in). No seek bar: a thin progress line shows the current
+  program's position.
+- **`/tv/guide`**: today and the next 7 days as a horizontal timeline grid (now-line, aired
+  programs dimmed), program detail sheets (overview, episode, times), "Watch from the start"
+  for what is on now or already aired, "Tune in" for now.
+- **Home "On now" card**: what is on, progress, the next program, "Tune in".
+- **Guests** open `/tv/join/<code>`, type a name, and land on `/tv` (live only).
+- Cutscene language is English (D13); the UI around them follows the display language.
+
+### 4.2 Breaks (between programs)
+A break fills the gap between a program's credits and the next start (D4, D17):
+
+```
+program ... credits start
+  -> credits squeeze (10 s: the program's last seconds shrink into a panel, "Up next" fills the rest)
+  -> short ident (4-5 s)          | full ident (10-12 s) before 20:15
+  -> promo 1 (20-30 s)            | body per title + a 4 s end card with the airing phrase
+  -> [promo 2 / short promo]      | as the gap allows
+  -> lineup card (10 s)           | top-of-hour breaks only
+  -> up next (8 s)                | the next program, counting down into it
+next program starts on the frame
+```
+
+Gaps are filled exactly (to the 40 ms frame) with a library of short stings and idents
+(2, 3, 5 s). The minimum break (squeeze + short ident + up next) is ~23 s.
+
+### 4.3 Admins (web)
+- Couch TV settings: the flag, the guest link (copy, rotate, disable), the time zone, the
+  weekly template editor (6.2).
+- The **EPG editor**: the week as a grid; swap, pin, remove, insert, lock, regenerate a day;
+  each row shows readiness (package prepared, break rendered).
+- **Render health**: queue, backlog in minutes of video, ETA versus air time, failures, the
+  clip cache size.
+- Per title (in the title editor): "Promo audio" waveform picker, intro/credits markers,
+  footage shots preview (re-pick), "Never on Couch TV".
+- **Broadcast preview**: any template with any title, played live in the admin's browser
+  (the templates are web code), before anything is rendered.
+
+---
+
+## 5. Programming
+
+### 5.1 The weekly template (default, editable)
+
+The agreed default for the current library (D30, Europe/Prague). **A** = anchor (starts
+exactly), **F** = flow (follows the previous program).
+
+| Time | Mon-Fri | Saturday | Sunday |
+|---|---|---|---|
+| 06:00 A | Morning toons: Simpsonovi + South Park reruns | Morning toons | Morning toons |
+| 09:00 F | Series reruns (Věřte nevěřte, South Park) | Series reruns | Series reruns |
+| 12:00 A | Matinee movie (rerun of a past prime-time movie) | Matinee movie | Family movie |
+| F | Afternoon series block (reruns) | **Marathon** (a drama, 4 episodes, in order) | **Marathon** continues |
+| 17:00 A | Věřte nevěřte strip (1 ep) | Věřte nevěřte | Věřte nevěřte |
+| 18:00 A | **Simpsonovi strip** (2 eps, in order) | Simpsonovi | Simpsonovi |
+| F | **South Park strip** (2 eps, in order) | South Park | South Park |
+| 20:15 A | **Prime-time movie** | **Saturday premiere** (D24) or movie | **Saga Sunday**: the next film of a series (HP 1 to 8, Iron Man 1 to 3) |
+| F | **Dexter strip** (1 ep; Fri: Invincible) | Late movie | Invincible strip |
+| F | Late block: adult animation reruns | Late block | Late block |
+| ~01:00 F | Overnight: tonight's movie again, then series reruns until 06:00 | Overnight | Overnight |
+
+"Saga Sunday" needs franchise order: fetch TMDB `belongs_to_collection` with metadata (new
+column), falling back to release order within a shared name prefix.
+
+### 5.2 Generator rules
+The generator is a **pure function** `Plan(template, library facts, history, locks, from,
+to) -> []Airing`, table-tested without a database (mirrors `playback.Decide` and ranks'
+rules):
+- **Anchors** start exactly; **flow** items start at the previous item's end plus its break,
+  rounded up to the next 5-minute mark; a flow block that would overrun its anchor is
+  shortened (drop an episode) or swapped for something shorter.
+- **Strips** keep a cursor per series (episode order across seasons); reruns pick from
+  episodes that already aired on the channel (fall back to any episode) and avoid the last
+  N days.
+- **Marathons** continue a drama season in order across weekends.
+- **Movies**: a movie does not repeat in prime time within `max(5, 0.8 x movie count)` days;
+  matinee and overnight slots rerun recent prime-time movies.
+- **Premieres** (D24): newest never-aired movie added in the last 28 days takes Saturday
+  20:15; promo weight rises all week.
+- **Readiness**: an item is airable when its package is prepared (6.6). The plan prefers
+  ready items; anything scheduled 48 h+ ahead may be unready (its preparation is queued); at
+  T-6 h an unready item is swapped for a ready one of the same slot type.
+- **Durations** are exact: a program airs from 0 to its **credits start** (6.5), rounded to
+  the package's segment boundary; the remainder of the credits plays inside the squeeze.
+- Determinism: a seed per day, so regenerating an unchanged day is stable.
+
+### 5.3 Horizon and locking
+- The plan job keeps **7 days** generated; the next **24 h are frozen** (renders are already
+  under way), except for explicit admin edits and readiness swaps.
+- Admin edits are rows with `source='admin'` and/or `locked=true`; regeneration keeps them
+  and replans around them.
+
+---
+
+## 6. Backend
+
+### 6.1 Feature package and dependencies
+- `internal/feature/couchtv`: schedule store, generator, plan/prepare/compose jobs, the live
+  playlist handlers, guest link, the presence/reaction hub, admin operations.
+- Imports: `catalog` (titles, `Localize`), `library` (`Prepare`, markers), `playback`
+  (package layout and `rendition.json` reading through exported helpers), `artwork`,
+  `analytics` (a `TvWatchRecorder` interface, like `CouchWatchRecorder`). **Ranks is never
+  imported**: a `TvStatsRecorder` interface satisfied by `*ranks.Store` is wired in
+  `internal/app` (mirrors `CouchStatsRecorder`). Nothing imports `couchtv`. The DAG in
+  FEATURES.md gains one node.
+- Settings key `couchtv` (typed, like `ranks.RankConfig`): `timeZone`, `template`, rotation
+  knobs, `guestLink` (hash + enabled), break recipe weights. Flag `couchTvEnabled` with
+  `flags.CouchTvOn` (D29).
+
+### 6.2 Data model (new migration)
+- `couchtv_airings`: `id, starts_at, ends_at, kind (program|break), title_id, episode_id,
+  media_file_id, slot (template slot key), block (strip/marathon key), source (auto|admin),
+  locked, state (planned|ready|aired|failed|replaced), credits_at (offset where the squeeze
+  begins), created_at`. Index on `starts_at`.
+- `couchtv_strips`: `title_id, next_episode_id, updated_at` (strip and marathon cursors).
+- `couchtv_titles`: `title_id, excluded, promo_audio (file, start, duration, source),
+  shots jsonb (media file, start, duration, score), mood, analyzed_version`.
+- `couchtv_clips`: `id, kind (ident_full|ident_short|sting|promo_body|promo_end|upnext|lineup|squeeze),
+  key (hash of template version + inputs), state, duration_ms, path, size_bytes,
+  rendered_at, last_used_at`. Unique on `key`.
+- `couchtv_breaks`: `airing_id, recipe jsonb (clip ids and offsets), audio_path, state`.
+- `library`: `media_markers (media_file_id, kind intro|credits|credits_music, start_s, end_s,
+  source auto|admin, version)`. Owned by `library`, because they are media facts that VOD
+  can use later (skip intro, an earlier "next episode" prompt).
+- `analytics`: `tv_watch_time_daily (day, user_id null, title_id, seconds)` (null user for
+  guests).
+- `ranks`: new counters and achievements (6.9).
+- `metadata`: keep the base-language **tagline** (currently discarded), add `collection_id`
+  and `collection_name` (TMDB `belongs_to_collection`) for Saga Sunday.
+
+### 6.3 Jobs
+No cron exists; every periodic job re-enqueues itself like `cleanup`.
+
+| Job | Where | Does |
+|---|---|---|
+| `couchtv_plan` | app | Daily at 04:00 local and on template/lock changes: extend to 7 days, replan unfrozen days, run readiness swaps. |
+| `couchtv_prepare` | app | Per airing: queue `library.Prepare` (the `package`; a 1080p H.264 rung for HEVC/AV1/10-bit/HDR sources); mark ready. |
+| `analyze_markers` | app (`library`) | Per season: chromaprint the first 8 and last 6 minutes of every episode, pairwise-match within the season for intro and outro; per movie: loudness profile of the last 12 minutes for credits music and black/text-frame detection for credits start. |
+| `couchtv_analyze` | app | Per title: pick the promo soundtrack excerpt (D25) and footage shots (`scdet` + motion energy, first 50% of the runtime, no faces-only close-ups at the end of acts), measure program loudness (ebur128). |
+| `couchtv_compose` | app | Per break, 48 h ahead: build the recipe (6.5), request missing clips. |
+| `couchtv_render` | **sidecar only** | Render one clip (6.7). |
+| `couchtv_assemble` | **sidecar only** | Render the break's audio mix, concatenate its clips' video (stream copy), mux, segment, write the break's `rendition.json`. |
+
+The sidecar registers only its two job types; the app never registers them. A render is
+claimed only while no `transcode_hls` job runs (a claim condition), and each render job is
+one clip (at most ~2 minutes of work), so a transcode never waits long.
+
+### 6.4 Admin operations (typed, `admin` prefix)
+`adminGetCouchTv`/`adminUpdateCouchTv` (settings, template), `adminListAirings` (range),
+`adminUpdateAiring` (pin, lock, swap, remove), `adminInsertAiring`, `adminRegenerateDay`,
+`adminRotateCouchTvLink`, `adminCouchTvRenderHealth`, `adminGetCouchTvTitle` /
+`adminUpdateCouchTvTitle` (excluded, promo audio, shots), `adminGetMediaMarkers` /
+`adminUpdateMediaMarkers` (in `library`), `adminCouchTvWaveform` (peaks for the picker).
+Every operation gets a `TestAPIConformance` case.
+
+### 6.5 Break composition
+- Inputs: the gap (next start minus this program's `credits_at`), the slot (top of hour?
+  before 20:15?), promo candidates weighted by airing soon, premiere, strip, and not shown
+  in the last breaks.
+- Output: an ordered recipe of clips summing exactly to the gap at 25 fps, plus the per-break
+  audio mix description (beds, SFX cues, crossfades, ducking, target loudness).
+- **Loudness**: programs are measured once (`couchtv_analyze`); a break is mixed at the
+  loudness of the program around it (clamped to -23..-16 LUFS), so breaks never blast.
+
+### 6.6 The live stream
+- **Channel grant**: `grant.Grant{Scope: Channel, Subject: user or guest, Resource:
+  "couchtv"}` (6 h, re-issued on the socket). Routes on a new `Routes.Channel` group under
+  `/tv/{grant}/...`; a segment request is only served if its file belongs to an airing in the
+  current window (+-10 min), so a guest's grant never reaches the library.
+- **Playlists** are generated per request from the schedule (stateless, so a restart only
+  causes a reconnect):
+  - Multivariant: one video variant (v1, no ABR), an audio group (`cs`, `en`; each airing
+    contributes its best match per language, falling back to the original; breaks carry their
+    mix in both), a subtitle group (`cs`, `en`; empty WebVTT segments where missing).
+  - Media playlists: a sliding window (~2 min), `EXT-X-PROGRAM-DATE-TIME` at every
+    discontinuity, `EXT-X-DISCONTINUITY` at every program/break boundary, `EXT-X-MAP` per
+    item, a target duration covering the longest copied-source segment.
+  - Programs reuse their Playback v2 packages (copied source or the 1080p rung, the AAC
+    stereo audio renditions, the segmented WebVTT). Breaks are their assembled renditions.
+- **Sync**: hls.js `liveSyncDuration` ~3 target durations; every client's live edge comes
+  from the same server clock, so viewers stay within a segment or two. The Pi keeps NTP time.
+- **Fallbacks**: an unrendered break uses an **evergreen** recipe (cached ident, promo bodies
+  with a generic "Coming up on Couch TV" end card, a generic up next). A missing program is
+  swapped (5.2); worst case a pre-rendered "Technical difficulties" card loops to the next
+  airing.
+
+### 6.7 Rendering (the sidecar)
+- **Image**: a `render` target in the Dockerfile (the couchverse binary + Debian `chromium`,
+  `ffmpeg`, Mesa), compose service `render` with `/dev/dri` and `/dev/video11`, the shared
+  `/data` volume, `mem_limit: 1g`, `cpus: 2`, low nice. Command: `couchverse render`.
+- **Templates**: the broadcast bundle (6.8) embedded in the binary, served on localhost to a
+  long-lived headless Chromium (GPU flags from the benchmark), driven over CDP with
+  `chromedp`.
+- **Frame loop**: for each frame t (25 fps): seek every animation to t, wait one frame,
+  capture JPEG (q 92), pipe to `ffmpeg -f image2pipe ... libx264 -crf 18 -g 50` (2 s GOP so
+  clips concatenate cleanly). **Static holds are skipped**: when no animation is active
+  between two frames the previous frame is reused (no capture).
+- **Footage**: the shots chosen in `couchtv_analyze` are extracted once per title as 25 fps
+  JPEG sequences (1080p, SDR, tone-mapped if needed) that the template shows frame by frame.
+- **Squeeze**: the template renders the panel with a keyed hole and exports the hole's
+  rectangle per frame; ffmpeg composites the program's last seconds (from `credits_at`) into
+  it.
+- **Audio**: the break mix is rendered in the same page by an `OfflineAudioContext` (the
+  samples' engine), written as WAV, encoded AAC 192k.
+- **Caching**: a clip's key hashes the template version, its data and its inputs' versions;
+  a template change re-renders lazily (evergreen first).
+- **Budget** (estimate for ~36 programs a day): unique video per day ~15 min (squeezes, up
+  nexts, lineups, end cards) at ~2.5 fps is **~2-2.5 h of rendering a day**, minus static
+  holds; promo bodies are one-off (~20 s per title, ~1.5 h for today's library). Renders run
+  ~48 h ahead.
+
+### 6.8 The broadcast package
+- `clients/broadcast/`: a small TypeScript bundle (Vite library build, no framework), using
+  the generated design tokens and Plus Jakarta Sans. It is the productionized samples:
+  `core` (timeline, curves and springs from the tokens, accent palette from the core's
+  derivation), `audio` (engine, synthesized SFX kit, the theme and sonic logo, beds,
+  ducking, voice bus reserved), `templates` (one module per template, data in, timeline
+  out).
+- **Determinism rule**: every frame and every sample is a pure function of t and the data
+  (seeded PRNG, no wall clock, no accumulated `requestAnimationFrame` state); a CI test
+  renders golden frames and an audio hash.
+- The same bundle powers the admin **Broadcast preview** (live in the browser) and the
+  sidecar's renders, so what the admin approves is what airs.
+- Templates (from the samples, D27): `ident` (full and short), `sting`, `upnext`, `promo`
+  (moods `cinematic`, `grit`, `bright`; premiere variant; body plus end card), `strip`,
+  `shortPromo`, `lineup`, `squeeze`, `standby` ("Technical difficulties"), `evergreenEnd`.
+
+### 6.9 Presence, reactions, progress, analytics, ranks
+- **Hub**: an in-memory channel room (like couch's Hub, much simpler: no host). WebSocket
+  `GET /tv/socket` (cookie or bearer for users, the channel cookie for guests). Frames in
+  `couchtv/protocol.go` (`hello`, `presence`, `reaction`, `schedule_changed`, `report`),
+  published with `couchverse couchtv-schema`, golden fixtures in `contract/fixtures/couchtv`.
+- **Reports** (every ~10 s): the program date the player is showing. The server maps it to
+  (airing, offset): `watch_progress` for signed-in viewers after 2 minutes of a program,
+  `tv_watch_time_daily`, and ranks counters through `TvStatsRecorder`.
+- **Ranks**: TV minutes earn XP at a `RankConfig` rate; achievements (absent when the flag is
+  off): time-based (Prime-time regular, Night owl, Morning cartoons), social (Full house,
+  Crowd reactor), loyalty (Appointment TV, Marathoner, Premiere night). Pull-based like the
+  rest of ranks.
+
+---
+
+## 7. Clients
+
+### 7.1 Shared core
+- A `couchtv` module: the schedule window (now, next, guide days), presence and reactions
+  over the existing `Socket` effect, guest join, reports, and the live player. Views:
+  `CouchTvView` (now/next with times, progress, presence, reactions, overlay cues),
+  `GuideView`, `OnNowView`. Times are computed from the player's reported **program date**,
+  not the wall clock, so overlays match the picture.
+- Player: `PlayerLoad` gains a live source (the channel multivariant) and `PlayerReport`
+  gains `program_date_ms`. A wire-format change: `make contract`, every runtime handles it,
+  Android's `WireFormatTest` covers the new variants even before Android uses them.
+- Scenario tests: tune in mid-program, a program boundary (overlays switch on the picture's
+  clock), guest join, reactions, schedule change, socket loss and reconnect.
+
+### 7.2 Web
+- `features/couchtv`: `TvPage`, `GuidePage`, `TvJoinPage`, the admin pages (settings,
+  template, EPG, render health, preview), components (`LiveOverlay`: bug, Now, Next;
+  `PresenceBar`; `OnNowCard`; the reaction layer reused from couch). Routes stay thin
+  shells.
+- `VideoPlayer` in a `live` mode (no seek, a program progress line); `ElementPlayer` with
+  hls.js live settings and `playingDate` reports. HLS through hls.js everywhere (Safari's
+  native player keeps working as a fallback).
+- TV-mode rules apply (arrow-reachable controls, `data-tv-autofocus` on `/tv`'s main control).
+- i18n keys for every UI string (en/cs); problem codes for new errors; an e2e spec for `/tv`
+  (signed in and guest) on a seeded schedule with fixture clips.
+
+### 7.3 Native (later)
+The live stream plays in AVPlayer and ExoPlayer as is; the core module is shared. What remains
+per platform: the screens (TV-first layouts), the live overlays, presence and reactions.
+
+---
+
+## 8. Quality
+- Generator: table tests (anchors, flow rounding, strips, marathons, premieres, readiness
+  swaps, locks, exact durations).
+- Composer: recipes sum exactly to the gap; loudness targets.
+- Playlists: stitcher unit tests and `validate-hls` on snapshots at boundaries; an hls.js
+  playback test across program/break/program in CI; AVFoundation in the macOS HLS job.
+- Broadcast: golden frames per template (pixel diff with tolerance) and an audio hash, in
+  Chromium in CI.
+- API conformance for every operation; protocol fixtures; core scenarios; Playwright e2e.
+- `make lint test`, `make check`, `make core-test`, `make contract`, `make hls-check`,
+  `make e2e` stay green; FEATURES.md and CLAUDE.md updated as each phase lands.
+
+---
+
+## 9. Roadmap
+
+### Phase 0: Spikes
+- **S1 Live stitching**: a hand-written live playlist over two real packages and a generated
+  clip, with audio and subtitle groups and discontinuities; play in hls.js (Chrome), Safari
+  and the Titan OS TV; `validate-hls`.
+- **S2 Render pipeline on the Pi**: the sidecar image, GPU flags, static-hold skip, libx264
+  pipe at 25 fps, a 60 s break assembled with its audio mix, memory under the cap.
+- **S3 Analysis accuracy**: intro/outro for every series, credits start and credits music for
+  every movie, footage picks for 3 movies; a report for the owner.
+- **Exit**: all three demonstrated on the Pi; numbers recorded here.
+
+### Phase 1: Foundations
+Flag, settings (time zone, template), migrations, the pure generator + `couchtv_plan`, the
+markers table + `analyze_markers`, tagline and collection metadata, the admin EPG
+(read-only). **Exit**: a week of plausible schedule visible in the admin, tests green.
+
+### Phase 2: Broadcast package
+`clients/broadcast` from the samples (ident, theme, every template, footage support), the
+admin Broadcast preview, golden frames. **Exit**: the owner approves every template in the
+preview.
+
+### Phase 3: Rendering
+The render sidecar, the clip cache, `couchtv_analyze`, `couchtv_compose`,
+`couchtv_assemble`, render health. **Exit**: 48 h of breaks rendered on the Pi within budget.
+
+### Phase 4: The live stream
+Channel grants, playlist builder (video, audio, subtitles), `couchtv_prepare`, fallbacks,
+guest link. **Exit**: a 24 h soak locally and on the Pi with no gaps; validator clean.
+
+### Phase 5: Web viewer
+The core module, `/tv`, overlays, Guide, home card, presence and reactions, guest join.
+**Exit**: e2e green; the owner watches an evening on the TV.
+
+### Phase 6: Integration and admin tools
+Progress, analytics, ranks XP and achievements; the EPG editor; per-title tools (promo audio
+picker, markers, shots, "Never on Couch TV"). **Exit**: conformance + scenarios green.
+
+### Phase 7: Production
+Deploy (app + sidecar), the 7-day soak with monitoring, tuning, docs. **Exit**: success
+criteria (section 2) met; the flag on.
+
+### Later
+Apple and Android screens; an announcer voice (local TTS); skip intro and credits in VOD
+(markers exist); ABR on the channel; more channels.
+
+---
+
+## 10. Risks
+- **Render throughput** (2.5 fps): reuse, static-hold skipping, a 48 h lead, evergreen
+  fallbacks; an optional render helper on a faster machine later.
+- **Pi memory** (~0.95 GB peak for Chromium next to Postgres): a hard cap on the sidecar,
+  one render at a time, never alongside a transcode.
+- **HLS edge cases**: codec/resolution changes across discontinuities, long copied-source
+  segments, subtitle timing across boundaries; S1 covers hls.js, Safari and the TV.
+- **Detection misses** (credits starting over a scene, themes that change per season): admin
+  overrides, and the squeeze is harmless when credits start a little late.
+- **Package storage**: every aired program keeps its package (also useful for VOD); 4.5 TB
+  free today; render-health shows the cache size.
+- **Clock**: the server is the only clock; the Pi runs NTP.
+
+---
+
+## 11. Open questions
+- Sign-off on the clean ident and the modern theme (D27), then on the remaining sample pieces;
+  final approval happens per template in the Phase 2 Broadcast preview.
