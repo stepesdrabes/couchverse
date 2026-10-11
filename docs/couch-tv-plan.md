@@ -445,6 +445,43 @@ gated by the flag.
   (moods `cinematic`, `grit`, `bright`; premiere variant; body plus end card), `strip`,
   `shortPromo`, `lineup`, `squeeze`, `standby` ("Technical difficulties"), `evergreenEnd`.
 
+**Settled while building it (Phase 2)**; the full reference is FEATURES.md "Broadcast package".
+- **Tokens**: `cargo xtask codegen` writes `clients/broadcast/src/generated/tokens.ts` (colours,
+  the accent derivation, radii, type roles, springs, curves), the same way every client gets
+  its tokens; the package depends on nothing else in the repo. The palette keeps the samples'
+  one difference from the core's derivation: the ink walks HSL lightness to the same 4.5:1
+  target, so a navy accent becomes a bright blue on air instead of grey.
+- **Consumers**: the web compiles the package from source (`@couchverse/broadcast`, also copied
+  into the Docker web stage); the sidecar serves `dist/render.html` (a Vite page build with
+  hashed script, styles, fonts and logo), which exposes `window.couchtvRender`.
+- **Spec and schema**: `clients/broadcast/src/spec.ts` is the contract;
+  `contract/broadcast-spec.schema.json` is generated from it (`npm run schema`, drift fails CI),
+  for the composer (6.5) to validate what it writes. Airings arrive as English phrases
+  (`{eyebrow, day, time}`); beds as `{url, in, out}` in WAV, FLAC or Ogg Opus (open-source
+  Chromium has no AAC); footage as 25 fps JPEG frame URLs per shot.
+- **Durations**: full ident 11.52 s and the expand squeeze 11.52 s (whole frames); short ident
+  5 s; stings any whole number of frames from 2 to 6 s (the hold absorbs it), so a gap can be
+  closed by one sting; up next 8 s by default (6 to 12); a promo body ends on a frame-aligned
+  cut snapped to the bed (cinematic about 17 s, premiere about 19 s, grit about 13 s, bright
+  about 13.5 s) and its end card is 4 s; the body is airing-independent by construction (a test
+  proves it), and the break audio renders the promo `full` so its bed runs across the cut.
+- **Audio**: 48 kHz; a clip's or a break's render is normalized to its `loudness` (BS.1770
+  integrated, default -18 LUFS) with the true peak capped at -1 dBTP (quieter rather than
+  clipped), delivered as a float WAV; a break spec lists clips and their starts, each ringing
+  out under the next (`crossfade`, 0.3 s). Two renders differ only by float noise (< 1e-5).
+- **Squeeze**: the program panel's motion is data that drives both the animation and
+  `keyRect(t)`. The simplest path is `program.frames` (the renderer extracts the program's last
+  seconds as JPEG frames and the page draws them; no compositing). For an ffmpeg composite the
+  panel is left transparent (`program.kind = key`) and a `matte` layer carries the alpha; a
+  colour key was rejected (JPEG and 4:2:0 fringe it).
+- **Static holds**: `isStatic` is exact but today's templates keep subtle motion in every frame
+  (a breathing LIVE dot, slow pushes, grain), so the 6.7 budget should not count on skipped
+  frames; freezing those motions on long holds is a later optimization.
+- **Brand isolation**: the owner asked for a new ident and theme (typographic, a new lockup and
+  possibly a display face); the lockup, corner bug, channel tag, sonic logo and theme, ident
+  and stings live in `src/brand` so the remake replaces that folder only. The current ident is
+  a placeholder.
+
 ### 6.9 Presence, reactions, progress, analytics, ranks
 - **Hub**: an in-memory channel room (like couch's Hub, much simpler: no host). WebSocket
   `GET /tv/socket` (cookie or bearer for users, the channel cookie for guests). Frames in

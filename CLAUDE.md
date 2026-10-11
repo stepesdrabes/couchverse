@@ -137,7 +137,8 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   seeded database and validates the response against the spec; `make test` uses the dev
   Postgres).
 - **Contract** (`contract/`): `openapi.json` and `couch-protocol.schema.json` are generated from
-  the Go code; `i18n/` and `design/tokens.json` are hand-authored; `fixtures/` holds golden
+  the Go code, `broadcast-spec.schema.json` from `clients/broadcast/src/spec.ts` (`npm run
+  schema` there; CI fails on drift); `i18n/` and `design/tokens.json` are hand-authored; `fixtures/` holds golden
   payloads. `make contract` regenerates the specs and runs `cargo xtask codegen` (`core/xtask`),
   which emits the core's typed API crate (`core/crates/api`), the web's typed client
   (`clients/web/src/lib/generated/api.ts`), the web token CSS/TS, and the Apple/Android
@@ -159,7 +160,7 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   `#[typeshare]` type changes the wire format for every shell: run `make contract` and keep the
   Swift/Kotlin/TS runtimes handling every `Effect` variant.
 - Web features live in `clients/web/src/lib/features/<name>/` (admin, auth, catalog, couch,
-  jobs, library, playback, preferences, ranks, settings, uploads, users). Each keeps its
+  couchtv, jobs, library, playback, preferences, ranks, settings, uploads, users). Each keeps its
   types, API calls (`api.ts`), rune state (`*.svelte.ts`), `components/` and `pages/` together.
   - **Routes are thin shells**: every `src/routes/**/+page.svelte` only imports its
     `XxxPage.svelte` from the owning feature and passes `data` (typed via `PageProps`).
@@ -274,7 +275,16 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   Back returns to them; TV text fields take `remoteLeavesField`. Roborazzi screenshots are
   recorded on macOS (`./gradlew recordRoborazziDebug` after an intended UI change; `make
   android-test` verifies them); Robolectric is pinned to SDK 36.
-- `contract/` - the API spec, couch protocol schema, i18n catalogs, design tokens, fixtures.
+- `clients/broadcast/` - Couch TV's cutscenes (FEATURES.md "Broadcast package"): strict
+  TypeScript, no framework, no runtime dependencies; every frame and audio sample is a function
+  of t and a spec (paused Web Animations, seeded noise, no wall clock). The web compiles its
+  source (`@couchverse/broadcast`) for the admin Broadcast preview; the render sidecar loads
+  its `dist/render.html` (`window.couchtvRender`). The brand (lockup, bug, channel tag, sonic
+  logo, ident, stings) stays in `src/brand`. `make broadcast-test` runs its checks, unit tests,
+  golden frames and audio determinism; bump a template's `version` when its output changes and
+  refresh the goldens (`npx playwright test --update-snapshots`) only for an intended change.
+- `contract/` - the API spec, couch protocol schema, broadcast spec schema, i18n catalogs,
+  design tokens, fixtures.
 - Postgres 17; job queue is a Postgres table (no Redis). ffmpeg/ffprobe shelled out.
 
 ## Dev workflow

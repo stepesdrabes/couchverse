@@ -1456,6 +1456,96 @@ route of its own for it. Setup, builds and its tests are in its
   only when its whole known language inventory (`audioStreamsByFile`) is covered, so files
   with unknown or other languages stay.
 
+## Broadcast package (cross-cutting)
+
+`clients/broadcast` (`@couchverse/broadcast`) holds Couch TV's cutscenes (docs/couch-tv-plan.md
+6.8): TypeScript with no framework and no runtime dependencies, the productionized planning
+sample reel (`tools/couch-tv-samples`). The same code runs in two places: the web compiles its
+source for the admin **Broadcast preview** (`/admin/couch-tv/preview`, `features/couchtv`,
+through the `@couchverse/broadcast` alias in `svelte.config.js`), and the render sidecar loads
+the built page `dist/render.html` (`make broadcast`) in headless Chromium. What the admin
+approves is what airs.
+
+- **Layout**: `src/core` (the Timeline, curves and springs, the accent palette, DOM helpers,
+  artwork framing, a seeded PRNG), `src/audio` (the graph with per-piece music, sfx, voice and
+  reverb buses into glue, limiter and trim; the synthesized kit; beds with ducking and tape
+  stops; onset detection; BS.1770 loudness and true peak; WAV; the `synth:` placeholder beds),
+  `src/brand` (everything that is the brand: mark, lockup, corner bug, the promo's channel
+  tag, the sonic logo and theme, the ident and the stings, plus `brand.css`; a brand redesign
+  replaces this folder only), `src/templates` (one module per template, `index.ts` the
+  registry), `spec.ts` (the data contract), `piece.ts` (a loaded clip and the offline audio
+  render), `stage.ts` (a 1920x1080 stage in a shadow root), `player.ts` (live playback against
+  the audio clock), `render.ts` (the sidecar's API). Design tokens come from
+  `src/generated/tokens.ts`, written by `cargo xtask codegen`; Plus Jakarta Sans (latin and
+  latin-ext) is bundled in `src/assets/fonts`.
+- **Templates** (`template` in the spec): `ident` (`cut` full 11.52 s or short 5 s; a placeholder
+  until the remade ident), `sting` (gap filler, any whole number of frames from 2 to 6 s; the
+  library is 2, 3 and 5 s), `upNext` (default 8 s, countdown), `promo` (moods `cinematic`,
+  `grit`, `bright`; `premiere`; `part` `body`, `end` or `full`), `evergreenEnd` ("Coming up on
+  Couch TV"), `stripPromo` (moods `bright`, `dark`), `shortPromo`, `lineup` (2 to 5 rows),
+  `squeeze` (handover `expand` or `line`), `standby` ("Technical difficulties", loops
+  seamlessly). Copy is English (D13); every time and day arrives as a preformatted phrase
+  (`Airing`), so templates do no clock maths.
+- **Spec**: `src/spec.ts` is the single source; `npm run schema` writes
+  `contract/broadcast-spec.schema.json` (CI fails on drift) for the server's composer. Beds are
+  `{url, in, out}` excerpts (WAV, FLAC or Ogg Opus: open-source Chromium has no AAC); footage is
+  a list of 25 fps JPEG frame URLs per shot; `loudness` is the render's target in LUFS
+  (default -18). A `break` spec lists clip specs with their start times, for one audio render
+  of the whole break (each clip ringing out under the next over `crossfade`).
+- **Promo body and end card**: a promo is one timeline; its body is timeless (rendered once per
+  title) and its end card (4 s, from a frame-aligned cut snapped to the bed) carries the airing.
+  The body renders with a fixed airing whatever the spec says and the end card keeps a fixed
+  place for the airing, so a body clip never depends on when the title airs; the end card's
+  timeless layer may enter during the body's last moments. The break's audio renders `full`,
+  so the bed runs across the cut. `evergreenEnd` is the same end card without an airing.
+- **Render API** (`window.couchtvRender` in `dist/render.html`, 1920x1080, 25 fps):
+  `load(spec)` resolves with `{duration (whole frames), cues, fps, width, height, version (the
+  template's, for the clip cache key), loop, keyed, missing}` once fonts, artwork and beds are
+  in; `seek(t)` resolves once that frame is painted (footage and every image decoded);
+  `isStatic(t0, t1)` is true when nothing animates in between (no animation active, no dynamic
+  value changing; conservative), so the renderer can reuse a frame; `keyRect(t)` is the
+  squeeze's program rectangle `{x, y, width, height, radius, opacity}` in stage pixels;
+  `setLayer('matte' | 'picture')`; `renderAudio()` is a 48 kHz stereo 32-bit float WAV of the
+  loaded clip or break, normalized to its loudness with the true peak at or under -1 dBTP
+  (`renderAudioBase64()` for CDP, `audioReport()` for the measured loudness and gain). Today's
+  templates keep some motion in every frame (a breathing dot, a slow push), so static holds
+  are rare.
+- **Determinism rule**: every frame and every audio sample is a function of t and the spec.
+  Animations are paused Web Animations whose start is folded into `delay`, so a frame is the
+  browser's own evaluation at `currentTime = t`; values that change (counters, footage frames)
+  are pure functions of t (`Timeline.dynamic`); noise and jitter come from seeded generators,
+  and every sound cue reseeds by its index, so its noise is the same wherever playback starts;
+  nothing reads the wall clock or keeps state between frames; templates build only after
+  fonts, artwork and beds are loaded (layout and beat-synced cuts depend on them); images
+  rasterize with their frame (`decoding = 'sync'`). Two audio renders differ only by float noise
+  (under 1e-5).
+- **Squeeze compositing**: the spec's `program` fills the panel with the program's last seconds
+  as frames (`frames`: the renderer extracts them from `credits_at` and the page draws them,
+  no compositing needed), a stand-in (`standIn`: the ending title's backdrop under a credits
+  roll, the preview), or nothing (`key`): the panel is then transparent (the picture shows the
+  background behind it), `keyRect(t)` gives its rectangle per frame (driven by the same data
+  as the animation), and the `matte` layer renders white where the program shows (corner
+  radius and opacity included) on black. An ffmpeg composite places the program at
+  `keyRect`, takes its alpha from the matte (`alphamerge`) and overlays it on the picture; the
+  white flash of the `line` handover is drawn at full strength in the picture with its fade in
+  the matte, so a standard overlay comes out right. A colour key is avoided on purpose (JPEG
+  capture and 4:2:0 chroma fringe it).
+- **Adding a template**: add its spec interface to `spec.ts` and to `ClipSpec`; write
+  `src/templates/<name>.ts` exporting a `Template` (`version` and `build(ctx, spec)` returning a
+  `Timeline`; only `transform`, `opacity` and `visibility` animate; text from the spec goes in
+  as text); register it in `templates/index.ts`; add styles to `src/styles/broadcast.css`; run
+  `npm run schema`; add a fixture to `test/fixtures/specs.ts` and its golden frames to
+  `test/golden/frames.spec.ts`; offer it in the web's `features/couchtv/preview.ts`. Bump a
+  template's `version` whenever its picture or sound changes.
+- **Tests** (`make broadcast-test`, CI `broadcast.yml`): vitest for curves, springs, the palette,
+  the timeline, loudness, WAV and the schema; Playwright in Chromium against the built render
+  page for golden frames (480x270, `test/golden/__goldens__`, refresh with `npx playwright test
+  --update-snapshots`), and invariants: a frame is a function of t, a promo body does not
+  depend on its airing, the end card continues the body on the next frame, the key rectangle
+  follows the panel, two audio renders agree and hit their loudness, the standby loop has no
+  seam. Stand-in media (gradient art, two footage shots, a bed) are committed in `test/media`
+  with the script that made them. `npm run dev` (port 5190) plays every fixture.
+
 ## Backend dependency graph
 
 A feature may import another feature's `Store` or exported services, never its
