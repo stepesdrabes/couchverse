@@ -48,6 +48,9 @@ type Details struct {
 	Genres         []string
 	PosterPath     string
 	BackdropPath   string
+	// the TMDB collection a movie belongs to (a franchise); 0 and "" for none
+	CollectionID   int
+	CollectionName string
 }
 
 // langValues builds TMDB query params with the language set when provided.
@@ -144,8 +147,12 @@ func (c *Client) Details(ctx context.Context, kind string, tmdbID int, lang stri
 		Genres       []struct {
 			Name string `json:"name"`
 		} `json:"genres"`
-		PosterPath   string `json:"poster_path"`
-		BackdropPath string `json:"backdrop_path"`
+		PosterPath          string `json:"poster_path"`
+		BackdropPath        string `json:"backdrop_path"`
+		BelongsToCollection *struct {
+			ID   int    `json:"id"`
+			Name string `json:"name"`
+		} `json:"belongs_to_collection"`
 	}
 	if err := c.get(ctx, endpoint, langValues(lang), &raw); err != nil {
 		return nil, err
@@ -163,6 +170,9 @@ func (c *Client) Details(ctx context.Context, kind string, tmdbID int, lang stri
 	if kind == "series" {
 		d.Name = raw.Name
 		d.ReleaseDate = raw.FirstAirDate
+	}
+	if c := raw.BelongsToCollection; c != nil {
+		d.CollectionID, d.CollectionName = c.ID, c.Name
 	}
 	if len(d.ReleaseDate) >= 4 {
 		d.Year, _ = strconv.Atoi(d.ReleaseDate[:4])

@@ -228,6 +228,15 @@ func (s *Store) UpdateTitle(ctx context.Context, id string, up TitleUpdate) (*Ti
 	return t, nil
 }
 
+// SetTitleTaglineAndCollection stores TMDB's base-language tagline and the collection
+// (franchise) a movie belongs to; a collectionID of 0 clears it.
+func (s *Store) SetTitleTaglineAndCollection(ctx context.Context, id, tagline string, collectionID int, collectionName string) error {
+	_, err := s.db.Exec(ctx,
+		`UPDATE titles SET tagline = $2, collection_tmdb_id = NULLIF($3, 0), collection_name = $4, updated_at = now()
+		 WHERE id = $1`, id, tagline, collectionID, collectionName)
+	return err
+}
+
 // SetTitleTranslation merges one language's TMDB text into the title's
 // translations JSONB, leaving the base (default-language) columns untouched.
 func (s *Store) SetTitleTranslation(ctx context.Context, id, lang, name, overview, tagline string) error {
@@ -299,6 +308,7 @@ func (s *Store) RemoveContentLanguage(ctx context.Context, titleID, lang string)
 			`UPDATE titles SET
 				name = COALESCE(NULLIF(translations->$2->>'name', ''), name),
 				overview = COALESCE(translations->$2->>'overview', overview),
+				tagline = COALESCE(translations->$2->>'tagline', tagline),
 				translations = translations - $2 - $3,
 				metadata_languages = array_remove(metadata_languages, $3),
 				updated_at = now()

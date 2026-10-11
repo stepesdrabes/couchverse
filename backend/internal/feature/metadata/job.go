@@ -89,6 +89,10 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 	if _, err := j.Catalog.UpdateTitle(ctx, title.ID, up); err != nil {
 		return err
 	}
+	// Couch TV's promos quote the tagline and Saga Sunday follows the collection
+	if err := j.Catalog.SetTitleTaglineAndCollection(ctx, title.ID, details.Tagline, details.CollectionID, details.CollectionName); err != nil {
+		return err
+	}
 	// drafts get their scanner-placeholder slug rebuilt from the TMDB name;
 	// published titles keep theirs so existing links stay valid
 	if title.Status == "draft" && details.Name != "" && details.Name != title.Name {
