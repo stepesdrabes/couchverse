@@ -54,11 +54,16 @@ e2e:
 	cd clients/web && E2E_DATABASE_URL=$(DEV_DB) npm run e2e
 
 # the Couch TV broadcast package: the spec schema (contract/) and the render page (dist/)
-broadcast:
+BROADCAST_DEPS := clients/broadcast/node_modules
+
+$(BROADCAST_DEPS):
+	cd clients/broadcast && npm ci
+
+broadcast: $(BROADCAST_DEPS)
 	cd clients/broadcast && npm run schema && npm run build
 
 # its type check, lint and unit tests, then golden frames and audio determinism in Chromium
-broadcast-test:
+broadcast-test: $(BROADCAST_DEPS)
 	cd clients/broadcast && npm run check && npm run lint && npm test
 	cd clients/broadcast && npx playwright install chromium && npm run golden
 
