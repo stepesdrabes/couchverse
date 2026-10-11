@@ -1,5 +1,6 @@
 //! Design tokens: `contract/design/tokens.json` -> a CSS `@theme` include and a TypeScript module
-//! (web), `DesignTokens.swift` (Apple) and `Tokens.kt` (Android).
+//! (web), a TypeScript module for the broadcast package, `DesignTokens.swift` (Apple) and
+//! `Tokens.kt` (Android).
 
 use std::f64::consts::PI;
 use std::fmt::Write as _;
@@ -11,6 +12,7 @@ use crate::out;
 
 const SOURCE: &str = "contract/design/tokens.json";
 const WEB_DIR: &str = "clients/web/src/lib/generated";
+const BROADCAST_FILE: &str = "clients/broadcast/src/generated/tokens.ts";
 const APPLE_FILE: &str =
     "clients/apple/Packages/CouchverseDesign/Sources/CouchverseDesign/Generated/DesignTokens.swift";
 const ANDROID_FILE: &str =
@@ -20,6 +22,7 @@ pub fn generate(root: &Path, written: &mut Vec<PathBuf>) -> Result<(), String> {
     let tokens = Tokens::read(&root.join(SOURCE))?;
     out::write(&root.join(WEB_DIR).join("tokens.css"), &css(&tokens)?, written)?;
     out::write(&root.join(WEB_DIR).join("tokens.ts"), &typescript(&tokens)?, written)?;
+    out::write(&root.join(BROADCAST_FILE), &broadcast(&tokens)?, written)?;
     out::write(&root.join(APPLE_FILE), &swift(&tokens)?, written)?;
     out::write(&root.join(ANDROID_FILE), &kotlin(&tokens)?, written)?;
     Ok(())
@@ -119,7 +122,18 @@ fn typescript(t: &Tokens) -> Result<String, String> {
     record(&mut s, "medals", &t.group(&["medal"])?)?;
 
     // for colour maths at runtime (the accent ink); styles use the CSS variables
-    s.push_str("\nexport const colors = {\n");
+    s.push_str(&ts_colors(t)?);
+    let _ = writeln!(
+        s,
+        "\nexport const heroIntervalMs = {};",
+        float(t.number(&["motion", "heroInterval"])?)
+    );
+    Ok(s)
+}
+
+/// `colors` and `accent` as TypeScript constants (the web and the broadcast package).
+fn ts_colors(t: &Tokens) -> Result<String, String> {
+    let mut s = String::from("\nexport const colors = {\n");
     for (name, value) in t.group(&["color"])? {
         let _ = writeln!(s, "\t'{name}': '{}',", text(value, name)?);
     }
@@ -137,11 +151,57 @@ fn typescript(t: &Tokens) -> Result<String, String> {
         }
     }
     s.push_str("} as const;\n");
-    let _ = writeln!(
-        s,
-        "\nexport const heroIntervalMs = {};",
-        float(t.number(&["motion", "heroInterval"])?)
-    );
+    Ok(s)
+}
+
+/// The broadcast package draws on a fixed 1920x1080 stage, so it takes values rather than CSS
+/// variables: colours, the accent derivation, radii, type roles and the motion tokens.
+fn broadcast(t: &Tokens) -> Result<String, String> {
+    let mut s = out::header("//", SOURCE);
+    s.push_str(&ts_colors(t)?);
+
+    s.push_str("\nexport const radius = {\n");
+    for (name, value) in t.group(&["radius"])? {
+        let _ = writeln!(s, "\t{name}: {},", float(num(value, name)?));
+    }
+    s.push_str("} as const;\n");
+
+    s.push_str("\n/** Weight and tracking (a fraction of the font size) per type role. */\n");
+    s.push_str("export const typeRoles = {\n");
+    for (name, role) in t.group(&["type"])? {
+        let _ = writeln!(
+            s,
+            "\t{name}: {{ weight: {}, tracking: {} }},",
+            int(&role["weight"], name)?,
+            float(num(&role["tracking"], name)?)
+        );
+    }
+    s.push_str("} as const;\n");
+
+    s.push_str("\n/** Response (seconds) and damping fraction. */\n");
+    s.push_str("export const springs = {\n");
+    for (name, spring) in t.group(&["motion", "spring"])? {
+        let _ = writeln!(
+            s,
+            "\t{name}: {{ response: {}, damping: {} }},",
+            float(num(&spring["response"], name)?),
+            float(num(&spring["damping"], name)?)
+        );
+    }
+    s.push_str("} as const;\n");
+
+    s.push_str("\n/** Cubic-bezier control points and the app's duration (milliseconds). */\n");
+    s.push_str("export const curves = {\n");
+    for (name, curve) in t.group(&["motion", "curve"])? {
+        let points: Vec<String> = bezier(curve, name)?.into_iter().map(float).collect();
+        let _ = writeln!(
+            s,
+            "\t{name}: {{ duration: {}, bezier: [{}] }},",
+            int(&curve["duration"], name)?,
+            points.join(", ")
+        );
+    }
+    s.push_str("} as const;\n");
     Ok(s)
 }
 
