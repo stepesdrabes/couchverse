@@ -1,0 +1,212 @@
+/* The brand on screen: the mark, the lockup, the corner bug, the ident and the stings. A brand
+   redesign replaces this file with lockup.ts, sonic.ts, ident.ts and sting.ts. */
+
+.mark {
+	--s: 168px;
+	position: relative;
+	width: var(--s);
+	height: var(--s);
+	flex: none;
+	border-radius: calc(var(--s) * 0.25);
+	background: var(--brand);
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+}
+.mark > i {
+	display: block;
+	width: 80%;
+	height: 80%;
+	background: #fff;
+	-webkit-mask: var(--logo) center / contain no-repeat;
+	mask: var(--logo) center / contain no-repeat;
+}
+.lockup {
+	--ls: 56px;
+	display: flex;
+	align-items: center;
+	gap: calc(var(--ls) * 0.3);
+}
+.lockup > .mark {
+	--s: var(--ls);
+}
+.lockup-name {
+	display: flex;
+	align-items: center;
+	gap: calc(var(--ls) * 0.16);
+	font-size: calc(var(--ls) * 0.56);
+	font-weight: 800;
+	letter-spacing: -0.02em;
+	white-space: nowrap;
+}
+.tv-pill {
+	color: var(--brand);
+	font-weight: 800;
+	letter-spacing: -0.02em;
+}
+
+/* corner bug */
+.bug {
+	position: absolute;
+	top: 54px;
+	right: 72px;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	height: 60px;
+	padding: 0 20px 0 10px;
+	border-radius: 999px;
+	background: rgb(var(--bg-rgb) / 0.7);
+	border: 1px solid rgb(255 255 255 / 0.09);
+	box-shadow: 0 8px 30px rgb(0 0 0 / 0.25);
+	font-weight: 700;
+	white-space: nowrap;
+}
+.bug > .mark {
+	--s: 40px;
+}
+.bug-name {
+	font-size: 20px;
+	font-weight: 800;
+	letter-spacing: -0.01em;
+}
+.bug-sep {
+	width: 1px;
+	height: 24px;
+	background: rgb(255 255 255 / 0.16);
+}
+.live {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 17px;
+	font-weight: 700;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+}
+.live-dot {
+	width: 11px;
+	height: 11px;
+	border-radius: 50%;
+	background: var(--brand);
+	box-shadow: 0 0 0 0 rgb(var(--brand-rgb) / 0.5);
+}
+.clock {
+	font-size: 23px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.01em;
+}
+
+/* --- the ident (placeholder) and the stings ---------------------------------------- */
+
+.ident,
+.sting {
+	background: var(--bg);
+}
+.id-plane {
+	position: absolute;
+	inset: 0;
+	transform-origin: 960px 540px;
+}
+.id-light {
+	position: absolute;
+	left: 160px;
+	top: -260px;
+	width: 1600px;
+	height: 1600px;
+	border-radius: 50%;
+	background: radial-gradient(
+		circle,
+		rgb(var(--brand-rgb) / 0.26) 0%,
+		rgb(var(--brand-rgb) / 0.11) 28%,
+		rgb(var(--brand-rgb) / 0.03) 50%,
+		transparent 68%
+	);
+}
+.id-markwrap {
+	position: absolute;
+	left: 845px;
+	top: 425px;
+	width: 230px;
+	height: 230px;
+}
+.id-mark {
+	position: absolute;
+	inset: 0;
+	border-radius: 58px;
+	background: var(--brand);
+}
+.id-couch {
+	position: absolute;
+	inset: 10%;
+	background: #fff;
+	-webkit-mask: var(--logo) center / contain no-repeat;
+	mask: var(--logo) center / contain no-repeat;
+}
+.idl-row {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 0;
+	height: 1080px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.idl-slot {
+	flex: none;
+	width: 180px;
+	height: 180px;
+	margin-right: 54px;
+}
+.idl-mask {
+	display: inline-block;
+	overflow: hidden;
+	font-size: 178px;
+	padding: 0.12em 0.04em 0.16em;
+	margin: -0.12em -0.04em -0.16em;
+}
+.idl-tvmask {
+	margin-left: 0.3em;
+}
+.idl-word {
+	display: inline-block;
+	font-size: 1em;
+	font-weight: 800;
+	letter-spacing: -0.045em;
+	line-height: 1;
+	color: var(--text);
+	transform-origin: 0 60%;
+	/* optical centring: the caps sit on the mark's centre line */
+	position: relative;
+	top: -0.035em;
+}
+.idl-tv {
+	color: var(--brand);
+}
+.idl-tag {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 690px;
+	text-align: center;
+	font-size: 30px;
+	font-weight: 500;
+	letter-spacing: -0.005em;
+	color: rgb(var(--text-rgb) / 0.55);
+}
+
+/* the horizon line the ident opens on and the squeeze's line handover closes on */
+.horizon {
+	position: absolute;
+	left: 0;
+	width: 1920px;
+	height: 1.5px;
+	margin-top: -0.75px;
+	background: #fff;
+	transform-origin: 960px 50%;
+}
+.sting .lockup-name {
+	font-size: calc(var(--ls) * 0.62);
+}

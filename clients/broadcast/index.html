@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Couch TV broadcast playground</title>
+		<style>
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+				background: #07080d;
+				color: #f2f4f8;
+				font:
+					13px system-ui,
+					sans-serif;
+			}
+			main {
+				display: flex;
+				flex-direction: column;
+				height: 100dvh;
+			}
+			#stage {
+				flex: 1;
+				min-height: 0;
+			}
+			.bar {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: 6px;
+				padding: 8px 12px;
+				border-top: 1px solid #262a38;
+				background: #11131c;
+			}
+			button,
+			select {
+				height: 28px;
+				padding: 0 10px;
+				border-radius: 999px;
+				border: 1px solid #262a38;
+				background: #191c27;
+				color: inherit;
+				cursor: pointer;
+			}
+			button[aria-pressed='true'] {
+				background: #e50914;
+				border-color: #e50914;
+			}
+			input[type='range'] {
+				flex: 1;
+				min-width: 200px;
+			}
+			.tnum {
+				font-variant-numeric: tabular-nums;
+				min-width: 9em;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<div id="stage"></div>
+			<div class="bar" id="fixtures"></div>
+			<div class="bar">
+				<button id="play" type="button">Play</button>
+				<input id="scrub" type="range" min="0" max="10" step="0.04" value="0" aria-label="Time" />
+				<span class="tnum" id="time">0.00 s</span>
+				<span id="cue"></span>
+				<select id="part" aria-label="Part">
+					<option value="full">full</option>
+					<option value="body">body</option>
+					<option value="end">end</option>
+				</select>
+				<button id="matte" type="button" aria-pressed="false">Matte</button>
+			</div>
+		</main>
+		<script type="module" src="./test/dev/playground.ts"></script>
+	</body>
+</html>

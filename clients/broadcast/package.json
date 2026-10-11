@@ -1,0 +1,36 @@
+{
+	"name": "@couchverse/broadcast",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"description": "Couch TV cutscenes: templates whose every frame and sample is a function of time and a spec",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"dev": "vite --port 5190 --strictPort",
+		"build": "vite build",
+		"preview": "vite preview --port 5191 --strictPort",
+		"check": "tsc --noEmit",
+		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write .",
+		"schema": "node scripts/schema.mjs",
+		"test": "vitest run",
+		"golden": "playwright test"
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"@playwright/test": "~1.63.0",
+		"@types/node": "^25.9.2",
+		"ajv": "^8.20.0",
+		"eslint": "^10.4.1",
+		"eslint-config-prettier": "^10.1.8",
+		"globals": "^17.6.0",
+		"prettier": "^3.8.4",
+		"ts-json-schema-generator": "^2.9.0",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.61.0",
+		"vite": "^8.0.16",
+		"vitest": "^5.0.3"
+	}
+}

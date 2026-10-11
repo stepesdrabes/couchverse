@@ -1,0 +1,7 @@
+node_modules/
+dist/
+src/generated/
+test/golden/*-snapshots/
+test-results/
+playwright-report/
+package-lock.json
