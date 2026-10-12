@@ -66,6 +66,24 @@ func (s *Store) uncomposed(ctx context.Context, from, to time.Time) ([]Airing, e
 // retryAfter is how long a break that failed waits before it is composed again.
 const retryAfter = 6 * time.Hour
 
+// outdated are the breaks starting in [from, to), none on air yet, that use a clip rendered
+// from another version of its template than the sidecar's: composed again, they request
+// the clips of the template as it is now. (A clip not rendered yet renders from the current
+// template anyway.)
+func (s *Store) outdated(ctx context.Context, from, to time.Time, versions map[string]int) ([]Airing, error) {
+	current, err := json.Marshal(versions)
+	if err != nil {
+		return nil, err
+	}
+	return s.airings(ctx, `kind = 'break' AND starts_at >= $1 AND starts_at < $2 AND feed IS NULL AND EXISTS (
+		SELECT 1 FROM couchtv_breaks b
+		CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(b.recipe->'clips') = 'array'
+			THEN b.recipe->'clips' ELSE '[]' END) rc
+		JOIN couchtv_clips c ON c.id::text = rc->>'clipId'
+		WHERE b.airing_id = couchtv_airings.id AND b.state <> 'failed' AND c.state = 'ready'
+		AND c.version <> coalesce(($3::jsonb ->> (c.spec->>'template'))::int, c.version))`, from, to, current)
+}
+
 var hexColour = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // titleFacts reads what the breaks show of the given titles.

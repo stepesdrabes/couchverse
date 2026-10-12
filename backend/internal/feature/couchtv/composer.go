@@ -83,6 +83,16 @@ func (c *Composer) Handle(ctx context.Context, _ *jobs.Job, report func(int)) er
 	if err != nil {
 		return err
 	}
+	// a changed template reaches the breaks composed before it
+	outdated, err := c.Store.outdated(ctx, now, now.Add(composeAhead), renderer.Versions)
+	if err != nil {
+		return err
+	}
+	for _, b := range outdated {
+		run.forget(b.StartsAt)
+	}
+	breaks = append(breaks, outdated...)
+	slices.SortStableFunc(breaks, func(a, b Airing) int { return a.StartsAt.Compare(b.StartsAt) })
 	for i, b := range breaks {
 		if err := run.compose(ctx, b); err != nil {
 			return err
@@ -90,7 +100,7 @@ func (c *Composer) Handle(ctx context.Context, _ *jobs.Job, report func(int)) er
 		report(20 + 80*(i+1)/len(breaks))
 	}
 	if len(breaks) > 0 {
-		slog.Info("couchtv: composed breaks", "count", len(breaks))
+		slog.Info("couchtv: composed breaks", "count", len(breaks), "outdated", len(outdated))
 	}
 	return nil
 }
@@ -112,6 +122,11 @@ type composition struct {
 type promotion struct {
 	at     time.Time
 	titles []string
+}
+
+// forget drops what the break at `at` promoted, before it is composed again.
+func (r *composition) forget(at time.Time) {
+	r.promoted = slices.DeleteFunc(r.promoted, func(p promotion) bool { return p.at.Equal(at) })
 }
 
 func (r *composition) load(ctx context.Context) error {

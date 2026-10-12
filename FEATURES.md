@@ -835,7 +835,10 @@ server that does not send it). The admin settings page toggles it.
   again after 6 h), and keeps the standby card and an evergreen break of the current
   templates. It waits until a render sidecar has published its templates' versions (settings
   key `couchtv_render`), since a clip's cache key is a hash of its template's version and its
-  spec. Specs are checked against `contract/broadcast-spec.schema.json` (embedded, copied by
+  spec. A break not on air yet that uses a clip rendered from another version of its template
+  than the sidecar's is composed again (its own promotions forgotten first), so a changed
+  template reaches the breaks composed before it; a clip still pending renders from the
+  current template anyway. Specs are checked against `contract/broadcast-spec.schema.json` (embedded, copied by
   `make contract`) and use English names and taglines (D13). Media in specs are localhost URLs
   that say what they are cut from (`/media/v1/artwork/<id>?v=<version>`,
   `/media/v1/frames/<file>/<start ms>_<count>/<n>.jpg`, `/media/v1/audio/<file>/<start

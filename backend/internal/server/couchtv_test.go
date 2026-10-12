@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -385,7 +386,8 @@ func TestCouchTvPrune(t *testing.T) {
 // render sidecar has published its templates, then every break of the next 48 hours with a
 // recipe as long as the break, its clips requested once and queued for rendering, the
 // evergreen break and the standby card; once clips are rendered their breaks are queued for
-// assembly and the evergreen break is recomposed with promos.
+// assembly and the evergreen break is recomposed with promos; a changed template recomposes
+// the breaks that use its rendered clips, once.
 func TestCouchTvComposeJob(t *testing.T) {
 	env := newTestEnv(t)
 	ctx := context.Background()
@@ -484,7 +486,7 @@ func TestCouchTvComposeJob(t *testing.T) {
 
 	// rendered clips (promo bodies 16 s) queue the breaks that use them for assembly (no break
 	// uses the seed's clips)
-	if _, err := env.pool.Exec(ctx, `UPDATE couchtv_clips SET state = 'ready', rendered_at = now(),
+	if _, err := env.pool.Exec(ctx, `UPDATE couchtv_clips SET state = 'ready', rendered_at = now(), version = 1,
 		duration_ms = CASE WHEN duration_ms = 0 THEN 16000 ELSE duration_ms END`); err != nil {
 		t.Fatal(err)
 	}
@@ -504,5 +506,32 @@ func TestCouchTvComposeJob(t *testing.T) {
 	if n := count(`SELECT count(*) FROM couchtv_breaks b WHERE kind = 'evergreen'
 		AND recipe->'clips' @> '[{"kind": "promo_body"}]'`); n != 1 {
 		t.Errorf("%d evergreen breaks with promos", n)
+	}
+
+	// the sidecar comes back with ident 2: the airing breaks that use a rendered ident 1 are
+	// composed again around new idents, and the rest keep their compositions
+	usesIdent := `SELECT count(*) FROM couchtv_breaks b WHERE b.kind = 'airing' AND EXISTS (
+		SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(b.recipe->'clips') = 'array' THEN b.recipe->'clips' ELSE '[]' END) rc
+		JOIN couchtv_clips c ON c.id::text = rc->>'clipId'
+		WHERE c.kind IN ('ident_full', 'ident_short') AND c.state = $1)`
+	withIdent, composed := count(usesIdent, "ready"), count(`SELECT count(*) FROM couchtv_breaks WHERE kind = 'airing'`)
+	if withIdent == 0 {
+		t.Fatal("no break uses an ident")
+	}
+	versions = strings.Replace(versions, `"ident": 1`, `"ident": 2`, 1)
+	if err := set.Set(ctx, "couchtv_render", json.RawMessage(`{"versions": `+versions+`, "seenAt": "2026-10-12T09:00:00Z"}`)); err != nil {
+		t.Fatal(err)
+	}
+	compose()
+	if old, fresh := count(usesIdent, "ready"), count(usesIdent, "pending"); old != 0 || fresh != withIdent {
+		t.Errorf("after the ident changed: %d breaks on the old ident, %d on a new one, want 0 and %d", old, fresh, withIdent)
+	}
+	if n := count(`SELECT count(*) FROM couchtv_breaks WHERE kind = 'airing'`); n != composed {
+		t.Errorf("%d airing breaks, %d before", n, composed)
+	}
+	clips = count(`SELECT count(*) FROM couchtv_clips WHERE key NOT LIKE 'seeded-%'`)
+	compose()
+	if n := count(`SELECT count(*) FROM couchtv_clips WHERE key NOT LIKE 'seeded-%'`); n != clips {
+		t.Errorf("composing again after the change requested %d clips more", n-clips)
 	}
 }
