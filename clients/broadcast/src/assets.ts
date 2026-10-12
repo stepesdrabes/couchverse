@@ -124,7 +124,12 @@ export function collectUrls(spec: unknown): { images: string[]; beds: string[] }
 			return;
 		}
 		if (!v || typeof v !== 'object') {
-			if (typeof v === 'string' && (key === 'backdrop' || key === 'poster' || key === 'posters'))
+			// an empty URL is a title without that artwork: its stand-in is no failure
+			if (
+				v &&
+				typeof v === 'string' &&
+				(key === 'backdrop' || key === 'poster' || key === 'posters')
+			)
 				images.add(v);
 			return;
 		}

@@ -68,4 +68,9 @@ describe('collectUrls', () => {
 		expect(beds).toEqual(['/test/media/bed.ogg']);
 		expect(collectUrls(FIXTURES['ident-full']).images).toEqual(FIXTURES['ident-full'].posters);
 	});
+
+	it('takes an empty URL for no artwork, not one to load', () => {
+		const title = { name: 'No Art', genres: [], accents: {}, backdrop: '', poster: '' };
+		expect(collectUrls({ template: 'upNext', title, time: '20:15' }).images).toEqual([]);
+	});
 });
