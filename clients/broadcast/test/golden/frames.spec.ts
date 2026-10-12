@@ -42,6 +42,14 @@ for (const [name, times, layer] of GOLDEN) {
 	});
 }
 
+test('versions name every template as load reports it', async ({ page }) => {
+	const versions = await page.evaluate(() => window.couchtvRender.versions());
+	for (const name of ['ident-short', 'upnext', 'promo-bright', 'lineup', 'standby'] as const) {
+		const spec = FIXTURES[name];
+		expect((await load(page, spec)).version, name).toBe(versions[spec.template]);
+	}
+});
+
 test('a frame is a function of t alone', async ({ page }) => {
 	for (const [name, t] of [
 		['promo-cinematic', 6.2],

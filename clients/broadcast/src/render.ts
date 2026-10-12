@@ -14,8 +14,9 @@ import {
 	type Break,
 	type Piece
 } from './piece';
-import type { Spec } from './spec';
+import type { Spec, TemplateName } from './spec';
 import { Stage, type Layer } from './stage';
+import { TEMPLATE_NAMES, TEMPLATES } from './templates';
 
 export interface LoadResult {
 	/** Seconds, a whole number of frames. */
@@ -35,6 +36,11 @@ export interface LoadResult {
 }
 
 export interface CouchTvRender {
+	/**
+	 * Every template's version, so the server keys its clip cache without loading a spec
+	 * (`load` reports the same number for the spec's template).
+	 */
+	versions(): Record<TemplateName, number>;
 	/** Load a clip spec (picture and sound) or a break spec (sound only). */
 	load(spec: Spec): Promise<LoadResult>;
 	/** Show the clip's frame at t (seconds); resolves once it is painted. */
@@ -83,6 +89,11 @@ async function audio(): Promise<AudioRender> {
 const base = { fps: FPS, width: 1920, height: 1080 };
 
 window.couchtvRender = {
+	versions: () =>
+		Object.fromEntries(TEMPLATE_NAMES.map((n) => [n, TEMPLATES[n].version])) as Record<
+			TemplateName,
+			number
+		>,
 	async load(spec) {
 		piece?.dispose();
 		brk?.dispose();
