@@ -29,9 +29,16 @@ type loadResult struct {
 	Missing  []string `json:"missing"`
 }
 
-// callTimeout bounds one call into the page: a frame, a load with its artwork, an audio
-// render of a long break part.
+// callTimeout bounds one call into the page: a frame, a capture, a clip's load with its
+// artwork.
 const callTimeout = 3 * time.Minute
+
+// soundTimeout bounds loading and rendering a sound frames long. The offline render of a
+// dense break runs about 5x slower than real time on a Pi (a 117 s part of 13 clips took
+// 9 m 53 s), so it grows with the sound, with room for twice that.
+func soundTimeout(frames int) time.Duration {
+	return callTimeout + 10*time.Duration(frames)*time.Second/FPS
+}
 
 // startTimeout bounds Chromium's start: on a Pi with a transcode on every core it takes
 // well past chromedp's defaults (20 s to print its address, 10 s to answer).
@@ -106,7 +113,11 @@ func (b *browser) run(ctx context.Context, timeout time.Duration, actions ...chr
 
 // eval evaluates an expression in the page, awaiting a promise, into out.
 func (b *browser) eval(ctx context.Context, js string, out any) error {
-	return b.run(ctx, callTimeout, chromedp.Evaluate(js, out, func(p *cdpruntime.EvaluateParams) *cdpruntime.EvaluateParams {
+	return b.evalWithin(ctx, callTimeout, js, out)
+}
+
+func (b *browser) evalWithin(ctx context.Context, timeout time.Duration, js string, out any) error {
+	return b.run(ctx, timeout, chromedp.Evaluate(js, out, func(p *cdpruntime.EvaluateParams) *cdpruntime.EvaluateParams {
 		return p.WithAwaitPromise(true)
 	}))
 }
@@ -117,9 +128,9 @@ func (b *browser) versions(ctx context.Context) (map[string]int, error) {
 }
 
 // load loads a clip or break spec.
-func (b *browser) load(ctx context.Context, spec []byte) (loadResult, error) {
+func (b *browser) load(ctx context.Context, spec []byte, timeout time.Duration) (loadResult, error) {
 	var res loadResult
-	return res, b.eval(ctx, fmt.Sprintf(`window.couchtvRender.load(%s)`, spec), &res)
+	return res, b.evalWithin(ctx, timeout, fmt.Sprintf(`window.couchtvRender.load(%s)`, spec), &res)
 }
 
 // frame sets up the frame at index i for the next capture, unless nothing moves since the
@@ -155,14 +166,14 @@ func (b *browser) capture(ctx context.Context) ([]byte, error) {
 
 // renderAudio renders the loaded clip's or break's sound and has the page post the WAV to
 // url (a long break's WAV is too big to move as a string over CDP).
-func (b *browser) renderAudio(ctx context.Context, url string) error {
+func (b *browser) renderAudio(ctx context.Context, url string, timeout time.Duration) error {
 	target, _ := json.Marshal(url)
 	var status int
 	js := fmt.Sprintf(`(async (r) => {
 		const wav = await r.renderAudio();
 		return (await fetch(%s, { method: 'POST', body: wav })).status;
 	})(window.couchtvRender)`, target)
-	if err := b.eval(ctx, js, &status); err != nil {
+	if err := b.evalWithin(ctx, timeout, js, &status); err != nil {
 		return err
 	}
 	if status != 204 {

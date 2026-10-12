@@ -280,7 +280,7 @@ func (r *Renderer) renderClip(ctx context.Context, clip *Clip, report func(int))
 	if err != nil {
 		return 0, 0, err
 	}
-	loaded, err := b.load(ctx, spec)
+	loaded, err := b.load(ctx, spec, callTimeout)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -419,36 +419,40 @@ func (e *encoder) abort() {
 
 // renderSound renders the loaded clip's sound, or each part of a break's (parts loaded in
 // turn), and writes it to raw as interleaved 32-bit float samples, checked against frames.
-func (r *Renderer) renderSound(ctx context.Context, b *browser, parts []BreakSpec, raw string, frames int) error {
+func (r *Renderer) renderSound(ctx context.Context, b *browser, parts []soundPart, raw string, frames int) error {
 	out, err := os.Create(raw)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-	render := func() error {
+	render := func(frames int) error {
 		wav := raw + ".wav"
 		defer os.Remove(wav)
-		if err := b.renderAudio(ctx, "/upload/"+r.server.expect(wav)); err != nil {
+		if err := b.renderAudio(ctx, "/upload/"+r.server.expect(wav), soundTimeout(frames)); err != nil {
 			return err
 		}
 		return appendSamples(out, wav)
 	}
 	if parts == nil {
-		if err := render(); err != nil {
+		if err := render(frames); err != nil {
 			return err
 		}
 	}
-	for _, part := range parts {
-		spec, err := json.Marshal(part)
+	for i, part := range parts {
+		spec, err := json.Marshal(part.spec)
 		if err != nil {
 			return err
 		}
-		if _, err := b.load(ctx, spec); err != nil {
+		start := time.Now()
+		if _, err := b.load(ctx, spec, soundTimeout(part.frames)); err != nil {
 			return err
 		}
-		if err := render(); err != nil {
+		loaded := time.Since(start)
+		if err := render(part.frames); err != nil {
 			return err
 		}
+		slog.Info("couchtv: rendered a break's sound", "part", i+1, "of", len(parts), "frames", part.frames,
+			"items", len(part.spec.Items), "load", loaded.Round(time.Second), "render", (time.Since(start) - loaded).Round(time.Second))
 	}
 	info, err := out.Stat()
 	if err != nil {
@@ -579,7 +583,7 @@ func (r *Renderer) assemble(ctx context.Context, b *Break, clips []*Clip, report
 		return err
 	}
 	raw := filepath.Join(work, "sound.f32")
-	if err := r.renderSound(ctx, br, soundParts(b.Recipe.Sound), raw, b.Recipe.Frames); err != nil {
+	if err := r.renderSound(ctx, br, soundParts(b.Recipe.Sound, b.Recipe.Frames), raw, b.Recipe.Frames); err != nil {
 		return err
 	}
 	report(40)
@@ -652,21 +656,33 @@ func joinSegments(dir, dst string) error {
 	return out.Close()
 }
 
-// soundParts splits a break's sound into renders that start at most partFrames apart,
-// each cut where a clip's sound starts (only the outgoing clip's ring-out is lost there).
-func soundParts(s BreakSpec) []BreakSpec {
-	var parts []BreakSpec
+// soundPart is one render of a break's sound: its items, placed from the part's start, and
+// how many frames of the break it covers.
+type soundPart struct {
+	spec   BreakSpec
+	frames int
+}
+
+// soundParts splits a break's sound, frames long, into renders that start at most
+// partFrames apart, each cut where a clip's sound starts (only the outgoing clip's ring-out
+// is lost there).
+func soundParts(s BreakSpec, frames int) []soundPart {
+	var parts []soundPart
 	from := 0 // where the current part starts in the break
 	for _, item := range s.Items {
 		at := framesOf(item.At)
 		if len(parts) == 0 || at-from >= partFrames {
 			if len(parts) > 0 {
+				parts[len(parts)-1].frames = at - from
 				from = at
 			}
-			parts = append(parts, BreakSpec{Template: s.Template, Loudness: s.Loudness})
+			parts = append(parts, soundPart{spec: BreakSpec{Template: s.Template, Loudness: s.Loudness}})
 		}
 		item.At = frameSeconds(at - from)
-		parts[len(parts)-1].Items = append(parts[len(parts)-1].Items, item)
+		parts[len(parts)-1].spec.Items = append(parts[len(parts)-1].spec.Items, item)
+	}
+	if len(parts) > 0 {
+		parts[len(parts)-1].frames = frames - from
 	}
 	return parts
 }
