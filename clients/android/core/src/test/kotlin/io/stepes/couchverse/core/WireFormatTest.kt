@@ -123,6 +123,13 @@ class WireFormatTest {
             Event.DownloadRemoved(DownloadRef("d1")) to """{"type":"downloadRemoved","content":{"id":"d1"}}""",
             Event.DownloadPlayRequested(DownloadRef("d1")) to
                 """{"type":"downloadPlayRequested","content":{"id":"d1"}}""",
+            Event.CouchTvTuneRequested to """{"type":"couchTvTuneRequested"}""",
+            Event.CouchTvClosed to """{"type":"couchTvClosed"}""",
+            Event.CouchTvJoinRequested(CouchTvJoin("c0de", "Babička")) to
+                """{"type":"couchTvJoinRequested","content":{"code":"c0de","name":"Babička"}}""",
+            Event.CouchTvReactionSent(CouchReaction("🍿")) to """{"type":"couchTvReactionSent","content":{"emoji":"🍿"}}""",
+            Event.CouchTvAudioChosen(TrackChoice("cs")) to """{"type":"couchTvAudioChosen","content":{"id":"cs"}}""",
+            Event.CouchTvSubtitlesChosen(TrackChoice()) to """{"type":"couchTvSubtitlesChosen","content":{}}""",
         )
         assertEncodings(Event.serializer(), events)
         for ((event, _) in events) {
@@ -158,6 +165,9 @@ class WireFormatTest {
             Surface.Player to """{"type":"player"}""",
             Surface.Couch to """{"type":"couch"}""",
             Surface.Downloads to """{"type":"downloads"}""",
+            Surface.CouchTv to """{"type":"couchTv"}""",
+            Surface.CouchTvGuide to """{"type":"couchTvGuide"}""",
+            Surface.CouchTvOnNow to """{"type":"couchTvOnNow"}""",
         )
         assertEncodings(Surface.serializer(), surfaces)
         bridge().use { bridge ->

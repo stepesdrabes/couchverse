@@ -117,6 +117,8 @@ class PlaybackEngine(
                 subtitle = loaded.value?.subtitles?.firstOrNull { it.id == command.content.id }
                 current.value?.let { chooseSubtitles(it.currentTracks) }
             }
+            // the live channel's hold
+            is PlayerCommand.Rate -> current.value?.setPlaybackSpeed(command.content.rate.toFloat())
             PlayerCommand.Stop -> stop()
         }
     }
@@ -132,6 +134,7 @@ class PlaybackEngine(
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().applyLoad(load).build()
         player.setMediaItem(mediaItem(load, downloads), (load.startSeconds * 1000).toLong())
         player.playWhenReady = load.autoplay
+        player.setPlaybackSpeed(1f)
         player.prepare()
         chooseSubtitles(player.currentTracks)
         // the language alone picks the first of two in one language
