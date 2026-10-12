@@ -127,6 +127,10 @@ func (m *mediaServer) file(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if framesURL.MatchString(r.URL.Path) {
+		// a footage frame is drawn once: Chromium's cache would only hold on to it
+		w.Header().Set("Cache-Control", "no-store")
+	}
 	http.ServeFile(w, r, path)
 }
 
