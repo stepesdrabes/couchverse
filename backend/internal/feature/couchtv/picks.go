@@ -144,18 +144,20 @@ func (p *planner) cursor(ser *Series) int {
 
 // pickInOrder is a strip's or marathon's next episode. One that does not fit ends the
 // block for the day and airs the next day; one longer than the slot could ever hold is
-// passed over, or it would stall the strip for good.
+// passed over, or it would stall the strip for good, and so is one an admin took off
+// the day.
 func (p *planner) pickInOrder(s *daySlot, start, limit time.Time) (placement, bool) {
 	ser := p.assigned[s.Key]
 	if ser == nil {
 		return placement{}, false
 	}
+	skip := func(e Episode) bool { return e.onAir()+p.minBreak > s.maxRoom || p.removed(e.ID) }
 	i := p.cursor(ser)
-	for n := 0; n < len(ser.Episodes) && ser.Episodes[i].onAir()+p.minBreak > s.maxRoom; n++ {
+	for n := 0; n < len(ser.Episodes) && skip(ser.Episodes[i]); n++ {
 		i = (i + 1) % len(ser.Episodes)
 	}
 	ep := ser.Episodes[i]
-	if !p.fits(ep.Media, start, limit) {
+	if p.removed(ep.ID) || !p.fits(ep.Media, start, limit) {
 		return placement{}, false
 	}
 	if !ep.Ready && start.Before(p.now.Add(swapAhead)) {
@@ -216,7 +218,8 @@ func (p *planner) pickRerun(key string, pool []*Series, start, limit, soft time.
 				ser := pool[(turn+k)%len(pool)]
 				var cands []Episode
 				for _, e := range ser.Episodes {
-					if p.fits(e.Media, start, limit) && (soft.IsZero() || !start.Add(e.onAir()/2).After(soft)) && tier(e) {
+					if p.fits(e.Media, start, limit) && (soft.IsZero() || !start.Add(e.onAir()/2).After(soft)) && tier(e) &&
+						!p.removed(e.ID) {
 						cands = append(cands, e)
 					}
 				}
@@ -264,7 +267,7 @@ func (p *planner) pickFiller(start, end time.Time) (placement, bool) {
 }
 
 // movieCands are the movies a slot may air that fit before limit: its pinned movies,
-// else every movie.
+// else every movie, leaving out those an admin took off the day.
 func (p *planner) movieCands(s *CouchTvSlot, start, limit time.Time) []*Movie {
 	pool := p.movies
 	if s != nil && len(s.Titles) > 0 {
@@ -280,7 +283,7 @@ func (p *planner) movieCands(s *CouchTvSlot, start, limit time.Time) []*Movie {
 	}
 	var out []*Movie
 	for _, m := range pool {
-		if p.fits(m.Media, start, limit) {
+		if p.fits(m.Media, start, limit) && !p.removed(m.ID) {
 			out = append(out, m)
 		}
 	}
@@ -410,7 +413,7 @@ func (p *planner) pickSaga(s *CouchTvSlot, start, limit time.Time, mode readines
 		}
 	}
 	m := p.nextSagaFilm(allowed)
-	if m != nil && p.fits(m.Media, start, limit) && (m.Ready || !start.Before(p.now.Add(swapAhead))) {
+	if m != nil && !p.removed(m.ID) && p.fits(m.Media, start, limit) && (m.Ready || !start.Before(p.now.Add(swapAhead))) {
 		return placement{m.ID, "", m.Media, FillSaga}, true
 	}
 	return p.pickPrime(s, start, limit, mode)
@@ -418,7 +421,7 @@ func (p *planner) pickSaga(s *CouchTvSlot, start, limit time.Time, mode readines
 
 // pickEncore airs tonight's prime-time movie again, else a matinee.
 func (p *planner) pickEncore(s *CouchTvSlot, start, limit time.Time, mode readiness) (placement, bool) {
-	if m := p.day.prime; m != nil && p.fits(m.Media, start, limit) && (m.Ready || !start.Before(p.now.Add(swapAhead))) {
+	if m := p.day.prime; m != nil && !p.removed(m.ID) && p.fits(m.Media, start, limit) && (m.Ready || !start.Before(p.now.Add(swapAhead))) {
 		return placement{m.ID, "", m.Media, FillEncore}, true
 	}
 	return p.pickMatinee(s, start, limit, FillMatinee, mode)

@@ -153,6 +153,139 @@ func TestCouchTvPlanJob(t *testing.T) {
 	}
 }
 
+// TestCouchTvAiringEdits drives the schedule editor: a removed program stays off its day,
+// a locked one survives a replan, an inserted one is flowed around, moved and removed, a
+// break next to a changed program loses its composition, and the schedule stays
+// gapless throughout.
+func TestCouchTvAiringEdits(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := context.Background()
+	prague, _ := time.LoadLocation("Europe/Prague")
+	at := func(days, hour, minute int) time.Time {
+		n := time.Now().In(prague)
+		return time.Date(n.Year(), n.Month(), n.Day()+days, hour, minute, 0, 0, prague)
+	}
+	call := func(method, path string, body any, want int) []byte {
+		t.Helper()
+		status, out, _ := env.request(t, env.clients["admin"], method, path, body)
+		if status != want {
+			t.Fatalf("%s %s: %d, want %d: %s", method, path, status, want, out)
+		}
+		return out
+	}
+	type program struct{ id, key, source, fill string }
+	first := func(after time.Time) program {
+		t.Helper()
+		var p program
+		if err := env.pool.QueryRow(ctx, `SELECT id, coalesce(episode_id, title_id)::text, source, coalesce(fill, '')
+			FROM couchtv_airings WHERE kind = 'program' AND state <> 'replaced' AND starts_at > $1 ORDER BY starts_at LIMIT 1`,
+			after).Scan(&p.id, &p.key, &p.source, &p.fill); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	gapless := func(step string) {
+		t.Helper()
+		rows, err := env.pool.Query(ctx, `SELECT starts_at, ends_at FROM couchtv_airings WHERE state <> 'replaced' ORDER BY starts_at`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var prev time.Time
+		for rows.Next() {
+			var s, e time.Time
+			if err := rows.Scan(&s, &e); err != nil {
+				t.Fatal(err)
+			}
+			if !prev.IsZero() && !s.Equal(prev) {
+				rows.Close()
+				t.Fatalf("%s: a gap or an overlap at %s", step, s.In(prague))
+			}
+			prev = e
+		}
+		rows.Close()
+	}
+	call("POST", "/admin/couchtv/days/"+couchTvDay(1)+"/regenerate", nil, 200)
+	gapless("planned")
+
+	// a removed program is kept as a removal and stays off its broadcast day
+	removed := first(at(2, 12, 0))
+	call("PATCH", "/admin/couchtv/airings/"+removed.id, map[string]any{"action": "remove"}, 200)
+	var state string
+	var still int
+	if err := env.pool.QueryRow(ctx, `SELECT state FROM couchtv_airings WHERE id = $1`, removed.id).Scan(&state); err != nil || state != "replaced" {
+		t.Fatalf("the removed program is %q (%v)", state, err)
+	}
+	if err := env.pool.QueryRow(ctx, `SELECT count(*) FROM couchtv_airings WHERE kind = 'program' AND state <> 'replaced'
+		AND coalesce(episode_id, title_id)::text = $1 AND starts_at >= $2 AND starts_at < $3`,
+		removed.key, at(2, 6, 0), at(3, 6, 0)).Scan(&still); err != nil || still != 0 {
+		t.Errorf("the removed program still airs %d times that day (%v)", still, err)
+	}
+	gapless("removed")
+
+	// a locked program survives the day's regeneration
+	locked := first(at(4, 12, 0))
+	call("PATCH", "/admin/couchtv/airings/"+locked.id, map[string]any{"action": "lock"}, 200)
+	call("POST", "/admin/couchtv/days/"+couchTvDay(1)+"/regenerate", nil, 200)
+	var isLocked bool
+	if err := env.pool.QueryRow(ctx, `SELECT locked FROM couchtv_airings WHERE id = $1`, locked.id).Scan(&isLocked); err != nil || !isLocked {
+		t.Errorf("the locked program did not survive a replan (%v)", err)
+	}
+
+	// an inserted episode airs at its time, off the 5-minute grid, and the day flows around it
+	var inserted couchtv.CouchTvAiring
+	out := call("POST", "/admin/couchtv/airings", map[string]any{"titleId": seriesID, "episodeId": episode2ID,
+		"startsAt": at(5, 14, 7)}, 201)
+	if err := json.Unmarshal(out, &inserted); err != nil {
+		t.Fatal(err)
+	}
+	if !inserted.StartsAt.Equal(at(5, 14, 7)) || inserted.Source != "admin" || inserted.Fill != "reruns" {
+		t.Errorf("inserted %+v", inserted)
+	}
+	gapless("inserted")
+
+	// pinned to the movie half an hour later, it keeps its id and becomes a matinee
+	call("PATCH", "/admin/couchtv/airings/"+inserted.ID, map[string]any{"action": "pin", "titleId": movieID,
+		"startsAt": at(5, 15, 0)}, 200)
+	var title, fill string
+	var starts time.Time
+	if err := env.pool.QueryRow(ctx, `SELECT title_id::text, fill, starts_at FROM couchtv_airings WHERE id = $1`, inserted.ID).
+		Scan(&title, &fill, &starts); err != nil || title != movieID || fill != "matinee" || !starts.Equal(at(5, 15, 0)) {
+		t.Errorf("pinned: %s %s %s (%v)", title, fill, starts, err)
+	}
+	gapless("pinned")
+	call("POST", "/admin/couchtv/airings", map[string]any{"titleId": seriesID, "episodeId": episode2ID,
+		"startsAt": at(5, 15, 30)}, 409)
+
+	// removing an admin's program deletes it; the planner fills its place
+	call("PATCH", "/admin/couchtv/airings/"+inserted.ID, map[string]any{"action": "remove"}, 200)
+	var gone bool
+	if err := env.pool.QueryRow(ctx, `SELECT NOT EXISTS (SELECT 1 FROM couchtv_airings WHERE id = $1)`, inserted.ID).Scan(&gone); err != nil || !gone {
+		t.Errorf("the removed admin program is still stored (%v)", err)
+	}
+	gapless("admin program removed")
+
+	// the break announcing a program that changes loses its composition
+	target := first(at(6, 12, 0))
+	var breakID string
+	if err := env.pool.QueryRow(ctx, `SELECT b.id FROM couchtv_airings b JOIN couchtv_airings p ON p.starts_at = b.ends_at
+		WHERE b.kind = 'break' AND p.id = $1`, target.id).Scan(&breakID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(ctx, `INSERT INTO couchtv_breaks (airing_id, state) VALUES ($1, 'composed')`, breakID); err != nil {
+		t.Fatal(err)
+	}
+	other := pilotID
+	if target.key == pilotID {
+		other = episode2ID
+	}
+	call("PATCH", "/admin/couchtv/airings/"+target.id, map[string]any{"action": "pin", "titleId": seriesID, "episodeId": other}, 200)
+	var composed int
+	if err := env.pool.QueryRow(ctx, `SELECT count(*) FROM couchtv_breaks WHERE airing_id = $1`, breakID).Scan(&composed); err != nil || composed != 0 {
+		t.Errorf("the break before the changed program keeps its composition (%v)", err)
+	}
+	gapless("swapped in")
+}
+
 // TestCouchTvConfigStored checks the config round trip: defaults until saved, the
 // guest link hash kept out of the API and kept across saves.
 func TestCouchTvConfigStored(t *testing.T) {

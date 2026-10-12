@@ -1389,15 +1389,27 @@
             "type": "string"
           },
           "ready": {
-            "description": "The program's media is prepared for the channel; always true for a break.",
+            "description": "The program's media is prepared for the channel (couchtv_prepare found it airable); always true for a break.",
             "type": "boolean"
+          },
+          "render": {
+            "description": "A break's composition: uncomposed, composed and waiting for clips, rendering (assembling), ready to air or failed (the evergreen break airs instead); absent for a program.",
+            "enum": [
+              "uncomposed",
+              "pending",
+              "composed",
+              "rendering",
+              "ready",
+              "failed"
+            ],
+            "type": "string"
           },
           "seasonNumber": {
             "format": "int64",
             "type": "integer"
           },
           "slot": {
-            "description": "The template slot that placed it; absent for fillers and admin rows.",
+            "description": "The template slot it airs in; absent for fillers and programs an admin inserted.",
             "type": "string"
           },
           "source": {
@@ -1446,6 +1458,70 @@
           "state",
           "ready",
           "creditsAtMs"
+        ],
+        "type": "object"
+      },
+      "CouchTvAiringEdit": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "lock keeps the program through replanning and unlock hands it back; pin airs titleId (and episodeId) in its place, from startsAt; swap trades places with swapWith; remove takes it off and the planner airs something else.",
+            "enum": [
+              "lock",
+              "unlock",
+              "pin",
+              "swap",
+              "remove"
+            ],
+            "type": "string"
+          },
+          "episodeId": {
+            "description": "pin: the episode, for a series; the program's own when the title stays.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "startsAt": {
+            "description": "pin: when it starts; the program's own start when omitted.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "swapWith": {
+            "description": "swap: the other program; each airs at the other's start.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "titleId": {
+            "description": "pin: the title to air; the program's own when omitted.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "CouchTvAiringInsert": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeId": {
+            "description": "The episode, for a series.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "startsAt": {
+            "description": "When it starts, within the planned week.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "titleId",
+          "startsAt"
         ],
         "type": "object"
       },
@@ -7239,6 +7315,111 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvSchedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "couchtv"
+        ]
+      },
+      "post": {
+        "operationId": "adminInsertAiring",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CouchTvAiringInsert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvAiring"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/admin/couchtv/airings/{id}": {
+      "patch": {
+        "operationId": "adminUpdateAiring",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CouchTvAiringEdit"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {

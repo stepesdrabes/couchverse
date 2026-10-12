@@ -21,8 +21,13 @@ const (
 )
 
 // StatePlanned is a new row's state: couchtv_prepare marks a program ready once its
-// media can air, and an airing is aired once it went on air.
-const StatePlanned = "planned"
+// media can air, and an airing is aired once it went on air. StateReplaced is a program
+// an admin took off: every read skips it, and planning its broadcast day leaves its
+// movie or episode out, so the planner's own choice does not come back.
+const (
+	StatePlanned  = "planned"
+	StateReplaced = "replaced"
+)
 
 // Airing is one schedule row: a program, or the break between two programs.
 type Airing struct {
@@ -33,7 +38,7 @@ type Airing struct {
 	TitleID     string
 	EpisodeID   string // empty for a movie
 	MediaFileID string
-	Slot        string // the template slot that placed it; empty for fillers and admin rows
+	Slot        string // the template slot it airs in; empty for fillers and inserted programs
 	Fill        string
 	Source      string
 	Locked      bool

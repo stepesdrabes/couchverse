@@ -1,6 +1,7 @@
 package couchtv
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -210,33 +211,34 @@ func TestDefaultConfigIsValid(t *testing.T) {
 
 func TestConfigValidate(t *testing.T) {
 	tests := []struct {
-		name    string
-		mutate  func(*CouchTvConfig)
-		wantErr string
+		name     string
+		mutate   func(*CouchTvConfig)
+		wantErr  string
+		wantCode string
 	}{
-		{"defaults", func(*CouchTvConfig) {}, ""},
-		{"other zone", func(c *CouchTvConfig) { c.TimeZone = "America/New_York" }, ""},
-		{"unknown zone", func(c *CouchTvConfig) { c.TimeZone = "Mars/Olympus" }, "time zone"},
-		{"break too short", func(c *CouchTvConfig) { c.BreakMinSeconds = 2 }, "breakMinSeconds"},
-		{"negative rotation", func(c *CouchTvConfig) { c.Rotation.RerunGapDays = -1 }, "rerunGapDays"},
-		{"no filler minimum", func(c *CouchTvConfig) { c.Rotation.FillerMinMinutes = 0 }, "fillerMinMinutes"},
-		{"duplicate key", func(c *CouchTvConfig) { c.Template.Slots[1].Key = "morning" }, "twice"},
-		{"day must open with an anchor", func(c *CouchTvConfig) { c.Template.Slots[0].Anchor = false }, "must be an anchor"},
-		{"anchor needs a time", func(c *CouchTvConfig) { c.Template.Slots[6].Start = "" }, "needs a start"},
-		{"times ascend", func(c *CouchTvConfig) { c.Template.Slots[7].Start = "16:00" }, "not after"},
-		{"bad time", func(c *CouchTvConfig) { c.Template.Slots[7].Start = "25:00" }, "HH:MM"},
+		{"defaults", func(*CouchTvConfig) {}, "", ""},
+		{"other zone", func(c *CouchTvConfig) { c.TimeZone = "America/New_York" }, "", ""},
+		{"unknown zone", func(c *CouchTvConfig) { c.TimeZone = "Mars/Olympus" }, "time zone", ErrTimeZone},
+		{"break too short", func(c *CouchTvConfig) { c.BreakMinSeconds = 2 }, "breakMinSeconds", ErrRotation},
+		{"negative rotation", func(c *CouchTvConfig) { c.Rotation.RerunGapDays = -1 }, "rerunGapDays", ErrRotation},
+		{"no filler minimum", func(c *CouchTvConfig) { c.Rotation.FillerMinMinutes = 0 }, "fillerMinMinutes", ErrRotation},
+		{"duplicate key", func(c *CouchTvConfig) { c.Template.Slots[1].Key = "morning" }, "twice", ErrSlot},
+		{"day must open with an anchor", func(c *CouchTvConfig) { c.Template.Slots[0].Anchor = false }, "must be an anchor", ErrDayOpen},
+		{"anchor needs a time", func(c *CouchTvConfig) { c.Template.Slots[6].Start = "" }, "needs a start", ErrAnchorTime},
+		{"times ascend", func(c *CouchTvConfig) { c.Template.Slots[7].Start = "16:00" }, "not after", ErrSlotOrder},
+		{"bad time", func(c *CouchTvConfig) { c.Template.Slots[7].Start = "25:00" }, "HH:MM", ErrSlot},
 		{"a day without slots", func(c *CouchTvConfig) {
 			for i := range c.Template.Slots {
 				c.Template.Slots[i].Days = slices.DeleteFunc(slices.Clone(c.Template.Slots[i].Days), func(d string) bool { return d == "wed" })
 			}
-		}, "wed has no slots"},
+		}, "wed has no slots", ErrDayEmpty},
 		{"reruns need an end", func(c *CouchTvConfig) {
 			c.Template.Slots = slices.DeleteFunc(c.Template.Slots, func(s CouchTvSlot) bool { return s.Key == "encore" })
 			c.Template.Slots = append(c.Template.Slots, CouchTvSlot{Key: "tail", Days: []string{"mon"}, Fill: FillMovie})
-		}, "needs a timed slot"},
-		{"a strip pins one series", func(c *CouchTvConfig) { c.Template.Slots[7].Titles = []string{uid(2, 1), uid(2, 2)} }, "pins one"},
-		{"pinned ids", func(c *CouchTvConfig) { c.Template.Slots[9].Titles = []string{"iron-man"} }, "not a title id"},
-		{"unknown fill", func(c *CouchTvConfig) { c.Template.Slots[9].Fill = "news" }, "unknown fill"},
+		}, "needs a timed slot", ErrRerunsEnd},
+		{"a strip pins one series", func(c *CouchTvConfig) { c.Template.Slots[7].Titles = []string{uid(2, 1), uid(2, 2)} }, "pins one", ErrPinnedTitle},
+		{"pinned ids", func(c *CouchTvConfig) { c.Template.Slots[9].Titles = []string{"iron-man"} }, "not a title id", ErrPinnedTitle},
+		{"unknown fill", func(c *CouchTvConfig) { c.Template.Slots[9].Fill = "news" }, "unknown fill", ErrSlot},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -245,6 +247,10 @@ func TestConfigValidate(t *testing.T) {
 			err := cfg.Validate()
 			if tt.wantErr == "" && err != nil || tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)) {
 				t.Fatalf("err = %v, want %q", err, tt.wantErr)
+			}
+			var invalid *ConfigError
+			if tt.wantCode != "" && (!errors.As(err, &invalid) || invalid.Code != tt.wantCode) {
+				t.Errorf("err %v has no code %q", err, tt.wantCode)
 			}
 		})
 	}
@@ -789,6 +795,97 @@ func TestFixedRowsKept(t *testing.T) {
 	}
 	if encore := inSlot(tue, "encore"); len(encore) != 1 || encore[0].TitleID != pulp {
 		t.Errorf("the encore does not repeat the locked movie: %v", lib.labels(encore))
+	}
+}
+
+// A fixed program counts toward its slot: a locked second strip episode keeps the
+// strip's first one in place.
+func TestFixedRowsCountTowardTheirSlot(t *testing.T) {
+	l := testLibrary{names: map[string]string{}}
+	l.series(1, "Show", []int{6}, 22, "Comedy")
+	series := l.Series[0]
+	cfg := DefaultConfig()
+	cfg.Template = CouchTvTemplate{Slots: []CouchTvSlot{
+		{Key: "open", Days: dayNames, Start: "06:00", Anchor: true, Fill: FillReruns},
+		{Key: "strip", Days: dayNames, Start: "18:00", Anchor: true, Fill: FillStrip, Count: 2},
+		{Key: "late", Days: dayNames, Start: "19:00", Anchor: true, Fill: FillReruns},
+	}}
+	locked := Airing{ID: "locked-1", Kind: KindProgram, TitleID: series.ID, EpisodeID: series.Episodes[1].ID,
+		MediaFileID: series.Episodes[1].FileID, Slot: "strip", Fill: FillStrip, Source: SourceAuto, Locked: true,
+		StartsAt: local("2026-10-12", "18:25"), EndsAt: local("2026-10-12", "18:47"), State: StatePlanned}
+	rows := planWeek(l.Library, "2026-10-12", 1, func(in *PlanInput) {
+		in.Config, in.Fixed = cfg, []Airing{locked}
+	})
+	checkTimeline(t, cfg, l, rows)
+	strip := inSlot(rows, "strip")
+	if got := l.labels(strip); !reflect.DeepEqual(got, []string{"Show S01E01", "Show S01E02"}) || strip[1].ID != "locked-1" {
+		t.Errorf("strip %v, want the first episode before the locked second", got)
+	}
+}
+
+// A program an admin took off stays off its day: the slot airs something else, and a
+// strip passes the episode over.
+func TestRemovedPrograms(t *testing.T) {
+	lib := ownerLibrary()
+	cfg := DefaultConfig()
+	week := planWeek(lib.Library, "2026-10-12", 2)
+	mon := onDay(cfg, week, "2026-10-12")
+	prime := inSlot(mon, "prime-movie")[0]
+	strip := inSlot(mon, "sitcom-strip")
+	rerun := inSlot(mon, "morning")[1]
+	removed := []Airing{prime, strip[0], rerun}
+	for i := range removed {
+		removed[i].State = StateReplaced
+	}
+	rows := planWeek(lib.Library, "2026-10-12", 2, func(in *PlanInput) { in.Removed = removed })
+	checkTimeline(t, cfg, lib, rows)
+	again := onDay(cfg, rows, "2026-10-12")
+	for _, r := range removed {
+		if slices.ContainsFunc(programs(again), func(a Airing) bool { return programKey(a) == programKey(r) }) {
+			t.Errorf("%s still airs on Monday", lib.label(r))
+		}
+	}
+	if got := inSlot(again, "prime-movie"); len(got) != 1 || got[0].TitleID == prime.TitleID {
+		t.Errorf("Monday prime time: %v", lib.labels(got))
+	}
+	// the strip airs the two episodes after the removed one, and goes on from there
+	got := inSlot(again, "sitcom-strip")
+	if len(got) != 2 || got[0].EpisodeID != strip[1].EpisodeID {
+		t.Fatalf("Monday's strip %v after removing %s", lib.labels(got), lib.label(strip[0]))
+	}
+	i := slices.IndexFunc(lib.Series, func(s Series) bool { return s.ID == got[1].TitleID })
+	eps := lib.Series[i].Episodes
+	next := eps[slices.IndexFunc(eps, func(e Episode) bool { return e.ID == got[1].EpisodeID })+1]
+	if tue := inSlot(onDay(cfg, rows, "2026-10-13"), "sitcom-strip"); len(tue) == 0 || tue[0].EpisodeID != next.ID {
+		t.Errorf("Tuesday's strip %v does not go on after Monday's", lib.labels(tue))
+	}
+}
+
+func TestAdminFill(t *testing.T) {
+	const show, other = "show", "other"
+	tests := []struct {
+		rowFill, rowTitle, title string
+		movie                    bool
+		want                     string
+	}{
+		{FillStrip, show, show, false, FillStrip},       // another episode restarts the strip there
+		{FillStrip, show, other, false, FillReruns},     // another series must not move its own strip
+		{FillStrip, show, other, true, FillMatinee},     // a movie in a strip's place
+		{FillSaga, show, show, true, FillSaga},          // the same film stays the saga's
+		{FillSaga, show, other, true, FillMovie},        // another film is not the franchise's next
+		{FillPremiere, show, other, true, FillMovie},    // nor a premiere
+		{FillMovie, show, other, false, FillReruns},     // an episode in prime time
+		{FillFiller, show, other, true, FillFiller},     // a gap filler stays one
+		{FillEncore, show, other, true, FillMatinee},    // a rerun of another movie
+		{"", "", other, true, FillMatinee},              // an inserted movie
+		{"", "", other, false, FillReruns},              // an inserted episode
+		{FillReruns, show, other, false, FillReruns},    // another rerun
+		{FillMarathon, show, show, false, FillMarathon}, // the marathon goes on from it
+	}
+	for _, tt := range tests {
+		if got := adminFill(tt.rowFill, tt.rowTitle, tt.title, tt.movie); got != tt.want {
+			t.Errorf("adminFill(%q, %q, %q, movie %v) = %q, want %q", tt.rowFill, tt.rowTitle, tt.title, tt.movie, got, tt.want)
+		}
 	}
 }
 

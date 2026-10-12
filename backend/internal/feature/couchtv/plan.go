@@ -29,7 +29,10 @@ type PlanInput struct {
 	History []Airing
 	// Fixed are the programs inside the planned days that stay as they are: admin rows,
 	// locked rows and rows already on air. The plan flows around them.
-	Fixed   []Airing
+	Fixed []Airing
+	// Removed are programs an admin took off (StateReplaced): planning the broadcast day
+	// one was in leaves its movie or episode out.
+	Removed []Airing
 	Cursors []Cursor
 	// From is the first broadcast day to plan (its date; the clock is ignored) and Days
 	// how many to plan.
@@ -55,13 +58,19 @@ func Plan(in PlanInput) []Airing {
 	date := p.civil(in.From)
 	for range in.Days {
 		start, end := p.cfg.dayStart(date), p.cfg.dayStart(nextDate(date))
-		var today []Airing
+		within := func(a Airing) bool { return !a.StartsAt.Before(start) && a.StartsAt.Before(end) }
+		var today, removed []Airing
 		for _, f := range fixed {
-			if !f.StartsAt.Before(start) && f.StartsAt.Before(end) {
+			if within(f) {
 				today = append(today, f)
 			}
 		}
-		p.planDay(date, today)
+		for _, r := range in.Removed {
+			if within(r) {
+				removed = append(removed, r)
+			}
+		}
+		p.planDay(date, today, removed)
 		date = nextDate(date)
 	}
 	return withBreaks(p.out, prevEnd)
@@ -94,7 +103,7 @@ func SwapUnready(in SwapInput) []Airing {
 		if i+1 < len(in.Rows) {
 			limit = in.Rows[i+1].StartsAt
 		}
-		p.day = p.newDay(p.cfg.dayOf(a.StartsAt), nil)
+		p.day = p.newDay(p.cfg.dayOf(a.StartsAt), nil, nil)
 		pl, ok := p.standIn(a, limit)
 		if !ok {
 			p.record(a)
@@ -327,29 +336,34 @@ type dayState struct {
 	slots      []daySlot
 	fixed      []Airing
 	nextFixed  int
-	consumed   map[string]bool // slots a fixed program already fills
+	fixedIn    map[string]int  // fixed programs per slot, which count toward what it airs
+	removed    map[string]bool // movies and episodes an admin took off this day
 	prime      *Movie          // tonight's prime-time movie, for the encore
 	turns      map[string]int  // where each reruns rotation stands
 	held       map[string]bool // movies kept back for the premiere or the saga
 	rng        *rand.Rand
 }
 
-func (p *planner) newDay(date time.Time, fixed []Airing) *dayState {
+func (p *planner) newDay(date time.Time, fixed, removed []Airing) *dayState {
 	slots := p.cfg.Template.slotsOn(date.Weekday())
 	d := &dayState{
-		date:     date,
-		start:    p.cfg.dayStart(date),
-		end:      p.cfg.dayStart(nextDate(date)),
-		fixed:    fixed,
-		consumed: map[string]bool{},
-		turns:    map[string]int{},
-		held:     map[string]bool{},
-		rng:      daySeed(date),
+		date:    date,
+		start:   p.cfg.dayStart(date),
+		end:     p.cfg.dayStart(nextDate(date)),
+		fixed:   fixed,
+		fixedIn: map[string]int{},
+		removed: map[string]bool{},
+		turns:   map[string]int{},
+		held:    map[string]bool{},
+		rng:     daySeed(date),
 	}
 	for _, f := range fixed {
 		if f.Slot != "" {
-			d.consumed[f.Slot] = true
+			d.fixedIn[f.Slot]++
 		}
+	}
+	for _, r := range removed {
+		d.removed[programKey(r)] = true
 	}
 	d.slots = make([]daySlot, len(slots))
 	for i, s := range slots {
@@ -405,11 +419,29 @@ func (p *planner) templateHas(fill string) bool {
 	return slices.ContainsFunc(p.cfg.Template.Slots, func(s CouchTvSlot) bool { return s.Fill == fill })
 }
 
+// programKey is what a removal takes off a day: the episode, or the movie.
+func programKey(a Airing) string {
+	if a.EpisodeID != "" {
+		return a.EpisodeID
+	}
+	return a.TitleID
+}
+
+// removed reports whether an admin took a movie or an episode (by id) off today.
+func (p *planner) removed(id string) bool {
+	return p.day != nil && p.day.removed[id]
+}
+
+// filled reports whether the fixed programs carrying a slot already air all it would.
+func (d *dayState) filled(s *daySlot) bool {
+	return d.fixedIn[s.Key] >= s.wants()
+}
+
 // planDay walks the day's slots in order. Anchors start on time, flow programs start on
 // the next 5-minute mark after the previous program and its break, and fixed programs
 // are obstacles the flow fits around.
-func (p *planner) planDay(date time.Time, fixed []Airing) {
-	p.day = p.newDay(date, fixed)
+func (p *planner) planDay(date time.Time, fixed, removed []Airing) {
+	p.day = p.newDay(date, fixed, removed)
 	for i := range p.day.slots {
 		p.runSlot(i)
 	}
@@ -420,10 +452,12 @@ func (p *planner) planDay(date time.Time, fixed []Airing) {
 func (p *planner) runSlot(i int) {
 	d := p.day
 	s := &d.slots[i]
-	if d.consumed[s.Key] {
+	if d.filled(s) {
 		return
 	}
-	for placed := 0; placed < s.wants(); {
+	// the slot's fixed programs count toward it wherever they are in the day, so a
+	// locked strip episode leaves the strip's other episodes in place
+	for placed := 0; placed+d.fixedIn[s.Key] < s.wants(); {
 		start := p.startFor(s, placed)
 		if !start.Before(s.windowEnd) {
 			return
@@ -486,8 +520,8 @@ func roundUp(t time.Time, step time.Duration) time.Time {
 func (p *planner) limit(i int, start time.Time) (limit time.Time, blocked bool) {
 	d := p.day
 	limit = d.end
-	for _, n := range d.slots[i+1:] {
-		if n.Anchor && n.at.After(start) && !d.consumed[n.Key] {
+	for j := i + 1; j < len(d.slots); j++ {
+		if n := &d.slots[j]; n.Anchor && n.at.After(start) && !d.filled(n) {
 			limit = n.at
 			break
 		}

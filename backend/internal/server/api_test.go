@@ -321,6 +321,28 @@ func apiCases() []apiCase {
 		{op: "adminCouchTvWaveform", as: "admin", method: "GET", path: "/admin/couchtv/media-files/" + movieFileID + "/waveform", status: 404},
 		{op: "adminCouchTvRenderHealth", as: "admin", method: "GET", path: "/admin/couchtv/render", status: 200},
 		{op: "adminCouchTvRenderHealth", as: "nora", method: "GET", path: "/admin/couchtv/render", status: 403},
+		// the schedule editor, on the days adminRegenerateDay planned above
+		{op: "adminInsertAiring", as: "admin", method: "POST", path: "/admin/couchtv/airings", body: map[string]any{
+			"titleId": movieID, "startsAt": couchTvNoon(3)}, status: 201, save: map[string]string{"inserted": "id"}},
+		{op: "adminInsertAiring", as: "admin", method: "POST", path: "/admin/couchtv/airings", body: map[string]any{
+			"titleId": seriesID, "episodeId": pilotID, "startsAt": couchTvNoon(4)}, status: 201, save: map[string]string{"second": "id"}},
+		// on top of the movie inserted above
+		{op: "adminInsertAiring", as: "admin", method: "POST", path: "/admin/couchtv/airings", body: map[string]any{
+			"titleId": seriesID, "episodeId": episode2ID, "startsAt": couchTvNoon(3)}, status: 409},
+		{op: "adminInsertAiring", as: "admin", method: "POST", path: "/admin/couchtv/airings", body: map[string]any{
+			"titleId": movieID, "startsAt": couchTvNoon(-1)}, status: 400},
+		{op: "adminInsertAiring", as: "admin", method: "POST", path: "/admin/couchtv/airings", body: map[string]any{
+			"titleId": seriesID, "startsAt": couchTvNoon(5)}, status: 400},
+		{op: "adminInsertAiring", as: "admin", method: "POST", path: "/admin/couchtv/airings", body: map[string]any{
+			"titleId": unknownID, "startsAt": couchTvNoon(5)}, status: 404},
+		{op: "adminUpdateAiring", as: "admin", method: "PATCH", path: "/admin/couchtv/airings/{{inserted}}", body: map[string]any{"action": "lock"}, status: 200},
+		{op: "adminUpdateAiring", as: "admin", method: "PATCH", path: "/admin/couchtv/airings/{{inserted}}", body: map[string]any{
+			"action": "pin", "titleId": seriesID, "episodeId": episode2ID}, status: 200},
+		{op: "adminUpdateAiring", as: "admin", method: "PATCH", path: "/admin/couchtv/airings/{{inserted}}", body: map[string]any{
+			"action": "swap", "swapWith": "{{second}}"}, status: 200},
+		{op: "adminUpdateAiring", as: "admin", method: "PATCH", path: "/admin/couchtv/airings/{{inserted}}", body: map[string]any{"action": "swap"}, status: 400},
+		{op: "adminUpdateAiring", as: "admin", method: "PATCH", path: "/admin/couchtv/airings/{{second}}", body: map[string]any{"action": "remove"}, status: 200},
+		{op: "adminUpdateAiring", as: "admin", method: "PATCH", path: "/admin/couchtv/airings/" + unknownID, body: map[string]any{"action": "unlock"}, status: 404},
 		// the channel is off until an admin turns it on (below)
 		{op: "tuneCouchTv", as: "nora", method: "GET", path: "/couchtv/tune", status: 404},
 

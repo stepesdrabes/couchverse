@@ -3,7 +3,6 @@ package couchtv
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -181,13 +180,39 @@ func (c CouchTvConfig) withDefaults() CouchTvConfig {
 	return c
 }
 
-// Validate rejects a config the planner could not follow.
+// ConfigError is why the planner could not follow a config. Code is stable for clients,
+// which say it in the display language; Message (English) names the slot or day.
+type ConfigError struct {
+	Code    string
+	Message string
+}
+
+func (e *ConfigError) Error() string { return e.Message }
+
+// Codes of ConfigError.
+const (
+	ErrTimeZone    = "invalid_time_zone"
+	ErrRotation    = "invalid_rotation"     // breakMinSeconds or a rotation knob out of range
+	ErrSlot        = "invalid_slot"         // a slot's key, days, fill, pick, time, count or pinned ids
+	ErrAnchorTime  = "anchor_needs_time"    // an anchor without a start
+	ErrDayEmpty    = "day_without_slots"    // a weekday no slot airs on
+	ErrDayOpen     = "day_needs_anchor"     // a day whose first slot is not an anchor
+	ErrSlotOrder   = "slot_out_of_order"    // times that do not ascend through the day
+	ErrRerunsEnd   = "reruns_without_end"   // a reruns slot with nothing timed after it
+	ErrPinnedTitle = "invalid_pinned_title" // a pinned title that is gone or does not suit its slot
+)
+
+func configError(code, format string, args ...any) error {
+	return &ConfigError{Code: code, Message: fmt.Sprintf(format, args...)}
+}
+
+// Validate rejects a config the planner could not follow, with a *ConfigError.
 func (c CouchTvConfig) Validate() error {
 	if _, err := time.LoadLocation(c.TimeZone); err != nil || c.TimeZone == "" {
-		return fmt.Errorf("unknown time zone %q", c.TimeZone)
+		return configError(ErrTimeZone, "unknown time zone %q", c.TimeZone)
 	}
 	if c.BreakMinSeconds < 5 || c.BreakMinSeconds > 600 {
-		return errors.New("breakMinSeconds must be between 5 and 600")
+		return configError(ErrRotation, "breakMinSeconds must be between 5 and 600")
 	}
 	if err := c.Rotation.validate(); err != nil {
 		return err
@@ -204,14 +229,14 @@ func (r CouchTvRotation) validate() error {
 		{"rerunGapDays", r.RerunGapDays}, {"premiereWindowDays", r.PremiereWindowDays},
 	} {
 		if v.value < 0 || v.value > 365 {
-			return fmt.Errorf("%s must be between 0 and 365", v.name)
+			return configError(ErrRotation, "%s must be between 0 and 365", v.name)
 		}
 	}
 	if r.PrimeRepeatFactor < 0 || r.PrimeRepeatFactor > 5 {
-		return errors.New("primeRepeatFactor must be between 0 and 5")
+		return configError(ErrRotation, "primeRepeatFactor must be between 0 and 5")
 	}
 	if r.FillerMinMinutes < 1 || r.FillerMinMinutes > 240 {
-		return errors.New("fillerMinMinutes must be between 1 and 240")
+		return configError(ErrRotation, "fillerMinMinutes must be between 1 and 240")
 	}
 	return nil
 }
@@ -224,48 +249,48 @@ var picks = []string{"", PickAny, PickComedy, PickAnimation, PickDrama, PickFami
 // every reruns block has a time to fill up to.
 func (t CouchTvTemplate) validate() error {
 	if len(t.Slots) == 0 {
-		return errors.New("the template has no slots")
+		return configError(ErrDayEmpty, "the template has no slots")
 	}
 	keys := map[string]bool{}
 	for _, s := range t.Slots {
 		if s.Key == "" {
-			return errors.New("every slot needs a key")
+			return configError(ErrSlot, "every slot needs a key")
 		}
 		if keys[s.Key] {
-			return fmt.Errorf("slot %q appears twice", s.Key)
+			return configError(ErrSlot, "slot %q appears twice", s.Key)
 		}
 		keys[s.Key] = true
 		if len(s.Days) == 0 {
-			return fmt.Errorf("slot %q has no days", s.Key)
+			return configError(ErrSlot, "slot %q has no days", s.Key)
 		}
 		for _, d := range s.Days {
 			if !slices.Contains(dayNames, d) {
-				return fmt.Errorf("slot %q: unknown day %q", s.Key, d)
+				return configError(ErrSlot, "slot %q: unknown day %q", s.Key, d)
 			}
 		}
 		if !slices.Contains(fills, s.Fill) {
-			return fmt.Errorf("slot %q: unknown fill %q", s.Key, s.Fill)
+			return configError(ErrSlot, "slot %q: unknown fill %q", s.Key, s.Fill)
 		}
 		if !slices.Contains(picks, s.Pick) {
-			return fmt.Errorf("slot %q: unknown pick %q", s.Key, s.Pick)
+			return configError(ErrSlot, "slot %q: unknown pick %q", s.Key, s.Pick)
 		}
 		if s.Start != "" {
 			if _, err := clockMinutes(s.Start); err != nil {
-				return fmt.Errorf("slot %q: %w", s.Key, err)
+				return configError(ErrSlot, "slot %q: %v", s.Key, err)
 			}
 		}
 		if s.Anchor && s.Start == "" {
-			return fmt.Errorf("slot %q: an anchor needs a start time", s.Key)
+			return configError(ErrAnchorTime, "slot %q: an anchor needs a start time", s.Key)
 		}
 		if s.Count < 0 || s.Count > 20 {
-			return fmt.Errorf("slot %q: count must be between 0 and 20", s.Key)
+			return configError(ErrSlot, "slot %q: count must be between 0 and 20", s.Key)
 		}
 		if (s.Fill == FillStrip || s.Fill == FillMarathon) && len(s.Titles) > 1 {
-			return fmt.Errorf("slot %q: a %s pins one series", s.Key, s.Fill)
+			return configError(ErrPinnedTitle, "slot %q: a %s pins one series", s.Key, s.Fill)
 		}
 		for _, id := range s.Titles {
 			if _, err := uuid.Parse(id); err != nil {
-				return fmt.Errorf("slot %q: %q is not a title id", s.Key, id)
+				return configError(ErrPinnedTitle, "slot %q: %q is not a title id", s.Key, id)
 			}
 		}
 	}
@@ -281,10 +306,10 @@ func (t CouchTvTemplate) validateDay(wd time.Weekday) error {
 	day := t.slotsOn(wd)
 	name := dayNames[wd]
 	if len(day) == 0 {
-		return fmt.Errorf("%s has no slots", name)
+		return configError(ErrDayEmpty, "%s has no slots", name)
 	}
 	if !day[0].Anchor {
-		return fmt.Errorf("%s: the first slot (%q) must be an anchor", name, day[0].Key)
+		return configError(ErrDayOpen, "%s: the first slot (%q) must be an anchor", name, day[0].Key)
 	}
 	first, _ := clockMinutes(day[0].Start)
 	last := -1
@@ -293,12 +318,12 @@ func (t CouchTvTemplate) validateDay(wd time.Weekday) error {
 			m, _ := clockMinutes(s.Start)
 			at := (m - first + 24*60) % (24 * 60)
 			if at <= last {
-				return fmt.Errorf("%s: slot %q at %s is not after the slot before it", name, s.Key, s.Start)
+				return configError(ErrSlotOrder, "%s: slot %q at %s is not after the slot before it", name, s.Key, s.Start)
 			}
 			last = at
 		}
 		if s.Fill == FillReruns && i+1 < len(day) && !slices.ContainsFunc(day[i+1:], func(n CouchTvSlot) bool { return n.Start != "" }) {
-			return fmt.Errorf("%s: reruns slot %q needs a timed slot after it, or to end the day", name, s.Key)
+			return configError(ErrRerunsEnd, "%s: reruns slot %q needs a timed slot after it, or to end the day", name, s.Key)
 		}
 	}
 	return nil

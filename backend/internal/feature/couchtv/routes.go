@@ -52,6 +52,8 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.Admin, tag.Op("adminGetCouchTv", http.MethodGet, "/couchtv"), m.admin.Get)
 	huma.Register(rt.Admin, tag.Op("adminUpdateCouchTv", http.MethodPut, "/couchtv"), m.admin.Update)
 	huma.Register(rt.Admin, tag.Op("adminListAirings", http.MethodGet, "/couchtv/airings"), m.admin.ListAirings)
+	huma.Register(rt.Admin, tag.Created("adminInsertAiring", http.MethodPost, "/couchtv/airings"), m.admin.InsertAiring)
+	huma.Register(rt.Admin, tag.Op("adminUpdateAiring", http.MethodPatch, "/couchtv/airings/{id}"), m.admin.UpdateAiring)
 	huma.Register(rt.Admin, tag.Op("adminRegenerateDay", http.MethodPost, "/couchtv/days/{date}/regenerate"), m.admin.RegenerateDay)
 	huma.Register(rt.Admin, tag.Op("adminGetCouchTvTitle", http.MethodGet, "/couchtv/titles/{id}"), m.titles.Get)
 	huma.Register(rt.Admin, tag.Op("adminUpdateCouchTvTitle", http.MethodPut, "/couchtv/titles/{id}"), m.titles.Update)

@@ -265,7 +265,8 @@ func rowKey(a Airing) string {
 
 // Replace makes the schedule from start on match rows (a plan's output): rows that
 // planning keeps (they carry their id) stay, identical rows stay, other auto rows go
-// and new ones are inserted. Admin and locked rows are never deleted here.
+// and new ones are inserted. Admin and locked rows are never deleted here. A break that
+// stays beside a new program loses its composition, which announced the old one.
 func (s *Store) Replace(ctx context.Context, start time.Time, rows []Airing) (inserted, deleted int, err error) {
 	old, err := s.airings(ctx, `starts_at >= $1 OR kind = 'break' AND ends_at >= $1`, start)
 	if err != nil {
@@ -307,8 +308,30 @@ func (s *Store) Replace(ctx context.Context, start time.Time, rows []Airing) (in
 		if err := s.insert(ctx, add); err != nil {
 			return 0, 0, err
 		}
+		if err := s.resetBreaksAround(ctx, add); err != nil {
+			return 0, 0, err
+		}
 	}
 	return len(add), len(drop), nil
+}
+
+// resetBreaksAround drops the compositions of the breaks just before and after the
+// given programs, leaving alone a break already on air.
+func (s *Store) resetBreaksAround(ctx context.Context, rows []Airing) error {
+	var starts, ends []time.Time
+	for _, a := range rows {
+		if a.Kind == KindProgram {
+			starts, ends = append(starts, a.StartsAt), append(ends, a.EndsAt)
+		}
+	}
+	if len(starts) == 0 {
+		return nil
+	}
+	_, err := s.q.Exec(ctx, `
+		DELETE FROM couchtv_breaks b USING couchtv_airings a
+		WHERE b.airing_id = a.id AND a.kind = 'break' AND a.state <> 'replaced' AND a.origin IS NULL
+		  AND (a.ends_at = ANY($1::timestamptz[]) OR a.starts_at = ANY($2::timestamptz[]))`, starts, ends)
+	return err
 }
 
 func (s *Store) insert(ctx context.Context, rows []Airing) error {
@@ -474,12 +497,14 @@ func (s *Store) Schedule(ctx context.Context, from, to time.Time) ([]CouchTvAiri
 		SELECT a.id, a.starts_at, a.ends_at, a.kind, coalesce(a.title_id::text, ''), coalesce(t.name, ''), coalesce(t.kind, ''),
 		       coalesce(a.episode_id::text, ''), coalesce(se.season_number, 0), coalesce(e.episode_number, 0), coalesce(e.name, ''),
 		       coalesce(a.media_file_id::text, ''), a.slot, coalesce(a.fill, ''), a.source, a.locked, a.state, a.credits_at_ms,
-		       a.kind = 'break' OR coalesce(`+readySQL+`, false)
+		       a.kind = 'break' OR coalesce(`+readySQL+`, false),
+		       CASE WHEN a.kind = 'break' THEN coalesce(b.state, 'uncomposed') ELSE '' END
 		FROM couchtv_airings a
 		LEFT JOIN titles t ON t.id = a.title_id
 		LEFT JOIN episodes e ON e.id = a.episode_id
 		LEFT JOIN seasons se ON se.id = e.season_id
 		LEFT JOIN media_files mf ON mf.id = a.media_file_id
+		LEFT JOIN couchtv_breaks b ON b.airing_id = a.id
 		WHERE a.starts_at < $2 AND a.ends_at > $1 AND a.state <> 'replaced'
 		ORDER BY a.starts_at, a.kind DESC`, from, to)
 	if err != nil {
@@ -491,7 +516,7 @@ func (s *Store) Schedule(ctx context.Context, from, to time.Time) ([]CouchTvAiri
 		var a CouchTvAiring
 		if err := rows.Scan(&a.ID, &a.StartsAt, &a.EndsAt, &a.Kind, &a.TitleID, &a.TitleName, &a.TitleKind,
 			&a.EpisodeID, &a.SeasonNumber, &a.EpisodeNumber, &a.EpisodeName,
-			&a.MediaFileID, &a.Slot, &a.Fill, &a.Source, &a.Locked, &a.State, &a.CreditsAtMs, &a.Ready); err != nil {
+			&a.MediaFileID, &a.Slot, &a.Fill, &a.Source, &a.Locked, &a.State, &a.CreditsAtMs, &a.Ready, &a.Render); err != nil {
 			return nil, err
 		}
 		out = append(out, a)

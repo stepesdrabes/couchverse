@@ -1329,11 +1329,14 @@ pub mod types {
         pub locked: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub media_file_id: Option<String>,
-        /// The program's media is prepared for the channel; always true for a break.
+        /// The program's media is prepared for the channel (couchtv_prepare found it airable); always true for a break.
         pub ready: bool,
+        /// A break's composition: uncomposed, composed and waiting for clips, rendering (assembling), ready to air or failed (the evergreen break airs instead); absent for a program.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub render: Option<CouchTvAiringRender>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub season_number: Option<i64>,
-        /// The template slot that placed it; absent for fillers and admin rows.
+        /// The template slot it airs in; absent for fillers and programs an admin inserted.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub slot: Option<String>,
         pub source: CouchTvAiringSource,
@@ -1345,6 +1348,62 @@ pub mod types {
         pub title_kind: Option<CouchTvAiringTitleKind>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub title_name: Option<String>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvAiringEdit {
+        /// lock keeps the program through replanning and unlock hands it back; pin airs titleId (and episodeId) in its place, from startsAt; swap trades places with swapWith; remove takes it off and the planner airs something else.
+        pub action: CouchTvAiringEditAction,
+        /// pin: the episode, for a series; the program's own when the title stays.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub episode_id: Option<String>,
+        /// pin: when it starts; the program's own start when omitted.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub starts_at: Option<String>,
+        /// swap: the other program; each airs at the other's start.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub swap_with: Option<String>,
+        /// pin: the title to air; the program's own when omitted.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub title_id: Option<String>,
+    }
+
+    /// lock keeps the program through replanning and unlock hands it back; pin airs titleId (and episodeId) in its place, from startsAt; swap trades places with swapWith; remove takes it off and the planner airs something else.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvAiringEditAction {
+        #[serde(rename = "lock")]
+        Lock,
+        #[serde(rename = "unlock")]
+        Unlock,
+        #[serde(rename = "pin")]
+        Pin,
+        #[serde(rename = "swap")]
+        Swap,
+        #[serde(rename = "remove")]
+        Remove,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvAiringEditAction {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvAiringEditAction::Lock => "lock",
+                CouchTvAiringEditAction::Unlock => "unlock",
+                CouchTvAiringEditAction::Pin => "pin",
+                CouchTvAiringEditAction::Swap => "swap",
+                CouchTvAiringEditAction::Remove => "remove",
+                CouchTvAiringEditAction::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvAiringEditAction {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
     }
 
     /// The rule that chose the program; filler fills a gap before a fixed time.
@@ -1396,6 +1455,17 @@ pub mod types {
         }
     }
 
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvAiringInsert {
+        /// The episode, for a series.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub episode_id: Option<String>,
+        /// When it starts, within the planned week.
+        pub starts_at: String,
+        pub title_id: String,
+    }
+
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum CouchTvAiringKind {
         #[serde(rename = "program")]
@@ -1418,6 +1488,46 @@ pub mod types {
     }
 
     impl std::fmt::Display for CouchTvAiringKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// A break's composition: uncomposed, composed and waiting for clips, rendering (assembling), ready to air or failed (the evergreen break airs instead); absent for a program.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvAiringRender {
+        #[serde(rename = "uncomposed")]
+        Uncomposed,
+        #[serde(rename = "pending")]
+        Pending,
+        #[serde(rename = "composed")]
+        Composed,
+        #[serde(rename = "rendering")]
+        Rendering,
+        #[serde(rename = "ready")]
+        Ready,
+        #[serde(rename = "failed")]
+        Failed,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvAiringRender {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvAiringRender::Uncomposed => "uncomposed",
+                CouchTvAiringRender::Pending => "pending",
+                CouchTvAiringRender::Composed => "composed",
+                CouchTvAiringRender::Rendering => "rendering",
+                CouchTvAiringRender::Ready => "ready",
+                CouchTvAiringRender::Failed => "failed",
+                CouchTvAiringRender::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvAiringRender {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -6672,6 +6782,17 @@ pub mod ops {
         ))
     }
 
+    /// `POST /admin/couchtv/airings`
+    pub fn admin_insert_airing(body: &CouchTvAiringInsert) -> Call<CouchTvAiring> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Post,
+            "/admin/couchtv/airings".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
+    }
+
     /// `GET /admin/transcode/active`
     pub fn admin_list_active_transcodes() -> Call<Vec<ActiveTranscode>> {
         let q = Vec::new();
@@ -6883,6 +7004,17 @@ pub mod ops {
         build::no_content(build::request(
             Method::Patch,
             format!("/admin/titles/{}/translations/{}", build::segment(id), build::segment(lang)),
+            q,
+            build::json_body(Some(body)),
+        ))
+    }
+
+    /// `PATCH /admin/couchtv/airings/{id}`
+    pub fn admin_update_airing(id: &str, body: &CouchTvAiringEdit) -> Call<CouchTvSchedule> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Patch,
+            format!("/admin/couchtv/airings/{}", build::segment(id)),
             q,
             build::json_body(Some(body)),
         ))

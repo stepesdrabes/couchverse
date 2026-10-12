@@ -80,12 +80,16 @@ func (s *Scheduler) Handle(ctx context.Context, _ *jobs.Job, report func(int)) e
 	if err != nil {
 		return err
 	}
-	// what was just planned gets prepared, and its breaks composed now rather than at
-	// the next hourly run
+	return s.followUp(ctx)
+}
+
+// followUp gets what was just planned prepared, and its breaks composed now rather
+// than at the next periodic runs.
+func (s *Scheduler) followUp(ctx context.Context) error {
 	if _, err := s.Jobs.EnqueueJobOnce(ctx, PrepareJob, PreparePayload{}, jobs.EnqueueOpts{}); err != nil {
 		return err
 	}
-	_, err = s.Jobs.EnqueueJobOnce(ctx, ComposeJob, ComposePayload{}, jobs.EnqueueOpts{})
+	_, err := s.Jobs.EnqueueJobOnce(ctx, ComposeJob, ComposePayload{}, jobs.EnqueueOpts{})
 	return err
 }
 
@@ -103,15 +107,33 @@ func (s *Scheduler) queueNext(ctx context.Context, cfg CouchTvConfig, now time.T
 // admin rows, locked rows and whatever already started. The days after it are replanned
 // too, so strips stay in order.
 func (s *Scheduler) Replan(ctx context.Context, date time.Time) error {
+	return s.Edit(ctx, func(*Store, CouchTvConfig, time.Time) (time.Time, error) { return date, nil })
+}
+
+// Edit runs an admin's change to the schedule in the planning transaction, then
+// replans from the broadcast day it returns (zero: nothing to replan) to the end of
+// the horizon, so the flow fills in around the change and strips stay in order. Days
+// in the freeze are replanned too: an admin's edit is the change they take (plan 5.3).
+func (s *Scheduler) Edit(ctx context.Context, change func(st *Store, cfg CouchTvConfig, now time.Time) (time.Time, error)) error {
 	cfg := LoadConfig(ctx, s.Settings)
 	now := s.now()
-	return s.Store.Locked(ctx, func(st *Store) error {
+	replanned := false
+	err := s.Store.Locked(ctx, func(st *Store) error {
+		from, err := change(st, cfg, now)
+		if err != nil || from.IsZero() {
+			return err
+		}
 		lib, err := st.Library(ctx)
 		if err != nil {
 			return err
 		}
-		return replan(ctx, st, cfg, lib, date, now)
+		replanned = true
+		return replan(ctx, st, cfg, lib, from, now)
 	})
+	if err != nil || !replanned {
+		return err
+	}
+	return s.followUp(ctx)
 }
 
 // firstOpenDay is the first broadcast day the job replans: from today on, a day that
@@ -149,11 +171,16 @@ func replan(ctx context.Context, st *Store, cfg CouchTvConfig, lib Library, from
 	if err != nil {
 		return err
 	}
+	removed, err := st.Removed(ctx, start)
+	if err != nil {
+		return err
+	}
 	cursors, err := st.Cursors(ctx)
 	if err != nil {
 		return err
 	}
-	rows := Plan(PlanInput{Config: cfg, Library: lib, History: history, Fixed: fixed, Cursors: cursors, From: from, Days: days, Now: now})
+	rows := Plan(PlanInput{Config: cfg, Library: lib, History: history, Fixed: fixed, Removed: removed, Cursors: cursors,
+		From: from, Days: days, Now: now})
 	added, dropped, err := st.Replace(ctx, start, rows)
 	if err != nil {
 		return err

@@ -3,7 +3,9 @@ package couchtv
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"couchverse/internal/feature/jobs"
@@ -35,13 +37,14 @@ type CouchTvAiring struct {
 	EpisodeNumber int       `json:"episodeNumber,omitempty"`
 	EpisodeName   string    `json:"episodeName,omitempty"`
 	MediaFileID   string    `json:"mediaFileId,omitempty" format:"uuid"`
-	Slot          string    `json:"slot,omitempty" doc:"The template slot that placed it; absent for fillers and admin rows."`
+	Slot          string    `json:"slot,omitempty" doc:"The template slot it airs in; absent for fillers and programs an admin inserted."`
 	Fill          string    `json:"fill,omitempty" enum:"strip,marathon,reruns,movie,matinee,premiere,saga,encore,filler" doc:"The rule that chose the program; filler fills a gap before a fixed time."`
 	Source        string    `json:"source" enum:"auto,admin"`
 	Locked        bool      `json:"locked"`
 	State         string    `json:"state" enum:"planned,ready,aired,failed,replaced"`
-	Ready         bool      `json:"ready" doc:"The program's media is prepared for the channel; always true for a break."`
+	Ready         bool      `json:"ready" doc:"The program's media is prepared for the channel (couchtv_prepare found it airable); always true for a break."`
 	CreditsAtMs   *int      `json:"creditsAtMs" doc:"Where the credits squeeze begins, in ms from the start; null while unknown."`
+	Render        string    `json:"render,omitempty" enum:"uncomposed,pending,composed,rendering,ready,failed" doc:"A break's composition: uncomposed, composed and waiting for clips, rendering (assembling), ready to air or failed (the evergreen break airs instead); absent for a program."`
 }
 
 // CouchTvSchedule is a stretch of the schedule.
@@ -70,7 +73,11 @@ type updateInput struct{ Body CouchTvConfig }
 func (h *Admin) Update(ctx context.Context, in *updateInput) (*overviewOutput, error) {
 	cfg := in.Body
 	if err := cfg.Validate(); err != nil {
-		return nil, httpx.BadRequestError(err.Error())
+		var invalid *ConfigError
+		if errors.As(err, &invalid) {
+			return nil, httpx.Fail(http.StatusBadRequest, invalid.Code, invalid.Message)
+		}
+		return nil, err
 	}
 	if err := h.checkPinned(ctx, cfg.Template); err != nil {
 		return nil, err
@@ -109,9 +116,9 @@ func (h *Admin) checkPinned(ctx context.Context, t CouchTvTemplate) error {
 		}
 		for _, id := range s.Titles {
 			if kind, ok := kinds[id]; !ok {
-				return httpx.BadRequestError(fmt.Sprintf("slot %q: title %s does not exist", s.Key, id))
+				return httpx.Fail(http.StatusBadRequest, ErrPinnedTitle, fmt.Sprintf("slot %q: title %s does not exist", s.Key, id))
 			} else if kind != want {
-				return httpx.BadRequestError(fmt.Sprintf("slot %q airs a %s, title %s is a %s", s.Key, want, id, kind))
+				return httpx.Fail(http.StatusBadRequest, ErrPinnedTitle, fmt.Sprintf("slot %q airs a %s, title %s is a %s", s.Key, want, id, kind))
 			}
 		}
 	}

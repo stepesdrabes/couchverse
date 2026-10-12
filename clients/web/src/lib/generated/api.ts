@@ -420,10 +420,12 @@ export interface CouchTvAiring {
 	kind: CouchTvAiringKind;
 	locked: boolean;
 	mediaFileId?: string;
-	/** The program's media is prepared for the channel; always true for a break. */
+	/** The program's media is prepared for the channel (couchtv_prepare found it airable); always true for a break. */
 	ready: boolean;
+	/** A break's composition: uncomposed, composed and waiting for clips, rendering (assembling), ready to air or failed (the evergreen break airs instead); absent for a program. */
+	render?: CouchTvAiringRender;
 	seasonNumber?: number;
-	/** The template slot that placed it; absent for fillers and admin rows. */
+	/** The template slot it airs in; absent for fillers and programs an admin inserted. */
 	slot?: string;
 	source: CouchTvAiringSource;
 	startsAt: string;
@@ -433,10 +435,37 @@ export interface CouchTvAiring {
 	titleName?: string;
 }
 
+export interface CouchTvAiringEdit {
+	/** lock keeps the program through replanning and unlock hands it back; pin airs titleId (and episodeId) in its place, from startsAt; swap trades places with swapWith; remove takes it off and the planner airs something else. */
+	action: CouchTvAiringEditAction;
+	/** pin: the episode, for a series; the program's own when the title stays. */
+	episodeId?: string;
+	/** pin: when it starts; the program's own start when omitted. */
+	startsAt?: string;
+	/** swap: the other program; each airs at the other's start. */
+	swapWith?: string;
+	/** pin: the title to air; the program's own when omitted. */
+	titleId?: string;
+}
+
+/** lock keeps the program through replanning and unlock hands it back; pin airs titleId (and episodeId) in its place, from startsAt; swap trades places with swapWith; remove takes it off and the planner airs something else. */
+export type CouchTvAiringEditAction = 'lock' | 'unlock' | 'pin' | 'swap' | 'remove';
+
 /** The rule that chose the program; filler fills a gap before a fixed time. */
 export type CouchTvAiringFill = 'strip' | 'marathon' | 'reruns' | 'movie' | 'matinee' | 'premiere' | 'saga' | 'encore' | 'filler';
 
+export interface CouchTvAiringInsert {
+	/** The episode, for a series. */
+	episodeId?: string;
+	/** When it starts, within the planned week. */
+	startsAt: string;
+	titleId: string;
+}
+
 export type CouchTvAiringKind = 'program' | 'break';
+
+/** A break's composition: uncomposed, composed and waiting for clips, rendering (assembling), ready to air or failed (the evergreen break airs instead); absent for a program. */
+export type CouchTvAiringRender = 'uncomposed' | 'pending' | 'composed' | 'rendering' | 'ready' | 'failed';
 
 export type CouchTvAiringSource = 'auto' | 'admin';
 
@@ -2520,6 +2549,14 @@ export const adminGetUpload = (id: string, opts?: CallOptions) =>
 export const adminImportEpisodes = (id: string, body?: EpisodeImport, opts?: CallOptions) =>
 	api<MetadataJob>(`/admin/titles/${encodeURIComponent(id)}/metadata/import-episodes`, { ...opts, method: 'POST', body });
 
+/**
+ * `POST /admin/couchtv/airings`
+ *
+ * @param body
+ */
+export const adminInsertAiring = (body: CouchTvAiringInsert, opts?: CallOptions) =>
+	api<CouchTvAiring>(`/admin/couchtv/airings`, { ...opts, method: 'POST', body });
+
 /** `GET /admin/transcode/active` */
 export const adminListActiveTranscodes = (opts?: CallOptions) =>
 	api<ActiveTranscode[]>(`/admin/transcode/active`, opts);
@@ -2622,6 +2659,14 @@ export const adminSetEpisodeTranslation = (id: string, lang: string, body: Trans
  */
 export const adminSetTitleTranslation = (id: string, lang: string, body: Translation, opts?: CallOptions) =>
 	api<void>(`/admin/titles/${encodeURIComponent(id)}/translations/${encodeURIComponent(lang)}`, { ...opts, method: 'PATCH', body });
+
+/**
+ * `PATCH /admin/couchtv/airings/{id}`
+ *
+ * @param body
+ */
+export const adminUpdateAiring = (id: string, body: CouchTvAiringEdit, opts?: CallOptions) =>
+	api<CouchTvSchedule>(`/admin/couchtv/airings/${encodeURIComponent(id)}`, { ...opts, method: 'PATCH', body });
 
 /**
  * `PUT /admin/couchtv`
