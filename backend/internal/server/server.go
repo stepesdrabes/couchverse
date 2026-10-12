@@ -66,6 +66,10 @@ type Deps struct {
 	// titles for the channel (couchtv_analyze)
 	Markers         *library.MarkerAnalyzer
 	CouchTvAnalysis *couchtv.Analyzer
+	// CouchTvLive is the channel's live stream, CouchTvPrepare the job that
+	// readies its programs
+	CouchTvLive    *couchtv.Live
+	CouchTvPrepare *couchtv.Preparer
 }
 
 type Server struct {
@@ -144,10 +148,22 @@ func (s *Server) register(v1 chi.Router) huma.API {
 		}}, op.Parameters...)
 	})
 
+	channel := huma.NewGroup(api, "/tv/{grant}")
+	channel.UseMiddleware(s.channelGrant(api))
+	channel.UseSimpleModifier(func(op *huma.Operation) {
+		op.Parameters = append([]*huma.Param{{
+			Name:        "grant",
+			In:          "path",
+			Required:    true,
+			Description: "The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.",
+			Schema:      &huma.Schema{Type: huma.TypeString, Pattern: "^[A-Za-z0-9_-]+$"},
+		}}, op.Parameters...)
+	})
+
 	artworkGroup := huma.NewGroup(api)
 	artworkGroup.UseMiddleware(s.artworkAccess(api))
 
-	rt := httpx.Routes{Public: api, User: user, Admin: admin, Media: media, Artwork: artworkGroup}
+	rt := httpx.Routes{Public: api, User: user, Admin: admin, Media: media, Channel: channel, Artwork: artworkGroup}
 
 	auth.NewModule(s.Auth, s.Config, s.Artwork, s.Grants).Register(rt)
 	system.NewModule(s.System, s.Settings, s.Jobs, s.Config.DataDir, s.Couch, s.Sessions).Register(rt)
@@ -155,7 +171,7 @@ func (s *Server) register(v1 chi.Router) huma.API {
 	playback.NewModule(s.Stream, playback.NewAdminTranscode(s.Library, s.Settings, s.Jobs, s.Transcode, s.Config.FFmpegPath)).Register(rt)
 	couch.NewModule(s.Couch, s.Settings).Register(rt)
 	ranks.NewModule(s.Ranks, s.Settings).Register(rt)
-	couchtv.NewModule(s.CouchTv, s.CouchTvAnalysis).Register(rt)
+	couchtv.NewModule(s.CouchTv, s.CouchTvAnalysis, s.CouchTvLive, s.Settings, s.Grants).Register(rt)
 	artwork.NewHandlers(s.Artwork).Register(rt)
 	subtitles.NewSubtitles(s.Subtitles.Subs, s.Library, s.Subtitles).Register(rt)
 	library.NewModule(s.Library, s.Uploads, s.Markers).Register(rt)
@@ -181,6 +197,23 @@ func (s *Server) mediaGrant(api huma.API) func(huma.Context, func(huma.Context))
 			httpx.Reject(api, ctx, httpx.Fail(http.StatusForbidden, "invalid_grant", "the media grant is not valid"))
 		case g.Couch != uuid.Nil && (s.Couch == nil || !s.Couch.AllowsMedia(ctx.Context(), g.Couch.String(), g.Resource.String())):
 			httpx.Reject(api, ctx, httpx.Fail(http.StatusForbidden, "grant_revoked", "the couch session moved on; fetch the follower payload again"))
+		default:
+			next(huma.WithContext(ctx, grant.WithGrant(ctx.Context(), g)))
+		}
+	}
+}
+
+// channelGrant admits a request whose path carries a valid channel grant: the
+// Couch TV channel's playlists and the files of what airs around now are all
+// it reaches.
+func (s *Server) channelGrant(api huma.API) func(huma.Context, func(huma.Context)) {
+	return func(ctx huma.Context, next func(huma.Context)) {
+		g, err := s.Grants.Verify(ctx.Param("grant"))
+		switch {
+		case errors.Is(err, grant.ErrExpired):
+			httpx.Reject(api, ctx, httpx.Fail(http.StatusForbidden, "grant_expired", "the channel grant expired; tune in again"))
+		case err != nil || g.Scope != grant.Channel || g.Resource != grant.CouchTv:
+			httpx.Reject(api, ctx, httpx.Fail(http.StatusForbidden, "invalid_grant", "the channel grant is not valid"))
 		default:
 			next(huma.WithContext(ctx, grant.WithGrant(ctx.Context(), g)))
 		}

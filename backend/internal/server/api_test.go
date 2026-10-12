@@ -321,6 +321,8 @@ func apiCases() []apiCase {
 		{op: "adminCouchTvWaveform", as: "admin", method: "GET", path: "/admin/couchtv/media-files/" + movieFileID + "/waveform", status: 404},
 		{op: "adminCouchTvRenderHealth", as: "admin", method: "GET", path: "/admin/couchtv/render", status: 200},
 		{op: "adminCouchTvRenderHealth", as: "nora", method: "GET", path: "/admin/couchtv/render", status: 403},
+		// the channel is off until an admin turns it on (below)
+		{op: "tuneCouchTv", as: "nora", method: "GET", path: "/couchtv/tune", status: 404},
 
 		{op: "getArtworkGrant", as: "nora", method: "GET", path: "/me/artwork-grant", status: 200, save: map[string]string{"artGrant": "grant"}},
 		{op: "getArtwork", method: "GET", path: "/artwork/" + moviePosterID, status: 401},
@@ -486,6 +488,12 @@ func apiCases() []apiCase {
 		// downloads off: nothing new is prepared, the list stays readable
 		{op: "requestDownload", as: "nora", method: "POST", path: "/me/downloads", body: map[string]any{"kind": "movie", "id": movieID, "quality": "original", "profile": appleProfile}, status: 404},
 		{op: "listDownloads", as: "nora", method: "GET", path: "/me/downloads", status: 200},
+		// Couch TV on: tomorrow is planned (adminRegenerateDay above)
+		{op: "tuneCouchTv", as: "nora", method: "GET", path: "/couchtv/tune?lang=cs", status: 200},
+		{op: "tuneCouchTv", method: "GET", path: "/couchtv/tune", status: 401},
+		{op: "getCouchTvGuide", as: "nora", method: "GET", path: "/couchtv/guide?lang=cs&from=" + couchTvNoon(1) + "&to=" + couchTvNoon(2), status: 200},
+		{op: "getCouchTvGuide", as: "nora", method: "GET", path: "/couchtv/guide", status: 200},
+		{op: "getCouchTvGuide", as: "nora", method: "GET", path: "/couchtv/guide?from=" + couchTvNoon(1) + "&to=" + couchTvNoon(10), status: 400},
 		{op: "adminUpdateSettings", as: "admin", method: "PUT", path: "/admin/settings", body: map[string]any{
 			"features": map[string]bool{"couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": true},
 		}, status: 200},

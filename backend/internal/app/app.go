@@ -115,6 +115,9 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 
 			Markers:         markers,
 			CouchTvAnalysis: couchTvAnalysis,
+			CouchTvLive:     couchtv.NewLive(couchTvStore, cfg.DataDir, cfg.FFmpegPath),
+			CouchTvPrepare: &couchtv.Preparer{Store: couchTvStore, Files: libraryStore, Jobs: jobsStore, Settings: set,
+				DataDir: cfg.DataDir},
 		},
 		stop: stop,
 	}
@@ -172,6 +175,12 @@ func (a *App) Start(ctx context.Context) error {
 	if err := composer.Start(ctx); err != nil {
 		return err
 	}
+	runner.Register(couchtv.PrepareJob, 1, d.CouchTvPrepare.Handle)
+	if err := d.CouchTvPrepare.Start(ctx); err != nil {
+		return err
+	}
+	// the slate is made once, before anything has to air it (a failure is logged)
+	go func() { _ = d.CouchTvLive.Slate.Ensure(ctx) }()
 	// files an older prober read are brought up to date in the background
 	if _, err := d.Jobs.EnqueueJobOnce(ctx, "reprobe", struct{}{}, jobs.EnqueueOpts{}); err != nil {
 		return err

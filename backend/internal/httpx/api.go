@@ -165,6 +165,9 @@ type Routes struct {
 	// Media serves one media file to whoever holds its grant (grant.From):
 	// paths are prefixed with /media/{grant}
 	Media huma.API
+	// Channel serves the Couch TV channel to whoever holds a channel grant:
+	// paths are prefixed with /tv/{grant}
+	Channel huma.API
 	// Artwork admits a signed-in user or the holder of an artwork grant (?g=)
 	Artwork huma.API
 }

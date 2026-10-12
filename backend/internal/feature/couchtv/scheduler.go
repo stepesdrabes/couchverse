@@ -80,7 +80,11 @@ func (s *Scheduler) Handle(ctx context.Context, _ *jobs.Job, report func(int)) e
 	if err != nil {
 		return err
 	}
-	// the breaks of what changed are composed now rather than at the next hourly run
+	// what was just planned gets prepared, and its breaks composed now rather than at
+	// the next hourly run
+	if _, err := s.Jobs.EnqueueJobOnce(ctx, PrepareJob, PreparePayload{}, jobs.EnqueueOpts{}); err != nil {
+		return err
+	}
 	_, err = s.Jobs.EnqueueJobOnce(ctx, ComposeJob, ComposePayload{}, jobs.EnqueueOpts{})
 	return err
 }

@@ -1,8 +1,9 @@
 // Package couchtv runs Couch TV, the live channel (docs/couch-tv-plan.md): the weekly
-// template and its config, the pure schedule generator, the plan job, the per-title
-// analysis for promos and the admin operations. It reads catalog and library tables
-// (media markers included) by SQL join and imports library only to queue its marker
-// analysis; nothing imports it.
+// template and its config, the pure schedule generator, the plan and prepare jobs,
+// the per-title analysis for promos, the live stream and the viewer and admin
+// operations. It reads catalog and library tables (media markers included) by SQL
+// join and imports library to queue marker analysis and program preparation;
+// nothing imports it.
 package couchtv
 
 import "time"
@@ -19,7 +20,8 @@ const (
 	SourceAdmin = "admin"
 )
 
-// StatePlanned is a new row's state; later phases move it on (ready, aired, failed).
+// StatePlanned is a new row's state: couchtv_prepare marks a program ready once its
+// media can air, and an airing is aired once it went on air.
 const StatePlanned = "planned"
 
 // Airing is one schedule row: a program, or the break between two programs.
@@ -47,12 +49,19 @@ type Media struct {
 	CreditsAt time.Duration
 	// Ready is whether the file is prepared for the channel.
 	Ready bool
+	// Cut is the exact time on air couchtv_prepare measured in the file's package
+	// for credits at CutCredits (0: the end); 0 until it did.
+	Cut, CutCredits time.Duration
 }
 
 // onAir is how long a program holds the screen: up to its credits when it has a credits
-// marker (the rest of the credits plays inside the next break's squeeze), else in full.
-// Phase 4 rounds it to the package's segment boundary.
+// marker (the rest of the credits plays inside the next break's squeeze), else in full,
+// cut at its package's segment boundary nearest that once couchtv_prepare measured the
+// package for these credits.
 func (m Media) onAir() time.Duration {
+	if m.Cut > 0 && m.CutCredits == m.CreditsAt {
+		return m.Cut
+	}
 	if m.CreditsAt > 0 && m.CreditsAt < m.Duration {
 		return m.CreditsAt
 	}

@@ -49,18 +49,14 @@ func (s *Store) Locked(ctx context.Context, fn func(*Store) error) error {
 	return tx.Commit(ctx)
 }
 
-// readySQL says whether media file mf is prepared for the channel. Until the channel
-// prepares its own programs (plan 6.3, couchtv_prepare), that is its Playback v2
-// package: the copied source and the audio renditions, plus an H.264 rung for any
-// source other than 8-bit SDR H.264.
-const readySQL = `(EXISTS (SELECT 1 FROM transcode_variants v WHERE v.media_file_id = mf.id
-		AND v.name = 'source' AND v.format = 'fmp4' AND v.status = 'ready')
-	AND NOT EXISTS (SELECT 1 FROM transcode_variants v WHERE v.media_file_id = mf.id
-		AND v.name = 'audio' AND v.status <> 'ready')
-	AND (mf.video_codec = 'h264' AND mf.bit_depth <= 8 AND mf.hdr_format = 'sdr'
-		OR EXISTS (SELECT 1 FROM transcode_variants v WHERE v.media_file_id = mf.id
-			AND v.mode = 'transcode' AND v.format = 'fmp4' AND v.status = 'ready'
-			AND v.name NOT IN ('audio', 'trickplay'))))`
+// readySQL says whether media file mf is prepared for the channel: couchtv_prepare
+// found something in its package the channel can air (couchtv_media).
+const readySQL = `EXISTS (SELECT 1 FROM couchtv_media cm WHERE cm.media_file_id = mf.id)`
+
+// cutSQL is a file's exact time on air and the credits it was measured for, both
+// 0 until couchtv_prepare measured it.
+const cutSQL = `coalesce((SELECT cm.on_air_ms FROM couchtv_media cm WHERE cm.media_file_id = mf.id), 0),
+	coalesce((SELECT cm.credits_at_ms FROM couchtv_media cm WHERE cm.media_file_id = mf.id), 0)`
 
 // primaryFile is the playable file of a title or episode, as playback picks it.
 const primaryFile = `SELECT * FROM media_files WHERE %s ORDER BY (audio_role = 'primary') DESC, height DESC, id LIMIT 1`
@@ -80,7 +76,7 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 	lib := Library{Movies: []Movie{}, Series: []Series{}}
 	rows, err := s.q.Query(ctx, `
 		SELECT t.id, t.name, t.added_at, t.release_date, t.year, coalesce(t.collection_tmdb_id, 0), t.collection_name,
-		       mf.id, mf.duration_seconds::float8, `+readySQL+`, `+creditsSQL+`
+		       mf.id, mf.duration_seconds::float8, `+readySQL+`, `+creditsSQL+`, `+cutSQL+`
 		FROM titles t
 		JOIN LATERAL (`+fmt.Sprintf(primaryFile, "title_id = t.id")+`) mf ON true
 		WHERE t.kind = 'movie' AND t.status = 'published' AND mf.duration_seconds > 0
@@ -94,12 +90,14 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 		var released *time.Time
 		var year, credits *int
 		var seconds float64
+		var cutMs, cutCredits int64
 		if err := rows.Scan(&m.ID, &m.Name, &m.AddedAt, &released, &year, &m.CollectionID, &m.CollectionName,
-			&m.FileID, &seconds, &m.Ready, &credits); err != nil {
+			&m.FileID, &seconds, &m.Ready, &credits, &cutMs, &cutCredits); err != nil {
 			rows.Close()
 			return Library{}, err
 		}
 		m.CreditsAt = msToDuration(credits)
+		m.Cut, m.CutCredits = time.Duration(cutMs)*time.Millisecond, time.Duration(cutCredits)*time.Millisecond
 		switch {
 		case released != nil:
 			m.Released = *released
@@ -117,7 +115,7 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 
 	rows, err = s.q.Query(ctx, `
 		SELECT t.id, t.name, e.id, s.season_number, e.episode_number, mf.id, mf.duration_seconds::float8, `+readySQL+`,
-		       `+creditsSQL+`
+		       `+creditsSQL+`, `+cutSQL+`
 		FROM titles t
 		JOIN seasons s ON s.title_id = t.id AND s.season_number > 0
 		JOIN episodes e ON e.season_id = s.id
@@ -134,10 +132,12 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 		var e Episode
 		var seconds float64
 		var credits *int
-		if err := rows.Scan(&seriesID, &name, &e.ID, &e.Season, &e.Number, &e.FileID, &seconds, &e.Ready, &credits); err != nil {
+		var cutMs, cutCredits int64
+		if err := rows.Scan(&seriesID, &name, &e.ID, &e.Season, &e.Number, &e.FileID, &seconds, &e.Ready, &credits, &cutMs, &cutCredits); err != nil {
 			return Library{}, err
 		}
 		e.Duration, e.CreditsAt = secondsToDuration(seconds), msToDuration(credits)
+		e.Cut, e.CutCredits = time.Duration(cutMs)*time.Millisecond, time.Duration(cutCredits)*time.Millisecond
 		if n := len(lib.Series); n == 0 || lib.Series[n-1].ID != seriesID {
 			lib.Series = append(lib.Series, Series{ID: seriesID, Name: name, Genres: genres[seriesID]})
 		}
@@ -352,9 +352,15 @@ func (s *Store) Swap(ctx context.Context, a Airing, oldEnd time.Time) error {
 		WHERE id = $1`, a.ID, a.TitleID, a.EpisodeID, a.MediaFileID, a.Fill, a.EndsAt, credits); err != nil {
 		return err
 	}
+	return s.moveBreak(ctx, oldEnd, a.EndsAt)
+}
+
+// moveBreak moves the start of the break that started at from to to; its
+// composition no longer fits it.
+func (s *Store) moveBreak(ctx context.Context, from, to time.Time) error {
 	var breakID string
 	err := s.q.QueryRow(ctx, `UPDATE couchtv_airings SET starts_at = $1 WHERE kind = 'break' AND starts_at = $2 RETURNING id`,
-		a.EndsAt, oldEnd).Scan(&breakID)
+		to, from).Scan(&breakID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -362,6 +368,78 @@ func (s *Store) Swap(ctx context.Context, a Airing, oldEnd time.Time) error {
 		return err
 	}
 	_, err = s.q.Exec(ctx, `DELETE FROM couchtv_breaks WHERE airing_id = $1`, breakID)
+	return err
+}
+
+// SaveMedia records that a file can air from its video rendition for onAir ms
+// with its credits at credits (0: none).
+func (s *Store) SaveMedia(ctx context.Context, fileID, video string, onAir int64, credits time.Duration) error {
+	var c *int64
+	if credits > 0 {
+		ms := credits.Milliseconds()
+		c = &ms
+	}
+	_, err := s.q.Exec(ctx, `
+		INSERT INTO couchtv_media (media_file_id, video, on_air_ms, credits_at_ms) VALUES ($1, $2, $3, $4)
+		ON CONFLICT (media_file_id) DO UPDATE SET video = EXCLUDED.video, on_air_ms = EXCLUDED.on_air_ms,
+			credits_at_ms = EXCLUDED.credits_at_ms, checked_at = now()`, fileID, video, onAir, c)
+	return err
+}
+
+// ForgetMedia records that a file cannot air (any more).
+func (s *Store) ForgetMedia(ctx context.Context, fileID string) error {
+	_, err := s.q.Exec(ctx, `DELETE FROM couchtv_media WHERE media_file_id = $1`, fileID)
+	return err
+}
+
+// FitPrograms makes the planned programs starting in (from, to) end where their
+// prepared media leaves the air, moving the break after each; a program that
+// would then run into the next one keeps its row.
+func (s *Store) FitPrograms(ctx context.Context, from, to time.Time) error {
+	rows, err := s.q.Query(ctx, `
+		SELECT a.id, a.ends_at, a.starts_at + cm.on_air_ms * interval '1 millisecond'
+		FROM couchtv_airings a JOIN couchtv_media cm ON cm.media_file_id = a.media_file_id
+		WHERE a.kind = 'program' AND a.state <> 'replaced' AND a.origin IS NULL AND a.starts_at > $1 AND a.starts_at < $2
+		  AND cm.credits_at_ms IS NOT DISTINCT FROM a.credits_at_ms
+		  AND a.ends_at <> a.starts_at + cm.on_air_ms * interval '1 millisecond'
+		  AND a.starts_at + cm.on_air_ms * interval '1 millisecond' < coalesce((SELECT min(n.starts_at) FROM couchtv_airings n
+		      WHERE n.kind = 'program' AND n.state <> 'replaced' AND n.starts_at > a.starts_at), 'infinity')`, from, to)
+	if err != nil {
+		return err
+	}
+	type fit struct {
+		id       string
+		old, new time.Time
+	}
+	fits, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (fit, error) {
+		var f fit
+		err := r.Scan(&f.id, &f.old, &f.new)
+		return f, err
+	})
+	if err != nil {
+		return err
+	}
+	for _, f := range fits {
+		if _, err := s.q.Exec(ctx, `UPDATE couchtv_airings SET ends_at = $2 WHERE id = $1`, f.id, f.new); err != nil {
+			return err
+		}
+		if err := s.moveBreak(ctx, f.old, f.new); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// MarkStates marks the programs starting in [from, to) ready or not as their
+// media is, and the airings that ended by from aired.
+func (s *Store) MarkStates(ctx context.Context, from, to time.Time) error {
+	if _, err := s.q.Exec(ctx, `
+		UPDATE couchtv_airings a SET state = CASE WHEN EXISTS (SELECT 1 FROM couchtv_media cm
+			WHERE cm.media_file_id = a.media_file_id) THEN 'ready' ELSE 'planned' END
+		WHERE a.kind = 'program' AND a.state IN ('planned', 'ready') AND a.starts_at >= $1 AND a.starts_at < $2`, from, to); err != nil {
+		return err
+	}
+	_, err := s.q.Exec(ctx, `UPDATE couchtv_airings SET state = 'aired' WHERE ends_at <= $1 AND state IN ('planned', 'ready')`, from)
 	return err
 }
 

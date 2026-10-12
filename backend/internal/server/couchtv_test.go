@@ -130,10 +130,10 @@ func TestCouchTvPlanJob(t *testing.T) {
 		t.Errorf("the plan ends at %s, less than a week ahead", end)
 	}
 
-	// the pilot gets prepared (its HEVC source copied, an H.264 rung): an unprepared
-	// episode about to air gives way to it
-	if _, err := env.pool.Exec(ctx, `INSERT INTO transcode_variants (media_file_id, name, mode, status, format) VALUES
-		($1, 'source', 'copy', 'ready', 'fmp4'), ($1, '720p', 'transcode', 'ready', 'fmp4')`, hdrFileID); err != nil {
+	// the pilot gets prepared (couchtv_prepare found an H.264 rung to air): an
+	// unprepared episode about to air gives way to it
+	if _, err := env.pool.Exec(ctx, `INSERT INTO couchtv_media (media_file_id, video, on_air_ms) VALUES ($1, '720p', 2516000)`,
+		hdrFileID); err != nil {
 		t.Fatal(err)
 	}
 	run()

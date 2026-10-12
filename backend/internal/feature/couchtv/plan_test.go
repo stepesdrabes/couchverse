@@ -874,3 +874,19 @@ func TestSmallLibraries(t *testing.T) {
 		})
 	}
 }
+
+func TestOnAirUsesTheMeasuredCut(t *testing.T) {
+	m := Media{Duration: 22 * time.Minute, Cut: 21*time.Minute + 54*time.Second}
+	if got := m.onAir(); got != m.Cut {
+		t.Errorf("measured for its end: %s", got)
+	}
+	// credits found since: the cut was measured for the end, so the credits rule
+	m.CreditsAt = 21 * time.Minute
+	if got := m.onAir(); got != m.CreditsAt {
+		t.Errorf("credits since: %s", got)
+	}
+	m.Cut, m.CutCredits = 21*time.Minute+3*time.Second, 21*time.Minute
+	if got := m.onAir(); got != m.Cut {
+		t.Errorf("measured for the credits: %s", got)
+	}
+}
