@@ -417,6 +417,51 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
 - **Loudness**: programs are measured once (`couchtv_analyze`); a break is mixed at the
   loudness of the program around it (clamped to -23..-16 LUFS), so breaks never blast.
 
+**Settled in Phase 3** (`couchtv.Compose`, `couchtv.Composer`; FEATURES.md "couchtv"):
+- **Order**: squeeze (`line` handover into the short ident; `expand` straight into up next
+  when a break is too short for an ident, 17.5 to 22 s), ident (the full cut when the next
+  program is the evening movie: `movie`, `premiere`, `saga`), promos, then the lineup (only
+  when the break ends on the hour and a promo still fits beside it), stings, up next. The
+  minimum is 22 s; under 2 s nothing fits and the break fails over to the evergreen one.
+- **Closing the gap**: up next (6-12 s), the lineup (10-16 s) and stings (2-6 s, as few as
+  possible) take up whatever the fixed parts leave, every part at its default before any
+  grows further; promos may borrow what up next and the lineup can give back. Lengths are
+  whole frames; a gap that is not (a program airing to a segment boundary) is rounded to the
+  nearest frame, and the live stream fits the item to its slot.
+- **Promos**: each title at its first airing after the break, ranked by its fill's weight
+  (premiere 6, movie and saga 2, strip and marathon 1.5, matinee 1, the rest 0.4) over one
+  plus the days until it airs; the next program is left out (up next announces it) and the
+  titles of the last three breaks come last. A title gets the full promo (body plus end
+  card) once its body is rendered (bodies are requested as soon as a break could use them),
+  the strip promo when it is a strip at a fixed time, else the short promo. A gap longer
+  than one round of candidates starts another round after a short ident (very long gaps
+  repeat promos; with nothing to promote the full ident repeats), so the planner's fillers
+  matter for long gaps.
+- **Phrases**: `Today`, `Tonight` (from 17:00), `Tomorrow`, `This week` with the day,
+  `Premiere` with the day; strips `Every night`/`Every day` (all week), `Every weekday`, else
+  `Every week`, with their days lit.
+- **Inputs**: English names and taglines (the base text when the base language is English,
+  else the English translation; the tagline split in two near the middle, at punctuation if
+  close); backdrop original and poster w780; footage shots from `couchtv_titles.shots` as
+  `[{mediaFileId, startMs, durationMs, score}]`, else stills from the artwork; the bed is the
+  promo soundtrack excerpt, else none (the template's own sound); the mood from
+  `couchtv_titles.mood`, else from the genres. The squeeze shows the program from where it
+  left the air (the break's start), only when credits markers exist; otherwise the program
+  aired in full and the squeeze shows its backdrop without a credits roll.
+- **Loudness**: `couchtv_titles.loudness_lufs` (new, for `couchtv_analyze` to fill) of the
+  program before the break, else after it, clamped to -23..-16 LUFS, else -18. Clips render at
+  the default -18 (their sound is only heard on its own); only the break spec carries the
+  break's loudness.
+- **Evergreen**: the full ident, up to three rendered promo bodies (by title name) with the
+  evergreen end card, the short ident. The broadcast package has no generic up next, so the
+  live stream cuts the evergreen break to the gap and loops the standby card past its end.
+  It is recomposed whenever its clips' keys change; the newest assembled one is kept.
+- **Lifecycle**: the compose job runs at startup, after every plan run and hourly, composing
+  the next 48 h; a replan or swap drops a break's composition with its airing; a failed break
+  is composed again after 6 h, a failed clip is requeued when a break asks for it again.
+  Renders are queued soonest-airing first (the job priority is minus the airing's minute;
+  the evergreen break and standby card first of all).
+
 ### 6.6 The live stream
 - **Channel grant**: `grant.Grant{Scope: Channel, Subject: user or guest, Resource:
   "couchtv"}` (6 h, re-issued on the socket). Routes on a new `Routes.Channel` group under
@@ -475,6 +520,50 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   nexts, lineups, end cards) at ~2.5 fps is **~2-2.5 h of rendering a day**, minus static
   holds; promo bodies are one-off (~20 s per title, ~1.5 h for today's library). Renders run
   ~48 h ahead.
+
+**As built (Phase 3)**; the full reference is FEATURES.md "couchtv".
+- **Process**: `couchverse render` is the same program as the app, built without the SPA for
+  its image (the Dockerfile's `render` target: Debian trixie `chromium`, `ffmpeg`, Mesa GL and
+  EGL; compose service `render` behind the `render` profile with `/dev/dri`, `/dev/video11`,
+  the data volume, `mem_limit: 1g`, `cpus: 2`). It waits for the app's migrations, lowers its
+  priority to nice 10 (Chromium and ffmpeg inherit it) and works only `couchtv_render` and
+  `couchtv_assemble`, one job at a time. A job runner now requeues only the running jobs of
+  its own types at start (the sidecar and the app never requeue each other's), and
+  `Runner.Yield` keeps renders from being claimed while a `transcode_hls` runs anywhere.
+- **Keys**: the sidecar publishes the bundle's template versions (`couchtvRender.versions()`)
+  in settings key `couchtv_render` at start, with a heartbeat after every job; the app keys a
+  clip as a hash of its template's version and its spec and composes nothing until a sidecar
+  has published. Media in specs are URLs on the sidecar's localhost server that say what they
+  are cut from (`/media/v1/artwork/<id>?v=<version>`, `/media/v1/frames/<file>/<start
+  ms>_<count>/<n>.jpg`, `/media/v1/audio/<file>/<start ms>_<length ms>.flac`; `v1` is the
+  extraction recipe), so a new image, file or recipe makes a new key and nothing else needs
+  versioning.
+- **Media**: extracted once before a clip loads (footage and the squeeze's program both as
+  frames: 25 fps, square pixels, within 1080p, SDR tone-mapped through `playback.SDRFilter`;
+  beds as stereo FLAC of the default track), touched on reuse, pruned after 14 days unused.
+- **Frame loop**: one CDP evaluate per frame (`isStatic` against the previous frame, else
+  `seek`) and one `captureScreenshot` (JPEG q92, `optimizeForSpeed`, from the surface); a
+  static frame reuses the previous JPEG. ffmpeg reads them with `image2pipe` and writes the
+  video rendition directly: libx264 `veryfast`, `-tune animation`, CRF 18, High@4.0, a 2 s
+  GOP without scene cuts (an IDR at the first frame), JPEG's full-range BT.601 converted to
+  limited-range BT.709 and tagged so.
+- **Sound**: the page posts `renderAudio()`'s WAV back to the sidecar's server (a long break's
+  sound is too big for base64 over CDP); AAC 192k. A break's sound renders as one break spec,
+  split into parts that start at most 120 s apart (cut where a clip starts) so the page never
+  holds more than a couple of minutes of float audio; its length is checked to the sample.
+- **Packages**: a clip (`couchtv/clips/<key>`) and a break (`couchtv/breaks/<id>`) are laid
+  out like a Playback v2 package (`source/` video and `audio-1-aac/` English stereo, each
+  with `rendition.json`, 6 s fMP4 segments on the package timeline through
+  `playback.RenditionArgs`, plus a `master.m3u8` for checking), so
+  `playback.ReadPackageDir` reads them and `validate-hls` checks them; the video is checked
+  to the frame. Assembly joins the clips' video by stream copy (each clip's init and segments
+  end to end as one fMP4, the concat demuxer at exact lengths) and segments it with the
+  break's sound in one ffmpeg run.
+- **For the live stream**: `Store.ReadyBreak(airing)`, `Store.Evergreen()` (the newest
+  assembled evergreen break, to cut to a gap) and `Store.Standby()` (the 12 s standby card, a
+  seamless loop).
+- **Leaks and failures**: Chromium restarts every 25 jobs (decoded artwork is cached
+  for the page's life); any failed job closes it so the next starts clean.
 
 ### 6.8 The broadcast package
 - `clients/broadcast/`: a small TypeScript bundle (Vite library build, no framework), using
@@ -706,6 +795,81 @@ TV and a laptop side by side: three boundaries without a stall or a blank frame 
 720p24 to 1080p25/30), left/right switches audio, up/down subtitles, cues on time, the
 on-screen program date within 2 s of the laptop's, and no memory growth over the 30 minutes.
 
+### Spike results: S2 (render pipeline), 2026-10-12, local
+
+**What ran** (an M1 Pro, 8 cores; the pipeline of 6.7 as built). Speeds are whole jobs (media
+extraction, load, every frame captured and encoded, the sound rendered and encoded, the
+package written), 1080p25, no static frame in any of these clips:
+
+| Run | Clip (frames) | fps |
+|---|---|---|
+| `TestCouchTvRender`, macOS, Playwright's headless shell, no GPU flags | squeeze over a program's frames (275) | 8.8 |
+| | short ident (125), sting (52) | 10.3, 9.7 |
+| `scripts/couchtv-s2.sql` + `couchverse render`, macOS, same browser | squeeze over a file's frames (275) | 7.8 |
+| | short ident (125), sting 6 s (150), up next (200) | 9.0, 10.0, 9.4 |
+| | short promo (225, twice), lineup (300) | 5.6, 6.0, 8.8 |
+| the `render` image (Debian trixie `chromium`, software GL), Docker Desktop arm64, `--memory 1g --cpus 2` | standby (300), full ident (288), short ident (125) | 8.4, 8.7, 7.7 |
+
+- **The 60 s break** (`couchtv-s2.sql`: squeeze, short ident, short promo, lineup, 6 s sting,
+  short promo, up next; 1500 frames): rendered in 197 s (7.6 fps on average, with the backend
+  test suite running alongside), assembled in 9 s (its 60 s of sound rendered in the page,
+  the clips joined by stream copy, AAC encoded, segmented); exactly 1500 frames, -20.0 LUFS
+  integrated as the spec asked, `validate-hls` 0 errors (one warning: no I-frame playlist).
+- **The image end to end**: the sidecar container against an app on a throwaway database
+  published its versions, the app composed the evergreen break and standby card, the
+  container rendered them and assembled the evergreen break (413 frames, 3.6 s); peak
+  container memory **833 MiB** of the 1 GiB cap (Chromium, ffmpeg and the Go process).
+- **Encoding** is never the bottleneck: capture and paint are (two CDP round trips per
+  frame). Static holds were not exercised; today's templates keep motion in every frame
+  (6.8).
+
+**To measure on the Pi** (the exit criterion; nothing here touches the production database or
+caches: a throwaway database, a scratch `DATA_DIR` with the movies mounted read-only):
+
+```sh
+# On the Mac, from this branch: both images for the Pi
+docker buildx build --platform linux/arm64 -t couchverse:s2 --load .
+docker buildx build --platform linux/arm64 --target render -t couchverse-render:s2 --load .
+docker save couchverse:s2 couchverse-render:s2 | gzip > /tmp/couchverse-s2.tar.gz
+scp /tmp/couchverse-s2.tar.gz scripts/couchtv-s2.sql pi:/tmp/
+
+# On the Pi, in the compose directory (its .env sets DB_PASSWORD, MEDIA_ROOT, PUID, PGID)
+set -a; . ./.env; set +a
+gunzip -c /tmp/couchverse-s2.tar.gz | docker load
+NET=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' $(docker compose ps -q db))
+S2=$MEDIA_ROOT/../couchtv-s2
+mkdir -p $S2/media/movies $S2/media/series && sudo chown -R ${PUID:-1000}:${PGID:-1000} $S2
+RUN="docker run --network $NET --user ${PUID:-1000}:${PGID:-1000} -e DATA_DIR=/s2
+  -e DATABASE_URL=postgres://couchverse:$DB_PASSWORD@db:5432/couchtv_s2
+  -v $S2:/s2 -v $MEDIA_ROOT/media/movies:/s2/media/movies:ro"
+docker compose exec db psql -U couchverse -c 'CREATE DATABASE couchtv_s2'
+# the new app migrates the throwaway database, then goes
+$RUN -d --name s2-app -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD=s2 couchverse:s2
+until docker logs s2-app 2>&1 | grep -q listening; do sleep 1; done; docker rm -f s2-app
+# a 60 s break cut from one movie (its path under media/movies; 20 minutes in)
+docker compose exec -T db psql -U couchverse -d couchtv_s2 \
+  -v file='Iron Man (2008)/Iron Man (2008).mkv' -v start_ms=1200000 < /tmp/couchtv-s2.sql
+# the sidecar as the compose service runs it: GPU, V4L2 encoder, 1 GB, two CPUs
+$RUN -d --name s2-render --memory 1g --cpus 2 --device /dev/dri --device /dev/video11 \
+  --group-add video --group-add "$(getent group render | cut -d: -f3)" couchverse-render:s2
+until docker logs s2-render 2>&1 | grep -qE 'assembled a break|ERROR'; do
+  docker stats --no-stream --format '{{.MemUsage}}' s2-render >> /tmp/s2-mem.txt; sleep 2; done
+docker logs s2-render 2>&1 | grep -E 'rendered a clip|assembled|WARN|ERROR'   # fps per clip
+sort -h /tmp/s2-mem.txt | tail -1                                             # peak memory
+docker run --rm -v $S2:/s2 --entrypoint couchverse couchverse:s2 \
+  validate-hls /s2/couchtv/breaks/00000000-0000-4000-8000-00000000e2ff/master.m3u8
+# clean up
+docker rm -f s2-render
+docker compose exec db psql -U couchverse -c 'DROP DATABASE couchtv_s2 WITH (FORCE)'
+sudo rm -rf $S2; rm -f /tmp/couchverse-s2.tar.gz /tmp/couchtv-s2.sql /tmp/s2-mem.txt
+docker image rm couchverse:s2 couchverse-render:s2
+```
+
+Record per clip fps (the plan budgets ~2.5 fps with the GPU), the break's assembly time, the
+peak memory (under 1 GiB) and the validator's verdict here. The script's media file row is
+not probed, so pick an SDR source (an HDR one would be cut without tone mapping), and one
+whose source is still on disk (a file removed after transcoding cannot be cut from yet).
+
 ### Phase 1: Foundations
 Flag, settings (time zone, template), migrations, the pure generator + `couchtv_plan`, the
 markers table + `analyze_markers`, tagline and collection metadata, the admin EPG
@@ -719,6 +883,9 @@ preview.
 ### Phase 3: Rendering
 The render sidecar, the clip cache, `couchtv_analyze`, `couchtv_compose`,
 `couchtv_assemble`, render health. **Exit**: 48 h of breaks rendered on the Pi within budget.
+Built (2026-10-12): the sidecar, clip cache, compose and assemble jobs, render health and
+pruning (6.5 "Settled in Phase 3", 6.7 "As built", S2 results); `couchtv_analyze` fills
+`couchtv_titles` separately. The Pi measurement (S2's commands) is still to run.
 
 ### Phase 4: The live stream
 Channel grants, playlist builder (video, audio, subtitles), `couchtv_prepare`, fallbacks,

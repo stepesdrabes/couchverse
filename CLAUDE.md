@@ -88,6 +88,18 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     renders the tree with `lib/components/ui/Markdown.svelte` (`MarkdownBlocks`/
     `MarkdownInlines`), native clients with their own views. Never add an `{@html}` path or
     render user markdown any other way.
+  - **Couch TV rendering** (FEATURES.md "couchtv"): the app composes breaks
+    (`couchtv_compose`); the **render sidecar** (`couchverse render`, the Dockerfile's `render`
+    target, compose profile `render`) is a second process on the same database and
+    `DATA_DIR` that registers only `couchtv_render` and `couchtv_assemble`, which the app
+    never registers, and drives one headless Chromium over CDP. A runner requeues only its own
+    types at start; a render yields to `transcode_hls` (`Runner.Yield`). A clip's cache key
+    hashes its template's `version` (published by the sidecar from the bundle) and its spec,
+    whose `/media/v1/...` URLs say what they are cut from, so a changed input or template
+    makes a new key: bump a template's version whenever its picture or sound changes. Specs
+    are checked against the broadcast schema before they are stored. Rendered clips and
+    breaks are packages like a media file's (`playback.ReadPackageDir`), written through
+    `playback.RenditionArgs`/`InputArgs`.
 - **Auth**: browsers use the httpOnly session cookie (CSRF Origin check); native clients are
   named **device sessions** sending `Authorization: Bearer` (`POST /auth/token`, RFC 8628-style
   pairing under `/auth/pairings` approved at `/me/pairings/{code}`, one-time connect codes).
@@ -241,7 +253,8 @@ A feature owns its HTTP handlers, domain logic and SQL together.
 - `backend/` - Go (chi, pgx/v5, goose migrations embedded in `backend/migrations/`). Module
   name `couchverse`. The built SPA is embedded from `backend/web/dist` (gitignored,
   populated by `make build`/Docker) with precompressed `.br`/`.gz` siblings, which the SPA
-  handler serves by `Accept-Encoding`.
+  handler serves by `Accept-Encoding`; the Couch TV render page likewise from
+  `backend/broadcast/dist` (`clients/broadcast`'s build), which only the render sidecar serves.
 - `clients/web/` - SvelteKit (Svelte 5 runes), static SPA (`adapter-static`, `ssr=false`,
   fallback index.html). **bits-ui** primitives styled with **Tailwind v4** (colour and radius
   tokens come from the generated `src/lib/generated/tokens.css`, imported by `src/app.css`,
@@ -292,7 +305,9 @@ A feature owns its HTTP handlers, domain logic and SQL together.
 - `docker compose up db -d` then `make run-backend` (Go on :8080) + `make run-web` (Vite on :5173, proxies /api).
   Dev .env: `DB_PASSWORD=couchverse` so the Makefile default DSN works.
 - `make lint` (go vet [+ golangci-lint if installed]), `make check` (svelte-check + prettier +
-  eslint + vitest), `make test`, `make build` (wasm core -> SPA -> embed -> binary). `make
+  eslint + vitest), `make test`, `make build` (wasm core -> SPA and broadcast bundle -> embed
+  -> binary). `COUCHVERSE_RENDER_TEST=1 make test` also renders and assembles clips in a local
+  Chromium (`CHROMIUM_PATH`; the bundle from `make broadcast`). `make
   run-web`/`check` build the wasm core once if `lib/core/pkg` is missing; rerun `make
   core-wasm` after a core change.
 - `make contract` after any change to an operation, a schema type, the couch protocol, i18n,

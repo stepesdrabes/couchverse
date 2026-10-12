@@ -331,7 +331,10 @@ The Postgres-backed job queue (no Redis): enqueue/claim with `FOR UPDATE SKIP LO
 per-type concurrency slots, retries with backoff, progress reporting, admin
 cancellation, and the in-process worker runner. Other features register handlers in
 `internal/app` (`App.Start`); the hourly `cleanup` handler lives there too
-(`internal/app/cleanup.go`).
+(`internal/app/cleanup.go`). A second process may work the same queue (the Couch TV render
+sidecar registers `couchtv_render` and `couchtv_assemble`, which the app never does): at
+start a runner requeues only the running jobs of the types it registered, and
+`Runner.Yield` keeps a type from being claimed while a job of other types runs anywhere.
 - Endpoints (admin): `/admin/jobs` (supports `?mediaFileId=` and returns a `subject`
   per job - the title/episode/track it works on, resolved by SQL joins from the
   payload), `/admin/jobs/{id}/retry|cancel`.
@@ -648,6 +651,65 @@ server that does not send it). The admin settings page toggles it.
   its plan once it has one (frozen); the rest is replanned under an advisory lock and stored
   by diff, so unchanged rows keep their ids; then the swaps. It runs while the flag is off, so
   the schedule can be reviewed first.
+- **Break composition** (Phase 3, `couchtv.Compose`, pure, rules in `compose_test.go`): a break
+  is filled to the frame (25 fps) with the D17 mix: the credits squeeze (`line` into the
+  ident; `expand` straight into up next when no ident fits), the short ident (the full one
+  before a prime-time movie, `movie`/`premiere`/`saga`), promos while they fit, the lineup
+  when the break ends on the hour and a promo still fits beside it, and up next. Up next
+  (6-12 s), the lineup (10-16 s) and stings (any whole number of frames from 2 to 6 s, as few
+  as possible, before the lineup and up next first, then between promos) take up the rest;
+  under 2 s nothing fits (the break fails over to the evergreen one). Promos are ranked by a
+  fill's weight (premiere 6, movie and saga 2, strip and marathon 1.5, matinee 1, the rest
+  0.4) over one plus the days until the title next airs, the next program left out and the
+  last three breaks' titles last; a title gets its full promo (rendered body plus an end
+  card with the airing phrase) when the body is rendered, a strip promo when it is a strip
+  at a fixed time ("Every weekday 18:00"), else a short promo, and a gap longer than one
+  round of the candidates starts another after a short ident. Airing phrases (`Today`,
+  `Tonight` from 17:00, `Tomorrow`, `This week` + day, `Premiere` + day) mirror the broadcast
+  package's `airing.ts`. The break's sound is one break spec at the loudness of the program
+  before it (else after it), clamped to -23..-16 LUFS, -18 when unmeasured
+  (`couchtv_titles.loudness_lufs`). `ComposeEvergreen` is the fallback: the full ident, up
+  to three rendered promo bodies with the evergreen end card, the short ident.
+- **The `couchtv_compose` job** (`couchtv.Composer`, app): at startup, after every plan run and
+  hourly, it composes every break of the next 48 hours that has no composition (a failed one
+  again after 6 h), and keeps the standby card and an evergreen break of the current
+  templates. It waits until a render sidecar has published its templates' versions (settings
+  key `couchtv_render`), since a clip's cache key is a hash of its template's version and its
+  spec. Specs are checked against `contract/broadcast-spec.schema.json` (embedded, copied by
+  `make contract`) and use English names and taglines (D13). Media in specs are localhost URLs
+  that say what they are cut from (`/media/v1/artwork/<id>?v=<version>`,
+  `/media/v1/frames/<file>/<start ms>_<count>/<n>.jpg`, `/media/v1/audio/<file>/<start
+  ms>_<length ms>.flac`), so a replaced image or file changes the key. The squeeze takes the
+  program's frames and sound from where it left the air (its backdrop when it airs in full);
+  promos take `couchtv_titles` (footage shots `[{mediaFileId, startMs, durationMs, score}]`,
+  else stills from the artwork; the promo soundtrack excerpt as the bed, else none; the mood,
+  else one from the genres). Clips are requested in `couchtv_clips` (`needed_at` the earliest
+  air time, `last_used_at` touched) and their renders queued soonest-airing first; missing
+  promo bodies are requested for later breaks.
+- **The render sidecar** (`couchverse render`, plan 6.7; `couchtv.Renderer`): a separate process
+  on the same database and `DATA_DIR` that registers only `couchtv_render` and
+  `couchtv_assemble` (the app never does), runs one job at a time and claims a render only
+  while no `transcode_hls` job runs (`jobs.Runner.Yield`), at nice 10. It serves the embedded
+  broadcast bundle (`backend/broadcast`, `make build`) and the media above on localhost to one
+  headless Chromium (chromedp; GPU flags on Linux when `/dev/dri` exists; restarted every 25
+  jobs) and publishes `versions()` at start. A render extracts its media first (frames
+  1080p, square pixels, SDR via `playback.SDRFilter`, the source's last frame repeated past
+  its end; stereo FLAC of the default track), then per frame `seek(t)` and a JPEG q92 capture
+  (a frame `isStatic` reuses the last one) piped to libx264 (veryfast, `-tune animation`,
+  CRF 18, High@4.0, an IDR every 2 s and at the first frame, BT.709 limited range), then the
+  page's `renderAudio()` posted back as a WAV and encoded AAC 192k. An assembly renders the
+  break's sound in one pass (in parts of at most 120 s for long breaks), joins the clips'
+  video by stream copy (each clip's init and segments as one fMP4, the concat demuxer at
+  exact lengths) and segments both. Clips (`couchtv/clips/<key>`) and breaks
+  (`couchtv/breaks/<id>`) are packages like a media file's (`source/` and `audio-1-aac/`
+  with `rendition.json`, 6 s segments on the package timeline, plus a `master.m3u8`), read
+  with `playback.ReadPackageDir`; the video's length is checked to the frame. The live stream
+  reads `Store.ReadyBreak`, `Store.Evergreen` (cut to the gap) and `Store.Standby` (a
+  seamless loop).
+- **Pruning** (the hourly cleanup, `couchtv.Prune`): an aired break's package after an hour
+  (its row after a week), clips nobody asked for in 14 days unless a waiting break uses them,
+  evergreen breaks older than the newest assembled one, extracted media unused for 14 days,
+  work directories after a day.
 - Endpoints (admin, not flag-gated, like `/admin/ranks`): `GET/PUT /admin/couchtv`
   (`adminGetCouchTv`, `adminUpdateCouchTv`: config plus `plannedUntil`; a save validates
   pinned titles against their slot and queues a replan), `GET /admin/couchtv/airings?from&to`
@@ -661,7 +723,11 @@ server that does not send it). The admin settings page toggles it.
   markers and its whole analysis again) and `GET
   /admin/couchtv/media-files/{id}/waveform?fromMs&toMs&points` (`adminCouchTvWaveform`: the
   promo audio picker's waveform, the loudest momentary loudness per step, at most 15
-  minutes a request; `file_missing`/`source_deleted` 404 without the source).
+  minutes a request; `file_missing`/`source_deleted` 404 without the source),
+  `GET /admin/couchtv/render` (`adminCouchTvRenderHealth`: when the sidecar last worked, the
+  render queue in clips and seconds of video with the measured speed and the time it takes
+  against when the first waiting clip airs, the next 48 hours of breaks by state with those
+  at risk, the evergreen break and standby card, the latest failures, the disk renders take).
 - **The `couchtv_analyze` job** (`couchtv.Analyzer`, one slot, low priority, nice'd; plan 6.3):
   per title (published, not excluded), queued a few minutes after its markers change
   (`Analyzer.Queue`, the library hook), by the admin's analyze, and by a backfill at every
@@ -681,8 +747,11 @@ server that does not send it). The admin settings page toggles it.
   failures leave a part empty and are logged.
 - Tables: `couchtv_airings` (programs and breaks, UTC; `fill`, `slot`, `source`, `locked`,
   `state`, `credits_at_ms`), `couchtv_strips`, `couchtv_titles` (`excluded`, promo audio,
-  `shots` with `shots_source`, `mood`, `loudness_lufs`, `analyzed_version`/`analyzed_at`),
-  `couchtv_clips` and `couchtv_breaks` (later phases); `titles` gained `tagline`,
+  `shots` with `shots_source`, `mood`, `loudness_lufs`, `analyzed_version`/`analyzed_at`; the
+  planner reads `excluded`, the composer the rest), `couchtv_clips` (kind, key, spec, state,
+  version, duration, path, size, `render_ms`, `needed_at`, `last_used_at`), `couchtv_breaks`
+  (an airing's composition or an `evergreen` one: the recipe with its clips, frame offsets,
+  sound spec and promoted titles; state, package path); `titles` gained `tagline`,
   `collection_tmdb_id`, `collection_name`.
 - Tests: `couchtv/plan_test.go` (the rules, airing to the credits), `couchtv/analysis_test.go`
   (promo and shot picks, the waveform), `library/fingerprint_test.go` and `credits_test.go`
@@ -691,7 +760,13 @@ server that does not send it). The admin settings page toggles it.
   database: a gapless week, the next daily run, a no-op replan, frozen days and a locked row
   kept, a swap), `TestMediaAnalysis` (a generated movie with a crawl, analyzed end to end; a
   season matched from cached production fingerprints; the admin's none),
-  `TestCouchTvConfigStored`, `TestApplyMetadataTaglineAndCollection`.
+  `TestCouchTvConfigStored`, `TestApplyMetadataTaglineAndCollection`;
+  `couchtv/compose_test.go` (every gap up to half an hour filled exactly with valid specs, the
+  mix, promo ranking, clocks, loudness, phrases, the evergreen break), `TestCouchTvComposeJob`
+  (a week of breaks composed on the seeded database, idempotent, assembly queued as clips
+  render), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
+  from `CHROMIUM_PATH` or installed, the bundle from `make broadcast`): renders a squeeze over a
+  generated program, an ident and a sting, assembles them and validates every package.
 
 ## Internationalization & multi-language media (cross-cutting)
 
@@ -1578,9 +1653,11 @@ approves is what airs.
   squeeze's program rectangle `{x, y, width, height, radius, opacity}` in stage pixels;
   `setLayer('matte' | 'picture')`; `renderAudio()` is a 48 kHz stereo 32-bit float WAV of the
   loaded clip or break, normalized to its loudness with the true peak at or under -1 dBTP
-  (`renderAudioBase64()` for CDP, `audioReport()` for the measured loudness and gain). Today's
-  templates keep some motion in every frame (a breathing dot, a slow push), so static holds
-  are rare.
+  (`renderAudioBase64()` for CDP, `audioReport()` for the measured loudness and gain);
+  `versions()` names every template's version (the sidecar publishes it, so the app keys clips
+  without a browser). Today's templates keep some motion in every frame (a breathing dot, a
+  slow push), so static holds are rare. The sidecar posts `renderAudio()`'s WAV back to its
+  own server rather than moving base64 over CDP (a long break's sound is large).
 - **Determinism rule**: every frame and every audio sample is a function of t and the spec.
   Animations are paused Web Animations whose start is folded into `delay`, so a frame is the
   browser's own evaluation at `currentTime = t`; values that change (counters, footage frames)
@@ -1632,8 +1709,9 @@ playback -> {auth, catalog, library, subtitles}
 ranks -> {auth, catalog}  (near-leaf; nothing imports ranks)
 downloads -> {auth, catalog, library, subtitles, playback}  (nothing imports downloads)
 couch -> {playback, auth}  (top of the DAG; nothing imports couch)
-couchtv -> {catalog, library}  (nothing imports couchtv; reads media, variant and marker
-            tables by SQL, imports library to queue its marker analysis)
+couchtv -> {catalog, library, artwork, playback}  (nothing imports couchtv; reads media,
+            variant and marker tables by SQL, imports library to queue its marker analysis;
+            playback's exported package helpers write and read its renders)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
 ```
