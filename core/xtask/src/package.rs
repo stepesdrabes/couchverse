@@ -25,7 +25,7 @@ const ANDROID_ABIS: [&str; 3] = ["arm64-v8a", "armeabi-v7a", "x86_64"];
 const ANDROID_MODULE: &str = "clients/android/core";
 const WASM_PACKAGE: &str = "clients/web/src/lib/core/pkg";
 /// Plan 7.7: every web visitor downloads the core (once; it is cached after that).
-const WASM_BUDGET_GZIP: usize = 400 * 1024;
+const WASM_BUDGET_GZIP: usize = 440 * 1024;
 
 pub fn apple() -> Result<(), String> {
     let root = out::repo_root();

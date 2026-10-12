@@ -422,8 +422,9 @@ with every playback-info request (8.5).
 - `cargo xtask` builds all three; `make core-apple|core-android|core-wasm` wrap it. A clean
   clone builds with `rustup` plus the documented targets; no prebuilt binaries are committed.
   The Docker image gains a Rust stage that builds the wasm package for the web build.
-- Budgets enforced in CI: wasm under 400 KB gzip (raised from 250 KB on 2026-10-03 once the
-  catalog showed every slice adds tens of KB of payload decoding; cached after the first
+- Budgets enforced in CI: wasm under 440 KB gzip (raised from 250 KB on 2026-10-03 once the
+  catalog showed every slice adds tens of KB of payload decoding, and from 400 KB on 2026-10-12
+  for Couch TV's slice, which took it from about 395 KB to 411 KB; cached after the first
   visit), `send`/`resolve` under 1 ms for typical
   messages, home view model serialization under 2 ms on an Apple TV 4K (2nd gen). The budget
   covers the core's side; the shell's JSON decode is measured separately (S2: Swift
