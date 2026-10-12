@@ -664,7 +664,11 @@ server that does not send it). The admin settings page toggles it.
   than its slot could ever hold is passed over); reruns fill up to the next slot's time
   (each at least half over by a flow target) taking turns through the pool's series, aired
   episodes outside `rerunGapDays` first; a gap of `fillerMinMinutes` or more before a fixed
-  time gets `filler` reruns (or a movie) while one fits. Prime time keeps a movie away for
+  time gets `filler` reruns (or a movie) while one fits. Slack still left there, when it would
+  make a break over 5 minutes (`breakTarget`), is spread over the breaks since the last
+  program that cannot move (at its anchor, fixed, or opening the day), whole 5-minute steps
+  to the shortest break first, so starts stay on the grid and breaks stay around 5 minutes
+  (about 3 or 8 with 22-minute episodes). Prime time keeps a movie away for
   max(`primeRepeatMinDays`, `primeRepeatFactor` x movie count) days; matinees rerun movies that
   were in prime time recently, so they take nothing from the rotation; the premiere candidate
   and the next saga film are held back from other slots. Saturday premieres the newest movie

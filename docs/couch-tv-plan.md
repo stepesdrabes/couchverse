@@ -220,7 +220,9 @@ to) -> []Airing`, table-tested without a database (mirrors `playback.Decide` and
 rules):
 - **Anchors** start exactly; **flow** items start at the previous item's end plus its break,
   rounded up to the next 5-minute mark; a flow block that would overrun its anchor is
-  shortened (drop an episode) or swapped for something shorter.
+  shortened (drop an episode) or swapped for something shorter. Slack no filler takes before
+  an anchor, a fixed row or the day's end is spread over the breaks since the last item that
+  cannot move, on the 5-minute grid, so breaks stay around 5 minutes (5.4).
 - **Strips** keep a cursor per series (episode order across seasons); reruns pick from
   episodes that already aired on the channel (fall back to any episode) and avoid the last
   N days.
@@ -261,8 +263,17 @@ Details the decisions above left open, as built (`internal/feature/couchtv`, FEA
   day's first slot must be an anchor. A flow slot with a `start` is a target: the reruns
   before it fill up to it (each rerun at least half over by then), anchors are hard limits.
 - **Gaps**: a gap of `fillerMinMinutes` (5) or more before an anchor, a fixed row or the day's
-  end gets `filler` reruns (or a movie) while one fits; what remains grows the break. With
-  22-minute episodes on a 5-minute grid, breaks reach about 27 minutes in the worst case.
+  end gets `filler` reruns (or a movie) while one fits. What remains, when it would leave a
+  break over 5 minutes (`breakTarget`), is spread over the flow since the last program that
+  cannot move (one at its anchor, a fixed row, the day's first program): every break grows
+  from its shortest by whole 5-minute steps, the shortest first, so starts stay on the grid
+  and no break ends up more than 5 minutes longer than the shortest. On a library shaped
+  like production's the 12-22 minute breaks before 12:00, 17:00, 20:15 and 06:00 become
+  breaks of about 3 and 8 minutes (a 22-minute episode leaves about 3 minutes to the next
+  mark, one step more makes 8). A gap with nothing movable before it (a program at its
+  anchor right before the next anchor) stays as it is. Flow only moves later, so a rerun
+  chosen to be half over by a flow target may start a few minutes later than that. A
+  replan after part of the flow aired (those rows are fixed) spreads the rest the same way.
 - **Overruns**: a block drops what does not fit before the next anchor; that episode airs the
   next day. A strip episode longer than its slot could ever hold is passed over, so a strip
   never stalls.

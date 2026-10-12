@@ -440,6 +440,109 @@ func TestOverrunBeforeAnchor(t *testing.T) {
 	}
 }
 
+// Slack no filler fits before an anchor is spread over the flow since the last program
+// that cannot move, as evenly as the 5-minute grid allows; anchors and fixed rows keep
+// their times, and a replan after the block started keeps the spread.
+func TestSpreadSlack(t *testing.T) {
+	const date = "2026-10-12"
+	tests := []struct {
+		name    string
+		block   string // the block's programs from 12:00 on
+		fixed   string // an admin row of 25 minutes at this time
+		want    string // the starts from 12:00 to 17:00
+		longest time.Duration
+	}{
+		// an afternoon measured on production: 14:15, 15:05, 16:00, 16:25, then 12:24 of break
+		{"a mixed afternoon", "2h11m 45m 53m 22m 22m36s", "", "12:00 14:15 15:05 16:05 16:30", 7*time.Minute + 24*time.Second},
+		// otherwise every 25 minutes from 14:10, then 20:00 of break
+		{"sitcoms of 22 to 25 minutes", "2h8m 24m 24m30s 22m 23m30s 24m 25m", "", "12:00 14:10 14:40 15:10 15:35 16:00 16:30", 6 * time.Minute},
+		// otherwise every 25 minutes from 14:20, then 13:20 of break; a 22-minute episode
+		// leaves about 3 minutes to the next mark, so a break that grows makes 8
+		{"22-minute sitcoms", "2h16m40s 21m40s 21m50s 21m40s 21m50s 21m40s 21m40s", "", "12:00 14:20 14:45 15:15 15:40 16:10 16:35", 8*time.Minute + 10*time.Second},
+		// otherwise 3:20 before it and 13:36 after: the program goes in between
+		{"one program after the anchor", "4h21m40s 21m24s", "", "12:00 16:30", 8*time.Minute + 36*time.Second},
+		// nothing can move, so the gap stays
+		{"only the anchored program", "4h40m", "", "12:00", 20 * time.Minute},
+		// the flow before the admin row ends 3 minutes before it; after it, otherwise
+		// 15:30 and 16:25, then 13:00 of break
+		{"a fixed row", "2h11m 45m 53m 22m 22m36s", "15:03", "12:00 14:15 15:03 15:35 16:35", 7 * time.Minute},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := testLibrary{names: map[string]string{}}
+			lengths := strings.Fields(tt.block)
+			l.series(1, "Block", []int{len(lengths)}, 22, "Comedy")
+			for i, s := range lengths {
+				d, err := time.ParseDuration(s)
+				if err != nil {
+					t.Fatal(err)
+				}
+				l.Series[0].Episodes[i].Duration = d
+			}
+			l.series(2, "Strip", []int{10}, 25, "Comedy")
+			l.series(3, "Long", repeat(10, 100), 50, "Drama")
+			cfg := DefaultConfig()
+			cfg.Template = CouchTvTemplate{Slots: []CouchTvSlot{
+				{Key: "open", Days: dayNames, Start: "06:00", Anchor: true, Fill: FillReruns, Titles: []string{uid(2, 3)}},
+				{Key: "block", Days: dayNames, Start: "12:00", Anchor: true, Fill: FillStrip, Titles: []string{uid(2, 1)}, Count: len(lengths)},
+				{Key: "strip", Days: dayNames, Start: "17:00", Anchor: true, Fill: FillStrip, Titles: []string{uid(2, 2)}, Count: 1},
+				{Key: "late", Days: dayNames, Start: "18:00", Anchor: true, Fill: FillReruns, Titles: []string{uid(2, 3)}},
+			}}
+			var fixed []Airing
+			if tt.fixed != "" {
+				at := local(date, tt.fixed)
+				fixed = append(fixed, Airing{ID: "admin-1", Kind: KindProgram, TitleID: uid(2, 2), EpisodeID: l.Series[1].Episodes[4].ID,
+					Source: SourceAdmin, StartsAt: at, EndsAt: at.Add(25 * time.Minute), State: StatePlanned})
+			}
+			plan := func(keep []Airing, now time.Time) []Airing {
+				return planWeek(l.Library, date, 1, func(in *PlanInput) { in.Config, in.Fixed, in.Now = cfg, keep, now })
+			}
+			from, until := local(date, "12:00"), local(date, "17:00")
+			block := func(rows []Airing) (starts string, longest time.Duration) {
+				var out []string
+				for _, a := range rows {
+					if a.StartsAt.Before(from) || !a.StartsAt.Before(until) {
+						continue
+					}
+					if a.Kind == KindBreak {
+						longest = max(longest, a.EndsAt.Sub(a.StartsAt))
+						continue
+					}
+					out = append(out, a.StartsAt.In(prague).Format("15:04"))
+				}
+				return strings.Join(out, " "), longest
+			}
+
+			rows := plan(fixed, longAgo)
+			checkTimeline(t, cfg, l, rows)
+			starts, longest := block(rows)
+			if starts != tt.want || longest != tt.longest {
+				t.Errorf("starts %s with a longest break of %s, want %s and %s", starts, longest, tt.want, tt.longest)
+			}
+			if strip := inSlot(rows, "strip"); len(strip) == 0 || !strip[0].StartsAt.Equal(until) {
+				t.Errorf("the 17:00 anchor moved: %v", strip)
+			}
+			for _, f := range fixed {
+				if i := slices.IndexFunc(rows, func(a Airing) bool { return a.ID == f.ID }); i < 0 || !reflect.DeepEqual(rows[i], f) {
+					t.Errorf("fixed row %s changed or dropped", f.ID)
+				}
+			}
+
+			// at 15:00 the programs on air so far are fixed: the rest keeps its times
+			now := local(date, "15:00")
+			started := slices.Clone(fixed)
+			for _, a := range programs(rows) {
+				if a.StartsAt.Before(now) {
+					started = append(started, a)
+				}
+			}
+			if again, _ := block(plan(started, now)); again != starts {
+				t.Errorf("replanned at 15:00: %s, want %s", again, starts)
+			}
+		})
+	}
+}
+
 // Strips advance in episode order across seasons, wrap around at the end, and pass
 // over an episode the slot could never hold.
 func TestStripCursor(t *testing.T) {
@@ -936,15 +1039,28 @@ func TestAroundTheClock(t *testing.T) {
 		t.Errorf("Sunday does not open at 06:00 local")
 	}
 	var longest time.Duration
-	for _, a := range rows {
-		if a.Kind == KindBreak {
-			longest = max(longest, a.EndsAt.Sub(a.StartsAt))
+	for i, a := range rows {
+		if a.Kind != KindBreak {
+			continue
+		}
+		length := a.EndsAt.Sub(a.StartsAt)
+		longest = max(longest, length)
+		// what no filler fits is spread over the flow before the next anchor, so a break
+		// runs past ten minutes only after a program at its anchor, which cannot move
+		if prev := rows[i-1]; length > breakTarget+flowStep && !atAnchor(cfg, prev) {
+			t.Errorf("a break of %s after %s at %s", length, lib.label(prev), clock(prev.StartsAt))
 		}
 	}
 	// a gap is filled while a 22-minute episode fits it, flow starting on the 5-minute grid
 	if longest > 28*time.Minute {
 		t.Errorf("a break of %s", longest)
 	}
+}
+
+// atAnchor reports whether a program starts at its anchored slot's time.
+func atAnchor(cfg CouchTvConfig, a Airing) bool {
+	i := slices.IndexFunc(cfg.Template.Slots, func(s CouchTvSlot) bool { return s.Key == a.Slot })
+	return i >= 0 && cfg.Template.Slots[i].Anchor && a.StartsAt.Equal(cfg.slotTime(cfg.dayOf(a.StartsAt), cfg.Template.Slots[i].Start))
 }
 
 // Small and lopsided libraries still make a schedule.

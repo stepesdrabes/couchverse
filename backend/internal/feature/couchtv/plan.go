@@ -17,8 +17,12 @@ const (
 	swapAhead    = 6 * time.Hour
 )
 
-// flowStep is the grid flow programs start on.
-const flowStep = 5 * time.Minute
+// flowStep is the grid flow programs start on, and breakTarget the longest break left
+// before a program that cannot move: longer slack is spread over the flow before it.
+const (
+	flowStep    = 5 * time.Minute
+	breakTarget = 5 * time.Minute
+)
 
 // PlanInput is everything Plan reads.
 type PlanInput struct {
@@ -170,6 +174,10 @@ type planner struct {
 
 	out []Airing
 	day *dayState
+	// the flow since the last program that cannot move, out[flowFrom:], follows a program
+	// ending at flowAfter; spreading may start it later
+	flowFrom  int
+	flowAfter time.Time
 }
 
 type episodeRef struct {
@@ -439,9 +447,11 @@ func (d *dayState) filled(s *daySlot) bool {
 
 // planDay walks the day's slots in order. Anchors start on time, flow programs start on
 // the next 5-minute mark after the previous program and its break, and fixed programs
-// are obstacles the flow fits around.
+// are obstacles the flow fits around. Slack left before an anchor, a fixed program or
+// the day's end is spread over the flow before it.
 func (p *planner) planDay(date time.Time, fixed, removed []Airing) {
 	p.day = p.newDay(date, fixed, removed)
+	p.pin()
 	for i := range p.day.slots {
 		p.runSlot(i)
 	}
@@ -466,7 +476,8 @@ func (p *planner) runSlot(i int) {
 			p.emitFixed()
 			continue
 		}
-		if s.Anchor && placed == 0 && start.Equal(s.at) {
+		anchored := s.Anchor && placed == 0 && start.Equal(s.at)
+		if anchored {
 			p.fillUntil(s.at)
 			if !p.startFor(s, placed).Equal(start) {
 				continue
@@ -483,7 +494,7 @@ func (p *planner) runSlot(i int) {
 			p.emitFixed()
 			continue
 		}
-		p.place(pl, start, s.Key)
+		p.place(pl, start, s.Key, anchored)
 		placed++
 	}
 }
@@ -537,7 +548,8 @@ func (p *planner) fits(m Media, start, limit time.Time) bool {
 }
 
 // fillUntil fills the gap up to until (and around the fixed programs before it) with
-// reruns while one fits and the gap is at least fillerMin; what is left grows the break.
+// reruns while one fits and the gap is at least fillerMin; what is left is spread over
+// the breaks before it.
 func (p *planner) fillUntil(until time.Time) {
 	for {
 		end := until
@@ -548,11 +560,12 @@ func (p *planner) fillUntil(until time.Time) {
 		start := p.free()
 		if end.Sub(start) >= p.fillerMin {
 			if pl, ok := p.pickFiller(start, end); ok {
-				p.place(pl, start, "")
+				p.place(pl, start, "", false)
 				continue
 			}
 		}
 		if ob == nil || !ob.StartsAt.Before(until) {
+			p.spread(until)
 			return
 		}
 		p.emitFixed()
@@ -568,9 +581,11 @@ func (p *planner) obstacle() *Airing {
 
 func (p *planner) emitFixed() {
 	a := *p.obstacle()
+	p.spread(a.StartsAt)
 	p.day.nextFixed++
 	p.out = append(p.out, a)
 	p.record(a)
+	p.pin()
 }
 
 // placement is a chosen program.
@@ -581,7 +596,8 @@ type placement struct {
 	fill      string
 }
 
-func (p *planner) place(pl placement, start time.Time, slot string) {
+// place adds a program; one starting at its anchor or at the day's start keeps its time.
+func (p *planner) place(pl placement, start time.Time, slot string, anchored bool) {
 	a := Airing{
 		StartsAt:    start,
 		EndsAt:      start.Add(pl.media.onAir()),
@@ -597,6 +613,59 @@ func (p *planner) place(pl placement, start time.Time, slot string) {
 	}
 	p.out = append(p.out, a)
 	p.record(a)
+	if anchored || start.Equal(p.day.start) {
+		p.pin()
+	}
+}
+
+// pin keeps everything placed so far where it is: spreading moves only the flow after it.
+func (p *planner) pin() {
+	p.flowFrom, p.flowAfter = len(p.out), p.prevEnd
+}
+
+// spread shares out the slack before limit, where a program that cannot move (or the
+// day's end) comes next, once it would leave a break longer than breakTarget: the flow
+// since the last pin starts later, every break growing from its shortest by whole flow
+// steps, the shortest first. Starts stay on the grid and the breaks come out as even as
+// the grid allows, none more than a step longer than the shortest; on a tie the later
+// break grows, which moves fewer programs. The flow is pinned either way, so what
+// follows cannot move it again.
+func (p *planner) spread(limit time.Time) {
+	defer p.pin()
+	run := p.out[p.flowFrom:]
+	if len(run) == 0 || limit.Sub(run[len(run)-1].EndsAt) <= breakTarget {
+		return
+	}
+	// the flow placed every program at its earliest, so each break is at its shortest;
+	// the slack is the whole flow steps the last program could still start later
+	breaks := make([]time.Duration, len(run)+1)
+	end := p.flowAfter
+	for k, a := range run {
+		breaks[k] = a.StartsAt.Sub(end)
+		end = a.EndsAt
+	}
+	last := run[len(run)-1]
+	length := last.EndsAt.Sub(last.StartsAt)
+	latest := limit.Add(-p.minBreak - length).Truncate(flowStep)
+	breaks[len(run)] = limit.Sub(latest.Add(length))
+	for range int(latest.Sub(last.StartsAt) / flowStep) {
+		k := 0
+		for i, b := range breaks {
+			if b <= breaks[k] {
+				k = i
+			}
+		}
+		breaks[k] += flowStep
+	}
+	end = p.flowAfter
+	for k := range run {
+		a := &run[k]
+		shift := end.Add(breaks[k]).Sub(a.StartsAt)
+		a.StartsAt, a.EndsAt = a.StartsAt.Add(shift), a.EndsAt.Add(shift)
+		end = a.EndsAt
+		// programs only move later, so the latest-airing marks take the new times
+		p.record(*a)
+	}
 }
 
 // withBreaks puts a break row into every gap between consecutive programs, starting
