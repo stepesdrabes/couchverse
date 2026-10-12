@@ -2588,6 +2588,13 @@
             "$ref": "#/components/schemas/CouchTvGuest",
             "description": "The guest tuning in; absent for a signed-in viewer."
           },
+          "languages": {
+            "description": "The audio and subtitle languages of the stream, in its playlists' order.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "later": {
             "description": "The programs after the next one, up to four.",
             "items": {
@@ -2623,6 +2630,7 @@
           "streamUrl",
           "serverTime",
           "targetDuration",
+          "languages",
           "now",
           "next",
           "later"

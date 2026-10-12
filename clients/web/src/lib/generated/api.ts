@@ -850,6 +850,8 @@ export interface CouchTvTune {
 	grant: string;
 	/** The guest tuning in; absent for a signed-in viewer. */
 	guest?: CouchTvGuest;
+	/** The audio and subtitle languages of the stream, in its playlists' order. */
+	languages: string[];
 	/** The programs after the next one, up to four. */
 	later: CouchTvListing[];
 	/** The next program; null when nothing is planned. */

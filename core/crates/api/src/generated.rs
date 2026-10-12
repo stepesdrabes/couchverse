@@ -2536,6 +2536,8 @@ pub mod types {
         /// The guest tuning in; absent for a signed-in viewer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub guest: Option<CouchTvGuest>,
+        /// The audio and subtitle languages of the stream, in its playlists' order.
+        pub languages: Vec<String>,
         /// The programs after the next one, up to four.
         pub later: Vec<CouchTvListing>,
         /// The next program; null when nothing is planned.

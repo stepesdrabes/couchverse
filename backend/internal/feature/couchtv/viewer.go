@@ -60,6 +60,7 @@ type CouchTvTune struct {
 	StreamURL      string           `json:"streamUrl" doc:"The live multivariant playlist; its default audio follows the display language."`
 	ServerTime     int64            `json:"serverTime" doc:"The server clock when the answer was made, in Unix milliseconds. Players hold the program date at server time minus three target durations."`
 	TargetDuration int              `json:"targetDuration" doc:"The channel's EXT-X-TARGETDURATION, in seconds."`
+	Languages      []string         `json:"languages" doc:"The audio and subtitle languages of the stream, in its playlists' order."`
 	Now            *CouchTvOnAir    `json:"now" doc:"What is on air, a program or a break; null while nothing is."`
 	Next           *CouchTvOnAir    `json:"next" doc:"The next program; null when nothing is planned."`
 	Later          []CouchTvListing `json:"later" doc:"The programs after the next one, up to four."`
@@ -147,7 +148,7 @@ func (v *Viewer) tune(ctx context.Context, g grant.Grant) (CouchTvTune, error) {
 		return CouchTvTune{}, err
 	}
 	out := CouchTvTune{Grant: token, StreamURL: stream, ServerTime: now.UnixMilli(), TargetDuration: TargetDuration,
-		Later: []CouchTvListing{}}
+		Languages: Languages, Later: []CouchTvListing{}}
 	for _, l := range listings {
 		switch {
 		case out.Now == nil && !l.StartsAt.After(now):
