@@ -203,7 +203,7 @@ func (r *Renderer) Render(ctx context.Context, job *jobs.Job, report func(int)) 
 		if err != nil {
 			r.dropBrowser()
 			if ctx.Err() == nil {
-				r.Store.setClipState(context.WithoutCancel(ctx), clip.ID, ClipFailed, err.Error())
+				_ = r.Store.setClipState(context.WithoutCancel(ctx), clip.ID, ClipFailed, err.Error())
 			}
 			return fmt.Errorf("clip %s (%s): %w", clip.ID, clip.Kind, err)
 		}
@@ -363,8 +363,8 @@ func (e *encoder) finish() error {
 
 func (e *encoder) abort() {
 	e.stdin.Close()
-	e.cmd.Process.Kill()
-	e.cmd.Wait()
+	_ = e.cmd.Process.Kill()
+	_ = e.cmd.Wait()
 }
 
 // renderSound renders the loaded clip's sound, or each part of a break's (parts loaded in
@@ -500,7 +500,7 @@ func (r *Renderer) Assemble(ctx context.Context, job *jobs.Job, report func(int)
 	if err := r.assemble(ctx, b, clips, report); err != nil {
 		r.dropBrowser()
 		if ctx.Err() == nil {
-			r.failBreak(context.WithoutCancel(ctx), b, err)
+			_ = r.failBreak(context.WithoutCancel(ctx), b, err)
 		}
 		return fmt.Errorf("break %s: %w", b.ID, err)
 	}

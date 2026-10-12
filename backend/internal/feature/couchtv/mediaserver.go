@@ -90,7 +90,7 @@ func (m *mediaServer) start() error {
 	mux.HandleFunc("POST /upload/{token}", m.upload)
 	m.listener, m.uploads = l, map[string]string{}
 	m.srv = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-	go m.srv.Serve(l)
+	go func() { _ = m.srv.Serve(l) }()
 	return nil
 }
 

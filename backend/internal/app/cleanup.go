@@ -9,6 +9,7 @@ import (
 
 	"couchverse/internal/feature/analytics"
 	"couchverse/internal/feature/auth"
+	"couchverse/internal/feature/couchtv"
 	"couchverse/internal/feature/downloads"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/feature/library"
@@ -17,9 +18,9 @@ import (
 
 // cleanupHandler is the hourly housekeeping job: expired upload sessions,
 // stale finished jobs, expired auth sessions, orphaned HLS caches, aged-out
-// hour buckets and downloads past retention.
+// hour buckets, downloads past retention and Couch TV renders no longer needed.
 // It reschedules itself at the end of every run.
-func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, an *analytics.Store, uploads *library.Manager, dl *downloads.Store, dataDir string) func(context.Context, *jobs.Job, func(int)) error {
+func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, an *analytics.Store, uploads *library.Manager, dl *downloads.Store, tv *couchtv.Store, dataDir string) func(context.Context, *jobs.Job, func(int)) error {
 	return func(ctx context.Context, _ *jobs.Job, _ func(int)) error {
 		if n, err := uploads.Reap(ctx); err != nil {
 			return err
@@ -61,6 +62,10 @@ func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, an *anal
 		}
 
 		if err := downloads.Sweep(ctx, dl, dataDir); err != nil {
+			return err
+		}
+
+		if err := couchtv.Prune(ctx, tv, dataDir, time.Now()); err != nil {
 			return err
 		}
 

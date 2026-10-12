@@ -3,6 +3,8 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 	"time"
@@ -182,6 +184,70 @@ func TestCouchTvConfigStored(t *testing.T) {
 	}
 }
 
+// TestCouchTvPrune checks what the hourly cleanup keeps of the renders: an aired break
+// loses its package, an unused clip goes unless a waiting break uses it, only the newest
+// assembled evergreen break stays, and extracted media unused for weeks goes.
+func TestCouchTvPrune(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := context.Background()
+	now := time.Now()
+	dir := func(rel string, age time.Duration) string {
+		t.Helper()
+		path := filepath.Join(env.cfg.DataDir, rel)
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(path, now.Add(-age), now.Add(-age)); err != nil {
+			t.Fatal(err)
+		}
+		return rel
+	}
+	exists := func(rel string) bool {
+		_, err := os.Stat(filepath.Join(env.cfg.DataDir, rel))
+		return err == nil
+	}
+	exec := func(query string, args ...any) {
+		t.Helper()
+		if _, err := env.pool.Exec(ctx, query, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	aired, waiting := dir("couchtv/breaks/aired", 0), dir("couchtv/breaks/waiting", 0)
+	oldClip, usedClip := dir("couchtv/clips/old", 0), dir("couchtv/clips/used", 0)
+	oldGreen, newGreen := dir("couchtv/breaks/old-evergreen", 0), dir("couchtv/breaks/new-evergreen", 0)
+	staleFrames, freshFrames := dir("couchtv/frames/f/0_75", 20*24*time.Hour), dir("couchtv/frames/f/40_75", time.Hour)
+
+	exec(`INSERT INTO couchtv_airings (id, starts_at, ends_at, kind) VALUES
+		('00000000-0000-4000-8000-00000000b001', $1, $2, 'break'), ('00000000-0000-4000-8000-00000000b002', $3, $4, 'break')`,
+		now.Add(-3*time.Hour), now.Add(-2*time.Hour), now.Add(time.Hour), now.Add(time.Hour+time.Minute))
+	exec(`INSERT INTO couchtv_clips (id, kind, key, state, path, last_used_at) VALUES
+		('00000000-0000-4000-8000-00000000c001', 'sting', 'old', 'ready', $1, $3),
+		('00000000-0000-4000-8000-00000000c002', 'sting', 'used', 'ready', $2, $3)`, oldClip, usedClip, now.Add(-20*24*time.Hour))
+	exec(`INSERT INTO couchtv_breaks (airing_id, kind, state, path, recipe, created_at) VALUES
+		('00000000-0000-4000-8000-00000000b001', 'airing', 'ready', $1, '{}', $5),
+		('00000000-0000-4000-8000-00000000b002', 'airing', 'composed', $2, '{"clips": [{"clipId": "00000000-0000-4000-8000-00000000c002"}]}', $5),
+		(NULL, 'evergreen', 'ready', $3, '{}', $5 - interval '1 day'),
+		(NULL, 'evergreen', 'ready', $4, '{}', $5)`, aired, waiting, oldGreen, newGreen, now)
+
+	if err := couchtv.Prune(ctx, couchtv.NewStore(env.pool), env.cfg.DataDir, now); err != nil {
+		t.Fatal(err)
+	}
+	for rel, want := range map[string]bool{aired: false, waiting: true, oldClip: false, usedClip: true,
+		oldGreen: false, newGreen: true, staleFrames: false, freshFrames: true} {
+		if exists(rel) != want {
+			t.Errorf("%s kept: %v, want %v", rel, exists(rel), want)
+		}
+	}
+	var clips, evergreens int
+	if err := env.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM couchtv_clips WHERE key IN ('old', 'used')),
+		(SELECT count(*) FROM couchtv_breaks WHERE kind = 'evergreen')`).Scan(&clips, &evergreens); err != nil {
+		t.Fatal(err)
+	}
+	if clips != 1 || evergreens != 1 {
+		t.Errorf("%d clips and %d evergreen breaks left", clips, evergreens)
+	}
+}
+
 // TestCouchTvComposeJob plans the seeded library and composes its breaks: nothing before a
 // render sidecar has published its templates, then every break of the next 48 hours with a
 // recipe as long as the break, its clips requested once and queued for rendering, the
@@ -265,7 +331,7 @@ func TestCouchTvComposeJob(t *testing.T) {
 	if n := count(`SELECT count(*) FROM couchtv_clips WHERE kind = 'standby'`); n != 1 {
 		t.Errorf("%d standby cards", n)
 	}
-	clips := count(`SELECT count(*) FROM couchtv_clips`)
+	clips := count(`SELECT count(*) FROM couchtv_clips WHERE key NOT LIKE 'seeded-%'`)
 	renders := count(`SELECT count(*) FROM jobs WHERE type = $1 AND status = 'pending'`, couchtv.RenderJob)
 	if clips == 0 || renders != clips {
 		t.Errorf("%d clips, %d renders queued", clips, renders)
@@ -276,20 +342,21 @@ func TestCouchTvComposeJob(t *testing.T) {
 
 	// an unchanged schedule composes nothing new
 	compose()
-	if n := count(`SELECT count(*) FROM couchtv_clips`); n != clips {
+	if n := count(`SELECT count(*) FROM couchtv_clips WHERE key NOT LIKE 'seeded-%'`); n != clips {
 		t.Errorf("a second run requested %d clips more", n-clips)
 	}
 	if n := count(`SELECT count(*) FROM jobs WHERE type = $1 AND status = 'pending'`, couchtv.RenderJob); n != renders {
 		t.Errorf("a second run queued %d renders more", n-renders)
 	}
 
-	// rendered clips (promo bodies 16 s) queue the breaks that use them for assembly
+	// rendered clips (promo bodies 16 s) queue the breaks that use them for assembly (no break
+	// uses the seed's clips)
 	if _, err := env.pool.Exec(ctx, `UPDATE couchtv_clips SET state = 'ready', rendered_at = now(),
 		duration_ms = CASE WHEN duration_ms = 0 THEN 16000 ELSE duration_ms END`); err != nil {
 		t.Fatal(err)
 	}
 	var identID string
-	if err := env.pool.QueryRow(ctx, `SELECT id FROM couchtv_clips WHERE kind = 'ident_short'`).Scan(&identID); err != nil {
+	if err := env.pool.QueryRow(ctx, `SELECT id FROM couchtv_clips WHERE kind = 'ident_short' AND key NOT LIKE 'seeded-%'`).Scan(&identID); err != nil {
 		t.Fatal(err)
 	}
 	payload, _ := json.Marshal(couchtv.RenderPayload{ClipID: identID})
