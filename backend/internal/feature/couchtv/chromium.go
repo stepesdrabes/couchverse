@@ -116,16 +116,16 @@ func (b *browser) load(ctx context.Context, spec []byte) (loadResult, error) {
 	return res, b.eval(ctx, fmt.Sprintf(`window.couchtvRender.load(%s)`, spec), &res)
 }
 
-// frame shows the frame at index i, unless nothing moves since the one before it; it
-// reports whether the picture changed.
+// frame sets up the frame at index i for the next capture, unless nothing moves since the
+// one before it; it reports whether the picture changed. It does not wait for a paint: the
+// capture draws a fresh frame of its own, so waiting would draw every frame twice.
 func (b *browser) frame(ctx context.Context, i int) (bool, error) {
+	from := -1.0
+	if i > 0 {
+		from = frameSeconds(i - 1)
+	}
 	var changed bool
-	js := fmt.Sprintf(`(async (r) => {
-		if (%[1]d > 0 && r.isStatic(%[2]g, %[3]g)) return false;
-		await r.seek(%[3]g);
-		return true;
-	})(window.couchtvRender)`, i, frameSeconds(i-1), frameSeconds(i))
-	return changed, b.eval(ctx, js, &changed)
+	return changed, b.eval(ctx, fmt.Sprintf(`window.couchtvRender.advance(%g, %g)`, frameSeconds(i), from), &changed)
 }
 
 // capture is the page as a JPEG at the quality the plan measured (q92).
