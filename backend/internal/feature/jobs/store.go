@@ -264,6 +264,14 @@ func (s *Store) ResetRunningJobs(ctx context.Context, types []string) (int64, er
 	return tag.RowsAffected(), err
 }
 
+// AnyDue reports whether a job of one of the given types waits to run now.
+func (s *Store) AnyDue(ctx context.Context, types []string) (bool, error) {
+	var due bool
+	err := s.db.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM jobs WHERE status = 'pending' AND run_at <= now() AND type = ANY($1))`, types).Scan(&due)
+	return due, err
+}
+
 // AnyRunning reports whether a job of one of the given types is running, backfill
 // (a negative priority) aside.
 func (s *Store) AnyRunning(ctx context.Context, types []string) (bool, error) {

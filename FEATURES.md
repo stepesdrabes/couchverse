@@ -866,7 +866,8 @@ server that does not send it). The admin settings page toggles it.
   `couchtv_assemble` (the app never does), runs one job at a time and claims a render only
   while no `transcode_hls` job runs (`jobs.Runner.Yield`; backfill such as the channel's
   trick-play renditions does not count), at nice 10, its encoder on two threads (capture is
-  the bottleneck). It serves the embedded
+  the bottleneck); it closes Chromium whenever no render or assembly is due, so outside the
+  quiet hours it holds no browser. It serves the embedded
   broadcast bundle (`backend/broadcast`, `make build`) and the media above on localhost to one
   headless Chromium (chromedp; GPU flags on Linux when `/dev/dri` exists; restarted every 25
   jobs) and publishes `versions()` at start. A render extracts its media first (footage frames

@@ -137,8 +137,11 @@ func (r *Renderer) Start(ctx context.Context) error {
 	if err := r.publish(ctx, versions); err != nil {
 		return err
 	}
-	_, err = r.Jobs.EnqueueJobOnce(ctx, ComposeJob, struct{}{}, jobs.EnqueueOpts{})
-	return err
+	if _, err := r.Jobs.EnqueueJobOnce(ctx, ComposeJob, struct{}{}, jobs.EnqueueOpts{}); err != nil {
+		return err
+	}
+	r.idle(ctx)
+	return nil
 }
 
 // Close stops Chromium and the server.
@@ -180,6 +183,14 @@ func (r *Renderer) openBrowser() (*browser, error) {
 }
 
 // dropBrowser closes the browser after a failure, so the next job starts afresh.
+// idle closes Chromium when no render or assembly is due: outside the quiet hours the
+// sidecar mostly waits, and a small server needs the memory more than a warm browser.
+func (r *Renderer) idle(ctx context.Context) {
+	if due, err := r.Jobs.AnyDue(ctx, []string{RenderJob, AssembleJob}); err == nil && !due {
+		r.dropBrowser()
+	}
+}
+
 func (r *Renderer) dropBrowser() {
 	if r.browser != nil {
 		r.browser.close()
@@ -189,6 +200,7 @@ func (r *Renderer) dropBrowser() {
 
 // Render is the couchtv_render job: one clip, frame by frame.
 func (r *Renderer) Render(ctx context.Context, job *jobs.Job, report func(int)) error {
+	defer r.idle(context.WithoutCancel(ctx))
 	var p RenderPayload
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err
@@ -507,6 +519,7 @@ func describe(work string, frames int) error {
 // Assemble is the couchtv_assemble job: a break's sound in one render (in parts when it is
 // long), its clips' video joined by stream copy, both segmented into the break's package.
 func (r *Renderer) Assemble(ctx context.Context, job *jobs.Job, report func(int)) error {
+	defer r.idle(context.WithoutCancel(ctx))
 	var p AssemblePayload
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err
