@@ -11,7 +11,7 @@ import (
 // Prepare queues HLS v2 renditions of a file: media.VariantSource for the copied
 // video and ladder rendition names. Every HLS presentation needs the audio
 // renditions and gets the trick-play rendition, so those come along with
-// anything queued. Renditions above the source's class are skipped rather than
+// anything queued (a finished trick-play rendition is kept). Renditions above the source's class are skipped rather than
 // upscaled. Variant rows are registered up front so the admin library shows
 // "Processing". It returns the names queued.
 func Prepare(ctx context.Context, files *Store, jb *jobs.Store, mf *media.MediaFile, hasAudio bool, names []string, opts PrepareOpts) ([]string, error) {
@@ -54,6 +54,15 @@ func Prepare(ctx context.Context, files *Store, jb *jobs.Store, mf *media.MediaF
 		if err := enqueue(media.VariantPackage, jobs.EnqueueOpts{Priority: opts.Priority}); err != nil {
 			return nil, err
 		}
+	}
+	// a finished trick-play rendition serves every rendition: queueing it again would
+	// take it out of the presentations until it is encoded anew
+	variants, err := files.VariantsForMediaFile(ctx, mf.ID)
+	if err != nil {
+		return nil, err
+	}
+	if slices.ContainsFunc(variants, func(v TranscodeVariant) bool { return v.Name == media.VariantTrickplay && v.Status == "ready" }) {
+		return queued, nil
 	}
 	if _, err := files.UpsertVariant(ctx, mf.ID, media.VariantTrickplay, 180, 0, 0, "transcode"); err != nil {
 		return nil, err
