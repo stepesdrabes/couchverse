@@ -511,15 +511,18 @@ func TestCouchTvComposeJob(t *testing.T) {
 	if soon == 0 || waiting == 0 {
 		t.Errorf("%d renders at once, %d waiting for the quiet hours", soon, waiting)
 	}
-	// renders queued before the quiet hours existed (due at once) are timed again by the next run
+	// renders queued before the quiet hours existed (due at once) are timed again by the next
+	// run, and promo bodies, which no break needs yet, wait for them too
 	if _, err := env.pool.Exec(ctx, `UPDATE jobs SET run_at = $2 WHERE type = $1 AND status = 'pending'`,
 		couchtv.RenderJob, clock.Add(-time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	compose()
+	bodies := count(`SELECT count(*) FROM jobs j JOIN couchtv_clips c ON c.id::text = j.payload->>'clipId'
+		WHERE j.type = $1 AND j.status = 'pending' AND c.kind = 'promo_body' AND j.run_at = $2`, couchtv.RenderJob, quiet)
 	if n := count(`SELECT count(*) FROM jobs WHERE type = $1 AND status = 'pending' AND run_at > $2`,
-		couchtv.RenderJob, clock); n != waiting {
-		t.Errorf("%d renders timed again for the quiet hours, want %d", n, waiting)
+		couchtv.RenderJob, clock); bodies == 0 || n != waiting+bodies {
+		t.Errorf("%d renders timed again for the quiet hours, want %d and %d promo bodies", n, waiting, bodies)
 	}
 
 	// a break that leaves the schedule takes its own clips' renders with it

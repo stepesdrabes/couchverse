@@ -115,20 +115,24 @@ func (c *Composer) Handle(ctx context.Context, _ *jobs.Job, report func(int)) er
 
 // tidyRenders times every queued render by the first break that uses its clip now, and
 // cancels those no composition uses any more (a replan moved their break, or it was
-// composed again). Promo bodies, requested for breaks yet to be composed, and the
-// standby card, which no break holds, keep their place.
+// composed again). Promo bodies, requested for breaks yet to be composed (which air a
+// short promo until one is rendered), wait for the quiet hours behind every break; the
+// standby card, which no break holds, keeps its place.
 func (r *composition) tidyRenders(ctx context.Context) error {
 	queued, err := r.Store.queuedRenders(ctx, r.now)
 	if err != nil {
 		return err
 	}
+	later := r.now.Add(composeAhead)
 	dropped := 0
 	for _, q := range queued {
 		payload := RenderPayload{ClipID: q.ClipID}
 		switch {
 		case q.Used:
 			err = r.Jobs.Reschedule(ctx, RenderJob, payload, renderAt(r.now, q.Airs, r.cfg.location()), urgency(q.Airs))
-		case q.Kind != ClipPromoBody && q.Kind != ClipStandby:
+		case q.Kind == ClipPromoBody:
+			err = r.Jobs.Reschedule(ctx, RenderJob, payload, renderAt(r.now, later, r.cfg.location()), urgency(later))
+		case q.Kind != ClipStandby:
 			err = r.Jobs.CancelPending(ctx, RenderJob, payload)
 			dropped++
 		}
