@@ -55,6 +55,8 @@
 	]);
 
 	function adopt(next: CouchTvTitle) {
+		// the picker opens again on the excerpt the server now has (an analysis may have moved it)
+		if (JSON.stringify(next.promoAudio) !== JSON.stringify(ct?.promoAudio)) adopted++;
 		ct = next;
 		excluded = next.excluded;
 		mood = next.mood ?? '';
@@ -70,6 +72,7 @@
 		shotsAdmin = next.shotsSource === 'admin';
 		form.reset();
 	}
+	let adopted = $state(0);
 
 	let poll: ReturnType<typeof setTimeout> | undefined;
 	async function load() {
@@ -203,7 +206,7 @@
 							{/if}
 						</span>
 					</div>
-					{#key title.title.id}
+					{#key `${title.title.id}:${adopted}`}
 						<PromoAudioPicker
 							{files}
 							{grants}
