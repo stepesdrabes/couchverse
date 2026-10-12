@@ -623,10 +623,10 @@ Couch TV, one auto-programmed, always-on channel (decisions D1-D32 and the roadm
 `docs/couch-tv-plan.md`). Built so far: the config and weekly template, the pure schedule
 generator, the plan job and the admin operations (Phase 1), the per-title analysis for
 promos and the break composition and rendering (Phase 3), the live stream (Phase 4: the
-prepare job, the stream under channel grants, tuning in and the guide), the viewer's backend
-and core (Phase 5: the room, the guest link, progress and watch time, the core's `couchtv`
-module and the web player's live mode) and the admin tools (Phase 6: the schedule editor, the
-template, render health and the title tools); the web's viewer pages are next. Gated by the
+prepare job, the stream under channel grants, tuning in and the guide), the viewer's side
+(Phase 5: the room, the guest link, progress and watch time, the core's `couchtv` module and
+the web's `/tv`, guide, home card and guest join) and the admin tools (Phase 6: the schedule
+editor, the template, render health and the title tools). Gated by the
 admin `couchTvEnabled` flag, the one flag that is **off** while unset
 (`flags.Load` leaves it out of the "missing means on" default; `flags.CouchTvOn` guards the
 viewer routes and the stream; the core reads it as `SessionView.features.couchTv`, `false` from a
@@ -924,6 +924,44 @@ server that does not send it). The admin settings page toggles it.
   loudest steady stretch of 20 s or more; at most 40 s, the loudest 40 s of a longer one.
   Admin picks (`promo_audio_source`/`shots_source` `admin`) are never overwritten; ffmpeg
   failures leave a part empty and are logged.
+- **Web viewer** (`features/couchtv`, plan 7.2; the core's `couchtv` module does the work and
+  `channel.ts` names its screens, sends its events and holds the overlay and guide maths):
+  **`/tv`** (`TvPage`, public so a guest watches signed out; a member with the flag off gets a
+  404) sends `CouchTvTuneRequested` on mount and `CouchTvClosed` on leaving (or `pagehide`),
+  and draws `VideoPlayer` in its live mode (`live`: no seek bar and no pausing, a thin
+  progress line of what is on, the channel's audio and subtitle languages as the player's
+  menus, a stopped picture resumes at the live edge; the `overlay`, `controls` and `actions`
+  snippets) from the `CouchTv` view through `livePlayerView`. `LiveOverlay`: the corner bug
+  (`Lockup`, the broadcast package's `lockupSvg` in the brand's red, a breathing LIVE and the
+  clock of the picture's program date, run on from `programDateMs` at `programDateAtMs`) over
+  programs, with the controls or as a program starts, the Now caption (title, episode,
+  start-end) and the Next caption ("Next 22:30 Dexter"), timed by the view's cues, in the
+  broadcast's look (Saira caps, red tags); `PresenceBar` (the reaction button, the main
+  control a TV remote lands on, with five quick picks and couch's bundled emoji picker through
+  `EmojiReactionButton`, and the viewers' faces opening the list, guests marked);
+  `LiveReactions` (everyone's reactions rising up the left side with the sender's name);
+  members also get Watch from the start (`/watch/...`, tap-preloaded) and the guide.
+  Off air shows when it is back; a signed-out visitor without a working link is sent to sign
+  in (`no_channel_guest`); other failures say why with a Retry. **`/tv/guide`** (`GuidePage`,
+  `(app)`, flag-gated, core-backed: `CachedView` with `GuideSkeleton`, the core asks again on
+  every visit): `GuideContent`, a row per broadcast day ("Today" is the broadcast day on air,
+  which runs past midnight), programs placed by time (`guideRows`, 12 rem an hour; a sliver of
+  a program drops its padding), a now-line, aired programs dimmed, the one on air
+  `aria-current="time"` and the TV's autofocus, "Back to now"; a program opens
+  `ProgramSheet` (overview, episode, day and times, a premiere/saga/marathon badge, Tune in
+  while it is on, Watch from the start once it began, the title page). **Home**: `OnNowCard`
+  leads the rows while the flag is on (`CouchTvOnNow`, through `useScreen`; nothing until the
+  core answers, so home never waits): what is on with its progress, what is next, Tune in.
+  **The join page** `/tv/join/[code]` (`TvJoinPage`, public): a name of up to 32 characters,
+  `CouchTvJoinRequested`, then `/tv`; a member goes straight to `/tv`. `Lockup` imports the
+  package's brand module alone and loads its fonts (`ensureFonts`) once on screen, so home
+  never carries the templates or the audio engine. TV mode: every control is a real button
+  or link, the reaction button and the guide's program on air are `data-tv-autofocus`, the
+  quick picks show with focus as well as hover, and with live (as on a TV) an open popover
+  keeps the player's controls up. The top nav's TV entry shows while the flag is on. E2E:
+  `e2e/couchtv.spec.ts` (a member and a guest, Chromium and WebKit) on the schedule
+  `e2e/setup.sql` airs (the series' first episode from its package every 32 s, the slate in the
+  breaks), `/tv` in `e2e/a11y.spec.ts`.
 - **Web admin** (`features/couchtv`, routes under `/admin/couch-tv`, one sidebar entry and a
   tab bar from `AdminCouchTvLayout`): **Schedule** (`AdminSchedulePage`, `ScheduleGrid`): a week
   of columns from the hour the earliest broadcast day opens, in the channel's time zone
@@ -933,8 +971,11 @@ server that does not send it). The admin settings page toggles it.
   48 h; it polls every minute. A program opens `AiringPanel` (details, the breaks on either
   side, lock, air something else, move, swap by clicking the other program, insert before or
   after with `ProgramPicker`, replan the day, remove); a day header replans its day.
-  **Template** (`AdminTemplatePage` over `StreamedView`, `TemplateEditor`, `SlotEditor`): time
-  zone, shortest break, the rotation knobs and the slots (key, start, anchor, fill, genre,
+  **Template** (`AdminTemplatePage` over `StreamedView`, `GuestLinkPanel`, `TemplateEditor`,
+  `SlotEditor`): the guest link first (whether one exists, "Guests can join"
+  through `adminSetCouchTvLink`, "Make a link" or, after a warning that it ends the old one
+  and its guests, "New link" through `adminRotateCouchTvLink`, the new link shown once with a
+  Copy button), then the time zone, shortest break, the rotation knobs and the slots (key, start, anchor, fill, genre,
   count, days, pinned titles through the picker; reorder within the day shown), with
   `FormState` and the server's checks repeated in `template.ts` (`problems`, the same codes,
   shown through `problemMessage`), so Save stays disabled while the template is invalid.
@@ -1830,8 +1871,12 @@ development (persisted in localStorage `cv.tv`; `?tv=0` clears it).
   before the shell. With the controls hidden or the seek bar focused, OK plays/pauses and
   left/right skip 10 s; other keys bring the controls up on the seek bar; once a control
   button has focus the arrows are spatial navigation. Media keys work any time. Controls
-  stay up while a player menu is open. HLS always goes through hls.js on TVs (their
-  browsers claim native HLS, which would lose the quality and audio menus).
+  stay up while a player menu (a popover, `data-popover-content`) is open. HLS always goes
+  through hls.js on TVs (their browsers claim native HLS, which would lose the quality and
+  audio menus). Couch TV's live player has no seek bar: OK only resumes a stopped picture,
+  left/right do nothing, and the controls come up on its reaction button
+  (`data-tv-autofocus`); the guide's grid is buttons the arrows move between, scrolling the
+  timeline.
 - **Cards** mirror their hover look with `group-focus-visible:` (ring on the artwork, so
   the anchor drops its own outline); the hero carousel holds its slide while focus is
   inside it (advancing would re-create the focused button).

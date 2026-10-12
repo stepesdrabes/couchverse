@@ -836,6 +836,45 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
 - i18n keys for every UI string (en/cs); problem codes for new errors; an e2e spec for `/tv`
   (signed in and guest) on a seeded schedule with fixture clips.
 
+**As built (Phase 5)**; the full reference is FEATURES.md "couchtv" (Web viewer).
+- **`/tv` is public** (a guest watches signed out) and outside the app's shell (no top nav, full
+  bleed); a member with the flag off gets a 404, a guest learns it from tuning in. The page
+  tunes in on mount and out on leaving; `VideoPlayer`'s `live` mode keeps the player's chrome
+  (volume, fullscreen, picture in picture, the subtitle style, the TV remote) and swaps the
+  seek bar for a progress line, play/pause for the channel's controls (presence and the
+  reaction button on the left, Watch from the start and the Guide on the right) and the
+  playback events for the channel's audio and subtitle choices. Live never pauses: a picture
+  the browser stopped (a blocked autoplay) shows one Play button that resumes at the live
+  edge.
+- **The overlays** follow the core's cues on the picture's clock. The corner bug shows over
+  programs with the controls and on its own as a program starts (its Now caption's 8 s), so
+  activity brings it back and it fades with the controls. Captions are lower thirds in the
+  broadcast's look (Saira caps, a red tag); with the controls up they move above the bar and
+  aside for the quick reactions. The lockup comes from the package's brand module, its fonts
+  from the package's loader once one is on screen, so pages with a lockup (home's card) never
+  load the templates or the audio engine.
+- **Reactions** reuse couch's emoji button and bundled picker, with five quick picks for one
+  press (shown with focus as well as hover, for remotes); everyone's reactions rise up the
+  left side with the sender's name.
+- **The guide** is a row per broadcast day on one time axis (12 rem an hour, scrolling sideways
+  to now on open); the first row is the broadcast day on air ("Today", which runs past
+  midnight), the next "Tomorrow", then weekdays. The program on air is the TV's autofocus.
+- **The home card** waits for the core's answer and takes no room until then; during a break it
+  leads with what is next.
+- **Guests**: the join page takes a name of up to 32 characters and goes to `/tv`; a member
+  opening it goes straight there. A link turned off or rotated ends a guest's channel at once
+  (the room's socket closes, the next tune-in answers `no_channel_guest`) and `/tv` asks them
+  to sign in. The admin's panel confirms a new link (it ends the old one and its guests) but
+  not the first, which ends nothing.
+- **E2E content**: `e2e/setup.sql` turns the flag on and airs the series' first episode every
+  32 s (to its credits at 24 s, the slate in the breaks) as locked admin rows, so the admin
+  spec's replan airs around them; the e2e server makes the episode's package with the real
+  job before it reports ready, and its clips have a keyframe every 2 s so the copied source
+  fits the 10 s target duration.
+- **Problem codes** with messages: `couchtv_playback_failed`, `invalid_name`,
+  `no_channel_guest`, `no_channel_link` and `feature_disabled` (a guest of a channel that is
+  off), worded on Apple and Android too.
+
 ### 7.3 Native (later)
 The live stream plays in AVPlayer and ExoPlayer as is; the core module is shared. What remains
 per platform: the screens (TV-first layouts), the live overlays, presence and reactions.
@@ -1130,8 +1169,12 @@ The core module, `/tv`, overlays, Guide, home card, presence and reactions, gues
 reactions, schedule changes, reports), the guest link, progress and TV watch time (with an
 admin dashboard card), the `TvStatsRecorder` hook for ranks, the core's `couchtv` module with
 its scenarios, and `ElementPlayer`'s live mode (hls.js live settings, the program date, the
-rate); the native players follow the rate. The web pages (`/tv`, the guide, the home card,
-the join page) are next, on the core's views.
+rate); the native players follow the rate.
+
+**Built** (2026-10-12; 7.2 "As built"): the web pages on the core's views (`/tv`, the guide,
+the home card, the join page) and the admin's guest link panel; `e2e/couchtv.spec.ts` (a member
+and a guest) and the `/tv` accessibility audit pass in Chromium and WebKit with the rest of the
+suite. The owner's evening on the TV remains.
 
 ### Phase 6: Integration and admin tools
 Progress, analytics, ranks XP and achievements; the EPG editor; per-title tools (promo audio
