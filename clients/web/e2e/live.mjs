@@ -6,8 +6,10 @@
 // language and turns subtitles on midway; the script checks the samples
 // against the schedule (stalls, boundaries crossed, picture and sound changing
 // item on the program date, subtitle cues, live edge, sync between viewers).
-// Prints one line per check and exits non-zero on a failure.
-// usage: SERVER=http://127.0.0.1:port SECONDS=130 node e2e/live.mjs
+// Prints one line per check and exits non-zero on a failure. Items of kind slate
+// (Couch TV's stand-in picture: dark and silent) look like programs to the
+// picture check, which only tells breaks (plain blue) from the rest.
+// usage: SERVER=http://127.0.0.1:port SECONDS=130 [MASTER=/path/master.m3u8] node e2e/live.mjs
 import { writeFileSync } from 'node:fs';
 import { chromium, webkit } from 'playwright';
 
@@ -16,6 +18,7 @@ const seconds = Number(process.env.SECONDS ?? 130);
 const hlsPath = new URL('../node_modules/hls.js/dist/hls.min.js', import.meta.url).pathname;
 if (!server) throw new Error('SERVER is required');
 
+const master = process.env.MASTER ?? '/live/master.m3u8';
 const schedule = await (await fetch(`${server}/schedule.json`)).json();
 const target = schedule.targetDuration;
 // the plan's starting point: three target durations behind the live edge
@@ -49,7 +52,7 @@ hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => (spike.subtitleTracks = hls.sub
 hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_, d) => log('audioSwitched', hls.audioTracks[d.id].lang));
 hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, (_, d) => log('subtitleSwitch', d.id));
 for (const type of ['playing', 'waiting', 'seeking', 'seeked']) video.addEventListener(type, () => log(type));
-hls.loadSource('/live/master.m3u8?lang=' + lang);
+hls.loadSource(params.get('master') + '?lang=' + lang);
 hls.attachMedia(video);
 
 let analyser, bins, sampleRate;
@@ -112,7 +115,10 @@ document.getElementById('start').addEventListener('click', async () => {
     hls.subtitleDisplay = true;
     hls.subtitleTrack = hls.subtitleTracks.findIndex((t) => t.lang === 'en');
   }, duration * 250);
-  setTimeout(() => { hls.audioTrack = hls.audioTracks.findIndex((t) => t.lang !== lang); }, duration * 400);
+  setTimeout(() => {
+    log('switchAudio');
+    hls.audioTrack = hls.audioTracks.findIndex((t) => t.lang !== lang);
+  }, duration * 400);
   if (sync === 'pdt') {
     // hold the picture latency seconds behind the server clock: a small drift
     // is played away up to 10 % faster or slower, a large one is seeked
@@ -151,7 +157,7 @@ async function view(browserType, { name, lang, delay = 0, duration, sync = 'edge
 			r.fulfill({ path: hlsPath, contentType: 'text/javascript' })
 		);
 		await tab.route('**/player.html*', (r) => r.fulfill({ body: page, contentType: 'text/html' }));
-		const q = new URLSearchParams({ lang, latency, target, duration, sync });
+		const q = new URLSearchParams({ lang, latency, target, duration, sync, master });
 		await tab.goto(`${server}/player.html?${q}`);
 		await tab.click('#start');
 		await tab.waitForTimeout(duration * 1000);
@@ -163,6 +169,8 @@ async function view(browserType, { name, lang, delay = 0, duration, sync = 'edge
 }
 
 const itemAt = (date) => schedule.items.find((i) => date >= i.start && date < i.end);
+// what the picture check tells apart: breaks are plain blue, the rest is not
+const looks = (item) => (item?.kind === 'break' ? 'break' : 'program');
 const boundaries = schedule.items.map((i) => i.start);
 const nearBoundary = (date, margin) => boundaries.some((b) => Math.abs(date - b) < margin);
 const stats = (values) => {
@@ -188,13 +196,17 @@ function check(v) {
 		report(false, `${label} played`, `${played.length} samples with a program date`);
 		return null;
 	}
-	// stalls: waiting after playback started, not caused by a seek
+	// stalls: waiting after playback started, not caused by a seek; a wait
+	// right after the viewer switched audio is hls.js flushing the old track
 	const firstPlaying = v.events.find((e) => e.type === 'playing');
 	let stalls = 0;
 	let stalled = 0;
+	let switchWaits = 0;
 	let lastSeek = -Infinity;
+	let lastSwitch = -Infinity;
 	for (const [i, e] of v.events.entries()) {
 		if (e.type === 'seeking') lastSeek = e.wall;
+		if (e.type === 'switchAudio') lastSwitch = e.wall;
 		if (
 			e.type !== 'waiting' ||
 			!firstPlaying ||
@@ -202,11 +214,20 @@ function check(v) {
 			e.wall - lastSeek < 1500
 		)
 			continue;
-		stalls++;
 		const resumed = v.events.slice(i).find((n) => n.type === 'playing');
+		if (e.wall - lastSwitch < 1500) {
+			switchWaits += ((resumed?.wall ?? e.wall) - e.wall) / 1000;
+			continue;
+		}
+		stalls++;
 		stalled += ((resumed?.wall ?? e.wall) - e.wall) / 1000;
 	}
-	report(stalls === 0, `${label} never stalls`, `${stalls} stalls, ${stalled.toFixed(2)}s`);
+	report(
+		stalls === 0,
+		`${label} never stalls`,
+		`${stalls} stalls, ${stalled.toFixed(2)}s` +
+			(switchWaits ? `; the audio switch waited ${switchWaits.toFixed(2)}s` : '')
+	);
 
 	const first = played[Math.floor(played.length / 10)];
 	const last = played[played.length - 1];
@@ -262,7 +283,9 @@ function check(v) {
 		(s) =>
 			s.wall - first.wall > 0 && !nearBoundary(s.date, 600) && Math.abs(s.wall - switchedAt) > 1500
 	);
-	const pictureMiss = settled.filter((s) => s.picture && s.picture !== itemAt(s.date)?.kind).length;
+	const pictureMiss = settled.filter(
+		(s) => s.picture && s.picture !== looks(itemAt(s.date))
+	).length;
 	const heard = settled.filter((s) => s.tone > 0);
 	const toneMiss = heard.filter((s) => {
 		const item = itemAt(s.date);
@@ -288,7 +311,9 @@ function check(v) {
 	const offsets = { picture: [], tone: [] };
 	for (const b of boundaries.filter((b) => b > first.date && b < last.date)) {
 		const after = itemAt(b);
-		const p = played.find((s) => s.date >= b - 2000 && s.picture === after.kind);
+		const p =
+			looks(after) !== looks(itemAt(b - 1)) &&
+			played.find((s) => s.date >= b - 2000 && s.picture === looks(after));
 		const t = played.find(
 			(s) =>
 				s.date >= b - 2000 &&
@@ -353,7 +378,9 @@ function check(v) {
 }
 
 // the second viewer of a pair tunes in 20 s later; at every moment both should show the same program date
-function compare(name, a, b) {
+// hls.js's own live edge moves in whole segments, so viewers on it drift apart
+// (S1): that pair is reported, the program-date hold is what players use
+function compare(name, a, b, required = true) {
 	if (!a || !b) return;
 	const diffs = [];
 	for (const s of b.filter((s) => s.wall - b[0].wall > 10000)) {
@@ -364,11 +391,12 @@ function compare(name, a, b) {
 			diffs.push(Math.abs(s.date - other.date - (s.wall - other.wall)) / 1000);
 	}
 	const d = stats(diffs);
-	report(
-		diffs.length > 20 && d.max <= 2,
-		`${name} viewers 20 s apart stay in sync`,
-		`program dates differ by ${fmt(d.p50)}s median, ${fmt(d.max)}s max`
-	);
+	const detail = `program dates differ by ${fmt(d.p50)}s median, ${fmt(d.max)}s max`;
+	if (!required) {
+		console.log(`     ${name} viewers 20 s apart: ${detail}`);
+		return;
+	}
+	report(diffs.length > 20 && d.max <= 2, `${name} viewers 20 s apart stay in sync`, detail);
 }
 
 const viewers = [
@@ -390,7 +418,7 @@ const results = await Promise.all(viewers.map((v) => view(v.browser, v)));
 if (process.env.OUT) writeFileSync(process.env.OUT, JSON.stringify({ schedule, results }));
 const played = {};
 for (const v of results) played[v.name] = check(v);
-compare('hls.js live edge:', played['chromium'], played['chromium +20s']);
+compare('hls.js live edge:', played['chromium'], played['chromium +20s'], false);
 compare('program-date aligned:', played['chromium pdt'], played['chromium pdt +20s']);
 compare('chromium and webkit:', played['chromium'], played['webkit']);
 process.exit(failures ? 1 : 0);

@@ -9,8 +9,10 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -263,7 +265,8 @@ func TestLiveSpike(t *testing.T) {
 		go run("AVFoundation", exec.CommandContext(players, "swift", "../../../scripts/avplayer-probe.swift", master,
 			"--live", seconds, "--audio", "2", "--subtitles", "2"))
 	}
-	ch.validateBoundaries(t, srv, 4)
+	boundaries := ch.boundaries(4)
+	validateLive(t, srv.Client(), master, boundaries, os.Getenv("COUCHVERSE_SPIKE_OUT"))
 	wg.Wait()
 	for _, name := range []string{"hls.js", "AVFoundation"} {
 		if out, ok := results[name]; ok {
@@ -271,7 +274,11 @@ func TestLiveSpike(t *testing.T) {
 		}
 	}
 	if out, ok := results["AVFoundation"]; ok {
-		ch.checkAVPlayer(t, out)
+		var starts []time.Time
+		for _, e := range ch.entries {
+			starts = append(starts, e.start)
+		}
+		checkAVPlayerLive(t, out, starts)
 	}
 	// a device that cannot run the checks (the Titan OS TV) watches meanwhile
 	if hold > 0 {
@@ -368,6 +375,11 @@ func (c *spikeChannel) schedule(now time.Time) *hls.LiveSchedule {
 	return s
 }
 
+// watchPage is spikeWatchPage for a channel of target duration target at master.
+func watchPage(target int, master string) string {
+	return strings.NewReplacer("TARGET", strconv.Itoa(target), "MASTER", master).Replace(spikeWatchPage)
+}
+
 // spikeWatchPage plays the channel with hls.js, holding the program date the
 // way the web player will, and shows the date, latency and audio choices so a
 // TV can be checked by eye against a laptop.
@@ -382,7 +394,7 @@ const target = 3 * TARGET, hls = new Hls({ liveSyncDuration: target, liveMaxLate
 let offset = 0, events = [];
 fetch('/clock').then((r) => r.json()).then(({ now }) => (offset = now - Date.now()));
 hls.on(Hls.Events.ERROR, (_, d) => events.push(d.details + (d.fatal ? ' (fatal)' : '')));
-hls.loadSource('/live/master.m3u8?lang=' + (new URLSearchParams(location.search).get('lang') || 'cs'));
+hls.loadSource('MASTER?lang=' + (new URLSearchParams(location.search).get('lang') || 'cs'));
 hls.attachMedia(video);
 video.addEventListener('waiting', () => events.push('waiting at ' + video.currentTime.toFixed(1)));
 // left and right switch audio, up and down subtitles (remote arrows)
@@ -455,7 +467,7 @@ func (c *spikeChannel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, path)
 	case path == "/watch.html":
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		io.WriteString(w, strings.ReplaceAll(spikeWatchPage, "TARGET", strconv.Itoa(c.target)))
+		io.WriteString(w, watchPage(c.target, "/live/master.m3u8"))
 	case path == "/hls.min.js":
 		w.Header().Set("Content-Type", "text/javascript")
 		http.ServeFile(w, r, "../../../clients/web/node_modules/hls.js/dist/hls.min.js")
@@ -560,16 +572,20 @@ func (c *spikeChannel) describe() map[string]any {
 	return map[string]any{"items": items, "targetDuration": c.target}
 }
 
-// validateBoundaries validates the presentation just before and just after
-// the next n item boundaries.
-func (c *spikeChannel) validateBoundaries(t *testing.T, srv *httptest.Server, n int) {
-	out := os.Getenv("COUCHVERSE_SPIKE_OUT")
-	var boundaries []time.Time
+// boundaries are the starts of the next n items.
+func (c *spikeChannel) boundaries(n int) []time.Time {
+	var out []time.Time
 	for _, e := range c.entries {
-		if e.start.After(time.Now().Add(3*time.Second)) && len(boundaries) < n {
-			boundaries = append(boundaries, e.start)
+		if e.start.After(time.Now().Add(3*time.Second)) && len(out) < n {
+			out = append(out, e.start)
 		}
 	}
+	return out
+}
+
+// validateLive validates the live presentation at master just before and just
+// after each boundary, keeping its playlists under out when set.
+func validateLive(t *testing.T, client *http.Client, master string, boundaries []time.Time, out string) {
 	for i, b := range boundaries {
 		for _, at := range []struct {
 			name string
@@ -577,7 +593,7 @@ func (c *spikeChannel) validateBoundaries(t *testing.T, srv *httptest.Server, n 
 		}{{"before", b.Add(-1500 * time.Millisecond)}, {"after", b.Add(1500 * time.Millisecond)}} {
 			time.Sleep(time.Until(at.time))
 			name := fmt.Sprintf("boundary %d %s", i+1, at.name)
-			report, err := hls.Validate(context.Background(), hls.HTTPFetcher{Client: srv.Client()}, srv.URL+"/live/master.m3u8", hls.Options{})
+			report, err := hls.Validate(context.Background(), hls.HTTPFetcher{Client: client}, master, hls.Options{})
 			if err != nil {
 				t.Errorf("%s: %v", name, err)
 				continue
@@ -593,39 +609,60 @@ func (c *spikeChannel) validateBoundaries(t *testing.T, srv *httptest.Server, n 
 			t.Logf("%s (%s): %d playlists, %d segments, %d errors, warnings %v", name, hls.FormatDateTime(at.time),
 				report.Playlists, report.Segments, len(report.Errors()), warnings)
 			if out != "" {
-				c.snapshot(t, srv, filepath.Join(out, fmt.Sprintf("boundary-%d-%s", i+1, at.name)))
+				snapshotLive(t, client, master, filepath.Join(out, fmt.Sprintf("boundary-%d-%s", i+1, at.name)))
 			}
 		}
 	}
 }
 
-// snapshot keeps every playlist of the presentation as served right now. It
-// runs while the players play, so a failure is reported rather than fatal.
-func (c *spikeChannel) snapshot(t *testing.T, srv *httptest.Server, dir string) {
+// snapshotLive keeps every playlist of the presentation at master as served
+// right now. It runs while the players play, so a failure is reported rather
+// than fatal.
+func snapshotLive(t *testing.T, client *http.Client, master, dir string) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Errorf("snapshot: %v", err)
 		return
 	}
-	for _, name := range []string{"master", "video", "audio-cs", "audio-en", "subs-cs", "subs-en"} {
-		res, err := srv.Client().Get(srv.URL + "/live/" + name + ".m3u8")
+	fetch := func(uri string) []byte {
+		res, err := client.Get(uri)
 		if err != nil {
 			t.Errorf("snapshot: %v", err)
-			return
+			return nil
 		}
+		defer res.Body.Close()
 		body, _ := io.ReadAll(res.Body)
-		res.Body.Close()
+		name := strings.TrimSuffix(path.Base(res.Request.URL.Path), ".m3u8")
 		if err := os.WriteFile(filepath.Join(dir, name+".m3u8"), body, 0o644); err != nil {
 			t.Errorf("snapshot: %v", err)
-			return
+		}
+		return body
+	}
+	pl, err := hls.Parse(string(fetch(master)))
+	if err != nil || pl.Multivariant == nil {
+		t.Errorf("snapshot: %v", err)
+		return
+	}
+	base, _ := url.Parse(master)
+	var uris []string
+	for _, v := range pl.Multivariant.Variants {
+		uris = append(uris, v.URI)
+	}
+	for _, r := range pl.Multivariant.Renditions {
+		uris = append(uris, r.URI)
+	}
+	for _, uri := range uris {
+		ref, err := url.Parse(uri)
+		if err == nil {
+			fetch(base.ResolveReference(ref).String())
 		}
 	}
 }
 
 var avDate = regexp.MustCompile(`(?m)^  t=([\d.]+) time=([\d.]+) date=(\d+) stalls=(\d+)`)
 
-// checkAVPlayer reads the AVFoundation probe's live log: the program date must
-// advance with the clock across at least three item boundaries.
-func (c *spikeChannel) checkAVPlayer(t *testing.T, out string) {
+// checkAVPlayerLive reads the AVFoundation probe's live log: the program date
+// must advance with the clock across at least three of the boundaries.
+func checkAVPlayerLive(t *testing.T, out string, boundaries []time.Time) {
 	samples := avDate.FindAllStringSubmatch(out, -1)
 	if len(samples) < 10 {
 		t.Errorf("AVFoundation: only %d samples", len(samples))
@@ -641,8 +678,8 @@ func (c *spikeChannel) checkAVPlayer(t *testing.T, out string) {
 	lastAt, lastDate, stalls := parse(samples[len(samples)-1])
 	drift := float64(lastDate-firstDate)/1000 - (lastAt - firstAt)
 	crossed := 0
-	for _, e := range c.entries {
-		if ms := e.start.UnixMilli(); ms > firstDate && ms < lastDate {
+	for _, b := range boundaries {
+		if ms := b.UnixMilli(); ms > firstDate && ms < lastDate {
 			crossed++
 		}
 	}
