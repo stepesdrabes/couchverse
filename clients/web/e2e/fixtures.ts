@@ -62,6 +62,20 @@ export function t(key: string, params: Record<string, string | number> = {}, lan
 	return message.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name]));
 }
 
+/**
+ * a message as a pattern, any parameter and any plural form standing for anything: for a count
+ * a spec cannot know (who else is watching)
+ */
+export function tPattern(key: string, lang: Lang = 'en'): RegExp {
+	const message = catalogs[lang][key];
+	const forms =
+		typeof message === 'string'
+			? [message]
+			: Object.values((message as { match: Record<string, string> }[])[0].match);
+	const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return new RegExp(`^(${forms.map((f) => escape(f).replace(/\\\{\w+\\\}/g, '.+')).join('|')})$`);
+}
+
 /** a home/browse row, found by its heading */
 export const row = (page: Page, label: string): Locator =>
 	page.locator('section').filter({ has: page.getByRole('heading', { name: label, exact: true }) });

@@ -74,6 +74,18 @@ test.describe('viewer pages', () => {
 		await expect(page.getByRole('table')).toBeVisible();
 		await audit(page);
 	});
+
+	// the live channel (e2e/setup.sql airs it) with its controls up: they hide a few seconds
+	// after the pointer stops, so the audit starts as they settle in
+	test('Couch TV is accessible', async ({ page }) => {
+		await page.goto('/tv');
+		await expect(page.getByRole('progressbar', { name: t('player_live_progress') })).toBeVisible({
+			timeout: 20_000
+		});
+		await page.mouse.move(320, 240);
+		await expect(page.getByRole('button', { name: t('couch_react') }).last()).toBeVisible();
+		await audit(page);
+	});
 });
 
 test.describe('the couch join page', () => {

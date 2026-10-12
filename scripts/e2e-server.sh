@@ -85,13 +85,14 @@ psql_ "$db_url" <"$root/backend/internal/server/testdata/seed.sql" >/dev/null
 
 # A real clip for the direct-play movie, in the Movies library the server created on
 # boot. It runs long enough for the player to pass its 5 s reporting threshold and a
-# 10 s skip without reaching the end.
+# 10 s skip without reaching the end. A keyframe every 2 s keeps a copied source's segments
+# within Couch TV's 10 s target duration, so the channel airs it.
 clip() { # seconds, tone in Hz, output
   mkdir -p "$(dirname "$3")"
   ffmpeg -hide_banner -loglevel error -y \
     -f lavfi -i "testsrc2=size=320x180:rate=12:duration=$1" \
     -f lavfi -i "sine=frequency=$2:sample_rate=48000:duration=$1" \
-    -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -b:a 64k \
+    -c:v libx264 -preset ultrafast -g 24 -pix_fmt yuv420p -c:a aac -b:a 64k \
     -movflags +faststart -shortest "$3"
 }
 size() { wc -c <"$1" | tr -d ' '; }
@@ -126,6 +127,24 @@ psql_ "$db_url" -At -c "SELECT path FROM subtitles" | while read -r rel; do
   mkdir -p "$(dirname "$data_dir/$rel")"
   printf 'WEBVTT\n\n00:00.000 --> 01:00.000\nThe sea keeps a door.\n' >"$data_dir/$rel"
 done
+
+# Couch TV airs the first episode from the package e2e/setup.sql queued: the server's job
+# runner makes it in a moment, and a program that goes on air without it keeps the slate
+for _ in $(seq 300); do
+  status=$(psql_ "$db_url" -At -c "SELECT status FROM jobs WHERE id = 905")
+  case $status in
+    done) break ;;
+    failed | cancelled)
+      log "the Couch TV package failed: $(psql_ "$db_url" -At -c "SELECT last_error FROM jobs WHERE id = 905")"
+      exit 1
+      ;;
+  esac
+  sleep 0.2
+done
+if [ "$status" != done ]; then
+  log "the Couch TV package did not finish in a minute"
+  exit 1
+fi
 
 echo "e2e server ready at http://127.0.0.1:$port"
 wait "$server_pid"
