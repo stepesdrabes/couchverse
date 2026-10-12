@@ -48,6 +48,28 @@ export interface AddOptions {
 
 type Frames = Keyframe[];
 
+const values = (f: Keyframe) =>
+	JSON.stringify(Object.entries(f).filter(([k]) => k !== 'offset' && k !== 'easing'));
+
+/** One value throughout (a hard cut's visibility, a held pose): it moves nothing. */
+const steady = (frames: Frames) => frames.every((f) => values(f) === values(frames[0]));
+
+/**
+ * The parts of an iteration (as offsets) where the value changes: between neighbouring
+ * keyframes that differ, a hard cut being a part of no length. Null when the offsets are only
+ * partly given (the browser spaces the rest).
+ */
+function moving(frames: Frames): [number, number][] | null {
+	const given = frames.filter((f) => typeof f.offset === 'number').length;
+	if (given !== 0 && given !== frames.length) return null;
+	const offset = (i: number) =>
+		given ? Number(frames[i].offset) : frames.length > 1 ? i / (frames.length - 1) : 0;
+	const parts: [number, number][] = [];
+	for (let i = 1; i < frames.length; i++)
+		if (values(frames[i]) !== values(frames[i - 1])) parts.push([offset(i - 1), offset(i)]);
+	return parts;
+}
+
 export class Timeline {
 	readonly root: HTMLElement;
 	duration: number;
@@ -59,7 +81,10 @@ export class Timeline {
 	loop = false;
 	/** The squeeze's program panel, when the template has one. */
 	keyRect: ((t: number) => KeyRect | null) | null = null;
+	/** Where animations move things: [start, end) of each stretch whose value changes. */
 	private readonly spans: [number, number][] = [];
+	/** Where a value jumps: hard cuts, and steady animations starting or stopping to apply. */
+	private readonly edges: number[] = [];
 	private readonly sounds: SoundCue[] = [];
 	private readonly dynamics: Dynamic[] = [];
 	private readonly props = new WeakMap<Element, Set<string>>();
@@ -93,17 +118,39 @@ export class Timeline {
 		keys.forEach((p) => seen.add(p));
 		const iterations = opts.iterations ?? 1;
 		const ms = Math.max(1, dur * 1000);
+		const fill = opts.fill ?? (again ? 'forwards' : 'both');
 		const a = target.animate(frames, {
 			duration: ms,
 			delay: at * 1000,
-			fill: opts.fill ?? (again ? 'forwards' : 'both'),
+			fill,
 			easing: easing(ease),
 			iterations,
 			direction: opts.direction ?? 'normal'
 		});
 		a.pause();
 		this.anims.push(a);
-		this.spans.push([at, at + (ms / 1000) * iterations]);
+		const end = at + (ms / 1000) * iterations;
+		// with a linear timing (whole-piece `motion` and `windows`), a held keyframe holds its
+		// value exactly, so only the parts in between move
+		const parts = steady(frames)
+			? []
+			: easing(ease) === 'linear' && !opts.direction
+				? moving(frames)
+				: null;
+		if (!parts) this.spans.push([at, end]);
+		else {
+			const loops = values(frames[0]) !== values(frames[frames.length - 1]);
+			for (let k = 0; k < iterations; k++) {
+				const from = at + (k * ms) / 1000;
+				if (k > 0 && loops) this.edges.push(from);
+				for (const [p, q] of parts) {
+					if (q > p) this.spans.push([from + (p * ms) / 1000, from + (q * ms) / 1000]);
+					else this.edges.push(from + (p * ms) / 1000);
+				}
+			}
+			if (fill !== 'backwards' && fill !== 'both') this.edges.push(at);
+			if (fill !== 'forwards' && fill !== 'both') this.edges.push(end);
+		}
 		return a;
 	}
 
@@ -209,11 +256,13 @@ export class Timeline {
 	}
 
 	/**
-	 * Whether the frames at t0 and t1 (t0 < t1) can differ: some animation is active in
-	 * between or some dynamic value changes. Conservative: a held keyframe counts as motion.
+	 * Whether the frames at t0 and t1 (t0 < t1) can differ: some animation moves something in
+	 * between, a steady one starts or stops applying, or some dynamic value changes.
+	 * Conservative: an animation whose keyframes differ counts as motion all through.
 	 */
 	changes(t0: number, t1: number): boolean {
 		for (const [a, b] of this.spans) if (a <= t1 && b > t0) return true;
+		for (const e of this.edges) if (e > t0 && e <= t1) return true;
 		for (const d of this.dynamics) if (d.value(t0) !== d.value(t1)) return true;
 		return false;
 	}

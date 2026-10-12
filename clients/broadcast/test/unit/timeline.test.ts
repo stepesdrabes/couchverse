@@ -30,6 +30,42 @@ describe('Timeline', () => {
 		expect(tl.changes(6.0, 6.04)).toBe(false);
 	});
 
+	it('holds still between the moves of a linear animation', () => {
+		const tl = new Timeline({} as HTMLElement, 10);
+		// a hard cut at 2 s and a move from 6 to 7 s, the way `windows` and `motion` key them
+		tl.add(
+			fakeElement(),
+			[
+				{ offset: 0, opacity: 0 },
+				{ offset: 0.2, opacity: 0 },
+				{ offset: 0.2, opacity: 1 },
+				{ offset: 0.6, opacity: 1 },
+				{ offset: 0.7, opacity: 0.5 },
+				{ offset: 1, opacity: 0.5 }
+			],
+			0,
+			10,
+			'linear'
+		);
+		// a hard cut's visibility changes the picture where it starts and where it ends only
+		tl.add(fakeElement(), [{ visibility: 'visible' }, { visibility: 'visible' }], 8, 1, 'linear', {
+			fill: 'none'
+		});
+		expect(tl.changes(1, 1.96)).toBe(false);
+		expect(tl.changes(1.96, 2)).toBe(true);
+		expect(tl.changes(2, 5.96)).toBe(false);
+		expect(tl.changes(6, 6.04)).toBe(true);
+		expect(tl.changes(7.04, 7.96)).toBe(false);
+		expect(tl.changes(7.96, 8)).toBe(true);
+		expect(tl.changes(8, 8.96)).toBe(false);
+		expect(tl.changes(8.96, 9)).toBe(true);
+
+		// an eased animation may move anywhere in its span
+		const eased = new Timeline({} as HTMLElement, 10);
+		eased.add(fakeElement(), [{ opacity: 0 }, { opacity: 0 }, { opacity: 1 }], 3, 2, 'enter');
+		expect(eased.changes(3, 3.04)).toBe(true);
+	});
+
 	it('treats a changing value as motion', () => {
 		const tl = new Timeline({} as HTMLElement, 10);
 		const texts: string[] = [];
