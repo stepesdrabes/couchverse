@@ -3399,6 +3399,138 @@
         },
         "type": "object"
       },
+      "MediaMarker": {
+        "additionalProperties": false,
+        "properties": {
+          "endMs": {
+            "description": "Where it ends; absent for a movie's credits, which run to the end.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "intro",
+              "credits",
+              "credits_music"
+            ],
+            "type": "string"
+          },
+          "none": {
+            "description": "An admin row saying the file has none of this kind, overriding a wrong detection.",
+            "type": "boolean"
+          },
+          "source": {
+            "enum": [
+              "auto",
+              "admin"
+            ],
+            "type": "string"
+          },
+          "startMs": {
+            "description": "Absent on an admin row that says the file has none of this kind.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "version": {
+            "description": "The analyzer that wrote an auto row; 0 for admin rows.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "source",
+          "version"
+        ],
+        "type": "object"
+      },
+      "MediaMarkerEdit": {
+        "additionalProperties": false,
+        "properties": {
+          "endMs": {
+            "description": "Required for intro and credits_music; optional for credits.",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "intro",
+              "credits",
+              "credits_music"
+            ],
+            "type": "string"
+          },
+          "none": {
+            "description": "The file has none of this kind, whatever the analysis found.",
+            "type": "boolean"
+          },
+          "startMs": {
+            "description": "Required unless none.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "MediaMarkers": {
+        "additionalProperties": false,
+        "properties": {
+          "analyzedVersion": {
+            "description": "The analyzer that last looked at the file; 0 before the first analysis.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "analyzer": {
+            "description": "The current analyzer's version; a file analyzed by an older one is analyzed again.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "markers": {
+            "description": "Auto and admin rows; an admin row overrides the auto row of its kind.",
+            "items": {
+              "$ref": "#/components/schemas/MediaMarker"
+            },
+            "type": "array"
+          },
+          "mediaFileId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mediaFileId",
+          "durationMs",
+          "analyzedVersion",
+          "analyzer",
+          "markers"
+        ],
+        "type": "object"
+      },
+      "MediaMarkersUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "markers": {
+            "description": "One per kind at most; a kind left out falls back to the analysis.",
+            "items": {
+              "$ref": "#/components/schemas/MediaMarkerEdit"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "markers"
+        ],
+        "type": "object"
+      },
       "MemberRank": {
         "additionalProperties": false,
         "properties": {
@@ -7121,6 +7253,112 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "library"
+        ]
+      }
+    },
+    "/admin/media-files/{id}/markers": {
+      "get": {
+        "operationId": "adminGetMediaMarkers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaMarkers"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "library"
+        ]
+      },
+      "put": {
+        "operationId": "adminUpdateMediaMarkers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaMarkersUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaMarkers"
+                }
+              }
+            },
+            "description": "OK"
           },
           "default": {
             "content": {

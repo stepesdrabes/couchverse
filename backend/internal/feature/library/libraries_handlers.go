@@ -63,6 +63,7 @@ func (h *AdminLibraries) DeleteMediaFile(ctx context.Context, in *idInput) (*str
 	for _, dir := range []string{
 		filepath.Join(h.dataDir, "cache", "hls", id),
 		filepath.Join(h.dataDir, "cache", "frames", id),
+		filepath.Join(h.dataDir, "cache", "fingerprints", id),
 		filepath.Join(h.dataDir, "subtitles", id),
 	} {
 		if err := os.RemoveAll(dir); err != nil {

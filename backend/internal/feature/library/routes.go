@@ -9,15 +9,17 @@ import (
 	"couchverse/internal/httpx"
 )
 
-// Module bundles the library and upload admin handlers.
+// Module bundles the library, markers and upload admin handlers.
 type Module struct {
 	libraries *AdminLibraries
+	markers   *AdminMarkers
 	uploads   *AdminUploads
 }
 
-func NewModule(st *Store, manager *Manager) *Module {
+func NewModule(st *Store, manager *Manager, analyzer *MarkerAnalyzer) *Module {
 	return &Module{
 		libraries: NewAdminLibraries(st, manager.DataDir),
+		markers:   &AdminMarkers{store: st, analyzer: analyzer},
 		uploads:   NewAdminUploads(st, manager),
 	}
 }
@@ -27,6 +29,8 @@ const tag httpx.Tag = "library"
 func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.Admin, tag.NoContent("adminUpdateMediaFile", http.MethodPatch, "/media-files/{id}"), m.libraries.SetMediaFileAudio)
 	huma.Register(rt.Admin, tag.NoContent("adminDeleteMediaFile", http.MethodDelete, "/media-files/{id}"), m.libraries.DeleteMediaFile)
+	huma.Register(rt.Admin, tag.Op("adminGetMediaMarkers", http.MethodGet, "/media-files/{id}/markers"), m.markers.Get)
+	huma.Register(rt.Admin, tag.Op("adminUpdateMediaMarkers", http.MethodPut, "/media-files/{id}/markers"), m.markers.Update)
 
 	huma.Register(rt.Admin, tag.Op("adminListUploads", http.MethodGet, "/uploads"), m.uploads.List)
 	huma.Register(rt.Admin, tag.Created("adminCreateUpload", http.MethodPost, "/uploads"), m.uploads.Create)

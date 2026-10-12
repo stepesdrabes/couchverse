@@ -1061,6 +1061,57 @@ export type MediaFileAudioRole = 'primary' | 'audio_alt';
 
 export type MediaFileVideoRange = 'sdr' | 'hdr10' | 'hlg' | 'dv';
 
+export interface MediaMarker {
+	/** Where it ends; absent for a movie's credits, which run to the end. */
+	endMs?: number;
+	kind: MediaMarkerKind;
+	/** An admin row saying the file has none of this kind, overriding a wrong detection. */
+	none?: boolean;
+	source: MediaMarkerSource;
+	/** Absent on an admin row that says the file has none of this kind. */
+	startMs?: number;
+	/** The analyzer that wrote an auto row; 0 for admin rows. */
+	version: number;
+}
+
+export interface MediaMarkerEdit {
+	/**
+	 * Required for intro and credits_music; optional for credits.
+	 * At least 1.
+	 */
+	endMs?: number;
+	kind: MediaMarkerEditKind;
+	/** The file has none of this kind, whatever the analysis found. */
+	none?: boolean;
+	/**
+	 * Required unless none.
+	 * At least 0.
+	 */
+	startMs?: number;
+}
+
+export type MediaMarkerEditKind = 'intro' | 'credits' | 'credits_music';
+
+export type MediaMarkerKind = 'intro' | 'credits' | 'credits_music';
+
+export type MediaMarkerSource = 'auto' | 'admin';
+
+export interface MediaMarkers {
+	/** The analyzer that last looked at the file; 0 before the first analysis. */
+	analyzedVersion: number;
+	/** The current analyzer's version; a file analyzed by an older one is analyzed again. */
+	analyzer: number;
+	durationMs: number;
+	/** Auto and admin rows; an admin row overrides the auto row of its kind. */
+	markers: MediaMarker[];
+	mediaFileId: string;
+}
+
+export interface MediaMarkersUpdate {
+	/** One per kind at most; a kind left out falls back to the analysis. */
+	markers: MediaMarkerEdit[];
+}
+
 export interface MemberRank {
 	achievements: number;
 	avatarId: string | null;
@@ -2133,6 +2184,10 @@ export const adminGetHomeRows = (opts?: CallOptions) =>
 export const adminGetLive = (opts?: CallOptions) =>
 	api<LiveStats>(`/admin/live`, opts);
 
+/** `GET /admin/media-files/{id}/markers` */
+export const adminGetMediaMarkers = (id: string, opts?: CallOptions) =>
+	api<MediaMarkers>(`/admin/media-files/${encodeURIComponent(id)}/markers`, opts);
+
 /** `GET /admin/overview` */
 export const adminGetOverview = (opts?: CallOptions) =>
 	api<DashboardOverview>(`/admin/overview`, opts);
@@ -2311,6 +2366,14 @@ export const adminUpdateHomeRows = (body: HomeRowInput[], opts?: CallOptions) =>
  */
 export const adminUpdateMediaFile = (id: string, body: MediaFileAudio, opts?: CallOptions) =>
 	api<void>(`/admin/media-files/${encodeURIComponent(id)}`, { ...opts, method: 'PATCH', body });
+
+/**
+ * `PUT /admin/media-files/{id}/markers`
+ *
+ * @param body
+ */
+export const adminUpdateMediaMarkers = (id: string, body: MediaMarkersUpdate, opts?: CallOptions) =>
+	api<MediaMarkers>(`/admin/media-files/${encodeURIComponent(id)}/markers`, { ...opts, method: 'PUT', body });
 
 /**
  * `PUT /admin/ranks/config`

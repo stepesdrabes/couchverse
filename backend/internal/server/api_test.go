@@ -358,6 +358,14 @@ func apiCases() []apiCase {
 		{op: "adminListVariants", as: "admin", method: "GET", path: "/admin/media-files/" + ladderFileID + "/variants", status: 200},
 		{op: "adminEnqueueTranscode", as: "admin", method: "POST", path: "/admin/media-files/" + ladderFileID + "/transcode", body: map[string]any{"variants": []string{"480p"}}, status: 202},
 		{op: "adminDeleteVariant", as: "admin", method: "DELETE", path: "/admin/transcode-variants/" + failedRungID, status: 204},
+		{op: "adminUpdateMediaMarkers", as: "admin", method: "PUT", path: "/admin/media-files/" + movieFileID + "/markers", body: map[string]any{
+			"markers": []map[string]any{{"kind": "credits", "startMs": 6_480_000}, {"kind": "credits_music", "none": true}},
+		}, status: 200},
+		{op: "adminUpdateMediaMarkers", as: "admin", method: "PUT", path: "/admin/media-files/" + movieFileID + "/markers", body: map[string]any{
+			"markers": []map[string]any{{"kind": "intro", "startMs": 5000, "endMs": 4000}},
+		}, status: 400},
+		{op: "adminGetMediaMarkers", as: "admin", method: "GET", path: "/admin/media-files/" + movieFileID + "/markers", status: 200},
+		{op: "adminGetMediaMarkers", as: "admin", method: "GET", path: "/admin/media-files/" + unknownID + "/markers", status: 404},
 		{op: "adminUpdateMediaFile", as: "admin", method: "PATCH", path: "/admin/media-files/" + altAudioID, body: map[string]any{"audioLang": "de", "audioRole": "audio_alt"}, status: 204},
 		{op: "adminDeleteMediaFile", as: "admin", method: "DELETE", path: "/admin/media-files/" + altAudioID, status: 204},
 

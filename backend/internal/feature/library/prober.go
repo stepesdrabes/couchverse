@@ -74,6 +74,9 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 	if !res.HasVideo {
 		return nil
 	}
+	if err := queueFile(ctx, p.Jobs, mf.ID, priorityNew); err != nil {
+		return err
+	}
 	probed, err := p.Files.MediaFileByID(ctx, mf.ID)
 	if err != nil {
 		return err

@@ -3367,6 +3367,148 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct MediaMarker {
+        /// Where it ends; absent for a movie's credits, which run to the end.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub end_ms: Option<i64>,
+        pub kind: MediaMarkerKind,
+        /// An admin row saying the file has none of this kind, overriding a wrong detection.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub none: Option<bool>,
+        pub source: MediaMarkerSource,
+        /// Absent on an admin row that says the file has none of this kind.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub start_ms: Option<i64>,
+        /// The analyzer that wrote an auto row; 0 for admin rows.
+        pub version: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct MediaMarkerEdit {
+        /// Required for intro and credits_music; optional for credits.
+        /// At least 1.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub end_ms: Option<i64>,
+        pub kind: MediaMarkerEditKind,
+        /// The file has none of this kind, whatever the analysis found.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub none: Option<bool>,
+        /// Required unless none.
+        /// At least 0.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub start_ms: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum MediaMarkerEditKind {
+        #[serde(rename = "intro")]
+        Intro,
+        #[serde(rename = "credits")]
+        Credits,
+        #[serde(rename = "credits_music")]
+        CreditsMusic,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl MediaMarkerEditKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                MediaMarkerEditKind::Intro => "intro",
+                MediaMarkerEditKind::Credits => "credits",
+                MediaMarkerEditKind::CreditsMusic => "credits_music",
+                MediaMarkerEditKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for MediaMarkerEditKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum MediaMarkerKind {
+        #[serde(rename = "intro")]
+        Intro,
+        #[serde(rename = "credits")]
+        Credits,
+        #[serde(rename = "credits_music")]
+        CreditsMusic,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl MediaMarkerKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                MediaMarkerKind::Intro => "intro",
+                MediaMarkerKind::Credits => "credits",
+                MediaMarkerKind::CreditsMusic => "credits_music",
+                MediaMarkerKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for MediaMarkerKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum MediaMarkerSource {
+        #[serde(rename = "auto")]
+        Auto,
+        #[serde(rename = "admin")]
+        Admin,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl MediaMarkerSource {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                MediaMarkerSource::Auto => "auto",
+                MediaMarkerSource::Admin => "admin",
+                MediaMarkerSource::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for MediaMarkerSource {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct MediaMarkers {
+        /// The analyzer that last looked at the file; 0 before the first analysis.
+        pub analyzed_version: i64,
+        /// The current analyzer's version; a file analyzed by an older one is analyzed again.
+        pub analyzer: i64,
+        pub duration_ms: i64,
+        /// Auto and admin rows; an admin row overrides the auto row of its kind.
+        pub markers: Vec<MediaMarker>,
+        pub media_file_id: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct MediaMarkersUpdate {
+        /// One per kind at most; a kind left out falls back to the analysis.
+        pub markers: Vec<MediaMarkerEdit>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct MemberRank {
         pub achievements: i64,
         pub avatar_id: Option<String>,
@@ -5651,6 +5793,17 @@ pub mod ops {
         build::json(build::request(Method::Get, "/admin/live".to_string(), q, Body::Empty))
     }
 
+    /// `GET /admin/media-files/{id}/markers`
+    pub fn admin_get_media_markers(id: &str) -> Call<MediaMarkers> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Get,
+            format!("/admin/media-files/{}/markers", build::segment(id)),
+            q,
+            Body::Empty,
+        ))
+    }
+
     /// `GET /admin/overview`
     pub fn admin_get_overview() -> Call<DashboardOverview> {
         let q = Vec::new();
@@ -5993,6 +6146,17 @@ pub mod ops {
         build::no_content(build::request(
             Method::Patch,
             format!("/admin/media-files/{}", build::segment(id)),
+            q,
+            build::json_body(Some(body)),
+        ))
+    }
+
+    /// `PUT /admin/media-files/{id}/markers`
+    pub fn admin_update_media_markers(id: &str, body: &MediaMarkersUpdate) -> Call<MediaMarkers> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Put,
+            format!("/admin/media-files/{}/markers", build::segment(id)),
             q,
             build::json_body(Some(body)),
         ))

@@ -99,10 +99,10 @@ func backfillVariantSizes(ctx context.Context, lib *library.Store, dataDir strin
 	return nil
 }
 
-// removeOrphanedCache deletes per-media-file cache directories (HLS variants and
-// seek-preview frames) whose media file no longer exists.
+// removeOrphanedCache deletes per-media-file cache directories (HLS variants,
+// seek-preview frames and audio fingerprints) whose media file no longer exists.
 func removeOrphanedCache(ctx context.Context, lib *library.Store, dataDir string) error {
-	for _, sub := range []string{"hls", "frames"} {
+	for _, sub := range []string{"hls", "frames", "fingerprints"} {
 		dir := filepath.Join(dataDir, "cache", sub)
 		entries, err := os.ReadDir(dir)
 		if err != nil {
