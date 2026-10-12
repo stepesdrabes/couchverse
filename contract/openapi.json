@@ -14349,7 +14349,7 @@
     },
     "/tv/{grant}/slate/{track}/{file}": {
       "get": {
-        "description": "What airs when nothing else can: video and audio init sections, copy \u003cn\u003e of their looping segment, and subs/empty.vtt, a subtitle segment without cues.",
+        "description": "What airs when nothing else can and no standby card is rendered: video and audio init sections, copy \u003cn\u003e of their looping segment, and subs/empty.vtt, a subtitle segment without cues.",
         "operationId": "getCouchTvSlateFile",
         "parameters": [
           {
@@ -14434,6 +14434,100 @@
           }
         },
         "summary": "Get a file of the Couch TV slate",
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/tv/{grant}/standby/{clip}/{track}/{file}": {
+      "get": {
+        "description": "The rendered standby card, looped where a break is not ready or a program cannot air: video and audio init sections and copy \u003cn\u003e of their segments (segment n mod S of pass n / S, retimed by whole passes).",
+        "operationId": "getCouchTvStandbyFile",
+        "parameters": [
+          {
+            "description": "The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The standby card's clip.",
+            "in": "path",
+            "name": "clip",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "video or audio.",
+            "in": "path",
+            "name": "track",
+            "required": true,
+            "schema": {
+              "enum": [
+                "video",
+                "audio"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "init.mp4 or \u003cn\u003e.m4s.",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "pattern": "^(init\\.mp4|\\d{1,6}\\.m4s)$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cut the segment to its first seconds.",
+            "in": "query",
+            "name": "keep",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The file."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a file of the Couch TV standby card",
         "tags": [
           "couchtv"
         ]

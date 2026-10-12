@@ -88,7 +88,7 @@ func (l *Live) Playlist(w http.ResponseWriter, r *http.Request) {
 var (
 	segmentRe  = regexp.MustCompile(`^(init\.mp4|[A-Za-z0-9_-]{1,64}\.m4s)$`)
 	subtitleRe = regexp.MustCompile(`^\d{1,5}\.vtt$`)
-	slateRe    = regexp.MustCompile(`^(init\.mp4|\d{1,6}\.m4s)$`)
+	loopRe     = regexp.MustCompile(`^(init\.mp4|\d{1,6}\.m4s)$`)
 )
 
 // AiringFile serves an init section, a segment or a subtitle segment of what an
@@ -228,7 +228,47 @@ func (l *Live) SlateFile(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, emptyWebVTT)
 		return
 	}
-	if (track != "video" && track != "audio") || !slateRe.MatchString(file) {
+	if l.Slate.Ensure(r.Context()) != nil {
+		httpx.Error(w, http.StatusNotFound, "not_found", "the slate is unavailable")
+		return
+	}
+	serveLoop(w, r, l.Slate.Fill(), track, file)
+}
+
+// StandbyFile serves the standby card looped: its tracks' init sections and copy
+// n of their segments. The card is a channel asset, so any channel grant reaches it.
+func (l *Live) StandbyFile(w http.ResponseWriter, r *http.Request) {
+	id, track, file := httpx.UUID(r, "clip"), chi.URLParam(r, "track"), chi.URLParam(r, "file")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	card, err := l.store.Clip(r.Context(), id)
+	if err != nil {
+		httpx.StoreErr(w, err)
+		return
+	}
+	if card.Kind != ClipStandby || card.State != ClipReady {
+		httpx.NotFound(w)
+		return
+	}
+	f, err := l.media.Fill(card.Path)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "not_found", "the standby card is unreadable")
+		return
+	}
+	serveLoop(w, r, f, track, file)
+}
+
+// serveLoop writes a filler's init section or copy n of its segments.
+func serveLoop(w http.ResponseWriter, r *http.Request, f *fill, track, file string) {
+	loop := f.Video
+	if track == "audio" {
+		loop = f.Audio
+	} else if track != "video" {
+		loop = nil
+	}
+	if loop == nil || loop.in == nil || !loopRe.MatchString(file) {
 		httpx.NotFound(w)
 		return
 	}
@@ -237,16 +277,13 @@ func (l *Live) SlateFile(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, err.Error())
 		return
 	}
-	var data []byte
-	if file == "init.mp4" {
-		data, err = l.Slate.Init(track)
-	} else {
+	data := loop.init
+	if file != "init.mp4" {
 		n, _ := strconv.Atoi(strings.TrimSuffix(file, ".m4s"))
-		data, err = l.Slate.Segment(track, n, keep)
-	}
-	if err != nil {
-		httpx.Error(w, http.StatusNotFound, "not_found", "the slate is unavailable")
-		return
+		if data, err = loop.copy(n, keep); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
 	}
 	w.Header().Set("Content-Type", "video/mp4")
 	if track == "audio" {

@@ -3313,6 +3313,33 @@ pub mod types {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum GetCouchTvStandbyFileTrack {
+        #[serde(rename = "video")]
+        Video,
+        #[serde(rename = "audio")]
+        Audio,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl GetCouchTvStandbyFileTrack {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                GetCouchTvStandbyFileTrack::Video => "video",
+                GetCouchTvStandbyFileTrack::Audio => "audio",
+                GetCouchTvStandbyFileTrack::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for GetCouchTvStandbyFileTrack {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub enum GetHlsMasterVideo {
         #[serde(rename = "original")]
         Original,
@@ -7389,6 +7416,44 @@ pub mod ops {
             format!(
                 "/tv/{}/slate/{}/{}",
                 build::segment(grant),
+                build::segment(&track.to_string()),
+                build::segment(file)
+            ),
+            q,
+            Body::Empty,
+        )
+    }
+
+    /// Query parameters of [`get_couch_tv_standby_file`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct GetCouchTvStandbyFileQuery {
+        /// Cut the segment to its first seconds.
+        pub keep: Option<f64>,
+    }
+
+    /// Get a file of the Couch TV standby card
+    ///
+    /// `GET /tv/{grant}/standby/{clip}/{track}/{file}`
+    ///
+    /// - `grant`: The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.
+    /// - `clip`: The standby card's clip.
+    /// - `track`: video or audio.
+    /// - `file`: init.mp4 or <n>.m4s.
+    pub fn get_couch_tv_standby_file(
+        grant: &str,
+        clip: &str,
+        track: GetCouchTvStandbyFileTrack,
+        file: &str,
+        query: &GetCouchTvStandbyFileQuery,
+    ) -> Request {
+        let mut q = Vec::new();
+        build::push(&mut q, "keep", query.keep.as_ref());
+        build::request(
+            Method::Get,
+            format!(
+                "/tv/{}/standby/{}/{}/{}",
+                build::segment(grant),
+                build::segment(clip),
                 build::segment(&track.to_string()),
                 build::segment(file)
             ),

@@ -14,39 +14,25 @@ import (
 
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/hls"
-	"couchverse/internal/media/mp4"
 )
 
 // slateVersion names the slate's design; changing it makes the next start
 // generate it again.
 const slateVersion = 1
 
-// Slate is what airs when nothing else can (a break not rendered in time, a
-// program that cannot air, a hole in the schedule): a plain dark 1080p25 frame
-// with the channel's name and silence. It is generated once with ffmpeg as one
-// 2 s segment per track (H.264 without B-frames, one GOP, so it can be cut
-// anywhere; silent AAC) and looped: copy n of a segment is retimed to n times
-// its length, so a gap of any length is one item of whole segments.
+// Slate is the last resort, what airs when nothing else can and no standby card
+// is rendered (a break not ready without an evergreen one, a program that cannot
+// air, a hole in the schedule): a plain dark 1080p25 frame with the channel's
+// name and silence. It is generated once with ffmpeg as one 2 s segment per track
+// (H.264 without B-frames, one GOP, so it can be cut anywhere; silent AAC) and
+// looped.
 type Slate struct {
 	dir    string
 	ffmpeg string
 
-	once         sync.Once
-	err          error
-	video, audio slateTrack
-}
-
-type slateTrack struct {
-	init, segment []byte
-	in            *mp4.Init
-	// base is the first copy's decode time and step a copy's length, in the
-	// track's timescale
-	base, step uint64
-	info       playback.RenditionInfo
-}
-
-func (t slateTrack) seconds() float64 {
-	return float64(t.step) / float64(t.in.Tracks[0].Timescale)
+	once sync.Once
+	err  error
+	fill fill
 }
 
 // NewSlate keeps the slate under dataDir/cache/couchtv/slate.
@@ -54,11 +40,12 @@ func NewSlate(dataDir, ffmpeg string) *Slate {
 	return &Slate{dir: filepath.Join(dataDir, "cache", "couchtv", "slate"), ffmpeg: ffmpeg}
 }
 
-// Nominal lengths, used while the slate cannot be made (no ffmpeg): playlists
-// still list it, its files are missing.
-var nominalSlate = slateInfo{VideoSeconds: 2, AudioSeconds: 2.005333,
-	Video: playback.RenditionInfo{Codec: "avc1.640028", Width: 1920, Height: 1080, FrameRate: 25},
-	Audio: playback.RenditionInfo{Codec: "mp4a.40.2", Channels: "2"}}
+// nominalSlate is listed while the slate cannot be made (no ffmpeg): its files
+// are missing.
+var nominalSlate = fill{
+	Video: &loop{durations: []float64{2}, info: playback.RenditionInfo{Codec: "avc1.640028", Width: 1920, Height: 1080, FrameRate: 25}},
+	Audio: &loop{durations: []float64{2.021333}, info: playback.RenditionInfo{Codec: "mp4a.40.2", Channels: "2"}},
+}
 
 // Ensure makes the slate (or reads the one made before) once per process.
 func (s *Slate) Ensure(ctx context.Context) error {
@@ -79,11 +66,12 @@ func (s *Slate) Ensure(ctx context.Context) error {
 	return s.err
 }
 
-func (s *Slate) info() slateInfo {
+// Fill is the slate's video and audio to loop.
+func (s *Slate) Fill() *fill {
 	if s.Ensure(context.Background()) != nil {
-		return nominalSlate
+		return &nominalSlate
 	}
-	return slateInfo{VideoSeconds: s.video.seconds(), AudioSeconds: s.audio.seconds(), Video: s.video.info, Audio: s.audio.info}
+	return &s.fill
 }
 
 type slateMarker struct {
@@ -100,39 +88,25 @@ func (s *Slate) load() error {
 		return errors.New("an older slate")
 	}
 	for _, t := range []struct {
-		name  string
-		track *slateTrack
-	}{{"video", &s.video}, {"audio", &s.audio}} {
-		dir := filepath.Join(s.dir, t.name)
-		init, err := os.ReadFile(filepath.Join(dir, "init.mp4"))
+		name string
+		loop **loop
+	}{{"video", &s.fill.Video}, {"audio", &s.fill.Audio}} {
+		l, err := openLoop(filepath.Join(s.dir, t.name), playback.RenditionInfo{})
 		if err != nil {
 			return err
 		}
-		segment, err := os.ReadFile(filepath.Join(dir, "seg_00000.m4s"))
-		if err != nil {
-			return err
+		if len(l.names) != 1 || len(l.in.Tracks) != 1 {
+			return fmt.Errorf("couchtv: the slate's %s is not one segment of one track", t.name)
 		}
-		in, err := mp4.ParseInit(init)
-		if err != nil {
-			return err
-		}
-		frags, err := mp4.ParseSegment(segment, in)
-		if err != nil {
-			return err
-		}
-		if len(in.Tracks) != 1 || len(frags) != 1 || frags[0].Duration == 0 {
-			return fmt.Errorf("couchtv: the slate's %s is not one fragment of one track", t.name)
-		}
-		tr := in.Tracks[0]
-		seconds := float64(frags[0].Duration) / float64(tr.Timescale)
-		bits := int64(float64(len(segment)*8) / seconds)
-		info := playback.RenditionInfo{Codec: tr.Codec, Peak: bits, Average: bits, Duration: seconds}
+		tr := l.in.Tracks[0]
+		bits := l.bitrate()
+		l.info = playback.RenditionInfo{Codec: tr.Codec, Peak: bits, Average: bits, Duration: l.seconds()}
 		if tr.Handler == "vide" {
-			info.Width, info.Height, info.FrameRate, info.VideoRange = tr.Width, tr.Height, 25, "SDR"
+			l.info.Width, l.info.Height, l.info.FrameRate, l.info.VideoRange = tr.Width, tr.Height, 25, "SDR"
 		} else {
-			info.Channels = fmt.Sprint(tr.Channels)
+			l.info.Channels = fmt.Sprint(tr.Channels)
 		}
-		*t.track = slateTrack{init: init, segment: segment, in: in, base: frags[0].BaseDecodeTime, step: frags[0].Duration, info: info}
+		*t.loop = l
 	}
 	return nil
 }
@@ -182,41 +156,6 @@ func (s *Slate) generate(ctx context.Context) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(s.dir, "slate.json"), marker, 0o644)
-}
-
-func (s *Slate) track(name string) (*slateTrack, error) {
-	if err := s.Ensure(context.Background()); err != nil {
-		return nil, err
-	}
-	switch name {
-	case "video":
-		return &s.video, nil
-	case "audio":
-		return &s.audio, nil
-	}
-	return nil, os.ErrNotExist
-}
-
-// Init is a track's init section.
-func (s *Slate) Init(track string) ([]byte, error) {
-	t, err := s.track(track)
-	if err != nil {
-		return nil, err
-	}
-	return t.init, nil
-}
-
-// Segment is copy n of a track's segment, cut to keep seconds when keep > 0.
-func (s *Slate) Segment(track string, n int, keep float64) ([]byte, error) {
-	t, err := s.track(track)
-	if err != nil {
-		return nil, err
-	}
-	data, err := mp4.Retime(t.segment, t.base+uint64(n)*t.step, uint32(n+1))
-	if err != nil || keep <= 0 {
-		return data, err
-	}
-	return mp4.Trim(data, t.in, keep)
 }
 
 // emptyWebVTT is a subtitle segment without cues, on the packages' timeline.

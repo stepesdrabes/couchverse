@@ -47,6 +47,7 @@ func (m *Module) Register(rt httpx.Routes) {
 	httpx.Raw(channel, playlistOp(apiErr), m.live.Playlist)
 	httpx.Raw(channel, airingFileOp(apiErr), m.live.AiringFile)
 	httpx.Raw(channel, slateFileOp(apiErr), m.live.SlateFile)
+	httpx.Raw(channel, standbyFileOp(apiErr), m.live.StandbyFile)
 
 	huma.Register(rt.Admin, tag.Op("adminGetCouchTv", http.MethodGet, "/couchtv"), m.admin.Get)
 	huma.Register(rt.Admin, tag.Op("adminUpdateCouchTv", http.MethodPut, "/couchtv"), m.admin.Update)
@@ -127,8 +128,8 @@ func airingFileOp(apiErr *huma.Response) huma.Operation {
 func slateFileOp(apiErr *huma.Response) huma.Operation {
 	op := tag.Op("getCouchTvSlateFile", http.MethodGet, "/slate/{track}/{file}")
 	op.Summary = "Get a file of the Couch TV slate"
-	op.Description = "What airs when nothing else can: video and audio init sections, copy <n> of their looping " +
-		"segment, and subs/empty.vtt, a subtitle segment without cues."
+	op.Description = "What airs when nothing else can and no standby card is rendered: video and audio init " +
+		"sections, copy <n> of their looping segment, and subs/empty.vtt, a subtitle segment without cues."
 	op.Parameters = []*huma.Param{
 		pathParam("track", "video, audio or subs.", &huma.Schema{Type: huma.TypeString, Enum: []any{"video", "audio", "subs"}}),
 		pathParam("file", "init.mp4, <n>.m4s or empty.vtt.", &huma.Schema{Type: huma.TypeString, Pattern: `^(init\.mp4|\d{1,6}\.m4s|empty\.vtt)$`}),
@@ -136,6 +137,24 @@ func slateFileOp(apiErr *huma.Response) huma.Operation {
 	}
 	op.Responses = map[string]*huma.Response{
 		"200":     response("The file.", binarySchema, "video/mp4", "audio/mp4", "text/vtt"),
+		"default": apiErr,
+	}
+	return op
+}
+
+func standbyFileOp(apiErr *huma.Response) huma.Operation {
+	op := tag.Op("getCouchTvStandbyFile", http.MethodGet, "/standby/{clip}/{track}/{file}")
+	op.Summary = "Get a file of the Couch TV standby card"
+	op.Description = "The rendered standby card, looped where a break is not ready or a program cannot air: video " +
+		"and audio init sections and copy <n> of their segments (segment n mod S of pass n / S, retimed by whole passes)."
+	op.Parameters = []*huma.Param{
+		pathParam("clip", "The standby card's clip.", &huma.Schema{Type: huma.TypeString, Format: "uuid"}),
+		pathParam("track", "video or audio.", &huma.Schema{Type: huma.TypeString, Enum: []any{"video", "audio"}}),
+		pathParam("file", "init.mp4 or <n>.m4s.", &huma.Schema{Type: huma.TypeString, Pattern: `^(init\.mp4|\d{1,6}\.m4s)$`}),
+		{Name: "keep", In: "query", Description: "Cut the segment to its first seconds.", Schema: &huma.Schema{Type: huma.TypeNumber}},
+	}
+	op.Responses = map[string]*huma.Response{
+		"200":     response("The file.", binarySchema, "video/mp4", "audio/mp4"),
 		"default": apiErr,
 	}
 	return op

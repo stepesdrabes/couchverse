@@ -13,7 +13,7 @@ import (
 // while it waits to air.
 const packageTTL = 30 * time.Second
 
-// DiskMedia reads the programs' packages and the breaks' renditions under the
+// DiskMedia reads the programs', breaks' and standby cards' packages under the
 // data directory, and owns the slate.
 type DiskMedia struct {
 	dataDir string
@@ -22,6 +22,7 @@ type DiskMedia struct {
 	mu       sync.Mutex
 	packages map[string]cachedPackage
 	breaks   map[string]*breakMedia
+	fills    map[string]*fill
 }
 
 type cachedPackage struct {
@@ -30,7 +31,8 @@ type cachedPackage struct {
 }
 
 func NewDiskMedia(dataDir string, slate *Slate) *DiskMedia {
-	return &DiskMedia{dataDir: dataDir, slate: slate, packages: map[string]cachedPackage{}, breaks: map[string]*breakMedia{}}
+	return &DiskMedia{dataDir: dataDir, slate: slate, packages: map[string]cachedPackage{}, breaks: map[string]*breakMedia{},
+		fills: map[string]*fill{}}
 }
 
 // Package reads a media file's package.
@@ -75,8 +77,40 @@ func (m *DiskMedia) Break(path string) (*breakMedia, error) {
 	return b, nil
 }
 
-func (m *DiskMedia) Slate() slateInfo {
-	return m.slate.info()
+// Fill is the slate for path "", else a standby card's package (a rendered clip,
+// which never changes), to loop.
+func (m *DiskMedia) Fill(path string) (*fill, error) {
+	if path == "" {
+		return m.slate.Fill(), nil
+	}
+	m.mu.Lock()
+	f, ok := m.fills[path]
+	m.mu.Unlock()
+	if ok {
+		return f, nil
+	}
+	dir := m.resolve(path)
+	p, err := playback.ReadPackageDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	if p.Source == nil || len(p.Stereo) == 0 {
+		return nil, fmt.Errorf("couchtv: %s lacks its video or its sound", dir)
+	}
+	f = &fill{}
+	if f.Video, err = openLoop(filepath.Join(dir, p.Source.Name), p.Source.Info); err != nil {
+		return nil, err
+	}
+	if f.Audio, err = openLoop(filepath.Join(dir, p.Stereo[0].Name), p.Stereo[0].Info); err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.fills) > 16 {
+		m.fills = map[string]*fill{}
+	}
+	m.fills[path] = f
+	return f, nil
 }
 
 // resolve turns a break's path (absolute, or relative to the data directory)

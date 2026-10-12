@@ -523,23 +523,23 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   among several), else the original; a break's mix in both; a file without audio airs the
   slate's silence. Subtitles per language, a full track before a forced one, empty WebVTT
   otherwise. The default audio follows `?lang=`, else Czech.
-- **Breaks and the evergreen fallback** (the contract with the render sidecar): a break is ready
-  when its `couchtv_breaks` row has `state = 'ready'` and `path`, a directory of fMP4 HLS
-  renditions with `rendition.json` (like a package; absolute or relative to `DATA_DIR`): the one
-  with a picture is the video, the AAC one the audio. An unready break airs the longest ready
-  break marked `evergreen` (its recipe names no airing) that fits, else the slate; a rendition
-  shorter than the gap airs after the slate, so its up next counts into the program, a longer
-  one is cut. Both columns were added by migration 0027.
-- **The slate** is generated, not rendered: one 2 s segment per track (a dark 1080p25 frame with
-  "Couch TV" through ffmpeg's drawtext, plain where ffmpeg lacks it; H.264 High without
-  B-frames, so any copy can be cut; silent AAC), looped by retiming copy n to n lengths
-  (`mp4.Retime`), so a gap of any length is one item. It also fills a program that cannot air,
-  a hole in the schedule and, for up to 6 h, the time after the last airing.
+- **Breaks and fallbacks** (the render sidecar's model, 6.7 "As built"): a break airs its
+  assembled package (`Store.ReadyBreak`); one that is not ready airs the evergreen break
+  (`Store.Evergreen`) cut to the gap, then the standby card (`Store.Standby`) looped for the
+  rest; without either, the built-in slate is the last resort. A break's own package shorter
+  than the gap airs after a filler, so its up next counts into the program; a longer one is cut.
+  The same fillers (the standby card, else the slate) cover a program that cannot air, a hole in
+  the schedule and, for up to 6 h, the time after the last airing.
+- **Looping**: the standby card and the slate loop by retiming: copy n is segment n mod S of
+  pass n / S, moved by whole passes (`mp4.Retime`), so a stretch of any length is one item of
+  whole segments and its last copy is cut. The slate is generated, not rendered: one 2 s segment
+  per track (a dark 1080p25 frame with "Couch TV" through ffmpeg's drawtext, plain where ffmpeg
+  lacks it; H.264 High without B-frames; silent AAC).
 - **The grant and the routes**: `grant.Channel` (resource `grant.CouchTv`, 6 h; a guest will
   carry their id in the grant's `Couch` field) on `Routes.Channel` (`/tv/{grant}`, gated by the
   flag). Every file is reached through an airing (`airings/{id}/{track}/{file}`), served only
-  within 10 minutes of its time on air and only from the renditions its feed names; the slate
-  has its own route. `tuneCouchTv` hands out the grant, the stream, `serverTime` (ms) and
+  within 10 minutes of its time on air and only from the renditions its feed names; the
+  standby card and the slate have routes of their own. `tuneCouchTv` hands out the grant, the stream, `serverTime` (ms) and
   now/next; `getCouchTvGuide` lists programs.
 - **Measured** (`make couchtv-live`, M1 Pro): `validate-hls` finds no error around program,
   break, evergreen-after-slate, slate and hole boundaries (the `AVERAGE-BANDWIDTH` warning of
@@ -973,15 +973,20 @@ guest link. **Exit**: a 24 h soak locally and on the Pi with no gaps; validator 
 moves to Phase 5 with the guest cookie, presence and reactions. `make couchtv-live` (M1 Pro)
 readies three generated programs with the real jobs (a copied 720p source with subtitles; HDR10
 HEVC in Czech and English from its rung; a 1080p source with 10.5 s keyframes from its 1080p
-rung, cut at its credits), airs them with an assembled break, a 20 s break that airs the
-evergreen break after 7.5 s of slate, an 8 s break no evergreen fits (the slate) and a 5 s hole,
-looped around now, and plays it for 130 s:
+rung, cut at its credits), airs them with an assembled break, two breaks that are not ready
+(20 s: the evergreen break, then the standby card looped; 8 s: the evergreen break cut short)
+and a 5 s hole (the standby card), with a 4 s stand-in standby card so both loop it, looped
+around now, and plays it for 130 s (after the reconciliation with the render sidecar):
 
 | Player | Stalls | Item change vs program date (picture / sound) | Subtitles | Notes |
 |---|---|---|---|---|
-| hls.js, Chromium (4 viewers) | 0 | 0 of 1574 picture and 1302 sound samples off; 0.01..0.23 s / 0.05..0.33 s after it | 88/88 cue samples, none out of place | the program-date pair stays within 0.09 s median, 0.15 s max; the live-edge pair drifts (S1) |
-| AVFoundation (macOS) | 0 | 7 boundaries; the program date falls 1.25 s behind in 129 s, 0.33 s of it the audio switch | 2 + 2 options, selection works | see below |
-| `validate-hls` | - | 0 errors at 4 boundaries (slate to break, break to program, program to slate, slate to slate) | - | the `AVERAGE-BANDWIDTH` warning of S1 |
+| hls.js, Chromium (4 viewers) | 0 | 0 of 1559 picture and 1559 sound samples off; -0.02..0.24 s / 0.09..0.33 s after it | 92/92 cue samples, none out of place | the program-date pair stays within 0.03 s median, 0.08 s max; the live-edge pair drifts (S1) |
+| AVFoundation (macOS) | 0 | 7 boundaries; the program date falls 1.19 s behind in 129 s, 0.33 s of it the audio switch | 2 + 2 options, selection works | see below |
+| `validate-hls` | - | 0 errors at 4 boundaries (evergreen to standby, standby to program, program to evergreen, evergreen to standby) | - | the `AVERAGE-BANDWIDTH` warning of S1 |
+
+Runs while the host was loaded (load average 15-20 on 8 cores, an image build beside it) saw
+every Chromium viewer wait 0.3-0.4 s at the same wall-clock instant at different points of the
+stream, and AVFoundation none; a stall that hits every player at once is the host's.
 
 What the run found and how it was settled:
 - **A hole aired its slate twice.** The airing after a hole was only read once its row started,

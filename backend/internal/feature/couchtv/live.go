@@ -61,20 +61,23 @@ func liveKeys() []string {
 	return keys
 }
 
-// Kinds of parts.
+// Kinds of parts. The standby card and the slate are fillers: what airs, looped,
+// where nothing else can.
 const (
 	PartProgram = "program"
 	PartBreak   = "break"
+	PartStandby = "standby"
 	PartSlate   = "slate"
 )
 
 // LivePart is a stretch of what an airing airs: a program from its package, a
-// break's assembled rendition, or the slate.
+// break's assembled package, the standby card or the slate.
 type LivePart struct {
 	Kind string `json:"kind"`
 	// Ms is the part's time on air in milliseconds.
 	Ms int64 `json:"ms"`
-	// File is a program's media file; Path a break's rendition directory.
+	// File is a program's media file or the standby card's clip; Path a break's
+	// or the standby card's package, under DATA_DIR.
 	File string `json:"file,omitempty"`
 	Path string `json:"path,omitempty"`
 	// Video names the video rendition's directory; Audio the audio rendition's
@@ -87,6 +90,10 @@ type LivePart struct {
 
 func (p LivePart) duration() time.Duration {
 	return time.Duration(p.Ms) * time.Millisecond
+}
+
+func (p LivePart) filler() bool {
+	return p.Kind == PartStandby || p.Kind == PartSlate
 }
 
 // Feed is what an airing airs, from Start, its parts back to back.
@@ -104,23 +111,23 @@ func (f Feed) End() time.Time {
 	return end
 }
 
-// add appends a part, merging stretches of slate.
+// add appends a part, merging stretches of the same filler.
 func (f *Feed) add(p LivePart) {
 	if p.Ms <= 0 {
 		return
 	}
-	if n := len(f.Parts); n > 0 && p.Kind == PartSlate && f.Parts[n-1].Kind == PartSlate {
+	if n := len(f.Parts); n > 0 && p.filler() && f.Parts[n-1].Kind == p.Kind && f.Parts[n-1].File == p.File {
 		f.Parts[n-1].Ms += p.Ms
 		return
 	}
 	f.Parts = append(f.Parts, p)
 }
 
-// media is the part of a feed that is not slate: its program or break.
+// media is the part of a feed that is not a filler: its program or break.
 func (f Feed) media() (LivePart, time.Time, bool) {
 	at := f.Start
 	for _, p := range f.Parts {
-		if p.Kind != PartSlate {
+		if !p.filler() {
 			return p, at, true
 		}
 		at = at.Add(p.duration())
@@ -159,28 +166,6 @@ func chain(origin hls.LiveOrigin, items []hls.LiveItem) hls.LiveOrigin {
 		origin = origin.After(item)
 	}
 	return origin
-}
-
-// slateInfo describes the slate's video and audio: a segment's length in
-// seconds and what the multivariant playlist declares for it.
-type slateInfo struct {
-	VideoSeconds, AudioSeconds float64
-	Video, Audio               playback.RenditionInfo
-}
-
-// segments lists the slate looped for d: a part's own copies, numbered from 0.
-func (s slateInfo) segments(track string, d time.Duration) []hls.Segment {
-	length := s.VideoSeconds
-	if track == "audio" {
-		length = s.AudioSeconds
-	}
-	n := max(1, int(math.Ceil(d.Seconds()/length-1e-9)))
-	init := &hls.Map{URI: "../slate/" + track + "/init.mp4"}
-	out := make([]hls.Segment, n)
-	for i := range out {
-		out[i] = hls.Segment{Duration: length, URI: fmt.Sprintf("../slate/%s/%d.m4s", track, i), Map: init}
-	}
-	return out
 }
 
 // subtitleSegments cuts d along the subtitle grid.
@@ -229,24 +214,43 @@ func (b *breakMedia) duration() time.Duration {
 type liveMedia interface {
 	Package(fileID string) (*playback.Package, error)
 	Break(path string) (*breakMedia, error)
-	Slate() slateInfo
+	// Fill is a filler to loop: the slate for path "", else the standby card's package.
+	Fill(path string) (*fill, error)
 }
 
-// partItem is the live item of one part of airing id's feed. Its media is
-// reached through ../airings/<id>/<key>/, so a request names the airing and the
-// rendition, never a file of the library.
+// fillPrefix is where a filler part's copies are served.
+func fillPrefix(p LivePart) string {
+	if p.Kind == PartStandby {
+		return "../standby/" + p.File + "/"
+	}
+	return "../slate/"
+}
+
+// partItem is the live item of one part of airing id's feed. A program's or a
+// break's media is reached through ../airings/<id>/<key>/, so a request names
+// the airing and the rendition, never a file of the library; a filler loops
+// under ../slate/ or ../standby/<clip>/.
 func partItem(id string, p LivePart, m liveMedia) (hls.LiveItem, error) {
 	d := p.duration()
 	item := hls.LiveItem{Duration: d, Renditions: map[string][]hls.Segment{}}
-	slate := m.Slate()
 	empty := subtitleSegments(d, func(int) string { return emptySubtitles })
-	if p.Kind == PartSlate {
-		item.Renditions[videoKey] = slate.segments("video", d)
+	if p.filler() {
+		f, err := m.Fill(p.Path)
+		if err != nil {
+			return item, err
+		}
+		prefix := fillPrefix(p)
+		item.Renditions[videoKey] = f.Video.segments(prefix+"video/", d)
+		audio := f.Audio.segments(prefix+"audio/", d)
 		for _, l := range Languages {
-			item.Renditions[audioKey(l)] = slate.segments("audio", d)
+			item.Renditions[audioKey(l)] = audio
 			item.Renditions[subsKey(l)] = empty
 		}
 		return item, nil
+	}
+	slate, err := m.Fill("")
+	if err != nil {
+		return item, err
 	}
 	renditions, err := partRenditions(p, m)
 	if err != nil {
@@ -262,7 +266,7 @@ func partItem(id string, p LivePart, m liveMedia) (hls.LiveItem, error) {
 		if a := renditions[p.Audio[l]]; a != nil {
 			item.Renditions[audioKey(l)] = rebase(a.Playlist.Segments, base+audioKey(l)+"/")
 		} else {
-			item.Renditions[audioKey(l)] = slate.segments("audio", d)
+			item.Renditions[audioKey(l)] = slate.Audio.segments("../slate/audio/", d)
 		}
 		item.Renditions[subsKey(l)] = empty
 		if p.Subtitles[l] != "" {

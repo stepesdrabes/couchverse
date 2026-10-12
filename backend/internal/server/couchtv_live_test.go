@@ -318,6 +318,32 @@ func TestCouchTvChannel(t *testing.T) {
 			float64(cut[0].Duration)/float64(vin.Tracks[0].Timescale) > 0.55 {
 			t.Errorf("a trimmed slate copy %+v %v", cut, err)
 		}
+
+		// the standby card loops across its passes (8 s: segments of 6 and 2 s)
+		card := standbyCard(t, env, 8, 660)
+		sin, err := mp4.ParseInit(file("standby/"+card+"/video/init.mp4", 200, ""))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var end uint64
+		for n := range 5 {
+			frags, err := mp4.ParseSegment(file(fmt.Sprintf("standby/%s/video/%d.m4s", card, n), 200, ""), sin)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n > 0 && frags[0].BaseDecodeTime != end {
+				t.Errorf("standby copy %d starts at %d, the one before ends at %d", n, frags[0].BaseDecodeTime, end)
+			}
+			end = frags[0].BaseDecodeTime + frags[0].Duration
+		}
+		file("standby/"+card+"/audio/3.m4s?keep=1", 200, "")
+		file("standby/"+card+"/subs/0.m4s", 404, "")
+		var clipID string
+		if err := env.pool.QueryRow(ctx, `INSERT INTO couchtv_clips (kind, key, state, path) VALUES ('sting', 'a-sting', 'ready', 'x')
+			RETURNING id`).Scan(&clipID); err != nil {
+			t.Fatal(err)
+		}
+		file("standby/"+clipID+"/video/init.mp4", 404, "")
 	}
 
 	// a grant reaches only its own routes, and only while it lasts
@@ -341,4 +367,39 @@ func TestCouchTvChannel(t *testing.T) {
 	if status, body := env.get(t, tune.StreamURL); status != 404 || !strings.Contains(string(body), "feature_disabled") {
 		t.Errorf("the channel switched off: %d %s", status, body)
 	}
+}
+
+// standbyCard renders a stand-in standby card, as the sidecar would: a dark
+// clip of the given length with a tone, packaged like a Playback v2 package
+// under couchtv/clips. It returns the clip's id.
+func standbyCard(t *testing.T, env *testEnv, seconds float64, tone int) string {
+	t.Helper()
+	rel := filepath.Join("couchtv", "clips", "test-standby")
+	dir := filepath.Join(env.cfg.DataDir, rel)
+	video, audio := filepath.Join(dir, "source"), filepath.Join(dir, "audio-1-aac")
+	for _, d := range []string{video, audio} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	args := append(playback.InputArgs(fmt.Sprintf("color=c=0x181818:s=1920x1080:r=25:d=%g", seconds), "-f", "lavfi"),
+		"-f", "lavfi", "-i", fmt.Sprintf("sine=frequency=%d:duration=%g:sample_rate=48000", tone, seconds))
+	args = append(args, playback.RenditionArgs(video, []string{"-map", "0:v", "-c:v", "libx264", "-preset", "veryfast",
+		"-profile:v", "high", "-g", "50", "-keyint_min", "50", "-sc_threshold", "0", "-pix_fmt", "yuv420p"}, true)...)
+	args = append(args, playback.RenditionArgs(audio, []string{"-map", "1:a", "-c:a", "aac", "-b:a", "128k", "-ac", "2"}, false)...)
+	if out, err := exec.Command("ffmpeg", args...).CombinedOutput(); err != nil {
+		t.Fatalf("standby card: %v %s", err, out)
+	}
+	if _, err := playback.DescribeRendition(video, playback.RenditionInfo{FrameRate: 25, VideoRange: "SDR"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := playback.DescribeRendition(audio, playback.RenditionInfo{StreamIndex: 1, Language: "en", Default: true}); err != nil {
+		t.Fatal(err)
+	}
+	var id string
+	if err := env.pool.QueryRow(context.Background(), `INSERT INTO couchtv_clips (kind, key, state, duration_ms, path, rendered_at)
+		VALUES ('standby', 'test-standby', 'ready', $1, $2, now()) RETURNING id`, int(seconds*1000), rel).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
 }

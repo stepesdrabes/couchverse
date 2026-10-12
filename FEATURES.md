@@ -668,7 +668,7 @@ server that does not send it). The admin settings page toggles it.
   playlist request after they start; one whose predecessor never aired (nobody was watching)
   starts a fresh numbering from the clock (two media sequence numbers and one discontinuity per
   second since 2026-01-01, more than a chain ever grows).
-  - **Programs** start on their scheduled time (the slate fills a hole before one) and air to
+  - **Programs** start on their scheduled time (a filler covers a hole before one) and air to
     the video boundary nearest their credits (`credits_at_ms`), else to their end, never past
     the next program's start. The video (`airable`) is the copied source when it is 8-bit SDR
     H.264 up to 1080p whose segments fit the target duration, else the tallest H.264 rung up to
@@ -677,23 +677,24 @@ server that does not send it). The admin settings page toggles it.
     subtitles per language a full track before a forced one, empty WebVTT where none.
     Separate-language files (model B) are not on the played file's timeline and never air.
   - **Breaks** air from where the program left the air to the next program: the break's
-    assembled rendition (`couchtv_breaks` with `state = 'ready'` and `path`, a directory of
-    renditions with `rendition.json` like a package, absolute or relative to `DATA_DIR`; the
-    rendition with a picture is the video, the AAC one the audio, the same mix in both
-    languages), else the longest ready `evergreen` break that fits, else the slate. A rendition
-    shorter than the gap airs after the slate, so its up next still counts down into the
-    program; a longer one is cut short.
-  - **The slate** (`couchtv.Slate`): a dark 1080p25 frame with "Couch TV" (drawtext; plain where
-    ffmpeg lacks it) and silent AAC, made once at startup into `cache/couchtv/slate` as one 2 s
-    segment per track (H.264 without B-frames, so it can be cut anywhere) and looped: copy n is
-    that segment retimed by n lengths (`mp4.Retime`), so a gap of any length is one item of whole
-    segments. After the last airing it holds the air for up to 6 h, then the playlists answer
-    `off_air`.
+    assembled package (`Store.ReadyBreak`, read with `playback.ReadPackageDir`: the video in
+    `source/`, the mix as AAC stereo, aired in both languages), else the evergreen break
+    (`Store.Evergreen`) cut to the gap, else a filler. A break's own package shorter than the gap
+    airs after a filler, so its up next still counts down into the program; the evergreen break
+    has no up next, so a filler follows it.
+  - **Fillers** air where nothing else can (after the evergreen break, for a program that cannot
+    air, in a hole in the schedule, and for up to 6 h after the last airing, then the playlists
+    answer `off_air`): the standby card (`Store.Standby`, the sidecar's rendered loop), else the
+    built-in **slate** (`couchtv.Slate`: a dark 1080p25 frame with "Couch TV", drawtext, plain
+    where ffmpeg lacks it, and silent AAC, made once at startup into `cache/couchtv/slate` as one
+    2 s segment per track, H.264 without B-frames). Both loop (`couchtv.loop`): copy n is segment
+    n mod S of pass n / S retimed by whole passes (`mp4.Retime`), so a stretch of any length is
+    one item of whole segments; the last copy is cut (`?keep=`).
   - **Playlists**: a constant `EXT-X-TARGETDURATION:10`, a 2 min window, a discontinuity and an
     `EXT-X-PROGRAM-DATE-TIME` at every part, the audio segment that runs past a cut listed as
     `?keep=<seconds>` and served trimmed (`mp4.Trim`). The multivariant has one video variant
     whose `CODECS` (`hls.CoverCodecs`), `RESOLUTION`, `FRAME-RATE` and bandwidths cover what airs
-    from the window to 6 h ahead, the slate included; an audio group `cs`/`en` (`CHANNELS="2"`,
+    from the window to 6 h ahead, the fillers included; an audio group `cs`/`en` (`CHANNELS="2"`,
     the default from `?lang=`, else Czech) and a subtitle group `cs`/`en`.
 - **Channel grants** (`grant.Channel`, resource `grant.CouchTv`, 6 h; the subject is the user,
   a guest will carry their id in the grant's `Couch` field): the `Routes.Channel` group under
@@ -702,8 +703,10 @@ server that does not send it). The admin settings page toggles it.
   (`/live/{video,audio-<lang>,subs-<lang>}.m3u8`), `getCouchTvAiringFile`
   (`/airings/{airing}/{track}/{file}`: an init section, segment or `<n>.vtt` of what a pinned
   airing airs, served only within 10 minutes of its time on air and only from the renditions
-  its feed names, so the grant reaches nothing else of the library) and `getCouchTvSlateFile`
-  (`/slate/{video,audio,subs}/{init.mp4,<n>.m4s,empty.vtt}`). An expired grant answers 403
+  its feed names, so the grant reaches nothing else of the library), `getCouchTvStandbyFile`
+  (`/standby/{clip}/{video,audio}/{init.mp4,<n>.m4s}`, a ready standby card only) and
+  `getCouchTvSlateFile` (`/slate/{video,audio,subs}/{init.mp4,<n>.m4s,empty.vtt}`). An expired
+  grant answers 403
   `grant_expired` (tune in again), any other 403 `invalid_grant`, nothing on air 404 `off_air`.
 - Viewer endpoints (signed in, flag-gated, localized): `GET /couchtv/tune` (`tuneCouchTv`: a
   channel grant, `streamUrl`, `serverTime` in ms for the program-date hold, `targetDuration`,

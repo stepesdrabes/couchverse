@@ -42,7 +42,8 @@ type liveProgram struct {
 // subtitles; HDR10 HEVC in Czech and English from its rung; a 1080p source with
 // 10.5 s keyframes from its 1080p rung, cut at its credits), breaks assembled
 // as the render sidecar leaves them, two that are not (the evergreen break cut
-// to the gap, the slate after it) and a hole in the schedule, looped around now.
+// to the gap, the standby card looped after it) and a hole in the schedule (the
+// standby card), looped around now.
 // Players tune in mid-item: hls.js in Chromium (e2e/live.mjs: pairs 20 s apart,
 // on hls.js's live edge and holding the program date) and, on macOS,
 // AVFoundation, while the HLS validator checks the presentation around four
@@ -169,8 +170,9 @@ func TestCouchTvLive(t *testing.T) {
 	}
 
 	// the loop: Glass Harbor, its break; Static Bloom, a 20 s break that is not
-	// ready (the evergreen break, the slate after it); Night Shift, an 8 s break
-	// that is not ready either (the evergreen break cut short); a 5 s hole
+	// ready (the evergreen break, the standby card after it); Night Shift, an 8 s
+	// break that is not ready either (the evergreen break cut short); a 5 s hole
+	// (the standby card). The card is 4 s, so both loop it.
 	breakDir := func(id string) string { return filepath.Join("cache", "hls", id) }
 	lengthOf := func(id string) time.Duration {
 		p, err := playback.ReadPackageDir(filepath.Join(env.cfg.DataDir, breakDir(id)))
@@ -198,6 +200,7 @@ func TestCouchTvLive(t *testing.T) {
 		breakDir(break2), lengthOf(break2).Milliseconds()); err != nil {
 		t.Fatal(err)
 	}
+	standbyCard(t, env, 4, 660)
 	start := time.Now().Add(-95 * time.Second).Truncate(time.Second)
 	hold, _ := time.ParseDuration(os.Getenv("COUCHVERSE_SPIKE_HOLD"))
 	for at := start; at.Before(time.Now().Add(30*time.Minute + hold)); {
@@ -372,6 +375,8 @@ func describeLineup(t *testing.T, env *testEnv, parts []couchtv.LineupPart, prog
 		switch part.Kind {
 		case couchtv.PartBreak:
 			item.Tones = map[string]int{"cs": 880, "en": 880}
+		case couchtv.PartStandby:
+			item.Tones = map[string]int{"cs": 660, "en": 660}
 		case couchtv.PartProgram:
 			for _, p := range programs {
 				if p.fileID != part.File {

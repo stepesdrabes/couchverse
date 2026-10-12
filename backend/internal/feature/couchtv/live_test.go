@@ -19,6 +19,7 @@ type fakeStore struct {
 	rows      []LiveAiring
 	breaks    map[string]string
 	evergreen string
+	standby   *Clip
 	subs      map[string][]liveSubtitle
 }
 
@@ -69,6 +70,13 @@ func (f *fakeStore) ReadyBreak(_ context.Context, id string) (*Break, error) {
 	return nil, db.ErrNotFound
 }
 
+func (f *fakeStore) Standby(context.Context) (*Clip, error) {
+	if f.standby != nil {
+		return f.standby, nil
+	}
+	return nil, db.ErrNotFound
+}
+
 func (f *fakeStore) Evergreen(context.Context) (*Break, error) {
 	if f.evergreen != "" {
 		return &Break{Kind: "evergreen", State: BreakReady, Path: f.evergreen}, nil
@@ -100,10 +108,17 @@ func (m fakeMedia) Break(path string) (*breakMedia, error) {
 	return nil, errors.New("no break")
 }
 
-func (fakeMedia) Slate() slateInfo {
-	return slateInfo{VideoSeconds: 2, AudioSeconds: 2.005333,
-		Video: playback.RenditionInfo{Codec: "avc1.640028", Width: 1920, Height: 1080, FrameRate: 25, Peak: 100_000, Average: 100_000},
-		Audio: playback.RenditionInfo{Codec: "mp4a.40.2", Channels: "2", Peak: 130_000, Average: 130_000}}
+// Fill is the slate, or a standby card of two 6 s segments.
+func (fakeMedia) Fill(path string) (*fill, error) {
+	video := playback.RenditionInfo{Codec: "avc1.640028", Width: 1920, Height: 1080, FrameRate: 25, Peak: 100_000, Average: 100_000}
+	audio := playback.RenditionInfo{Codec: "mp4a.40.2", Channels: "2", Peak: 130_000, Average: 130_000}
+	switch path {
+	case "":
+		return &fill{Video: &loop{durations: []float64{2}, info: video}, Audio: &loop{durations: []float64{2.005333}, info: audio}}, nil
+	case "clips/standby":
+		return &fill{Video: &loop{durations: []float64{6, 6}, info: video}, Audio: &loop{durations: []float64{6.02, 5.98}, info: audio}}, nil
+	}
+	return nil, errors.New("no filler")
 }
 
 // rendition makes a finished rendition with segments of the given lengths.
@@ -344,8 +359,8 @@ func (n numbering) check(t *testing.T, key string, m *hls.Media) {
 			t.Errorf("%s: %s lists %s, earlier %s", key, seq, listed, was)
 		}
 		n[key][seq] = listed
-		// the slate's URIs repeat across items
-		if uri, _, _ := strings.Cut(s.URI, "?"); !strings.HasPrefix(uri, "../slate/") {
+		// a filler's URIs repeat across items
+		if uri, _, _ := strings.Cut(s.URI, "?"); !strings.HasPrefix(uri, "../slate/") && !strings.HasPrefix(uri, "../standby/") {
 			if was, ok := n[key][uri]; ok && was != seq {
 				t.Errorf("%s: %s numbered %s, earlier %s", key, uri, seq, was)
 			}
@@ -519,6 +534,45 @@ func TestPickAudio(t *testing.T) {
 		}
 		if got := pickAudio(tracks); fmt.Sprint(got) != fmt.Sprint(c.want) {
 			t.Errorf("%v: %v, want %v", c.tracks, got, c.want)
+		}
+	}
+}
+
+// TestLiveStandby airs the standby card where nothing else can, once one is
+// rendered: after the evergreen break, for a program that cannot air, in a hole
+// and after the last airing, looping across its passes.
+func TestLiveStandby(t *testing.T) {
+	c, st := testChannel()
+	st.standby = &Clip{ID: uuidOf(950), Kind: ClipStandby, State: ClipReady, Path: "clips/standby"}
+	parts, err := c.Lineup(context.Background(), at0, at0.Add(3*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kinds []string
+	for _, p := range parts {
+		kinds = append(kinds, p.Kind)
+	}
+	want := []string{PartProgram, PartBreak, PartProgram, PartBreak, PartStandby, PartStandby, PartStandby, PartProgram}
+	if !slices.Equal(kinds, want) {
+		t.Errorf("parts %v, want %v", kinds, want)
+	}
+
+	// the 19 s after the evergreen break: two passes, the copies numbered on
+	video := playlist(t, c, videoKey, at0.Add(89*time.Second))
+	var standby []string
+	for _, s := range video.Segments {
+		if strings.HasPrefix(s.URI, "../standby/") {
+			standby = append(standby, fmt.Sprintf("%s %g", s.URI, s.Duration))
+		}
+	}
+	prefix := "../standby/" + uuidOf(950) + "/video/"
+	if wantURIs := []string{prefix + "0.m4s 6", prefix + "1.m4s 6", prefix + "2.m4s 6", prefix + "3.m4s?keep=1.000 1"}; !slices.Equal(standby, wantURIs) {
+		t.Errorf("standby copies %v, want %v", standby, wantURIs)
+	}
+	seen := numbering{}
+	for at := at0; at.Before(at0.Add(170 * time.Second)); at = at.Add(700 * time.Millisecond) {
+		for _, key := range liveKeys() {
+			seen.check(t, key, playlist(t, c, key, at))
 		}
 	}
 }

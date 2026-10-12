@@ -44,6 +44,8 @@ type liveStore interface {
 	ReadyBreak(ctx context.Context, airingID string) (*Break, error)
 	// Evergreen is the newest assembled evergreen break (db.ErrNotFound while none is).
 	Evergreen(ctx context.Context) (*Break, error)
+	// Standby is the newest rendered standby card (db.ErrNotFound while none is).
+	Standby(ctx context.Context) (*Clip, error)
 	// FileSubtitles are a media file's subtitle tracks.
 	FileSubtitles(ctx context.Context, fileID string) ([]liveSubtitle, error)
 }
@@ -140,17 +142,17 @@ func nextProgram(rows []LiveAiring) time.Time {
 }
 
 // decide is what an airing airs from start: a program from its scheduled time
-// (the slate fills a gap before it) to its cut, never past the next program's
-// start; a break to its end, from its rendition, else an evergreen break, else
-// the slate. A program that cannot air leaves the slate on until its planned end.
-// fallback says what stands in when the airing's own media cannot air.
+// (a filler covers a gap before it) to its cut, never past the next program's
+// start; a break to its end (breakParts). A program that cannot air leaves a
+// filler on until its planned end. fallback says what stands in when the
+// airing's own media cannot air.
 func (c *Channel) decide(ctx context.Context, a LiveAiring, start, next time.Time) (f Feed, fallback string) {
 	f = Feed{Start: start}
 	switch a.Kind {
 	case KindProgram:
 		begin := start
 		if gap := a.StartsAt.Sub(start); gap >= minPart {
-			f.add(slatePart(gap))
+			f.add(c.fill(ctx, gap))
 			begin = a.StartsAt
 		}
 		limit := time.Duration(math.MaxInt64)
@@ -161,8 +163,9 @@ func (c *Channel) decide(ctx context.Context, a LiveAiring, start, next time.Tim
 		if missing == "" {
 			f.add(p)
 		} else {
-			f.add(slatePart(a.EndsAt.Sub(begin)))
-			fallback = "the slate (" + missing + ")"
+			p := c.fill(ctx, a.EndsAt.Sub(begin))
+			f.add(p)
+			fallback = fillerName(p) + " (" + missing + ")"
 		}
 	case KindBreak:
 		var parts []LivePart
@@ -202,10 +205,10 @@ func (c *Channel) programPart(ctx context.Context, a LiveAiring, limit time.Dura
 }
 
 // breakParts fill span with the break's assembled package, else the evergreen
-// break cut to the gap, else the slate; fallback names what stands in. The
-// break's own package shorter than the gap airs after the slate, so its up next
-// still counts down into the program; the evergreen break has no up next, so
-// the slate follows it.
+// break cut to the gap, else a filler; fallback names what stands in. The
+// break's own package shorter than the gap airs after a filler, so its up next
+// still counts down into the program; the evergreen break has no up next, so a
+// filler follows it.
 func (c *Channel) breakParts(ctx context.Context, id string, span time.Duration) (parts []LivePart, fallback string) {
 	if span <= 0 {
 		return nil, ""
@@ -216,7 +219,7 @@ func (c *Channel) breakParts(ctx context.Context, id string, span time.Duration)
 	case err == nil:
 		m, err := c.media.Break(b.Path)
 		if err == nil {
-			return fitBreak(b.Path, m, span, true), ""
+			return c.fitBreak(ctx, b.Path, m, span, true), ""
 		}
 		missing = "unreadable: " + err.Error()
 	case !errors.Is(err, db.ErrNotFound):
@@ -224,15 +227,16 @@ func (c *Channel) breakParts(ctx context.Context, id string, span time.Duration)
 	}
 	if e, err := c.store.Evergreen(ctx); err == nil {
 		if m, err := c.media.Break(e.Path); err == nil {
-			return fitBreak(e.Path, m, span, false), "the evergreen break (" + missing + ")"
+			return c.fitBreak(ctx, e.Path, m, span, false), "the evergreen break (" + missing + ")"
 		}
 	}
-	return []LivePart{slatePart(span)}, "the slate (" + missing + ")"
+	p := c.fill(ctx, span)
+	return []LivePart{p}, fillerName(p) + " (" + missing + ")"
 }
 
-// fitBreak airs a break's package in span: cut short when it is longer, with the
-// slate before it (padFirst) or after it when it is shorter.
-func fitBreak(path string, b *breakMedia, span time.Duration, padFirst bool) []LivePart {
+// fitBreak airs a break's package in span: cut short when it is longer, with a
+// filler before it (padFirst) or after it when it is shorter.
+func (c *Channel) fitBreak(ctx context.Context, path string, b *breakMedia, span time.Duration, padFirst bool) []LivePart {
 	p := LivePart{Kind: PartBreak, Path: path, Video: b.Video.Name, Ms: span.Milliseconds()}
 	if b.Audio != nil {
 		p.Audio = map[string]string{}
@@ -240,16 +244,33 @@ func fitBreak(path string, b *breakMedia, span time.Duration, padFirst bool) []L
 			p.Audio[l] = b.Audio.Name // the mix is the same in every language
 		}
 	}
-	pad := span - b.duration()
-	if pad < minPart {
+	if span-b.duration() < minPart {
 		return []LivePart{p}
 	}
 	p.Ms = b.duration().Milliseconds()
-	slate := LivePart{Kind: PartSlate, Ms: span.Milliseconds() - p.Ms}
+	pad := c.fill(ctx, span-p.duration())
 	if padFirst {
-		return []LivePart{slate, p}
+		return []LivePart{pad, p}
 	}
-	return []LivePart{p, slate}
+	return []LivePart{p, pad}
+}
+
+// fill is what airs for d where nothing else can: the standby card looped, else
+// the slate.
+func (c *Channel) fill(ctx context.Context, d time.Duration) LivePart {
+	if card, err := c.store.Standby(ctx); err == nil {
+		if _, err := c.media.Fill(card.Path); err == nil {
+			return LivePart{Kind: PartStandby, Ms: d.Milliseconds(), File: card.ID, Path: card.Path}
+		}
+	}
+	return slatePart(d)
+}
+
+func fillerName(p LivePart) string {
+	if p.Kind == PartStandby {
+		return "the standby card"
+	}
+	return "the slate"
 }
 
 // items are an airing's live items. A part whose media is gone airs the slate
@@ -339,7 +360,7 @@ func (c *Channel) Schedule(ctx context.Context, now time.Time) (*hls.LiveSchedul
 		s.Items = append(s.Items, c.items(a)...)
 	}
 	if end := on[len(on)-1].Feed.End(); !end.After(now) {
-		item, err := partItem("", slatePart(now.Sub(end)+liveWindow), c.media)
+		item, err := partItem("", c.fill(ctx, now.Sub(end)+liveWindow), c.media)
 		if err != nil {
 			return nil, err
 		}
@@ -370,7 +391,6 @@ func (c *Channel) Master(ctx context.Context, lang string) (*hls.Multivariant, e
 	if err != nil {
 		return nil, err
 	}
-	slate := c.media.Slate()
 	video := hls.Variant{URI: videoKey + ".m3u8", VideoRange: "SDR"}
 	var codecs []string
 	var videoPeak, videoAverage, audioPeak, audioAverage int64
@@ -384,11 +404,17 @@ func (c *Channel) Master(ctx context.Context, lang string) (*hls.Multivariant, e
 		codecs = append(codecs, info.Codec)
 		audioPeak, audioAverage = max(audioPeak, info.Peak), max(audioAverage, info.Average)
 	}
-	addVideo(slate.Video)
-	addAudio(slate.Audio)
+	addFill := func(path string) {
+		if f, err := c.media.Fill(path); err == nil {
+			addVideo(f.Video.info)
+			addAudio(f.Audio.info)
+		}
+	}
+	addFill("")
 	for _, a := range airings {
 		for _, p := range a.Feed.Parts {
-			if p.Kind == PartSlate {
+			if p.filler() {
+				addFill(p.Path)
 				continue
 			}
 			renditions, err := partRenditions(p, c.media)

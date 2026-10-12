@@ -1103,6 +1103,8 @@ export type GetArtworkSize = 'w342' | 'w780';
 
 export type GetCouchTvSlateFileTrack = 'video' | 'audio' | 'subs';
 
+export type GetCouchTvStandbyFileTrack = 'video' | 'audio';
+
 export type GetHlsMasterVideo = 'original' | 'ladder' | 'legacy';
 
 export type GetLeaderboardPeriod = 'all' | 'week' | 'month';
@@ -2941,6 +2943,21 @@ export interface GetCouchTvSlateFileQuery {
  * @param file init.mp4, <n>.m4s or empty.vtt.
  */
 export const getCouchTvSlateFilePath = (grant: string, track: GetCouchTvSlateFileTrack, file: string, query: GetCouchTvSlateFileQuery = {}) => `/api/v1/tv/${encodeURIComponent(grant)}/slate/${encodeURIComponent(track)}/${encodeURIComponent(file)}${qs({ keep: query.keep })}`;
+
+export interface GetCouchTvStandbyFileQuery {
+	/** Cut the segment to its first seconds. */
+	keep?: number;
+}
+
+/**
+ * Get a file of the Couch TV standby card (`GET /tv/{grant}/standby/{clip}/{track}/{file}`)
+ *
+ * @param grant The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.
+ * @param clip The standby card's clip.
+ * @param track video or audio.
+ * @param file init.mp4 or <n>.m4s.
+ */
+export const getCouchTvStandbyFilePath = (grant: string, clip: string, track: GetCouchTvStandbyFileTrack, file: string, query: GetCouchTvStandbyFileQuery = {}) => `/api/v1/tv/${encodeURIComponent(grant)}/standby/${encodeURIComponent(clip)}/${encodeURIComponent(track)}/${encodeURIComponent(file)}${qs({ keep: query.keep })}`;
 
 /** `GET /me/downloads/{id}` */
 export const getDownload = (id: string, opts?: CallOptions) =>
