@@ -326,7 +326,8 @@ Details the decisions above left open, as built (`internal/feature/couchtv`, FEA
 - `couchtv_breaks`: `airing_id, recipe jsonb (clip ids and offsets), audio_path, state`.
 - `library`: `media_markers (media_file_id, kind intro|credits|credits_music, start_s, end_s,
   source auto|admin, version)`. Owned by `library`, because they are media facts that VOD
-  can use later (skip intro, an earlier "next episode" prompt).
+  can use later (skip intro, an earlier "next episode" prompt). Built as migration
+  `0025_media_markers` with times in ms (6.3).
 - `analytics`: `tv_watch_time_daily (day, user_id null, title_id, seconds)` (null user for
   guests).
 - `ranks`: new counters and achievements (6.9).
@@ -341,8 +342,8 @@ No cron exists; every periodic job re-enqueues itself like `cleanup`.
 |---|---|---|
 | `couchtv_plan` | app | At startup, daily at 04:00 local and on template/lock changes: extend to 7 days, replan unfrozen days, run readiness swaps (built in Phase 1, 5.4). |
 | `couchtv_prepare` | app | Per airing: queue `library.Prepare` (the `package`; a 1080p H.264 rung for HEVC/AV1/10-bit/HDR sources); mark ready. |
-| `analyze_markers` | app (`library`) | Per season: chromaprint the first 8 and last 6 minutes of every episode, pairwise-match within the season for intro and outro; per movie: loudness profile of the last 12 minutes for credits music and black/text-frame detection for credits start. |
-| `couchtv_analyze` | app | Per title: pick the promo soundtrack excerpt (D25) and footage shots (`scdet` + motion energy, first 50% of the runtime, no faces-only close-ups at the end of acts), measure program loudness (ebur128). |
+| `analyze_markers` | app (`library`) | Per season: chromaprint the first 12 and last 6 minutes of every episode, pairwise-match within the season for intro and outro; per movie: loudness profile of the last 12 minutes for credits music and black/text-frame detection for credits start (built in Phase 3, below). |
+| `couchtv_analyze` | app | Per title: pick the promo soundtrack excerpt (D25) and footage shots (`scdet` + motion energy, first 50% of the runtime, no faces-only close-ups at the end of acts), measure program loudness (ebur128) (built in Phase 3, below; no face detection). |
 | `couchtv_compose` | app | Per break, 48 h ahead: build the recipe (6.5), request missing clips. |
 | `couchtv_render` | **sidecar only** | Render one clip (6.7). |
 | `couchtv_assemble` | **sidecar only** | Render the break's audio mix, concatenate its clips' video (stream copy), mux, segment, write the break's `rendition.json`. |
@@ -350,6 +351,49 @@ No cron exists; every periodic job re-enqueues itself like `cleanup`.
 The sidecar registers only its two job types; the app never registers them. A render is
 claimed only while no `transcode_hls` job runs (a claim condition), and each render job is
 one clip (at most ~2 minutes of work), so a transcode never waits long.
+
+**Settled while building the analysis (Phase 3)**; the full reference is FEATURES.md
+"library" (markers) and "couchtv" (the analysis job and title operations).
+- **Storage**: migration `0025_media_markers`. `media_markers` keys on (file, kind, source),
+  so the analysis' row and the admin's coexist and the admin's wins; times are `start_ms` /
+  `end_ms` (ms, like `credits_at_ms`), and an admin row without a start says "none" (a wrong
+  detection suppressed). For a series episode `credits` is the end credits as a range (the
+  outro); for a movie a start only. `media_files.markers_version` records which analyzer
+  looked at a file, so files without markers are not analyzed again and `MarkersVersion` bumps
+  re-run (`couchtv_titles.analyzed_version` does the same for `couchtv_analyze`).
+  `couchtv_titles` gained `shots_source`, `loudness_lufs` and `analyzed_at`; shots are
+  `[{mediaFileId, startMs, durationMs, score}]`.
+- **Jobs**: one `analyze_markers` type with three payloads: a file (queued by the prober and
+  the backfill), a season (`titleId` plus one season, queued by an episode's job two minutes
+  on, so an upload batch is matched once) and none (the backfill at every start).
+  Fingerprints are cached per file (`cache/fingerprints`, about 35 KB an episode), so a new
+  episode only fingerprints itself. Each file is matched with its **three nearest other
+  episodes**; a pair **agrees at either end** within 2 s (one end is often lost to a dropout
+  or dialogue over the theme: South Park S1 and Invincible in the S3 fingerprints only reach a
+  consensus that way), and the marker is the span the agreeing pairs share. Analysis jobs
+  run at priority -5 (new files) or -10 (backfills), one slot each, every ffmpeg under
+  `nice -n 19`. Without ffmpeg's chromaprint muxer series wait unanalyzed.
+- **Movie credits**: the crawl detector samples the last 12 minutes at 2 fps and 480x270 (S3's
+  card thresholds; a scroll of 1-40 rows per sample at a steady speed); a credits stretch is
+  60 s with 85 % credits-like samples, followed by at least 60 % (a post-credits scene may
+  follow). With both detectors the later start wins **unless the picture already shows
+  credits all the way from the earlier one** (on the S3 logs the music often settles minutes
+  into a crawl; taking it would air those minutes of credits). The music alone counts only
+  when it lasts 90 s and ends within 45 s of the end (Harry Potter 3's parchment credits get
+  no marker: the admin's backstop). Replayed on the S3 logs (keyframe stats standing in for
+  the 2 fps frames): Iron Man 2 airs to its crawl's music (its dark designed titles start
+  before the window), Pulp Fiction to its crawl.
+- **Promo audio**: excerpts are at most 40 s (the loudest 40 s of a longer stretch, a later
+  window only winning by 0.5 LU); a series' intro comes from the season where most episodes
+  share one (at least three before smaller ones), its median episode.
+- **Shots**: keyframes are the candidates (cheap on the Pi and on most cuts); cuts are scored
+  as scdet scores them, computed on the same 160x90 frames rather than by the filter; a
+  series' shots come from three episodes spread over it (two each). No face detection.
+- **Loudness**: a movie gets a full ebur128 pass (it also feeds the promo fallback); a series
+  four episodes spread over it, averaged by energy, stored per title (the break mix clamps
+  it to -23..-16 LUFS anyway).
+- **Airing to the credits**: the planner reads each file's effective `credits` start, so
+  programs end there (`credits_at_ms`); days already frozen keep the plan they had.
 
 ### 6.4 Admin operations (typed, `admin` prefix)
 `adminGetCouchTv`/`adminUpdateCouchTv` (settings, template), `adminListAirings` (range),
@@ -359,7 +403,10 @@ one clip (at most ~2 minutes of work), so a transcode never waits long.
 `adminUpdateMediaMarkers` (in `library`), `adminCouchTvWaveform` (peaks for the picker).
 Every operation gets a `TestAPIConformance` case. Built in Phase 1: `GET/PUT /admin/couchtv`,
 `GET /admin/couchtv/airings?from&to` and `POST /admin/couchtv/days/{date}/regenerate`, not
-gated by the flag.
+gated by the flag. Built in Phase 3 (no UI yet): `GET/PUT /admin/couchtv/titles/{id}`, `POST
+/admin/couchtv/titles/{id}/analyze` (`adminAnalyzeCouchTvTitle`, the re-run: markers, then
+the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs&points`
+(the loudest momentary loudness per step) and `GET/PUT /admin/media-files/{id}/markers`.
 
 ### 6.5 Break composition
 - Inputs: the gap (next start minus this program's `credits_at`), the slot (top of hour?

@@ -18,7 +18,7 @@ that render a `XxxPage.svelte` component from the owning feature.
 | auth | `internal/feature/auth` | `features/auth`, `features/users`, `features/preferences` | `users` (incl. `bio`), `sessions` |
 | catalog | `internal/feature/catalog` | `features/catalog` | `titles`, `seasons`, `episodes`, `genres`, `title_genres`, `watch_progress`, `watchlist` |
 | playback | `internal/feature/playback` | `features/playback` | (reads `media_files`, `transcode_variants`) |
-| library | `internal/feature/library` | `features/library`, `features/uploads` | `libraries`, `media_files`, `upload_sessions`, `transcode_variants` |
+| library | `internal/feature/library` | `features/library`, `features/uploads` | `libraries`, `media_files`, `upload_sessions`, `transcode_variants`, `media_markers` |
 | metadata | `internal/feature/metadata` | (admin UI in `features/library`) | (writes catalog tables) |
 | subtitles | `internal/feature/subtitles` | (player UI in `features/playback`/`preferences`) | `subtitles` |
 | artwork | `internal/feature/artwork` | (via `catalog/api.artworkUrl`) | `artwork` |
@@ -34,7 +34,9 @@ Shared kernel (backend): `internal/app` (wiring of stores, services and the job 
 `internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
 (the huma API, error envelope, `Routes` groups, `Tag`/`Localized`/`Guard`/`Raw`), `internal/media`
 (ffprobe, codec compatibility, filename parsing, transcode ladder and auto-prepare policy,
-shared `MediaFile`/`Subtitle` row types; `media/mp4` reads fMP4 init sections and segments),
+shared `MediaFile`/`Subtitle` row types, the nice'd analysis measurements in `analyze.go`:
+chromaprint, EBU R128 loudness and its steady stretches, small decoded frames; `media/mp4`
+reads fMP4 init sections and segments),
 `internal/hls` (HLS playlists: writer, parser, WebVTT segmenting and the validator behind
 `couchverse validate-hls`), `internal/settings` (settings KV store),
 `internal/flags` (admin-toggleable feature flags), `internal/grant` (media and artwork
@@ -219,11 +221,46 @@ auto-prepare of HLS variants), the managed libraries uploads land in, and owners
 ingestion - everything comes in through the browser; the `libraries` rows are managed
 upload targets, auto-created on first boot.)
 - Endpoints (admin): `/admin/media-files/{id}` (`PATCH` audio lang/role; `DELETE`
-  hard-deletes the file plus its source, HLS/frame caches and subtitle files on disk),
-  `/admin/uploads...`.
-- Job handlers: `probe`, and `reprobe` (enqueued at every start; brings rows an older prober
+  hard-deletes the file plus its source, HLS/frame/fingerprint caches and subtitle files on
+  disk), `GET/PUT /admin/media-files/{id}/markers` (`adminGetMediaMarkers`,
+  `adminUpdateMediaMarkers`), `/admin/uploads...`.
+- Job handlers: `probe`, `reprobe` (enqueued at every start; brings rows an older prober
   read up to `media.ProbeVersion`, from ffprobe or, once the source is gone, from the stored
-  probe output, and queues the cheap HLS v2 package for them when auto-prepare is on).
+  probe output, and queues the cheap HLS v2 package for them when auto-prepare is on) and
+  `analyze_markers` (below).
+- **Media markers** (`media_markers`, `library.MarkerAnalyzer`, docs/couch-tv-plan.md 3.1 and
+  6.3): where a file's `intro` and `credits` are (a series episode, both ranges: the theme and
+  the end credits) and, for a movie, where its `credits` start and the `credits_music` under
+  them (a range), in ms. The analysis writes `auto` rows stamped with `MarkersVersion` (also
+  on `media_files.markers_version`, so a file without markers is not analyzed again and a
+  newer analyzer re-runs); an `admin` row of a kind overrides the auto one and is never
+  touched by the analysis, and an admin row without a start (`none`) says the file has none
+  of that kind. `PUT .../markers` replaces a file's admin rows (a kind left out falls back to
+  the analysis). Couch TV airs programs to their effective `credits` start and picks its
+  promo audio from `intro`/`credits_music`; VOD can use them later (skip intro).
+- **`analyze_markers`** (one slot, priority -5 for new files and -10 for the backfill, every
+  ffmpeg nice'd): queued per new video file by the prober; at every start a backfill job
+  queues every analyzable file (primary, video, source on disk, on a movie or an episode)
+  an older analyzer looked at. A movie file is analyzed on its own: its last 12 minutes are
+  decoded at 2 fps (480x270, `media.Frames`) for the credits look (a card: mean luma < 45,
+  saturation < 6, at least 6 pixels over 150; a crawl: the picture moved up 1-40 rows since
+  the last sample with the error at that shift under half the unmoved one and under 6, at a
+  steady speed) and measured with ebur128 for steady music (`media.Loudness.Steady`: 10 s
+  windows of one-second means above -35 LUFS within 3.5 LU, the longest run of at least
+  30 s is `credits_music`). Credits start at the first sample that begins 60 s with 85 %
+  credits-like samples and 60 % of everything after it (a post-credits scene may follow);
+  with the music too the later answer wins unless the picture shows credits all the way
+  from the earlier; the music alone only when it lasts 90 s and ends within 45 s of the end.
+  An episode file is fingerprinted (chromaprint, mono, raw: its first 12 and last 6 minutes,
+  cached under `DATA_DIR/cache/fingerprints/<id>/`) and queues its season (payload `titleId`
+  plus one season, 2 minutes later so an upload batch is matched once). The season job
+  matches every file with its three nearest other episodes (the longest run of items within
+  10 differing bits over every offset, single-item dropouts bridged, 0.1238 s per item); a
+  file's intro (credits) is where at least two of its pairs agree within 2 s at either end,
+  the span they share, at least 8 s; no consensus, no marker. Without the chromaprint
+  muxer (Homebrew's ffmpeg) series are skipped and stay unanalyzed. A file ffmpeg cannot
+  read is marked analyzed after its last attempt. Every change tells Couch TV
+  (`MarkerAnalyzer.Analyzed`, wired in `internal/app`), which picks the title's promo again.
 - The probe records, besides container, codecs, size, duration and bit rate, the video's codec
   tag, normalized profile, level, bit depth, frame rate and HDR format (`hdr10`, `hdr10plus`
   from the first frame's SMPTE 2094-40 data, `hlg`, `dolbyVision` with profile and base-layer
@@ -545,9 +582,9 @@ on the row, and records failures (`requestDownload` again re-queues a failed fil
 
 ### couchtv
 Couch TV, one auto-programmed, always-on channel (decisions D1-D32 and the roadmap in
-`docs/couch-tv-plan.md`). Built so far (Phase 1): the config and weekly template, the pure
-schedule generator, the plan job and the admin operations; no viewer surface, rendering or
-stream yet. Gated by the admin `couchTvEnabled` flag, the one flag that is **off** while unset
+`docs/couch-tv-plan.md`). Built so far: the config and weekly template, the pure schedule
+generator, the plan job and the admin operations (Phase 1), and the per-title analysis for
+promos (Phase 3); no viewer surface, rendering or stream yet. Gated by the admin `couchTvEnabled` flag, the one flag that is **off** while unset
 (`flags.Load` leaves it out of the "missing means on" default; `flags.CouchTvOn` guards the
 viewer routes to come; the core reads it as `SessionView.features.couchTv`, `false` from a
 server that does not send it). The admin settings page toggles it.
@@ -588,7 +625,10 @@ server that does not send it). The admin settings page toggles it.
   franchise shown longest ago (D30); a slot with neither runs the rotation (`fill: movie`).
   Each day draws from a seed of its date, so an unchanged day plans the same. Fixed rows
   (admin, locked, already started) are obstacles the flow fits around, and a slot they carry
-  does not run again. A program airs in full until credits markers exist (`Media.onAir`).
+  does not run again. A program airs to its credits start (its file's effective `credits`
+  marker, read by SQL join; `credits_at_ms` on the airing), else in full (`Media.onAir`); the
+  rest of the credits plays in the break's squeeze. A marker that changes reaches the days
+  the next plan run replans.
 - **Strip cursors are derived**: the next episode is the one after the series' latest strip or
   marathon airing (seasons 1 and up in order, wrapping around), so replanning a day reads the
   state the days before it left; reruns and stand-ins do not move it. `couchtv_strips` holds
@@ -613,14 +653,45 @@ server that does not send it). The admin settings page toggles it.
   pinned titles against their slot and queues a replan), `GET /admin/couchtv/airings?from&to`
   (`adminListAirings`, at most 15 days, with title and episode names, `fill`, `slot` and
   `ready`), `POST /admin/couchtv/days/{date}/regenerate` (`adminRegenerateDay`: replans that
-  day and the later ones, today to a week ahead, and answers with the day).
+  day and the later ones, today to a week ahead, and answers with the day),
+  `GET/PUT /admin/couchtv/titles/{id}` (`adminGetCouchTvTitle`, `adminUpdateCouchTvTitle`:
+  excluded, mood, promo audio, shots; a part left out of the PUT goes back to the analysis,
+  which runs again for it; leaving or rejoining the channel queues a replan),
+  `POST /admin/couchtv/titles/{id}/analyze` (`adminAnalyzeCouchTvTitle`, 202: the title's
+  markers and its whole analysis again) and `GET
+  /admin/couchtv/media-files/{id}/waveform?fromMs&toMs&points` (`adminCouchTvWaveform`: the
+  promo audio picker's waveform, the loudest momentary loudness per step, at most 15
+  minutes a request; `file_missing`/`source_deleted` 404 without the source).
+- **The `couchtv_analyze` job** (`couchtv.Analyzer`, one slot, low priority, nice'd; plan 6.3):
+  per title (published, not excluded), queued a few minutes after its markers change
+  (`Analyzer.Queue`, the library hook), by the admin's analyze, and by a backfill at every
+  start for titles an older `AnalyzeVersion` (or none) measured. Once per version it
+  measures the **loudness** (`loudness_lufs`: a movie's full ebur128 pass, a series' four
+  episodes spread over it averaged by energy) and picks **shots** (3-6, 1-3 s in whole 25 fps
+  frames: keyframes over 5-50 % of the runtime at 160x90, the most contrasty usable one of
+  each stretch, 12 for a movie and 4 in each of three episodes spread over a series, no
+  near-black (95th luma percentile under 60), washed-out or flat frames; each decoded for
+  3.2 s at 10 fps, the shot ending at the first cut, scored as scdet scores one (threshold
+  10), or near-black frame; scored 0.7 motion + 0.3 contrast; the best kept, two at most per
+  episode, in airing order). Every run picks the **promo audio** (D25): a series' intro from
+  the season whose episodes most often share one (seasons with at least three first, then
+  the bigger, then the longer), its median episode; a movie's `credits_music`, else its
+  loudest steady stretch of 20 s or more; at most 40 s, the loudest 40 s of a longer one.
+  Admin picks (`promo_audio_source`/`shots_source` `admin`) are never overwritten; ffmpeg
+  failures leave a part empty and are logged.
 - Tables: `couchtv_airings` (programs and breaks, UTC; `fill`, `slot`, `source`, `locked`,
-  `state`, `credits_at_ms`), `couchtv_strips`, `couchtv_titles` (the planner reads `excluded`;
-  promo audio, shots and mood are for later phases), `couchtv_clips` and `couchtv_breaks`
-  (later phases); `titles` gained `tagline`, `collection_tmdb_id`, `collection_name`.
-- Tests: `couchtv/plan_test.go` (the rules), `TestCouchTvPlanJob` (the job on the seeded
+  `state`, `credits_at_ms`), `couchtv_strips`, `couchtv_titles` (`excluded`, promo audio,
+  `shots` with `shots_source`, `mood`, `loudness_lufs`, `analyzed_version`/`analyzed_at`),
+  `couchtv_clips` and `couchtv_breaks` (later phases); `titles` gained `tagline`,
+  `collection_tmdb_id`, `collection_name`.
+- Tests: `couchtv/plan_test.go` (the rules, airing to the credits), `couchtv/analysis_test.go`
+  (promo and shot picks, the waveform), `library/fingerprint_test.go` and `credits_test.go`
+  (the detectors, on fingerprints and logs from the production library in
+  `library/testdata`), `media/analyze_test.go`, `TestCouchTvPlanJob` (the job on the seeded
   database: a gapless week, the next daily run, a no-op replan, frozen days and a locked row
-  kept, a swap), `TestCouchTvConfigStored`, `TestApplyMetadataTaglineAndCollection`.
+  kept, a swap), `TestMediaAnalysis` (a generated movie with a crawl, analyzed end to end; a
+  season matched from cached production fingerprints; the admin's none),
+  `TestCouchTvConfigStored`, `TestApplyMetadataTaglineAndCollection`.
 
 ## Internationalization & multi-language media (cross-cutting)
 
@@ -1561,7 +1632,8 @@ playback -> {auth, catalog, library, subtitles}
 ranks -> {auth, catalog}  (near-leaf; nothing imports ranks)
 downloads -> {auth, catalog, library, subtitles, playback}  (nothing imports downloads)
 couch -> {playback, auth}  (top of the DAG; nothing imports couch)
-couchtv -> {catalog}  (nothing imports couchtv; reads media and variant tables by SQL)
+couchtv -> {catalog, library}  (nothing imports couchtv; reads media, variant and marker
+            tables by SQL, imports library to queue its marker analysis)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
 ```
@@ -1585,6 +1657,10 @@ Notes that keep it acyclic:
   `internal/app` hands it `*ranks.Store`. For the same reason the nav rank badge reads
   `GET /me/stats` and is deliberately **not** added to `/auth/me` - that would need
   `auth -> ranks`, and `ranks -> auth` already exists.
+- Media markers are library's, but Couch TV picks its promos from them: `couchtv` imports
+  `library` (to queue a title's marker analysis) and the other way round is a callback,
+  `library.MarkerAnalyzer.Analyzed`, which `internal/app` points at
+  `couchtv.Analyzer.Queue`.
 
 ## Adding a feature (recipe)
 
