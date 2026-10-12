@@ -1,12 +1,14 @@
 import { expect, test } from '@playwright/test';
-import type { ClipSpec, PromoSpec } from '../../src/spec';
+import { METRICS } from '../../src/brand/wordmark';
+import type { ClipSpec, PromoSpec, SqueezeSpec } from '../../src/spec';
 import { FIXTURES, type FixtureName } from '../fixtures/specs';
 import { load, openRender, pageErrors, seek } from './render';
 
 // chosen frames of every template (seconds into the clip)
 const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
-	['ident-full', [6.8]],
-	['ident-short', [3]],
+	['ident-full', [1.72, 2.2, 9]],
+	['ident-short', [1.12, 3.4]],
+	['ident-bare', [2.2]],
 	['sting-2', [1.2]],
 	['sting-3', [2]],
 	['sting-5', [3]],
@@ -113,5 +115,42 @@ test('the key rectangle follows the program panel', async ({ page }) => {
 		for (const k of ['x', 'y', 'width', 'height'] as const)
 			expect(Math.abs(rect[k] - box[k]), `${k} at ${t}`).toBeLessThan(1.5);
 	}
-	expect(await page.evaluate(() => window.couchtvRender.keyRect(10.9))).toBeNull();
+	expect(await page.evaluate(() => window.couchtvRender.keyRect(10.56))).toBeNull();
+});
+
+test("the squeeze hands over on the short ident's first frame", async ({ page }) => {
+	const squeeze: SqueezeSpec = {
+		...(FIXTURES['squeeze-expand'] as SqueezeSpec),
+		handover: 'cursor'
+	};
+	const info = await load(page, squeeze);
+	expect(info.duration).toBeCloseTo(10.6, 6);
+	await seek(page, info.duration - 0.04);
+	const last = await page.screenshot();
+	await load(page, FIXTURES['ident-short']);
+	await seek(page, 0);
+	expect((await page.screenshot()).equals(last)).toBe(true);
+});
+
+test('the wordmark is laid out from the bundled display face', async ({ page }) => {
+	await load(page, FIXTURES['ident-short']);
+	const measured = await page.evaluate(() => {
+		const g = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
+		g.font = '700 1000px "Couch TV Display"';
+		const width = Object.fromEntries(
+			['C', 'O', 'U', 'H', 'T', 'V'].map((ch) => [ch, g.measureText(ch).width / 1000 - 0.004])
+		);
+		const box = document.createElement('div');
+		box.style.cssText = 'position:absolute;font:700 1000px "Couch TV Display";line-height:1';
+		const probe = document.createElement('span');
+		probe.style.cssText = 'display:inline-block;width:0;height:0';
+		box.append('O', probe);
+		document.body.append(box);
+		const baseline = (probe.getBoundingClientRect().top - box.getBoundingClientRect().top) / 1000;
+		box.remove();
+		return { width, baseline };
+	});
+	for (const [ch, w] of Object.entries(METRICS.width))
+		expect(Math.abs(measured.width[ch] - w), ch).toBeLessThan(5e-4);
+	expect(measured.baseline).toBeCloseTo(METRICS.baseline, 3);
 });
