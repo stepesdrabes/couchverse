@@ -20,13 +20,13 @@
 		Volume2,
 		VolumeX
 	} from 'lucide-svelte';
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, type Snippet } from 'svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { core } from '$lib/core';
 	import Artwork from '$lib/features/catalog/components/Artwork.svelte';
 	import { QualityKind, type PlayerView, type QualityOption } from '$lib/generated/core';
 	import { ElementPlayer } from '$lib/features/playback/element-player.svelte';
-	import { PLAYER, sameTarget } from '$lib/features/playback/player';
+	import { PLAYER, sameTarget, type LivePlayback } from '$lib/features/playback/player';
 	import {
 		preferences,
 		SUBTITLE_FONTS,
@@ -48,8 +48,21 @@
 
 	// The core decides what plays and how (sources, resume, tracks, what comes next) and drives
 	// the video element through an ElementPlayer; this draws the controls and turns the
-	// viewer's choices into the core's events.
-	let { view }: { view: PlayerView } = $props();
+	// viewer's choices into the core's events. A live channel (`live`) brings its own overlays,
+	// the controls on the left of the bar and the actions on its right.
+	let {
+		view,
+		live,
+		overlay,
+		controls,
+		actions
+	}: {
+		view: PlayerView;
+		live?: LivePlayback;
+		overlay?: Snippet<[{ controlsVisible: boolean }]>;
+		controls?: Snippet<[{ portalTo?: HTMLElement }]>;
+		actions?: Snippet<[{ portalTo?: HTMLElement }]>;
+	} = $props();
 
 	let video = $state<HTMLVideoElement>();
 	let wrapper = $state<HTMLDivElement>();
@@ -77,7 +90,13 @@
 	const linear = $derived(view.linear);
 
 	function chooseSubtitle(id: string | null) {
-		void core.send({ type: 'subtitlesChosen', content: id ? { id } : {} });
+		if (live) live.chooseSubtitles(id);
+		else void core.send({ type: 'subtitlesChosen', content: id ? { id } : {} });
+	}
+
+	function chooseAudio(id: string) {
+		if (live) live.chooseAudio(id);
+		else void core.send({ type: 'audioChosen', content: { id } });
 	}
 
 	function cycleSubtitle() {
@@ -137,16 +156,32 @@
 		hideTimer = setTimeout(
 			() => {
 				// a remote has no pointer to keep an open menu alive, so on a TV the
-				// controls wait while one (episodes, subtitles...) is up
-				const menuOpen = isTV && !!wrapper?.querySelector('[role="dialog"],[role="listbox"]');
+				// controls wait while one (episodes, subtitles...) is up; so does live, whose
+				// emoji picker is typed in and whose viewers are read without a pointer moving
+				const menuOpen =
+					(isTV || !!live) &&
+					!!wrapper?.querySelector('[data-popover-content],[role="dialog"],[role="listbox"]');
 				if (playing && !menuOpen) controlsVisible = false;
 			},
 			isTV ? 5000 : 3000
 		);
 	}
 
+	// a browser that wants a gesture before sound plays leaves the live picture stopped
+	let blocked = $state(false);
+
+	function resume() {
+		blocked = false;
+		video?.play().catch(() => (blocked = true));
+	}
+
 	function togglePlay() {
 		if (!video) return;
+		// live is the same moment for everyone: it resumes, at the live edge, but never pauses
+		if (live) {
+			if (video.paused) resume();
+			return;
+		}
 		// a follower's pause is their own: resuming catches up with the host
 		if (couch.isFollower) {
 			couch.pauseLocally(!video.paused);
@@ -313,11 +348,14 @@
 	async function revealControls() {
 		poke();
 		await tick();
-		if (document.activeElement !== seekBar) seekBar?.focus({ preventScroll: true });
+		// live has no seek bar: the controls come up on the channel's main control
+		const start = live ? wrapper?.querySelector<HTMLElement>('[data-tv-autofocus]') : seekBar;
+		if (document.activeElement !== start) start?.focus({ preventScroll: true });
 	}
 
 	function onKeydown(e: KeyboardEvent) {
-		if (e.target instanceof HTMLInputElement) return;
+		// the emoji picker's search field sits in a shadow root, behind the picker as the target
+		if (e.composedPath()[0] instanceof HTMLInputElement) return;
 		if (isTV) {
 			onRemoteKey(e);
 			return;
@@ -425,7 +463,11 @@
 		onwaiting={() => (buffering = true)}
 		onstalled={() => (buffering = true)}
 		onplaying={() => (buffering = false)}
-		oncanplay={() => (buffering = false)}
+		oncanplay={() => {
+			buffering = false;
+			// the browser keeps a blocked autoplay quiet: asking again says whether it was
+			if (live && !hasPlayed && video?.paused) resume();
+		}}
 		onseeking={() => {
 			if (video) currentTime = video.currentTime;
 		}}
@@ -450,8 +492,30 @@
 		</div>
 	{/if}
 
-	<!-- centre pause indicator (clicks pass through to the video) -->
-	{#if !playing && hasPlayed && !buffering}
+	{@render overlay?.({ controlsVisible })}
+
+	{#if live}
+		<!-- live never pauses: a stopped picture (a blocked autoplay, the system's own pause)
+			only resumes, at the live edge -->
+		{#if !playing && (hasPlayed || blocked) && !buffering}
+			<div
+				transition:scale={{ duration: 220, start: 0.6 }}
+				class="absolute inset-0 z-20 flex items-center justify-center"
+			>
+				<button
+					class="flex size-20 items-center justify-center rounded-full bg-black/55 text-white
+						shadow-xl shadow-black/40 backdrop-blur-sm transition-transform hover:scale-105
+						focus-visible:scale-105"
+					onclick={resume}
+					aria-label={m.player_watch_live()}
+					data-tv-autofocus
+				>
+					<Play class="size-9 translate-x-0.5 fill-current" />
+				</button>
+			</div>
+		{/if}
+	{:else if !playing && hasPlayed && !buffering}
+		<!-- centre pause indicator (clicks pass through to the video) -->
 		<div
 			transition:scale={{ duration: 220, start: 0.6 }}
 			class="pointer-events-none absolute inset-0 flex items-center justify-center"
@@ -522,7 +586,7 @@
 	<!-- the couch bar lives inside the player wrapper so it is part of the
 		fullscreen subtree (a fixed root-layout element would vanish in fullscreen),
 		and it rises above the controls while they're shown -->
-	{#if couch.active}
+	{#if couch.active && !live}
 		<div
 			class="absolute right-4 z-30"
 			style="bottom: {controlsVisible ? '5.5rem' : '1rem'}; transition: bottom 0.25s ease;"
@@ -580,6 +644,14 @@
 						</button>
 					{/snippet}
 				</Tooltip>
+			{:else if live?.back}
+				<a
+					href={live.back}
+					class="rounded-full p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+					aria-label={m.common_back()}
+				>
+					<ArrowLeft class="size-5" />
+				</a>
 			{/if}
 			<div class="min-w-0">
 				<p class="truncate font-semibold text-white">{view.title}</p>
@@ -594,118 +666,142 @@
 			transition:fade={{ duration: 200 }}
 			class="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 to-transparent px-5 pt-16 pb-5"
 		>
-			<!-- seek bar (followers have no timeline control) -->
-			<div
-				bind:this={seekBar}
-				data-tv-autofocus
-				class="group/seek relative mb-4 h-1 w-full rounded-full bg-white/20"
-				class:cursor-pointer={!linear}
-				class:pointer-events-none={linear}
-				class:opacity-70={linear}
-				onpointerdown={(e) => {
-					scrubbing = true;
-					seekTo(e, e.currentTarget);
-					e.currentTarget.setPointerCapture(e.pointerId);
-				}}
-				onpointermove={(e) => {
-					onSeekHover(e, e.currentTarget);
-					if (scrubbing) seekTo(e, e.currentTarget);
-				}}
-				onpointerup={() => (scrubbing = false)}
-				onpointerleave={() => (hoverRatio = null)}
-				role="slider"
-				aria-label={m.player_seek()}
-				aria-valuemin={0}
-				aria-valuemax={duration}
-				aria-valuenow={currentTime}
-				tabindex="0"
-			>
-				{#if hoverRatio !== null && duration > 0}
-					<div
-						class="pointer-events-none absolute bottom-full mb-3 flex -translate-x-1/2 flex-col
-							items-center gap-1"
-						style="left: {Math.min(96, Math.max(4, hoverRatio * 100))}%"
-					>
-						{#key previewSrc}
-							<img
-								src={previewSrc}
-								alt=""
-								class="h-[4.5rem] w-32 rounded-md border border-white/15 bg-black object-cover shadow-xl"
-								onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
-							/>
-						{/key}
-						<span class="rounded bg-black/85 px-1.5 py-0.5 text-[11px] font-medium text-white tnum">
-							{formatClock(hoverTime)}
-						</span>
-					</div>
-				{/if}
-				{#each buffered as range (range.start)}
-					<div
-						class="absolute h-full rounded-full bg-white/25"
-						style="left: {(range.start / duration) * 100}%; width: {((range.end - range.start) /
-							duration) *
-							100}%"
-					></div>
-				{/each}
+			{#if live}
+				<!-- no seeking live: a thin line says how far what is on has come -->
 				<div
-					class="relative h-full rounded-full bg-accent"
-					style="width: {duration ? (currentTime / duration) * 100 : 0}%"
+					class="mb-4 h-0.5 w-full overflow-hidden rounded-full bg-white/20"
+					role="progressbar"
+					aria-label={m.player_live_progress()}
+					aria-valuemin={0}
+					aria-valuemax={100}
+					aria-valuenow={Math.round((live.progress ?? 0) * 100)}
 				>
-					<span
-						class="absolute top-1/2 -right-1.5 size-3 -translate-y-1/2 scale-0 rounded-full
+					<div
+						class="h-full rounded-full bg-accent transition-[width] duration-1000 ease-linear"
+						style="width: {(live.progress ?? 0) * 100}%"
+					></div>
+				</div>
+			{:else}
+				<!-- seek bar (followers have no timeline control) -->
+				<div
+					bind:this={seekBar}
+					data-tv-autofocus
+					class="group/seek relative mb-4 h-1 w-full rounded-full bg-white/20"
+					class:cursor-pointer={!linear}
+					class:pointer-events-none={linear}
+					class:opacity-70={linear}
+					onpointerdown={(e) => {
+						scrubbing = true;
+						seekTo(e, e.currentTarget);
+						e.currentTarget.setPointerCapture(e.pointerId);
+					}}
+					onpointermove={(e) => {
+						onSeekHover(e, e.currentTarget);
+						if (scrubbing) seekTo(e, e.currentTarget);
+					}}
+					onpointerup={() => (scrubbing = false)}
+					onpointerleave={() => (hoverRatio = null)}
+					role="slider"
+					aria-label={m.player_seek()}
+					aria-valuemin={0}
+					aria-valuemax={duration}
+					aria-valuenow={currentTime}
+					tabindex="0"
+				>
+					{#if hoverRatio !== null && duration > 0}
+						<div
+							class="pointer-events-none absolute bottom-full mb-3 flex -translate-x-1/2 flex-col
+							items-center gap-1"
+							style="left: {Math.min(96, Math.max(4, hoverRatio * 100))}%"
+						>
+							{#key previewSrc}
+								<img
+									src={previewSrc}
+									alt=""
+									class="h-[4.5rem] w-32 rounded-md border border-white/15 bg-black object-cover shadow-xl"
+									onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
+								/>
+							{/key}
+							<span
+								class="rounded bg-black/85 px-1.5 py-0.5 text-[11px] font-medium text-white tnum"
+							>
+								{formatClock(hoverTime)}
+							</span>
+						</div>
+					{/if}
+					{#each buffered as range (range.start)}
+						<div
+							class="absolute h-full rounded-full bg-white/25"
+							style="left: {(range.start / duration) * 100}%; width: {((range.end - range.start) /
+								duration) *
+								100}%"
+						></div>
+					{/each}
+					<div
+						class="relative h-full rounded-full bg-accent"
+						style="width: {duration ? (currentTime / duration) * 100 : 0}%"
+					>
+						<span
+							class="absolute top-1/2 -right-1.5 size-3 -translate-y-1/2 scale-0 rounded-full
 							bg-accent shadow transition-transform group-hover/seek:scale-100
 							group-focus-visible/seek:scale-100"
-					></span>
+						></span>
+					</div>
 				</div>
-			</div>
+			{/if}
 
-			<div class="flex items-center gap-3">
-				<Tooltip label={playing ? m.common_pause() : m.common_play()} portalTo={wrapper}>
-					{#snippet trigger(props)}
-						<button
-							{...props}
-							class="player-btn"
-							onclick={togglePlay}
-							aria-label={m.player_play_pause()}
-						>
-							{#if playing}
-								<Pause class="size-5 fill-current" />
-							{:else}
-								<Play class="size-5 fill-current" />
-							{/if}
-						</button>
-					{/snippet}
-				</Tooltip>
-				{#if !linear}
-					<Tooltip label={m.player_back_10_seconds()} portalTo={wrapper}>
+			<!-- live has more on its bar: a phone's fits with tighter gaps and no mute -->
+			<div class="flex items-center {live ? 'gap-1.5 sm:gap-3' : 'gap-3'}">
+				{#if live}
+					{@render controls?.({ portalTo: wrapper })}
+				{:else}
+					<Tooltip label={playing ? m.common_pause() : m.common_play()} portalTo={wrapper}>
 						{#snippet trigger(props)}
 							<button
 								{...props}
 								class="player-btn"
-								onclick={() => skip(-10)}
-								aria-label={m.player_back_10_seconds()}
+								onclick={togglePlay}
+								aria-label={m.player_play_pause()}
 							>
-								<RotateCcw class="size-4.5" />
+								{#if playing}
+									<Pause class="size-5 fill-current" />
+								{:else}
+									<Play class="size-5 fill-current" />
+								{/if}
 							</button>
 						{/snippet}
 					</Tooltip>
-					<Tooltip label={m.player_forward_10_seconds()} portalTo={wrapper}>
-						{#snippet trigger(props)}
-							<button
-								{...props}
-								class="player-btn"
-								onclick={() => skip(10)}
-								aria-label={m.player_forward_10_seconds()}
-							>
-								<RotateCw class="size-4.5" />
-							</button>
-						{/snippet}
-					</Tooltip>
+					{#if !linear}
+						<Tooltip label={m.player_back_10_seconds()} portalTo={wrapper}>
+							{#snippet trigger(props)}
+								<button
+									{...props}
+									class="player-btn"
+									onclick={() => skip(-10)}
+									aria-label={m.player_back_10_seconds()}
+								>
+									<RotateCcw class="size-4.5" />
+								</button>
+							{/snippet}
+						</Tooltip>
+						<Tooltip label={m.player_forward_10_seconds()} portalTo={wrapper}>
+							{#snippet trigger(props)}
+								<button
+									{...props}
+									class="player-btn"
+									onclick={() => skip(10)}
+									aria-label={m.player_forward_10_seconds()}
+								>
+									<RotateCw class="size-4.5" />
+								</button>
+							{/snippet}
+						</Tooltip>
+					{/if}
 				{/if}
 
 				<!-- a TV's remote drives the volume itself -->
 				{#if !isTV}
-					<div class="group/vol flex items-center gap-2">
+					<div class="group/vol items-center gap-2 {live ? 'hidden sm:flex' : 'flex'}">
 						<Tooltip label={muted ? m.player_unmute() : m.player_mute()} portalTo={wrapper}>
 							{#snippet trigger(props)}
 								<button
@@ -736,13 +832,19 @@
 					</div>
 				{/if}
 
-				<span class="ml-2 text-xs text-white/70 tnum">
-					{formatClock(currentTime)} / {formatClock(duration)}
-				</span>
+				{#if !live}
+					<span class="ml-2 text-xs text-white/70 tnum">
+						{formatClock(currentTime)} / {formatClock(duration)}
+					</span>
+				{/if}
 
 				<div class="flex-1"></div>
 
-				<CouchButton canStart={!linear} portalTo={wrapper} />
+				{#if live}
+					{@render actions?.({ portalTo: wrapper })}
+				{:else}
+					<CouchButton canStart={!linear} portalTo={wrapper} />
+				{/if}
 
 				{#if view.shuffleAvailable && !linear}
 					<Tooltip label={m.player_shuffle()} portalTo={wrapper}>
@@ -905,7 +1007,7 @@
 									<button
 										class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs
 											{view.audioSelected === track.id ? 'text-text' : 'text-muted'} hover:bg-surface"
-										onclick={() => core.send({ type: 'audioChosen', content: { id: track.id } })}
+										onclick={() => chooseAudio(track.id)}
 									>
 										{track.label}
 										{#if view.audioSelected === track.id}<Check

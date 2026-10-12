@@ -21,7 +21,8 @@
 		{ href: '/series', label: m.nav_series() },
 		{ href: '/movies', label: m.nav_movies() },
 		{ href: '/my-list', label: m.nav_my_list() },
-		{ href: '/genres', label: m.nav_genres() }
+		{ href: '/genres', label: m.nav_genres() },
+		...(features.couchTvEnabled ? [{ href: '/tv', label: m.nav_tv() }] : [])
 	]);
 
 	let scrollY = $state(0);

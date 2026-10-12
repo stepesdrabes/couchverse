@@ -201,6 +201,7 @@ extension L10n {
     public static var commonBack: String { string("common_back") }
     public static var commonCancel: String { string("common_cancel") }
     public static var commonClear: String { string("common_clear") }
+    public static var commonClose: String { string("common_close") }
     public static var commonCreate: String { string("common_create") }
     public static var commonDelete: String { string("common_delete") }
     public static var commonDeleteFailed: String { string("common_delete_failed") }
@@ -267,6 +268,44 @@ extension L10n {
     public static var couchStartSessionHint: String { string("couch_start_session_hint") }
     public static var couchStarting: String { string("couch_starting") }
     public static var couchYouBadge: String { string("couch_you_badge") }
+    public static var couchtvAboutTitle: String { string("couchtv_about_title") }
+    public static func couchtvBackOnAir(time: String, title: String) -> String { format("couchtv_back_on_air", [time, title]) }
+    public static var couchtvBackToNow: String { string("couchtv_back_to_now") }
+    public static func couchtvEpisodeNamed(season: String, episode: String, name: String) -> String { format("couchtv_episode_named", [season, episode, name]) }
+    public static var couchtvFailed: String { string("couchtv_failed") }
+    public static var couchtvFillMarathon: String { string("couchtv_fill_marathon") }
+    public static var couchtvFillPremiere: String { string("couchtv_fill_premiere") }
+    public static var couchtvFillSaga: String { string("couchtv_fill_saga") }
+    public static var couchtvGuestBadge: String { string("couchtv_guest_badge") }
+    public static var couchtvGuide: String { string("couchtv_guide") }
+    public static var couchtvGuideDays: String { string("couchtv_guide_days") }
+    public static var couchtvGuidePageTitle: String { string("couchtv_guide_page_title") }
+    public static var couchtvJoinFailed: String { string("couchtv_join_failed") }
+    public static var couchtvJoinHint: String { string("couchtv_join_hint") }
+    public static var couchtvJoinName: String { string("couchtv_join_name") }
+    public static var couchtvJoinPageTitle: String { string("couchtv_join_page_title") }
+    public static var couchtvJoinSubmit: String { string("couchtv_join_submit") }
+    public static var couchtvJoinTitle: String { string("couchtv_join_title") }
+    public static var couchtvLive: String { string("couchtv_live") }
+    public static var couchtvNext: String { string("couchtv_next") }
+    public static var couchtvNothingPlanned: String { string("couchtv_nothing_planned") }
+    public static var couchtvNow: String { string("couchtv_now") }
+    public static func couchtvNowAnnounce(title: String) -> String { format("couchtv_now_announce", [title]) }
+    public static var couchtvOffAir: String { string("couchtv_off_air") }
+    public static var couchtvOffAirTitle: String { string("couchtv_off_air_title") }
+    public static var couchtvOnAirNow: String { string("couchtv_on_air_now") }
+    public static var couchtvOnNow: String { string("couchtv_on_now") }
+    public static var couchtvPageTitle: String { string("couchtv_page_title") }
+    public static var couchtvSignInTitle: String { string("couchtv_sign_in_title") }
+    public static func couchtvTimeRange(start: String, end: String) -> String { format("couchtv_time_range", [start, end]) }
+    public static var couchtvToday: String { string("couchtv_today") }
+    public static var couchtvTomorrow: String { string("couchtv_tomorrow") }
+    public static var couchtvTuneIn: String { string("couchtv_tune_in") }
+    public static var couchtvTuning: String { string("couchtv_tuning") }
+    public static var couchtvUnavailableTitle: String { string("couchtv_unavailable_title") }
+    public static var couchtvViewers: String { string("couchtv_viewers") }
+    public static var couchtvWatchFromStart: String { string("couchtv_watch_from_start") }
+    public static func couchtvWatching(count: Int) -> String { format("couchtv_watching", [count]) }
     public static var devicesActiveNow: String { string("devices_active_now") }
     public static var devicesConnect: String { string("devices_connect") }
     public static var devicesConnectCode: String { string("devices_connect_code") }
@@ -416,6 +455,7 @@ extension L10n {
     public static var navServerAdmin: String { string("nav_server_admin") }
     public static var navSettings: String { string("nav_settings") }
     public static var navSignOut: String { string("nav_sign_out") }
+    public static var navTv: String { string("nav_tv") }
     public static var onboardingAddServer: String { string("onboarding_add_server") }
     public static var onboardingConnecting: String { string("onboarding_connecting") }
     public static var onboardingScanHint: String { string("onboarding_scan_hint") }
@@ -467,6 +507,7 @@ extension L10n {
     public static var playerFailedTitle: String { string("player_failed_title") }
     public static var playerForward10Seconds: String { string("player_forward_10_seconds") }
     public static var playerFullscreen: String { string("player_fullscreen") }
+    public static var playerLiveProgress: String { string("player_live_progress") }
     public static var playerMute: String { string("player_mute") }
     public static var playerNeedsTranscodingDescription: String { string("player_needs_transcoding_description") }
     public static var playerNeedsTranscodingTitle: String { string("player_needs_transcoding_title") }
@@ -497,24 +538,30 @@ extension L10n {
     public static var playerUnsupportedTitle: String { string("player_unsupported_title") }
     public static func playerUpNext(seconds: String) -> String { format("player_up_next", [seconds]) }
     public static var playerVolume: String { string("player_volume") }
+    public static var playerWatchLive: String { string("player_watch_live") }
     public static var problemAlreadyHosting: String { string("problem_already_hosting") }
     public static var problemAnchorNeedsTime: String { string("problem_anchor_needs_time") }
     public static var problemConflict: String { string("problem_conflict") }
+    public static var problemCouchtvPlaybackFailed: String { string("problem_couchtv_playback_failed") }
     public static var problemDayNeedsAnchor: String { string("problem_day_needs_anchor") }
     public static var problemDayWithoutSlots: String { string("problem_day_without_slots") }
     public static var problemExcluded: String { string("problem_excluded") }
+    public static var problemFeatureDisabled: String { string("problem_feature_disabled") }
     public static var problemFileMissing: String { string("problem_file_missing") }
     public static var problemForbidden: String { string("problem_forbidden") }
     public static var problemGeneric: String { string("problem_generic") }
     public static var problemInvalidAddress: String { string("problem_invalid_address") }
     public static var problemInvalidCode: String { string("problem_invalid_code") }
     public static var problemInvalidCredentials: String { string("problem_invalid_credentials") }
+    public static var problemInvalidName: String { string("problem_invalid_name") }
     public static var problemInvalidPassword: String { string("problem_invalid_password") }
     public static var problemInvalidPinnedTitle: String { string("problem_invalid_pinned_title") }
     public static var problemInvalidRotation: String { string("problem_invalid_rotation") }
     public static var problemInvalidSlot: String { string("problem_invalid_slot") }
     public static var problemInvalidTimeZone: String { string("problem_invalid_time_zone") }
     public static var problemNoAudio: String { string("problem_no_audio") }
+    public static var problemNoChannelGuest: String { string("problem_no_channel_guest") }
+    public static var problemNoChannelLink: String { string("problem_no_channel_link") }
     public static var problemNoMedia: String { string("problem_no_media") }
     public static var problemNoTmdbId: String { string("problem_no_tmdb_id") }
     public static var problemNoTmdbKey: String { string("problem_no_tmdb_key") }
