@@ -26,7 +26,7 @@ that render a `XxxPage.svelte` component from the owning feature.
 | system | `internal/feature/system` | `features/settings`, `features/admin` | `settings`, `home_rows` |
 | analytics | `internal/feature/analytics` | (charts in `features/admin`) | `watch_time_daily`, `watch_time_hourly`, `couch_watch_time_daily`, `tv_watch_time_daily` |
 | couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
-| ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters` |
+| ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters`, `user_tv_viewing` |
 | downloads | `internal/feature/downloads` | (native clients only) | `download_files`, `downloads` |
 | couchtv | `internal/feature/couchtv` | `features/couchtv` (the admin section and title tools; the flag in `features/settings`; the viewer pages are next, on the core's `couchtv` module) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_media`, `couchtv_clips`, `couchtv_breaks`, `couchtv_guests` (the room is in memory) |
 
@@ -468,31 +468,59 @@ admin `couchEnabled` flag (default on, mirrors `rankingsEnabled`).
 Player progression: XP, rank tiers, achievements, public profiles and the global
 leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
 `couchEnabled`).
-- **XP** defaults to `2/min` video + `100` per finished movie + `20` per finished
-  episode + `50`/`25` per couch session hosted/joined + the achievement rewards
-  (bronze 50, silver 150, gold 400, platinum 1000). Couch pays per session because
-  on-couch watch-time has no user dimension. XP counts all recorded activity
-  **regardless of flags** - turning couch off must never demote anyone. Every term is one explainable line of the profile's XP breakdown.
+- **XP** defaults to `2/min` video + `1/min` Couch TV + `100` per finished movie + `20`
+  per finished episode + `50`/`25` per couch session hosted/joined + the achievement
+  rewards (bronze 50, silver 150, gold 400, platinum 1000). Couch pays per session because
+  on-couch watch-time has no user dimension. A Couch TV minute (programs and breaks, not
+  the standby card or the slate) is worth half a video minute: the channel needs no
+  choosing and never stops, so a set left on earns all day, its minutes include the
+  breaks, and its programs still pay the movie/episode bonus through the progress the
+  room saves (rates are whole XP, so "a little less" than 2 is 1). XP counts all recorded
+  activity **regardless of flags** - turning couch or Couch TV off must never demote
+  anyone. Every term is one explainable line of the profile's XP breakdown (`tv` for the
+  channel).
 - **Every rate and threshold is admin-tunable** (`ranks.RankConfig` in the `ranks`
   settings key, defaults in `DefaultConfig`, edited on `/admin/ranks`). `RankConfig` is
   threaded through `ComputeXP`/`TierFor`/`ProgressFor` rather than read globally, so
   the pure functions stay testable. `Validate` rejects negative rates and a ladder
   that does not start at 0 or does not strictly ascend. Because XP is always derived,
   a saved change re-levels everyone on their next read - nothing is recomputed or
-  migrated.
+  migrated. The stored rates are decoded over the defaults (`decodeConfig`), so a config
+  saved before a rate existed (`tvMinute`) keeps that rate's default instead of zero.
 - **Tiers** (10, couch-themed, `ranks.defaultTiers`): rookie 0, remote 500, snack 1500,
   binger 3500, popcorn 7000, marathoner 13000, sage 23000, cinephile 40000,
   master 70000, legend 120000. Codes, levels and colours are fixed identity (persisted
   in payloads, translated by the clients); only the thresholds are configurable.
-- **Achievements** (30) are a pure rules table in `achievements.go`: each is a
+- **Achievements** (38) are a pure rules table in `achievements.go`: each is a
   `Target` plus a `Value(Snapshot)`, scored against one `Snapshot` that a single
   batch of SQL fills, so the whole catalogue is unit-testable without a database.
   `Evaluate` runs **two passes** - non-meta rules first, then the meta rules against
   the resulting count - so the badge that rewards ten badges unlocks in the same
-  call as the tenth. Rules gated on `couch` are **absent** (not locked) when
-  their flag is off, so no unreachable card is ever shown; already-earned hidden
-  ones still count toward XP so totals cannot drift. A test asserts meta targets stay
-  reachable on a flag-disabled install.
+  call as the tenth. Rules gated on `couch` or `couchtv` are **absent** (not locked)
+  when their flag (`couchEnabled`, `couchTvEnabled`) is off, so no unreachable card is
+  ever shown; already-earned hidden ones still count toward XP so totals cannot drift.
+  A test asserts meta targets stay reachable on a flag-disabled install.
+- **Couch TV** (plan D12, 6.9; category `tv`, all gated on `couchTvEnabled`): the room's
+  20 s accrual writes `user_tv_viewing` (seconds per member, airing and hour of the
+  channel's day, in the channel's time zone; programs and breaks only; `airing_id` has no
+  foreign key, so XP outlives an airing that leaves with its title) and the counters
+  `tv_reactions` (summed) and `tv_audience_max` (high-water mark). `tvFacts` (`tv_store.go`)
+  reads it back in one statement, joining `couchtv_airings` for each airing's fill,
+  series and time on air: a program is **seen** at half its time on air (at most 30
+  minutes) and **watched whole** at 80% of it; a time-of-day window counts on a day with
+  15 minutes in it; an airing's day is the one the member started it on. The rules:
+  time of day - `tv_prime_time_5` (silver: the prime-time movie, fill `movie`/`premiere`/
+  `saga`, seen on 5 days), `tv_night_owl` (bronze: a day with the channel from 02:00 to
+  06:00), `tv_morning_5` (bronze: 5 days from 06:00 to 09:00); social - `tv_full_house`
+  (silver: watched with 3 others, guests included), `tv_reactions_100` (bronze); loyalty -
+  `tv_strip_5` (silver: one strip seen on 5 days in a row, gaps-and-islands per series),
+  `tv_marathon` (gold: every marathon episode of a weekend watched whole; a weekend is
+  the channel's marathon airings without a two-day gap, planned ones included, so it
+  completes with its last episode whatever count the template gives it), `tv_premiere`
+  (bronze: a premiere watched whole). Their names avoid the existing badges' (Night Owl,
+  Full House, Marathon): Graveyard Shift, Standing Room Only, Weekend Marathoner. Every
+  rule is unit-tested at and below its target; `TestRanksCouchTv` records a week of
+  viewing as the room does and checks each fact, the XP line and the flag.
 - **Evaluation is pull-based**: `POST /me/achievements/check` is the *only* writer of
   `user_achievements`, so **no SQL is added to the 10s progress beacon** and catalog
   needs no changes at all. It is throttled per user to
@@ -531,7 +559,10 @@ leaderboard. Gated by the admin `rankingsEnabled` flag (default on, mirrors
   hub's existing 20s accrual tick rather than the socket read path, where a DB round
   trip would stall reads and reaction spam would be unbounded. Counters keep accruing
   even when `rankingsEnabled` is off, so re-enabling does not present an empty
-  history. `ranks` imports `catalog` only for the exported `Localize`/`GenreLabel`
+  history. Couch TV's room does the same through `couchtv.TvStatsRecorder` (also
+  `*ranks.Store`, wired in `internal/app`): its calls take plain values, so neither
+  feature imports the other, and the room states the time on the channel's clock
+  (`HubDeps.Settings`). `ranks` imports `catalog` only for the exported `Localize`/`GenreLabel`
   helpers, so profile title names and the favourite-genre label read in the visitor's
   language without restating the translations shape.
 - Web (`features/ranks`): `/u/[username]` (hero accented from the member's banner
@@ -765,9 +796,10 @@ server that does not send it). The admin settings page toggles it.
   `internal/app`; guests and breaks included, with a null user or title), `watch_progress`
   through `ProgressRecorder` (`*catalog.Store`) once a signed-in viewer has watched two minutes
   of a program (finished when they watched to within 30 s of where it left the air), and the
-  facts ranks will score through `TvStatsRecorder` (stretches with the airing, its kind and
-  fill and the picture's time of day; reactions; the most viewers watched with). Ranks does
-  not implement `TvStatsRecorder` yet, so `internal/app` hands it nothing.
+  facts ranks scores through `TvStatsRecorder` (`*ranks.Store`: each signed-in viewer's
+  stretches with the airing, the part's kind and the program date on the channel's clock,
+  in the zone of the config the room reads through `HubDeps.Settings`; reactions; the most
+  viewers watched with). See "ranks".
 - **The `couchtv_plan` job** (`couchtv.Scheduler`, one slot): queued at startup, after every
   config save and daily at 04:00 in the channel's zone (its payload names the day, and each
   run queues the next one first, so a failing run cannot end the chain). It keeps the
@@ -1978,7 +2010,7 @@ couchtv -> {auth, catalog, library, artwork, playback}  (nothing imports couchtv
             variant and marker tables by SQL, imports library to queue its marker analysis
             and program preparation; playback's exported package helpers write and read its
             renders and read the programs' packages; reaches analytics, catalog's progress
-            and (later) ranks through the TvWatchRecorder, ProgressRecorder and
+            and ranks through the TvWatchRecorder, ProgressRecorder and
             TvStatsRecorder interfaces it declares, wired in internal/app)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
@@ -2000,7 +2032,8 @@ Notes that keep it acyclic:
   `UserFrom`) and `catalog` (for the exported `Localize`/`GenreLabel`); everything
   else is a SQL join. **Nothing imports `ranks`**, which is what makes the couch
   counters safe: `couch` declares the `CouchStatsRecorder` interface itself and
-  `internal/app` hands it `*ranks.Store`. For the same reason the nav rank badge reads
+  `internal/app` hands it `*ranks.Store`; `couchtv`'s `TvStatsRecorder` likewise, with
+  plain-valued calls so `ranks` needs no `couchtv` type either. For the same reason the nav rank badge reads
   `GET /me/stats` and is deliberately **not** added to `/auth/me` - that would need
   `auth -> ranks`, and `ranks -> auth` already exists.
 - Media markers are library's, but Couch TV picks its promos from them: `couchtv` imports

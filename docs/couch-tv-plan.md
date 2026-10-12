@@ -759,8 +759,7 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   most 30 s apart); they are mapped onto what aired every 20 s, off the socket's read path.
   Breaks and fillers count as channel time with a null title; a program watched to within 30 s
   of where it left the air is saved as finished. `TvStatsRecorder` (stretches with the airing,
-  its kind, fill and time of day; reactions; the largest audience) has no implementation until
-  ranks scores the channel.
+  its kind, fill and time of day; reactions; the largest audience) is ranks', below.
 - **The contract**: tuning in names the stream's `languages` (the menus' order) and lists now
   and next as plain listings, absent rather than null; the guide names the broadcast `days`
   its stretch overlaps, which the core asks for from a day back to a week ahead.
@@ -772,6 +771,42 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   again (a fresh grant) and reloaded three times in a row before the view fails with
   `couchtv_playback_failed`. The new code took the wasm core from about 395 KB to 411 KB
   gzipped, so its budget went from 400 KB to 440 KB.
+
+**Ranks, as built (Phase 6)**; the full reference is FEATURES.md "ranks".
+- **The hook**: `TvStatsRecorder` is `*ranks.Store`, wired in `internal/app`. Its calls take
+  plain values (`RecordTvViewing(userID, airingID, kind, at, seconds)`), since a `couchtv` type
+  in the signature would make `ranks` import `couchtv`; ranks reads what an airing was (fill,
+  series, time on air) from `couchtv_airings` by join. The room reads the config through
+  `HubDeps.Settings` and states `at` in the channel's time zone, so "after two at night" is the
+  channel's night whatever zone the server runs in.
+- **Storage** (migration `0029_ranks_couchtv`): `user_tv_viewing`, seconds per member, airing,
+  day and hour on the channel's clock, upserted by the 20 s accrual (one statement per
+  stretch, nothing on the socket's read path); programs and breaks only, the standby card and
+  the slate earn nothing. Reactions and the largest audience are `user_counters`
+  (`tv_reactions`, `tv_audience_max`). Like the couch counters it records while rankings are off.
+- **XP**: `RankConfig.Rates.tvMinute`, default 1 (video is 2): the channel needs no choosing and
+  never stops, so a set left on earns all day; its minutes include the breaks; and its programs
+  already pay the movie and episode bonus through the progress the room saves. Rates are whole
+  XP, so "a little less" than video is half. The profile's breakdown shows it as `tv`. A config
+  saved before the rate existed keeps its default.
+- **Achievements** (category `tv`, absent while `couchTvEnabled` is off; a program is seen at
+  half its time on air, at most 30 minutes, and watched whole at 80%):
+
+  | Code | Name (en / cs) | Medal | Rule |
+  |---|---|---|---|
+  | `tv_prime_time_5` | Prime-Time Regular / Večerní štamgast | silver | the prime-time movie (`movie`, `premiere`, `saga`) seen on 5 days |
+  | `tv_night_owl` | Graveyard Shift / Noční směna | bronze | 15 minutes of the channel between 02:00 and 06:00 on a day |
+  | `tv_morning_5` | Morning Cartoons / Kreslené ke snídani | bronze | 15 minutes between 06:00 and 09:00 on 5 days |
+  | `tv_full_house` | Standing Room Only / Plný obývák | silver | watched with 3 others (the presence count, guests included) |
+  | `tv_reactions_100` | Crowd Reactor / Hlas publika | bronze | 100 reactions |
+  | `tv_strip_5` | Appointment TV / Den co den | silver | one strip seen on 5 days in a row |
+  | `tv_marathon` | Weekend Marathoner / Víkendový maratonec | gold | every marathon episode of a weekend watched whole |
+  | `tv_premiere` | Premiere Night / Premiérový večer | bronze | a premiere watched whole |
+
+  Three of the owner's working names were taken (Night Owl and Full House by badges,
+  Marathoner by a rank tier beside the Marathon badge), so those got their own. A weekend is the channel's marathon airings
+  without a two-day gap between them, planned ones included, so it completes with its last
+  episode whatever count the template gives the slot.
 
 ---
 
@@ -1104,8 +1139,12 @@ picker, markers, shots, "Never on Couch TV"). **Exit**: conformance + scenarios 
 
 **Admin tools built** (2026-10-12; 6.4 "As built"): the EPG editor and its two operations, the
 template editor, render health and the title tools, with conformance cases,
-`TestCouchTvAiringEdits` and `e2e/couchtv-admin.spec.ts` (Chromium and WebKit). Progress,
-analytics and ranks remain for after Phase 5.
+`TestCouchTvAiringEdits` and `e2e/couchtv-admin.spec.ts` (Chromium and WebKit). Progress and
+analytics came with Phase 5.
+
+**Ranks built** (2026-10-12; 6.9 "Ranks, as built"): the room's `TvStatsRecorder` wired to
+ranks, XP for channel minutes, the eight achievements in every client (web, Apple, Android)
+in English and Czech, unit tests for every rule and `TestRanksCouchTv` against a database.
 
 ### Phase 7: Production
 Deploy (app + sidecar), the 7-day soak with monitoring, tuning, docs. **Exit**: success
