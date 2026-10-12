@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PlayerSource, type PlayerLoad, type PlayerReport } from '$lib/generated/core';
 import { ElementPlayer } from './element-player.svelte';
 
@@ -96,6 +96,51 @@ describe('a media reset the browser makes on its own', () => {
 		expect(video.autoplay).toBe(true);
 		video.fire('loadedmetadata');
 		expect(video.currentTime).toBe(20);
+	});
+});
+
+/** A browser playing a live stream natively: the date its timeline starts at. */
+class LiveVideo extends FakeVideo {
+	duration = Infinity;
+	playbackRate = 1;
+	textTracks = Object.assign(new EventTarget(), { length: 0 });
+	getStartDate() {
+		return new Date(Date.UTC(2026, 9, 12, 18, 0, 0));
+	}
+}
+
+describe('the live channel', () => {
+	const live: PlayerLoad = {
+		...load,
+		url: '/api/v1/tv/g/live/master.m3u8?lang=cs',
+		source: PlayerSource.Hls,
+		startSeconds: 0,
+		linear: true,
+		live: { latencySeconds: 30, targetDurationSeconds: 10 },
+		nowPlaying: { title: 'Glass Harbor', durationSeconds: 0 }
+	};
+
+	it('reports the program date on screen and plays at the rate the core holds it at', async () => {
+		const video = new LiveVideo();
+		const reports: PlayerReport[] = [];
+		player = new ElementPlayer(video as unknown as HTMLVideoElement, (r) => reports.push(r));
+		player.command({ type: 'rate', content: { rate: 0.95 } });
+		player.command({ type: 'load', content: live });
+		expect(video.playbackRate).toBe(1);
+		// without MediaSource here, hls.js leaves the stream to the element
+		await vi.waitFor(() => expect(video.hasAttribute()).toBe(true));
+		video.fire('loadedmetadata');
+		video.currentTime = 12.5;
+		video.paused = false;
+		video.fire('playing');
+		expect(reports.at(-1)?.programDateMs).toBe(Date.UTC(2026, 9, 12, 18, 0, 12, 500));
+		player.command({ type: 'rate', content: { rate: 1.1 } });
+		expect(video.playbackRate).toBe(1.1);
+	});
+
+	it('reports no program date for a title', () => {
+		const { reports } = playing();
+		expect(reports.at(-1)?.programDateMs).toBeUndefined();
 	});
 });
 

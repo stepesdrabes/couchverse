@@ -98,6 +98,10 @@ export class ElementPlayer implements PlayerHost {
 				this.#selected = command.content.id ?? null;
 				this.#showSubtitle();
 				break;
+			case 'rate':
+				// the live channel's hold: a few percent either way, the pitch kept
+				video.playbackRate = command.content.rate;
+				break;
 			case 'stop':
 				this.#stop();
 				break;
@@ -124,17 +128,21 @@ export class ElementPlayer implements PlayerHost {
 		this.#selected = load.subtitle ?? null;
 		this.#addSubtitles(load.subtitles);
 		video.autoplay = load.autoplay;
+		video.playbackRate = 1;
 		const start = load.startSeconds > 0 ? load.startSeconds : null;
 		if (load.source !== 'hls') {
 			this.#pendingSeek = start;
 			video.src = load.url;
 			return;
 		}
+		// a live stream's subtitles are renditions of its own, which hls.js adds as text tracks
+		if (load.live) video.textTracks.addEventListener('addtrack', this.#tracksAdded);
 		// Safari plays HLS natively (adaptive only) and switches its audio renditions through
 		// video.audioTracks. Chrome and TV browsers claim native HLS too but have no audioTracks,
-		// so there hls.js keeps the quality and audio menus.
+		// so there hls.js keeps the quality and audio menus. The live channel plays in hls.js
+		// everywhere it can, which reads every rendition's program date the same way.
 		const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') !== '';
-		if (nativeHls && !isTV && 'audioTracks' in video) {
+		if (nativeHls && !isTV && 'audioTracks' in video && !load.live) {
 			this.#pendingSeek = start;
 			video.src = load.url;
 			return;
@@ -147,8 +155,20 @@ export class ElementPlayer implements PlayerHost {
 				return;
 			}
 			// the player draws the sidecar WebVTT tracks itself (with the account's subtitle
-			// style), so hls.js adds no text tracks for the playlist's renditions
-			const hls = new HlsPlayer({ renderTextTracksNatively: false, startPosition: start ?? -1 });
+			// style), so hls.js adds no text tracks for the playlist's renditions; the live
+			// channel has no sidecars, and holds three target durations behind the live edge
+			const live = load.live;
+			const hls = new HlsPlayer({
+				renderTextTracksNatively: !!live,
+				startPosition: start ?? -1,
+				...(live && {
+					liveSyncDuration: live.latencySeconds,
+					liveMaxLatencyDuration: live.latencySeconds + 2 * live.targetDurationSeconds,
+					backBufferLength: 30
+				})
+			});
+			// its text tracks stay hidden: the page draws the cues
+			if (live) hls.subtitleDisplay = false;
 			this.#hls = hls;
 			hls.on(HlsPlayer.Events.MANIFEST_PARSED, () => {
 				if (load.maxHeight) {
@@ -175,6 +195,7 @@ export class ElementPlayer implements PlayerHost {
 		this.#generation++;
 		this.#hls?.destroy();
 		this.#hls = null;
+		if (this.#load?.live) this.#video.textTracks.removeEventListener('addtrack', this.#tracksAdded);
 		this.#load = null;
 		this.#pendingSeek = null;
 		this.#detachCues();
@@ -241,6 +262,10 @@ export class ElementPlayer implements PlayerHost {
 		track.addEventListener('cuechange', this.#cues);
 		this.#cues();
 	}
+
+	/** hls.js adds a live stream's subtitle renditions as the stream loads: a chosen one shows
+	 * once it is there. */
+	#tracksAdded = () => this.#showSubtitle();
 
 	/** A subtitle track inside the media, by language. */
 	#embedded(lang: string): TextTrack | undefined {
@@ -322,7 +347,19 @@ export class ElementPlayer implements PlayerHost {
 			playing,
 			buffering: this.#buffering,
 			ended: video.ended,
-			failed
+			failed,
+			programDateMs: load.live ? this.#programDate() : undefined
 		});
+	}
+
+	/** The program date of the picture on screen: hls.js's, else (native HLS) the date the
+	 * timeline starts at moved on by the position. */
+	#programDate(): number | undefined {
+		const playing = this.#hls?.playingDate?.getTime();
+		if (playing !== undefined) return Math.round(playing);
+		const video = this.#video as HTMLVideoElement & { getStartDate?: () => Date };
+		const start = video.getStartDate?.().getTime();
+		if (start === undefined || !Number.isFinite(start)) return undefined;
+		return Math.round(start + video.currentTime * 1000);
 	}
 }
