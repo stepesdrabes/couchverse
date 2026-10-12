@@ -68,7 +68,15 @@
 						"full",
 						"short"
 					],
-					"description": "The full cut (11.5 s, before the prime-time movie) or the short one (5 s)."
+					"description": "The full cut (10.52 s, before the prime-time movie) or the short one (4.52 s)."
+				},
+				"posters": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Poster image URLs (2:3) the brackets frame, in order: the full cut shows four, the short cut one; fewer repeat, none shows a stand-in card.",
+					"maxItems": 4
 				}
 			},
 			"required": [
@@ -103,7 +111,7 @@
 				"duration"
 			],
 			"additionalProperties": false,
-			"description": "A gap filler in the ident's language: the mark and the mnemonic."
+			"description": "A gap filler in the ident's language: the lockup landing on the hook."
 		},
 		"UpNextSpec": {
 			"type": "object",
@@ -842,9 +850,9 @@
 					"type": "string",
 					"enum": [
 						"expand",
-						"line"
+						"cursor"
 					],
-					"description": "`expand`: the next picture grows to full frame; `line`: all collapses into the ident's horizon."
+					"description": "`expand` (11.52 s): the next picture grows to full frame; `cursor` (10.6 s): the program collapses into the red cursor block the short ident opens on, its last frame the ident's first."
 				},
 				"bed": {
 					"$ref": "#/definitions/Bed",

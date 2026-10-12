@@ -18,9 +18,9 @@ import (
 
 // Template lengths in frames, as the broadcast package builds them.
 const (
-	identFullFrames     = 288 // 11.52 s
-	identShortFrames    = 125 // 5 s
-	squeezeLineFrames   = 275 // 11 s, collapsing into the ident
+	identFullFrames     = 263 // 10.52 s
+	identShortFrames    = 113 // 4.52 s
+	squeezeCursorFrames = 265 // 10.6 s, collapsing into the short ident's cursor
 	squeezeExpandFrames = 288 // 11.52 s, handing over to up next
 	endCardFrames       = 100 // a promo's end card
 	shortPromoFrames    = 225 // the short promo's default
@@ -135,7 +135,7 @@ func Compose(in BreakInput) (Composition, error) {
 	var groups [][]piece
 	// left counts the flexible parts at their defaults; slack is what they can give back
 	left, slack := g, 0
-	normal := g >= squeezeLineFrames+identShortFrames+upNextSpan.min
+	normal := g >= squeezeCursorFrames+identShortFrames+upNextSpan.min
 
 	switch {
 	case in.Ending != nil && in.Next != nil && !normal && g >= squeezeExpandFrames+upNextSpan.min:
@@ -145,8 +145,8 @@ func Compose(in BreakInput) (Composition, error) {
 		left -= squeezeExpandFrames + upNextSpan.def
 	case normal || (in.Ending == nil || in.Next == nil) && g >= identShortFrames+upNextSpan.min:
 		if in.Ending != nil && normal {
-			head = append(head, fixed(squeezePart(in, "line")))
-			left -= squeezeLineFrames
+			head = append(head, fixed(squeezePart(in, "cursor")))
+			left -= squeezeCursorFrames
 		}
 		if in.Next != nil {
 			tail = append(tail, upNextPiece(in, "cut"))
@@ -428,7 +428,7 @@ func identPart(full bool) Part {
 }
 
 func squeezePart(in BreakInput, handover string) Part {
-	frames := squeezeLineFrames
+	frames := squeezeCursorFrames
 	if handover == "expand" {
 		frames = squeezeExpandFrames
 	}
