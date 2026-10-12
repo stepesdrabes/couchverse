@@ -84,7 +84,9 @@ func (c *Channel) lineup(ctx context.Context, from, until, now time.Time, pin bo
 		c.mu.Lock()
 		defer c.mu.Unlock()
 	}
-	rows, err := c.store.LiveAirings(ctx, from.Add(-time.Minute), until)
+	// an airing after a hole goes on air when the slate filling the hole does,
+	// before its own start: the rows up to maxGap later are read for it
+	rows, err := c.store.LiveAirings(ctx, from.Add(-time.Minute), until.Add(maxGap))
 	if err != nil {
 		return nil, err
 	}
@@ -103,9 +105,12 @@ func (c *Channel) lineup(ctx context.Context, from, until, now time.Time, pin bo
 			if start.After(until) {
 				break
 			}
-			feed := c.decide(ctx, a, start, nextProgram(rows[i+1:]))
+			feed, fallback := c.decide(ctx, a, start, nextProgram(rows[i+1:]))
 			a.Feed = &feed
 			if pin && !start.After(now) {
+				if fallback != "" {
+					slog.Warn("couchtv: an airing goes on air without its own media", "airingId", a.ID, "kind", a.Kind, "airs", fallback)
+				}
 				origin := freshOrigin(start)
 				if chained && prev.pinned() {
 					origin = chain(*prev.Origin, c.items(*prev))
@@ -138,8 +143,9 @@ func nextProgram(rows []LiveAiring) time.Time {
 // (the slate fills a gap before it) to its cut, never past the next program's
 // start; a break to its end, from its rendition, else an evergreen break, else
 // the slate. A program that cannot air leaves the slate on until its planned end.
-func (c *Channel) decide(ctx context.Context, a LiveAiring, start, next time.Time) Feed {
-	f := Feed{Start: start}
+// fallback says what stands in when the airing's own media cannot air.
+func (c *Channel) decide(ctx context.Context, a LiveAiring, start, next time.Time) (f Feed, fallback string) {
+	f = Feed{Start: start}
 	switch a.Kind {
 	case KindProgram:
 		begin := start
@@ -151,32 +157,38 @@ func (c *Channel) decide(ctx context.Context, a LiveAiring, start, next time.Tim
 		if !next.IsZero() {
 			limit = next.Sub(begin)
 		}
-		if p, ok := c.programPart(ctx, a, limit); ok {
+		p, missing := c.programPart(ctx, a, limit)
+		if missing == "" {
 			f.add(p)
 		} else {
 			f.add(slatePart(a.EndsAt.Sub(begin)))
+			fallback = "the slate (" + missing + ")"
 		}
 	case KindBreak:
-		for _, p := range c.breakParts(ctx, a.ID, a.EndsAt.Sub(start)) {
+		var parts []LivePart
+		parts, fallback = c.breakParts(ctx, a.ID, a.EndsAt.Sub(start))
+		for _, p := range parts {
 			f.add(p)
 		}
 	}
-	return f
+	return f, fallback
 }
 
-func (c *Channel) programPart(ctx context.Context, a LiveAiring, limit time.Duration) (LivePart, bool) {
-	if a.MediaFileID == "" || limit <= 0 {
-		return LivePart{}, false
+// programPart is the part a program airs, or what it misses.
+func (c *Channel) programPart(ctx context.Context, a LiveAiring, limit time.Duration) (LivePart, string) {
+	switch {
+	case a.MediaFileID == "":
+		return LivePart{}, "no media file"
+	case limit <= 0:
+		return LivePart{}, "the next program starts first"
 	}
 	pkg, err := c.media.Package(a.MediaFileID)
 	if err != nil {
-		slog.Warn("couchtv: a program has no package; the slate airs instead", "airingId", a.ID, "mediaFileId", a.MediaFileID, "err", err)
-		return LivePart{}, false
+		return LivePart{}, "no package: " + err.Error()
 	}
 	video, cut := airable(pkg, a.CreditsAt)
 	if video == nil {
-		slog.Warn("couchtv: nothing in a program's package can air; the slate airs instead", "airingId", a.ID, "mediaFileId", a.MediaFileID)
-		return LivePart{}, false
+		return LivePart{}, "nothing in the package can air"
 	}
 	if l := limit.Seconds(); cut > l {
 		cut = min(l, lastBoundaryBefore(video.Playlist.Segments, l))
@@ -186,33 +198,36 @@ func (c *Channel) programPart(ctx context.Context, a LiveAiring, limit time.Dura
 		slog.Warn("couchtv: a program's subtitles", "airingId", a.ID, "err", err)
 	}
 	return LivePart{Kind: PartProgram, Ms: milliseconds(cut), File: a.MediaFileID, Video: video.Name,
-		Audio: pickAudio(pkg.Stereo), Subtitles: pickSubtitles(subs)}, true
+		Audio: pickAudio(pkg.Stereo), Subtitles: pickSubtitles(subs)}, ""
 }
 
 // breakParts fill span with the break's assembled package, else the evergreen
-// break cut to the gap, else the slate. The break's own package shorter than the
-// gap airs after the slate, so its up next still counts down into the program;
-// the evergreen break has no up next, so the slate follows it.
-func (c *Channel) breakParts(ctx context.Context, id string, span time.Duration) []LivePart {
+// break cut to the gap, else the slate; fallback names what stands in. The
+// break's own package shorter than the gap airs after the slate, so its up next
+// still counts down into the program; the evergreen break has no up next, so
+// the slate follows it.
+func (c *Channel) breakParts(ctx context.Context, id string, span time.Duration) (parts []LivePart, fallback string) {
 	if span <= 0 {
-		return nil
+		return nil, ""
 	}
+	missing := "not ready"
 	b, err := c.store.ReadyBreak(ctx, id)
-	if err == nil {
+	switch {
+	case err == nil:
 		m, err := c.media.Break(b.Path)
 		if err == nil {
-			return fitBreak(b.Path, m, span, true)
+			return fitBreak(b.Path, m, span, true), ""
 		}
-		slog.Warn("couchtv: a break's package is unreadable", "airingId", id, "path", b.Path, "err", err)
-	} else if !errors.Is(err, db.ErrNotFound) {
-		slog.Warn("couchtv: a break", "airingId", id, "err", err)
+		missing = "unreadable: " + err.Error()
+	case !errors.Is(err, db.ErrNotFound):
+		missing = err.Error()
 	}
 	if e, err := c.store.Evergreen(ctx); err == nil {
 		if m, err := c.media.Break(e.Path); err == nil {
-			return fitBreak(e.Path, m, span, false)
+			return fitBreak(e.Path, m, span, false), "the evergreen break (" + missing + ")"
 		}
 	}
-	return []LivePart{slatePart(span)}
+	return []LivePart{slatePart(span)}, "the slate (" + missing + ")"
 }
 
 // fitBreak airs a break's package in span: cut short when it is longer, with the

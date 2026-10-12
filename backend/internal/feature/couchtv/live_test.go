@@ -328,25 +328,29 @@ func TestLivePlaylists(t *testing.T) {
 	}
 }
 
-// numbering records the media sequence number every segment URI gets.
-type numbering map[string]map[string]int
+// numbering records the media sequence number every segment URI gets, and what
+// every number names: once listed, a segment never changes.
+type numbering map[string]map[string]string
 
 func (n numbering) check(t *testing.T, key string, m *hls.Media) {
 	t.Helper()
 	if n[key] == nil {
-		n[key] = map[string]int{}
+		n[key] = map[string]string{}
 	}
 	for i, s := range m.Segments {
-		// the slate's URIs repeat across items; its numbers are checked through the others
-		if strings.HasPrefix(s.URI, "../slate/") || s.URI == emptySubtitles {
-			continue
+		seq := fmt.Sprint(m.MediaSequence + i)
+		listed := fmt.Sprintf("%s %.6f", s.URI, s.Duration)
+		if was, ok := n[key][seq]; ok && was != listed {
+			t.Errorf("%s: %s lists %s, earlier %s", key, seq, listed, was)
 		}
-		uri, _, _ := strings.Cut(s.URI, "?")
-		seq := m.MediaSequence + i
-		if was, ok := n[key][uri]; ok && was != seq {
-			t.Errorf("%s: %s numbered %d, earlier %d", key, uri, seq, was)
+		n[key][seq] = listed
+		// the slate's URIs repeat across items
+		if uri, _, _ := strings.Cut(s.URI, "?"); !strings.HasPrefix(uri, "../slate/") {
+			if was, ok := n[key][uri]; ok && was != seq {
+				t.Errorf("%s: %s numbered %s, earlier %s", key, uri, seq, was)
+			}
+			n[key][uri] = seq
 		}
-		n[key][uri] = seq
 	}
 }
 

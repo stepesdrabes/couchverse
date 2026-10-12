@@ -1,6 +1,7 @@
 package couchtv
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -45,19 +46,23 @@ func writePlaylist(w http.ResponseWriter, text string) {
 	io.WriteString(w, text)
 }
 
-func offAir(w http.ResponseWriter, err error) {
-	if errors.Is(err, hls.ErrOffAir) {
+// failed answers a playlist request that failed: nothing on air, or a player
+// that gave up waiting (players abort requests as they seek or switch).
+func failed(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, hls.ErrOffAir):
 		httpx.Error(w, http.StatusNotFound, "off_air", "nothing is on air")
-		return
+	case errors.Is(err, context.Canceled):
+	default:
+		httpx.Internal(w, err)
 	}
-	httpx.Internal(w, err)
 }
 
 // Master serves the multivariant playlist.
 func (l *Live) Master(w http.ResponseWriter, r *http.Request) {
 	m, err := l.Channel.Master(r.Context(), r.URL.Query().Get("lang"))
 	if err != nil {
-		httpx.Internal(w, err)
+		failed(w, err)
 		return
 	}
 	writePlaylist(w, m.String())
@@ -74,7 +79,7 @@ func (l *Live) Playlist(w http.ResponseWriter, r *http.Request) {
 	}
 	pl, err := l.Channel.Playlist(r.Context(), strings.TrimSuffix(name, ".m3u8"), l.Channel.now())
 	if err != nil {
-		offAir(w, err)
+		failed(w, err)
 		return
 	}
 	writePlaylist(w, pl.String())
