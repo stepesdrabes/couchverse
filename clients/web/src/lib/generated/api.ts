@@ -25,7 +25,7 @@ export interface AchievementProgress {
 	xp: number;
 }
 
-export type AchievementProgressCategory = 'watching' | 'streaks' | 'explorer' | 'couch' | 'meta';
+export type AchievementProgressCategory = 'watching' | 'streaks' | 'explorer' | 'couch' | 'tv' | 'meta';
 
 export type AchievementProgressTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 
@@ -39,7 +39,7 @@ export interface AchievementStat {
 	unlocked: number;
 }
 
-export type AchievementStatCategory = 'watching' | 'streaks' | 'explorer' | 'couch' | 'meta';
+export type AchievementStatCategory = 'watching' | 'streaks' | 'explorer' | 'couch' | 'tv' | 'meta';
 
 export type AchievementStatTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 
@@ -1769,6 +1769,11 @@ export interface RankRates {
 	 */
 	silver: number;
 	/**
+	 * XP per minute of Couch TV watched, programs and breaks.
+	 * At least 0.
+	 */
+	tvMinute: number;
+	/**
 	 * XP per minute of video watched.
 	 * At least 0.
 	 */
@@ -2232,7 +2237,7 @@ export interface XpSource {
 	xp: number;
 }
 
-export type XpSourceKey = 'video' | 'movies' | 'episodes' | 'couchHosted' | 'couchJoined' | 'achievements';
+export type XpSourceKey = 'video' | 'tv' | 'movies' | 'episodes' | 'couchHosted' | 'couchJoined' | 'achievements';
 
 export interface CouchEmoji {
 	emoji: string;

@@ -43,6 +43,8 @@ pub mod types {
         Explorer,
         #[serde(rename = "couch")]
         Couch,
+        #[serde(rename = "tv")]
+        Tv,
         #[serde(rename = "meta")]
         Meta,
         /// A value this client does not know yet.
@@ -57,6 +59,7 @@ pub mod types {
                 AchievementProgressCategory::Streaks => "streaks",
                 AchievementProgressCategory::Explorer => "explorer",
                 AchievementProgressCategory::Couch => "couch",
+                AchievementProgressCategory::Tv => "tv",
                 AchievementProgressCategory::Meta => "meta",
                 AchievementProgressCategory::Unknown => "unknown",
             }
@@ -124,6 +127,8 @@ pub mod types {
         Explorer,
         #[serde(rename = "couch")]
         Couch,
+        #[serde(rename = "tv")]
+        Tv,
         #[serde(rename = "meta")]
         Meta,
         /// A value this client does not know yet.
@@ -138,6 +143,7 @@ pub mod types {
                 AchievementStatCategory::Streaks => "streaks",
                 AchievementStatCategory::Explorer => "explorer",
                 AchievementStatCategory::Couch => "couch",
+                AchievementStatCategory::Tv => "tv",
                 AchievementStatCategory::Meta => "meta",
                 AchievementStatCategory::Unknown => "unknown",
             }
@@ -4994,6 +5000,9 @@ pub mod types {
         /// XP per silver achievement.
         /// At least 0.
         pub silver: i64,
+        /// XP per minute of Couch TV watched, programs and breaks.
+        /// At least 0.
+        pub tv_minute: i64,
         /// XP per minute of video watched.
         /// At least 0.
         pub video_minute: i64,
@@ -6214,6 +6223,8 @@ pub mod types {
     pub enum XpSourceKey {
         #[serde(rename = "video")]
         Video,
+        #[serde(rename = "tv")]
+        Tv,
         #[serde(rename = "movies")]
         Movies,
         #[serde(rename = "episodes")]
@@ -6233,6 +6244,7 @@ pub mod types {
         pub fn as_str(self) -> &'static str {
             match self {
                 XpSourceKey::Video => "video",
+                XpSourceKey::Tv => "tv",
                 XpSourceKey::Movies => "movies",
                 XpSourceKey::Episodes => "episodes",
                 XpSourceKey::CouchHosted => "couchHosted",

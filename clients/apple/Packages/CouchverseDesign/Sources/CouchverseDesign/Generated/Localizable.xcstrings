@@ -732,6 +732,23 @@
         }
       }
     },
+    "achievement_category_tv": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couch TV"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couch TV"
+          }
+        }
+      }
+    },
     "achievement_category_watching": {
       "extractionState": "manual",
       "localizations": {
@@ -1646,6 +1663,278 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fifty Titles"
+          }
+        }
+      }
+    },
+    "achievement_tv_full_house_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleduj Couch TV společně s nejméně třemi dalšími diváky."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch Couch TV together with three or more others."
+          }
+        }
+      }
+    },
+    "achievement_tv_full_house_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plný obývák"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standing Room Only"
+          }
+        }
+      }
+    },
+    "achievement_tv_marathon_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleduj na Couch TV celý víkendový maraton, každý jeho díl."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch a whole weekend marathon on Couch TV, every episode of it."
+          }
+        }
+      }
+    },
+    "achievement_tv_marathon_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Víkendový maratonec"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weekend Marathoner"
+          }
+        }
+      }
+    },
+    "achievement_tv_morning_5_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleduj Couch TV mezi šestou a devátou ráno v pěti různých dnech."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch Couch TV between six and nine in the morning on five different days."
+          }
+        }
+      }
+    },
+    "achievement_tv_morning_5_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kreslené ke snídani"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morning Cartoons"
+          }
+        }
+      }
+    },
+    "achievement_tv_night_owl_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleduj Couch TV po druhé hodině v noci."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch Couch TV after two in the morning."
+          }
+        }
+      }
+    },
+    "achievement_tv_night_owl_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noční směna"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Graveyard Shift"
+          }
+        }
+      }
+    },
+    "achievement_tv_premiere_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleduj na Couch TV premiéru živě od začátku do konce."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch a premiere live on Couch TV, from start to finish."
+          }
+        }
+      }
+    },
+    "achievement_tv_premiere_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premiérový večer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premiere Night"
+          }
+        }
+      }
+    },
+    "achievement_tv_prime_time_5_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleduj živě hlavní večerní film v pěti různých večerech."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch the prime-time movie live on five nights."
+          }
+        }
+      }
+    },
+    "achievement_tv_prime_time_5_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Večerní štamgast"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prime-Time Regular"
+          }
+        }
+      }
+    },
+    "achievement_tv_reactions_100_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pošli na Couch TV sto reakcí."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send a hundred reactions on Couch TV."
+          }
+        }
+      }
+    },
+    "achievement_tv_reactions_100_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlas publika"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crowd Reactor"
+          }
+        }
+      }
+    },
+    "achievement_tv_strip_5_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleduj na Couch TV stejný denní seriál pět dní po sobě."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Catch the same daily series on Couch TV five days in a row."
+          }
+        }
+      }
+    },
+    "achievement_tv_strip_5_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den co den"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appointment TV"
           }
         }
       }
@@ -10327,6 +10616,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Films finished"
+          }
+        }
+      }
+    },
+    "rank_source_tv": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couch TV"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couch TV"
           }
         }
       }

@@ -45,6 +45,7 @@ extension L10n {
     public static var achievementCategoryExplorer: String { string("achievement_category_explorer") }
     public static var achievementCategoryMeta: String { string("achievement_category_meta") }
     public static var achievementCategoryStreaks: String { string("achievement_category_streaks") }
+    public static var achievementCategoryTv: String { string("achievement_category_tv") }
     public static var achievementCategoryWatching: String { string("achievement_category_watching") }
     public static var achievementCouchHost1Desc: String { string("achievement_couch_host_1_desc") }
     public static var achievementCouchHost1Name: String { string("achievement_couch_host_1_name") }
@@ -99,6 +100,22 @@ extension L10n {
     public static var achievementTierSilver: String { string("achievement_tier_silver") }
     public static var achievementTitles50Desc: String { string("achievement_titles_50_desc") }
     public static var achievementTitles50Name: String { string("achievement_titles_50_name") }
+    public static var achievementTvFullHouseDesc: String { string("achievement_tv_full_house_desc") }
+    public static var achievementTvFullHouseName: String { string("achievement_tv_full_house_name") }
+    public static var achievementTvMarathonDesc: String { string("achievement_tv_marathon_desc") }
+    public static var achievementTvMarathonName: String { string("achievement_tv_marathon_name") }
+    public static var achievementTvMorning5Desc: String { string("achievement_tv_morning_5_desc") }
+    public static var achievementTvMorning5Name: String { string("achievement_tv_morning_5_name") }
+    public static var achievementTvNightOwlDesc: String { string("achievement_tv_night_owl_desc") }
+    public static var achievementTvNightOwlName: String { string("achievement_tv_night_owl_name") }
+    public static var achievementTvPremiereDesc: String { string("achievement_tv_premiere_desc") }
+    public static var achievementTvPremiereName: String { string("achievement_tv_premiere_name") }
+    public static var achievementTvPrimeTime5Desc: String { string("achievement_tv_prime_time_5_desc") }
+    public static var achievementTvPrimeTime5Name: String { string("achievement_tv_prime_time_5_name") }
+    public static var achievementTvReactions100Desc: String { string("achievement_tv_reactions_100_desc") }
+    public static var achievementTvReactions100Name: String { string("achievement_tv_reactions_100_name") }
+    public static var achievementTvStrip5Desc: String { string("achievement_tv_strip_5_desc") }
+    public static var achievementTvStrip5Name: String { string("achievement_tv_strip_5_name") }
     public static var achievementUnlocked: String { string("achievement_unlocked") }
     public static func achievementUnlockedOn(date: String) -> String { format("achievement_unlocked_on", [date]) }
     public static var achievementVeteran365Desc: String { string("achievement_veteran_365_desc") }
@@ -592,6 +609,7 @@ extension L10n {
     public static var rankSourceCouchJoined: String { string("rank_source_couch_joined") }
     public static var rankSourceEpisodes: String { string("rank_source_episodes") }
     public static var rankSourceMovies: String { string("rank_source_movies") }
+    public static var rankSourceTv: String { string("rank_source_tv") }
     public static var rankSourceVideo: String { string("rank_source_video") }
     public static var rankSourcesHeading: String { string("rank_sources_heading") }
     public static var rankTierBinger: String { string("rank_tier_binger") }

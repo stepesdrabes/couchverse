@@ -45,6 +45,7 @@
               "streaks",
               "explorer",
               "couch",
+              "tv",
               "meta"
             ],
             "type": "string"
@@ -116,6 +117,7 @@
               "streaks",
               "explorer",
               "couch",
+              "tv",
               "meta"
             ],
             "type": "string"
@@ -5388,6 +5390,12 @@
             "minimum": 0,
             "type": "integer"
           },
+          "tvMinute": {
+            "description": "XP per minute of Couch TV watched, programs and breaks.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "videoMinute": {
             "description": "XP per minute of video watched.",
             "format": "int64",
@@ -5397,6 +5405,7 @@
         },
         "required": [
           "videoMinute",
+          "tvMinute",
           "movie",
           "episode",
           "couchHost",
@@ -6988,6 +6997,7 @@
           "key": {
             "enum": [
               "video",
+              "tv",
               "movies",
               "episodes",
               "couchHosted",

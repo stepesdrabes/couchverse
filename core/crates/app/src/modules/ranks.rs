@@ -105,7 +105,7 @@ pub struct RankBadge {
 #[serde(rename_all = "camelCase")]
 pub struct AchievementCard {
     pub code: String,
-    /// `watching`, `streaks`, `explorer`, `couch` or `meta`.
+    /// `watching`, `streaks`, `explorer`, `couch`, `tv` or `meta`.
     pub category: String,
     /// `bronze`, `silver`, `gold` or `platinum`.
     pub tier: String,
@@ -171,7 +171,7 @@ pub struct TopTitle {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct XpLine {
-    /// What earned it, by the API's key (`video`, `movies`, `episodes`, `couchHosted`,
+    /// What earned it, by the API's key (`video`, `tv`, `movies`, `episodes`, `couchHosted`,
     /// `couchJoined` or `achievements`); shells localize it as `rank_source_<key in snake case>`.
     pub key: String,
     pub units: U53,

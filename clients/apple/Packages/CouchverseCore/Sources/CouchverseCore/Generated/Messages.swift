@@ -107,7 +107,7 @@ public struct AccountsView: Codable, Sendable, Hashable {
 /// An achievement; `code` is localized by the shell (`achievement_<code>_name` and `_desc`).
 public struct AchievementCard: Codable, Sendable, Hashable {
 	public let code: String
-	/// `watching`, `streaks`, `explorer`, `couch` or `meta`.
+	/// `watching`, `streaks`, `explorer`, `couch`, `tv` or `meta`.
 	public let category: String
 	/// `bronze`, `silver`, `gold` or `platinum`.
 	public let tier: String
@@ -2874,7 +2874,7 @@ public struct PlayerView: Codable, Sendable, Hashable {
 }
 
 public struct XpLine: Codable, Sendable, Hashable {
-	/// What earned it, by the API's key (`video`, `movies`, `episodes`, `couchHosted`,
+	/// What earned it, by the API's key (`video`, `tv`, `movies`, `episodes`, `couchHosted`,
 	/// `couchJoined` or `achievements`); shells localize it as `rank_source_<key in snake case>`.
 	public let key: String
 	public let units: UInt64

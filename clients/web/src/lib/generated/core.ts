@@ -65,7 +65,7 @@ export interface AccountsView {
 /** An achievement; `code` is localized by the shell (`achievement_<code>_name` and `_desc`). */
 export interface AchievementCard {
 	code: string;
-	/** `watching`, `streaks`, `explorer`, `couch` or `meta`. */
+	/** `watching`, `streaks`, `explorer`, `couch`, `tv` or `meta`. */
 	category: string;
 	/** `bronze`, `silver`, `gold` or `platinum`. */
 	tier: string;
@@ -1399,7 +1399,7 @@ export interface PlayerView {
 
 export interface XpLine {
 	/**
-	 * What earned it, by the API's key (`video`, `movies`, `episodes`, `couchHosted`,
+	 * What earned it, by the API's key (`video`, `tv`, `movies`, `episodes`, `couchHosted`,
 	 * `couchJoined` or `achievements`); shells localize it as `rank_source_<key in snake case>`.
 	 */
 	key: string;
