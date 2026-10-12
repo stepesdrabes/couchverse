@@ -18,6 +18,8 @@ type Config struct {
 	JobWorkers    int
 	FFmpegPath    string
 	FFprobePath   string
+	// ChromiumPath is the browser the render sidecar drives; empty finds an installed one.
+	ChromiumPath string
 	// TrustedProxies are the reverse proxies whose X-Forwarded-For is believed.
 	TrustedProxies []netip.Prefix
 }
@@ -33,6 +35,7 @@ func Load() (Config, error) {
 		JobWorkers:    envInt("JOB_WORKERS", 2),
 		FFmpegPath:    envStr("FFMPEG_PATH", "ffmpeg"),
 		FFprobePath:   envStr("FFPROBE_PATH", "ffprobe"),
+		ChromiumPath:  os.Getenv("CHROMIUM_PATH"),
 	}
 	proxies, err := parsePrefixes(os.Getenv("TRUSTED_PROXIES"))
 	if err != nil {

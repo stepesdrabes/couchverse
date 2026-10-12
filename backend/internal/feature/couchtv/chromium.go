@@ -1,0 +1,159 @@
+package couchtv
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"os"
+	"runtime"
+	"time"
+
+	"github.com/chromedp/cdproto/page"
+	cdpruntime "github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/chromedp"
+)
+
+// browser is the sidecar's one headless Chromium with the render page open
+// (window.couchtvRender, clients/broadcast/src/render.ts).
+type browser struct {
+	execPath string
+	ctx      context.Context
+	cancel   context.CancelFunc
+}
+
+// loadResult is what the render page's load reports.
+type loadResult struct {
+	Duration float64  `json:"duration"`
+	Version  int      `json:"version"`
+	Missing  []string `json:"missing"`
+}
+
+// callTimeout bounds one call into the page: a frame, a load with its artwork, an audio
+// render of a long break part.
+const callTimeout = 3 * time.Minute
+
+// open starts Chromium on the render page. On Linux it renders on the GPU when the
+// container has one (/dev/dri, the Pi's V3D; flags from the planning benchmark) and runs
+// without Chromium's sandbox, which needs privileges a container lacks; the page is the
+// sidecar's own bundle on localhost, never web content.
+func (b *browser) open(pageURL string) error {
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.WindowSize(1920, 1080),
+		chromedp.Flag("force-device-scale-factor", "1"),
+		chromedp.Flag("run-all-compositor-stages-before-draw", true),
+	)
+	if b.execPath != "" {
+		opts = append(opts, chromedp.ExecPath(b.execPath))
+	}
+	if runtime.GOOS == "linux" {
+		opts = append(opts, chromedp.NoSandbox)
+		if _, err := os.Stat("/dev/dri"); err == nil {
+			opts = append(opts, chromedp.Flag("use-angle", "gles-egl"), chromedp.Flag("ignore-gpu-blocklist", true),
+				chromedp.Flag("enable-gpu-rasterization", true), chromedp.Flag("enable-zero-copy", true))
+		}
+	}
+	alloc, cancelAlloc := chromedp.NewExecAllocator(context.Background(), opts...)
+	// chromedp's protocol types trail the browser, so it reports events it cannot read
+	ctx, cancel := chromedp.NewContext(alloc, chromedp.WithErrorf(func(format string, args ...any) {
+		slog.Debug("chromium: " + fmt.Sprintf(format, args...))
+	}))
+	b.ctx = ctx
+	b.cancel = func() {
+		cancel()
+		cancelAlloc()
+	}
+	// the browser lives as long as the context of the first run, so that one is b.ctx
+	err := chromedp.Run(ctx)
+	if err == nil {
+		err = b.run(context.Background(), time.Minute,
+			chromedp.EmulateViewport(1920, 1080),
+			chromedp.Navigate(pageURL),
+			chromedp.Poll(`!!window.couchtvRender`, nil, chromedp.WithPollingTimeout(time.Minute)))
+	}
+	if err != nil {
+		b.close()
+		return fmt.Errorf("chromium: %w", err)
+	}
+	return nil
+}
+
+func (b *browser) close() {
+	if b.cancel != nil {
+		b.cancel()
+		b.cancel = nil
+	}
+}
+
+// run runs actions in the page, giving up when ctx (a job's) ends or after timeout.
+func (b *browser) run(ctx context.Context, timeout time.Duration, actions ...chromedp.Action) error {
+	runCtx, cancel := context.WithTimeout(b.ctx, timeout)
+	defer cancel()
+	stop := context.AfterFunc(ctx, cancel)
+	defer stop()
+	err := chromedp.Run(runCtx, actions...)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return err
+}
+
+// eval evaluates an expression in the page, awaiting a promise, into out.
+func (b *browser) eval(ctx context.Context, js string, out any) error {
+	return b.run(ctx, callTimeout, chromedp.Evaluate(js, out, func(p *cdpruntime.EvaluateParams) *cdpruntime.EvaluateParams {
+		return p.WithAwaitPromise(true)
+	}))
+}
+
+func (b *browser) versions(ctx context.Context) (map[string]int, error) {
+	var v map[string]int
+	return v, b.eval(ctx, `window.couchtvRender.versions()`, &v)
+}
+
+// load loads a clip or break spec.
+func (b *browser) load(ctx context.Context, spec []byte) (loadResult, error) {
+	var res loadResult
+	return res, b.eval(ctx, fmt.Sprintf(`window.couchtvRender.load(%s)`, spec), &res)
+}
+
+// frame shows the frame at index i, unless nothing moves since the one before it; it
+// reports whether the picture changed.
+func (b *browser) frame(ctx context.Context, i int) (bool, error) {
+	var changed bool
+	js := fmt.Sprintf(`(async (r) => {
+		if (%[1]d > 0 && r.isStatic(%[2]g, %[3]g)) return false;
+		await r.seek(%[3]g);
+		return true;
+	})(window.couchtvRender)`, i, frameSeconds(i-1), frameSeconds(i))
+	return changed, b.eval(ctx, js, &changed)
+}
+
+// capture is the page as a JPEG at the quality the plan measured (q92).
+func (b *browser) capture(ctx context.Context) ([]byte, error) {
+	var buf []byte
+	err := b.run(ctx, callTimeout, chromedp.ActionFunc(func(ctx context.Context) error {
+		var err error
+		buf, err = page.CaptureScreenshot().WithFormat(page.CaptureScreenshotFormatJpeg).WithQuality(92).
+			WithOptimizeForSpeed(true).WithFromSurface(true).Do(ctx)
+		return err
+	}))
+	return buf, err
+}
+
+// renderAudio renders the loaded clip's or break's sound and has the page post the WAV to
+// url (a long break's WAV is too big to move as a string over CDP).
+func (b *browser) renderAudio(ctx context.Context, url string) error {
+	target, _ := json.Marshal(url)
+	var status int
+	js := fmt.Sprintf(`(async (r) => {
+		const wav = await r.renderAudio();
+		return (await fetch(%s, { method: 'POST', body: wav })).status;
+	})(window.couchtvRender)`, target)
+	if err := b.eval(ctx, js, &status); err != nil {
+		return err
+	}
+	if status != 204 {
+		return fmt.Errorf("audio upload answered %d", status)
+	}
+	return nil
+}

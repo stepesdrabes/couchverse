@@ -22,11 +22,14 @@ run-web: $(WEB_CORE)
 $(WEB_CORE):
 	cd core && cargo xtask wasm
 
-build: core-wasm
+build: core-wasm broadcast
 	cd clients/web && npm run build
 	rm -rf backend/web/dist && mkdir -p backend/web/dist
 	cp -R clients/web/build/. backend/web/dist/
 	touch backend/web/dist/.gitkeep
+	rm -rf backend/broadcast/dist && mkdir -p backend/broadcast/dist
+	cp -R clients/broadcast/dist/. backend/broadcast/dist/
+	touch backend/broadcast/dist/.gitkeep
 	cd backend && go build -ldflags="$(LDFLAGS)" -o bin/couchverse ./cmd/couchverse
 
 lint:
@@ -71,6 +74,7 @@ broadcast-test: $(BROADCAST_DEPS)
 contract:
 	cd backend && go run ./cmd/couchverse openapi > ../contract/openapi.json
 	cd backend && go run ./cmd/couchverse couch-schema > ../contract/couch-protocol.schema.json
+	cp contract/broadcast-spec.schema.json backend/internal/feature/couchtv/broadcast-spec.schema.json
 	cd core && cargo xtask codegen
 
 core-test:

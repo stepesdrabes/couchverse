@@ -135,7 +135,7 @@ func (h *JobHandler) markReady(ctx context.Context, mediaFileID string, run *job
 
 func (h *JobHandler) describe(run *job) error {
 	for dir, base := range run.dirs {
-		if _, err := describeRendition(dir, base); err != nil {
+		if _, err := DescribeRendition(dir, base); err != nil {
 			return fmt.Errorf("describe %s: %w", filepath.Base(dir), err)
 		}
 		if filepath.Base(dir) == media.VariantTrickplay {

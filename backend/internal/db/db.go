@@ -63,6 +63,31 @@ func Migrate(pool *pgxpool.Pool) error {
 	return goose.Up(db, ".")
 }
 
+// WaitForMigrations blocks until the database has every embedded migration: a process
+// that shares the database with the app (the render sidecar) leaves migrating to it.
+func WaitForMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	goose.SetBaseFS(migrations.FS)
+	all, err := goose.CollectMigrations(".", 0, goose.MaxVersion)
+	if err != nil {
+		return err
+	}
+	want := all[len(all)-1].Version
+	for {
+		// read, never create, goose's table: the app may be creating it right now
+		var have int64
+		err := pool.QueryRow(ctx, `SELECT coalesce(max(version_id), 0) FROM goose_db_version WHERE is_applied`).Scan(&have)
+		if err == nil && have >= want {
+			return nil
+		}
+		slog.Info("waiting for the database migrations", "want", want, "have", have)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(5 * time.Second):
+		}
+	}
+}
+
 type gooseLogger struct{}
 
 func (gooseLogger) Fatalf(format string, v ...any) {

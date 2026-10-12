@@ -62,6 +62,19 @@ func (o hlsOutput) args() []string {
 		filepath.Join(o.dir, "index.m3u8"))
 }
 
+// RenditionArgs are the ffmpeg options (codec options first) of one output rendition
+// directory on the package timeline, with 6 s segments: for other features whose media
+// players read like a package's (Couch TV's rendered clips and breaks). Open the inputs
+// with InputArgs and describe each finished directory with DescribeRendition.
+func RenditionArgs(dir string, codec []string, video bool) []string {
+	return hlsOutput{dir: dir, codec: codec, video: video, segment: segmentSeconds}.args()
+}
+
+// InputArgs open an input on the package timeline.
+func InputArgs(input string, extra ...string) []string {
+	return inputArgs(input, 0, extra...)
+}
+
 // inputArgs open the source on the shared timeline.
 func inputArgs(input string, startAt float64, extra ...string) []string {
 	args := []string{"-hide_banner", "-loglevel", "error", "-y", "-copyts", "-start_at_zero"}
@@ -153,6 +166,15 @@ func toneMapFilter(f Features) string {
 		"tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
 }
 
+// SDRFilter ends a filter chain in 8-bit 4:2:0 BT.709, tone-mapping an HDR source, for the
+// stills and frames other features cut from a source.
+func SDRFilter(mf *media.MediaFile, f Features) string {
+	if isHDR(mf.Video) {
+		return toneMapFilter(f)
+	}
+	return "format=yuv420p"
+}
+
 func isHDR(v media.VideoStream) bool {
 	// a Dolby Vision 8.2 base layer is SDR
 	return v.HDR != media.HDRNone && v.HDR != "" && (v.HDR != media.HDRDolbyVision || v.DoviCompatibility != 2)
@@ -234,9 +256,9 @@ type RenditionInfo struct {
 
 const renditionFile = "rendition.json"
 
-// describeRendition measures a finished rendition directory and writes its
+// DescribeRendition measures a finished rendition directory and writes its
 // rendition.json; base carries what the media cannot tell (language, name...).
-func describeRendition(dir string, base RenditionInfo) (RenditionInfo, error) {
+func DescribeRendition(dir string, base RenditionInfo) (RenditionInfo, error) {
 	text, err := os.ReadFile(filepath.Join(dir, "index.m3u8"))
 	if err != nil {
 		return base, err
@@ -320,7 +342,12 @@ type Package struct {
 // rendition is finished once its rendition.json exists: the job writes it
 // after ffmpeg succeeded and removes the directory when it fails.
 func ReadPackage(dataDir, mediaFileID string) (*Package, error) {
-	dir := PackageDir(dataDir, mediaFileID)
+	return ReadPackageDir(PackageDir(dataDir, mediaFileID))
+}
+
+// ReadPackageDir reads the finished renditions of a package in dir: a media file's, or a
+// rendered Couch TV clip or break, which are laid out the same way.
+func ReadPackageDir(dir string) (*Package, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -340,7 +367,7 @@ func ReadPackage(dataDir, mediaFileID string) (*Package, error) {
 		}
 		pl, err := hls.Parse(string(text))
 		if err != nil || pl.Media == nil {
-			return nil, fmt.Errorf("%s/%s: not a media playlist", mediaFileID, e.Name())
+			return nil, fmt.Errorf("%s: not a media playlist", filepath.Join(dir, e.Name()))
 		}
 		r := PackageRendition{Name: e.Name(), Info: info, Playlist: pl.Media}
 		switch {

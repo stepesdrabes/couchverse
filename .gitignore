@@ -3,6 +3,8 @@ clients/web/build/
 clients/web/.svelte-kit/
 backend/web/dist/*
 !backend/web/dist/.gitkeep
+backend/broadcast/dist/*
+!backend/broadcast/dist/.gitkeep
 backend/bin/
 data/
 .env

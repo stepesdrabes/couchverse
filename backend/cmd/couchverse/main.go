@@ -23,6 +23,13 @@ func main() {
 		if os.Args[1] == "validate-hls" {
 			os.Exit(validateHLS(os.Args[2:], os.Stdout))
 		}
+		if os.Args[1] == "render" {
+			if err := runRender(); err != nil {
+				slog.Error("render", "err", err)
+				os.Exit(1)
+			}
+			return
+		}
 		if write, ok := contractPrinters[os.Args[1]]; ok {
 			if err := write(os.Stdout); err != nil {
 				slog.Error(os.Args[1], "err", err)
