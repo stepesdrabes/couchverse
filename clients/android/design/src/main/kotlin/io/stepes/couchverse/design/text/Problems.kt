@@ -29,5 +29,10 @@ fun problemText(code: String?): Int = when (code) {
     "not_host" -> R.string.problem_not_host
     "session_full" -> R.string.problem_session_full
     "already_hosting" -> R.string.problem_already_hosting
+    "feature_disabled" -> R.string.problem_feature_disabled
+    "invalid_name" -> R.string.problem_invalid_name
+    "no_channel_guest" -> R.string.problem_no_channel_guest
+    "no_channel_link" -> R.string.problem_no_channel_link
+    "couchtv_playback_failed" -> R.string.problem_couchtv_playback_failed
     else -> R.string.problem_generic
 }
