@@ -511,6 +511,16 @@ func TestCouchTvComposeJob(t *testing.T) {
 	if soon == 0 || waiting == 0 {
 		t.Errorf("%d renders at once, %d waiting for the quiet hours", soon, waiting)
 	}
+	// renders queued before the quiet hours existed (due at once) are timed again by the next run
+	if _, err := env.pool.Exec(ctx, `UPDATE jobs SET run_at = $2 WHERE type = $1 AND status = 'pending'`,
+		couchtv.RenderJob, clock.Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	compose()
+	if n := count(`SELECT count(*) FROM jobs WHERE type = $1 AND status = 'pending' AND run_at > $2`,
+		couchtv.RenderJob, clock); n != waiting {
+		t.Errorf("%d renders timed again for the quiet hours, want %d", n, waiting)
+	}
 
 	// a break that leaves the schedule takes its own clips' renders with it
 	var gone, upNext string

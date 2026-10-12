@@ -65,21 +65,43 @@ func (s *Store) uncomposed(ctx context.Context, from, to time.Time) ([]Airing, e
 		AND (b.state <> 'failed' OR b.updated_at > $3))`, from, to, from.Add(-retryAfter))
 }
 
-// unusedClips are the clips waiting to be rendered that no composition uses, aside from
-// promo bodies (requested for breaks yet to be composed) and the standby card (which no
-// break holds).
-func (s *Store) unusedClips(ctx context.Context) ([]string, error) {
+// queuedRender is a clip whose render waits in the queue, with the breaks that use it.
+type queuedRender struct {
+	ClipID, Kind string
+	// Used says a composition uses the clip; Airs is when the first one airs (zero for
+	// the evergreen break, which airs any time).
+	Used bool
+	Airs time.Time
+}
+
+// queuedRenders are the clips whose renders wait in the queue; a break that aired by
+// now uses none.
+func (s *Store) queuedRenders(ctx context.Context, now time.Time) ([]queuedRender, error) {
 	rows, err := s.q.Query(ctx, `
-		SELECT c.id FROM couchtv_clips c
-		WHERE c.state = 'pending' AND c.kind NOT IN ('promo_body', 'standby') AND NOT EXISTS (
-			SELECT 1 FROM couchtv_breaks b
-			CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(b.recipe->'clips') = 'array'
-				THEN b.recipe->'clips' ELSE '[]' END) rc
-			WHERE b.state <> 'failed' AND rc->>'clipId' = c.id::text)`)
+		SELECT c.id, c.kind, count(b.id) > 0,
+		       coalesce(min(CASE WHEN b.airing_id IS NULL THEN 'epoch' ELSE a.starts_at END), 'epoch')
+		FROM couchtv_clips c
+		JOIN jobs j ON j.type = $1 AND j.status = 'pending' AND j.payload->>'clipId' = c.id::text
+		LEFT JOIN couchtv_breaks b ON b.state <> 'failed'
+			AND b.recipe->'clips' @> jsonb_build_array(jsonb_build_object('clipId', c.id::text))
+			AND (b.airing_id IS NULL OR EXISTS (SELECT 1 FROM couchtv_airings x WHERE x.id = b.airing_id AND x.ends_at > $2))
+		LEFT JOIN couchtv_airings a ON a.id = b.airing_id
+		WHERE c.state = 'pending'
+		GROUP BY c.id, c.kind`, RenderJob, now)
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, pgx.RowTo[string])
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (queuedRender, error) {
+		var q queuedRender
+		err := row.Scan(&q.ClipID, &q.Kind, &q.Used, &q.Airs)
+		return q, err
+	})
+	for i := range out {
+		if out[i].Airs.Unix() == 0 {
+			out[i].Airs = time.Time{}
+		}
+	}
+	return out, err
 }
 
 // retryAfter is how long a break that failed waits before it is composed again.

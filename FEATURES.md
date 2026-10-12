@@ -856,11 +856,11 @@ server that does not send it). The admin settings page toggles it.
   else one from the genres). Clips are requested in `couchtv_clips` (`needed_at` the earliest
   air time, `last_used_at` touched) and their renders queued soonest-airing first, to run in
   the quiet hours (01:00-09:00 in the channel's zone) unless what they are for airs within
-  3 h, and never later than 3 h before it airs (`renderAt`; a clip a sooner break needs is
-  brought forward, `jobs.Store.Expedite`); missing promo bodies are requested for later
-  breaks. Each run ends by cancelling the renders of clips no composition uses any more (a
-  replan moved their break, or it was composed again), promo bodies and the standby card
-  aside.
+  3 h, and never later than 3 h before it airs (`renderAt`); missing promo bodies are
+  requested for later breaks. Each run ends by timing every queued render again by the first
+  break still to air that uses its clip (`jobs.Store.Reschedule`, sooner or later) and
+  cancelling those no composition uses any more (a replan moved their break, or it was
+  composed again), promo bodies and the standby card aside.
 - **The render sidecar** (`couchverse render`, plan 6.7; `couchtv.Renderer`): a separate process
   on the same database and `DATA_DIR` that registers only `couchtv_render` and
   `couchtv_assemble` (the app never does), runs one job at a time and claims a render only

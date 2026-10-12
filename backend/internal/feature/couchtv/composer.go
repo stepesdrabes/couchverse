@@ -110,23 +110,34 @@ func (c *Composer) Handle(ctx context.Context, _ *jobs.Job, report func(int)) er
 	if len(breaks) > 0 {
 		slog.Info("couchtv: composed breaks", "count", len(breaks), "outdated", len(outdated))
 	}
-	return run.dropUnused(ctx)
+	return run.tidyRenders(ctx)
 }
 
-// dropUnused cancels the renders of clips no composition uses any more: a replan moved
-// their break, or it was composed again.
-func (r *composition) dropUnused(ctx context.Context) error {
-	ids, err := r.Store.unusedClips(ctx)
+// tidyRenders times every queued render by the first break that uses its clip now, and
+// cancels those no composition uses any more (a replan moved their break, or it was
+// composed again). Promo bodies, requested for breaks yet to be composed, and the
+// standby card, which no break holds, keep their place.
+func (r *composition) tidyRenders(ctx context.Context) error {
+	queued, err := r.Store.queuedRenders(ctx, r.now)
 	if err != nil {
 		return err
 	}
-	for _, id := range ids {
-		if err := r.Jobs.CancelPending(ctx, RenderJob, RenderPayload{ClipID: id}); err != nil {
+	dropped := 0
+	for _, q := range queued {
+		payload := RenderPayload{ClipID: q.ClipID}
+		switch {
+		case q.Used:
+			err = r.Jobs.Reschedule(ctx, RenderJob, payload, renderAt(r.now, q.Airs, r.cfg.location()), urgency(q.Airs))
+		case q.Kind != ClipPromoBody && q.Kind != ClipStandby:
+			err = r.Jobs.CancelPending(ctx, RenderJob, payload)
+			dropped++
+		}
+		if err != nil {
 			return err
 		}
 	}
-	if len(ids) > 0 {
-		slog.Info("couchtv: dropped renders nothing uses", "count", len(ids))
+	if dropped > 0 {
+		slog.Info("couchtv: dropped renders nothing uses", "count", dropped)
 	}
 	return nil
 }
@@ -277,12 +288,10 @@ func (r *composition) request(ctx context.Context, kind, key string, spec Spec, 
 			return "", "", err
 		}
 	}
-	payload, opts := RenderPayload{ClipID: id}, jobs.EnqueueOpts{Priority: urgency(airs), RunAt: renderAt(r.now, airs, r.cfg.location())}
-	if _, err := r.Jobs.EnqueueJobOnce(ctx, RenderJob, payload, opts); err != nil {
-		return "", "", err
-	}
-	// a clip another break asked for later is needed sooner now
-	return id, state, r.Jobs.Expedite(ctx, RenderJob, payload, opts.RunAt, opts.Priority)
+	// the run ends by timing it by the first break that uses it (tidyRenders)
+	_, err = r.Jobs.EnqueueJobOnce(ctx, RenderJob, RenderPayload{ClipID: id},
+		jobs.EnqueueOpts{Priority: urgency(airs), RunAt: renderAt(r.now, airs, r.cfg.location())})
+	return id, state, err
 }
 
 // requestBodies asks for the promo bodies the candidates do not have yet, so later breaks

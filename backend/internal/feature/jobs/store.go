@@ -145,15 +145,14 @@ func (s *Store) EnqueueJobOnce(ctx context.Context, jobType string, payload any,
 	return s.EnqueueJob(ctx, jobType, payload, opts)
 }
 
-// Expedite brings an identical pending job forward: to run no later than runAt, at
-// no lower a priority than priority.
-func (s *Store) Expedite(ctx context.Context, jobType string, payload any, runAt time.Time, priority int) error {
+// Reschedule sets when an identical pending job runs and its priority.
+func (s *Store) Reschedule(ctx context.Context, jobType string, payload any, runAt time.Time, priority int) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
 	_, err = s.db.Exec(ctx,
-		`UPDATE jobs SET run_at = least(run_at, $3), priority = greatest(priority, $4)
+		`UPDATE jobs SET run_at = $3, priority = $4
 		 WHERE type = $1 AND payload = $2 AND status = 'pending'`, jobType, body, runAt, priority)
 	return err
 }
