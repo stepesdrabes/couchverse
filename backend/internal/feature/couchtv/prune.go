@@ -25,7 +25,7 @@ const (
 // Prune keeps the rendered media bounded: the packages of breaks that have aired, clips
 // no break has asked for in a while (never one a waiting break uses), evergreen breaks
 // older than the newest assembled one, and extracted media and work directories nobody
-// used lately. It runs in the hourly cleanup.
+// used lately; and it forgets guests long gone. It runs in the hourly cleanup.
 func Prune(ctx context.Context, s *Store, dataDir string, now time.Time) error {
 	remove := func(query string, args ...any) (int, error) {
 		rows, err := s.q.Query(ctx, query, args...)
@@ -75,6 +75,10 @@ func Prune(ctx context.Context, s *Store, dataDir string, now time.Time) error {
 	}
 	if aired+evergreen+clips > 0 {
 		slog.Info("cleanup: pruned couch tv renders", "airedBreaks", aired, "evergreenBreaks", evergreen, "clips", clips)
+	}
+	// a guest who has not tuned in for as long as their cookie lasts is gone
+	if _, err := s.q.Exec(ctx, `DELETE FROM couchtv_guests WHERE seen_at < $1`, now.Add(-guestKeep)); err != nil {
+		return err
 	}
 
 	root := filepath.Join(dataDir, "couchtv")

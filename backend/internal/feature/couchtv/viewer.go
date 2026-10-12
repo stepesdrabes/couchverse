@@ -2,19 +2,28 @@ package couchtv
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/coder/websocket"
+	"github.com/google/uuid"
+
+	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/auth"
 	"couchverse/internal/grant"
 	"couchverse/internal/httpx"
 )
 
-// Viewer serves the channel to signed-in viewers: tuning in and the guide.
+// Viewer serves the channel to its viewers, signed in or guests: tuning in, the
+// guide and the socket.
 type Viewer struct {
 	scheduler *Scheduler
 	live      *Live
 	grants    *grant.Signer
+	hub       *Hub
+	guests    *Guests
 }
 
 // CouchTvListing is an airing as viewers see it: a program with its title, or a break.
@@ -54,6 +63,8 @@ type CouchTvTune struct {
 	Now            *CouchTvOnAir    `json:"now" doc:"What is on air, a program or a break; null while nothing is."`
 	Next           *CouchTvOnAir    `json:"next" doc:"The next program; null when nothing is planned."`
 	Later          []CouchTvListing `json:"later" doc:"The programs after the next one, up to four."`
+	ArtworkGrant   string           `json:"artworkGrant,omitempty" doc:"A guest's: lets them load artwork without an account (append it to artwork URLs as ?g=)."`
+	Guest          *CouchTvGuest    `json:"guest,omitempty" doc:"The guest tuning in; absent for a signed-in viewer."`
 }
 
 // CouchTvGuide is a stretch of the channel's programs.
@@ -61,7 +72,15 @@ type CouchTvGuide struct {
 	From     time.Time        `json:"from"`
 	To       time.Time        `json:"to"`
 	TimeZone string           `json:"timeZone" doc:"The channel's time zone, in which its days run."`
+	Days     []CouchTvDay     `json:"days" doc:"The broadcast days the stretch overlaps, in order."`
 	Programs []CouchTvListing `json:"programs" doc:"The programs overlapping the stretch, in order."`
+}
+
+// CouchTvDay is a broadcast day: from its first anchor (say 06:00) to the next day's.
+type CouchTvDay struct {
+	Date     string    `json:"date" format:"date" doc:"The day's date in the channel's time zone."`
+	StartsAt time.Time `json:"startsAt"`
+	EndsAt   time.Time `json:"endsAt"`
 }
 
 // ChannelPath is the URL of a route under a channel grant: /api/v1/tv/{grant}/<rest>.
@@ -80,6 +99,43 @@ func (v *Viewer) Tune(ctx context.Context, _ *struct{}) (*tuneOutput, error) {
 	if u := auth.UserFrom(ctx); u != nil {
 		g.Subject = u.ID
 	}
+	out, err := v.tune(ctx, g)
+	if err != nil {
+		return nil, err
+	}
+	return &tuneOutput{Body: out}, nil
+}
+
+type guestTuneInput struct {
+	Cookie string `cookie:"couchverse_tv" doc:"The channel cookie set by joinCouchTv."`
+	Token  string `header:"X-Couch-Tv-Token" doc:"The guest token from joinCouchTv with delivery=body."`
+}
+
+func errNoGuestTune() error {
+	return httpx.Fail(http.StatusUnauthorized, "no_channel_guest", "join through the channel link first")
+}
+
+// TuneGuest hands a guest the live channel, under a grant that names them, so it
+// stops working when the channel link does; their artwork comes with a grant too.
+func (v *Viewer) TuneGuest(ctx context.Context, in *guestTuneInput) (*tuneOutput, error) {
+	guest, err := v.guests.Lookup(ctx, guestToken(in.Token, in.Cookie))
+	if errors.Is(err, errNoGuest) {
+		return nil, errNoGuestTune()
+	}
+	if err != nil {
+		return nil, err
+	}
+	out, err := v.tune(ctx, grant.Grant{Scope: grant.Channel, Resource: grant.CouchTv, Couch: uuid.MustParse(guest.ID)})
+	if err != nil {
+		return nil, err
+	}
+	out.ArtworkGrant = artwork.IssueGrant(v.grants, 0).Grant
+	out.Guest = &CouchTvGuest{ID: guest.ID, Name: guest.Name}
+	return &tuneOutput{Body: out}, nil
+}
+
+// tune is the channel under grant g and what is on.
+func (v *Viewer) tune(ctx context.Context, g grant.Grant) (CouchTvTune, error) {
 	token := v.grants.Issue(g, grant.ChannelTTL)
 	stream := ChannelPath(token, "live/master.m3u8")
 	if lang := httpx.LangFrom(ctx); lang != "" {
@@ -88,7 +144,7 @@ func (v *Viewer) Tune(ctx context.Context, _ *struct{}) (*tuneOutput, error) {
 	now := v.live.Channel.now()
 	listings, err := v.scheduler.Store.Listings(ctx, now, now.Add(tuneLookahead), true)
 	if err != nil {
-		return nil, err
+		return CouchTvTune{}, err
 	}
 	out := CouchTvTune{Grant: token, StreamURL: stream, ServerTime: now.UnixMilli(), TargetDuration: TargetDuration,
 		Later: []CouchTvListing{}}
@@ -103,7 +159,39 @@ func (v *Viewer) Tune(ctx context.Context, _ *struct{}) (*tuneOutput, error) {
 			out.Later = append(out.Later, l)
 		}
 	}
-	return &tuneOutput{Body: out}, nil
+	return out, nil
+}
+
+// Socket upgrades a viewer's connection to the channel's room: a signed-in
+// viewer by their session, a guest by their guest token. coder/websocket refuses
+// a cross-origin browser upgrade by default (the auth CSRF posture); native
+// clients send no Origin.
+func (v *Viewer) Socket(w http.ResponseWriter, r *http.Request) {
+	var me CouchTvViewer
+	var userID int64
+	if u := auth.UserFrom(r.Context()); u != nil {
+		me, userID = userViewer(u), u.ID
+	} else {
+		token := r.Header.Get(GuestTokenHeader)
+		if c, err := r.Cookie(GuestCookie); err == nil && token == "" {
+			token = c.Value
+		}
+		guest, err := v.guests.Lookup(r.Context(), token)
+		if errors.Is(err, errNoGuest) {
+			httpx.Error(w, http.StatusUnauthorized, "no_channel_guest", "sign in or join through the channel link first")
+			return
+		}
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		me = guestViewer(guest)
+	}
+	ws, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		return // Accept already wrote the handshake error
+	}
+	v.hub.serve(ws, me, userID)
 }
 
 type guideInput struct {
@@ -133,5 +221,18 @@ func (v *Viewer) Guide(ctx context.Context, in *guideInput) (*guideOutput, error
 		return nil, err
 	}
 	cfg := LoadConfig(ctx, v.scheduler.Settings)
-	return &guideOutput{Body: CouchTvGuide{From: from, To: to, TimeZone: cfg.TimeZone, Programs: programs}}, nil
+	return &guideOutput{Body: CouchTvGuide{From: from, To: to, TimeZone: cfg.TimeZone, Days: broadcastDays(cfg, from, to),
+		Programs: programs}}, nil
+}
+
+// broadcastDays are the broadcast days overlapping [from, to).
+func broadcastDays(cfg CouchTvConfig, from, to time.Time) []CouchTvDay {
+	days := []CouchTvDay{}
+	for date := cfg.dayOf(from); ; date = nextDate(date) {
+		start, end := cfg.dayStart(date), cfg.dayStart(nextDate(date))
+		if !start.Before(to) {
+			return days
+		}
+		days = append(days, CouchTvDay{Date: date.Format(time.DateOnly), StartsAt: start, EndsAt: end})
+	}
 }

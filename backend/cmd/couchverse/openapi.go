@@ -5,14 +5,16 @@ import (
 	"io"
 
 	"couchverse/internal/feature/couch"
+	"couchverse/internal/feature/couchtv"
 	"couchverse/internal/server"
 )
 
 // contractPrinters write the machine-readable contract clients are generated
 // from; `make contract` stores them under contract/.
 var contractPrinters = map[string]func(io.Writer) error{
-	"openapi":      func(w io.Writer) error { return writeJSON(w, server.OpenAPI()) },
-	"couch-schema": func(w io.Writer) error { return writeJSON(w, couch.ProtocolSchema()) },
+	"openapi":        func(w io.Writer) error { return writeJSON(w, server.OpenAPI()) },
+	"couch-schema":   func(w io.Writer) error { return writeJSON(w, couch.ProtocolSchema()) },
+	"couchtv-schema": func(w io.Writer) error { return writeJSON(w, couchtv.ProtocolSchema()) },
 }
 
 func writeJSON(w io.Writer, v any) error {

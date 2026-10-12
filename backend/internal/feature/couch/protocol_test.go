@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"couchverse/internal/httpx"
 )
 
 var updateGolden = flag.Bool("update", false, "rewrite the golden frames in contract/fixtures/couch")
@@ -88,7 +90,7 @@ func TestGoldenFramesMatchTheWireFormat(t *testing.T) {
 
 	for _, table := range []struct {
 		server bool
-		frames []Frame
+		frames []httpx.Frame
 	}{{true, ServerFrames}, {false, ClientFrames}} {
 		for _, f := range table.frames {
 			found := false

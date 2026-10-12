@@ -1,6 +1,10 @@
 package couch
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"couchverse/internal/httpx"
+)
 
 // The couch WebSocket protocol (GET /couch/{token}/ws). Every frame is an
 // Envelope in both directions; the frame tables below are the protocol's single
@@ -35,33 +39,25 @@ const (
 	roleRemote   = "remote"
 )
 
-// Frame describes one message type: its payload type (nil for none) and what
-// it means.
-type Frame struct {
-	Type    string
-	Payload any
-	Doc     string
-}
-
 // ServerFrames are the messages the server sends.
-var ServerFrames = []Frame{
-	{msgHello, CouchHello{}, "Full snapshot, sent on connect and again when the connection's role changes: the host's account started hosting on another device, so this one is its remote now."},
-	{msgHostState, CouchHostState{}, "The authoritative play state, stamped by the server."},
-	{msgParticipants, CouchParticipants{}, "Membership or a follower's local pause changed."},
-	{msgMediaChanged, CouchMediaChanged{}, "The host switched title or episode; followers fetch their playback payload again."},
-	{msgHostAway, CouchHostAway{}, "The host lost every connection; the grace countdown started."},
-	{msgHostReturned, nil, "The host reconnected within the grace period."},
-	{msgEmoji, CouchEmoji{}, "A relayed reaction."},
-	{msgSessionEnded, CouchSessionEnded{}, "Terminal: the session is over and the socket closes."},
-	{msgRemote, CouchRemoteCommand{}, "To the host's playing connection only: a remote asks for a change, which the host applies and broadcasts as host_state."},
+var ServerFrames = []httpx.Frame{
+	{Type: msgHello, Payload: CouchHello{}, Doc: "Full snapshot, sent on connect and again when the connection's role changes: the host's account started hosting on another device, so this one is its remote now."},
+	{Type: msgHostState, Payload: CouchHostState{}, Doc: "The authoritative play state, stamped by the server."},
+	{Type: msgParticipants, Payload: CouchParticipants{}, Doc: "Membership or a follower's local pause changed."},
+	{Type: msgMediaChanged, Payload: CouchMediaChanged{}, Doc: "The host switched title or episode; followers fetch their playback payload again."},
+	{Type: msgHostAway, Payload: CouchHostAway{}, Doc: "The host lost every connection; the grace countdown started."},
+	{Type: msgHostReturned, Payload: nil, Doc: "The host reconnected within the grace period."},
+	{Type: msgEmoji, Payload: CouchEmoji{}, Doc: "A relayed reaction."},
+	{Type: msgSessionEnded, Payload: CouchSessionEnded{}, Doc: "Terminal: the session is over and the socket closes."},
+	{Type: msgRemote, Payload: CouchRemoteCommand{}, Doc: "To the host's playing connection only: a remote asks for a change, which the host applies and broadcasts as host_state."},
 }
 
 // ClientFrames are the messages clients send.
-var ClientFrames = []Frame{
-	{msgHostState, CouchHostStateCommand{}, "Host only: the host's play state. The first one from the device the host's account last started hosting on hands the session to it: the host's other devices become remotes."},
-	{msgEmoji, CouchEmojiCommand{}, "Send a reaction."},
-	{msgPaused, CouchPausedCommand{}, "Follower only: paused or resumed locally."},
-	{msgRemote, CouchRemoteCommand{}, "Remote only: steer the host's player."},
+var ClientFrames = []httpx.Frame{
+	{Type: msgHostState, Payload: CouchHostStateCommand{}, Doc: "Host only: the host's play state. The first one from the device the host's account last started hosting on hands the session to it: the host's other devices become remotes."},
+	{Type: msgEmoji, Payload: CouchEmojiCommand{}, Doc: "Send a reaction."},
+	{Type: msgPaused, Payload: CouchPausedCommand{}, Doc: "Follower only: paused or resumed locally."},
+	{Type: msgRemote, Payload: CouchRemoteCommand{}, Doc: "Remote only: steer the host's player."},
 }
 
 // CouchMediaRef identifies what the host is watching. An empty Kind means the

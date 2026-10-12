@@ -82,6 +82,22 @@ func (s *Store) RecordCouchWatch(ctx context.Context, titleID string, seconds in
 	return err
 }
 
+// RecordTvWatch adds seconds watched on Couch TV, the channel's own bucket: userID 0
+// for a guest, titleID "" for a break or a filler. Called best-effort by the
+// channel's room.
+func (s *Store) RecordTvWatch(ctx context.Context, userID int64, titleID string, seconds int) error {
+	if seconds <= 0 {
+		return nil
+	}
+	_, err := s.db.Exec(ctx,
+		`INSERT INTO tv_watch_time_daily (day, user_id, title_id, seconds)
+		 VALUES (current_date, NULLIF($1, 0), NULLIF($2, '')::uuid, $3)
+		 ON CONFLICT (day, user_id, title_id)
+		 DO UPDATE SET seconds = tv_watch_time_daily.seconds + EXCLUDED.seconds`,
+		userID, titleID, seconds)
+	return err
+}
+
 // PruneHourly drops hour buckets past the profile clock's window. The daily
 // rollup is kept forever (it is one row per user per day and the admin charts
 // read it), but the hourly one is 48x denser and only ever read for the last year.
@@ -98,12 +114,14 @@ type AnalyticsDay struct {
 	Day          string `json:"day" format:"date"`
 	VideoSeconds int64  `json:"videoSeconds"`
 	CouchSeconds int64  `json:"couchSeconds" doc:"Seconds followers watched on a couch."`
+	TvSeconds    int64  `json:"tvSeconds" doc:"Seconds watched on Couch TV, guests included."`
 	ActiveUsers  int    `json:"activeUsers"`
 }
 
 type AnalyticsTotals struct {
 	VideoSeconds int64 `json:"videoSeconds"`
 	CouchSeconds int64 `json:"couchSeconds" doc:"Seconds followers watched on a couch."`
+	TvSeconds    int64 `json:"tvSeconds" doc:"Seconds watched on Couch TV, guests included."`
 	ActiveUsers  int   `json:"activeUsers"`
 }
 
@@ -141,7 +159,8 @@ func (s *Store) Overview(ctx context.Context, days int) (*AnalyticsOverview, err
 		`SELECT d::date,
 			COALESCE(sum(w.seconds) FILTER (WHERE w.kind = 'video'), 0),
 			count(DISTINCT w.user_id),
-			COALESCE((SELECT sum(c.seconds) FROM couch_watch_time_daily c WHERE c.day = d::date), 0)
+			COALESCE((SELECT sum(c.seconds) FROM couch_watch_time_daily c WHERE c.day = d::date), 0),
+			COALESCE((SELECT sum(tv.seconds) FROM tv_watch_time_daily tv WHERE tv.day = d::date), 0)
 		 FROM generate_series(current_date - ($1::int - 1), current_date, interval '1 day') d
 		 LEFT JOIN watch_time_daily w ON w.day = d::date
 		 GROUP BY d ORDER BY d`, days)
@@ -152,7 +171,7 @@ func (s *Store) Overview(ctx context.Context, days int) (*AnalyticsOverview, err
 	for rows.Next() {
 		var d AnalyticsDay
 		var day time.Time
-		if err := rows.Scan(&day, &d.VideoSeconds, &d.ActiveUsers, &d.CouchSeconds); err != nil {
+		if err := rows.Scan(&day, &d.VideoSeconds, &d.ActiveUsers, &d.CouchSeconds, &d.TvSeconds); err != nil {
 			return nil, err
 		}
 		d.Day = day.Format("2006-01-02")
@@ -172,9 +191,9 @@ func (s *Store) Overview(ctx context.Context, days int) (*AnalyticsOverview, err
 	}
 
 	if err := s.db.QueryRow(ctx,
-		`SELECT COALESCE(sum(seconds), 0) FROM couch_watch_time_daily
-		 WHERE day >= current_date - ($1::int - 1)`, days).
-		Scan(&out.Totals.CouchSeconds); err != nil {
+		`SELECT COALESCE((SELECT sum(seconds) FROM couch_watch_time_daily WHERE day >= current_date - ($1::int - 1)), 0),
+			COALESCE((SELECT sum(seconds) FROM tv_watch_time_daily WHERE day >= current_date - ($1::int - 1)), 0)`, days).
+		Scan(&out.Totals.CouchSeconds, &out.Totals.TvSeconds); err != nil {
 		return nil, err
 	}
 

@@ -83,6 +83,7 @@ func (h *Admin) Update(ctx context.Context, in *updateInput) (*overviewOutput, e
 		return nil, err
 	}
 	stored := loadStored(ctx, h.scheduler.Settings)
+	cfg.GuestLink = stored.GuestLink
 	body, err := json.Marshal(storedConfig{CouchTvConfig: cfg, GuestLinkHash: stored.GuestLinkHash})
 	if err != nil {
 		return nil, err

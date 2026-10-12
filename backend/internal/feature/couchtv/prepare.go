@@ -38,6 +38,8 @@ type Preparer struct {
 	Jobs     *jobs.Store
 	Settings *settings.Store
 	DataDir  string
+	// Changed hears that a swap changed the schedule; nil for nobody.
+	Changed func()
 	// Now is the clock; nil means time.Now (tests set it).
 	Now func() time.Time
 }
@@ -84,7 +86,8 @@ func (p *Preparer) Handle(ctx context.Context, _ *jobs.Job, report func(int)) er
 		report(80 * (i + 1) / len(files))
 	}
 	cfg := LoadConfig(ctx, p.Settings)
-	return p.Store.Locked(ctx, func(st *Store) error {
+	swapped := 0
+	err = p.Store.Locked(ctx, func(st *Store) error {
 		if err := st.FitPrograms(ctx, now, now.Add(prepareAhead)); err != nil {
 			return err
 		}
@@ -92,11 +95,15 @@ func (p *Preparer) Handle(ctx context.Context, _ *jobs.Job, report func(int)) er
 		if err != nil {
 			return err
 		}
-		if err := swap(ctx, st, cfg, lib, now); err != nil {
+		if swapped, err = swap(ctx, st, cfg, lib, now); err != nil {
 			return err
 		}
 		return st.MarkStates(ctx, now, now.Add(prepareAhead))
 	})
+	if err == nil && swapped > 0 && p.Changed != nil {
+		p.Changed()
+	}
+	return err
 }
 
 // prepare records whether a file can air and queues what it lacks.

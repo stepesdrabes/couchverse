@@ -34,8 +34,17 @@ type Scheduler struct {
 	Store    *Store
 	Settings *settings.Store
 	Jobs     *jobs.Store
+	// Changed hears that the schedule changed (the room tells its viewers); nil for
+	// nobody.
+	Changed func()
 	// Now is the clock; nil means time.Now (tests set it).
 	Now func() time.Time
+}
+
+func (s *Scheduler) changed() {
+	if s.Changed != nil {
+		s.Changed()
+	}
 }
 
 func (s *Scheduler) now() time.Time {
@@ -75,7 +84,8 @@ func (s *Scheduler) Handle(ctx context.Context, _ *jobs.Job, report func(int)) e
 			return err
 		}
 		report(80)
-		return swap(ctx, st, cfg, lib, now)
+		_, err = swap(ctx, st, cfg, lib, now)
+		return err
 	})
 	if err != nil {
 		return err
@@ -83,9 +93,10 @@ func (s *Scheduler) Handle(ctx context.Context, _ *jobs.Job, report func(int)) e
 	return s.followUp(ctx)
 }
 
-// followUp gets what was just planned prepared, and its breaks composed now rather
-// than at the next periodic runs.
+// followUp tells viewers the schedule changed, gets what was just planned prepared, and
+// its breaks composed now rather than at the next periodic runs.
 func (s *Scheduler) followUp(ctx context.Context) error {
+	s.changed()
 	if _, err := s.Jobs.EnqueueJobOnce(ctx, PrepareJob, PreparePayload{}, jobs.EnqueueOpts{}); err != nil {
 		return err
 	}
@@ -189,24 +200,26 @@ func replan(ctx context.Context, st *Store, cfg CouchTvConfig, lib Library, from
 	return nil
 }
 
-func swap(ctx context.Context, st *Store, cfg CouchTvConfig, lib Library, now time.Time) error {
+// swap swaps the programs about to air that will not be ready, and says how many.
+func swap(ctx context.Context, st *Store, cfg CouchTvConfig, lib Library, now time.Time) (int, error) {
 	rows, err := st.Programs(ctx, now, now.Add(freeze))
 	if err != nil || len(rows) == 0 {
-		return err
+		return 0, err
 	}
 	history, err := st.History(ctx, now)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	ends := map[string]time.Time{}
 	for _, a := range rows {
 		ends[a.ID] = a.EndsAt
 	}
-	for _, a := range SwapUnready(SwapInput{Config: cfg, Library: lib, History: history, Rows: rows, Now: now}) {
+	swaps := SwapUnready(SwapInput{Config: cfg, Library: lib, History: history, Rows: rows, Now: now})
+	for _, a := range swaps {
 		if err := st.Swap(ctx, a, ends[a.ID]); err != nil {
-			return err
+			return 0, err
 		}
 		slog.Info("couchtv: swapped an unprepared program", "airingId", a.ID, "startsAt", a.StartsAt, "titleId", a.TitleID)
 	}
-	return nil
+	return len(swaps), nil
 }

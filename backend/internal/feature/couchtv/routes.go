@@ -15,14 +15,15 @@ import (
 type Module struct {
 	admin    *Admin
 	titles   *Titles
+	guests   *Guests
 	viewer   *Viewer
 	live     *Live
 	settings *settings.Store
 }
 
-func NewModule(s *Scheduler, a *Analyzer, live *Live, set *settings.Store, grants *grant.Signer) *Module {
-	return &Module{admin: &Admin{scheduler: s}, titles: &Titles{analyzer: a},
-		viewer: &Viewer{scheduler: s, live: live, grants: grants}, live: live, settings: set}
+func NewModule(s *Scheduler, a *Analyzer, live *Live, hub *Hub, guests *Guests, set *settings.Store, grants *grant.Signer) *Module {
+	return &Module{admin: &Admin{scheduler: s}, titles: &Titles{analyzer: a}, guests: guests,
+		viewer: &Viewer{scheduler: s, live: live, grants: grants, hub: hub, guests: guests}, live: live, settings: set}
 }
 
 const tag httpx.Tag = "couchtv"
@@ -38,6 +39,22 @@ func (m *Module) Register(rt httpx.Routes) {
 	tune.Description = "Issues a channel grant and answers with the live stream's URL, the server clock and what is on now and next."
 	huma.Register(viewer, tune, m.viewer.Tune)
 	huma.Register(viewer, httpx.Localized(tag.Op("getCouchTvGuide", http.MethodGet, "/couchtv/guide")), m.viewer.Guide)
+
+	// guests (each handler checks its own credentials) and the room, for everyone
+	public := huma.NewGroup(rt.Public)
+	public.UseMiddleware(httpx.Guard(public, flags.CouchTvOn(m.settings)))
+	join := tag.Op("joinCouchTv", http.MethodPost, "/tv/join/{code}")
+	join.Summary = "Join Couch TV through the channel link"
+	join.Description = "Lets a viewer without an account watch the live channel under the name they type (D23): it sets the " +
+		"channel cookie, scoped to /api/v1/tv, or answers with the guest token for delivery=body. 404 no_channel_link when " +
+		"the link was rotated or turned off; at most 10 tries a minute from one address."
+	huma.Register(public, join, m.guests.Join)
+	guestTune := httpx.Localized(tag.Op("tuneCouchTvGuest", http.MethodGet, "/tv/tune"))
+	guestTune.Summary = "Tune in to Couch TV as a guest"
+	guestTune.Description = "tuneCouchTv for a guest, by the channel cookie or the X-Couch-Tv-Token header (401 " +
+		"no_channel_guest without a working one): the live channel only, with an artwork grant."
+	huma.Register(public, guestTune, m.viewer.TuneGuest)
+	httpx.Raw(public, socketOp(public), m.viewer.Socket)
 
 	// the live stream, authorized by the channel grant in its path
 	channel := huma.NewGroup(rt.Channel)
@@ -60,6 +77,35 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.Admin, tag.Accepted("adminAnalyzeCouchTvTitle", http.MethodPost, "/couchtv/titles/{id}/analyze"), m.titles.Analyze)
 	huma.Register(rt.Admin, tag.Op("adminCouchTvWaveform", http.MethodGet, "/couchtv/media-files/{id}/waveform"), m.titles.Waveform)
 	huma.Register(rt.Admin, tag.Op("adminCouchTvRenderHealth", http.MethodGet, "/couchtv/render"), m.admin.RenderHealth)
+	rotate := tag.Op("adminRotateCouchTvLink", http.MethodPost, "/couchtv/link")
+	rotate.Description = "Makes a new channel link, turned on, and answers with its code this once (only its hash is kept); " +
+		"the old link stops working and every guest who joined through it is signed out."
+	huma.Register(rt.Admin, rotate, m.guests.Rotate)
+	toggle := tag.Op("adminSetCouchTvLink", http.MethodPut, "/couchtv/link")
+	toggle.Description = "Turns the channel link on or off; off signs every guest out. 409 no_channel_link when there is no link to turn on."
+	huma.Register(rt.Admin, toggle, m.guests.Switch)
+}
+
+// socketOp describes the room's WebSocket upgrade, which stays a plain handler.
+// The frames it carries are described by `couchverse couchtv-schema`.
+func socketOp(api huma.API) huma.Operation {
+	op := tag.Op("couchTvSocket", http.MethodGet, "/tv/socket")
+	op.Summary = "Open the Couch TV room's WebSocket"
+	op.Description = "Upgrades to the channel's room: presence, reactions, schedule changes and the viewer's reports of " +
+		"what they watch. A signed-in viewer is known by their session, a guest by the channel cookie or the " +
+		"X-Couch-Tv-Token header (401 no_channel_guest otherwise). Cross-origin browser upgrades are refused."
+	op.Security = []map[string][]string{{"cookieSession": {}}, {"bearerDevice": {}}, {}}
+	op.Parameters = []*huma.Param{
+		{Name: GuestCookie, In: "cookie", Description: "A guest's channel cookie, set by joinCouchTv.",
+			Schema: &huma.Schema{Type: huma.TypeString}},
+		{Name: GuestTokenHeader, In: "header", Description: "A guest's token from joinCouchTv with delivery=body.",
+			Schema: &huma.Schema{Type: huma.TypeString}},
+	}
+	op.Responses = map[string]*huma.Response{
+		"101":     {Description: "Switched to the WebSocket protocol."},
+		"default": httpx.ErrorResponse(api),
+	}
+	return op
 }
 
 var (

@@ -449,6 +449,8 @@ type LineupPart struct {
 	End      time.Time
 	// File is a program's media file, Path a break's rendition directory.
 	File, Path string
+	// TitleID, EpisodeID and Fill are the airing's (for a filler too).
+	TitleID, EpisodeID, Fill string
 }
 
 // Lineup lists what airs between from and to, part by part: as it aired where
@@ -464,7 +466,8 @@ func (c *Channel) Lineup(ctx context.Context, from, to time.Time) ([]LineupPart,
 		for _, p := range a.Feed.Parts {
 			end := at.Add(p.duration())
 			if end.After(from) && at.Before(to) {
-				out = append(out, LineupPart{AiringID: a.ID, Kind: p.Kind, Start: at, End: end, File: p.File, Path: p.Path})
+				out = append(out, LineupPart{AiringID: a.ID, Kind: p.Kind, Start: at, End: end, File: p.File, Path: p.Path,
+					TitleID: a.TitleID, EpisodeID: a.EpisodeID, Fill: a.Fill})
 			}
 			at = end
 		}

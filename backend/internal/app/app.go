@@ -90,6 +90,17 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 		Grants:    grants,
 	})
 
+	// the channel's room maps its viewers' reports onto what aired: progress for the
+	// signed in, watch time for everyone; ranks scores the channel in a later phase,
+	// so it gets no TvStatsRecorder yet
+	couchTvLive := couchtv.NewLive(couchTvStore, cfg.DataDir, cfg.FFmpegPath)
+	couchTvHub := couchtv.NewHub(hubCtx, couchtv.HubDeps{
+		Lineup:    couchTvLive.Channel,
+		Durations: couchTvStore,
+		Watch:     analyticsStore,
+		Progress:  catalogStore,
+	})
+
 	a := &App{
 		deps: server.Deps{
 			Config:    cfg,
@@ -111,13 +122,16 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 			Couch:     couchHub,
 			Grants:    grants,
 			Downloads: downloads.NewStore(pool),
-			CouchTv:   &couchtv.Scheduler{Store: couchTvStore, Settings: set, Jobs: jobsStore},
+			CouchTv: &couchtv.Scheduler{Store: couchTvStore, Settings: set, Jobs: jobsStore,
+				Changed: couchTvHub.ScheduleChanged},
 
 			Markers:         markers,
 			CouchTvAnalysis: couchTvAnalysis,
-			CouchTvLive:     couchtv.NewLive(couchTvStore, cfg.DataDir, cfg.FFmpegPath),
+			CouchTvLive:     couchTvLive,
 			CouchTvPrepare: &couchtv.Preparer{Store: couchTvStore, Files: libraryStore, Jobs: jobsStore, Settings: set,
-				DataDir: cfg.DataDir},
+				DataDir: cfg.DataDir, Changed: couchTvHub.ScheduleChanged},
+			CouchTvHub:    couchTvHub,
+			CouchTvGuests: couchtv.NewGuests(couchTvStore, set, couchTvHub, cfg.CookieSecure),
 		},
 		stop: stop,
 	}

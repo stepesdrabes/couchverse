@@ -72,10 +72,12 @@ type CouchTvRotation struct {
 	FillerMinMinutes   int     `json:"fillerMinMinutes" minimum:"1" maximum:"240" doc:"A gap this long before a fixed time is filled with reruns where one fits; shorter gaps grow the break."`
 }
 
-// CouchTvGuestLink is the channel link for viewers without an account (D23). The
-// code itself is created by a later phase; only its hash is ever stored.
+// CouchTvGuestLink is the channel link for viewers without an account (D23). Only
+// the code's hash is stored, so the code is shown once, by adminRotateCouchTvLink;
+// that and adminSetCouchTvLink change the link, adminUpdateCouchTv keeps it.
 type CouchTvGuestLink struct {
-	Enabled bool `json:"enabled"`
+	Enabled   bool       `json:"enabled" doc:"Guests can join through the link."`
+	CreatedAt *time.Time `json:"createdAt,omitempty" doc:"When the current link was made; absent before the first one."`
 }
 
 // CouchTvConfig is the channel's whole tunable surface (settings key "couchtv").

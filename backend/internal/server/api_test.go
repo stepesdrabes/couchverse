@@ -83,6 +83,9 @@ type apiCase struct {
 	// couchToken sends the saved variable as a couch participant token header, as a native
 	// client does instead of the couch cookie
 	couchToken string
+	// tvToken sends the saved variable as a Couch TV guest token header, as a native
+	// client does instead of the channel cookie
+	tvToken string
 }
 
 type upload struct {
@@ -153,6 +156,9 @@ func TestAPIConformance(t *testing.T) {
 		}
 		if c.couchToken != "" {
 			c.couchToken = vars[c.couchToken]
+		}
+		if c.tvToken != "" {
+			c.tvToken = vars[c.tvToken]
 		}
 		if c.bearer != "" {
 			c.bearer = vars[c.bearer]
@@ -345,6 +351,11 @@ func apiCases() []apiCase {
 		{op: "adminUpdateAiring", as: "admin", method: "PATCH", path: "/admin/couchtv/airings/" + unknownID, body: map[string]any{"action": "unlock"}, status: 404},
 		// the channel is off until an admin turns it on (below)
 		{op: "tuneCouchTv", as: "nora", method: "GET", path: "/couchtv/tune", status: 404},
+		// the channel link is made while the channel is off, and works once it is on
+		{op: "adminSetCouchTvLink", as: "admin", method: "PUT", path: "/admin/couchtv/link", body: map[string]any{"enabled": true}, status: 409},
+		{op: "adminRotateCouchTvLink", as: "nora", method: "POST", path: "/admin/couchtv/link", status: 403},
+		{op: "adminRotateCouchTvLink", as: "admin", method: "POST", path: "/admin/couchtv/link", status: 200, save: map[string]string{"tvLink": "code"}},
+		{op: "joinCouchTv", as: "guest", method: "POST", path: "/tv/join/{{tvLink}}", body: map[string]any{"name": "Babička"}, status: 404},
 
 		{op: "getArtworkGrant", as: "nora", method: "GET", path: "/me/artwork-grant", status: 200, save: map[string]string{"artGrant": "grant"}},
 		{op: "getArtwork", method: "GET", path: "/artwork/" + moviePosterID, status: 401},
@@ -516,6 +527,18 @@ func apiCases() []apiCase {
 		{op: "getCouchTvGuide", as: "nora", method: "GET", path: "/couchtv/guide?lang=cs&from=" + couchTvNoon(1) + "&to=" + couchTvNoon(2), status: 200},
 		{op: "getCouchTvGuide", as: "nora", method: "GET", path: "/couchtv/guide", status: 200},
 		{op: "getCouchTvGuide", as: "nora", method: "GET", path: "/couchtv/guide?from=" + couchTvNoon(1) + "&to=" + couchTvNoon(10), status: 400},
+		// a guest joins through the channel link and tunes in by the channel cookie, or by
+		// the guest token on a native client
+		{op: "tuneCouchTvGuest", as: "guest", method: "GET", path: "/tv/tune", status: 401},
+		{op: "joinCouchTv", as: "guest", method: "POST", path: "/tv/join/{{tvLink}}", body: map[string]any{"name": "  "}, status: 400},
+		{op: "joinCouchTv", as: "guest", method: "POST", path: "/tv/join/not-the-code", body: map[string]any{"name": "Babička"}, status: 404},
+		{op: "joinCouchTv", as: "guest", method: "POST", path: "/tv/join/{{tvLink}}", body: map[string]any{"name": " Babička "}, status: 200},
+		{op: "tuneCouchTvGuest", as: "guest", method: "GET", path: "/tv/tune?lang=cs", status: 200},
+		{op: "joinCouchTv", method: "POST", path: "/tv/join/{{tvLink}}?delivery=body", body: map[string]any{"name": "Děda"}, status: 200, save: map[string]string{"tvGuest": "token"}},
+		{op: "tuneCouchTvGuest", tvToken: "tvGuest", method: "GET", path: "/tv/tune", status: 200},
+		{op: "adminSetCouchTvLink", as: "admin", method: "PUT", path: "/admin/couchtv/link", body: map[string]any{"enabled": false}, status: 200},
+		{op: "tuneCouchTvGuest", as: "guest", method: "GET", path: "/tv/tune", status: 401},
+		{op: "adminSetCouchTvLink", as: "admin", method: "PUT", path: "/admin/couchtv/link", body: map[string]any{"enabled": true}, status: 200},
 		{op: "adminUpdateSettings", as: "admin", method: "PUT", path: "/admin/settings", body: map[string]any{
 			"features": map[string]bool{"couchEnabled": true, "rankingsEnabled": true, "downloadsEnabled": true},
 		}, status: 200},
@@ -782,7 +805,7 @@ func expand(s string, vars map[string]string) string {
 
 func (e *testEnv) do(t *testing.T, c apiCase) (int, []byte, string) {
 	// a native client: credentials in headers, no cookie jar
-	if c.bearer != "" || c.couchToken != "" {
+	if c.bearer != "" || c.couchToken != "" || c.tvToken != "" {
 		raw, err := json.Marshal(c.body)
 		if err != nil {
 			t.Fatal(err)
@@ -804,6 +827,9 @@ func (e *testEnv) do(t *testing.T, c apiCase) (int, []byte, string) {
 		}
 		if c.couchToken != "" {
 			req.Header.Set("X-Couch-Token", c.couchToken)
+		}
+		if c.tvToken != "" {
+			req.Header.Set("X-Couch-Tv-Token", c.tvToken)
 		}
 		return e.roundTrip(t, http.DefaultClient, req)
 	}

@@ -116,6 +116,25 @@ func (s *Store) FileSubtitles(ctx context.Context, fileID string) ([]liveSubtitl
 	return out, rows.Err()
 }
 
+// FileDurations are how long media files run.
+func (s *Store) FileDurations(ctx context.Context, ids []string) (map[string]time.Duration, error) {
+	rows, err := s.q.Query(ctx, `SELECT id::text, duration_seconds::float8 FROM media_files WHERE id = ANY($1::uuid[])`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]time.Duration{}
+	for rows.Next() {
+		var id string
+		var seconds float64
+		if err := rows.Scan(&id, &seconds); err != nil {
+			return nil, err
+		}
+		out[id] = secondsToDuration(seconds)
+	}
+	return out, rows.Err()
+}
+
 // SubtitlePath is where a subtitle track's WebVTT file lives, under the data directory.
 func (s *Store) SubtitlePath(ctx context.Context, id string) (string, error) {
 	var path string

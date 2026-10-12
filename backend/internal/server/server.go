@@ -70,6 +70,10 @@ type Deps struct {
 	// readies its programs
 	CouchTvLive    *couchtv.Live
 	CouchTvPrepare *couchtv.Preparer
+	// CouchTvHub is the channel's room (presence, reactions, reports) and
+	// CouchTvGuests its link for viewers without an account
+	CouchTvHub    *couchtv.Hub
+	CouchTvGuests *couchtv.Guests
 }
 
 type Server struct {
@@ -171,7 +175,7 @@ func (s *Server) register(v1 chi.Router) huma.API {
 	playback.NewModule(s.Stream, playback.NewAdminTranscode(s.Library, s.Settings, s.Jobs, s.Transcode, s.Config.FFmpegPath)).Register(rt)
 	couch.NewModule(s.Couch, s.Settings).Register(rt)
 	ranks.NewModule(s.Ranks, s.Settings).Register(rt)
-	couchtv.NewModule(s.CouchTv, s.CouchTvAnalysis, s.CouchTvLive, s.Settings, s.Grants).Register(rt)
+	couchtv.NewModule(s.CouchTv, s.CouchTvAnalysis, s.CouchTvLive, s.CouchTvHub, s.CouchTvGuests, s.Settings, s.Grants).Register(rt)
 	artwork.NewHandlers(s.Artwork).Register(rt)
 	subtitles.NewSubtitles(s.Subtitles.Subs, s.Library, s.Subtitles).Register(rt)
 	library.NewModule(s.Library, s.Uploads, s.Markers).Register(rt)
@@ -205,7 +209,8 @@ func (s *Server) mediaGrant(api huma.API) func(huma.Context, func(huma.Context))
 
 // channelGrant admits a request whose path carries a valid channel grant: the
 // Couch TV channel's playlists and the files of what airs around now are all
-// it reaches.
+// it reaches. A guest's grant also needs the channel link they joined through to
+// still work, so turning it off or rotating it ends their stream at once.
 func (s *Server) channelGrant(api huma.API) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		g, err := s.Grants.Verify(ctx.Param("grant"))
@@ -214,6 +219,8 @@ func (s *Server) channelGrant(api huma.API) func(huma.Context, func(huma.Context
 			httpx.Reject(api, ctx, httpx.Fail(http.StatusForbidden, "grant_expired", "the channel grant expired; tune in again"))
 		case err != nil || g.Scope != grant.Channel || g.Resource != grant.CouchTv:
 			httpx.Reject(api, ctx, httpx.Fail(http.StatusForbidden, "invalid_grant", "the channel grant is not valid"))
+		case g.Couch != uuid.Nil && (s.CouchTvGuests == nil || !s.CouchTvGuests.Allows(ctx.Context(), g.Couch.String())):
+			httpx.Reject(api, ctx, httpx.Fail(http.StatusForbidden, "grant_revoked", "the channel link ended; join again"))
 		default:
 			next(huma.WithContext(ctx, grant.WithGrant(ctx.Context(), g)))
 		}
