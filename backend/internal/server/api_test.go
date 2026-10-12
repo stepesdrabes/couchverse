@@ -319,6 +319,8 @@ func apiCases() []apiCase {
 		{op: "adminAnalyzeCouchTvTitle", as: "admin", method: "POST", path: "/admin/couchtv/titles/" + seriesID + "/analyze", status: 202},
 		// the seeded files are not on disk (a real one is measured in TestMediaAnalysis)
 		{op: "adminCouchTvWaveform", as: "admin", method: "GET", path: "/admin/couchtv/media-files/" + movieFileID + "/waveform", status: 404},
+		{op: "adminCouchTvRenderHealth", as: "admin", method: "GET", path: "/admin/couchtv/render", status: 200},
+		{op: "adminCouchTvRenderHealth", as: "nora", method: "GET", path: "/admin/couchtv/render", status: 403},
 
 		{op: "getArtworkGrant", as: "nora", method: "GET", path: "/me/artwork-grant", status: 200, save: map[string]string{"artGrant": "grant"}},
 		{op: "getArtwork", method: "GET", path: "/artwork/" + moviePosterID, status: 401},

@@ -31,4 +31,5 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.Admin, tag.Op("adminUpdateCouchTvTitle", http.MethodPut, "/couchtv/titles/{id}"), m.titles.Update)
 	huma.Register(rt.Admin, tag.Accepted("adminAnalyzeCouchTvTitle", http.MethodPost, "/couchtv/titles/{id}/analyze"), m.titles.Analyze)
 	huma.Register(rt.Admin, tag.Op("adminCouchTvWaveform", http.MethodGet, "/couchtv/media-files/{id}/waveform"), m.titles.Waveform)
+	huma.Register(rt.Admin, tag.Op("adminCouchTvRenderHealth", http.MethodGet, "/couchtv/render"), m.admin.RenderHealth)
 }

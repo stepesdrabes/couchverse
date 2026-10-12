@@ -11,7 +11,8 @@ ALTER TABLE couchtv_clips
     ADD COLUMN error text NOT NULL DEFAULT '',
     ADD COLUMN needed_at timestamptz,
     -- wall time of the render, for the render speed the health report extrapolates from
-    ADD COLUMN render_ms int NOT NULL DEFAULT 0;
+    ADD COLUMN render_ms int NOT NULL DEFAULT 0,
+    ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
 CREATE INDEX couchtv_clips_state_idx ON couchtv_clips (state, needed_at);
 
 -- A title's measured program loudness (BS.1770 integrated, LUFS; couchtv_analyze), which the
@@ -53,6 +54,7 @@ ALTER TABLE couchtv_titles DROP COLUMN loudness_lufs;
 DROP INDEX couchtv_clips_state_idx;
 DELETE FROM couchtv_clips WHERE kind IN ('evergreen_end', 'short_promo', 'strip_promo', 'standby');
 ALTER TABLE couchtv_clips
+    DROP COLUMN updated_at,
     DROP COLUMN render_ms,
     DROP COLUMN needed_at,
     DROP COLUMN error,

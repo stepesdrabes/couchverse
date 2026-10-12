@@ -150,6 +150,14 @@ INSERT INTO user_counters (user_id, key, value) VALUES
 INSERT INTO home_rows (position, kind, genre_id, label, enabled) VALUES
     (3, 'genre', 102, 'Science Fiction', true);
 
+-- Couch TV renders: a rendered clip and one that failed (no renderer has published its
+-- templates, so the app composes nothing)
+INSERT INTO couchtv_clips (id, kind, key, state, spec, duration_ms, path, size_bytes, version, error, render_ms, rendered_at, last_used_at) VALUES
+    ('00000000-0000-4000-8000-000000000a01', 'ident_short', 'seeded-ident-short', 'ready', '{"template": "ident", "cut": "short"}',
+     5000, 'couchtv/clips/seeded-ident-short', 4200000, 1, '', 50000, now() - interval '2 hours', now()),
+    ('00000000-0000-4000-8000-000000000a02', 'sting', 'seeded-sting', 'failed', '{"template": "sting", "duration": 3}',
+     3000, '', 0, 0, 'chromium: context deadline exceeded', 0, NULL, now());
+
 -- fixed ids clear of the cleanup jobs the app enqueues at startup
 INSERT INTO jobs (id, type, payload, status, attempts, progress, last_error, created_at, finished_at)
 OVERRIDING SYSTEM VALUE VALUES

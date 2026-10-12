@@ -89,7 +89,7 @@ func (s *Store) RequestClip(ctx context.Context, kind, key string, spec Spec, fr
 
 // RetryClip puts a failed clip back in the queue.
 func (s *Store) RetryClip(ctx context.Context, id string) error {
-	_, err := s.q.Exec(ctx, `UPDATE couchtv_clips SET state = 'pending', error = '' WHERE id = $1 AND state = 'failed'`, id)
+	_, err := s.q.Exec(ctx, `UPDATE couchtv_clips SET state = 'pending', error = '', updated_at = now() WHERE id = $1 AND state = 'failed'`, id)
 	return err
 }
 
@@ -113,14 +113,14 @@ func (s *Store) ReadyFrames(ctx context.Context, keys []string) (map[string]int,
 }
 
 func (s *Store) setClipState(ctx context.Context, id, state, msg string) error {
-	_, err := s.q.Exec(ctx, `UPDATE couchtv_clips SET state = $2, error = $3 WHERE id = $1`, id, state, msg)
+	_, err := s.q.Exec(ctx, `UPDATE couchtv_clips SET state = $2, error = $3, updated_at = now() WHERE id = $1`, id, state, msg)
 	return err
 }
 
 // clipRendered records a finished render.
 func (s *Store) clipRendered(ctx context.Context, id string, frames int, path string, size int64, version int, took time.Duration) error {
 	_, err := s.q.Exec(ctx, `
-		UPDATE couchtv_clips SET state = 'ready', error = '', duration_ms = $2, path = $3, size_bytes = $4, version = $5,
+		UPDATE couchtv_clips SET state = 'ready', error = '', updated_at = now(), duration_ms = $2, path = $3, size_bytes = $4, version = $5,
 		       render_ms = $6, rendered_at = now()
 		WHERE id = $1`, id, frames*1000/FPS, path, size, version, took.Milliseconds())
 	return err
@@ -193,7 +193,7 @@ func (s *Store) ReadyBreak(ctx context.Context, airingID string) (*Break, error)
 func (s *Store) Evergreen(ctx context.Context) (*Break, error) {
 	return scanBreak(s.q.QueryRow(ctx, `SELECT `+breakCols+` FROM couchtv_breaks b
 		LEFT JOIN couchtv_airings a ON a.id = b.airing_id
-		WHERE b.kind = 'evergreen' AND b.state = 'ready' ORDER BY b.assembled_at DESC LIMIT 1`))
+		WHERE b.kind = 'evergreen' AND b.state = 'ready' ORDER BY b.created_at DESC LIMIT 1`))
 }
 
 // Standby is the newest rendered standby card ("Technical difficulties"), a seamless
