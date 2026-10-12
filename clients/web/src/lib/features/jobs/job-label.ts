@@ -9,7 +9,9 @@ const actionByType: Record<string, () => string> = {
 	fetch_metadata: m.jobs_action_fetch_metadata,
 	import_episodes: m.jobs_action_import_episodes,
 	cleanup: m.jobs_action_cleanup,
-	couchtv_plan: m.jobs_action_couchtv_plan
+	couchtv_plan: m.jobs_action_couchtv_plan,
+	analyze_markers: m.jobs_action_analyze_markers,
+	couchtv_analyze: m.jobs_action_couchtv_analyze
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
