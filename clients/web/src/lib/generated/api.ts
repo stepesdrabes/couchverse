@@ -484,6 +484,75 @@ export interface CouchTvGuestLink {
 	enabled: boolean;
 }
 
+export interface CouchTvGuide {
+	from: string;
+	/** The programs overlapping the stretch, in order. */
+	programs: CouchTvListing[];
+	/** The channel's time zone, in which its days run. */
+	timeZone: string;
+	to: string;
+}
+
+export interface CouchTvListing {
+	backdropId?: string;
+	backdropVer?: number;
+	endsAt: string;
+	episodeId?: string;
+	episodeName?: string;
+	episodeNumber?: number;
+	/** The rule that chose the program (premiere, saga...); absent for a break. */
+	fill?: CouchTvListingFill;
+	id: string;
+	kind: CouchTvListingKind;
+	/** The episode's overview for an episode, else the title's. */
+	overview?: string;
+	posterId?: string;
+	posterVer?: number;
+	seasonNumber?: number;
+	startsAt: string;
+	titleId?: string;
+	titleKind?: CouchTvListingTitleKind;
+	titleName?: string;
+	titleSlug?: string;
+}
+
+/** The rule that chose the program (premiere, saga...); absent for a break. */
+export type CouchTvListingFill = 'strip' | 'marathon' | 'reruns' | 'movie' | 'matinee' | 'premiere' | 'saga' | 'encore' | 'filler';
+
+export type CouchTvListingKind = 'program' | 'break';
+
+export type CouchTvListingTitleKind = 'movie' | 'series';
+
+export interface CouchTvOnAir {
+	backdropId?: string;
+	backdropVer?: number;
+	endsAt: string;
+	episodeId?: string;
+	episodeName?: string;
+	episodeNumber?: number;
+	/** The rule that chose the program (premiere, saga...); absent for a break. */
+	fill?: CouchTvOnAirFill;
+	id: string;
+	kind: CouchTvOnAirKind;
+	/** The episode's overview for an episode, else the title's. */
+	overview?: string;
+	posterId?: string;
+	posterVer?: number;
+	seasonNumber?: number;
+	startsAt: string;
+	titleId?: string;
+	titleKind?: CouchTvOnAirTitleKind;
+	titleName?: string;
+	titleSlug?: string;
+}
+
+/** The rule that chose the program (premiere, saga...); absent for a break. */
+export type CouchTvOnAirFill = 'strip' | 'marathon' | 'reruns' | 'movie' | 'matinee' | 'premiere' | 'saga' | 'encore' | 'filler';
+
+export type CouchTvOnAirKind = 'program' | 'break';
+
+export type CouchTvOnAirTitleKind = 'movie' | 'series';
+
 export interface CouchTvOverview {
 	config: CouchTvConfig;
 	/** When the last planned airing ends; null before the first plan. */
@@ -701,6 +770,23 @@ export interface CouchTvTitleUpdate {
 
 /** Absent lets the composer choose. */
 export type CouchTvTitleUpdateMood = 'cinematic' | 'grit' | 'bright';
+
+export interface CouchTvTune {
+	/** The channel grant every channel URL carries; it expires, so tune in again on grant_expired. */
+	grant: string;
+	/** The programs after the next one, up to four. */
+	later: CouchTvListing[];
+	/** The next program; null when nothing is planned. */
+	next: CouchTvOnAir | null;
+	/** What is on air, a program or a break; null while nothing is. */
+	now: CouchTvOnAir | null;
+	/** The server clock when the answer was made, in Unix milliseconds. Players hold the program date at server time minus three target durations. */
+	serverTime: number;
+	/** The live multivariant playlist; its default audio follows the display language. */
+	streamUrl: string;
+	/** The channel's EXT-X-TARGETDURATION, in seconds. */
+	targetDuration: number;
+}
 
 export interface CouchTvWaveform {
 	fromMs: number;
@@ -1014,6 +1100,8 @@ export interface Genre {
 }
 
 export type GetArtworkSize = 'w342' | 'w780';
+
+export type GetCouchTvSlateFileTrack = 'video' | 'audio' | 'subs';
 
 export type GetHlsMasterVideo = 'original' | 'ladder' | 'legacy';
 
@@ -2799,6 +2887,61 @@ export interface GetCouchPlaybackQuery {
 export const getCouchPlayback = (token: string, query: GetCouchPlaybackQuery = {}, opts?: CallOptions) =>
 	api<CouchPlayback>(`/couch/${encodeURIComponent(token)}/playback${qs({ caps: query.caps?.join(',') })}`, opts);
 
+export interface GetCouchTvAiringFileQuery {
+	/** Cut the segment to its first seconds (a segment that runs past its item). */
+	keep?: number;
+}
+
+/**
+ * Get a file of what an airing airs (`GET /tv/{grant}/airings/{airing}/{track}/{file}`)
+ *
+ * @param grant The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.
+ * @param airing The airing.
+ * @param track video, audio-<lang> or subs-<lang>.
+ * @param file init.mp4, a segment, or <n>.vtt for subtitles.
+ */
+export const getCouchTvAiringFilePath = (grant: string, airing: string, track: string, file: string, query: GetCouchTvAiringFileQuery = {}) => `/api/v1/tv/${encodeURIComponent(grant)}/airings/${encodeURIComponent(airing)}/${encodeURIComponent(track)}/${encodeURIComponent(file)}${qs({ keep: query.keep })}`;
+
+export interface GetCouchTvGuideQuery {
+	/** Start of the stretch (RFC 3339); now when omitted. */
+	from?: string;
+	/** End of the stretch; a day after from when omitted, at most 8 days after it. */
+	to?: string;
+}
+
+/** `GET /couchtv/guide` */
+export const getCouchTvGuide = (query: GetCouchTvGuideQuery = {}, opts?: CallOptions) =>
+	api<CouchTvGuide>(`/couchtv/guide${qs({ from: query.from, to: query.to })}`, opts);
+
+/**
+ * Get the Couch TV multivariant playlist (`GET /tv/{grant}/live/master.m3u8`)
+ *
+ * @param grant The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.
+ */
+export const getCouchTvMasterPath = (grant: string) => `/api/v1/tv/${encodeURIComponent(grant)}/live/master.m3u8`;
+
+/**
+ * Get a Couch TV live media playlist (`GET /tv/{grant}/live/{playlist}`)
+ *
+ * @param grant The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.
+ * @param playlist video.m3u8, audio-<lang>.m3u8 or subs-<lang>.m3u8.
+ */
+export const getCouchTvPlaylistPath = (grant: string, playlist: string) => `/api/v1/tv/${encodeURIComponent(grant)}/live/${encodeURIComponent(playlist)}`;
+
+export interface GetCouchTvSlateFileQuery {
+	/** Cut the segment to its first seconds. */
+	keep?: number;
+}
+
+/**
+ * Get a file of the Couch TV slate (`GET /tv/{grant}/slate/{track}/{file}`)
+ *
+ * @param grant The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.
+ * @param track video, audio or subs.
+ * @param file init.mp4, <n>.m4s or empty.vtt.
+ */
+export const getCouchTvSlateFilePath = (grant: string, track: GetCouchTvSlateFileTrack, file: string, query: GetCouchTvSlateFileQuery = {}) => `/api/v1/tv/${encodeURIComponent(grant)}/slate/${encodeURIComponent(track)}/${encodeURIComponent(file)}${qs({ keep: query.keep })}`;
+
 /** `GET /me/downloads/{id}` */
 export const getDownload = (id: string, opts?: CallOptions) =>
 	api<Download>(`/me/downloads/${encodeURIComponent(id)}`, opts);
@@ -3097,6 +3240,10 @@ export const stopStreamSession = (grant: string, sid: string, opts?: CallOptions
  * @param grant The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
  */
 export const streamMediaFilePath = (grant: string) => `/api/v1/media/${encodeURIComponent(grant)}/stream`;
+
+/** Tune in to Couch TV (`GET /couchtv/tune`) */
+export const tuneCouchTv = (opts?: CallOptions) =>
+	api<CouchTvTune>(`/couchtv/tune`, opts);
 
 /**
  * `PUT /me/preferences`

@@ -1557,6 +1557,232 @@
         ],
         "type": "object"
       },
+      "CouchTvGuide": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "programs": {
+            "description": "The programs overlapping the stretch, in order.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvListing"
+            },
+            "type": "array"
+          },
+          "timeZone": {
+            "description": "The channel's time zone, in which its days run.",
+            "type": "string"
+          },
+          "to": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "timeZone",
+          "programs"
+        ],
+        "type": "object"
+      },
+      "CouchTvListing": {
+        "additionalProperties": false,
+        "properties": {
+          "backdropId": {
+            "type": "string"
+          },
+          "backdropVer": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "episodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "episodeName": {
+            "type": "string"
+          },
+          "episodeNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "fill": {
+            "description": "The rule that chose the program (premiere, saga...); absent for a break.",
+            "enum": [
+              "strip",
+              "marathon",
+              "reruns",
+              "movie",
+              "matinee",
+              "premiere",
+              "saga",
+              "encore",
+              "filler"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "program",
+              "break"
+            ],
+            "type": "string"
+          },
+          "overview": {
+            "description": "The episode's overview for an episode, else the title's.",
+            "type": "string"
+          },
+          "posterId": {
+            "type": "string"
+          },
+          "posterVer": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "seasonNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "titleKind": {
+            "enum": [
+              "movie",
+              "series"
+            ],
+            "type": "string"
+          },
+          "titleName": {
+            "type": "string"
+          },
+          "titleSlug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "startsAt",
+          "endsAt"
+        ],
+        "type": "object"
+      },
+      "CouchTvOnAir": {
+        "additionalProperties": false,
+        "properties": {
+          "backdropId": {
+            "type": "string"
+          },
+          "backdropVer": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "episodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "episodeName": {
+            "type": "string"
+          },
+          "episodeNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "fill": {
+            "description": "The rule that chose the program (premiere, saga...); absent for a break.",
+            "enum": [
+              "strip",
+              "marathon",
+              "reruns",
+              "movie",
+              "matinee",
+              "premiere",
+              "saga",
+              "encore",
+              "filler"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "program",
+              "break"
+            ],
+            "type": "string"
+          },
+          "overview": {
+            "description": "The episode's overview for an episode, else the title's.",
+            "type": "string"
+          },
+          "posterId": {
+            "type": "string"
+          },
+          "posterVer": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "seasonNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "titleKind": {
+            "enum": [
+              "movie",
+              "series"
+            ],
+            "type": "string"
+          },
+          "titleName": {
+            "type": "string"
+          },
+          "titleSlug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "startsAt",
+          "endsAt"
+        ],
+        "type": [
+          "object",
+          "null"
+        ]
+      },
       "CouchTvOverview": {
         "additionalProperties": false,
         "properties": {
@@ -2148,6 +2374,54 @@
         },
         "required": [
           "excluded"
+        ],
+        "type": "object"
+      },
+      "CouchTvTune": {
+        "additionalProperties": false,
+        "properties": {
+          "grant": {
+            "description": "The channel grant every channel URL carries; it expires, so tune in again on grant_expired.",
+            "type": "string"
+          },
+          "later": {
+            "description": "The programs after the next one, up to four.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvListing"
+            },
+            "type": "array"
+          },
+          "next": {
+            "$ref": "#/components/schemas/CouchTvOnAir",
+            "description": "The next program; null when nothing is planned."
+          },
+          "now": {
+            "$ref": "#/components/schemas/CouchTvOnAir",
+            "description": "What is on air, a program or a break; null while nothing is."
+          },
+          "serverTime": {
+            "description": "The server clock when the answer was made, in Unix milliseconds. Players hold the program date at server time minus three target durations.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "streamUrl": {
+            "description": "The live multivariant playlist; its default audio follows the display language.",
+            "type": "string"
+          },
+          "targetDuration": {
+            "description": "The channel's EXT-X-TARGETDURATION, in seconds.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "grant",
+          "streamUrl",
+          "serverTime",
+          "targetDuration",
+          "now",
+          "next",
+          "later"
         ],
         "type": "object"
       },
@@ -11073,6 +11347,126 @@
         ]
       }
     },
+    "/couchtv/guide": {
+      "get": {
+        "operationId": "getCouchTvGuide",
+        "parameters": [
+          {
+            "description": "Display language (ISO 639-1). Empty serves the base text.",
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Start of the stretch (RFC 3339); now when omitted.",
+            "explode": false,
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "description": "Start of the stretch (RFC 3339); now when omitted.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "End of the stretch; a day after from when omitted, at most 8 days after it.",
+            "explode": false,
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "description": "End of the stretch; a day after from when omitted, at most 8 days after it.",
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvGuide"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/couchtv/tune": {
+      "get": {
+        "description": "Issues a channel grant and answers with the live stream's URL, the server clock and what is on now and next.",
+        "operationId": "tuneCouchTv",
+        "parameters": [
+          {
+            "description": "Display language (ISO 639-1). Empty serves the base text.",
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvTune"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "summary": "Tune in to Couch TV",
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
     "/features": {
       "get": {
         "operationId": "getFeatures",
@@ -13746,6 +14140,302 @@
         ],
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/tv/{grant}/airings/{airing}/{track}/{file}": {
+      "get": {
+        "description": "The init section or a segment of a program's or break's rendition, or a WebVTT segment of a program's subtitles, as the playlists list them. Served while the airing is within ten minutes of its time on air; 404 off_air otherwise.",
+        "operationId": "getCouchTvAiringFile",
+        "parameters": [
+          {
+            "description": "The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The airing.",
+            "in": "path",
+            "name": "airing",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "video, audio-\u003clang\u003e or subs-\u003clang\u003e.",
+            "in": "path",
+            "name": "track",
+            "required": true,
+            "schema": {
+              "pattern": "^(video|audio-[a-z]{2}|subs-[a-z]{2})$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "init.mp4, a segment, or \u003cn\u003e.vtt for subtitles.",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cut the segment to its first seconds (a segment that runs past its item).",
+            "in": "query",
+            "name": "keep",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "text/vtt": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The file."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a file of what an airing airs",
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/tv/{grant}/live/master.m3u8": {
+      "get": {
+        "description": "One video variant covering everything that airs, Czech and English audio (each program's track in that language, else its original) and subtitles (empty where a program has none). Use the URL from tuneCouchTv.",
+        "operationId": "getCouchTvMaster",
+        "parameters": [
+          {
+            "description": "The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Display language (ISO 639-1): the default audio.",
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The multivariant playlist."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the Couch TV multivariant playlist",
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/tv/{grant}/live/{playlist}": {
+      "get": {
+        "description": "The last two minutes of a rendition: a discontinuity and a program date at every program, break and stretch of slate, a constant 10 s target duration. 404 off_air when nothing is on air.",
+        "operationId": "getCouchTvPlaylist",
+        "parameters": [
+          {
+            "description": "The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "video.m3u8, audio-\u003clang\u003e.m3u8 or subs-\u003clang\u003e.m3u8.",
+            "in": "path",
+            "name": "playlist",
+            "required": true,
+            "schema": {
+              "pattern": "^(video|audio-[a-z]{2}|subs-[a-z]{2})\\.m3u8$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The media playlist."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a Couch TV live media playlist",
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/tv/{grant}/slate/{track}/{file}": {
+      "get": {
+        "description": "What airs when nothing else can: video and audio init sections, copy \u003cn\u003e of their looping segment, and subs/empty.vtt, a subtitle segment without cues.",
+        "operationId": "getCouchTvSlateFile",
+        "parameters": [
+          {
+            "description": "The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "video, audio or subs.",
+            "in": "path",
+            "name": "track",
+            "required": true,
+            "schema": {
+              "enum": [
+                "video",
+                "audio",
+                "subs"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "init.mp4, \u003cn\u003e.m4s or empty.vtt.",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "pattern": "^(init\\.mp4|\\d{1,6}\\.m4s|empty\\.vtt)$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cut the segment to its first seconds.",
+            "in": "query",
+            "name": "keep",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "text/vtt": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The file."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a file of the Couch TV slate",
+        "tags": [
+          "couchtv"
         ]
       }
     },
