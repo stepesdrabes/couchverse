@@ -496,6 +496,55 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   swapped (5.2); worst case a pre-rendered "Technical difficulties" card loops to the next
   airing.
 
+**Settled while building it (Phase 4)**; the full reference is FEATURES.md "couchtv".
+- **What an airing airs is pinned with its origin.** Besides `origin`, an airing stores its
+  `feed` when it goes on air: its parts (a program from its package, a break's rendition, the
+  slate), each with its time on air and the renditions it reads. A break that finishes
+  rendering mid-air, a rung that arrives later or a restart can then never change what is
+  listed. Airings are pinned in order by the first playlist request after they start (state
+  `aired`); an airing whose predecessor never went on air (nobody was watching) starts a fresh
+  numbering from the clock (two media sequence numbers and one discontinuity per second since
+  2026-01-01, more than a chain grows), so numbers never go back.
+- **Programs start on time; breaks absorb the rest.** A program starts at its row's start and
+  airs to the video boundary nearest `credits_at_ms` (else its end), never past the next
+  program's start; its break runs from there to the next program. `couchtv_prepare` makes the
+  rows exact beforehand: it records each airable file in a new `couchtv_media` table with its
+  cut (`on_air_ms`, measured for the credits it saw), the planner's `Media.onAir` uses that
+  cut, and frozen rows are fitted to it (moving the break, which loses its composition), so a
+  break is composed for the gap that airs. Compose a break once its program is ready to avoid a
+  recompose.
+- **Readiness is `couchtv_media`.** A file is ready when its package has something the channel
+  can air: the copied source if it is 8-bit SDR H.264 up to 1080p with no segment over 10 s
+  before its cut, else the tallest H.264 rung up to 1080p (a VOD 720p rung counts while the
+  channel's 1080p rung transcodes), plus its AAC audio. The job queues the package and the rung
+  of the source's class (1080p at most) through `library.Prepare` and runs every 10 minutes,
+  after each plan run and at startup, running the readiness swaps each time (5.4).
+- **Audio and subtitles**: per channel language, the file's own AAC rendition in it (the default
+  among several), else the original; a break's mix in both; a file without audio airs the
+  slate's silence. Subtitles per language, a full track before a forced one, empty WebVTT
+  otherwise. The default audio follows `?lang=`, else Czech.
+- **Breaks and the evergreen fallback** (the contract with the render sidecar): a break is ready
+  when its `couchtv_breaks` row has `state = 'ready'` and `path`, a directory of fMP4 HLS
+  renditions with `rendition.json` (like a package; absolute or relative to `DATA_DIR`): the one
+  with a picture is the video, the AAC one the audio. An unready break airs the longest ready
+  break marked `evergreen` (its recipe names no airing) that fits, else the slate; a rendition
+  shorter than the gap airs after the slate, so its up next counts into the program, a longer
+  one is cut. Both columns were added by migration 0027.
+- **The slate** is generated, not rendered: one 2 s segment per track (a dark 1080p25 frame with
+  "Couch TV" through ffmpeg's drawtext, plain where ffmpeg lacks it; H.264 High without
+  B-frames, so any copy can be cut; silent AAC), looped by retiming copy n to n lengths
+  (`mp4.Retime`), so a gap of any length is one item. It also fills a program that cannot air,
+  a hole in the schedule and, for up to 6 h, the time after the last airing.
+- **The grant and the routes**: `grant.Channel` (resource `grant.CouchTv`, 6 h; a guest will
+  carry their id in the grant's `Couch` field) on `Routes.Channel` (`/tv/{grant}`, gated by the
+  flag). Every file is reached through an airing (`airings/{id}/{track}/{file}`), served only
+  within 10 minutes of its time on air and only from the renditions its feed names; the slate
+  has its own route. `tuneCouchTv` hands out the grant, the stream, `serverTime` (ms) and
+  now/next; `getCouchTvGuide` lists programs.
+- **Measured** (`make couchtv-live`, M1 Pro): `validate-hls` finds no error around program,
+  break, evergreen-after-slate, slate and hole boundaries (the `AVERAGE-BANDWIDTH` warning of
+  S1 remains); the players' results are in the Phase 4 entry of the roadmap.
+
 ### 6.7 Rendering (the sidecar)
 - **Image**: a `render` target in the Dockerfile (the couchverse binary + Debian `chromium`,
   `ffmpeg`, Mesa), compose service `render` with `/dev/dri` and `/dev/video11`, the shared
@@ -919,6 +968,36 @@ pruning (6.5 "Settled in Phase 3", 6.7 "As built", S2 results); `couchtv_analyze
 ### Phase 4: The live stream
 Channel grants, playlist builder (video, audio, subtitles), `couchtv_prepare`, fallbacks,
 guest link. **Exit**: a 24 h soak locally and on the Pi with no gaps; validator clean.
+
+**Built** (2026-10-12; 6.6 "Settled while building it"): everything but the guest link, which
+moves to Phase 5 with the guest cookie, presence and reactions. `make couchtv-live` (M1 Pro)
+readies three generated programs with the real jobs (a copied 720p source with subtitles; HDR10
+HEVC in Czech and English from its rung; a 1080p source with 10.5 s keyframes from its 1080p
+rung, cut at its credits), airs them with an assembled break, a 20 s break that airs the
+evergreen break after 7.5 s of slate, an 8 s break no evergreen fits (the slate) and a 5 s hole,
+looped around now, and plays it for 130 s:
+
+| Player | Stalls | Item change vs program date (picture / sound) | Subtitles | Notes |
+|---|---|---|---|---|
+| hls.js, Chromium (4 viewers) | 0 | 0 of 1574 picture and 1302 sound samples off; 0.01..0.23 s / 0.05..0.33 s after it | 88/88 cue samples, none out of place | the program-date pair stays within 0.09 s median, 0.15 s max; the live-edge pair drifts (S1) |
+| AVFoundation (macOS) | 0 | 7 boundaries; the program date falls 1.25 s behind in 129 s, 0.33 s of it the audio switch | 2 + 2 options, selection works | see below |
+| `validate-hls` | - | 0 errors at 4 boundaries (slate to break, break to program, program to slate, slate to slate) | - | the `AVERAGE-BANDWIDTH` warning of S1 |
+
+What the run found and how it was settled:
+- **A hole aired its slate twice.** The airing after a hole was only read once its row started,
+  so the slate filling the hole was first listed as the open-ended tail (whole copies) and later
+  trimmed; hls.js kept the untrimmed copy and ran 1 s late. Rows are now read up to 6 h ahead,
+  so that airing goes on air when its slate does, and the numbering test checks that a listed
+  segment never changes.
+- **An audio switch in hls.js waits 0.04-0.12 s** while it flushes the old track (S1 measured
+  0.35 s in AVFoundation); the harness counts it apart from stalls.
+- **Open**: hls.js in WebKit missed the first subtitle segment of the program after the slate
+  (cues in its first 6 s) in both runs that played WebKit; Chromium and AVFoundation showed every
+  cue. `TestCouchTvLive` plays Chromium unless `VIEWERS` adds `webkit`; check it with the web
+  player in Phase 5. AVFoundation plays whole segments, so what a package's last `EXTINF`
+  under-reports (64 ms for the copied source here) and audio overruns within the trim slack
+  (50 ms) add up to about 0.1 s per boundary; the native players' program-date hold (later)
+  absorbs it.
 
 ### Phase 5: Web viewer
 The core module, `/tv`, overlays, Guide, home card, presence and reactions, guest join.

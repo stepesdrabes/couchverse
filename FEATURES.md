@@ -28,7 +28,7 @@ that render a `XxxPage.svelte` component from the owning feature.
 | couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
 | ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters` |
 | downloads | `internal/feature/downloads` | (native clients only) | `download_files`, `downloads` |
-| couchtv | `internal/feature/couchtv` | (admin toggle in `features/settings`; no viewer UI yet) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_clips`, `couchtv_breaks` |
+| couchtv | `internal/feature/couchtv` | (admin toggle in `features/settings`; no viewer UI yet) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_media`, `couchtv_clips`, `couchtv_breaks` |
 
 Shared kernel (backend): `internal/app` (wiring of stores, services and the job runner),
 `internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
@@ -39,8 +39,8 @@ chromaprint, EBU R128 loudness and its steady stretches, small decoded frames; `
 reads fMP4 init sections and segments),
 `internal/hls` (HLS playlists: writer, parser, WebVTT segmenting and the validator behind
 `couchverse validate-hls`), `internal/settings` (settings KV store),
-`internal/flags` (admin-toggleable feature flags), `internal/grant` (media and artwork
-grants), `internal/slug`, `internal/version`
+`internal/flags` (admin-toggleable feature flags), `internal/grant` (media, artwork and
+channel grants), `internal/slug`, `internal/version`
 (build version, API level), `internal/server` (composition root: middleware, API groups,
 feature registration, SPA fallback).
 
@@ -586,10 +586,12 @@ on the row, and records failures (`requestDownload` again re-queues a failed fil
 ### couchtv
 Couch TV, one auto-programmed, always-on channel (decisions D1-D32 and the roadmap in
 `docs/couch-tv-plan.md`). Built so far: the config and weekly template, the pure schedule
-generator, the plan job and the admin operations (Phase 1), and the per-title analysis for
-promos (Phase 3); no viewer surface, rendering or stream yet. Gated by the admin `couchTvEnabled` flag, the one flag that is **off** while unset
+generator, the plan job and the admin operations (Phase 1), the per-title analysis for
+promos and the break composition and rendering (Phase 3), and the live stream (Phase 4: the
+prepare job, the stream under channel grants, tuning in and the guide); no viewer UI or
+guests yet. Gated by the admin `couchTvEnabled` flag, the one flag that is **off** while unset
 (`flags.Load` leaves it out of the "missing means on" default; `flags.CouchTvOn` guards the
-viewer routes to come; the core reads it as `SessionView.features.couchTv`, `false` from a
+viewer routes and the stream; the core reads it as `SessionView.features.couchTv`, `false` from a
 server that does not send it). The admin settings page toggles it.
 - **Config** (`couchtv.CouchTvConfig`, settings key `couchtv`, `DefaultConfig`, `Validate`;
   `LoadConfig` falls back part by part, like `ranks.RankConfig`): `timeZone` (default
@@ -637,13 +639,78 @@ server that does not send it). The admin settings page toggles it.
   state the days before it left; reruns and stand-ins do not move it. `couchtv_strips` holds
   an admin's restart (`next_episode_id` from `effective_from`) until the strip has aired past
   it.
-- **Readiness**: until `couchtv_prepare` exists, a file is ready when its Playback v2 package is
-  (the copied source in fMP4 and every audio rendition, plus an H.264 rung for anything but
-  8-bit SDR H.264). Beyond 48 h it does not matter; within 48 h a free choice prefers
-  prepared media inside each rule's tier; within 6 h prepared media wins over every tier, an
-  unprepared strip episode or premiere gives way to a prepared stand-in, and
+- **Readiness**: a file is ready when `couchtv_prepare` found something in its package the
+  channel can air (a `couchtv_media` row). Beyond 48 h it does not matter; within 48 h a free
+  choice prefers prepared media inside each rule's tier; within 6 h prepared media wins over
+  every tier, an unprepared strip episode or premiere gives way to a prepared stand-in, and
   `couchtv.SwapUnready` swaps already planned rows (the break after a stand-in grows and loses
-  its composition).
+  its composition). A prepared file's `on_air_ms` (its video cut at the segment boundary nearest
+  the credits it was measured for, else its end) is its exact time on air (`Media.Cut`), so the
+  rows and the breaks composed for them match what airs.
+- **The `couchtv_prepare` job** (`couchtv.Preparer`, one slot): queued at startup, after every
+  plan run and every 10 minutes (its payload names its 10-minute slot, and each run queues the
+  next one first). For the files of the programs airing within 48 h it queues what the package
+  lacks through `library.Prepare` (the `package`: the copied source and every audio rendition;
+  a rung of the source's class up to 1080p for anything but 8-bit SDR H.264 up to 1080p, or
+  when the copied source has a segment over the 10 s target duration before its cut), leaving
+  queued, running and failed renditions alone; records each file that can air in
+  `couchtv_media` (the video it airs and `on_air_ms`; a file airing from a VOD rung, say an
+  HEVC source's 720p, is ready while its 1080p rung transcodes); then, under the plan lock, fits
+  planned rows to their cut (`FitPrograms`: the break after moves and loses its composition),
+  runs the readiness swaps and marks programs `ready` or `planned` and ended airings `aired`.
+- **The live stream** (`couchtv.Channel`, served by `couchtv.Live`; plan 6.6): one live HLS
+  presentation computed per request from the schedule by `hls.LiveSchedule`. An airing **pins**
+  what it airs (`feed`: its parts, each a program from its package, a break's rendition or the
+  slate, with its time on air in ms) and its numbering (`origin`: media sequence per rendition,
+  discontinuity sequence) the moment it goes on air, chained from the airing before it
+  (`LiveOrigin.After` over its items), and becomes `aired`; nothing pinned changes, so every
+  request and every restart lists the same playlists. Airings are pinned in order by the first
+  playlist request after they start; one whose predecessor never aired (nobody was watching)
+  starts a fresh numbering from the clock (two media sequence numbers and one discontinuity per
+  second since 2026-01-01, more than a chain ever grows).
+  - **Programs** start on their scheduled time (the slate fills a hole before one) and air to
+    the video boundary nearest their credits (`credits_at_ms`), else to their end, never past
+    the next program's start. The video (`airable`) is the copied source when it is 8-bit SDR
+    H.264 up to 1080p whose segments fit the target duration, else the tallest H.264 rung up to
+    1080p; the audio per channel language (`cs`, `en`) is the file's own AAC rendition in it
+    (the default among several), else the original (the default track, else the first); the
+    subtitles per language a full track before a forced one, empty WebVTT where none.
+    Separate-language files (model B) are not on the played file's timeline and never air.
+  - **Breaks** air from where the program left the air to the next program: the break's
+    assembled rendition (`couchtv_breaks` with `state = 'ready'` and `path`, a directory of
+    renditions with `rendition.json` like a package, absolute or relative to `DATA_DIR`; the
+    rendition with a picture is the video, the AAC one the audio, the same mix in both
+    languages), else the longest ready `evergreen` break that fits, else the slate. A rendition
+    shorter than the gap airs after the slate, so its up next still counts down into the
+    program; a longer one is cut short.
+  - **The slate** (`couchtv.Slate`): a dark 1080p25 frame with "Couch TV" (drawtext; plain where
+    ffmpeg lacks it) and silent AAC, made once at startup into `cache/couchtv/slate` as one 2 s
+    segment per track (H.264 without B-frames, so it can be cut anywhere) and looped: copy n is
+    that segment retimed by n lengths (`mp4.Retime`), so a gap of any length is one item of whole
+    segments. After the last airing it holds the air for up to 6 h, then the playlists answer
+    `off_air`.
+  - **Playlists**: a constant `EXT-X-TARGETDURATION:10`, a 2 min window, a discontinuity and an
+    `EXT-X-PROGRAM-DATE-TIME` at every part, the audio segment that runs past a cut listed as
+    `?keep=<seconds>` and served trimmed (`mp4.Trim`). The multivariant has one video variant
+    whose `CODECS` (`hls.CoverCodecs`), `RESOLUTION`, `FRAME-RATE` and bandwidths cover what airs
+    from the window to 6 h ahead, the slate included; an audio group `cs`/`en` (`CHANNELS="2"`,
+    the default from `?lang=`, else Czech) and a subtitle group `cs`/`en`.
+- **Channel grants** (`grant.Channel`, resource `grant.CouchTv`, 6 h; the subject is the user,
+  a guest will carry their id in the grant's `Couch` field): the `Routes.Channel` group under
+  `/tv/{grant}` (`channelGrant` in `internal/server`), gated by the flag. Raw operations:
+  `getCouchTvMaster` (`/live/master.m3u8?lang=`), `getCouchTvPlaylist`
+  (`/live/{video,audio-<lang>,subs-<lang>}.m3u8`), `getCouchTvAiringFile`
+  (`/airings/{airing}/{track}/{file}`: an init section, segment or `<n>.vtt` of what a pinned
+  airing airs, served only within 10 minutes of its time on air and only from the renditions
+  its feed names, so the grant reaches nothing else of the library) and `getCouchTvSlateFile`
+  (`/slate/{video,audio,subs}/{init.mp4,<n>.m4s,empty.vtt}`). An expired grant answers 403
+  `grant_expired` (tune in again), any other 403 `invalid_grant`, nothing on air 404 `off_air`.
+- Viewer endpoints (signed in, flag-gated, localized): `GET /couchtv/tune` (`tuneCouchTv`: a
+  channel grant, `streamUrl`, `serverTime` in ms for the program-date hold, `targetDuration`,
+  `now` (a program or a break), the `next` program and up to four `later`) and
+  `GET /couchtv/guide?from&to` (`getCouchTvGuide`: the programs overlapping, at most 8 days,
+  with the channel's time zone). Listings carry the localized title and episode, the overview,
+  poster and backdrop, and the `fill`.
 - **The `couchtv_plan` job** (`couchtv.Scheduler`, one slot): queued at startup, after every
   config save and daily at 04:00 in the channel's zone (its payload names the day, and each
   run queues the next one first, so a failing run cannot end the chain). It keeps the
@@ -746,13 +813,14 @@ server that does not send it). The admin settings page toggles it.
   Admin picks (`promo_audio_source`/`shots_source` `admin`) are never overwritten; ffmpeg
   failures leave a part empty and are logged.
 - Tables: `couchtv_airings` (programs and breaks, UTC; `fill`, `slot`, `source`, `locked`,
-  `state`, `credits_at_ms`), `couchtv_strips`, `couchtv_titles` (`excluded`, promo audio,
-  `shots` with `shots_source`, `mood`, `loudness_lufs`, `analyzed_version`/`analyzed_at`; the
-  planner reads `excluded`, the composer the rest), `couchtv_clips` (kind, key, spec, state,
-  version, duration, path, size, `render_ms`, `needed_at`, `last_used_at`), `couchtv_breaks`
-  (an airing's composition or an `evergreen` one: the recipe with its clips, frame offsets,
-  sound spec and promoted titles; state, package path); `titles` gained `tagline`,
-  `collection_tmdb_id`, `collection_name`.
+  `state`, `credits_at_ms`, and once on air `feed` and `origin`), `couchtv_strips`,
+  `couchtv_titles` (`excluded`, promo audio, `shots` with `shots_source`, `mood`,
+  `loudness_lufs`, `analyzed_version`/`analyzed_at`; the planner reads `excluded`, the composer
+  the rest), `couchtv_media` (what `couchtv_prepare` found airable), `couchtv_clips` (kind, key,
+  spec, state, version, duration, path, size, `render_ms`, `needed_at`, `last_used_at`),
+  `couchtv_breaks` (an airing's composition or an `evergreen` one: the recipe with its clips,
+  frame offsets, sound spec and promoted titles; state, package path, which the live stream
+  airs); `titles` gained `tagline`, `collection_tmdb_id`, `collection_name`.
 - Tests: `couchtv/plan_test.go` (the rules, airing to the credits), `couchtv/analysis_test.go`
   (promo and shot picks, the waveform), `library/fingerprint_test.go` and `credits_test.go`
   (the detectors, on fingerprints and logs from the production library in
@@ -766,7 +834,20 @@ server that does not send it). The admin settings page toggles it.
   (a week of breaks composed on the seeded database, idempotent, assembly queued as clips
   render), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
   from `CHROMIUM_PATH` or installed, the bundle from `make broadcast`): renders a squeeze over a
-  generated program, an ident and a sting, assembles them and validates every package.
+  generated program, an ident and a sting, assembles them and validates every package. The
+  live stream: `couchtv/live_test.go` (the stream over a fake schedule: the lineup,
+  boundaries, cuts at credits, trimmed audio, missing languages and subtitles, origins
+  chaining, a restart listing the same playlists, a listed segment never changing, fresh
+  numbering, the off-air tail, a program capped by the next; `airable`, `pickAudio`),
+  `couchtv/slate_test.go`, `TestCouchTvPrepareJob` (what gets queued, a file made ready, its
+  row fitted and the break moved), `TestCouchTvChannel` (the real handlers: tuning in, the
+  playlists, trimmed segments, subtitles, the slate, files outside the window or not on air,
+  the grant's scope and expiry, the flag), and env-gated `TestCouchTvLive` (`make
+  couchtv-live`: generated programs readied by the real jobs, assembled and evergreen breaks,
+  the slate and a hole, looped around now, validated around boundaries and played by hls.js
+  in Chromium (WebKit too with `VIEWERS`) with the program-date hold and by AVFoundation;
+  `COUCHVERSE_SPIKE_HOLD=30m` keeps `/watch.html` up to watch it by hand or on a TV; results
+  in `docs/couch-tv-plan.md`, Phase 4).
 
 ## Internationalization & multi-language media (cross-cutting)
 
@@ -1348,6 +1429,10 @@ fetch on their own), so media is authorized by a capability in the URL.
   payloads.
 - **Couch-bound grants** carry the follower's participant id and are re-checked against the
   live session on every request (see couch).
+- **Channel grants** (6 hours, `tuneCouchTv`) unlock the Couch TV channel under
+  `/tv/{grant}/...` (`Routes.Channel`): its playlists, the slate and the files of what airs
+  around now, reached through an airing (`airings/{id}/{track}/{file}`) and never by a file
+  id, so a guest's grant will never reach the library (see couchtv).
 
 ## Playback v2 (cross-cutting)
 
@@ -1402,8 +1487,10 @@ with native audio and subtitle menus. Spikes: `docs/spikes/s3-apple-hls.md`,
   `TestPlaybackTiers` (every tier on generated media, validated; with `COUCHVERSE_AVPLAYER=1`
   played by `scripts/avplayer-probe.swift`), `make hls-check|hls-apple|hls-server-check|e2e-playback`.
 - **Live** (Couch TV): `hls.LiveSchedule` writes the live playlists of a schedule of items
-  from their packages (`playback.ReadPackage`); `make live-spike` plays one in hls.js and
-  AVFoundation (results in `docs/couch-tv-plan.md`, "Spike results: S1").
+  from their packages (`playback.ReadPackage`, `playback.ReadRendition` for a break's); the
+  channel airs them (couchtv, "The live stream"); `make couchtv-live` plays it in hls.js and
+  AVFoundation, `make live-spike` the S1 spike (results in `docs/couch-tv-plan.md`, "Spike
+  results: S1").
 
 ## Optimistic navigation & caching (cross-cutting)
 
@@ -1739,9 +1826,10 @@ playback -> {auth, catalog, library, subtitles}
 ranks -> {auth, catalog}  (near-leaf; nothing imports ranks)
 downloads -> {auth, catalog, library, subtitles, playback}  (nothing imports downloads)
 couch -> {playback, auth}  (top of the DAG; nothing imports couch)
-couchtv -> {catalog, library, artwork, playback}  (nothing imports couchtv; reads media,
-            variant and marker tables by SQL, imports library to queue its marker analysis;
-            playback's exported package helpers write and read its renders)
+couchtv -> {auth, catalog, library, artwork, playback}  (nothing imports couchtv; reads media,
+            variant and marker tables by SQL, imports library to queue its marker analysis
+            and program preparation; playback's exported package helpers write and read its
+            renders and read the programs' packages)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
 ```

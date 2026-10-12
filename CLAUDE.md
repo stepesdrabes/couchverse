@@ -116,7 +116,10 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   path id), and the playback payload hands out the grant and grant URLs (`streamUrl`,
   `originalUrl`, `hlsUrl`); a JIT session is bound to its grant's viewer. Artwork accepts a
   session or an artwork grant (`?g=`). New media routes go on `Routes.Media` and must only
-  touch the granted file.
+  touch the granted file. The Couch TV channel is the one other place media is served: under
+  a channel grant (`grant.Channel`, from `tuneCouchTv`) on `Routes.Channel`
+  (`/tv/{grant}/...`), whose files are reached through an airing that went on air, within ten
+  minutes of its time on air, never by a file id; new channel routes keep it that way.
 - **Playback v2** (full design in FEATURES.md "Playback v2"): clients POST a `DeviceProfile` to
   `resolvePlayback`/`resolveCouchPlayback` and it is authoritative (the `GET` variants keep a
   browser baseline). `playback.Decide` is a pure function picking the tier (direct, remux,
@@ -128,8 +131,9 @@ A feature owns its HTTP handlers, domain logic and SQL together.
   new fact; the `reprobe` job backfills it.
 - **Typed API (huma, the contract's source)**: every route is an operation on one huma API
   (OpenAPI 3.1 at `/api/v1`), registered through `httpx.Routes` groups: `Public`, `User`
-  (signed in), `Admin` (paths get `/admin`), `Media` (`/media/{grant}`), `Artwork` (session or
-  artwork grant); flag gates are `httpx.Guard` groups. Declare operations with
+  (signed in), `Admin` (paths get `/admin`), `Media` (`/media/{grant}`), `Channel`
+  (`/tv/{grant}`, Couch TV), `Artwork` (session or artwork grant); flag gates are
+  `httpx.Guard` groups. Declare operations with
   `const tag httpx.Tag = "<feature>"` and `tag.Op/NoContent/Created/Accepted(operationId,
   method, path)`; handlers are `func(ctx, *fooInput) (*fooOutput, error)`. **Operation ids are
   the contract** (camelCase, `admin` prefix for admin ops): every client's function names come
