@@ -47,6 +47,13 @@ export interface CouchTvRender {
 	seek(t: number): Promise<void>;
 	/** Whether the clip's frames at t0 and t1 are identical (nothing animates in between). */
 	isStatic(t0: number, t1: number): boolean;
+	/**
+	 * The renderer's step to the frame at t from the one at `from` (negative for the first):
+	 * false when nothing changes in between (the last capture can be reused), else the frame is
+	 * set up and its images decoded. Unlike `seek` it does not wait for a paint: a screenshot
+	 * draws a fresh frame of its own.
+	 */
+	advance(t: number, from: number): Promise<boolean>;
 	/** The squeeze's program rectangle at t (stage pixels), or null. */
 	keyRect(t: number): KeyRect | null;
 	/** `matte`: white where the program shows, black elsewhere (the composite's alpha). */
@@ -130,6 +137,11 @@ window.couchtvRender = {
 		await painted();
 	},
 	isStatic: (t0, t1) => clip().isStatic(t0, t1),
+	async advance(t, from) {
+		if (from >= 0 && clip().isStatic(from, t)) return false;
+		await clip().seek(t);
+		return true;
+	},
 	keyRect: (t) => clip().keyRect(t),
 	setLayer: (layer) => stage.setLayer(layer),
 	async renderAudio() {

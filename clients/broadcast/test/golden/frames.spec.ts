@@ -68,6 +68,27 @@ test('a frame is a function of t alone', async ({ page }) => {
 	}
 });
 
+test("the renderer's step shows the frame seek does and skips held ones", async ({ page }) => {
+	const info = await load(page, FIXTURES['ident-short']);
+	const frames = Math.round(info.duration * 25);
+	const held = await page.evaluate((n) => {
+		for (let i = 1; i < n; i++)
+			if (window.couchtvRender.isStatic((i - 1) / 25, i / 25)) return i / 25;
+		return null;
+	}, frames);
+	// the lockup holds before the short ident ends
+	expect(held).not.toBeNull();
+	if (held === null) return;
+	expect(await page.evaluate((t) => window.couchtvRender.advance(t, t - 0.04), held)).toBe(false);
+	for (const t of [0.6, held]) {
+		await seek(page, t);
+		const seeked = await page.screenshot();
+		await seek(page, 0);
+		expect(await page.evaluate((x) => window.couchtvRender.advance(x, -1), t)).toBe(true);
+		expect((await page.screenshot()).equals(seeked), `t=${t}`).toBe(true);
+	}
+});
+
 test('a promo body does not depend on the airing', async ({ page }) => {
 	for (const mood of ['promo-cinematic', 'promo-grit-premiere', 'promo-bright'] as const) {
 		const base = FIXTURES[mood] as PromoSpec;
