@@ -1,11 +1,17 @@
 // The Couch TV sample reel: sample data (titles, schedule), asset preloading, and the player
 // that runs one piece or a whole break against the audio clock.
 //
-// URL params: ?piece=<id>&t=<seconds>&lang=en|cs&mute=1 freezes a piece at a time.
+// URL params: ?piece=<id>&t=<seconds>&lang=en|cs&mute=1 freezes a piece at a time;
+// variant=a|b and theme=1|2|3 pick the ident and the theme arrangement (the tags follow).
 
 import { AudioEngine, renderMix } from './audio.js';
 import * as T from './templates.js';
 import { el, rng } from './core.js';
+import { loudness, spectrum } from './analyze.js';
+import { keyReport, THEME_NAMES } from './theme.js';
+
+// the recommended pairing; the control bar and the URL can pick any other
+const DEFAULT_PICKS = { variant: 'b', theme: 1 };
 
 // --- sample data -------------------------------------------------------------------------------
 
@@ -158,8 +164,8 @@ const CREDITS = [
 ];
 
 const PIECES = [
-	{ id: 'ident', n: '1', label: { en: 'Ident, full', cs: 'Ident, plný' }, tpl: T.ident, data: () => ({ cut: 'full' }) },
-	{ id: 'ident-short', n: '1b', label: { en: 'Ident, short', cs: 'Ident, krátký' }, tpl: T.ident, data: () => ({ cut: 'short' }) },
+	{ id: 'ident', n: '1', label: { en: 'Ident, full', cs: 'Ident, plný' }, tpl: T.ident, data: () => ({ cut: 'full', ...picks, art: ART }) },
+	{ id: 'ident-short', n: '1b', label: { en: 'Ident, short', cs: 'Ident, krátký' }, tpl: T.ident, data: () => ({ cut: 'short', ...picks, art: ART }) },
 	{
 		id: 'upnext',
 		n: '2',
@@ -245,14 +251,15 @@ const PIECES = [
 			next: { title: TITLES.simpsons, episode: EP.simpsons, time: '18:00' },
 			clock: '17:57',
 			credits: CREDITS,
-			bedFrom: 2
+			bedFrom: 2,
+			variant: picks.variant
 		})
 	}
 ];
 
 // a real break: end credits, ident, promos, lineup, then the next programme's bumper
 const BREAK = [
-	{ id: 'squeeze', patch: { handover: 'line' } },
+	{ id: 'squeeze', patch: { handover: 'cursor' } },
 	{ id: 'ident-short', overlap: 0 },
 	{ id: 'ironman', overlap: 0.35 },
 	{ id: 'invincible', overlap: 0.3 },
@@ -316,6 +323,7 @@ async function preload(engine) {
 	jobs.push(engine.load(BEDS));
 	jobs.push(
 		Promise.all([
+			document.fonts.load('700 100px Saira', 'C()UCH TV 20:15 ĎŽÁČŠŘ'),
 			document.fonts.load('800 100px Jakarta', 'Couch TV ČŠŘŽ'),
 			document.fonts.load('700 100px Jakarta', 'Aa ěščřžýáíéůú'),
 			document.fonts.load('600 100px Jakarta', 'Aa ěščřžýáíéůú'),
@@ -352,6 +360,11 @@ const scrub = $('scrub');
 const params = new URLSearchParams(location.search);
 
 let lang = params.get('lang') === 'cs' ? 'cs' : 'en';
+const picks = {
+	variant: ['a', 'b'].includes(params.get('variant')) ? params.get('variant') : DEFAULT_PICKS.variant,
+	theme: [1, 2, 3].includes(+params.get('theme')) ? +params.get('theme') : DEFAULT_PICKS.theme
+};
+engine.theme = picks.theme;
 let state = { mode: 'idle', pieces: [] };
 
 function fitStage() {
@@ -536,7 +549,7 @@ function readout(t) {
 	$('tRead').textContent = t.toFixed(2);
 	if (document.activeElement !== scrub) scrub.value = t;
 	const c = cur.tl.cueAt(t);
-	const lbl = cur.p.label[lang];
+	const lbl = cur.p.label[lang] + (cur.id.startsWith('ident') ? ` ${picks.variant.toUpperCase()}${picks.theme}` : '');
 	$('cueRead').innerHTML = '';
 	el('b', null, $('cueRead'), `${cur.p.n} ${lbl}`);
 	if (c) $('cueRead').append(` · ${c.name}`);
@@ -555,6 +568,13 @@ function syncUI() {
 		b.lastChild.textContent = p.label[lang];
 	}
 	for (const b of $('langSeg').children) b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+	for (const b of $('variantSeg').children) b.setAttribute('aria-pressed', String(b.dataset.variant === picks.variant));
+	for (const b of $('themeSeg').children) {
+		b.setAttribute('aria-pressed', String(+b.dataset.theme === picks.theme));
+		b.title = THEME_NAMES[b.dataset.theme][lang];
+	}
+	$('identLabel').textContent = lang === 'cs' ? 'Ident' : 'Ident';
+	$('themeLabel').textContent = lang === 'cs' ? 'Znělka' : 'Theme';
 	$('muteBtn').classList.toggle('muted', engine.muted);
 	if (!cur) return;
 	scrub.max = cur.tl.duration;
@@ -592,6 +612,8 @@ function buildControls() {
 	for (const b of $('langSeg').children) {
 		b.addEventListener('click', () => setLang(b.dataset.lang));
 	}
+	for (const b of $('variantSeg').children) b.addEventListener('click', () => setPick({ variant: b.dataset.variant }));
+	for (const b of $('themeSeg').children) b.addEventListener('click', () => setPick({ theme: +b.dataset.theme }));
 	$('muteBtn').addEventListener('click', async () => {
 		engine.setMuted(!engine.muted);
 		if (!engine.muted) await unlockAudio();
@@ -611,10 +633,25 @@ function buildControls() {
 	document.addEventListener('pointerdown', () => unlockAudio(), { once: true });
 }
 
+/** A new ident variant or theme rebuilds what is on screen (and is kept in the URL). */
+async function setPick(p) {
+	Object.assign(picks, p);
+	engine.theme = picks.theme;
+	const u = new URL(location.href);
+	u.searchParams.set('variant', picks.variant);
+	u.searchParams.set('theme', String(picks.theme));
+	history.replaceState(null, '', u);
+	await rebuild();
+}
+
 async function setLang(l) {
 	if (l === lang) return;
 	lang = l;
 	document.documentElement.lang = l;
+	await rebuild();
+}
+
+async function rebuild() {
 	const id = currentId();
 	if (state.mode === 'break') {
 		syncUI();
@@ -634,7 +671,7 @@ async function main() {
 	await preload(engine);
 	$('loading').hidden = true;
 	const id = PIECES.some((p) => p.id === params.get('piece')) ? params.get('piece') : 'ident';
-	const t = params.has('t') ? parseFloat(params.get('t')) : id === 'ident' && !params.has('piece') ? 9.5 : 0;
+	const t = params.has('t') ? parseFloat(params.get('t')) : id === 'ident' && !params.has('piece') ? 8.9 : 0;
 	freeze(id, t);
 	requestAnimationFrame(frame);
 	window.reel = {
@@ -657,7 +694,25 @@ async function main() {
 			let h = 0;
 			for (let i = 0; i < ch.length; i += 97) h = (h * 31 + Math.round(ch[i] * 1e6)) | 0;
 			return { ...stats, hash: h };
-		}
+		},
+		/**
+		 * debug: the mix metered like a broadcast deliverable. `patch` is piece data
+		 * (variant, theme); raw skips the dynamics to read the headroom going into them.
+		 */
+		async analyze(id, patch = {}, { solo = null, raw = false, from = 0 } = {}) {
+			let piece;
+			const keep = engine.theme;
+			if (patch.theme) engine.theme = patch.theme;
+			const { buffer } = await renderMix(engine, (probe) => (piece = build(id, patch, null, probe)).tl, { solo, raw });
+			engine.theme = keep;
+			dispose(piece);
+			this.lastBuffer = buffer;
+			const ch = buffer.getChannelData(0);
+			let h = 0;
+			for (let i = 0; i < ch.length; i += 97) h = (h * 31 + Math.round(ch[i] * 1e6)) | 0;
+			return { ...loudness(buffer), bands: spectrum(buffer, from), hash: h };
+		},
+		keyReport
 	};
 }
 

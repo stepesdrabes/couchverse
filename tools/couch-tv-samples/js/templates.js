@@ -5,8 +5,6 @@
 
 import {
 	Timeline,
-	EASE,
-	SPRING,
 	W,
 	H,
 	el,
@@ -22,11 +20,17 @@ import {
 	palette,
 	applyPalette,
 	pickAccent,
-	spring,
 	rng,
-	addMinutes
+	addMinutes,
+	motion,
+	windows
 } from './core.js';
-import { LOGO, SPARKLE } from './audio.js';
+import { SPARKLE } from './audio.js';
+import { HOOK } from './theme.js';
+import { wordmark, lockupStatic, geometry, cursorAt } from './brand.js';
+import { ident, identCursorRect } from './ident.js';
+
+export { ident };
 
 // --- UI copy (in the product these are contract/i18n keys) ---------------------------------
 
@@ -135,29 +139,10 @@ function glow(parent, kind, x, y, r) {
 	});
 }
 
-/** The app's LogoMark: the couch mask on the red rounded square. */
-function mark(parent, size) {
-	const m = el('div', 'mark', parent);
-	if (size) m.style.setProperty('--s', size + 'px');
-	el('i', null, m);
-	return m;
-}
-
-function lockup(parent, size = 56) {
-	const l = el('div', 'lockup', parent);
-	l.style.setProperty('--ls', size + 'px');
-	const m = mark(l);
-	const name = el('div', 'lockup-name', l);
-	el('span', null, name, 'Couch');
-	el('span', 'tv-pill', name, 'TV');
-	return { root: l, mark: m, name };
-}
-
-/** Corner bug: mark, LIVE dot, clock. `clock(t)` returns the text to show at time t. */
+/** Corner bug: lockup, LIVE dot, clock. `clock(t)` returns the text to show at time t. */
 function bug(tl, parent, clock, lang) {
 	const b = el('div', 'bug', parent);
-	mark(b);
-	el('span', 'bug-name', b, 'Couch TV');
+	lockupStatic(b, 27, 'bug-wm');
 	el('span', 'bug-sep', b);
 	const live = el('span', 'live', b);
 	const dot = el('span', 'live-dot', live);
@@ -182,11 +167,6 @@ function fit(e, maxWidth) {
 		e.style.fontSize = Math.floor((fs * maxWidth) / w) + 'px';
 	}
 	return e;
-}
-
-function springFrames(from, to, cfg, map = (v) => `scale(${v})`) {
-	const s = spring(cfg);
-	return { frames: s.values.map((v) => ({ transform: map(from + (to - from) * v) })), dur: s.duration };
 }
 
 function setHTML(e, html) {
@@ -249,198 +229,37 @@ function grain(tl, parent, opacity, seed = 5) {
 	return g;
 }
 
-/** The end-of-promo channel tag: the lockup lands on the theme's condensed mnemonic. */
-function channelTag(tl, parent, at, audio, { size = 54, cls = 'tag-lockup', gain = 0.5 } = {}) {
+/**
+ * The end-of-promo channel tag: the wordmark lands on the theme's condensed hook. It appears
+ * closed on the first note, the brackets open a little on the next three (wider on the top
+ * note) and TV drops into its block on the long last note, as the ident does.
+ */
+function channelTag(tl, parent, at, audio, { size = 62, cls = 'tag-lockup', gain = 0.5 } = {}) {
 	const wrap = el('div', cls, parent);
-	const lk = lockup(wrap, size);
-	const sp = springFrames(0.4, 1, SPRING.bouncy);
-	tl.add(lk.mark, [{ opacity: 0 }, { opacity: 1 }], at, 0.1, 'linear');
-	tl.add(lk.mark, sp.frames, at, sp.dur, 'linear');
-	tl.add(lk.name, [{ opacity: 0, transform: 'translateX(-18px)' }, { opacity: 1, transform: 'translateX(0)' }], at + LOGO.tagRhythm[2], 0.7, 'enter');
+	const wm = wordmark(wrap, size, { cls: 'wm-tag' });
+	const m = wm.m;
+	const R = HOOK.tagAt.map((r) => at + r);
+	const D = tl.duration;
+	tl.add(wrap, [{ opacity: 0, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }], at - 0.02, 0.2, 'snap');
+	const moves = [];
+	[[R[1], 0.2], [R[2], 0.42], [R[3], 0.22]].forEach(([t, w]) => {
+		moves.push({ at: t, dur: 0.05, to: m.em * w + m.split, ease: 'out' });
+		moves.push({ at: t + 0.08, dur: 0.1, to: m.split, ease: 'inOut' });
+	});
+	const geo = (g) => geometry(m, g);
+	motion(tl, wm.halves.red.l, D, m.split, moves, (g) => ({ transform: geo(g).l }));
+	motion(tl, wm.halves.red.r, D, m.split, moves, (g) => ({ transform: geo(g).r }));
+	motion(tl, wm.c, D, m.split, moves, (g) => ({ transform: geo(g).c }));
+	motion(tl, wm.rest, D, m.split, moves, (g) => ({ transform: geo(g).rest }));
+	motion(tl, wm.cur, D, cursorAt(m, m.tv.x), [{ at: R[4], dur: 0.12, to: cursorAt(m, m.tv.x, m.tv.w), ease: 'snap' }], (v) => ({ transform: v }));
+	windows(tl, wm.cur, [[0, R[4] + 0.12]]);
+	windows(tl, wm.tvBg, [[R[4] + 0.12, D + 1]]);
+	windows(tl, wm.tvT, [[R[4], D + 1]]);
+	windows(tl, wm.tvV, [[R[4] + 0.06, D + 1]]);
 	// the event starts a beat early: the tag's swell leads into the first note
 	tl.sound(at - 0.4, (w, b) => audio.themeTag(b, w + 0.4, { gain }));
 	tl.cue('channel tag (theme)', at);
 	return wrap;
-}
-
-// =========================================================================================
-// 1. Channel ident: one design, one score, two cuts
-// =========================================================================================
-
-// A cut is a cue table; picture and score (audio.themeScore) both read it, so the short cut is
-// a tight re-edit of the full one. One idea per beat: a horizon line, a grid, the grid
-// resolving into the mark, the mark, the lockup. Light is used once (the soft red field).
-const IDENT_CUTS = {
-	full: {
-		D: 11.5,
-		horizon: [0.3, 1.1],
-		grid: 1.1,
-		gridH: 2.6,
-		stagger: 0.12,
-		drawDur: 0.95,
-		converge: [3.45, 4.55],
-		swell: 0,
-		b1: 1.1,
-		b2: 2.6,
-		ost: [1.1, 4.6],
-		drums: [[2.1, 0.26], [3.1, 0.3], [3.6, 0.34], [3.85, 0.28], [4.1, 0.38], [4.225, 0.28], [4.35, 0.34], [4.425, 0.28], [4.5, 0.36]],
-		riser: 3.1,
-		hit: 4.6,
-		mn: 5.25,
-		final: 6.15,
-		tag: 7.0
-	},
-	short: {
-		D: 5.0,
-		horizon: null,
-		grid: 0.0,
-		gridH: 0.12,
-		stagger: 0.03,
-		drawDur: 0.42,
-		converge: [0.5, 0.9],
-		swell: 0,
-		b1: null,
-		b2: null,
-		ost: null,
-		drums: [[0.35, 0.26], [0.55, 0.28], [0.68, 0.28], [0.76, 0.3], [0.83, 0.32], [0.89, 0.34]],
-		riser: 0.02,
-		hit: 0.95,
-		mn: 1.42,
-		final: 2.32,
-		tag: 2.75
-	}
-};
-
-// the horizon line the ident opens on (and the squeeze closes on)
-const HORIZON_REST = 0.32;
-function horizonLine(parent) {
-	return css(el('div', 'id-h', parent), { top: '540px', opacity: HORIZON_REST });
-}
-
-/** One animation per property for a whole piece: keyframes at cue times, per-segment easing. */
-function track(tl, target, D, pts, fmt, ease = 'sine') {
-	const sorted = pts.filter((p) => p && p[0] != null).sort((a, b) => a[0] - b[0]);
-	if (sorted[0][0] > 0) sorted.unshift([0, sorted[0][1]]);
-	if (sorted[sorted.length - 1][0] < D) sorted.push([D, sorted[sorted.length - 1][1]]);
-	const frames = sorted.map(([t, v, e]) => ({ offset: Math.min(1, Math.max(0, t / D)), easing: EASE[e || ease] || e, ...fmt(v) }));
-	for (let i = 1; i < frames.length; i++) if (frames[i].offset < frames[i - 1].offset) frames[i].offset = frames[i - 1].offset;
-	return tl.add(target, frames, 0, D, 'linear');
-}
-
-export function ident(stage, data, audio) {
-	const S = STR[data.lang];
-	const cutName = data.cut === 'short' ? 'short' : 'full';
-	const c = IDENT_CUTS[cutName];
-	const { D, hit: H, final: F, mn: M } = c;
-	const R = LOGO.rhythm;
-	const full = cutName === 'full';
-	const tl = new Timeline(stage, D);
-	stage.classList.add('ident', `ident-${cutName}`);
-	const CELL = 115; // half the mark: the grid's centre cell is the mark's frame
-	const [c0, c1] = c.converge;
-
-	// --- planes: the soft light, a fine grid (far), the main grid (near), the lockup ------
-	const light = el('div', 'id-light', stage);
-	const fine = el('div', 'id-plane', stage);
-	fine.style.setProperty('--a', 0.04);
-	const main = el('div', 'id-plane', stage);
-	const horizon = horizonLine(stage);
-	const lock = el('div', 'id-plane', stage);
-
-	const lines = [];
-	const vLine = (plane, x, k, edge) => {
-		const l = css(el('div', 'id-v', plane), { left: x + 'px' });
-		if (edge) l.style.setProperty('--a', 0.4);
-		lines.push({ l, k, edge, dir: 'v', x });
-		return l;
-	};
-	const hLine = (plane, y, k, edge) => {
-		const l = css(el('div', 'id-h', plane), { top: y + 'px' });
-		if (edge) l.style.setProperty('--a', 0.4);
-		lines.push({ l, k, edge, dir: 'h', y });
-		return l;
-	};
-	const drawV = (l, k, t0) => tl.add(l, [{ transform: 'translateX(0px) scaleY(0)' }, { transform: 'translateX(0px) scaleY(1)' }], t0 + (k - 1) * c.stagger, c.drawDur, 'enter');
-	const drawH = (l, k, t0) => tl.add(l, [{ transform: 'translateY(0px) scaleX(0)' }, { transform: 'translateY(0px) scaleX(1)' }], t0 + (k - 1) * c.stagger, c.drawDur, 'enter');
-	for (let k = 1; k <= 8; k++) {
-		for (const s of [-1, 1]) drawV(vLine(main, 960 + s * k * CELL, k, k === 1), k, c.grid);
-		for (const s of [-1, 1]) drawV(css(el('div', 'id-v', fine), { left: 960 + s * (k - 0.5) * CELL + 'px' }), k, c.grid + 0.12);
-	}
-	for (let k = 1; k <= 5; k++) {
-		for (const s of [-1, 1]) drawH(hLine(main, 540 + s * k * CELL, k, k === 1), k, c.gridH);
-		for (const s of [-1, 1]) drawH(css(el('div', 'id-h', fine), { top: 540 + s * (k - 0.5) * CELL + 'px' }), k, c.gridH + 0.12);
-	}
-
-	// the mark, built at the centre; the lockup slot it travels to
-	const markWrap = css(el('div', 'id-markwrap', lock), {});
-	const square = el('div', 'id-mark', markWrap);
-	const couch = el('i', 'id-couch', square);
-	const row = el('div', 'idl-row', lock);
-	const slot = el('div', 'idl-slot', row);
-	const wordMask = el('div', 'idl-mask', row);
-	const word = el('span', 'idl-word', wordMask, 'Couch');
-	const tvMask = el('div', 'idl-mask idl-tvmask', row);
-	const tv = el('span', 'idl-word idl-tv', tvMask, 'TV');
-	const tag = el('div', 'idl-tag', lock, `${S.taglineA}. ${S.taglineB}.`);
-	const slotX = slot.offsetLeft + 90;
-	const k = 180 / 230;
-
-	// --- beat 1: the horizon --------------------------------------------------------------
-	tl.cue(full ? 'horizon line' : 'horizon (handed over by the squeeze)', 0);
-	if (full) tl.add(horizon, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], c.horizon[0], c.horizon[1] - c.horizon[0] + 0.4, 'enter');
-	else tl.add(horizon, [{ transform: 'scaleX(1)' }, { transform: 'scaleX(1)' }], 0, 0.01, 'linear');
-	tl.add(horizon, [{ transform: 'scaleX(1)', opacity: HORIZON_REST }, { transform: 'scaleX(0.06)', opacity: 0 }], c0, c1 - c0, 'in');
-
-	// --- beat 2/3: the grid drops, then crosses; two planes dolly at different rates ---------
-	tl.cue('grid drops in', c.grid);
-	tl.cue('grid crosses', c.gridH);
-	tl.add(main, [{ transform: 'scale(0.84)' }, { transform: 'scale(1)' }], 0, H, 'cubic-bezier(0.5, 0, 0.8, 0.55)');
-	tl.add(fine, [{ transform: 'scale(0.76)', opacity: 1 }, { transform: 'scale(0.88)', opacity: 1 }], 0, c0, 'linear');
-	tl.add(fine, [{ transform: 'scale(0.88)', opacity: 1 }, { transform: 'scale(1.05)', opacity: 0 }], c0, c1 - c0, 'in');
-
-	// --- beat 4: every line converges on the centre cell; its four edges become the frame ---
-	tl.cue('lines converge on the mark', c0);
-	for (const { l, k: kk, edge, dir, x, y } of lines) {
-		const ax = dir === 'v' ? 'X' : 'Y';
-		const sc = dir === 'v' ? 'scaleY' : 'scaleX';
-		if (edge) {
-			const to = dir === 'v' ? 230 / 1080 : 230 / 1920;
-			tl.add(l, [{ transform: `translate${ax}(0px) ${sc}(1)` }, { transform: `translate${ax}(0px) ${sc}(${to})` }], c0, c1 - c0, 'inOut');
-			tl.add(l, [{ opacity: 1 }, { opacity: 0 }], H, 0.18, 'out');
-		} else {
-			const pos = dir === 'v' ? x - 960 : y - 540;
-			const d = -Math.sign(pos) * (Math.abs(pos) - CELL);
-			const at = c0 + (8 - kk) * 0.015;
-			tl.add(l, [{ transform: `translate${ax}(0px) ${sc}(1)`, opacity: 1 }, { transform: `translate${ax}(${d}px) ${sc}(1)`, opacity: 0 }], at, c1 - at, 'in');
-		}
-	}
-
-	// --- beat 5: the hit. The frame irises into the red square, the couch wipes up --------
-	tl.cue('hit: the mark', H);
-	tl.add(square, [{ clipPath: 'inset(50% 50% 50% 50% round 58px)' }, { clipPath: 'inset(0% 0% 0% 0% round 58px)' }], H, 0.34, 'snap');
-	const sp = springFrames(1.07, 1, SPRING.snappy);
-	tl.add(square, sp.frames, H, sp.dur, 'linear');
-	tl.add(couch, [{ clipPath: 'inset(100% 0% 0% 0%)', transform: 'translateY(16px)' }, { clipPath: 'inset(0% 0% 0% 0%)', transform: 'translateY(0px)' }], H + 0.1, 0.65, 'enter');
-	// the one light: a soft red field that gathers through the build and blooms once on the hit
-	track(tl, light, D, [[0, 0], [c.b2 ?? c.grid, 0, 'out'], [(c.b2 ?? c.grid) + 1, full ? 0.22 : 0.15], [H - 0.02, 0.38, 'in'], [H + 0.4, 1, 'out'], [H + 2, 0.62], [D, 0.55]], (v) => ({ opacity: v, transform: `scale(${0.8 + v * 0.2})` }));
-
-	// --- beat 6: the lockup composes on the mnemonic --------------------------------------
-	tl.cue('mnemonic: the mark steps aside', M);
-	const glide = spring(SPRING.smooth);
-	const dx = slotX - 960;
-	tl.add(markWrap, glide.values.map((v) => ({ transform: `translateX(${(dx * v).toFixed(1)}px) scale(${(1 + (k - 1) * v).toFixed(4)})` })), M, glide.duration, 'linear');
-	tl.cue('Couch', M + R[1]);
-	tl.add(word, [{ transform: 'translateX(-34%) scale(1.04)', opacity: 0 }, { transform: 'translateX(0%) scale(1)', opacity: 1 }], M + R[1], 1.0, 'enter');
-	tl.cue('final chord: TV lands', F);
-	// 130%: the mask is padded below the glyphs, so a shorter drop leaves their tops showing
-	const land = springFrames(1, 0, SPRING.snappy, (v) => `translateY(${(v * 130).toFixed(1)}%)`);
-	tl.add(tv, land.frames, F, land.dur, 'linear');
-	tl.cue('tagline, hold', c.tag);
-	fadeUp(tl, tag, c.tag, { dur: 1.1, y: 10 });
-	tl.add(lock, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], M, D - M, 'sine');
-
-	for (const ev of audio.themeScore(c)) tl.sound(ev.at, ev.fn, ev.dur);
-	return tl;
 }
 
 // =========================================================================================
@@ -1154,7 +973,7 @@ export function lineup(stage, data, audio) {
 	});
 	el('div', 'shade', panel);
 	const head = el('div', 'lu-head', stage);
-	const lk = { root: mark(head, 64) };
+	const lk = lockupStatic(head, 56, 'lu-wm');
 	const title = words(el('div', 'hero lu-title', head), S.laterOn);
 	const list = el('div', 'lu-list', stage);
 	const hl = css(el('div', 'abs'), { left: 0, top: 0, right: 0, height: '140px', borderRadius: '22px', background: 'rgb(255 255 255 / 0.06)', border: '2px solid rgb(255 255 255 / 0.18)' });
@@ -1346,7 +1165,7 @@ export function overlays(stage, data, audio) {
 export function creditsSqueeze(stage, data, audio) {
 	const S = STR[data.lang];
 	const handover = data.handover || 'expand';
-	const D = handover === 'line' ? 11.0 : 11.5;
+	const D = handover === 'cursor' ? 10.6 : 11.5;
 	const tl = new Timeline(stage, D);
 	stage.classList.add('squeeze');
 	const end = data.ending;
@@ -1367,7 +1186,7 @@ export function creditsSqueeze(stage, data, audio) {
 		el('div', 'role', credits, role);
 		el('div', 'name', credits, name);
 	}
-	const whiteFill = css(el('div', 'red-fill', prog), { background: '#fff' });
+	const redFill = el('div', 'red-fill', prog);
 	const frame = css(el('div', 'sq-frame', stage), { left: '96px', top: '236px', width: '1008px', height: '567px' });
 
 	const col = el('div', 'sq-col', stage);
@@ -1427,22 +1246,24 @@ export function creditsSqueeze(stage, data, audio) {
 	fadeUp(tl, whenEl, c0 + 1.05, { y: 10 });
 
 	const h0 = 9.2;
-	tl.cue(handover === 'line' ? 'handover: collapses into the horizon line' : 'handover: next programme expands', h0);
+	tl.cue(handover === 'cursor' ? "handover: collapses into the ident's cursor" : 'handover: next programme expands', h0);
 	[ebRow, title.root.parentElement, epRow, whenEl].forEach((e, i) => fadeOut(tl, e, h0 + i * 0.05, { dur: 0.4, y: -10 }));
 	tl.add(frame, [{ opacity: 1 }, { opacity: 0 }], h0, 0.3, 'sine');
-	if (handover === 'line') {
-		// the programme collapses into the horizon line the ident opens on (its first frame)
+	if (handover === 'cursor') {
+		// the programme collapses into the red cursor block the short ident opens on (its first frame)
+		const r = identCursorRect(stage, data.variant);
+		// the ident's field is pure black: the stage settles into it under the collapse
+		const black = css(el('div', 'fill', stage), { background: '#000' });
+		stage.insertBefore(black, prog);
+		tl.add(black, [{ opacity: 0 }, { opacity: 1 }], h0, 1.1, 'sine');
 		tl.add(tvEl, [{ opacity: 1 }, { opacity: 0 }], h0, 0.45, 'sine');
 		fadeOut(tl, b, h0, { dur: 0.4, y: -10 });
-		const bar = `translate(${960 - 240}px, 539px) scale(${480 / W}, ${2 / 1080})`;
-		tl.add(prog, [{ transform: sq }, { transform: bar }], h0 + 0.2, 0.9, 'cubic-bezier(0.7, 0, 0.2, 1)');
-		tl.add(whiteFill, [{ opacity: 0 }, { opacity: 1 }], h0 + 0.45, 0.5, 'in');
-		const lAt = h0 + 1.1;
-		const hz = horizonLine(stage);
-		tl.add(hz, [{ transform: `scaleX(${480 / W})`, opacity: 0.9 }, { transform: 'scaleX(1)', opacity: HORIZON_REST }], lAt, 0.65, 'enter');
-		tl.add(prog, [{ opacity: 1 }, { opacity: 0 }], lAt, 0.08, 'linear');
-		for (const g of [gV, gT, gA]) tl.add(g, [{ opacity: 1 }, { opacity: 0 }], h0, 1.4, 'sine');
-		tl.sound(h0 + 0.2, (w, bus) => audio.whoosh(bus, w, { dur: 1.0, pan: [-0.5, 0], gain: 0.05 }));
+		const block = `translate(${r.x.toFixed(1)}px, ${r.y.toFixed(1)}px) scale(${(r.w / W).toFixed(5)}, ${(r.h / H).toFixed(5)})`;
+		tl.add(prog, [{ transform: sq }, { transform: block }], h0 + 0.2, 0.9, 'cubic-bezier(0.7, 0, 0.2, 1)');
+		tl.add(redFill, [{ opacity: 0 }, { opacity: 1 }], h0 + 0.4, 0.5, 'in');
+		for (const g of [gV, gT, gA]) tl.add(g, [{ opacity: 1 }, { opacity: 0 }], h0, 1.2, 'sine');
+		tl.sound(h0 + 0.2, (w, bus) => audio.whoosh(bus, w, { dur: 0.9, pan: [-0.5, 0], gain: 0.05 }));
+		tl.sound(h0 + 1.1, (w, bus) => audio.keyClick(bus, w, { gain: 0.05, seed: 7 }));
 	} else {
 		tl.add(prog, [{ transform: sq, opacity: 1 }, { transform: 'translate(-40px, 236px) scale(0.525)', opacity: 0 }], h0, 0.8, 'cubic-bezier(0.6, 0, 0.8, 0.5)');
 		tl.add(tvEl, [{ transform: slotTf }, { transform: 'translate(-57.6px, -32.4px) scale(1.06)' }], h0 + 0.35, 1.25, 'cubic-bezier(0.7, 0, 0.2, 1)');

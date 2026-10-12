@@ -163,6 +163,67 @@ export class Timeline {
 	}
 }
 
+/**
+ * One animation per element for the whole piece from a list of moves ({at, dur, to, ease}):
+ * the value holds between moves, so a move of 0 s is a hard cut.
+ */
+export function motion(tl, target, D, v0, moves, fmt) {
+	const frames = [{ offset: 0, ...fmt(v0) }];
+	let cur = v0;
+	for (const mv of [...moves].sort((a, b) => a.at - b.at)) {
+		const a = Math.max(0, mv.at);
+		const z = a + Math.max(0.001, mv.dur || 0);
+		frames.push({ offset: a / D, easing: EASE[mv.ease] || mv.ease || 'linear', ...fmt(cur) });
+		frames.push({ offset: Math.min(1, z / D), ...fmt(mv.to) });
+		cur = mv.to;
+	}
+	frames.push({ offset: 1, ...fmt(cur) });
+	for (let i = 1; i < frames.length; i++) frames[i].offset = Math.min(1, Math.max(frames[i].offset, frames[i - 1].offset));
+	return tl.add(target, frames, 0, D, 'linear');
+}
+
+/**
+ * Visible over the union of windows [[a, b], ...]: one opacity animation of hard steps, so
+ * cuts stay on the compositor with the transforms they go with (visibility would wait for
+ * the main thread and can land a frame late under load).
+ */
+export function windows(tl, target, list) {
+	const D = tl.duration;
+	const ws = list.filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+	const merged = [];
+	for (const [a, b] of ws) {
+		const last = merged[merged.length - 1];
+		if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+		else merged.push([a, b]);
+	}
+	const at = (t) => Math.min(1, Math.max(0, t / D));
+	const on0 = merged.length && merged[0][0] <= 0;
+	const frames = [{ offset: 0, opacity: on0 ? 1 : 0 }];
+	for (const [a, b] of merged) {
+		if (a > 0) frames.push({ offset: at(a), opacity: 0 }, { offset: at(a), opacity: 1 });
+		if (b < D) frames.push({ offset: at(b), opacity: 1 }, { offset: at(b), opacity: 0 });
+	}
+	frames.push({ offset: 1, opacity: frames[frames.length - 1].opacity });
+	tl.add(target, frames, 0, D, 'linear');
+}
+
+/** Subtract windows [x, y] from windows. */
+export function minus(list, cuts) {
+	let out = list;
+	for (const [x, y] of cuts) {
+		const next = [];
+		for (const [a, b] of out) {
+			if (y <= a || x >= b) next.push([a, b]);
+			else {
+				if (a < x) next.push([a, x]);
+				if (y < b) next.push([y, b]);
+			}
+		}
+		out = next;
+	}
+	return out;
+}
+
 // --- DOM ------------------------------------------------------------------------------
 
 export function el(tag, cls, parent, text) {

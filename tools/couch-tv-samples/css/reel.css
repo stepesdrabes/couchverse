@@ -225,6 +225,18 @@ body {
 	background: var(--surface-2);
 	color: var(--text);
 }
+.pick {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.pick-label {
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--faint);
+}
 @media (max-width: 900px) {
 	.bar-row:last-child {
 		flex-wrap: wrap;

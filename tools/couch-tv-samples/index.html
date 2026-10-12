@@ -7,6 +7,10 @@
 		<link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
 		<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
 		<link rel="preload" href="assets/fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+		<!-- the Couch TV display face (OFL); the product will bundle it -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400..800&display=block" />
 		<link rel="stylesheet" href="css/tv.css" />
 		<link rel="stylesheet" href="css/reel.css" />
 	</head>
@@ -32,6 +36,21 @@
 					<div class="pieces" id="pieces" role="tablist"></div>
 					<div class="spacer"></div>
 					<div class="cue" id="cueRead"></div>
+					<div class="pick" title="Ident variant">
+						<span class="pick-label" id="identLabel">Ident</span>
+						<div class="seg" id="variantSeg">
+							<button type="button" data-variant="a">A</button>
+							<button type="button" data-variant="b">B</button>
+						</div>
+					</div>
+					<div class="pick" title="Theme arrangement">
+						<span class="pick-label" id="themeLabel">Theme</span>
+						<div class="seg" id="themeSeg">
+							<button type="button" data-theme="1">1</button>
+							<button type="button" data-theme="2">2</button>
+							<button type="button" data-theme="3">3</button>
+						</div>
+					</div>
 					<button class="btn primary" id="breakBtn" type="button">Play full break</button>
 					<div class="seg" id="langSeg">
 						<button type="button" data-lang="en">EN</button>
