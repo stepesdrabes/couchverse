@@ -168,16 +168,13 @@ type regenerateInput struct {
 // order) with the current template and library, keeping admin rows, locked rows and
 // whatever already started; it answers with the day's schedule.
 func (h *Admin) RegenerateDay(ctx context.Context, in *regenerateInput) (*scheduleOutput, error) {
-	cfg := LoadConfig(ctx, h.scheduler.Settings)
-	date, err := time.ParseInLocation(time.DateOnly, in.Date, cfg.location())
-	if err != nil {
+	date, cfg, err := h.scheduler.RegenerateDay(ctx, in.Date)
+	switch {
+	case errors.Is(err, errNoSuchDay):
 		return nil, httpx.NotFoundError()
-	}
-	now := h.scheduler.now()
-	if date.Before(cfg.dayOf(now)) || date.After(lastDay(cfg, now)) {
-		return nil, httpx.BadRequestError(fmt.Sprintf("only the days from today to %d days ahead can be regenerated", planDays))
-	}
-	if err := h.scheduler.Replan(ctx, date); err != nil {
+	case errors.Is(err, errDayOutOfReach):
+		return nil, httpx.BadRequestError(err.Error())
+	case err != nil:
 		return nil, err
 	}
 	return h.schedule(ctx, cfg.dayStart(date), cfg.dayStart(nextDate(date)))

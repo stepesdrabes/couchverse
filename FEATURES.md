@@ -927,7 +927,8 @@ server that does not send it). The admin settings page toggles it.
   their compositions (`Store.resetBreaksAround`, also run by the diff for every new program,
   so an up next never announces what no longer airs).
   `POST /admin/couchtv/days/{date}/regenerate` (`adminRegenerateDay`: replans that
-  day and the later ones, today to a week ahead, and answers with the day),
+  day and the later ones, today to a week ahead, and answers with the day; an operator on
+  the server runs the same as `couchverse couchtv-regenerate YYYY-MM-DD`),
   `GET/PUT /admin/couchtv/titles/{id}` (`adminGetCouchTvTitle`, `adminUpdateCouchTvTitle`:
   excluded, mood, promo audio, shots; a part left out of the PUT goes back to the analysis,
   which runs again for it; leaving or rejoining the channel queues a replan),

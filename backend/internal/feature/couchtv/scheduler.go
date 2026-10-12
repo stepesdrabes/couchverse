@@ -2,6 +2,8 @@ package couchtv
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"math"
 	"time"
@@ -117,6 +119,29 @@ func (s *Scheduler) queueNext(ctx context.Context, cfg CouchTvConfig, now time.T
 // Replan replans from a broadcast day (its date) to the end of the horizon, keeping
 // admin rows, locked rows and whatever already started. The days after it are replanned
 // too, so strips stay in order.
+// What RegenerateDay refuses: a date it cannot read, and a day outside the ones it may
+// replan (from today to planDays ahead).
+var (
+	errNoSuchDay     = errors.New("not a date")
+	errDayOutOfReach = fmt.Errorf("only the days from today to %d days ahead can be regenerated", planDays)
+)
+
+// RegenerateDay replans the broadcast day dated date (YYYY-MM-DD in the channel's zone)
+// and the days after it, the freeze included, as an admin asks to. It returns the day
+// and the config it was read in.
+func (s *Scheduler) RegenerateDay(ctx context.Context, date string) (time.Time, CouchTvConfig, error) {
+	cfg := LoadConfig(ctx, s.Settings)
+	day, err := time.ParseInLocation(time.DateOnly, date, cfg.location())
+	if err != nil {
+		return time.Time{}, cfg, errNoSuchDay
+	}
+	now := s.now()
+	if day.Before(cfg.dayOf(now)) || day.After(lastDay(cfg, now)) {
+		return time.Time{}, cfg, errDayOutOfReach
+	}
+	return day, cfg, s.Replan(ctx, day)
+}
+
 func (s *Scheduler) Replan(ctx context.Context, date time.Time) error {
 	return s.Edit(ctx, func(*Store, CouchTvConfig, time.Time) (time.Time, error) { return date, nil })
 }
