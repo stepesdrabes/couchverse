@@ -76,11 +76,13 @@ const (
 	partFrames = 120 * FPS
 )
 
-// videoCodec is every clip's encoding (D16): H.264 High at level 4.0 from the captured
-// JPEGs (full-range BT.601) to limited-range BT.709, an IDR every 2 s and at the first
-// frame, so clips concatenate by stream copy and a break segments every 6 s.
-var videoCodec = []string{"-map", "0:v",
-	"-vf", "scale=in_range=full:out_range=tv:in_color_matrix=bt601:out_color_matrix=bt709,format=yuv420p",
+// fromJPEG converts the captured JPEGs (full-range BT.601) to the clips' limited-range BT.709.
+const fromJPEG = "scale=in_range=full:out_range=tv:in_color_matrix=bt601:out_color_matrix=bt709"
+
+// videoCodec is every clip's encoding (D16): H.264 High at level 4.0, BT.709, an IDR every
+// 2 s and at the first frame, so clips concatenate by stream copy and a break segments
+// every 6 s.
+var videoCodec = []string{
 	"-c:v", "libx264", "-preset", "veryfast", "-tune", "animation", "-crf", "18",
 	"-profile:v", "high", "-level:v", "4.0", "-g", "50", "-keyint_min", "50", "-sc_threshold", "0",
 	"-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv"}
@@ -248,17 +250,21 @@ func urgency(airs time.Time) int {
 }
 
 // renderClip renders a clip into its package: every frame captured and piped to the
-// encoder (a frame identical to the one before it is reused without a capture), then its
-// sound.
+// encoder (a frame identical to the one before it is reused without a capture; a squeeze's
+// program composited by the encoder), then its sound.
 func (r *Renderer) renderClip(ctx context.Context, clip *Clip, report func(int)) (frames, version int, err error) {
-	if err := r.server.prepare(ctx, clip.Spec); err != nil {
+	spec, program, err := keyedSpec(clip.Spec)
+	if err != nil {
+		return 0, 0, err
+	}
+	if err := r.server.prepare(ctx, spec); err != nil {
 		return 0, 0, err
 	}
 	b, err := r.openBrowser()
 	if err != nil {
 		return 0, 0, err
 	}
-	loaded, err := b.load(ctx, clip.Spec)
+	loaded, err := b.load(ctx, spec)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -269,13 +275,19 @@ func (r *Renderer) renderClip(ctx context.Context, clip *Clip, report func(int))
 	if len(loaded.Missing) > 0 {
 		slog.Warn("couchtv: a clip renders without some media", "clipId", clip.ID, "missing", loaded.Missing)
 	}
+	var comp *composite
+	if program != nil {
+		if comp, err = r.compositeOf(ctx, b, program, frames); err != nil {
+			return 0, 0, err
+		}
+	}
 
 	work, err := r.workDir("clip")
 	if err != nil {
 		return 0, 0, err
 	}
 	defer os.RemoveAll(work)
-	encoder, err := r.startEncoder(ctx, work)
+	encoder, err := r.startEncoder(ctx, work, comp)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -338,9 +350,15 @@ type encoder struct {
 	stderr strings.Builder
 }
 
-func (r *Renderer) startEncoder(ctx context.Context, work string) (*encoder, error) {
+func (r *Renderer) startEncoder(ctx context.Context, work string, comp *composite) (*encoder, error) {
 	args := playback.InputArgs("-", "-f", "image2pipe", "-framerate", fmt.Sprint(FPS), "-c:v", "mjpeg")
-	args = append(args, playback.RenditionArgs(filepath.Join(work, videoDir), videoCodec, true)...)
+	codec := append([]string{"-map", "0:v", "-vf", fromJPEG + ",format=yuv420p"}, videoCodec...)
+	if comp != nil {
+		inputs, output := comp.args()
+		args = append(args, inputs...)
+		codec = append(output, videoCodec...)
+	}
+	args = append(args, playback.RenditionArgs(filepath.Join(work, videoDir), codec, true)...)
 	if err := os.MkdirAll(filepath.Join(work, videoDir), 0o755); err != nil {
 		return nil, err
 	}
@@ -350,7 +368,23 @@ func (r *Renderer) startEncoder(ctx context.Context, work string) (*encoder, err
 	if e.stdin, err = e.cmd.StdinPipe(); err != nil {
 		return nil, err
 	}
-	return e, e.cmd.Start()
+	var matte, mattes *os.File
+	if comp != nil {
+		if matte, mattes, err = os.Pipe(); err != nil {
+			return nil, err
+		}
+		e.cmd.ExtraFiles = []*os.File{matte}
+	}
+	err = e.cmd.Start()
+	if matte != nil {
+		matte.Close() // ffmpeg holds its own end: a write fails once it is gone
+		if err != nil {
+			mattes.Close()
+		} else {
+			go writeMattes(mattes, comp.rects, comp.boxes)
+		}
+	}
+	return e, err
 }
 
 func (e *encoder) finish() error {

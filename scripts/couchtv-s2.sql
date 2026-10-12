@@ -1,6 +1,7 @@
 -- Couch TV spike S2 (docs/couch-tv-plan.md): a 60 s break for the render sidecar to render
 -- and assemble, cut from one real file, on a throwaway database the app has migrated. The
--- squeeze shows the file's frames from start_ms (footage decoded per frame, like a promo);
+-- squeeze shows the file from start_ms (the sidecar composites it with ffmpeg, as it does a
+-- program's credits);
 -- the rest are the brand and card templates with stand-in artwork. Run it with
 --   psql "$S2_DB" -v file='Iron Man (2008)/Iron Man (2008).mkv' -v start_ms=7200000 -f couchtv-s2.sql
 -- (file is relative to the managed movies library, DATA_DIR/media/movies), then start the

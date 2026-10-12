@@ -30,7 +30,9 @@ import (
 //	/media/v1/frames/<media file id>/<start ms>_<count>/<n>.jpg   25 fps, 1080p, SDR
 //	/media/v1/audio/<media file id>/<start ms>_<length ms>.flac    the default track, stereo
 //
-// The v1 is the extraction recipe: a change to it changes every URL, so every clip key.
+// The v1 is the extraction recipe: a change to it changes every URL, so every clip key. The
+// squeeze's program frames are never extracted: ffmpeg composites them from the source
+// (composite.go), so only promo footage is drawn from these files.
 
 const mediaPrefix = "/media/v1/"
 

@@ -3,9 +3,12 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
@@ -20,9 +23,10 @@ import (
 
 // TestCouchTvRender renders clips in a real headless Chromium (the broadcast bundle from
 // clients/broadcast/dist, `make broadcast`): a short ident, a sting and a credits squeeze
-// over a generated program's frames and sound, then assembles them into a break, and checks
-// every package with the HLS validator and its length to the frame. It needs
-// COUCHVERSE_RENDER_TEST=1, ffmpeg and Chromium (CHROMIUM_PATH, else an installed one).
+// over a generated program's frames (composited by ffmpeg) and sound, then assembles them
+// into a break, and checks every package with the HLS validator and its length to the
+// frame. It needs COUCHVERSE_RENDER_TEST=1, ffmpeg and Chromium (CHROMIUM_PATH, else an
+// installed one).
 func TestCouchTvRender(t *testing.T) {
 	if os.Getenv("COUCHVERSE_RENDER_TEST") != "1" {
 		t.Skip("set COUCHVERSE_RENDER_TEST=1 to render with Chromium")
@@ -96,6 +100,9 @@ func TestCouchTvRender(t *testing.T) {
 			t.Fatalf("%s: %s, %d frames", c.kind, clip.State, clip.Frames)
 		}
 		validatePackage(t, filepath.Join(env.cfg.DataDir, clip.Path), c.frames)
+		if c.kind == couchtv.ClipSqueeze {
+			checkComposite(t, filepath.Join(env.cfg.DataDir, clip.Path), movie, creditsAt)
+		}
 		recipe.Clips = append(recipe.Clips, couchtv.RecipeClip{ClipID: id, Kind: c.kind, At: recipe.Frames, Frames: c.frames})
 		recipe.Sound.Items = append(recipe.Sound.Items, couchtv.BreakItem{At: float64(recipe.Frames) / couchtv.FPS, Spec: c.spec})
 		recipe.Frames += c.frames
@@ -117,6 +124,32 @@ func TestCouchTvRender(t *testing.T) {
 	ev, err := store.Evergreen(ctx)
 	if err != nil || ev.ID != breakID {
 		t.Errorf("the evergreen break: %v %v", ev, err)
+	}
+}
+
+// checkComposite compares the squeeze's panel during its hold (6 s in: 1008x567 at 96,236,
+// inside its rounded corners) with the program at that moment: ffmpeg laid the program
+// there, and the page drew no frames.
+func checkComposite(t *testing.T, dir, movie string, from time.Duration) {
+	t.Helper()
+	if _, err := os.Stat(filepath.Join(filepath.Dir(filepath.Dir(dir)), "frames")); !os.IsNotExist(err) {
+		t.Errorf("the squeeze's program was extracted as frames (%v)", err)
+	}
+	out, err := exec.Command("ffmpeg", "-hide_banner", "-i", filepath.Join(dir, "source", "index.m3u8"),
+		"-ss", fmt.Sprintf("%.3f", (from+6*time.Second).Seconds()), "-i", movie,
+		"-filter_complex", "[0:v]select='eq(n,150)',setpts=PTS-STARTPTS,crop=1000:560:100:240[a];[1:v]setpts=PTS-STARTPTS,scale=1008:567,crop=1000:560:4:4[b];[a][b]psnr",
+		"-frames:v", "1", "-f", "null", "-").CombinedOutput()
+	if err != nil {
+		t.Fatalf("compare: %v %s", err, out)
+	}
+	m := regexp.MustCompile(`average:([\d.]+)`).FindSubmatch(out)
+	if m == nil {
+		t.Fatalf("no PSNR in %s", out)
+	}
+	psnr, _ := strconv.ParseFloat(string(m[1]), 64)
+	t.Logf("the panel is %.1f dB from the program", psnr)
+	if psnr < 25 {
+		t.Errorf("the panel is %.1f dB from the program", psnr)
 	}
 }
 

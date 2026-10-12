@@ -128,6 +128,13 @@ func (b *browser) frame(ctx context.Context, i int) (bool, error) {
 	return changed, b.eval(ctx, fmt.Sprintf(`window.couchtvRender.advance(%g, %g)`, frameSeconds(i), from), &changed)
 }
 
+// keyRects are the squeeze's program rectangles of the loaded clip's frames (nil where the
+// panel is gone).
+func (b *browser) keyRects(ctx context.Context, frames int) ([]*KeyRect, error) {
+	var rects []*KeyRect
+	return rects, b.eval(ctx, fmt.Sprintf(`Array.from({ length: %d }, (_, i) => window.couchtvRender.keyRect(i / %d))`, frames, FPS), &rects)
+}
+
 // capture is the page as a JPEG at the quality the plan measured (q92).
 func (b *browser) capture(ctx context.Context) ([]byte, error) {
 	var buf []byte
