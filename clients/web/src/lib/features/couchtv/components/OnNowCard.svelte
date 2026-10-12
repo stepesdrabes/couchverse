@@ -35,7 +35,8 @@
 </script>
 
 {#if onAir || next}
-	<section class="px-6 lg:px-12" aria-labelledby="couchtv-on-now">
+	<!-- pt-12: the home's rows are pulled up over the hero's fade; the card clears its controls -->
+	<section class="px-6 pt-12 lg:px-12" aria-labelledby="couchtv-on-now">
 		<div
 			class="relative flex min-h-44 overflow-hidden rounded-card border border-edge/60 bg-surface sm:min-h-52"
 		>
