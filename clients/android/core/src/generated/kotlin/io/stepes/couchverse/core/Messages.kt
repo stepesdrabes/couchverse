@@ -363,15 +363,16 @@ data class CouchReaction (
 	val emoji: String
 )
 
-/// The live overlays (D14), by the picture's clock.
+/// The live overlays (D14), for what the picture shows: over a program they stay up whether or
+/// not the controls are; over a break there are none, since breaks carry the channel's own
+/// graphics.
 @Serializable
 data class CouchTvCues (
-	/// The corner bug with LIVE and the clock: over programs, not over breaks, which carry the
-	/// channel's own graphics.
+	/// The corner bug with LIVE and the clock.
 	val bug: Boolean,
-	/// The "Now" caption, for the first seconds of a program.
+	/// The "Now" caption: the program on screen.
 	val nowCaption: Boolean,
-	/// The "Next" caption, for a while two minutes before a program leaves the air.
+	/// The "Next" caption: the program after it, once the lineup knows one.
 	val nextCaption: Boolean
 )
 

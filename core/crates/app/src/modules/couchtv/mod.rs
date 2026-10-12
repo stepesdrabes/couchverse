@@ -55,11 +55,6 @@ const MAX_RATE_CHANGE: f64 = 0.1;
 const SETTLE_MS: U53 = 3_000;
 /// How often the picture's program date is reported to the room.
 const REPORT_EVERY_MS: U53 = 10_000;
-/// The "Now" caption shows for the first seconds of a program; the "Next" caption for a while,
-/// starting this long before the program leaves the air.
-pub(crate) const NOW_CAPTION_MS: i64 = 8_000;
-pub(crate) const NEXT_CAPTION_LEAD_MS: i64 = 120_000;
-pub(crate) const NEXT_CAPTION_MS: i64 = 12_000;
 const FIRST_BACKOFF_MS: U53 = 500;
 const MAX_BACKOFF_MS: U53 = 8_000;
 /// How long a reaction floats on screen, matching the shells' rise-and-fade animation.
@@ -474,8 +469,8 @@ impl CouchTv {
     fn follow_picture(&mut self, ctx: &mut Ctx, env: &Env) {
         let Some(at) = self.picture_date() else { return };
         let (now, coming) = on_screen(&self.lineup, at);
-        let shown = (now.as_ref().map(|n| n.api.id.clone()), cues(now.as_ref(), at));
         let exhausted = coming.is_empty();
+        let shown = (now.as_ref().map(|n| n.api.id.clone()), cues(now.as_ref(), !exhausted));
         let Some(live) = self.live.as_mut() else { return };
         if live.shown != shown {
             live.shown = shown;
@@ -989,7 +984,11 @@ impl CouchTv {
         CouchTvView {
             status: live.status,
             connection: live.connection,
-            cues: date.map_or_else(CouchTvCues::default, |(at, _)| cues(now.as_ref(), at)),
+            cues: if date.is_some() {
+                cues(now.as_ref(), !coming.is_empty())
+            } else {
+                CouchTvCues::default()
+            },
             now: now.as_ref().map(|n| n.view(images, signed_in)),
             next: coming.first().map(|n| n.view(images, signed_in)),
             later: coming.iter().skip(1).map(|l| l.view(images, signed_in)).collect(),

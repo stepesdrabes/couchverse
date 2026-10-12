@@ -168,7 +168,7 @@ fn tuning_in_mid_program_plays_the_channel_at_the_shared_moment() {
     assert_eq!(now.play, Some(PlayTarget { kind: PlayKind::Episode, id: "e-a".into() }));
     assert_eq!(tv.next.map(|n| n.id), Some("b".into()));
     assert_eq!(tv.later.len(), 1);
-    assert!(tv.cues.bug && !tv.cues.now_caption && !tv.cues.next_caption);
+    assert!(tv.cues.bug && tv.cues.now_caption && tv.cues.next_caption);
     assert_eq!(tv.program_date_ms, Some(u64::try_from(on_target + 2_000).unwrap()));
     assert_eq!(tv.program_date_at_ms, shell.now);
 
@@ -203,7 +203,7 @@ fn the_overlays_follow_the_pictures_clock_across_a_program_boundary() {
     report_drift(&mut shell, 800.0, 0);
     let tv = view(&shell);
     assert_eq!(tv.now.map(|n| n.id), Some("a".into()));
-    assert!(!tv.cues.next_caption);
+    assert!(tv.cues.bug && tv.cues.now_caption && tv.cues.next_caption);
 
     // the picture reaches the break: no bug over the channel's own graphics
     shell.now += 3_000;
@@ -217,16 +217,18 @@ fn the_overlays_follow_the_pictures_clock_across_a_program_boundary() {
     assert_eq!(tv.cues, CouchTvCues::default());
     assert_eq!(tv.next.map(|n| n.id), Some("b".into()));
 
-    // b starts on the picture, with its Now caption for a few seconds
+    // b starts on the picture, its overlays back up and staying
     shell.now = u64::try_from(b_start - SERVER_EPOCH + LATENCY + 1_000).unwrap();
     report_drift(&mut shell, 860.0, 0);
     let tv = view(&shell);
     assert_eq!(tv.now.map(|n| n.id), Some("b".into()));
-    assert!(tv.cues.bug && tv.cues.now_caption);
+    assert!(tv.cues.bug && tv.cues.now_caption && tv.cues.next_caption);
     assert_eq!(tv.next.map(|n| n.id), Some("c".into()));
     shell.now += 8_000;
+    shell.take_renders();
     report_drift(&mut shell, 868.0, 0);
-    assert!(!view(&shell).cues.now_caption);
+    assert!(view(&shell).cues.now_caption);
+    assert!(!shell.take_renders().contains(&Surface::CouchTv), "nothing changed on screen");
 }
 
 #[test]

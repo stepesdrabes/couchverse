@@ -88,18 +88,19 @@ pub struct CouchTvProgram {
     pub play: Option<PlayTarget>,
 }
 
-/// The live overlays (D14), by the picture's clock.
+/// The live overlays (D14), for what the picture shows: over a program they stay up whether or
+/// not the controls are; over a break there are none, since breaks carry the channel's own
+/// graphics.
 #[typeshare]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::struct_excessive_bools)] // a view model mirrors the flags a screen shows
 pub struct CouchTvCues {
-    /// The corner bug with LIVE and the clock: over programs, not over breaks, which carry the
-    /// channel's own graphics.
+    /// The corner bug with LIVE and the clock.
     pub bug: bool,
-    /// The "Now" caption, for the first seconds of a program.
+    /// The "Now" caption: the program on screen.
     pub now_caption: bool,
-    /// The "Next" caption, for a while two minutes before a program leaves the air.
+    /// The "Next" caption: the program after it, once the lineup knows one.
     pub next_caption: bool,
 }
 
@@ -312,16 +313,10 @@ pub(super) fn on_screen(lineup: &[Listing], at: i64) -> (Option<Listing>, Vec<&L
     (now, coming)
 }
 
-/// The overlays for what is on at `at`.
-pub(super) fn cues(now: Option<&Listing>, at: i64) -> CouchTvCues {
-    use super::{NEXT_CAPTION_LEAD_MS, NEXT_CAPTION_MS, NOW_CAPTION_MS};
-    let Some(now) = now.filter(|n| n.program()) else { return CouchTvCues::default() };
-    let left = now.ends - at;
-    CouchTvCues {
-        bug: true,
-        now_caption: at - now.starts < NOW_CAPTION_MS,
-        next_caption: left <= NEXT_CAPTION_LEAD_MS && left > NEXT_CAPTION_LEAD_MS - NEXT_CAPTION_MS,
-    }
+/// The overlays over what is on screen; `followed` says a program comes after it.
+pub(super) fn cues(now: Option<&Listing>, followed: bool) -> CouchTvCues {
+    let program = now.is_some_and(Listing::program);
+    CouchTvCues { bug: program, now_caption: program, next_caption: program && followed }
 }
 
 #[cfg(test)]
@@ -369,19 +364,14 @@ mod tests {
     }
 
     #[test]
-    fn the_captions_come_and_go_with_the_program() {
+    fn the_overlays_stay_up_over_programs() {
         let b = listing("b", "program", "2026-10-12T18:05:00Z", "2026-10-12T18:27:00Z");
-        let flags = |t: &str| {
-            let c = cues(Some(&b), at(t));
-            (c.bug, c.now_caption, c.next_caption)
-        };
-        assert_eq!(flags("2026-10-12T18:05:00Z"), (true, true, false));
-        assert_eq!(flags("2026-10-12T18:05:07Z"), (true, true, false));
-        assert_eq!(flags("2026-10-12T18:05:08Z"), (true, false, false));
-        assert_eq!(flags("2026-10-12T18:25:00Z"), (true, false, true));
-        assert_eq!(flags("2026-10-12T18:25:11Z"), (true, false, true));
-        assert_eq!(flags("2026-10-12T18:25:12Z"), (true, false, false));
+        let flags = |c: CouchTvCues| (c.bug, c.now_caption, c.next_caption);
+        assert_eq!(flags(cues(Some(&b), true)), (true, true, true));
+        // the last program the lineup knows has nothing to name next
+        assert_eq!(flags(cues(Some(&b), false)), (true, true, false));
         let brk = listing("brk", "break", "2026-10-12T18:00:00Z", "2026-10-12T18:05:00Z");
-        assert_eq!(cues(Some(&brk), at("2026-10-12T18:00:01Z")), CouchTvCues::default());
+        assert_eq!(cues(Some(&brk), true), CouchTvCues::default());
+        assert_eq!(cues(None, true), CouchTvCues::default());
     }
 }

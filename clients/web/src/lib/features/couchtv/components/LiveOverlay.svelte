@@ -8,9 +8,9 @@
 	import { clock, episodeLabel, isProgram, timeRange } from '../channel';
 	import Lockup from './Lockup.svelte';
 
-	// The live overlays (D14) in the broadcast's own look, timed by the core's cues on the
-	// picture's clock: the corner bug over programs (with the controls, and on its own as a
-	// program starts), the Now caption as one starts and the Next caption before it ends.
+	// The live overlays (D14) in the broadcast's own look, as the core cues them for what the
+	// picture shows: over a program the corner bug and the Now and Next captions stay up, with
+	// the controls or without; a break carries the channel's own graphics instead.
 	let {
 		view,
 		at,
@@ -19,21 +19,20 @@
 		view: CouchTvView;
 		/** the picture's program date, run on to now */
 		at?: number;
-		/** the viewer is about: the controls are up */
+		/** the viewer is about: the controls are up, and the captions make room for them */
 		active: boolean;
 	} = $props();
 
 	const lang = $derived(currentLang());
 	const now = $derived(isProgram(view.now) ? view.now : undefined);
 	const next = $derived(view.next);
-	const bug = $derived(view.cues.bug && (active || view.cues.nowCaption));
 	const style =
 		`--brand: ${colors.accent}; --brand-ink: ${colors['accent-ink']};` +
 		`--display: '${DISPLAY_FAMILY}', var(--font-sans);`;
 </script>
 
 <div class="pointer-events-none absolute inset-0 z-10" {style}>
-	{#if bug}
+	{#if view.cues.bug}
 		<div
 			transition:fade={{ duration: 400 }}
 			class="bug absolute top-[4.5rem] right-4 flex items-center gap-3 sm:top-7 sm:right-8"
@@ -50,8 +49,8 @@
 	{/if}
 
 	<div
-		class="captions absolute flex flex-col items-start gap-2"
-		style="bottom: {active ? '7.5rem' : '2.5rem'}; left: {active ? '4.5rem' : '1.75rem'}"
+		class="captions absolute flex flex-col items-start gap-1.5"
+		style="bottom: {active ? '7.5rem' : '1.75rem'}; left: {active ? '4.5rem' : '1.75rem'}"
 	>
 		{#if view.cues.nowCaption && now}
 			<div
@@ -60,9 +59,9 @@
 				class="caption flex max-w-[min(36rem,85vw)] items-stretch"
 			>
 				<span class="tag">{m.couchtv_now()}</span>
-				<div class="panel min-w-0">
+				<div class="panel flex min-w-0 items-baseline gap-3">
 					<p class="title truncate">{now.title}</p>
-					<p class="meta flex flex-wrap gap-x-2">
+					<p class="meta hidden shrink-0 gap-x-2 sm:flex">
 						{#if now.episode}
 							<span>{episodeLabel(now.episode)}</span>
 						{/if}
@@ -121,7 +120,8 @@
 		}
 	}
 
-	/* with the controls up the captions make room for the quick reactions beside them */
+	/* they stay up through a program, so one line each; with the controls up they make room
+	   for the quick reactions beside them */
 	.captions {
 		transition:
 			bottom 0.25s ease,
@@ -140,13 +140,13 @@
 		color: white;
 		font-family: var(--display);
 		font-weight: 700;
-		font-size: 0.85rem;
+		font-size: 0.8rem;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 	}
 
 	.panel {
-		padding: 0.55rem 0.9rem 0.6rem;
+		padding: 0.45rem 0.8rem;
 		background: rgb(0 0 0 / 0.82);
 		color: white;
 	}
@@ -154,13 +154,12 @@
 	.title {
 		font-family: var(--display);
 		font-weight: 700;
-		font-size: 1.25rem;
+		font-size: 1.1rem;
 		line-height: 1.15;
 		text-transform: uppercase;
 	}
 
 	.meta {
-		margin-top: 0.15rem;
 		font-size: 0.8rem;
 		color: rgb(255 255 255 / 0.8);
 	}
@@ -168,7 +167,7 @@
 	.time {
 		font-family: var(--display);
 		font-weight: 700;
-		font-size: 1.25rem;
+		font-size: 1.1rem;
 		color: var(--brand-ink);
 	}
 </style>

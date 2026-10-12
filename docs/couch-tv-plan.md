@@ -29,7 +29,7 @@ in section 3.
 | D11 | **Presence + emoji reactions** ("7 watching now", avatars, floating reactions). No chat. |
 | D12 | Channel watching counts toward **Continue watching**, **watch-time analytics** (its own TV bucket) and **ranks XP + new achievements** (time-based, social, loyalty). |
 | D13 | **Cutscenes are English only.** The surrounding web UI stays localized (en/cs). |
-| D14 | **Live client overlays** over programs: corner bug with LIVE and the clock, a "Now" caption at program start, a "Next" caption near the end. The **credits squeeze** is pre-rendered into the break, composited with the program's last seconds. |
+| D14 | **Live client overlays** over programs: corner bug with LIVE and the clock, a "Now" caption and a "Next" caption, all up through the whole program whether or not the controls are (first built timed: Now at program start, Next near the end; the owner asked for them always on). The **credits squeeze** is pre-rendered into the break, composited with the program's last seconds. |
 | D15 | **Renderer = a sidecar container on the Pi** (`couchverse-render`: the same Go binary in render mode plus Chromium, using the Pi's GPU), memory-capped, low priority, never rendering while a transcode runs. The main image stays slim. |
 | D16 | **Output: 1080p, 25 fps**, H.264 High (libx264, CRF ~18) + AAC stereo, loudness-managed. |
 | D17 | **Smart-mix breaks**: credits squeeze, short ident, 1-2 promos, up next; a lineup card in top-of-hour breaks; the full epic ident before the 20:15 movie; extra promos pad longer gaps. |
@@ -780,7 +780,8 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   tune-in's midpoint and refreshed by the socket's `hello`; the hold acts only on a report that
   carries a fresh program date, from a playing, unbuffered player 3 s after a load or a seek.
   The overlays: the Now caption for a program's first 8 s, the Next caption for 12 s from two
-  minutes before it leaves the air, the bug over programs only. A failing player is tuned in
+  minutes before it leaves the air, the bug over programs only (since 2026-10-12 all three
+  stay up through a program, see D14). A failing player is tuned in
   again (a fresh grant) and reloaded three times in a row before the view fails with
   `couchtv_playback_failed`. The new code took the wasm core from about 395 KB to 411 KB
   gzipped, so its budget went from 400 KB to 440 KB.
@@ -859,11 +860,12 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   playback events for the channel's audio and subtitle choices. Live never pauses: a picture
   the browser stopped (a blocked autoplay) shows one Play button that resumes at the live
   edge.
-- **The overlays** follow the core's cues on the picture's clock. The corner bug shows over
-  programs with the controls and on its own as a program starts (its Now caption's 8 s), so
-  activity brings it back and it fades with the controls. Captions are lower thirds in the
-  broadcast's look (Saira caps, a red tag); with the controls up they move above the bar and
-  aside for the quick reactions. The lockup comes from the package's brand module, its fonts
+- **The overlays** follow the core's cues on the picture's clock. The corner bug, the Now
+  caption and the Next caption stay up through a program, with the controls or without (D14;
+  until 2026-10-12 the bug came with the controls and the captions for a few seconds each).
+  Captions are one-line lower thirds in the broadcast's look (Saira caps, a red tag); with the
+  controls up they move above the bar and aside for the quick reactions, and the live
+  player's subtitles sit above them. The lockup comes from the package's brand module, its fonts
   from the package's loader once one is on screen, so pages with a lockup (home's card) never
   load the templates or the audio engine.
 - **Reactions** reuse couch's emoji button and bundled picker, with five quick picks for one

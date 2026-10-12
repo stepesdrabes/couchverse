@@ -485,7 +485,12 @@
 	></video>
 
 	{#if player?.cueHtml && !pipActive}
-		<div class="subtitle-overlay" class:raised={controlsVisible} style={subCssVars}>
+		<div
+			class="subtitle-overlay"
+			class:raised={controlsVisible}
+			class:live={!!live}
+			style={subCssVars}
+		>
 			<!-- cue markup comes from the browser's own VTT parser (getCueAsHTML) -->
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html player.cueHtml}
@@ -1286,6 +1291,15 @@
 
 		&.raised {
 			bottom: 8rem;
+		}
+
+		/* a live channel's Now and Next captions hold the lower left all through a program */
+		&.live {
+			bottom: 7.5rem;
+		}
+
+		&.live.raised {
+			bottom: 13rem;
 		}
 
 		:global(b) {
