@@ -481,21 +481,39 @@ extension L10n {
     public static func playerUpNext(seconds: String) -> String { format("player_up_next", [seconds]) }
     public static var playerVolume: String { string("player_volume") }
     public static var problemAlreadyHosting: String { string("problem_already_hosting") }
+    public static var problemAnchorNeedsTime: String { string("problem_anchor_needs_time") }
     public static var problemConflict: String { string("problem_conflict") }
+    public static var problemDayNeedsAnchor: String { string("problem_day_needs_anchor") }
+    public static var problemDayWithoutSlots: String { string("problem_day_without_slots") }
+    public static var problemExcluded: String { string("problem_excluded") }
+    public static var problemFileMissing: String { string("problem_file_missing") }
     public static var problemForbidden: String { string("problem_forbidden") }
     public static var problemGeneric: String { string("problem_generic") }
     public static var problemInvalidAddress: String { string("problem_invalid_address") }
     public static var problemInvalidCode: String { string("problem_invalid_code") }
     public static var problemInvalidCredentials: String { string("problem_invalid_credentials") }
     public static var problemInvalidPassword: String { string("problem_invalid_password") }
+    public static var problemInvalidPinnedTitle: String { string("problem_invalid_pinned_title") }
+    public static var problemInvalidRotation: String { string("problem_invalid_rotation") }
+    public static var problemInvalidSlot: String { string("problem_invalid_slot") }
+    public static var problemInvalidTimeZone: String { string("problem_invalid_time_zone") }
+    public static var problemNoAudio: String { string("problem_no_audio") }
+    public static var problemNoMedia: String { string("problem_no_media") }
     public static var problemNoTmdbId: String { string("problem_no_tmdb_id") }
     public static var problemNoTmdbKey: String { string("problem_no_tmdb_key") }
     public static var problemNotAServer: String { string("problem_not_a_server") }
     public static var problemNotHost: String { string("problem_not_host") }
+    public static var problemNotPublished: String { string("problem_not_published") }
     public static var problemOffline: String { string("problem_offline") }
+    public static var problemOnAir: String { string("problem_on_air") }
+    public static var problemOutsideHorizon: String { string("problem_outside_horizon") }
+    public static var problemOverlap: String { string("problem_overlap") }
     public static var problemRateLimited: String { string("problem_rate_limited") }
+    public static var problemRerunsWithoutEnd: String { string("problem_reruns_without_end") }
     public static var problemServerOutdated: String { string("problem_server_outdated") }
     public static var problemSessionFull: String { string("problem_session_full") }
+    public static var problemSlotOutOfOrder: String { string("problem_slot_out_of_order") }
+    public static var problemSourceDeleted: String { string("problem_source_deleted") }
     public static var problemTimeout: String { string("problem_timeout") }
     public static var problemTls: String { string("problem_tls") }
     public static var problemTmdbError: String { string("problem_tmdb_error") }

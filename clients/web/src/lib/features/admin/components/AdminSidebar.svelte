@@ -24,7 +24,7 @@
 		{ href: '/admin/library', label: m.admin_nav_library(), icon: Library },
 		{ href: '/admin/users', label: m.admin_nav_users(), icon: Users },
 		{ href: '/admin/ranks', label: m.admin_nav_ranks(), icon: Trophy },
-		{ href: '/admin/couch-tv/preview', label: m.admin_nav_couch_tv(), icon: Tv },
+		{ href: '/admin/couch-tv', label: m.admin_nav_couch_tv(), icon: Tv },
 		{ href: '/admin/jobs', label: m.admin_nav_jobs(), icon: Database },
 		{ href: '/admin/settings', label: m.admin_nav_settings(), icon: Settings }
 	]);

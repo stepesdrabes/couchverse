@@ -134,7 +134,7 @@
 	<title>{m.admin_couchtv_preview_page_title()}</title>
 </svelte:head>
 
-<h1 class="mb-2 text-2xl font-bold">{m.admin_couchtv_preview_title()}</h1>
+<h2 class="mb-2 text-lg font-semibold">{m.admin_couchtv_preview_title()}</h2>
 <p class="mb-6 max-w-3xl text-sm text-muted">{m.admin_couchtv_english_hint()}</p>
 
 {#if loaded && NEEDS_TITLE[t] && rows.length === 0}

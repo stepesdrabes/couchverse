@@ -8294,6 +8294,23 @@
         }
       }
     },
+    "problem_anchor_needs_time": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kotva potřebuje čas začátku."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An anchor slot needs a start time."
+          }
+        }
+      }
+    },
     "problem_conflict": {
       "extractionState": "manual",
       "localizations": {
@@ -8307,6 +8324,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "That username is already taken."
+          }
+        }
+      }
+    },
+    "problem_day_needs_anchor": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den musí začínat kotvou."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A day must start with an anchor slot."
+          }
+        }
+      }
+    },
+    "problem_day_without_slots": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Každý den v týdnu potřebuje aspoň jeden slot."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every day of the week needs at least one slot."
+          }
+        }
+      }
+    },
+    "problem_excluded": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento titul na Couch TV není."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This title is not on Couch TV."
+          }
+        }
+      }
+    },
+    "problem_file_missing": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soubor na disku chybí."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file is missing on disk."
           }
         }
       }
@@ -8413,6 +8498,108 @@
         }
       }
     },
+    "problem_invalid_pinned_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připnutý titul už neexistuje nebo se do slotu nehodí: seriálové sloty připínají seriály, ostatní filmy."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A pinned title is gone or does not suit its slot: series slots pin series, the others movies."
+          }
+        }
+      }
+    },
+    "problem_invalid_rotation": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hodnota střídání je mimo rozsah."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A rotation value is out of range."
+          }
+        }
+      }
+    },
+    "problem_invalid_slot": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slot potřebuje jedinečný název (malá písmena, číslice a pomlčky), aspoň jeden den, platný čas a nejvýš 20 dílů."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A slot needs a unique name (lowercase letters, digits and hyphens), at least one day, a valid time and up to 20 episodes."
+          }
+        }
+      }
+    },
+    "problem_invalid_time_zone": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toto časové pásmo neznáme."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That time zone is not known."
+          }
+        }
+      }
+    },
+    "problem_no_audio": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soubor nemá zvuk."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file has no sound."
+          }
+        }
+      }
+    },
+    "problem_no_media": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z tohoto titulu zatím nelze nic přehrát."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing of this title can play yet."
+          }
+        }
+      }
+    },
     "problem_no_tmdb_id": {
       "extractionState": "manual",
       "localizations": {
@@ -8481,6 +8668,23 @@
         }
       }
     },
+    "problem_not_published": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento titul není zveřejněný."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This title is not published."
+          }
+        }
+      }
+    },
     "problem_offline": {
       "extractionState": "manual",
       "localizations": {
@@ -8498,6 +8702,57 @@
         }
       }
     },
+    "problem_on_air": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vysílá se nebo navazuje na právě vysílaný pořad, proto ho už nelze změnit."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is on air or comes right after what is, so it can no longer change."
+          }
+        }
+      }
+    },
+    "problem_outside_horizon": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pořady lze umístit jen mezi teď a koncem naplánovaného týdne."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Programs can only be placed between now and the end of the planned week."
+          }
+        }
+      }
+    },
+    "problem_overlap": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překrýval by se s pořadem, který zůstává (nastavený administrátorem, zamčený nebo vysílaný), nebo by mezi nimi zbyla kratší než nejkratší přestávka."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It would run into a program that stays (set by an admin, locked or on air), or leave less than the shortest break."
+          }
+        }
+      }
+    },
     "problem_rate_limited": {
       "extractionState": "manual",
       "localizations": {
@@ -8511,6 +8766,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Too many attempts. Try again in a minute."
+          }
+        }
+      }
+    },
+    "problem_reruns_without_end": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slot repríz potřebuje za sebou slot s časem, nebo musí den ukončit."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A reruns slot needs a slot with a time after it, or must end the day."
           }
         }
       }
@@ -8545,6 +8817,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "This couch is full."
+          }
+        }
+      }
+    },
+    "problem_slot_out_of_order": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Časy slotů musí během dne jít po sobě."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slot times must follow one another through the day."
+          }
+        }
+      }
+    },
+    "problem_source_deleted": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Původní soubor byl po překódování odstraněn."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original file was removed after transcoding."
           }
         }
       }

@@ -12,6 +12,7 @@
 	import LogosPanel from '$lib/features/library/components/editor/LogosPanel.svelte';
 	import MovieFilesPanel from '$lib/features/library/components/editor/MovieFilesPanel.svelte';
 	import StorageChart from '$lib/features/library/components/editor/StorageChart.svelte';
+	import TitleCouchTvPanel from '$lib/features/couchtv/components/TitleCouchTvPanel.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Confirm from '$lib/components/ui/Confirm.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -380,6 +381,8 @@
 	/>
 
 	<StorageChart titleId={data.title.id} kind={data.title.kind} />
+
+	<TitleCouchTvPanel title={data} />
 
 	{#if data.title.kind === 'series'}
 		<EpisodesTable

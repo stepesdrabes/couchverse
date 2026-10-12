@@ -1,4 +1,44 @@
-// Couch TV admin data. The broadcast preview reads the library through the existing admin
-// operations; the channel's own operations arrive with the schedule.
-export { adminGetTitle, adminListLibrary } from '$lib/generated/api';
-export type { AdminTitle, Artwork, LibraryRow } from '$lib/generated/api';
+// Couch TV admin data: the channel's config and schedule, render health and per-title
+// tools, plus the library reads the broadcast preview and the pickers use.
+export {
+	adminAnalyzeCouchTvTitle,
+	adminCouchTvRenderHealth,
+	adminCouchTvWaveform,
+	adminGetCouchTv,
+	adminGetCouchTvTitle,
+	adminGetMediaMarkers,
+	adminGetTitle,
+	adminInsertAiring,
+	adminListAirings,
+	adminListLibrary,
+	adminRegenerateDay,
+	adminUpdateAiring,
+	adminUpdateCouchTv,
+	adminUpdateCouchTvTitle,
+	adminUpdateMediaMarkers,
+	getStreamFramePath,
+	// a media grant for a title's file: the stills and the promo audio play through it
+	resolvePlayback
+} from '$lib/generated/api';
+export type {
+	AdminTitle,
+	Artwork,
+	CouchTvAiring,
+	CouchTvAiringEdit,
+	CouchTvConfig,
+	CouchTvOverview,
+	CouchTvRenderHealth,
+	CouchTvSchedule,
+	CouchTvShot,
+	CouchTvSlotFill,
+	CouchTvSlotPick,
+	CouchTvTitle,
+	CouchTvTitleUpdate,
+	CouchTvWaveform,
+	LibraryRow,
+	MediaMarker,
+	MediaMarkerEdit,
+	MediaMarkerKind,
+	MediaMarkers,
+	PlaybackInfo
+} from '$lib/generated/api';
