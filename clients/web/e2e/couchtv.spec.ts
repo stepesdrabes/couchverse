@@ -11,8 +11,9 @@ import {
 } from './fixtures';
 
 // e2e/setup.sql turns Couch TV on and airs the series' first episode every 32 s (24 s of it,
-// then the built-in slate), so a program comes on screen within a cycle, its Now caption with
-// it. The picture runs three target durations (30 s) behind the server's clock.
+// then the built-in slate), so a program comes on screen within a cycle, the corner bug with it
+// and its Now caption with the controls. The picture runs three target durations behind the
+// server's clock.
 const CYCLE = 45_000;
 const pilot = series.episodes[0];
 
@@ -35,12 +36,19 @@ test.describe('a member', () => {
 		await expect(page).toHaveURL('/tv');
 		await expect.poll(() => videoPaused(page), { timeout: MEDIA_TIMEOUT }).toBe(false);
 
-		// a program comes on: its Now caption and the corner bug, LIVE with the clock
-		const now = page.getByText(t('couchtv_now'), { exact: true });
-		await expect(now).toBeVisible({ timeout: CYCLE });
-		await expect(page.getByText(t('couchtv_live'), { exact: true })).toBeVisible();
+		// a program comes on: the corner bug, LIVE with the clock, stays up; its Now caption
+		// comes with the controls and leaves with them
+		const live = page.getByText(t('couchtv_live'), { exact: true });
+		await expect(live).toBeVisible({ timeout: CYCLE });
 		await expect(page.getByRole('img', { name: 'Couch TV' }).first()).toBeVisible();
+		const now = page.getByText(t('couchtv_now'), { exact: true });
+		await expect(async () => {
+			await poke(page);
+			await expect(now).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: CYCLE });
 		await expect(page.getByText(series.name, { exact: true }).first()).toBeVisible();
+		await expect(now).toBeHidden({ timeout: 15_000 });
+		await expect(live).toBeVisible();
 
 		// over a program, the controls offer it from the start in the on-demand player
 		const fromStart = page.getByRole('link', { name: t('couchtv_watch_from_start') });
@@ -135,9 +143,12 @@ test.describe('a guest', () => {
 		await guest.getByRole('button', { name: t('couchtv_join_submit') }).click();
 		await expect(guest).toHaveURL('/tv');
 		await expect.poll(() => videoPaused(guest), { timeout: MEDIA_TIMEOUT }).toBe(false);
-		await expect(guest.getByText(t('couchtv_now'), { exact: true })).toBeVisible({
-			timeout: CYCLE
-		});
+		await expect(async () => {
+			await poke(guest);
+			await expect(guest.getByText(t('couchtv_now'), { exact: true })).toBeVisible({
+				timeout: 1000
+			});
+		}).toPass({ timeout: CYCLE });
 
 		// live only: no guide, nothing to watch from the start, no library to go back to
 		await poke(guest);
