@@ -7,15 +7,18 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"couchverse/internal/media"
 )
 
 // Run executes ffmpeg with args, reporting progress as a percentage of
-// durationSeconds. background lowers its priority below the web server's.
+// durationSeconds. background runs it below the web server's CPU and I/O priority
+// (media.BackgroundCmd).
 func Run(ctx context.Context, ffmpegPath string, args []string, background bool, durationSeconds float64, report func(pct int)) error {
 	args = append([]string{"-progress", "pipe:1", "-nostats"}, args...)
 	var cmd *exec.Cmd
 	if background {
-		cmd = exec.CommandContext(ctx, "nice", append([]string{"-n", "19", ffmpegPath}, args...)...)
+		cmd = media.BackgroundCmd(ctx, ffmpegPath, args...)
 	} else {
 		cmd = exec.CommandContext(ctx, ffmpegPath, args...)
 	}

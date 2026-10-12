@@ -16,8 +16,8 @@ import (
 )
 
 // The measurements behind media analysis (library's markers, Couch TV's promo picks):
-// ffmpeg reads a stretch of a file and hands back numbers. Every run is nice'd, since
-// analysis is background work on a small server.
+// ffmpeg reads a stretch of a file and hands back numbers. Every run is background work
+// (BackgroundCmd).
 
 // FingerprintItem is the span of one chromaprint item in seconds: algorithm 1 hashes
 // 4096-sample frames at 11025 Hz, a third of a frame apart.
@@ -27,7 +27,7 @@ const FingerprintItem = 4096.0 / 3 / 11025
 const LoudnessStep = 0.1
 
 func analysisCmd(ctx context.Context, ffmpegPath string, args ...string) *exec.Cmd {
-	return exec.CommandContext(ctx, "nice", append([]string{"-n", "19", ffmpegPath, "-hide_banner", "-nostdin"}, args...)...)
+	return BackgroundCmd(ctx, ffmpegPath, append([]string{"-hide_banner", "-nostdin"}, args...)...)
 }
 
 // seekArgs read [from, from+length) of file; a zero length reads to the end. The seek

@@ -21,7 +21,8 @@ const renderRestartEvery = 25
 
 // runRender is `couchverse render`, the Couch TV render sidecar (docs/couch-tv-plan.md
 // 6.7): it works the couchtv_render and couchtv_assemble jobs with one headless Chromium,
-// one job at a time, never while a transcode runs, at a low CPU priority. It shares the
+// one job at a time, never while a transcode runs, at a low CPU and the idle I/O
+// priority (its image's entrypoint). It shares the
 // app's database and DATA_DIR and serves no API.
 func runRender() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -37,10 +38,6 @@ func runRender() error {
 	defer pool.Close()
 	if err := db.WaitForMigrations(ctx, pool); err != nil {
 		return err
-	}
-	// Chromium and ffmpeg inherit the priority, so the app and Postgres come first
-	if err := syscall.Setpriority(syscall.PRIO_PROCESS, 0, 10); err != nil {
-		slog.Warn("render: could not lower the priority", "err", err)
 	}
 
 	bundle, err := fs.Sub(broadcast.Dist, "dist")

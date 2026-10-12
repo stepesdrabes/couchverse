@@ -81,7 +81,10 @@ RUN apt-get update \
 COPY --from=render-backend /couchverse /usr/local/bin/couchverse
 ENV CHROMIUM_PATH=/usr/bin/chromium
 USER couchverse
-ENTRYPOINT ["couchverse", "render"]
+# every thread and child (Chromium, ffmpeg) inherits a low CPU priority and the idle I/O
+# class, so the app, Postgres and the live stream come first (a Go process can only nice
+# the thread that asks)
+ENTRYPOINT ["nice", "-n", "10", "ionice", "-c", "3", "couchverse", "render"]
 
 # ---- runtime ----
 FROM debian:trixie-slim

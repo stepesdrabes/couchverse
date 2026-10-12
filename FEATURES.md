@@ -34,9 +34,10 @@ Shared kernel (backend): `internal/app` (wiring of stores, services and the job 
 `internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
 (the huma API, error envelope, `Routes` groups, `Tag`/`Localized`/`Guard`/`Raw`), `internal/media`
 (ffprobe, codec compatibility, filename parsing, transcode ladder and auto-prepare policy,
-shared `MediaFile`/`Subtitle` row types, the nice'd analysis measurements in `analyze.go`:
-chromaprint, EBU R128 loudness and its steady stretches, small decoded frames; `media/mp4`
-reads fMP4 init sections and segments),
+shared `MediaFile`/`Subtitle` row types, the analysis measurements in `analyze.go`:
+chromaprint, EBU R128 loudness and its steady stretches, small decoded frames; `BackgroundCmd`,
+which runs background ffmpeg work (transcodes, analysis) at nice 19 in the idle I/O class where
+`ionice` exists; `media/mp4` reads fMP4 init sections and segments),
 `internal/hls` (HLS playlists: writer, parser, WebVTT segmenting and the validator behind
 `couchverse validate-hls`), `internal/settings` (settings KV store),
 `internal/flags` (admin-toggleable feature flags), `internal/grant` (media, artwork and
@@ -865,7 +866,9 @@ server that does not send it). The admin settings page toggles it.
   on the same database and `DATA_DIR` that registers only `couchtv_render` and
   `couchtv_assemble` (the app never does), runs one job at a time and claims a render only
   while no `transcode_hls` job runs (`jobs.Runner.Yield`; backfill such as the channel's
-  trick-play renditions does not count), at nice 10, its encoder on two threads (capture is
+  trick-play renditions does not count), at nice 10 and in the idle I/O class (the image's
+  entrypoint wraps it in `nice` and `ionice`, so Chromium and every ffmpeg inherit them), its
+  encoder on two threads (capture is
   the bottleneck); it closes Chromium whenever no render or assembly is due, so outside the
   quiet hours it holds no browser. It serves the embedded
   broadcast bundle (`backend/broadcast`, `make build`) and the media above on localhost to one
