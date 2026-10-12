@@ -140,7 +140,9 @@ func TestMeasurements(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(fp); n < 30 || n > 50 {
+	// 6 s is about 48 items of 0.1238 s, less the frames chromaprint spends warming up
+	// (27 with Ubuntu's ffmpeg)
+	if n := len(fp); n < 20 || n > 50 {
 		t.Errorf("%d fingerprint items for 6 s", n)
 	}
 }
