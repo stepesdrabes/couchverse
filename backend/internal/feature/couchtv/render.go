@@ -81,9 +81,11 @@ const fromJPEG = "scale=in_range=full:out_range=tv:in_color_matrix=bt601:out_col
 
 // videoCodec is every clip's encoding (D16): H.264 High at level 4.0, BT.709, an IDR every
 // 2 s and at the first frame, so clips concatenate by stream copy and a break segments
-// every 6 s.
+// every 6 s. The rate cap keeps film grain, which changes every frame, from spending
+// 40+ Mb/s on noise: too much for the live stream and several times slower to encode.
 var videoCodec = []string{
 	"-c:v", "libx264", "-preset", "veryfast", "-tune", "animation", "-crf", "18",
+	"-maxrate", "8M", "-bufsize", "16M",
 	"-profile:v", "high", "-level:v", "4.0", "-g", "50", "-keyint_min", "50", "-sc_threshold", "0",
 	"-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv"}
 
