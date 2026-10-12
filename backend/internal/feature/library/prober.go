@@ -82,7 +82,7 @@ func (p *Prober) Handle(ctx context.Context, job *jobs.Job, report func(int)) er
 		return err
 	}
 	names := media.AutoPrepare(res, media.LoadTranscodeSettings(ctx, p.Settings))
-	_, err = Prepare(ctx, p.Files, p.Jobs, probed, len(res.AudioStreams) > 0, names)
+	_, err = Prepare(ctx, p.Files, p.Jobs, probed, len(res.AudioStreams) > 0, names, PrepareOpts{})
 	return err
 }
 
@@ -170,7 +170,7 @@ func (p *Prober) reprobe(ctx context.Context, mf *media.MediaFile, settings medi
 			if err != nil {
 				return err
 			}
-			_, err = Prepare(ctx, p.Files, p.Jobs, probed, len(res.AudioStreams) > 0, []string{name})
+			_, err = Prepare(ctx, p.Files, p.Jobs, probed, len(res.AudioStreams) > 0, []string{name}, PrepareOpts{})
 			return err
 		}
 	}

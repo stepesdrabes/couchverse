@@ -528,8 +528,11 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   - Media playlists: a sliding window (2 min), `EXT-X-PROGRAM-DATE-TIME` on the first segment
     and every discontinuity, `EXT-X-DISCONTINUITY` at every program/break boundary,
     `EXT-X-MAP` repeated after each, a segment listed as soon as it goes on air, and a
-    **constant** target duration (RFC 8216 forbids changing it): 10 s, with programs whose
-    package has a longer segment (`LiveItem.MaxSegment`) airing from the 1080p rung.
+    **constant** target duration (RFC 8216 forbids changing it): 16 s, with programs whose
+    package has a longer segment (`LiveItem.MaxSegment`) airing from the 1080p rung. (It
+    was 10 s until the first day on the Pi: almost every copied source had a few 11-16 s
+    segments, so nearly every program waited for a 1080p encode that runs about as long as
+    the program, and the channel aired the standby card instead.)
   - Programs reuse their Playback v2 packages (copied source or the 1080p rung, the AAC
     audio renditions, the segmented WebVTT) and air to a video segment boundary; the audio
     segment that runs past it is served **trimmed** (`mp4.Trim`, `LiveSchedule.Trim`),
@@ -880,7 +883,7 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   32 s (to its credits at 24 s, the slate in the breaks) as locked admin rows, so the admin
   spec's replan airs around them; the e2e server makes the episode's package with the real
   job before it reports ready, and its clips have a keyframe every 2 s so the copied source
-  fits the 10 s target duration.
+  fits the target duration.
 - **Problem codes** with messages: `couchtv_playback_failed`, `invalid_name`,
   `no_channel_guest`, `no_channel_link` and `feature_disabled` (a guest of a channel that is
   off), worded on Apple and Android too.

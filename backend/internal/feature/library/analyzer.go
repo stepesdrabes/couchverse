@@ -36,9 +36,11 @@ const (
 )
 
 // Analysis runs below every other job, the backfill below new files.
+// PriorityBackfill is also what other work nobody waits for runs at: a render
+// does not yield to it (jobs.Runner.Yield).
 const (
 	priorityNew      = -5
-	priorityBackfill = -10
+	PriorityBackfill = -10
 )
 
 // seasonDelay lets a season's files be fingerprinted (an upload brings many at once)
@@ -72,7 +74,7 @@ type MarkerAnalyzer struct {
 // Start queues the backfill, which queues every file no analyzer (or an older one)
 // looked at; once the library is analyzed it finds nothing.
 func (a *MarkerAnalyzer) Start(ctx context.Context) error {
-	_, err := a.Jobs.EnqueueJobOnce(ctx, MarkersJob, AnalyzePayload{}, jobs.EnqueueOpts{Priority: priorityBackfill})
+	_, err := a.Jobs.EnqueueJobOnce(ctx, MarkersJob, AnalyzePayload{}, jobs.EnqueueOpts{Priority: PriorityBackfill})
 	return err
 }
 
@@ -134,7 +136,7 @@ func (a *MarkerAnalyzer) backfill(ctx context.Context) error {
 		if f.TitleKind == "series" && !series {
 			continue
 		}
-		if err := queueFile(ctx, a.Jobs, f.ID, priorityBackfill); err != nil {
+		if err := queueFile(ctx, a.Jobs, f.ID, PriorityBackfill); err != nil {
 			return err
 		}
 		queued++

@@ -175,7 +175,7 @@ func testChannel() (*Channel, *fakeStore) {
 				},
 			},
 			uuidOf(102): {
-				Source: ptr(rendition("source", rung, 10.5, 10.5, 10.5)),
+				Source: ptr(rendition("source", rung, 16.6, 16.6)),
 				Ladder: []playback.PackageRendition{rendition("1080p", rung, 6, 6, 6, 6, 6, 1.5)},
 				Stereo: []playback.PackageRendition{rendition("audio-1-aac", stereo("en", false), 6, 6, 6, 6, 6, 1.5)},
 			},
@@ -257,7 +257,7 @@ func TestLivePlaylists(t *testing.T) {
 	want := []string{
 		p1 + "video/seg_00000.m4s", p1 + "video/seg_00001.m4s", p1 + "video/seg_00002.m4s", p1 + "video/seg_00003.m4s",
 		b1 + "video/seg_00000.m4s", b1 + "video/seg_00001.m4s",
-		// the copied source's 10.5 s segments exceed the target: the 1080p rung airs, cut at 24 s (credits at 25)
+		// the copied source's 16.6 s segments exceed the target: the 1080p rung airs, cut at 24 s (credits at 25)
 		p3 + "video/seg_00000.m4s", p3 + "video/seg_00001.m4s", p3 + "video/seg_00002.m4s", p3 + "video/seg_00003.m4s",
 		// the break is not ready: the evergreen break airs
 		b4 + "video/seg_00000.m4s",
@@ -494,9 +494,10 @@ func TestAirable(t *testing.T) {
 		{"a copied H.264 source airs to its end", source(h264, 6, 6, 6, 3), 0, "source", 21},
 		{"to the boundary nearest the credits", source(h264, 6, 6, 6, 3), 13 * time.Second, "source", 12},
 		{"credits past the end are ignored", source(h264, 6, 6), 30 * time.Second, "source", 12},
-		{"long segments before the cut need the rung", &playback.Package{Source: ptr(rendition("source", h264, 6, 10.6, 6)),
+		{"segments up to the target air as copied", source(h264, 10.5, 10.5, 5), 0, "source", 26},
+		{"longer ones before the cut need the rung", &playback.Package{Source: ptr(rendition("source", h264, 6, 16.6, 6)),
 			Ladder: []playback.PackageRendition{rendition("720p", h264, 6, 6, 6, 4.6)}}, 0, "720p", 22.6},
-		{"a long segment after the credits does not", source(h264, 6, 6, 10.6), 12 * time.Second, "source", 12},
+		{"a long segment after the credits does not", source(h264, 6, 6, 16.6), 12 * time.Second, "source", 12},
 		{"HEVC airs from the tallest rung up to 1080p", &playback.Package{Source: ptr(rendition("source", hevc, 6, 6)),
 			Ladder: []playback.PackageRendition{rendition("2160p", playback.RenditionInfo{Codec: "avc1.640033", Width: 3840, Height: 2160}, 6, 6),
 				rendition("1080p", rung, 6, 6), rendition("720p", h264, 6, 6)}}, 0, "1080p", 12},

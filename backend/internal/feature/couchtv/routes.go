@@ -143,7 +143,7 @@ func playlistOp(apiErr *huma.Response) huma.Operation {
 	op := tag.Op("getCouchTvPlaylist", http.MethodGet, "/live/{playlist}")
 	op.Summary = "Get a Couch TV live media playlist"
 	op.Description = "The last two minutes of a rendition: a discontinuity and a program date at every program, break " +
-		"and stretch of slate, a constant 10 s target duration. 404 off_air when nothing is on air."
+		"and stretch of slate, a constant 16 s target duration. 404 off_air when nothing is on air."
 	op.Parameters = []*huma.Param{pathParam("playlist", "video.m3u8, audio-<lang>.m3u8 or subs-<lang>.m3u8.",
 		&huma.Schema{Type: huma.TypeString, Pattern: playlistRe.String()})}
 	op.Responses = map[string]*huma.Response{

@@ -240,11 +240,12 @@ func (s *Store) ResetRunningJobs(ctx context.Context, types []string) (int64, er
 	return tag.RowsAffected(), err
 }
 
-// AnyRunning reports whether a job of one of the given types is running.
+// AnyRunning reports whether a job of one of the given types is running, backfill
+// (a negative priority) aside.
 func (s *Store) AnyRunning(ctx context.Context, types []string) (bool, error) {
 	var running bool
 	err := s.db.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM jobs WHERE status = 'running' AND type = ANY($1))`, types).Scan(&running)
+		`SELECT EXISTS (SELECT 1 FROM jobs WHERE status = 'running' AND priority >= 0 AND type = ANY($1))`, types).Scan(&running)
 	return running, err
 }
 

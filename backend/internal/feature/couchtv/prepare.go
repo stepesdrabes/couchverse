@@ -22,6 +22,11 @@ const PrepareJob = "couchtv_prepare"
 // readiness swaps follow them. It prepares the programs within prepareAhead.
 const prepareEvery = 10 * time.Minute
 
+// prepareOpts queue a program's package ahead of the other transcodes, since it
+// has a time on air, and its trick-play rendition, which the channel never shows,
+// as backfill, which renders do not wait for.
+var prepareOpts = library.PrepareOpts{Priority: 10, TrickplayPriority: library.PriorityBackfill}
+
 // PreparePayload names a periodic run by its slot, so every run queues the same
 // next one; a run asked for by the plan job has none.
 type PreparePayload struct {
@@ -167,7 +172,7 @@ func (p *Preparer) queue(ctx context.Context, mf *media.MediaFile, pkg *playback
 	if len(names) == 0 {
 		return nil
 	}
-	queued, err := library.Prepare(ctx, p.Files, p.Jobs, mf, needAudio, names)
+	queued, err := library.Prepare(ctx, p.Files, p.Jobs, mf, needAudio, names, prepareOpts)
 	if err == nil && len(queued) > 0 {
 		slog.Info("couchtv: preparing a program", "mediaFileId", mf.ID, "renditions", queued)
 	}

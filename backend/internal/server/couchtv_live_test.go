@@ -248,7 +248,7 @@ func TestCouchTvChannel(t *testing.T) {
 	status, body = env.get(t, base+"live/video.m3u8")
 	video := string(body)
 	if status != http.StatusOK || !strings.Contains(video, "../airings/"+onAir+"/video/seg_00003.m4s") ||
-		!strings.Contains(video, "#EXT-X-TARGETDURATION:10") {
+		!strings.Contains(video, "#EXT-X-TARGETDURATION:16") {
 		t.Fatalf("video playlist: %d\n%s", status, body)
 	}
 	_, body = env.get(t, base+"live/audio-cs.m3u8")

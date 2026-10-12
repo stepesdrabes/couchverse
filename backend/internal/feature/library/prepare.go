@@ -14,10 +14,10 @@ import (
 // anything queued. Renditions above the source's class are skipped rather than
 // upscaled. Variant rows are registered up front so the admin library shows
 // "Processing". It returns the names queued.
-func Prepare(ctx context.Context, files *Store, jb *jobs.Store, mf *media.MediaFile, hasAudio bool, names []string) ([]string, error) {
-	enqueue := func(variant string, opts jobs.EnqueueOpts) error {
+func Prepare(ctx context.Context, files *Store, jb *jobs.Store, mf *media.MediaFile, hasAudio bool, names []string, opts PrepareOpts) ([]string, error) {
+	enqueue := func(variant string, eo jobs.EnqueueOpts) error {
 		_, err := jb.EnqueueJobOnce(ctx, "transcode_hls",
-			map[string]string{"mediaFileId": mf.ID, "variant": variant}, opts)
+			map[string]string{"mediaFileId": mf.ID, "variant": variant}, eo)
 		return err
 	}
 	queued := []string{}
@@ -30,7 +30,7 @@ func Prepare(ctx context.Context, files *Store, jb *jobs.Store, mf *media.MediaF
 		if _, err := files.UpsertVariant(ctx, mf.ID, r.Name, r.Height, r.VideoBitrate, 0, "transcode"); err != nil {
 			return nil, err
 		}
-		if err := enqueue(r.Name, jobs.EnqueueOpts{MaxAttempts: 2}); err != nil {
+		if err := enqueue(r.Name, jobs.EnqueueOpts{Priority: opts.Priority, MaxAttempts: 2}); err != nil {
 			return nil, err
 		}
 		queued = append(queued, r.Name)
@@ -51,12 +51,19 @@ func Prepare(ctx context.Context, files *Store, jb *jobs.Store, mf *media.MediaF
 		}
 	}
 	if source || hasAudio {
-		if err := enqueue(media.VariantPackage, jobs.EnqueueOpts{}); err != nil {
+		if err := enqueue(media.VariantPackage, jobs.EnqueueOpts{Priority: opts.Priority}); err != nil {
 			return nil, err
 		}
 	}
 	if _, err := files.UpsertVariant(ctx, mf.ID, media.VariantTrickplay, 180, 0, 0, "transcode"); err != nil {
 		return nil, err
 	}
-	return queued, enqueue(media.VariantTrickplay, jobs.EnqueueOpts{MaxAttempts: 2})
+	return queued, enqueue(media.VariantTrickplay, jobs.EnqueueOpts{Priority: opts.TrickplayPriority, MaxAttempts: 2})
+}
+
+// PrepareOpts place Prepare's jobs in the queue: Priority the package's and the
+// renditions', TrickplayPriority the trick-play rendition's, which only seeking
+// shows (zero for both is the queue's default).
+type PrepareOpts struct {
+	Priority, TrickplayPriority int
 }

@@ -335,7 +335,8 @@ cancellation, and the in-process worker runner. Other features register handlers
 (`internal/app/cleanup.go`). A second process may work the same queue (the Couch TV render
 sidecar registers `couchtv_render` and `couchtv_assemble`, which the app never does): at
 start a runner requeues only the running jobs of the types it registered, and
-`Runner.Yield` keeps a type from being claimed while a job of other types runs anywhere.
+`Runner.Yield` keeps a type from being claimed while a job of other types runs anywhere,
+backfill (a negative priority, `library.PriorityBackfill`) aside.
 - Endpoints (admin): `/admin/jobs` (supports `?mediaFileId=` and returns a `subject`
   per job - the title/episode/track it works on, resolved by SQL joins from the
   payload), `/admin/jobs/{id}/retry|cancel`.
@@ -694,10 +695,11 @@ server that does not send it). The admin settings page toggles it.
   next one first). For the files of the programs airing within 48 h it queues what the package
   lacks through `library.Prepare` (the `package`: the copied source and every audio rendition;
   a rung of the source's class up to 1080p for anything but 8-bit SDR H.264 up to 1080p, or
-  when the copied source has a segment over the 10 s target duration before its cut), leaving
-  queued, running and failed renditions alone; records each file that can air in
-  `couchtv_media` (the video it airs and `on_air_ms`; a file airing from a VOD rung, say an
-  HEVC source's 720p, is ready while its 1080p rung transcodes); then, under the plan lock, fits
+  when the copied source has a segment over the 16 s target duration before its cut), at
+  priority 10, ahead of the queue's other transcodes, with the trick-play rendition as
+  backfill; it leaves queued, running and failed renditions alone, records each file that can
+  air in `couchtv_media` (the video it airs and `on_air_ms`; a file airing from a VOD rung, say
+  an HEVC source's 720p, is ready while its 1080p rung transcodes); then, under the plan lock, fits
   planned rows to their cut (`FitPrograms`: the break after moves and loses its composition),
   runs the readiness swaps and marks programs `ready` or `planned` and ended airings `aired`.
 - **The live stream** (`couchtv.Channel`, served by `couchtv.Live`; plan 6.6): one live HLS
@@ -732,9 +734,11 @@ server that does not send it). The admin settings page toggles it.
     2 s segment per track, H.264 without B-frames). Both loop (`couchtv.loop`): copy n is segment
     n mod S of pass n / S retimed by whole passes (`mp4.Retime`), so a stretch of any length is
     one item of whole segments; the last copy is cut (`?keep=`).
-  - **Playlists**: a constant `EXT-X-TARGETDURATION:10`, a 2 min window, a discontinuity and an
-    `EXT-X-PROGRAM-DATE-TIME` at every part, the audio segment that runs past a cut listed as
-    `?keep=<seconds>` and served trimmed (`mp4.Trim`). The multivariant has one video variant
+  - **Playlists**: a constant `EXT-X-TARGETDURATION:16` (copied sources keep their encoder's
+    keyframes, up to 15 s apart in the library, and a rung takes a Pi about as long to encode
+    as it plays), a 2 min window, a discontinuity and an `EXT-X-PROGRAM-DATE-TIME` at every
+    part, the audio segment that runs past a cut listed as `?keep=<seconds>` and served trimmed
+    (`mp4.Trim`). The multivariant has one video variant
     whose `CODECS` (`hls.CoverCodecs`), `RESOLUTION`, `FRAME-RATE` and bandwidths cover what airs
     from the window to 6 h ahead, the fillers included; an audio group `cs`/`en` (`CHANNELS="2"`,
     the default from `?lang=`, else Czech) and a subtitle group `cs`/`en`.
@@ -845,7 +849,8 @@ server that does not send it). The admin settings page toggles it.
 - **The render sidecar** (`couchverse render`, plan 6.7; `couchtv.Renderer`): a separate process
   on the same database and `DATA_DIR` that registers only `couchtv_render` and
   `couchtv_assemble` (the app never does), runs one job at a time and claims a render only
-  while no `transcode_hls` job runs (`jobs.Runner.Yield`), at nice 10. It serves the embedded
+  while no `transcode_hls` job runs (`jobs.Runner.Yield`; backfill such as the channel's
+  trick-play renditions does not count), at nice 10. It serves the embedded
   broadcast bundle (`backend/broadcast`, `make build`) and the media above on localhost to one
   headless Chromium (chromedp; GPU flags on Linux when `/dev/dri` exists; restarted every 25
   jobs) and publishes `versions()` at start. A render extracts its media first (footage frames

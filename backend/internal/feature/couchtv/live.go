@@ -22,8 +22,10 @@ import (
 const (
 	// TargetDuration is the channel's EXT-X-TARGETDURATION. RFC 8216 forbids
 	// changing it, so a program whose package has longer segments airs from a
-	// ladder rung (6 s segments).
-	TargetDuration = 10
+	// ladder rung (6 s segments), which on a Pi takes about as long to encode as
+	// it plays. Copied sources keep their encoder's keyframes: x264's default of
+	// one every 250 frames, or 15 s ones, cut segments of up to 16 s.
+	TargetDuration = 16
 	// liveWindow is how much of the past a playlist lists.
 	liveWindow = 2 * time.Minute
 	// airingReach is how long before and after its time on air an airing's

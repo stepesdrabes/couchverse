@@ -86,7 +86,7 @@ psql_ "$db_url" <"$root/backend/internal/server/testdata/seed.sql" >/dev/null
 # A real clip for the direct-play movie, in the Movies library the server created on
 # boot. It runs long enough for the player to pass its 5 s reporting threshold and a
 # 10 s skip without reaching the end. A keyframe every 2 s keeps a copied source's segments
-# within Couch TV's 10 s target duration, so the channel airs it.
+# within Couch TV's 16 s target duration, so the channel airs it.
 clip() { # seconds, tone in Hz, output
   mkdir -p "$(dirname "$3")"
   ffmpeg -hide_banner -loglevel error -y \

@@ -103,7 +103,7 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     target, compose profile `render`) is a second process on the same database and
     `DATA_DIR` that registers only `couchtv_render` and `couchtv_assemble`, which the app
     never registers, and drives one headless Chromium over CDP. A runner requeues only its own
-    types at start; a render yields to `transcode_hls` (`Runner.Yield`). A clip's cache key
+    types at start; a render yields to `transcode_hls` (`Runner.Yield`), backfill aside. A clip's cache key
     hashes its template's `version` (published by the sidecar from the bundle) and its spec,
     whose `/media/v1/...` URLs say what they are cut from, so a changed input or template
     makes a new key: bump a template's version whenever its picture or sound changes. Specs

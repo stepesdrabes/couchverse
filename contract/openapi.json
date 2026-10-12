@@ -14796,7 +14796,7 @@
     },
     "/tv/{grant}/live/{playlist}": {
       "get": {
-        "description": "The last two minutes of a rendition: a discontinuity and a program date at every program, break and stretch of slate, a constant 10 s target duration. 404 off_air when nothing is on air.",
+        "description": "The last two minutes of a rendition: a discontinuity and a program date at every program, break and stretch of slate, a constant 16 s target duration. 404 off_air when nothing is on air.",
         "operationId": "getCouchTvPlaylist",
         "parameters": [
           {

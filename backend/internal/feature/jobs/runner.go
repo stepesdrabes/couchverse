@@ -21,7 +21,7 @@ type registration struct {
 	handler Handler
 	slots   chan struct{} // per-type concurrency limiter
 	// yieldTo are job types that keep this one from being claimed while one of
-	// them runs, in any process
+	// them runs, in any process (backfill aside)
 	yieldTo []string
 }
 
@@ -55,8 +55,10 @@ func (r *Runner) Register(jobType string, maxConcurrent int, h Handler) {
 }
 
 // Yield keeps a registered type from being claimed while a job of one of the
-// given types runs. The check comes before each claim, so a job of those types
-// that starts later shares the machine with at most the one already claimed.
+// given types runs, unless that job is backfill (a negative priority), which
+// would otherwise hold it up for as long as a backlog lasts. The check comes
+// before each claim, so a job of those types that starts later shares the
+// machine with at most the one already claimed.
 func (r *Runner) Yield(jobType string, to ...string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

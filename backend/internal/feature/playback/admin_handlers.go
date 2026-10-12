@@ -113,7 +113,7 @@ func (h *AdminTranscode) Enqueue(ctx context.Context, in *enqueueTranscodeInput)
 	if err != nil {
 		return nil, err
 	}
-	queued, err := library.Prepare(ctx, h.library, h.jobs, mf, len(tracks) > 0, variants)
+	queued, err := library.Prepare(ctx, h.library, h.jobs, mf, len(tracks) > 0, variants, library.PrepareOpts{})
 	if err != nil {
 		return nil, err
 	}
