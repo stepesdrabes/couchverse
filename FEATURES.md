@@ -834,7 +834,7 @@ server that does not send it). The admin settings page toggles it.
   (`couchtv_titles.loudness_lufs`). `ComposeEvergreen` is the fallback: the full ident, up
   to three rendered promo bodies with the evergreen end card, the short ident.
 - **The `couchtv_compose` job** (`couchtv.Composer`, app): at startup, after every plan run and
-  hourly, it composes every break of the next 48 hours that has no composition (a failed one
+  hourly, it composes every break of the next 24 hours that has no composition (a failed one
   again after 6 h), and keeps the standby card and an evergreen break of the current
   templates. It waits until a render sidecar has published its templates' versions (settings
   key `couchtv_render`), since a clip's cache key is a hash of its template's version and its
@@ -850,13 +850,19 @@ server that does not send it). The admin settings page toggles it.
   promos take `couchtv_titles` (footage shots `[{mediaFileId, startMs, durationMs, score}]`,
   else stills from the artwork; the promo soundtrack excerpt as the bed, else none; the mood,
   else one from the genres). Clips are requested in `couchtv_clips` (`needed_at` the earliest
-  air time, `last_used_at` touched) and their renders queued soonest-airing first; missing
-  promo bodies are requested for later breaks.
+  air time, `last_used_at` touched) and their renders queued soonest-airing first, to run in
+  the quiet hours (01:00-09:00 in the channel's zone) unless what they are for airs within
+  3 h, and never later than 3 h before it airs (`renderAt`; a clip a sooner break needs is
+  brought forward, `jobs.Store.Expedite`); missing promo bodies are requested for later
+  breaks. Each run ends by cancelling the renders of clips no composition uses any more (a
+  replan moved their break, or it was composed again), promo bodies and the standby card
+  aside.
 - **The render sidecar** (`couchverse render`, plan 6.7; `couchtv.Renderer`): a separate process
   on the same database and `DATA_DIR` that registers only `couchtv_render` and
   `couchtv_assemble` (the app never does), runs one job at a time and claims a render only
   while no `transcode_hls` job runs (`jobs.Runner.Yield`; backfill such as the channel's
-  trick-play renditions does not count), at nice 10. It serves the embedded
+  trick-play renditions does not count), at nice 10, its encoder on two threads (capture is
+  the bottleneck). It serves the embedded
   broadcast bundle (`backend/broadcast`, `make build`) and the media above on localhost to one
   headless Chromium (chromedp; GPU flags on Linux when `/dev/dri` exists; restarted every 25
   jobs) and publishes `versions()` at start. A render extracts its media first (footage frames

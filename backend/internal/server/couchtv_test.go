@@ -383,8 +383,9 @@ func TestCouchTvPrune(t *testing.T) {
 }
 
 // TestCouchTvComposeJob plans the seeded library and composes its breaks: nothing before a
-// render sidecar has published its templates, then every break of the next 48 hours with a
-// recipe as long as the break, its clips requested once and queued for rendering, the
+// render sidecar has published its templates, then every break of the next 24 hours with a
+// recipe as long as the break, its clips requested once and queued for rendering (soon
+// ones at once, the rest in the night's quiet hours), the
 // evergreen break and the standby card; once clips are rendered their breaks are queued for
 // assembly and the evergreen break is recomposed with promos; a changed template recomposes
 // the breaks that use its rendered clips, once.
@@ -427,7 +428,7 @@ func TestCouchTvComposeJob(t *testing.T) {
 	}
 
 	compose()
-	window := []any{clock, clock.Add(48 * time.Hour)}
+	window := []any{clock, clock.Add(24 * time.Hour)}
 	breaks := count(`SELECT count(*) FROM couchtv_airings WHERE kind = 'break' AND starts_at >= $1 AND starts_at < $2`, window...)
 	if composed := count(`SELECT count(*) FROM couchtv_breaks b JOIN couchtv_airings a ON a.id = b.airing_id
 		WHERE b.state = 'composed'`); breaks == 0 || composed != breaks {
@@ -474,6 +475,62 @@ func TestCouchTvComposeJob(t *testing.T) {
 	if n := count(`SELECT count(*) FROM couchtv_clips WHERE kind = 'promo_body'`); n == 0 {
 		t.Error("no promo body requested")
 	}
+	// a render starts at once for what airs any time (the evergreen break) or within three
+	// hours, else at 01:00 (Prague) but no later than three hours before its first break
+	quiet := time.Date(2026, 10, 13, 1, 0, 0, 0, prague)
+	rows, err = env.pool.Query(ctx, `SELECT j.run_at, min(coalesce(a.starts_at, 'epoch')) FROM jobs j
+		JOIN couchtv_breaks b ON b.recipe->'clips' @> jsonb_build_array(jsonb_build_object('clipId', j.payload->>'clipId'))
+		LEFT JOIN couchtv_airings a ON a.id = b.airing_id
+		WHERE j.type = $1 AND j.status = 'pending' GROUP BY j.id`, couchtv.RenderJob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	soon, waiting := 0, 0
+	for rows.Next() {
+		var runAt, airs time.Time
+		if err := rows.Scan(&runAt, &airs); err != nil {
+			t.Fatal(err)
+		}
+		want := quiet
+		if latest := airs.Add(-3 * time.Hour); latest.Before(want) {
+			want = latest
+		}
+		if airs.Unix() == 0 || want.Before(clock) {
+			want = clock
+		}
+		if !runAt.Equal(want) {
+			t.Errorf("the render for a break at %s runs at %s, want %s", airs.In(prague), runAt.In(prague), want.In(prague))
+		}
+		if want.Equal(clock) {
+			soon++
+		} else {
+			waiting++
+		}
+	}
+	rows.Close()
+	if soon == 0 || waiting == 0 {
+		t.Errorf("%d renders at once, %d waiting for the quiet hours", soon, waiting)
+	}
+
+	// a break that leaves the schedule takes its own clips' renders with it
+	var gone, upNext string
+	if err := env.pool.QueryRow(ctx, `SELECT a.id, rc->>'clipId' FROM couchtv_airings a
+		JOIN couchtv_breaks b ON b.airing_id = a.id, jsonb_array_elements(b.recipe->'clips') rc
+		WHERE rc->>'kind' = 'upnext' ORDER BY a.starts_at DESC LIMIT 1`).Scan(&gone, &upNext); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{`UPDATE couchtv_airings SET state = 'replaced' WHERE id = $1`,
+		`DELETE FROM couchtv_breaks WHERE airing_id = $1`} {
+		if _, err := env.pool.Exec(ctx, q, gone); err != nil {
+			t.Fatal(err)
+		}
+	}
+	compose()
+	if n := count(`SELECT count(*) FROM jobs WHERE type = $1 AND status = 'cancelled' AND payload->>'clipId' = $2`,
+		couchtv.RenderJob, upNext); n != 1 {
+		t.Errorf("the up next of a break that left the schedule: %d cancelled renders", n)
+	}
+	renders = count(`SELECT count(*) FROM jobs WHERE type = $1 AND status = 'pending'`, couchtv.RenderJob)
 
 	// an unchanged schedule composes nothing new
 	compose()

@@ -344,7 +344,7 @@ No cron exists; every periodic job re-enqueues itself like `cleanup`.
 | `couchtv_prepare` | app | Per airing: queue `library.Prepare` (the `package`; a 1080p H.264 rung for HEVC/AV1/10-bit/HDR sources); mark ready. |
 | `analyze_markers` | app (`library`) | Per season: chromaprint the first 12 and last 6 minutes of every episode, pairwise-match within the season for intro and outro; per movie: loudness profile of the last 12 minutes for credits music and black/text-frame detection for credits start (built in Phase 3, below). |
 | `couchtv_analyze` | app | Per title: pick the promo soundtrack excerpt (D25) and footage shots (`scdet` + motion energy, first 50% of the runtime, no faces-only close-ups at the end of acts), measure program loudness (ebur128) (built in Phase 3, below; no face detection). |
-| `couchtv_compose` | app | Per break, 48 h ahead: build the recipe (6.5), request missing clips. |
+| `couchtv_compose` | app | Per break, 24 h ahead (48 h until 2026-10-12): build the recipe (6.5), request missing clips. |
 | `couchtv_render` | **sidecar only** | Render one clip (6.7). |
 | `couchtv_assemble` | **sidecar only** | Render the break's audio mix, concatenate its clips' video (stream copy), mux, segment, write the break's `rendition.json`. |
 
@@ -505,7 +505,10 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   live stream cuts the evergreen break to the gap and loops the standby card past its end.
   It is recomposed whenever its clips' keys change; the newest assembled one is kept.
 - **Lifecycle**: the compose job runs at startup, after every plan run and hourly, composing
-  the next 48 h; a replan or swap drops a break's composition with its airing; a failed break
+  the next 24 h (48 h until the first day on the Pi showed how much a replan wastes); a replan
+  or swap drops a break's composition with its airing, and the run cancels the renders no
+  composition uses any more; renders wait for the quiet hours (01:00-09:00) unless what they
+  are for airs within 3 h, so the Pi renders at night; a failed break
   is composed again after 6 h, a failed clip is requeued when a break asks for it again.
   Renders are queued soonest-airing first (the job priority is minus the airing's minute;
   the evergreen break and standby card first of all).

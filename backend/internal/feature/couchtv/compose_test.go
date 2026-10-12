@@ -276,3 +276,27 @@ func TestComposeEvergreen(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// A render waits for the quiet hours unless what it is for airs soon, and never starts
+// later than renderSoon before it airs.
+func TestRenderAt(t *testing.T) {
+	prague, _ := time.LoadLocation("Europe/Prague")
+	at := func(day, hour, minute int) time.Time { return time.Date(2026, 10, day, hour, minute, 0, 0, prague) }
+	cases := []struct {
+		name           string
+		now, airs, run time.Time
+	}{
+		{"what airs any time renders at once", at(12, 14, 0), time.Time{}, at(12, 14, 0)},
+		{"what airs within three hours too", at(12, 14, 0), at(12, 16, 59), at(12, 14, 0)},
+		{"tomorrow evening waits for tonight's quiet hours", at(12, 14, 0), at(13, 20, 15), at(13, 1, 0)},
+		{"in the quiet hours a render starts at once", at(13, 2, 30), at(13, 20, 15), at(13, 2, 30)},
+		{"after them it waits for the next night", at(13, 9, 0), at(14, 18, 0), at(14, 1, 0)},
+		{"before them on the same night", at(13, 0, 30), at(13, 18, 0), at(13, 1, 0)},
+		{"never later than three hours before it airs", at(12, 21, 0), at(13, 2, 0), at(12, 23, 0)},
+	}
+	for _, c := range cases {
+		if got := renderAt(c.now, c.airs, prague); !got.Equal(c.run) {
+			t.Errorf("%s: %s, want %s", c.name, got.In(prague).Format(time.DateTime), c.run.Format(time.DateTime))
+		}
+	}
+}

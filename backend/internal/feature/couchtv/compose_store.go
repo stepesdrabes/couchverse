@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"regexp"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // program is a program airing with what the breaks show of its episode.
@@ -61,6 +63,23 @@ func (s *Store) uncomposed(ctx context.Context, from, to time.Time) ([]Airing, e
 	return s.airings(ctx, `kind = 'break' AND starts_at >= $1 AND starts_at < $2 AND NOT EXISTS (
 		SELECT 1 FROM couchtv_breaks b WHERE b.airing_id = couchtv_airings.id
 		AND (b.state <> 'failed' OR b.updated_at > $3))`, from, to, from.Add(-retryAfter))
+}
+
+// unusedClips are the clips waiting to be rendered that no composition uses, aside from
+// promo bodies (requested for breaks yet to be composed) and the standby card (which no
+// break holds).
+func (s *Store) unusedClips(ctx context.Context) ([]string, error) {
+	rows, err := s.q.Query(ctx, `
+		SELECT c.id FROM couchtv_clips c
+		WHERE c.state = 'pending' AND c.kind NOT IN ('promo_body', 'standby') AND NOT EXISTS (
+			SELECT 1 FROM couchtv_breaks b
+			CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(b.recipe->'clips') = 'array'
+				THEN b.recipe->'clips' ELSE '[]' END) rc
+			WHERE b.state <> 'failed' AND rc->>'clipId' = c.id::text)`)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
 // retryAfter is how long a break that failed waits before it is composed again.

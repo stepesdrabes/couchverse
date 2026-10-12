@@ -145,6 +145,31 @@ func (s *Store) EnqueueJobOnce(ctx context.Context, jobType string, payload any,
 	return s.EnqueueJob(ctx, jobType, payload, opts)
 }
 
+// Expedite brings an identical pending job forward: to run no later than runAt, at
+// no lower a priority than priority.
+func (s *Store) Expedite(ctx context.Context, jobType string, payload any, runAt time.Time, priority int) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(ctx,
+		`UPDATE jobs SET run_at = least(run_at, $3), priority = greatest(priority, $4)
+		 WHERE type = $1 AND payload = $2 AND status = 'pending'`, jobType, body, runAt, priority)
+	return err
+}
+
+// CancelPending cancels an identical job that has not started; one that runs goes on.
+func (s *Store) CancelPending(ctx context.Context, jobType string, payload any) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(ctx,
+		`UPDATE jobs SET status = 'cancelled', finished_at = now()
+		 WHERE type = $1 AND payload = $2 AND status = 'pending'`, jobType, body)
+	return err
+}
+
 // ClaimJob atomically claims the next runnable job of one of the given types.
 func (s *Store) ClaimJob(ctx context.Context, types []string) (*Job, error) {
 	if len(types) == 0 {

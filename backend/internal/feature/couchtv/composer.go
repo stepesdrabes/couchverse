@@ -20,8 +20,16 @@ import (
 // order they air. It also keeps an evergreen break and the standby card rendered, so the
 // live stream always has something to air.
 const (
-	composeAhead = 48 * time.Hour
+	// composeAhead reaches from one night's quiet hours to the next one's: everything
+	// that airs before them is composed when they start
+	composeAhead = 24 * time.Hour
 	composeEvery = time.Hour
+	// A render waits for the quiet hours [quietFrom, quietTo) in the channel's zone, so
+	// a small server renders at night rather than while people watch, unless what it is
+	// for airs within renderSoon.
+	quietFrom  = 1
+	quietTo    = 9
+	renderSoon = 3 * time.Hour
 	// promoHorizon is how far after a break its promos look for airings.
 	promoHorizon = 7 * 24 * time.Hour
 	// recentBreaks is how many breaks before one its promos avoid repeating.
@@ -102,7 +110,49 @@ func (c *Composer) Handle(ctx context.Context, _ *jobs.Job, report func(int)) er
 	if len(breaks) > 0 {
 		slog.Info("couchtv: composed breaks", "count", len(breaks), "outdated", len(outdated))
 	}
+	return run.dropUnused(ctx)
+}
+
+// dropUnused cancels the renders of clips no composition uses any more: a replan moved
+// their break, or it was composed again.
+func (r *composition) dropUnused(ctx context.Context) error {
+	ids, err := r.Store.unusedClips(ctx)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if err := r.Jobs.CancelPending(ctx, RenderJob, RenderPayload{ClipID: id}); err != nil {
+			return err
+		}
+	}
+	if len(ids) > 0 {
+		slog.Info("couchtv: dropped renders nothing uses", "count", len(ids))
+	}
 	return nil
+}
+
+// renderAt is when the render of a clip for what airs at airs may start: at once for
+// what airs any time or soon, else in the quiet hours, but no later than renderSoon
+// before it airs.
+func renderAt(now, airs time.Time, loc *time.Location) time.Time {
+	if airs.IsZero() || airs.Sub(now) <= renderSoon {
+		return now
+	}
+	t := now.In(loc)
+	quiet := time.Date(t.Year(), t.Month(), t.Day(), quietFrom, 0, 0, 0, loc)
+	switch {
+	case t.Hour() >= quietFrom && t.Hour() < quietTo:
+		return now
+	case !t.Before(quiet):
+		quiet = quiet.AddDate(0, 0, 1)
+	}
+	if latest := airs.Add(-renderSoon); latest.Before(quiet) {
+		quiet = latest
+	}
+	if quiet.Before(now) {
+		return now
+	}
+	return quiet
 }
 
 // composition is one run of the compose job: what it read and what it composed so far.
@@ -227,8 +277,12 @@ func (r *composition) request(ctx context.Context, kind, key string, spec Spec, 
 			return "", "", err
 		}
 	}
-	_, err = r.Jobs.EnqueueJobOnce(ctx, RenderJob, RenderPayload{ClipID: id}, jobs.EnqueueOpts{Priority: urgency(airs)})
-	return id, state, err
+	payload, opts := RenderPayload{ClipID: id}, jobs.EnqueueOpts{Priority: urgency(airs), RunAt: renderAt(r.now, airs, r.cfg.location())}
+	if _, err := r.Jobs.EnqueueJobOnce(ctx, RenderJob, payload, opts); err != nil {
+		return "", "", err
+	}
+	// a clip another break asked for later is needed sooner now
+	return id, state, r.Jobs.Expedite(ctx, RenderJob, payload, opts.RunAt, opts.Priority)
 }
 
 // requestBodies asks for the promo bodies the candidates do not have yet, so later breaks
