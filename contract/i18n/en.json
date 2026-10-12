@@ -582,6 +582,8 @@
 	"admin_transcoding_cpu": "Transcoding ({count} ffmpeg) {percent}%",
 	"admin_transcoding_value": "Transcoding {value}",
 	"admin_trend": "trend",
+	"admin_tv_watch_hint": "Time spent watching Couch TV, guests included - tracked separately from normal watch-time.",
+	"admin_tv_watch_time": "Couch TV watch-time",
 	"admin_uptime": "Uptime",
 	"admin_video": "Video",
 	"admin_watch_time": "Watch time",

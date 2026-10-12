@@ -592,6 +592,8 @@
 	"admin_transcoding_cpu": "Překódování ({count} ffmpeg) {percent} %",
 	"admin_transcoding_value": "Překódování {value}",
 	"admin_trend": "trend",
+	"admin_tv_watch_hint": "Čas strávený sledováním Couch TV, včetně hostů - sledováno odděleně od běžného času sledování.",
+	"admin_tv_watch_time": "Čas sledování Couch TV",
 	"admin_uptime": "Doba běhu",
 	"admin_video": "Video",
 	"admin_watch_time": "Doba sledování",

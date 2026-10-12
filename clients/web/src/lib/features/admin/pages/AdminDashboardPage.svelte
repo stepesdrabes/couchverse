@@ -459,7 +459,7 @@
 	</div>
 {/if}
 
-{#if analytics && (analytics.topUsers.length > 0 || analytics.totals.couchSeconds > 0)}
+{#if analytics && (analytics.topUsers.length > 0 || analytics.totals.couchSeconds > 0 || analytics.totals.tvSeconds > 0)}
 	<div class="mt-6 grid gap-6 lg:grid-cols-2" in:fly|global={{ y: 20, duration: 400 }}>
 		{#if analytics.topUsers.length > 0}
 			<div class="rounded-card border border-edge bg-surface/40 p-6">
@@ -493,6 +493,17 @@
 				{#if analytics.topCouchTitles.length > 0}
 					<RankedList items={rankedTitles(analytics.topCouchTitles)} />
 				{/if}
+			</div>
+		{/if}
+		{#if analytics.totals.tvSeconds > 0}
+			<div class="rounded-card border border-edge bg-surface/40 p-6">
+				<div class="mb-1 flex items-baseline justify-between">
+					<h2 class="text-sm font-semibold text-muted">{m.admin_tv_watch_time()}</h2>
+					<span class="text-xs text-faint tnum">
+						{m.admin_total_value({ value: formatUptime(analytics.totals.tvSeconds) })}
+					</span>
+				</div>
+				<p class="text-[11px] text-faint">{m.admin_tv_watch_hint()}</p>
 			</div>
 		{/if}
 	</div>
