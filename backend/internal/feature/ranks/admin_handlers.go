@@ -39,7 +39,7 @@ type MemberRank struct {
 // AchievementStat is how many members hold a badge; low counts are the rare ones.
 type AchievementStat struct {
 	Code     string `json:"code"`
-	Category string `json:"category" enum:"watching,streaks,explorer,couch,meta"`
+	Category string `json:"category" enum:"watching,streaks,explorer,couch,tv,meta"`
 	Tier     string `json:"tier" enum:"bronze,silver,gold,platinum"`
 	Unlocked int    `json:"unlocked" doc:"How many members hold it."`
 	Hidden   bool   `json:"hidden" doc:"Gated off by a feature flag right now."`

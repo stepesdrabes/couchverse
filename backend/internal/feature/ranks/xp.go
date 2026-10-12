@@ -5,10 +5,11 @@ package ranks
 // An admin can retune all of it.
 
 // XPInputs are the countable facts the formula needs. The leaderboard loads
-// exactly these for every user in four queries, while a profile view gets them
+// exactly these for every user in five queries, while a profile view gets them
 // as part of the fuller Snapshot.
 type XPInputs struct {
 	VideoSeconds      int64
+	TvSeconds         int64
 	MoviesCompleted   int64
 	EpisodesCompleted int64
 	CouchHosted       int64
@@ -21,7 +22,7 @@ type XPInputs struct {
 // 2 XP each"). Key is a translation key, never a display string; Rate is 0 for
 // achievements because theirs varies by tier.
 type XPSource struct {
-	Key   string `json:"key" enum:"video,movies,episodes,couchHosted,couchJoined,achievements"`
+	Key   string `json:"key" enum:"video,tv,movies,episodes,couchHosted,couchJoined,achievements"`
 	Units int64  `json:"units"`
 	Rate  int64  `json:"rate" doc:"XP per unit; 0 for achievements, whose reward varies by tier."`
 	XP    int64  `json:"xp"`
@@ -47,6 +48,7 @@ func ComputeXP(in XPInputs, cfg RankConfig) XPResult {
 	}
 
 	add("video", in.VideoSeconds/60, cfg.Rates.VideoMinute)
+	add("tv", in.TvSeconds/60, cfg.Rates.TvMinute)
 	add("movies", in.MoviesCompleted, cfg.Rates.Movie)
 	add("episodes", in.EpisodesCompleted, cfg.Rates.Episode)
 	add("couchHosted", in.CouchHosted, cfg.Rates.CouchHost)

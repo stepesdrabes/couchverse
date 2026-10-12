@@ -37,7 +37,7 @@ func (s *Store) Members(ctx context.Context) ([]Member, error) {
 
 // XPRowsAll loads the XP inputs for every user at once. Each leaderboard row
 // needs an all-time tier badge whatever the selected metric is, so this runs
-// four grouped queries regardless of user count rather than a full Snapshot per
+// five grouped queries regardless of user count rather than a full Snapshot per
 // member.
 func (s *Store) XPRowsAll(ctx context.Context, cfg RankConfig) (map[int64]XPInputs, error) {
 	out := map[int64]XPInputs{}
@@ -49,6 +49,16 @@ func (s *Store) XPRowsAll(ctx context.Context, cfg RankConfig) (map[int64]XPInpu
 	for id, video := range watched {
 		v := out[id]
 		v.VideoSeconds = video
+		out[id] = v
+	}
+
+	tv, err := s.TvSeconds(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for id, seconds := range tv {
+		v := out[id]
+		v.TvSeconds = seconds
 		out[id] = v
 	}
 

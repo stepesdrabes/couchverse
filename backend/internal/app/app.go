@@ -91,14 +91,15 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 	})
 
 	// the channel's room maps its viewers' reports onto what aired: progress for the
-	// signed in, watch time for everyone; ranks scores the channel in a later phase,
-	// so it gets no TvStatsRecorder yet
+	// signed in, watch time for everyone and the facts ranks scores the channel by
 	couchTvLive := couchtv.NewLive(couchTvStore, cfg.DataDir, cfg.FFmpegPath)
 	couchTvHub := couchtv.NewHub(hubCtx, couchtv.HubDeps{
 		Lineup:    couchTvLive.Channel,
 		Durations: couchTvStore,
 		Watch:     analyticsStore,
 		Progress:  catalogStore,
+		Stats:     ranksStore,
+		Settings:  set,
 	})
 
 	a := &App{

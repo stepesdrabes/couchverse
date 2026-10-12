@@ -13,6 +13,7 @@ const (
 	CatStreaks  Category = "streaks"
 	CatExplorer Category = "explorer"
 	CatCouch    Category = "couch"
+	CatTv       Category = "tv"
 	CatMeta     Category = "meta"
 )
 
@@ -28,7 +29,10 @@ const (
 // Feature gates. An achievement whose Requires is unmet is absent from the
 // payload rather than shown locked, so a couch-disabled server never displays
 // an unreachable badge.
-const needsCouch = "couch"
+const (
+	needsCouch   = "couch"
+	needsCouchTv = "couchtv"
+)
 
 // Snapshot is every measured fact about one user. A single batch of SQL in the
 // store fills it so the rules below stay pure and unit-testable.
@@ -50,6 +54,17 @@ type Snapshot struct {
 
 	EmojiSent     int64
 	CouchPartyMax int64
+
+	// Couch TV, on the channel's clock. A program is seen at half its time on air
+	// (at most tvSeenAtMost) and watched whole at tvWholePercent of it.
+	TvPrimeNights int64 // days a prime-time movie (movie, premiere, saga) was seen
+	TvLateNights  int64 // days with tvWindowMinutes of the channel from 02:00 to 06:00
+	TvMornings    int64 // days with tvWindowMinutes of the channel from 06:00 to 09:00
+	TvStripRun    int64 // longest run of consecutive days one strip was seen on
+	TvMarathons   int64 // marathons watched whole, every episode of their weekend
+	TvPremieres   int64 // premieres watched whole
+	TvReactions   int64
+	TvAudienceMax int64 // the most viewers watched with, the member included
 
 	AccountDays int64
 	HasAvatar   bool
@@ -79,8 +94,8 @@ func boolValue(b bool) int64 {
 }
 
 // Achievements is the catalogue. Everything is derived from tables that already
-// exist except the five couch rules (user_counters) and the two hour-of-day ones
-// (watch_time_hourly).
+// exist except the five couch rules (user_counters), the two hour-of-day ones
+// (watch_time_hourly) and the Couch TV ones (user_tv_viewing, user_counters).
 var Achievements = []Achievement{
 	// watching
 	{"first_play", CatWatching, Bronze, 1, "", func(s Snapshot) int64 { return s.DistinctTitles }},
@@ -116,6 +131,16 @@ var Achievements = []Achievement{
 	{"couch_party_6", CatCouch, Silver, 6, needsCouch, func(s Snapshot) int64 { return s.CouchPartyMax }},
 	{"emoji_100", CatCouch, Bronze, 100, needsCouch, func(s Snapshot) int64 { return s.EmojiSent }},
 
+	// Couch TV: the time of day, the company, and loyalty to the schedule
+	{"tv_prime_time_5", CatTv, Silver, 5, needsCouchTv, func(s Snapshot) int64 { return s.TvPrimeNights }},
+	{"tv_night_owl", CatTv, Bronze, 1, needsCouchTv, func(s Snapshot) int64 { return s.TvLateNights }},
+	{"tv_morning_5", CatTv, Bronze, 5, needsCouchTv, func(s Snapshot) int64 { return s.TvMornings }},
+	{"tv_full_house", CatTv, Silver, 3, needsCouchTv, func(s Snapshot) int64 { return s.TvAudienceMax - 1 }},
+	{"tv_reactions_100", CatTv, Bronze, 100, needsCouchTv, func(s Snapshot) int64 { return s.TvReactions }},
+	{"tv_strip_5", CatTv, Silver, 5, needsCouchTv, func(s Snapshot) int64 { return s.TvStripRun }},
+	{"tv_marathon", CatTv, Gold, 1, needsCouchTv, func(s Snapshot) int64 { return s.TvMarathons }},
+	{"tv_premiere", CatTv, Bronze, 1, needsCouchTv, func(s Snapshot) int64 { return s.TvPremieres }},
+
 	// meta
 	{"avatar_set", CatMeta, Bronze, 1, "", func(s Snapshot) int64 { return boolValue(s.HasAvatar) }},
 	{"veteran_365", CatMeta, Gold, 365, "", func(s Snapshot) int64 { return s.AccountDays }},
@@ -127,7 +152,7 @@ var Achievements = []Achievement{
 // locked progress so the UI can draw a progress ring on what is not earned yet.
 type AchievementProgress struct {
 	Code       string     `json:"code" doc:"Stable achievement code (the catalogue only grows)."`
-	Category   string     `json:"category" enum:"watching,streaks,explorer,couch,meta"`
+	Category   string     `json:"category" enum:"watching,streaks,explorer,couch,tv,meta"`
 	Tier       string     `json:"tier" enum:"bronze,silver,gold,platinum"`
 	XP         int64      `json:"xp" doc:"XP the badge awards."`
 	Target     int64      `json:"target"`
@@ -142,6 +167,8 @@ func (a Achievement) visible(f flags.Flags) bool {
 	switch a.Requires {
 	case needsCouch:
 		return f.CouchEnabled
+	case needsCouchTv:
+		return f.CouchTvEnabled
 	default:
 		return true
 	}

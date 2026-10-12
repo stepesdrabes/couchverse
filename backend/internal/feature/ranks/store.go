@@ -7,14 +7,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Counter keys. Every counter is a monotonic bigint written by the couch hub and
-// read by the snapshot builder, which is why one generic table beats a column
-// per stat.
+// Counter keys. Every counter is a monotonic bigint written by the couch hub or
+// the Couch TV room and read by the snapshot builder, which is why one generic
+// table beats a column per stat.
 const (
 	counterCouchHosted = "couch_hosted"
 	counterCouchJoined = "couch_joined"
 	counterCouchEmoji  = "couch_emoji"
 	counterCouchParty  = "couch_party_max"
+	counterTvReactions = "tv_reactions"
+	counterTvAudience  = "tv_audience_max"
 )
 
 // publicFilter is the privacy predicate. The obvious
@@ -125,7 +127,7 @@ func (s *Store) PersistUnlocks(ctx context.Context, userID int64, codes []string
 	return fresh, rows.Err()
 }
 
-// SnapshotFor gathers every measured fact about one user. Seven sequential
+// SnapshotFor gathers every measured fact about one user. Eight sequential
 // queries against user-indexed columns, in the style of analytics.Overview: on a
 // pool-local database that is well under a millisecond of latency each, and it
 // keeps the SQL readable and debuggable one statement at a time.
@@ -229,6 +231,10 @@ func (s *Store) SnapshotFor(ctx context.Context, userID int64) (Snapshot, error)
 		return snap, err
 	}
 
+	if err := s.tvFacts(ctx, userID, &snap); err != nil {
+		return snap, err
+	}
+
 	counters, err := s.countersFor(ctx, userID)
 	if err != nil {
 		return snap, err
@@ -237,6 +243,8 @@ func (s *Store) SnapshotFor(ctx context.Context, userID int64) (Snapshot, error)
 	snap.CouchJoined = counters[counterCouchJoined]
 	snap.EmojiSent = counters[counterCouchEmoji]
 	snap.CouchPartyMax = counters[counterCouchParty]
+	snap.TvReactions = counters[counterTvReactions]
+	snap.TvAudienceMax = counters[counterTvAudience]
 
 	return snap, nil
 }

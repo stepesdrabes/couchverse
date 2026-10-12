@@ -15,11 +15,12 @@ import (
 	"github.com/coder/websocket"
 
 	"couchverse/internal/feature/auth"
+	"couchverse/internal/settings"
 )
 
 // The Hub is the channel's room (plan 6.9): who is watching, their reactions and
 // their reports of the program date on screen, which become progress, watch time
-// and the facts ranks will score. It lives in memory and has no host; a restart
+// and the facts ranks scores. It lives in memory and has no host; a restart
 // drops the sockets, which reconnect.
 
 const (
@@ -58,13 +59,17 @@ type ProgressRecorder interface {
 	UpsertProgress(ctx context.Context, userID int64, titleID, episodeID *string, position, duration int, at *time.Time) error
 }
 
-// TvStatsRecorder takes the per-user facts ranks will score the channel by (plan
-// 6.9: XP for TV minutes, the time-of-day, social and loyalty achievements).
-// internal/app hands it *ranks.Store once ranks implements it, so couchtv never
-// imports ranks. Best effort; nil disables it.
+// TvStatsRecorder takes the per-user facts ranks scores the channel by (plan 6.9:
+// XP for TV minutes, the time-of-day, social and loyalty achievements). It is
+// satisfied by *ranks.Store, wired in internal/app; the calls take plain values,
+// so neither feature imports the other. Best effort; nil disables it.
 type TvStatsRecorder interface {
-	// RecordTvViewing is a stretch a signed-in viewer watched of one airing.
-	RecordTvViewing(ctx context.Context, v TvViewing) error
+	// RecordTvViewing is a stretch a signed-in viewer watched of one part of an
+	// airing: kind is the part's (a program, a break, or a filler: standby,
+	// slate), at the program date it began at on the channel's clock, so its day
+	// and time of day are the picture's. What the airing was is in
+	// couchtv_airings.
+	RecordTvViewing(ctx context.Context, userID int64, airingID, kind string, at time.Time, seconds int) error
 	// RecordTvReactions counts the reactions a signed-in viewer sent.
 	RecordTvReactions(ctx context.Context, userID int64, count int) error
 	// RecordTvAudience is the most viewers a signed-in viewer watched with,
@@ -72,20 +77,14 @@ type TvStatsRecorder interface {
 	RecordTvAudience(ctx context.Context, userID int64, viewers int) error
 }
 
-// TvViewing is a stretch a signed-in viewer watched of one part of an airing.
-type TvViewing struct {
-	UserID   int64
-	AiringID string
-	// Kind is the part's: a program, a break, or a filler (standby, slate).
-	Kind string
-	// Fill is the rule that chose a program (strip, premiere, saga...); empty for
-	// the rest.
-	Fill    string
-	TitleID string
-	// Start is the program date the stretch began at: its time of day is the
-	// picture's.
-	Start   time.Time
-	Seconds int
+// viewing is a stretch a signed-in viewer watched of one part of an airing, for
+// the stats.
+type viewing struct {
+	userID   int64
+	airingID string
+	kind     string
+	at       time.Time
+	seconds  int
 }
 
 // lineupReader is what the reports are mapped onto (*Channel).
@@ -105,6 +104,9 @@ type HubDeps struct {
 	Watch     TvWatchRecorder
 	Progress  ProgressRecorder
 	Stats     TvStatsRecorder
+	// Settings holds the channel's config, whose time zone the stats are told the
+	// time in; nil means the default config.
+	Settings *settings.Store
 	// Now is the clock; nil means time.Now (tests set it).
 	Now func() time.Time
 }
@@ -423,9 +425,10 @@ func (h *Hub) count(ctx context.Context, batches []batch, now time.Time) {
 		slog.Warn("couchtv: the reports could not be counted", "err", err)
 		return
 	}
+	loc := LoadConfig(ctx, h.deps.Settings).location()
 	watched := map[watchKey]time.Duration{}
 	var saves []saving
-	var viewings []TvViewing
+	var viewings []viewing
 	for _, b := range batches {
 		var save *saving
 		for _, s := range b.spans {
@@ -449,12 +452,8 @@ func (h *Hub) count(ctx context.Context, batches []batch, now time.Time) {
 				if b.userID == 0 {
 					continue
 				}
-				fill := ""
-				if p.Kind == PartProgram {
-					fill = p.Fill
-				}
-				viewings = append(viewings, TvViewing{UserID: b.userID, AiringID: p.AiringID, Kind: p.Kind, Fill: fill,
-					TitleID: key.titleID, Start: start, Seconds: seconds(d)})
+				viewings = append(viewings, viewing{userID: b.userID, airingID: p.AiringID, kind: p.Kind,
+					at: start.In(loc), seconds: seconds(d)})
 				if p.Kind != PartProgram {
 					continue
 				}
@@ -484,8 +483,8 @@ func (h *Hub) count(ctx context.Context, batches []batch, now time.Time) {
 	}
 	if stats := h.deps.Stats; stats != nil {
 		for _, v := range viewings {
-			if v.Seconds > 0 {
-				logFailure("viewing", stats.RecordTvViewing(ctx, v))
+			if v.seconds > 0 {
+				logFailure("viewing", stats.RecordTvViewing(ctx, v.userID, v.airingID, v.kind, v.at, v.seconds))
 			}
 		}
 	}

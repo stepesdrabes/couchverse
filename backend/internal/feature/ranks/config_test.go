@@ -21,6 +21,7 @@ func TestConfigValidate(t *testing.T) {
 		{"defaults", func(*RankConfig) {}, false},
 		{"zero rate is allowed", func(c *RankConfig) { c.Rates.CouchJoin = 0 }, false},
 		{"negative rate", func(c *RankConfig) { c.Rates.VideoMinute = -1 }, true},
+		{"negative tv rate", func(c *RankConfig) { c.Rates.TvMinute = -1 }, true},
 		{"negative achievement reward", func(c *RankConfig) { c.Rates.Gold = -5 }, true},
 		{"first tier must be 0", func(c *RankConfig) { c.Tiers[0] = 10 }, true},
 		{"tiers must ascend", func(c *RankConfig) { c.Tiers[3] = c.Tiers[2] }, true},
@@ -39,6 +40,22 @@ func TestConfigValidate(t *testing.T) {
 				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+// A config saved before the Couch TV rate existed keeps that rate's default,
+// rather than reading as zero, and everything it did set.
+func TestDecodeConfigKeepsNewRates(t *testing.T) {
+	cfg := decodeConfig([]byte(`{"rates": {"videoMinute": 3, "movie": 100, "episode": 20, "couchHost": 50,
+		"couchJoin": 25, "bronze": 50, "silver": 150, "gold": 400, "platinum": 1000}}`))
+	if cfg.Rates.VideoMinute != 3 || cfg.Rates.TvMinute != DefaultConfig().Rates.TvMinute {
+		t.Fatalf("got %+v", cfg.Rates)
+	}
+	if cfg = decodeConfig([]byte(`{"rates": {"videoMinute": 3, "tvMinute": 0}}`)); cfg.Rates.TvMinute != 0 {
+		t.Fatalf("an admin's zero became %d", cfg.Rates.TvMinute)
+	}
+	if cfg = decodeConfig([]byte(`not json`)); cfg.Rates != DefaultConfig().Rates {
+		t.Fatalf("a malformed value gave %+v", cfg.Rates)
 	}
 }
 

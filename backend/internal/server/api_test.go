@@ -285,12 +285,17 @@ func apiCases() []apiCase {
 		{op: "getLeaderboard", as: "nora", method: "GET", path: "/leaderboard?period=bogus", status: 400},
 		{op: "adminGetRanks", as: "admin", method: "GET", path: "/admin/ranks", status: 200},
 		{op: "adminUpdateRanksConfig", as: "admin", method: "PUT", path: "/admin/ranks/config", body: map[string]any{
-			"rates": map[string]int{"videoMinute": 2, "movie": 100, "episode": 20, "couchHost": 50, "couchJoin": 25, "bronze": 50, "silver": 150, "gold": 400, "platinum": 1000},
+			"rates": map[string]int{"videoMinute": 2, "tvMinute": 1, "movie": 100, "episode": 20, "couchHost": 50, "couchJoin": 25, "bronze": 50, "silver": 150, "gold": 400, "platinum": 1000},
 			"tiers": []int{0, 500, 1500, 3500, 7000, 13000, 23000, 40000, 70000, 120000},
 		}, status: 200},
 		{op: "adminUpdateRanksConfig", as: "admin", method: "PUT", path: "/admin/ranks/config", body: map[string]any{
-			"rates": map[string]int{"videoMinute": 2, "movie": 100, "episode": 20, "couchHost": 50, "couchJoin": 25, "bronze": 50, "silver": 150, "gold": 400, "platinum": 1000},
+			"rates": map[string]int{"videoMinute": 2, "tvMinute": 1, "movie": 100, "episode": 20, "couchHost": 50, "couchJoin": 25, "bronze": 50, "silver": 150, "gold": 400, "platinum": 1000},
 			"tiers": []int{5, 500, 1500, 3500, 7000, 13000, 23000, 40000, 70000, 120000},
+		}, status: 400},
+		// the Couch TV rate is part of the formula like the rest
+		{op: "adminUpdateRanksConfig", as: "admin", method: "PUT", path: "/admin/ranks/config", body: map[string]any{
+			"rates": map[string]int{"videoMinute": 2, "movie": 100, "episode": 20, "couchHost": 50, "couchJoin": 25, "bronze": 50, "silver": 150, "gold": 400, "platinum": 1000},
+			"tiers": []int{0, 500, 1500, 3500, 7000, 13000, 23000, 40000, 70000, 120000},
 		}, status: 400},
 		{op: "adminGetAnalytics", as: "admin", method: "GET", path: "/admin/analytics/overview?days=7", status: 200},
 

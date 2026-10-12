@@ -43,7 +43,7 @@ type recorder struct {
 	mu        sync.Mutex
 	watched   map[watchRow]int
 	progress  []string
-	viewings  []TvViewing
+	viewings  []viewing
 	reactions map[int64]int
 	audience  map[int64]int
 }
@@ -72,10 +72,10 @@ func (r *recorder) UpsertProgress(_ context.Context, userID int64, titleID, epis
 	return nil
 }
 
-func (r *recorder) RecordTvViewing(_ context.Context, v TvViewing) error {
+func (r *recorder) RecordTvViewing(_ context.Context, userID int64, airingID, kind string, at time.Time, seconds int) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.viewings = append(r.viewings, v)
+	r.viewings = append(r.viewings, viewing{userID: userID, airingID: airingID, kind: kind, at: at, seconds: seconds})
 	return nil
 }
 
@@ -253,7 +253,9 @@ func TestReportsBecomeWatchTimeAndProgress(t *testing.T) {
 	if rec.audience[2] != 2 || len(rec.audience) != 1 {
 		t.Errorf("audience %v", rec.audience)
 	}
-	if v := rec.viewings[0]; v.UserID != 2 || v.AiringID != "a-episode" || v.Fill != FillStrip || !v.Start.Equal(tuned) {
+	// on the channel's clock (Prague's summer time here): 18:00 UTC is its 20:00
+	if v := rec.viewings[0]; v.userID != 2 || v.airingID != "a-episode" || v.kind != PartProgram ||
+		!v.at.Equal(tuned) || v.at.Hour() != 20 || v.seconds != 180 {
 		t.Errorf("viewing %+v", v)
 	}
 

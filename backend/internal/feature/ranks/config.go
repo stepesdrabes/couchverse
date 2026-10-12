@@ -17,6 +17,7 @@ const settingsKey = "ranks"
 // everyone on the next read rather than needing a migration.
 type RankRates struct {
 	VideoMinute int64 `json:"videoMinute" minimum:"0" doc:"XP per minute of video watched."`
+	TvMinute    int64 `json:"tvMinute" minimum:"0" doc:"XP per minute of Couch TV watched, programs and breaks."`
 	Movie       int64 `json:"movie" minimum:"0" doc:"XP per completed movie."`
 	Episode     int64 `json:"episode" minimum:"0" doc:"XP per completed episode."`
 	CouchHost   int64 `json:"couchHost" minimum:"0" doc:"XP per couch session hosted."`
@@ -36,7 +37,10 @@ type RankConfig struct {
 }
 
 // DefaultConfig is the shipped balance, and the fallback whenever the stored
-// value is absent or malformed.
+// value is absent or malformed. A minute of Couch TV is worth half a minute of
+// video: the channel needs no choosing and never stops, so a set left on earns
+// all day, its minutes include the breaks between programs, and its programs
+// still pay their movie and episode bonus through the progress the room saves.
 func DefaultConfig() RankConfig {
 	tiers := make([]int64, len(defaultTiers))
 	for i, t := range defaultTiers {
@@ -45,6 +49,7 @@ func DefaultConfig() RankConfig {
 	return RankConfig{
 		Rates: RankRates{
 			VideoMinute: 2,
+			TvMinute:    1,
 			Movie:       100,
 			Episode:     20,
 			CouchHost:   50,
@@ -69,7 +74,15 @@ func LoadConfig(ctx context.Context, st *settings.Store) RankConfig {
 	if err != nil || raw == nil {
 		return cfg
 	}
-	var stored RankConfig
+	return decodeConfig(raw)
+}
+
+// decodeConfig is LoadConfig past the read. The rates are decoded over the
+// defaults, so a rate added after the value was saved keeps its default rather
+// than reading as zero.
+func decodeConfig(raw json.RawMessage) RankConfig {
+	cfg := DefaultConfig()
+	stored := RankConfig{Rates: cfg.Rates}
 	if json.Unmarshal(raw, &stored) != nil {
 		return cfg
 	}
@@ -90,7 +103,7 @@ func (c RankConfig) Validate() error {
 		name  string
 		value int64
 	}{
-		{"videoMinute", c.Rates.VideoMinute},
+		{"videoMinute", c.Rates.VideoMinute}, {"tvMinute", c.Rates.TvMinute},
 		{"movie", c.Rates.Movie}, {"episode", c.Rates.Episode},
 		{"couchHost", c.Rates.CouchHost}, {"couchJoin", c.Rates.CouchJoin},
 		{"bronze", c.Rates.Bronze}, {"silver", c.Rates.Silver},
