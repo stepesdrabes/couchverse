@@ -15,10 +15,6 @@ ALTER TABLE couchtv_clips
     ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
 CREATE INDEX couchtv_clips_state_idx ON couchtv_clips (state, needed_at);
 
--- A title's measured program loudness (BS.1770 integrated, LUFS; couchtv_analyze), which the
--- breaks around it are mixed at; null until measured.
-ALTER TABLE couchtv_titles ADD COLUMN loudness_lufs real;
-
 -- A break is the composition of one airing, or the evergreen fallback (no airing) the live
 -- stream airs when a break is not ready. path is the assembled package (renditions with
 -- rendition.json, like a Playback v2 package) under DATA_DIR.
@@ -50,7 +46,6 @@ ALTER TABLE couchtv_breaks
     DROP COLUMN id;
 DELETE FROM couchtv_breaks WHERE airing_id IS NULL;
 ALTER TABLE couchtv_breaks ALTER COLUMN airing_id SET NOT NULL, ADD PRIMARY KEY (airing_id);
-ALTER TABLE couchtv_titles DROP COLUMN loudness_lufs;
 DROP INDEX couchtv_clips_state_idx;
 DELETE FROM couchtv_clips WHERE kind IN ('evergreen_end', 'short_promo', 'strip_promo', 'standby');
 ALTER TABLE couchtv_clips
