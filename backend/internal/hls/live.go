@@ -34,8 +34,8 @@ type LiveItem struct {
 // media sequence number of the item's first segment in every rendition and the
 // item's discontinuity sequence number.
 type LiveOrigin struct {
-	MediaSequence         map[string]int
-	DiscontinuitySequence int
+	MediaSequence         map[string]int `json:"mediaSequence"`
+	DiscontinuitySequence int            `json:"discontinuitySequence"`
 }
 
 // After returns the numbering of the item that follows item. Chained from a

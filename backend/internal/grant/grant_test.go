@@ -65,3 +65,22 @@ func TestGrantsExpire(t *testing.T) {
 		t.Fatalf("expired grant: %v", err)
 	}
 }
+
+func TestChannelGrants(t *testing.T) {
+	now := time.Unix(1_790_000_000, 0)
+	s := testSigner(now)
+	guest := uuid.MustParse("6ba7b810-9dad-41d1-80b4-00c04fd430c8")
+	for _, g := range []Grant{
+		{Scope: Channel, Subject: 42, Resource: CouchTv},
+		{Scope: Channel, Resource: CouchTv, Couch: guest},
+	} {
+		got, err := s.Verify(s.Issue(g, ChannelTTL))
+		g.Expires = now.Add(ChannelTTL)
+		if err != nil || got != g {
+			t.Errorf("got %+v (%v), want %+v", got, err, g)
+		}
+	}
+	if CouchTv == uuid.Nil || CouchTv != uuid.NewSHA1(uuid.NameSpaceURL, []byte("couchverse:couchtv")) {
+		t.Errorf("the channel resource is %s", CouchTv)
+	}
+}

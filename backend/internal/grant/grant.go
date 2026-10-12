@@ -31,26 +31,37 @@ const (
 	// Artwork is every artwork image, for images a system fetches without the
 	// app's session (tvOS Top Shelf, AirPlay receivers, anonymous couch guests).
 	Artwork Scope = 2
+	// Channel is the Couch TV channel (Resource CouchTv): its live playlists and
+	// the files of what airs around now, never the rest of the library.
+	Channel Scope = 3
 )
 
+// CouchTv is the Resource of a Channel grant: the one channel there is.
+var CouchTv = uuid.NewSHA1(uuid.NameSpaceURL, []byte("couchverse:couchtv"))
+
 // Lifetimes: a media grant outlives any film and is renewed by fetching the
-// playback payload again; artwork grants back system caches that refresh daily.
+// playback payload again, a channel grant by tuning in again; artwork grants
+// back system caches that refresh daily.
 const (
 	MediaTTL   = 6 * time.Hour
+	ChannelTTL = 6 * time.Hour
 	ArtworkTTL = 7 * 24 * time.Hour
 )
 
 // Grant is a verified capability.
 type Grant struct {
 	Scope Scope
-	// Subject is the user the grant was issued to, 0 for an anonymous couch guest.
+	// Subject is the user the grant was issued to, 0 for an anonymous couch or
+	// channel guest.
 	Subject int64
-	// Resource is the media file of a Media grant, the zero UUID otherwise.
+	// Resource is the media file of a Media grant, CouchTv for a Channel grant,
+	// the zero UUID otherwise.
 	Resource uuid.UUID
 	// Couch binds a couch follower's grant to their participant: it only works
 	// while they are on a live couch playing Resource, so leaving, a media switch
-	// or the session's end revokes it at once. Zero for a grant that stands on
-	// its own.
+	// or the session's end revokes it at once. On a Channel grant it names the
+	// guest who tuned in through the channel link. Zero for a grant that stands
+	// on its own.
 	Couch   uuid.UUID
 	Expires time.Time
 }
