@@ -57,13 +57,13 @@
 	};
 
 	// only the titles the chosen template shows, so loading the others never reloads it
+	const following = $derived(
+		['lineup', 'identFull', 'identShort'].includes(o.template)
+			? lineupIds.map(preview).filter((t) => t !== null)
+			: []
+	);
 	const spec = $derived(
-		buildSpec(
-			o,
-			preview(mainId),
-			o.template === 'squeeze' ? preview(nextId) : null,
-			o.template === 'lineup' ? lineupIds.map(preview).filter((t) => t !== null) : []
-		)
+		buildSpec(o, preview(mainId), o.template === 'squeeze' ? preview(nextId) : null, following)
 	);
 
 	const templates = $derived<{ value: PreviewTemplate; label: string }[]>([
@@ -242,7 +242,7 @@
 				<Select
 					items={[
 						{ value: 'expand', label: m.admin_couchtv_handover_expand() },
-						{ value: 'line', label: m.admin_couchtv_handover_line() }
+						{ value: 'cursor', label: m.admin_couchtv_handover_cursor() }
 					]}
 					bind:value={o.handover}
 					class="w-full justify-between"

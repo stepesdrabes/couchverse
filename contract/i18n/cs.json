@@ -200,7 +200,7 @@
 	"admin_couchtv_frame_previous": "Předchozí snímek",
 	"admin_couchtv_handover": "Přechod",
 	"admin_couchtv_handover_expand": "Další obraz se zvětší",
-	"admin_couchtv_handover_line": "Složí se do linky",
+	"admin_couchtv_handover_cursor": "Složí se do kurzoru znělky",
 	"admin_couchtv_keys_hint": "Když je aktivní ovládání přehrávače, mezerník spouští a zastavuje a šipky posouvají o snímek.",
 	"admin_couchtv_length": "Délka",
 	"admin_couchtv_load_failed": "Předěl se nepodařilo načíst.",

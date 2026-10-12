@@ -195,7 +195,7 @@
 	"admin_couchtv_frame_previous": "Previous frame",
 	"admin_couchtv_handover": "Handover",
 	"admin_couchtv_handover_expand": "Next picture expands",
-	"admin_couchtv_handover_line": "Collapses into a line",
+	"admin_couchtv_handover_cursor": "Collapses into the ident's cursor",
 	"admin_couchtv_keys_hint": "With a player control focused, Space plays and pauses and the arrow keys step one frame.",
 	"admin_couchtv_length": "Length",
 	"admin_couchtv_load_failed": "The cutscene could not be loaded.",

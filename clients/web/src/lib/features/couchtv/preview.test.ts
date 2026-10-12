@@ -102,6 +102,15 @@ describe('buildSpec', () => {
 		expect(buildSpec(opts({ template: 'promo' }), null, null)).toBeNull();
 	});
 
+	it('frames library posters in the ident', () => {
+		const spec = buildSpec(opts({ template: 'identShort' }), movie, null, [movie, series]);
+		expect(spec).toEqual({
+			template: 'ident',
+			cut: 'short',
+			posters: [movie.title.poster, series.title.poster]
+		});
+	});
+
 	it('phrases the airing in English', () => {
 		const spec = buildSpec(
 			opts({ template: 'promo', airs: 'tomorrow', time: '21:00' }),
@@ -137,11 +146,11 @@ describe('buildSpec', () => {
 	});
 
 	it('squeezes into the next title', () => {
-		const spec = buildSpec(opts({ template: 'squeeze', handover: 'line' }), movie, series);
+		const spec = buildSpec(opts({ template: 'squeeze', handover: 'cursor' }), movie, series);
 		expect(spec).toMatchObject({
 			ending: { name: 'Iron Man' },
 			next: { title: { name: 'The Simpsons' } },
-			handover: 'line',
+			handover: 'cursor',
 			program: { kind: 'standIn' }
 		});
 	});

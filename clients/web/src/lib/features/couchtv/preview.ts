@@ -33,7 +33,7 @@ export interface PreviewOptions {
 	stripMood: 'bright' | 'dark';
 	premiere: boolean;
 	part: 'full' | 'body' | 'end';
-	handover: 'expand' | 'line';
+	handover: 'expand' | 'cursor';
 	stingLength: number;
 	airs: AiringKind;
 	/** `HH:MM`. */
@@ -151,20 +151,31 @@ const sub = (t: PreviewTitle) =>
 				.filter(Boolean)
 				.join(' · ');
 
-/** The spec for the chosen template; null while a title it needs is missing. */
+/** The posters the ident frames: the chosen title's, then the following ones (four at most). */
+function identPosters(titles: (PreviewTitle | null)[]): { posters?: string[] } {
+	const posters = [
+		...new Set(titles.map((t) => t?.title.poster).filter((p): p is string => !!p))
+	].slice(0, 4);
+	return posters.length ? { posters } : {};
+}
+
+/**
+ * The spec for the chosen template; null while a title it needs is missing. `following` are the
+ * library titles after the chosen one (the lineup's rows, the ident's posters).
+ */
 export function buildSpec(
 	o: PreviewOptions,
 	main: PreviewTitle | null,
 	next: PreviewTitle | null,
-	lineupTitles: PreviewTitle[] = []
+	following: PreviewTitle[] = []
 ): ClipSpec | null {
 	const bed = o.bed === 'none' ? undefined : { url: o.bed, in: 0, out: 28 };
 	const when = airing(o.airs, o.time, o.day);
 	switch (o.template) {
 		case 'identFull':
-			return { template: 'ident', cut: 'full' };
+			return { template: 'ident', cut: 'full', ...identPosters([main, ...following]) };
 		case 'identShort':
-			return { template: 'ident', cut: 'short' };
+			return { template: 'ident', cut: 'short', ...identPosters([main, ...following]) };
 		case 'sting':
 			return { template: 'sting', duration: o.stingLength };
 		case 'standby':
@@ -215,7 +226,7 @@ export function buildSpec(
 		case 'shortPromo':
 			return { template: 'shortPromo', title, airing: when, bed };
 		case 'lineup': {
-			const titles = [main, ...lineupTitles.filter((t) => t.id !== main.id)].slice(0, 4);
+			const titles = [main, ...following.filter((t) => t.id !== main.id)].slice(0, 4);
 			if (titles.length < 2) return null;
 			const times = [o.time, shiftTime(o.time, 25), shiftTime(o.time, 135), shiftTime(o.time, 270)];
 			return {
