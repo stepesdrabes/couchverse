@@ -65,8 +65,16 @@ class DesignTest {
     @Test
     fun `every code the catalogs word is worded`() {
         val catalog = Json.parseToJsonElement(File("../../../contract/i18n/en.json").readText()).jsonObject.keys
-        // the admin's TMDB failures never reach a native client
-        val codes = catalog.mapNotNull { it.removePrefix("problem_").takeIf { code -> code != it } } - setOf("generic", "no_tmdb_id", "no_tmdb_key", "tmdb_error")
+        // admin-only failures never reach a native client: TMDB, and Couch TV's schedule,
+        // template and media tools
+        val adminOnly = setOf(
+            "no_tmdb_id", "no_tmdb_key", "tmdb_error",
+            "anchor_needs_time", "day_needs_anchor", "day_without_slots", "excluded", "file_missing",
+            "invalid_pinned_title", "invalid_rotation", "invalid_slot", "invalid_time_zone", "no_audio",
+            "no_media", "not_published", "on_air", "outside_horizon", "overlap", "reruns_without_end",
+            "slot_out_of_order", "source_deleted",
+        )
+        val codes = catalog.mapNotNull { it.removePrefix("problem_").takeIf { code -> code != it } } - adminOnly - "generic"
         val unworded = codes.filter { problemText(it) != R.string::class.java.getField("problem_$it").getInt(null) }
         assertEquals(emptyList(), unworded)
     }
