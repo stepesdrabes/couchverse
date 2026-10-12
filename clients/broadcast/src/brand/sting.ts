@@ -18,7 +18,7 @@ import { animateBrackets, centre, cursorAt, geometry, wordmark, type Frame } fro
 const SIZE = 190;
 
 export const sting: Template<StingSpec> = {
-	version: 2,
+	version: 3,
 	build({ root, sound }, spec) {
 		const D = frame(Math.min(6, Math.max(2, spec.duration)));
 		const tl = timeline(root, D);

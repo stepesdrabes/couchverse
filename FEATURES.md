@@ -2024,8 +2024,9 @@ approves is what airs.
 - **Brand** (`src/brand`, D27): **C()UCH TV**, Saira 700 caps, pure red (the token accent,
   #e50914), black and white. `wordmark.ts` is the one lockup: a layout in em measured from the
   bundled Saira (a golden test re-measures it) places every part absolutely; the O is drawn as
-  two superellipses fitted to Saira's O (within 0.003 em), cut into the brackets, so a bracket
-  can grow to frame a poster with its outline scaled and its stroke kept at the lockup's weight;
+  two superellipses fitted to Saira's O (within 0.003 em), cut into the brackets; a bracket that
+  grows to frame something scales whole, stroke and all, so it stays Saira 700's own O at that
+  size, the weight of the word it frames (as the approved reel drew it);
   the TV block and the cursor sit on whole pixels. `wordmark()` builds the animated DOM version
   (the ident, the stings, the promo tag), `animateBrackets` drives the brackets' shape and place
   as a pure function of t (`Timeline.dynamic`). `lockup.ts`: the static lockup, the corner bug,

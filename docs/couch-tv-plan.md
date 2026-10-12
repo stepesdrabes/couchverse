@@ -728,9 +728,11 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   stings live in `src/brand`, so a redesign replaces that folder only.
 - **The brand (D27, ported from the reel)**: C()UCH TV with Saira bundled (no CDN), ident
   variant B (full and short) and theme 1 as the sonic logo, its tag closing every promo and
-  stings of 2-6 s derived from it. The reel's one known issue is fixed: the brackets are drawn
-  as superellipses fitted to Saira's O, so when they hug a poster their outline grows but the
-  stroke keeps the lockup's weight (the reel scaled the glyph, about three times heavier). The
+  stings of 2-6 s derived from it. The brackets are drawn as superellipses fitted to Saira's O
+  and scale whole, as the reel scaled the glyph. (The port first kept their stroke at the
+  lockup's weight when they hug a poster; on air that read as a thinner, different font
+  beside the words they frame, and the owner asked for the reel's brackets back on
+  2026-10-12: ident and sting version 3.) The
   ident's posters come from the spec (`posters`, stand-in cards without). Cuts sit on the frame
   nearest their beat (at 25 fps a 120 bpm grid falls between frames). The squeeze's `cursor`
   handover (replacing `line`) ends on the short ident's first frame pixel for pixel. Measured

@@ -4,9 +4,9 @@
 // ident, the stings, the promo tag) and the static lockup (`lockupSvg`: the corner bug, the
 // lineup header, the standby card and the web's live overlays).
 //
-// The brackets are drawn, not typed: the O is two superellipses fitted to Saira's, so a bracket
-// can grow to frame a poster while its stroke keeps the lockup's weight (its outline scales
-// with the size, its inner edge stays one stroke inside).
+// The brackets are drawn, not typed: the O is two superellipses fitted to Saira's. A bracket
+// that grows to frame something scales whole, its stroke with it, as the approved reel scaled
+// the O's glyph: at any size it is Saira 700's own O, the weight of the word it frames.
 
 import { valueAt, windows, type Move } from '../core/moves';
 import type { Timeline } from '../core/timeline';
@@ -118,21 +118,21 @@ const num = (v: number) => String(Math.round(v * 100) / 100);
 
 /**
  * One bracket as an SVG path (px), its open edge on (ox, oy): the left half of the O for
- * side -1, the right for 1. At scale `k` the outline is k times the O's and the inner edge
- * stays the O's own stroke inside it, so the stroke never thickens.
+ * side -1, the right for 1, `k` times the O's size, stroke and all.
  */
 export function bracketPath(em: number, k = 1, side: -1 | 1 = -1, ox = 0, oy = 0): string {
 	const n = 40;
+	const size = k * em;
 	const outer: string[] = [];
 	const inner: string[] = [];
 	for (let i = 0; i <= 2 * n; i++) {
 		const phi = (i / (2 * n)) * Math.PI;
 		const ux = Math.sin(phi);
 		const uy = -Math.cos(phi);
-		const ro = radius(OUTER, ux, uy);
-		const ri = radius(INNER, ux, uy) + (k - 1) * ro;
-		outer.push(`${num(ox + side * k * ro * ux * em)} ${num(oy + k * ro * uy * em)}`);
-		inner.push(`${num(ox + side * ri * ux * em)} ${num(oy + ri * uy * em)}`);
+		const ro = radius(OUTER, ux, uy) * size;
+		const ri = radius(INNER, ux, uy) * size;
+		outer.push(`${num(ox + side * ro * ux)} ${num(oy + ro * uy)}`);
+		inner.push(`${num(ox + side * ri * ux)} ${num(oy + ri * uy)}`);
 	}
 	return `M${outer.join('L')}L${inner.reverse().join('L')}Z`;
 }

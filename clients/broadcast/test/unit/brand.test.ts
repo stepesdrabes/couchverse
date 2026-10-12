@@ -45,14 +45,14 @@ describe('the brackets', () => {
 		};
 	};
 
-	it('grow with what they frame while the stroke keeps the lockup weight', () => {
+	it('grow whole with what they frame: the O of a bigger Saira, stroke and all', () => {
 		const rest = stroke(1);
 		for (const k of [1.5, 2.2, 3.1]) {
 			const s = stroke(k);
 			expect(s.height).toBeCloseTo(rest.height * k, 0);
 			expect(s.width).toBeCloseTo(rest.width * k, 0);
-			expect(s.bar).toBeCloseTo(rest.bar, 1);
-			expect(s.stem).toBeCloseTo(rest.stem, 1);
+			expect(s.bar).toBeCloseTo(rest.bar * k, 0);
+			expect(s.stem).toBeCloseTo(rest.stem * k, 0);
 		}
 		// Saira's O: a heavier stem than bar
 		expect(rest.stem / em).toBeCloseTo(0.175, 2);

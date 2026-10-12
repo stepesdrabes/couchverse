@@ -204,7 +204,7 @@ function posterSlots(assets: Assets, posters: string[] | undefined, count: numbe
 }
 
 export const ident: Template<IdentSpec> = {
-	version: 2,
+	version: 3,
 	build({ root, sound, assets }, spec) {
 		const cut = spec.cut === 'short' ? 'short' : 'full';
 		const full = cut === 'full';
