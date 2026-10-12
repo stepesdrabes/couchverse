@@ -18,6 +18,11 @@ extension Problem {
         case "no_session", "session_ended": L10n.couchJoinFailed
         case "not_host": L10n.problemNotHost
         case "session_full": L10n.problemSessionFull
+        case "feature_disabled": L10n.problemFeatureDisabled
+        case "invalid_name": L10n.problemInvalidName
+        case "no_channel_guest": L10n.problemNoChannelGuest
+        case "no_channel_link": L10n.problemNoChannelLink
+        case "couchtv_playback_failed": L10n.problemCouchtvPlaybackFailed
         default: L10n.problemGeneric
         }
     }
