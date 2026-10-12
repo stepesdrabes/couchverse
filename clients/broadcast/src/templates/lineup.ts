@@ -1,7 +1,7 @@
 // "Later on Couch TV": the rows slide in, then each program gets the big panel in turn.
 
 import { SPARKLE } from '../audio/kit';
-import { CHANNEL, mark } from '../brand/lockup';
+import { CHANNEL, lockup } from '../brand/lockup';
 import { css, div, el, fadeOut, img, rise, words } from '../core/dom';
 import { framed } from '../core/framing';
 import { applyPalette } from '../core/palette';
@@ -9,7 +9,7 @@ import type { LineupSpec } from '../spec';
 import { glow, timeline, titlePalette, type Template } from './shared';
 
 export const lineup: Template<LineupSpec> = {
-	version: 1,
+	version: 2,
 	build({ root, sound, assets }, spec) {
 		const D = spec.duration ?? 12;
 		const tl = timeline(root, D);
@@ -27,7 +27,7 @@ export const lineup: Template<LineupSpec> = {
 		});
 		div('shade', panel);
 		const head = div('lu-head', root);
-		const logo = mark(head, 64);
+		const logo = lockup(head, 56, 'lu-wm');
 		const title = words(div('hero lu-title', head), `Later on ${CHANNEL}`);
 		const list = div('lu-list', root);
 		const hl = css(div('abs lu-highlight', list), {});

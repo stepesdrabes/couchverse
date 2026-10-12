@@ -9,9 +9,9 @@
 import type { Bus, LoadedBed } from '../audio/engine';
 import { beatsIn, snapper } from '../audio/onsets';
 import { SPARKLE } from '../audio/kit';
-import { CHANNEL, channelTag, springFrames } from '../brand/lockup';
+import { CHANNEL, channelTag } from '../brand/lockup';
 import { chars, css, div, fadeOut, fadeUp, fit, glint, img, rise, span, words } from '../core/dom';
-import { SPRING } from '../core/motion';
+import { SPRING, springFrames } from '../core/motion';
 import { applyPalette } from '../core/palette';
 import { rng } from '../core/rng';
 import { frame } from '../core/timeline';
@@ -132,7 +132,7 @@ const CUE: Record<Section['kind'], string> = {
 };
 
 export const promo: Template<PromoSpec> = {
-	version: 1,
+	version: 2,
 	build(ctx, spec) {
 		const airing = spec.part === 'body' ? BODY_AIRING : (spec.airing ?? null);
 		const tl = buildPromo(ctx, spec, airing);
@@ -145,7 +145,7 @@ export const promo: Template<PromoSpec> = {
 };
 
 export const evergreenEnd: Template<EvergreenEndSpec> = {
-	version: 1,
+	version: 2,
 	build(ctx, spec) {
 		const tl = buildPromo(ctx, spec, null);
 		tl.parts = { clip: tl.parts.end };

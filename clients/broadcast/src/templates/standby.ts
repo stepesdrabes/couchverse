@@ -2,14 +2,14 @@
 // period and ends where it starts; the drone's partials are whole cycles per loop) until the
 // next airing.
 
-import { CHANNEL, mark } from '../brand/lockup';
-import { themeBells } from '../brand/sonic';
+import { CHANNEL, lockup } from '../brand/lockup';
+import { themeChime } from '../brand/theme';
 import { div } from '../core/dom';
 import type { StandbySpec } from '../spec';
 import { glow, timeline, type Template } from './shared';
 
 export const standby: Template<StandbySpec> = {
-	version: 1,
+	version: 2,
 	build({ root, sound }, spec) {
 		const D = spec.duration ?? 12;
 		const tl = timeline(root, D);
@@ -41,7 +41,7 @@ export const standby: Template<StandbySpec> = {
 		);
 
 		const col = div('sb-col', root);
-		const m = mark(col, 132);
+		const m = lockup(col, 104, 'sb-lockup');
 		tl.add(
 			m,
 			[{ transform: 'scale(1)' }, { transform: 'scale(1.035)' }, { transform: 'scale(1)' }],
@@ -58,7 +58,7 @@ export const standby: Template<StandbySpec> = {
 
 		tl.cue('loop', 0);
 		tl.sound(0, (w, b) => sound.loopDrone(b, w, D, D, { gain: 0.06 }), D);
-		tl.sound(1.0, (w, b) => themeBells(sound, b, w, { gain: 0.22 }));
+		tl.sound(1.0, (w, b) => themeChime(sound, b, w, { gain: 0.22 }));
 		return tl;
 	}
 };

@@ -9,7 +9,7 @@ import type { UpNextSpec } from '../spec';
 import { timeline, titlePalette, type Template } from './shared';
 
 export const upNext: Template<UpNextSpec> = {
-	version: 1,
+	version: 2,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 8;

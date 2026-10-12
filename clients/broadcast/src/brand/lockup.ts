@@ -1,45 +1,28 @@
-// The brand on screen: the mark, the lockup (one shared component: end cards, the corner bug,
-// the lineup header and the stings all draw it from here), the corner bug and the promo tag.
-// A brand redesign replaces this module, brand.css and sonic.ts; templates only call these.
+// The brand's small pieces on every template: the static lockup, the corner bug and the
+// end-of-promo channel tag. All of them draw the one wordmark (wordmark.ts); templates only
+// call these.
 
 import type { Kit } from '../audio/kit';
-import { div, el, span } from '../core/dom';
-import { SPRING, spring } from '../core/motion';
+import { div, span } from '../core/dom';
+import { motion, windows } from '../core/moves';
 import type { Timeline } from '../core/timeline';
-import { LOGO, themeTag } from './sonic';
+import { HOOK, themeTag } from './theme';
+import { CHANNEL, cursorAt, geometry, lockupSvg, wordmark } from './wordmark';
 
-export const CHANNEL = 'Couch TV';
+export { CHANNEL };
 
-/** The app's LogoMark: the couch on the red rounded square. */
-export function mark(parent: Element, size?: number) {
-	const m = div('mark', parent);
-	if (size) m.style.setProperty('--s', size + 'px');
-	el('i', null, m);
-	return m;
+/** The static lockup at font size `size` (px), as an inline SVG. */
+export function lockup(parent: Element, size: number, cls = 'lockup'): HTMLSpanElement {
+	const s = span(cls, parent);
+	// our own markup from numbers and constants: no spec text goes in
+	s.innerHTML = lockupSvg({ size, label: CHANNEL });
+	return s;
 }
 
-export interface Lockup {
-	root: HTMLDivElement;
-	mark: HTMLDivElement;
-	name: HTMLDivElement;
-}
-
-/** The mark beside the channel name; `size` is the mark's edge in stage pixels. */
-export function lockup(parent: Element, size = 56): Lockup {
-	const root = div('lockup', parent);
-	root.style.setProperty('--ls', size + 'px');
-	const m = mark(root);
-	const name = div('lockup-name', root);
-	span(null, name, 'Couch');
-	span('tv-pill', name, 'TV');
-	return { root, mark: m, name };
-}
-
-/** The corner bug: lockup, a breathing LIVE dot and the clock. */
+/** The corner bug: the lockup, a breathing LIVE dot and the clock. */
 export function bug(tl: Timeline, parent: Element, clock: string) {
 	const b = div('bug', parent);
-	mark(b);
-	span('bug-name', b, CHANNEL);
+	lockup(b, 27, 'bug-wm');
 	span('bug-sep', b);
 	const live = span('live', b);
 	const dot = span('live-dot', live);
@@ -53,48 +36,64 @@ export function bug(tl: Timeline, parent: Element, clock: string) {
 	return b;
 }
 
-/** A spring from `from` to `to` as keyframes, plus its duration. */
-export function springFrames(
-	from: number,
-	to: number,
-	cfg = SPRING.snappy,
-	map: (v: number) => string = (v) => `scale(${v})`
-) {
-	const s = spring(cfg);
-	return {
-		frames: s.values.map((v) => ({ transform: map(from + (to - from) * v) })),
-		dur: s.duration
-	};
-}
-
-/** The end-of-promo channel tag: the lockup lands on the condensed mnemonic. */
+/**
+ * The end-of-promo channel tag: the wordmark lands on the hook, condensed. It appears closed
+ * on the first note, the brackets open a little on the next three (widest on the top note) and
+ * TV drops into its block on the long last note, as the ident does.
+ */
 export function channelTag(
 	tl: Timeline,
 	parent: Element,
 	at: number,
 	sound: Kit,
-	{ size = 54, cls = 'tag-lockup', gain = 0.5 } = {}
+	{ size = 62, cls = 'tag-lockup', gain = 0.5 } = {}
 ) {
 	const wrap = div(cls, parent);
-	const lk = lockup(wrap, size);
-	const sp = springFrames(0.4, 1, SPRING.bouncy);
-	tl.add(lk.mark, [{ opacity: 0 }, { opacity: 1 }], at, 0.1, 'linear');
-	tl.add(lk.mark, sp.frames, at, sp.dur, 'linear');
+	const wm = wordmark(wrap, size, { cls: 'wm-tag' });
+	const m = wm.m;
+	const R = HOOK.tagAt.map((r) => at + r);
 	tl.add(
-		lk.name,
+		wrap,
 		[
-			{ opacity: 0, transform: 'translateX(-18px)' },
-			{ opacity: 1, transform: 'translateX(0)' }
+			{ opacity: 0, transform: 'scale(0.92)' },
+			{ opacity: 1, transform: 'scale(1)' }
 		],
-		at + LOGO.tagRhythm[2],
-		0.7,
-		'enter'
+		at - 0.02,
+		0.2,
+		'snap'
 	);
-	// the cue starts a beat early so live playback that starts on the tag still hears it
+	const moves = (
+		[
+			[R[1], 0.2],
+			[R[2], 0.42],
+			[R[3], 0.22]
+		] as const
+	).flatMap(([t, w]) => [
+		{ at: t, dur: 0.05, to: m.em * w + m.split, ease: 'out' },
+		{ at: t + 0.08, dur: 0.1, to: m.split, ease: 'inOut' }
+	]);
+	const half = wm.halves.red;
+	if (half) {
+		motion(tl, half.l.svg, m.split, moves, (g) => ({ transform: geometry(m, g).l }));
+		motion(tl, half.r.svg, m.split, moves, (g) => ({ transform: geometry(m, g).r }));
+	}
+	motion(tl, wm.c, m.split, moves, (g) => ({ transform: geometry(m, g).c }));
+	motion(tl, wm.rest, m.split, moves, (g) => ({ transform: geometry(m, g).rest }));
+	motion(
+		tl,
+		wm.cur,
+		cursorAt(m, m.tv.x),
+		[{ at: R[4], dur: 0.12, to: cursorAt(m, m.tv.x, m.tv.w), ease: 'snap' }],
+		(v) => ({ transform: v })
+	);
+	const D = tl.duration;
+	windows(tl, wm.cur, [[0, R[4] + 0.12]]);
+	windows(tl, wm.tvBg, [[R[4] + 0.12, D + 1]]);
+	windows(tl, wm.tvT, [[R[4], D + 1]]);
+	windows(tl, wm.tvV, [[R[4] + 0.06, D + 1]]);
+	// the cue starts early: the tag's swell leads into the first note, and live playback that
+	// starts on the tag still hears it
 	tl.sound(at - 0.4, (w, b) => themeTag(sound, b, w + 0.4, { gain }));
 	tl.cue('channel tag', at);
 	return wrap;
 }
-
-/** When the tag's final chord lands, relative to its cue. */
-export const TAG_SETTLE = LOGO.tagRhythm[3];

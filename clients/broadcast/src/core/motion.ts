@@ -45,6 +45,20 @@ export function spring({ response, damping }: SpringConfig, samples = 28) {
 	return { values, duration: settle };
 }
 
+/** A spring from `from` to `to` as transform keyframes, plus its duration. */
+export function springFrames(
+	from: number,
+	to: number,
+	cfg: SpringConfig = SPRING.snappy,
+	map: (v: number) => string = (v) => `scale(${v})`
+) {
+	const s = spring(cfg);
+	return {
+		frames: s.values.map((v) => ({ transform: map(from + (to - from) * v) })),
+		dur: s.duration
+	};
+}
+
 /**
  * The progress of a cubic-bezier easing at x (0..1), solved like the browser does, so a
  * template can compute a value it also animates (the squeeze's key rectangle).

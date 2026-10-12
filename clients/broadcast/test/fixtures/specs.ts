@@ -59,8 +59,13 @@ const SHOTS: Shot[] = [
 const episode = { code: 'S01E02', name: 'Bart the Genius', runtimeMinutes: 23 };
 
 export const FIXTURES = {
-	'ident-full': { template: 'ident', cut: 'full' },
-	'ident-short': { template: 'ident', cut: 'short' },
+	'ident-full': {
+		template: 'ident',
+		cut: 'full',
+		posters: [TITLES.night.poster, TITLES.alley.poster, TITLES.sunny.poster, TITLES.water.poster]
+	},
+	'ident-short': { template: 'ident', cut: 'short', posters: [TITLES.night.poster] },
+	'ident-bare': { template: 'ident', cut: 'full' },
 	'sting-2': { template: 'sting', duration: 2 },
 	'sting-3': { template: 'sting', duration: 3 },
 	'sting-5': { template: 'sting', duration: 5 },
@@ -164,7 +169,7 @@ export const FIXTURES = {
 		ending: TITLES.alley,
 		program: { kind: 'key' },
 		next: { title: TITLES.water, time: '22:30' },
-		handover: 'line'
+		handover: 'cursor'
 	},
 	'squeeze-frames': {
 		template: 'squeeze',
@@ -179,13 +184,13 @@ export const FIXTURES = {
 
 export type FixtureName = keyof typeof FIXTURES;
 
-/** A short break: squeeze, short ident, a promo (body and end), up next. */
+/** A short break: the squeeze handing over to the short ident, a promo (body and end). */
 export const BREAK: BreakSpec = {
 	template: 'break',
 	loudness: -20,
 	items: [
-		{ at: 0, spec: FIXTURES['squeeze-expand'] },
-		{ at: 11.52, spec: FIXTURES['ident-short'] },
-		{ at: 16.52, spec: { ...FIXTURES['promo-bright'], loudness: -20 } }
+		{ at: 0, spec: { ...FIXTURES['squeeze-expand'], handover: 'cursor' } },
+		{ at: 10.6, spec: FIXTURES['ident-short'] },
+		{ at: 15.12, spec: { ...FIXTURES['promo-bright'], loudness: -20 } }
 	]
 };

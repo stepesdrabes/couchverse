@@ -133,11 +133,17 @@ export interface Airing {
 
 export interface IdentSpec extends Loudness {
 	template: 'ident';
-	/** The full cut (11.5 s, before the prime-time movie) or the short one (5 s). */
+	/** The full cut (10.52 s, before the prime-time movie) or the short one (4.52 s). */
 	cut: 'full' | 'short';
+	/**
+	 * Poster image URLs (2:3) the brackets frame, in order: the full cut shows four, the short
+	 * cut one; fewer repeat, none shows a stand-in card.
+	 * @maxItems 4
+	 */
+	posters?: string[];
 }
 
-/** A gap filler in the ident's language: the mark and the mnemonic. */
+/** A gap filler in the ident's language: the lockup landing on the hook. */
 export interface StingSpec extends Loudness {
 	template: 'sting';
 	/**
@@ -317,8 +323,12 @@ export interface SqueezeSpec extends Loudness {
 	next: { title: Title; episode?: Episode; time: ClockTime };
 	/** The corner bug's clock; no bug without it. */
 	clock?: ClockTime;
-	/** `expand`: the next picture grows to full frame; `line`: all collapses into the ident's horizon. */
-	handover: 'expand' | 'line';
+	/**
+	 * `expand` (11.52 s): the next picture grows to full frame; `cursor` (10.6 s): the program
+	 * collapses into the red cursor block the short ident opens on, its last frame the ident's
+	 * first.
+	 */
+	handover: 'expand' | 'cursor';
 	/** The program's own sound from the credits, ducked under "Up next". */
 	bed?: Bed;
 }

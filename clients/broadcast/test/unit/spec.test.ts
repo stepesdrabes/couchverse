@@ -41,6 +41,9 @@ describe('the spec schema', () => {
 		expect(validate({ ...FIXTURES['promo-cinematic'], shots: [] })).toBe(false);
 		expect(validate({ ...FIXTURES.lineup, items: FIXTURES.lineup.items.slice(0, 1) })).toBe(false);
 		expect(validate({ ...FIXTURES.standby, extra: true })).toBe(false);
+		const posters = FIXTURES['ident-full'].posters;
+		expect(validate({ ...FIXTURES['ident-full'], posters: [...posters, posters[0]] })).toBe(false);
+		expect(validate({ ...FIXTURES['squeeze-key'], handover: 'line' })).toBe(false);
 	});
 });
 
@@ -63,5 +66,6 @@ describe('collectUrls', () => {
 		const { images, beds } = collectUrls(FIXTURES['promo-cinematic']);
 		expect(images).toEqual(['/test/media/night-backdrop.jpg', '/test/media/night-poster.jpg']);
 		expect(beds).toEqual(['/test/media/bed.ogg']);
+		expect(collectUrls(FIXTURES['ident-full']).images).toEqual(FIXTURES['ident-full'].posters);
 	});
 });

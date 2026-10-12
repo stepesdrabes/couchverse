@@ -4,9 +4,12 @@
 
 import latinExtUrl from './assets/fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2?url';
 import latinUrl from './assets/fonts/plus-jakarta-sans-latin-wght-normal.woff2?url';
+import displayExtUrl from './assets/fonts/saira-latin-ext-wght-normal.woff2?url';
+import displayUrl from './assets/fonts/saira-latin-wght-normal.woff2?url';
 import { SAMPLE_RATE, type LoadedBed, type Onset } from './audio/engine';
 import { detectOnsets } from './audio/onsets';
 import { placeholderBed } from './audio/placeholder';
+import { DISPLAY_FAMILY } from './brand/wordmark';
 import type { Picture } from './core/framing';
 import { rng } from './core/rng';
 import type { Bed, Spec } from './spec';
@@ -15,22 +18,29 @@ export const FONT_FAMILY = 'Couch TV Sans';
 
 let fontsReady: Promise<void> | null = null;
 
-/** Register Plus Jakarta Sans on the document (shadow roots ignore @font-face) and load it. */
+const LATIN =
+	'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD';
+const LATIN_EXT =
+	'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF';
+
+/**
+ * Register the faces on the document (shadow roots ignore @font-face) and load them: Plus
+ * Jakarta Sans for text and Saira, the brand's display face (both OFL, latin and latin-ext;
+ * Saira's files are @fontsource-variable/saira 5.3.0's weight axis).
+ */
 export function ensureFonts(): Promise<void> {
 	if (!fontsReady) {
+		const face = (family: string, url: string, weight: string, unicodeRange: string) =>
+			new FontFace(family, `url(${url}) format('woff2')`, {
+				weight,
+				display: 'block',
+				unicodeRange
+			});
 		const faces = [
-			new FontFace(FONT_FAMILY, `url(${latinUrl}) format('woff2')`, {
-				weight: '200 800',
-				display: 'block',
-				unicodeRange:
-					'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD'
-			}),
-			new FontFace(FONT_FAMILY, `url(${latinExtUrl}) format('woff2')`, {
-				weight: '200 800',
-				display: 'block',
-				unicodeRange:
-					'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF'
-			})
+			face(FONT_FAMILY, latinUrl, '200 800', LATIN),
+			face(FONT_FAMILY, latinExtUrl, '200 800', LATIN_EXT),
+			face(DISPLAY_FAMILY, displayUrl, '100 900', LATIN),
+			face(DISPLAY_FAMILY, displayExtUrl, '100 900', LATIN_EXT)
 		];
 		fontsReady = Promise.all(faces.map((f) => f.load())).then(() => {
 			for (const f of faces) document.fonts.add(f);
@@ -114,7 +124,8 @@ export function collectUrls(spec: unknown): { images: string[]; beds: string[] }
 			return;
 		}
 		if (!v || typeof v !== 'object') {
-			if (typeof v === 'string' && (key === 'backdrop' || key === 'poster')) images.add(v);
+			if (typeof v === 'string' && (key === 'backdrop' || key === 'poster' || key === 'posters'))
+				images.add(v);
 			return;
 		}
 		const o = v as Record<string, unknown>;
@@ -148,9 +159,12 @@ export class Assets {
 				}
 			})
 		]);
-		await Promise.all(
-			[400, 500, 600, 700, 800].map((w) => document.fonts.load(`${w} 100px "${FONT_FAMILY}"`, 'Aa'))
-		);
+		await Promise.all([
+			...[400, 500, 600, 700, 800].map((w) =>
+				document.fonts.load(`${w} 100px "${FONT_FAMILY}"`, 'Aa')
+			),
+			document.fonts.load(`700 100px "${DISPLAY_FAMILY}"`, 'C()UCH TV 20:15')
+		]);
 		return a;
 	}
 

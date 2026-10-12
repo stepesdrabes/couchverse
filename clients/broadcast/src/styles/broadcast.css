@@ -847,9 +847,6 @@
 	align-items: center;
 	gap: 26px;
 }
-.lu-head .lockup {
-	--ls: 46px;
-}
 .lu-title {
 	font-size: 68px;
 }
@@ -1027,10 +1024,10 @@
 	margin-top: 10px;
 	font-size: 38px;
 }
-.white-fill {
+.red-fill {
 	position: absolute;
 	inset: 0;
-	background: #fff;
+	background: var(--brand);
 }
 .program.keyed {
 	background: transparent;
