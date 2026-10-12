@@ -71,8 +71,9 @@ const LINEUP_REFRESH_MS: U53 = 60_000;
 /// The guide covers the day before (today's broadcast day began within it) to a week ahead.
 const GUIDE_BACK_MS: i64 = 24 * 3_600_000;
 const GUIDE_AHEAD_MS: i64 = 7 * 24 * 3_600_000;
-/// The home card asks again this long after the program on it ends, at the soonest.
-const ON_NOW_MIN_MS: i64 = 5_000;
+/// A timer for when what airs changes (the home card, a screen tuned in off air) waits at least
+/// this long.
+const DUE_MIN_MS: i64 = 5_000;
 /// Where a guest's token travels for clients without a cookie jar.
 const TOKEN_HEADER: &str = "X-Couch-Tv-Token";
 
@@ -118,6 +119,8 @@ enum Request {
         asked_at: U53,
     },
     OnNowDue,
+    /// Nothing was on air when tuning in: the next airing is due.
+    OnAirDue,
     /// The room's socket: resolved on open, for every frame and once when it closes.
     Socket,
     Reconnect,
@@ -640,6 +643,12 @@ impl CouchTv {
             Request::OnNow { call, asked_at } => {
                 self.on_now_answered(ctx, decode(&call, output), asked_at)
             }
+            Request::OnAirDue => {
+                if let Some(env) = env.filter(|_| self.live.is_some()) {
+                    self.ask_tune(ctx, env, false);
+                }
+                CouchTvChange::None
+            }
             Request::OnNowDue => {
                 self.on_now.due = None;
                 if let Some(env) = env.filter(|_| self.on_now.open) {
@@ -699,13 +708,24 @@ impl CouchTv {
             target_seconds,
         };
         let title = self.lineup.first().and_then(|l| l.api.title_name.clone());
-        let load = (reload).then(|| self.player_load(&stream, title));
+        let picture = self.live.as_ref().is_some_and(|l| l.picture.is_some());
+        // nothing on air yet: the player waits for the next airing rather than fail on
+        // playlists that are not there
+        let on_air = tune.now.is_some();
+        let load = ((reload || !picture) && on_air).then(|| self.player_load(&stream, title));
+        let next = tune.next.as_ref().and_then(|n| time::unix_ms(&n.starts_at));
+        let due = (!on_air && !picture).then_some(next).flatten();
+        if let (Some(starts), Some(server_now)) = (due, self.server_now(ctx)) {
+            let wait = U53::try_from((starts - server_now).max(DUE_MIN_MS)).unwrap_or_default();
+            ctx.after(wait, self.pending(Request::OnAirDue));
+        }
         let Some(live) = self.live.as_mut() else { return };
         if let Some(load) = load {
             ctx.player(PlayerCommand::Load(load));
             live.picture = Some(Picture::loaded(ctx.now));
-            live.status =
-                if tune.now.is_some() { CouchTvStatus::Tuning } else { CouchTvStatus::OffAir };
+            live.status = CouchTvStatus::Tuning;
+        } else if live.picture.is_none() {
+            live.status = CouchTvStatus::OffAir;
         }
         live.stream = Some(stream);
         if live.socket.is_none() {
@@ -825,7 +845,7 @@ impl CouchTv {
         };
         let ends = self.on_now.now.as_ref().map(|n| n.ends).filter(|_| self.on_now.open);
         if let (Some(ends), Some(server_now)) = (ends, self.server_now(ctx)) {
-            let wait = U53::try_from((ends - server_now).max(ON_NOW_MIN_MS)).unwrap_or_default();
+            let wait = U53::try_from((ends - server_now).max(DUE_MIN_MS)).unwrap_or_default();
             self.on_now.due = Some(ctx.after(wait, self.pending(Request::OnNowDue)));
         }
         ctx.render(Surface::CouchTvOnNow);

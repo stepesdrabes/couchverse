@@ -462,6 +462,33 @@ fn a_dropped_socket_reconnects_and_a_failing_player_is_tuned_in_again() {
 }
 
 #[test]
+fn tuned_in_off_air_the_player_waits_for_the_next_airing() {
+    let mut shell = signed_in();
+    shell.send(Event::CouchTvTuneRequested);
+    let mut answer = tune_answer(&shell);
+    let starts = server_now(&shell) + 3 * MINUTE;
+    answer["now"] = Value::Null;
+    answer["next"] = program("b", starts, starts + 22 * MINUTE);
+    shell.respond("GET", &format!("{API}/couchtv/tune?lang=en"), 200, answer);
+    assert_eq!(loads(&shell), 0, "no playlists to load yet");
+    assert_eq!(view(&shell).status, CouchTvStatus::OffAir);
+    // the room is open meanwhile
+    shell.socket(SOCKET);
+
+    let due = shell
+        .timers()
+        .iter()
+        .find(|(_, after, _)| *after == 3 * 60_000)
+        .expect("the next airing")
+        .0;
+    shell.fire(due, 3 * 60_000);
+    let answer = tune_answer(&shell);
+    shell.respond("GET", &format!("{API}/couchtv/tune?lang=en"), 200, answer);
+    assert_eq!(loads(&shell), 1);
+    assert_eq!(view(&shell).status, CouchTvStatus::Tuning);
+}
+
+#[test]
 fn the_channels_languages_are_chosen_on_the_player() {
     let (mut shell, _) = tuned_in();
     shell.send(Event::CouchTvSubtitlesChosen(TrackChoice { id: Some("cs".into()) }));
