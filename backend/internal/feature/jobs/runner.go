@@ -19,7 +19,8 @@ type Handler func(ctx context.Context, job *Job, report func(pct int)) error
 
 type registration struct {
 	handler Handler
-	slots   chan struct{} // per-type concurrency limiter
+	// slots limit how many run at once: the type's own, or a pool it shares (Share)
+	slots chan struct{}
 	// yieldTo are job types that keep this one from being claimed while one of
 	// them runs, in any process (backfill aside)
 	yieldTo []string
@@ -52,6 +53,23 @@ func (r *Runner) Register(jobType string, maxConcurrent int, h Handler) {
 	r.mu.Lock()
 	r.handlers[jobType] = registration{handler: h, slots: slots}
 	r.mu.Unlock()
+}
+
+// Share makes the given registered types draw from one pool of n slots, so at
+// most n jobs of them run at once in this process, whichever type they are.
+func (r *Runner) Share(n int, types ...string) {
+	pool := make(chan struct{}, max(n, 1))
+	for range cap(pool) {
+		pool <- struct{}{}
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, t := range types {
+		if reg, ok := r.handlers[t]; ok {
+			reg.slots = pool
+			r.handlers[t] = reg
+		}
+	}
 }
 
 // Yield keeps a registered type from being claimed while a job of one of the
@@ -109,31 +127,36 @@ func (r *Runner) workerLoop(ctx context.Context, id int) {
 
 // runOne claims and executes a single job; returns false when the queue is idle.
 func (r *Runner) runOne(ctx context.Context) bool {
-	types, acquired := r.acquireSlots()
-	types = r.yielding(ctx, types, acquired)
+	types, held := r.acquireSlots()
+	types = r.yielding(ctx, types)
+	// a slot none of the types left can use goes back
+	for slots := range held {
+		if !slices.ContainsFunc(types, func(t string) bool { return r.slotsOf(t) == slots }) {
+			slots <- struct{}{}
+			delete(held, slots)
+		}
+	}
 	if len(types) == 0 {
 		return false
-	}
-	releaseAll := func() {
-		for jobType := range acquired {
-			r.release(jobType)
-		}
 	}
 
 	job, err := r.store.ClaimJob(ctx, types)
 	if err != nil {
 		// ErrNotFound = empty queue; anything else also just backs off a tick
-		releaseAll()
+		for slots := range held {
+			slots <- struct{}{}
+		}
 		return false
 	}
 
 	// keep only the claimed type's slot
-	for jobType := range acquired {
-		if jobType != job.Type {
-			r.release(jobType)
+	claimed := r.slotsOf(job.Type)
+	for slots := range held {
+		if slots != claimed {
+			slots <- struct{}{}
 		}
 	}
-	defer r.release(job.Type)
+	defer func() { claimed <- struct{}{} }()
 
 	r.execute(ctx, job)
 	return true
@@ -205,26 +228,31 @@ func (r *Runner) execute(ctx context.Context, job *Job) {
 	}
 }
 
-// acquireSlots grabs one slot per registered type that has capacity.
-func (r *Runner) acquireSlots() ([]string, map[string]struct{}) {
+// acquireSlots offers every registered type with a free slot, holding one slot
+// per pool: the types sharing a pool are offered together, so the claim picks
+// among them by priority.
+func (r *Runner) acquireSlots() ([]string, map[chan struct{}]struct{}) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	var types []string
-	acquired := map[string]struct{}{}
+	held := map[chan struct{}]struct{}{}
 	for jobType, reg := range r.handlers {
-		select {
-		case <-reg.slots:
-			types = append(types, jobType)
-			acquired[jobType] = struct{}{}
-		default:
+		if _, ok := held[reg.slots]; !ok {
+			select {
+			case <-reg.slots:
+				held[reg.slots] = struct{}{}
+			default:
+				continue
+			}
 		}
+		types = append(types, jobType)
 	}
-	return types, acquired
+	return types, held
 }
 
-// yielding drops the types that yield to a running job, giving back their slots.
-func (r *Runner) yielding(ctx context.Context, types []string, acquired map[string]struct{}) []string {
+// yielding drops the types that yield to a running job.
+func (r *Runner) yielding(ctx context.Context, types []string) []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return slices.DeleteFunc(types, func(jobType string) bool {
@@ -232,20 +260,13 @@ func (r *Runner) yielding(ctx context.Context, types []string, acquired map[stri
 		if len(to) == 0 {
 			return false
 		}
-		if running, err := r.store.AnyRunning(ctx, to); err == nil && !running {
-			return false
-		}
-		delete(acquired, jobType)
-		r.handlers[jobType].slots <- struct{}{}
-		return true
+		running, err := r.store.AnyRunning(ctx, to)
+		return err != nil || running
 	})
 }
 
-func (r *Runner) release(jobType string) {
+func (r *Runner) slotsOf(jobType string) chan struct{} {
 	r.mu.RLock()
-	reg, ok := r.handlers[jobType]
-	r.mu.RUnlock()
-	if ok {
-		reg.slots <- struct{}{}
-	}
+	defer r.mu.RUnlock()
+	return r.handlers[jobType].slots
 }

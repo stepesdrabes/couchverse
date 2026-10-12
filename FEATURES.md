@@ -336,7 +336,10 @@ cancellation, and the in-process worker runner. Other features register handlers
 sidecar registers `couchtv_render` and `couchtv_assemble`, which the app never does): at
 start a runner requeues only the running jobs of the types it registered, and
 `Runner.Yield` keeps a type from being claimed while a job of other types runs anywhere,
-backfill (a negative priority, `library.PriorityBackfill`) aside.
+backfill (a negative priority, `library.PriorityBackfill`) aside. `Runner.Share` puts types
+in one pool of slots: the app's heavy jobs (`transcode_hls`, downloads, `analyze_markers`,
+`couchtv_analyze`), each of which keeps every core of a Pi busy, take turns within the
+transcode budget, the higher priority first, while quick jobs run on the other workers.
 - Endpoints (admin): `/admin/jobs` (supports `?mediaFileId=` and returns a `subject`
   per job - the title/episode/track it works on, resolved by SQL joins from the
   payload), `/admin/jobs/{id}/retry|cancel`.

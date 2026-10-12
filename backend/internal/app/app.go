@@ -194,6 +194,9 @@ func (a *App) Start(ctx context.Context) error {
 	if err := d.CouchTvPrepare.Start(ctx); err != nil {
 		return err
 	}
+	// each of these keeps every core of a small server busy: they take turns within the
+	// transcode budget instead of running side by side, the higher priority first
+	runner.Share(transcodeSlots, "transcode_hls", downloads.JobType, library.MarkersJob, couchtv.AnalyzeJob)
 	// the slate is made once, before anything has to air it (a failure is logged)
 	go func() { _ = d.CouchTvLive.Slate.Ensure(ctx) }()
 	// files an older prober read are brought up to date in the background
