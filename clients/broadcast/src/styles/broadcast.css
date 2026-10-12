@@ -744,6 +744,9 @@
 	-webkit-mask-image: radial-gradient(circle, transparent 12%, #000 30%, transparent 62%);
 	mask-image: radial-gradient(circle, transparent 12%, #000 30%, transparent 62%);
 	border-radius: 50%;
+	/* a render seeks paused animations, so without the hint every frame's new scale paints
+	   this large masked gradient again; held at its first raster the soft rays look the same */
+	will-change: transform;
 }
 .halftone {
 	position: absolute;
