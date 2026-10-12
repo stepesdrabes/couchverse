@@ -231,12 +231,21 @@ func (s *Store) RetryJob(ctx context.Context, id int64) error {
 	return nil
 }
 
-// ResetRunningJobs requeues jobs orphaned by a previous process crash.
-// Single-instance deployment makes this safe at startup.
-func (s *Store) ResetRunningJobs(ctx context.Context) (int64, error) {
+// ResetRunningJobs requeues the jobs of the given types orphaned by a previous
+// crash. One process runs each type (the app, or the render sidecar its own two),
+// so at that process's start its running jobs are orphans.
+func (s *Store) ResetRunningJobs(ctx context.Context, types []string) (int64, error) {
 	tag, err := s.db.Exec(ctx,
-		`UPDATE jobs SET status = 'pending', run_at = now() WHERE status = 'running'`)
+		`UPDATE jobs SET status = 'pending', run_at = now() WHERE status = 'running' AND type = ANY($1)`, types)
 	return tag.RowsAffected(), err
+}
+
+// AnyRunning reports whether a job of one of the given types is running.
+func (s *Store) AnyRunning(ctx context.Context, types []string) (bool, error) {
+	var running bool
+	err := s.db.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM jobs WHERE status = 'running' AND type = ANY($1))`, types).Scan(&running)
+	return running, err
 }
 
 // ListJobs returns recent jobs with their subject (the content they work on)

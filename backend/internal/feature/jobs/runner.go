@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"time"
 )
@@ -18,6 +20,9 @@ type Handler func(ctx context.Context, job *Job, report func(pct int)) error
 type registration struct {
 	handler Handler
 	slots   chan struct{} // per-type concurrency limiter
+	// yieldTo are job types that keep this one from being claimed while one of
+	// them runs, in any process
+	yieldTo []string
 }
 
 type Runner struct {
@@ -49,8 +54,23 @@ func (r *Runner) Register(jobType string, maxConcurrent int, h Handler) {
 	r.mu.Unlock()
 }
 
+// Yield keeps a registered type from being claimed while a job of one of the
+// given types runs. The check comes before each claim, so a job of those types
+// that starts later shares the machine with at most the one already claimed.
+func (r *Runner) Yield(jobType string, to ...string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if reg, ok := r.handlers[jobType]; ok {
+		reg.yieldTo = to
+		r.handlers[jobType] = reg
+	}
+}
+
 func (r *Runner) Run(ctx context.Context) {
-	if n, err := r.store.ResetRunningJobs(ctx); err != nil {
+	r.mu.RLock()
+	types := slices.Collect(maps.Keys(r.handlers))
+	r.mu.RUnlock()
+	if n, err := r.store.ResetRunningJobs(ctx, types); err != nil {
 		slog.Error("reset running jobs", "err", err)
 	} else if n > 0 {
 		slog.Info("requeued orphaned jobs", "count", n)
@@ -88,6 +108,7 @@ func (r *Runner) workerLoop(ctx context.Context, id int) {
 // runOne claims and executes a single job; returns false when the queue is idle.
 func (r *Runner) runOne(ctx context.Context) bool {
 	types, acquired := r.acquireSlots()
+	types = r.yielding(ctx, types, acquired)
 	if len(types) == 0 {
 		return false
 	}
@@ -198,6 +219,24 @@ func (r *Runner) acquireSlots() ([]string, map[string]struct{}) {
 		}
 	}
 	return types, acquired
+}
+
+// yielding drops the types that yield to a running job, giving back their slots.
+func (r *Runner) yielding(ctx context.Context, types []string, acquired map[string]struct{}) []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return slices.DeleteFunc(types, func(jobType string) bool {
+		to := r.handlers[jobType].yieldTo
+		if len(to) == 0 {
+			return false
+		}
+		if running, err := r.store.AnyRunning(ctx, to); err == nil && !running {
+			return false
+		}
+		delete(acquired, jobType)
+		r.handlers[jobType].slots <- struct{}{}
+		return true
+	})
 }
 
 func (r *Runner) release(jobType string) {
