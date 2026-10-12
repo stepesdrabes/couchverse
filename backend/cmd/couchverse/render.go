@@ -63,7 +63,7 @@ func runRender() error {
 
 	runner := jobs.NewRunner(jobStore, 1)
 	runner.Register(couchtv.RenderJob, 1, r.Render)
-	runner.Yield(couchtv.RenderJob, "transcode_hls")
+	runner.Yield(couchtv.RenderJob, false, "transcode_hls")
 	runner.Register(couchtv.AssembleJob, 1, r.Assemble)
 	slog.Info("render: working the couch tv queue")
 	runner.Run(ctx)

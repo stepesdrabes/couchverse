@@ -272,12 +272,14 @@ func (s *Store) AnyDue(ctx context.Context, types []string) (bool, error) {
 	return due, err
 }
 
-// AnyRunning reports whether a job of one of the given types is running, backfill
-// (a negative priority) aside.
-func (s *Store) AnyRunning(ctx context.Context, types []string) (bool, error) {
+// AnyRunning reports whether a job of one of the given types was claimed within the
+// last hour and still runs; one of a negative priority (backfill) counts only with
+// backfill.
+func (s *Store) AnyRunning(ctx context.Context, types []string, backfill bool) (bool, error) {
 	var running bool
 	err := s.db.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM jobs WHERE status = 'running' AND priority >= 0 AND type = ANY($1))`, types).Scan(&running)
+		`SELECT EXISTS (SELECT 1 FROM jobs WHERE status = 'running' AND type = ANY($1)
+		   AND claimed_at > now() - interval '1 hour' AND ($2 OR priority >= 0))`, types, backfill).Scan(&running)
 	return running, err
 }
 

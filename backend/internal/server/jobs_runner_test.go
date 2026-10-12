@@ -72,3 +72,49 @@ func TestRunnerSharedSlots(t *testing.T) {
 		t.Errorf("claimed in the order %v, want the encode first", order)
 	}
 }
+
+// TestRunnerYield holds a type back while a job it yields to runs, whatever that job's
+// priority, and lets it go once that job was claimed over an hour ago (its process is
+// gone).
+func TestRunnerYield(t *testing.T) {
+	env := newTestEnv(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	st := jobs.NewStore(env.pool)
+	r := jobs.NewRunner(st, 1)
+	r.Register("test_analyze", 1, func(context.Context, *jobs.Job, func(int)) error { return nil })
+	r.Yield("test_analyze", true, "test_render")
+
+	// a render in another process: running, at a negative priority, claimed just now
+	var render int64
+	if err := env.pool.QueryRow(ctx, `INSERT INTO jobs (type, status, priority, claimed_at)
+		VALUES ('test_render', 'running', -1000, now()) RETURNING id`).Scan(&render); err != nil {
+		t.Fatal(err)
+	}
+	analysis, err := st.EnqueueJob(ctx, "test_analyze", struct{}{}, jobs.EnqueueOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	status := func() string {
+		t.Helper()
+		var s string
+		if err := env.pool.QueryRow(ctx, `SELECT status FROM jobs WHERE id = $1`, analysis).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	go r.Run(ctx)
+	time.Sleep(3 * time.Second)
+	if s := status(); s != "pending" {
+		t.Fatalf("the analysis ran next to a render: %s", s)
+	}
+
+	if _, err := env.pool.Exec(ctx, `UPDATE jobs SET claimed_at = now() - interval '2 hours' WHERE id = $1`, render); err != nil {
+		t.Fatal(err)
+	}
+	for deadline := time.Now().Add(10 * time.Second); status() != "done"; time.Sleep(100 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("the analysis is still %s behind a render claimed two hours ago", status())
+		}
+	}
+}

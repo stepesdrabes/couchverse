@@ -197,6 +197,11 @@ func (a *App) Start(ctx context.Context) error {
 	// each of these keeps every core of a small server busy: they take turns within the
 	// transcode budget instead of running side by side, the higher priority first
 	runner.Share(transcodeSlots, "transcode_hls", downloads.JobType, library.MarkersJob, couchtv.AnalyzeJob)
+	// media analysis waits while the render sidecar works: Chromium and its encoder take
+	// most of a Pi's memory, and the two together swap
+	for _, t := range []string{library.MarkersJob, couchtv.AnalyzeJob} {
+		runner.Yield(t, true, couchtv.RenderJob, couchtv.AssembleJob)
+	}
 	// the slate is made once, before anything has to air it (a failure is logged)
 	go func() { _ = d.CouchTvLive.Slate.Ensure(ctx) }()
 	// files an older prober read are brought up to date in the background

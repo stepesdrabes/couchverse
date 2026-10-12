@@ -22,8 +22,9 @@ type registration struct {
 	// slots limit how many run at once: the type's own, or a pool it shares (Share)
 	slots chan struct{}
 	// yieldTo are job types that keep this one from being claimed while one of
-	// them runs, in any process (backfill aside)
-	yieldTo []string
+	// them runs, in any process; backfill says one of a negative priority counts too
+	yieldTo  []string
+	backfill bool
 }
 
 type Runner struct {
@@ -73,15 +74,16 @@ func (r *Runner) Share(n int, types ...string) {
 }
 
 // Yield keeps a registered type from being claimed while a job of one of the
-// given types runs, unless that job is backfill (a negative priority), which
-// would otherwise hold it up for as long as a backlog lasts. The check comes
-// before each claim, so a job of those types that starts later shares the
+// given types runs. Unless backfill, a running job of a negative priority does not
+// count, since a backlog of it would hold the type up for as long as it lasts. A job
+// claimed over an hour ago counts no more either: its process may be gone. The check
+// comes before each claim, so a job of those types that starts later shares the
 // machine with at most the one already claimed.
-func (r *Runner) Yield(jobType string, to ...string) {
+func (r *Runner) Yield(jobType string, backfill bool, to ...string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if reg, ok := r.handlers[jobType]; ok {
-		reg.yieldTo = to
+		reg.yieldTo, reg.backfill = to, backfill
 		r.handlers[jobType] = reg
 	}
 }
@@ -256,11 +258,11 @@ func (r *Runner) yielding(ctx context.Context, types []string) []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return slices.DeleteFunc(types, func(jobType string) bool {
-		to := r.handlers[jobType].yieldTo
-		if len(to) == 0 {
+		reg := r.handlers[jobType]
+		if len(reg.yieldTo) == 0 {
 			return false
 		}
-		running, err := r.store.AnyRunning(ctx, to)
+		running, err := r.store.AnyRunning(ctx, reg.yieldTo, reg.backfill)
 		return err != nil || running
 	})
 }
