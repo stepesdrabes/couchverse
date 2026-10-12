@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
 
 use crate::modules::{
-    accounts, catalog, couch, downloads, notices, playback, profile, ranks, servers, session,
+    accounts, catalog, couch, couchtv, downloads, notices, playback, profile, ranks, servers,
+    session,
 };
 
 /// Effect ids and monotonic milliseconds: typeshare maps the name to a 53-bit-safe integer in
@@ -185,6 +186,19 @@ pub enum Event {
     DownloadRemoved(downloads::DownloadRef),
     /// Play a finished download from the device.
     DownloadPlayRequested(downloads::DownloadRef),
+    /// The live channel's screen opened: tune in to Couch TV (signed in, or as the guest this
+    /// device joined as) and play it.
+    CouchTvTuneRequested,
+    /// The live channel's screen went away: stop its player and leave the room.
+    CouchTvClosed,
+    /// A viewer without an account typed their name on the channel link's page; the core joins
+    /// as a guest, and the next tune-in plays the channel for them.
+    CouchTvJoinRequested(couchtv::CouchTvJoin),
+    CouchTvReactionSent(couch::CouchReaction),
+    /// One of the channel's audio languages, by its id in `CouchTvView.audio`.
+    CouchTvAudioChosen(playback::TrackChoice),
+    /// One of the channel's subtitle languages, or none.
+    CouchTvSubtitlesChosen(playback::TrackChoice),
 }
 
 /// A screen, panel or piece of state a shell renders from a view model.
@@ -231,6 +245,13 @@ pub enum Surface {
     Couch,
     /// The account's downloads on this device: preparing, fetching and ready to play offline.
     Downloads,
+    /// The live channel: what is on by the picture's clock, the overlays, who is watching and
+    /// their reactions.
+    CouchTv,
+    /// Couch TV's programs, today and the next seven days.
+    CouchTvGuide,
+    /// What is on Couch TV now and next, for the home screen's card.
+    CouchTvOnNow,
 }
 
 /// Something the core asks the shell to do. One-shot effects resolve once; streaming ones
@@ -345,6 +366,9 @@ pub enum PlayerCommand {
     SelectAudio(AudioRendition),
     /// Show this subtitle track, or none.
     SelectSubtitles(SubtitleSelection),
+    /// Play faster or slower than real time (1 is real time): a live player held on the
+    /// channel's clock plays up to 10 % either way.
+    Rate(PlayerRate),
     /// Stop and release the player.
     Stop,
 }
@@ -374,6 +398,28 @@ pub struct PlayerLoad {
     pub linear: bool,
     /// For the system's Now Playing and lock-screen controls.
     pub now_playing: NowPlaying,
+    /// A live stream (Couch TV): it starts at the live edge, the viewer neither seeks nor pauses,
+    /// and the player reports the program date on screen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live: Option<LiveStream>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveStream {
+    /// How far behind the live edge to play (three target durations, hls.js
+    /// `liveSyncDuration`); the core holds it there with `rate` and `seek`.
+    pub latency_seconds: f64,
+    /// The playlists' target duration.
+    pub target_duration_seconds: f64,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerRate {
+    pub rate: f64,
 }
 
 #[typeshare]
@@ -454,6 +500,10 @@ pub struct PlayerReport {
     pub ended: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failed: Option<String>,
+    /// The program date of the picture on screen (`EXT-X-PROGRAM-DATE-TIME`), in Unix
+    /// milliseconds: live streams only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program_date_ms: Option<U53>,
 }
 
 #[typeshare]

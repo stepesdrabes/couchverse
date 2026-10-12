@@ -3,6 +3,7 @@
 pub mod accounts;
 pub mod catalog;
 pub mod couch;
+pub mod couchtv;
 pub mod downloads;
 pub mod images;
 pub mod markdown;

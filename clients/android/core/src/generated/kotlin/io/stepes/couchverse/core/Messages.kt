@@ -363,6 +363,178 @@ data class CouchReaction (
 	val emoji: String
 )
 
+/// The live overlays (D14), by the picture's clock.
+@Serializable
+data class CouchTvCues (
+	/// The corner bug with LIVE and the clock: over programs, not over breaks, which carry the
+	/// channel's own graphics.
+	val bug: Boolean,
+	/// The "Now" caption, for the first seconds of a program.
+	val nowCaption: Boolean,
+	/// The "Next" caption, for a while two minutes before a program leaves the air.
+	val nextCaption: Boolean
+)
+
+@Serializable
+data class CouchTvEpisode (
+	val season: UInt,
+	val number: UInt,
+	val name: String? = null
+)
+
+@Serializable
+enum class CouchTvItemKind(val string: String) {
+	@SerialName("program")
+	Program("program"),
+	/// Between two programs: idents, promos and up next, drawn by the broadcast itself.
+	@SerialName("break")
+	Break("break"),
+}
+
+/// An item of the schedule: a program with its title, or a break.
+@Serializable
+data class CouchTvProgram (
+	val id: String,
+	val kind: CouchTvItemKind,
+	val startsAtMs: ULong,
+	val endsAtMs: ULong,
+	val title: String? = null,
+	/// The title page.
+	val titleSlug: String? = null,
+	val episode: CouchTvEpisode? = null,
+	val overview: String? = null,
+	/// The rule that chose the program (`premiere`, `saga`, `strip`...), for a badge.
+	val fill: String? = null,
+	val poster: Image? = null,
+	val backdrop: Image? = null,
+	/// "Watch from the start" in the on-demand player: signed-in viewers only.
+	val play: PlayTarget? = null
+)
+
+@Serializable
+data class CouchTvGuideDay (
+	/// The broadcast day's date in the channel's time zone (`2026-10-12`).
+	val date: String,
+	/// From its first anchor (06:00) to the next day's.
+	val startsAtMs: ULong,
+	val endsAtMs: ULong,
+	val programs: List<CouchTvProgram>
+)
+
+@Serializable
+data class CouchTvGuideView (
+	val status: LoadStatus,
+	/// Today's broadcast day and the ones after it.
+	val days: List<CouchTvGuideDay>,
+	/// The channel's time zone (IANA), in which its days run.
+	val timeZone: String,
+	val problem: Problem? = null
+)
+
+/// What a viewer without an account types on the channel link's page.
+@Serializable
+data class CouchTvJoin (
+	/// The code from the channel link (`/tv/join/<code>`).
+	val code: String,
+	val name: String
+)
+
+@Serializable
+data class CouchTvMember (
+	val id: String,
+	val displayName: String,
+	val avatar: Image? = null,
+	/// Seeds a generated avatar for members without one.
+	val seed: String,
+	/// Watches through the channel link without an account.
+	val guest: Boolean,
+	val me: Boolean
+)
+
+@Serializable
+data class CouchTvOnNowView (
+	val status: LoadStatus,
+	/// What is on: a program or a break.
+	val now: CouchTvProgram? = null,
+	val next: CouchTvProgram? = null,
+	val problem: Problem? = null
+)
+
+@Serializable
+data class CouchTvReaction (
+	val id: ULong,
+	val viewerId: String,
+	val emoji: String
+)
+
+/// An audio or subtitle language of the channel; its id is the language code.
+@Serializable
+data class CouchTvTrack (
+	val id: String,
+	val lang: String,
+	val selected: Boolean
+)
+
+@Serializable
+enum class CouchTvStatus(val string: String) {
+	@SerialName("idle")
+	Idle("idle"),
+	/// Tuning in, or the player has not shown a picture yet.
+	@SerialName("tuning")
+	Tuning("tuning"),
+	/// The picture plays; `CouchTvView.now` says what it shows.
+	@SerialName("onAir")
+	OnAir("onAir"),
+	/// Nothing is on air.
+	@SerialName("offAir")
+	OffAir("offAir"),
+	/// The channel cannot be played (`CouchTvView.problem` says why).
+	@SerialName("failed")
+	Failed("failed"),
+}
+
+/// The room's socket: presence and reactions.
+@Serializable
+enum class CouchTvConnection(val string: String) {
+	@SerialName("offline")
+	Offline("offline"),
+	@SerialName("connecting")
+	Connecting("connecting"),
+	@SerialName("open")
+	Open("open"),
+	/// The socket dropped; the core reconnects with backoff.
+	@SerialName("reconnecting")
+	Reconnecting("reconnecting"),
+}
+
+@Serializable
+data class CouchTvView (
+	val status: CouchTvStatus,
+	val connection: CouchTvConnection,
+	/// What the picture shows, by its program date, not the wall clock.
+	val now: CouchTvProgram? = null,
+	/// The next program after it.
+	val next: CouchTvProgram? = null,
+	val later: List<CouchTvProgram>,
+	/// The picture's program date when last reported, at `programDateAtMs` on the shell's clock:
+	/// the bug's clock and the progress line run on from it while the picture plays.
+	val programDateMs: ULong? = null,
+	val programDateAtMs: ULong,
+	val cues: CouchTvCues,
+	/// Everyone watching, each viewer once.
+	val viewers: UInt,
+	/// The first of them, in the order they tuned in.
+	val members: List<CouchTvMember>,
+	val reactions: List<CouchTvReaction>,
+	val audio: List<CouchTvTrack>,
+	val subtitles: List<CouchTvTrack>,
+	/// The name this device watches under as a guest; absent when signed in or not joined.
+	val guest: String? = null,
+	/// Joining through the channel link.
+	val joining: Boolean,
+	val problem: Problem? = null
+)
+
 @Serializable
 enum class CouchStatus(val string: String) {
 	@SerialName("idle")
@@ -1085,6 +1257,15 @@ data class ListBlock (
 )
 
 @Serializable
+data class LiveStream (
+	/// How far behind the live edge to play (three target durations, hls.js
+	/// `liveSyncDuration`); the core holds it there with `rate` and `seek`.
+	val latencySeconds: Double,
+	/// The playlists' target duration.
+	val targetDurationSeconds: Double
+)
+
+@Serializable
 data class MarkdownDoc (
 	val blocks: List<Block>
 )
@@ -1289,6 +1470,31 @@ sealed class Event {
 	@Serializable
 	@SerialName("downloadPlayRequested")
 	data class DownloadPlayRequested(val content: DownloadRef): Event()
+	/// The live channel's screen opened: tune in to Couch TV (signed in, or as the guest this
+	/// device joined as) and play it.
+	@Serializable
+	@SerialName("couchTvTuneRequested")
+	data object CouchTvTuneRequested: Event()
+	/// The live channel's screen went away: stop its player and leave the room.
+	@Serializable
+	@SerialName("couchTvClosed")
+	data object CouchTvClosed: Event()
+	/// A viewer without an account typed their name on the channel link's page; the core joins
+	/// as a guest, and the next tune-in plays the channel for them.
+	@Serializable
+	@SerialName("couchTvJoinRequested")
+	data class CouchTvJoinRequested(val content: CouchTvJoin): Event()
+	@Serializable
+	@SerialName("couchTvReactionSent")
+	data class CouchTvReactionSent(val content: CouchReaction): Event()
+	/// One of the channel's audio languages, by its id in `CouchTvView.audio`.
+	@Serializable
+	@SerialName("couchTvAudioChosen")
+	data class CouchTvAudioChosen(val content: TrackChoice): Event()
+	/// One of the channel's subtitle languages, or none.
+	@Serializable
+	@SerialName("couchTvSubtitlesChosen")
+	data class CouchTvSubtitlesChosen(val content: TrackChoice): Event()
 }
 
 /// Something that happened in the shell: a user intent or a lifecycle change.
@@ -1466,7 +1672,15 @@ data class PlayerLoad (
 	/// A couch follower's player: no seeking or pausing of the shared timeline.
 	val linear: Boolean,
 	/// For the system's Now Playing and lock-screen controls.
-	val nowPlaying: NowPlaying
+	val nowPlaying: NowPlaying,
+	/// A live stream (Couch TV): it starts at the live edge, the viewer neither seeks nor pauses,
+	/// and the player reports the program date on screen.
+	val live: LiveStream? = null
+)
+
+@Serializable
+data class PlayerRate (
+	val rate: Double
 )
 
 /// The shell's player state. `failed` carries a short reason when the player gave up.
@@ -1477,7 +1691,10 @@ data class PlayerReport (
 	val playing: Boolean,
 	val buffering: Boolean? = null,
 	val ended: Boolean? = null,
-	val failed: String? = null
+	val failed: String? = null,
+	/// The program date of the picture on screen (`EXT-X-PROGRAM-DATE-TIME`), in Unix
+	/// milliseconds: live streams only.
+	val programDateMs: ULong? = null
 )
 
 @Serializable
@@ -1776,6 +1993,19 @@ sealed class Surface {
 	@Serializable
 	@SerialName("downloads")
 	data object Downloads: Surface()
+	/// The live channel: what is on by the picture's clock, the overlays, who is watching and
+	/// their reactions.
+	@Serializable
+	@SerialName("couchTv")
+	data object CouchTv: Surface()
+	/// Couch TV's programs, today and the next seven days.
+	@Serializable
+	@SerialName("couchTvGuide")
+	data object CouchTvGuide: Surface()
+	/// What is on Couch TV now and next, for the home screen's card.
+	@Serializable
+	@SerialName("couchTvOnNow")
+	data object CouchTvOnNow: Surface()
 }
 
 @Serializable
@@ -2131,6 +2361,11 @@ sealed class PlayerCommand {
 	@Serializable
 	@SerialName("selectSubtitles")
 	data class SelectSubtitles(val content: SubtitleSelection): PlayerCommand()
+	/// Play faster or slower than real time (1 is real time): a live player held on the
+	/// channel's clock plays up to 10 % either way.
+	@Serializable
+	@SerialName("rate")
+	data class Rate(val content: PlayerRate): PlayerCommand()
 	/// Stop and release the player.
 	@Serializable
 	@SerialName("stop")

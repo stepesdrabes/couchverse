@@ -930,6 +930,7 @@ impl Playback {
                 artwork: views::backdrop(&session.images, info).map(|i| i.url),
                 duration_seconds: info.duration_seconds,
             },
+            live: None,
         })
     }
 

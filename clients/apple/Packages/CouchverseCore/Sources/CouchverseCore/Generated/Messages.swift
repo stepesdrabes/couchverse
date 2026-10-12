@@ -462,6 +462,246 @@ public struct CouchReaction: Codable, Sendable, Hashable {
 	}
 }
 
+/// The live overlays (D14), by the picture's clock.
+public struct CouchTvCues: Codable, Sendable, Hashable {
+	/// The corner bug with LIVE and the clock: over programs, not over breaks, which carry the
+	/// channel's own graphics.
+	public let bug: Bool
+	/// The "Now" caption, for the first seconds of a program.
+	public let nowCaption: Bool
+	/// The "Next" caption, for a while two minutes before a program leaves the air.
+	public let nextCaption: Bool
+
+	public init(bug: Bool, nowCaption: Bool, nextCaption: Bool) {
+		self.bug = bug
+		self.nowCaption = nowCaption
+		self.nextCaption = nextCaption
+	}
+}
+
+public struct CouchTvEpisode: Codable, Sendable, Hashable {
+	public let season: UInt32
+	public let number: UInt32
+	public let name: String?
+
+	public init(season: UInt32, number: UInt32, name: String? = nil) {
+		self.season = season
+		self.number = number
+		self.name = name
+	}
+}
+
+public enum CouchTvItemKind: String, Codable, Sendable, Hashable {
+	case program
+	/// Between two programs: idents, promos and up next, drawn by the broadcast itself.
+	case `break`
+}
+
+/// An item of the schedule: a program with its title, or a break.
+public struct CouchTvProgram: Codable, Sendable, Hashable {
+	public let id: String
+	public let kind: CouchTvItemKind
+	public let startsAtMs: UInt64
+	public let endsAtMs: UInt64
+	public let title: String?
+	/// The title page.
+	public let titleSlug: String?
+	public let episode: CouchTvEpisode?
+	public let overview: String?
+	/// The rule that chose the program (`premiere`, `saga`, `strip`...), for a badge.
+	public let fill: String?
+	public let poster: Image?
+	public let backdrop: Image?
+	/// "Watch from the start" in the on-demand player: signed-in viewers only.
+	public let play: PlayTarget?
+
+	public init(id: String, kind: CouchTvItemKind, startsAtMs: UInt64, endsAtMs: UInt64, title: String? = nil, titleSlug: String? = nil, episode: CouchTvEpisode? = nil, overview: String? = nil, fill: String? = nil, poster: Image? = nil, backdrop: Image? = nil, play: PlayTarget? = nil) {
+		self.id = id
+		self.kind = kind
+		self.startsAtMs = startsAtMs
+		self.endsAtMs = endsAtMs
+		self.title = title
+		self.titleSlug = titleSlug
+		self.episode = episode
+		self.overview = overview
+		self.fill = fill
+		self.poster = poster
+		self.backdrop = backdrop
+		self.play = play
+	}
+}
+
+public struct CouchTvGuideDay: Codable, Sendable, Hashable {
+	/// The broadcast day's date in the channel's time zone (`2026-10-12`).
+	public let date: String
+	/// From its first anchor (06:00) to the next day's.
+	public let startsAtMs: UInt64
+	public let endsAtMs: UInt64
+	public let programs: [CouchTvProgram]
+
+	public init(date: String, startsAtMs: UInt64, endsAtMs: UInt64, programs: [CouchTvProgram]) {
+		self.date = date
+		self.startsAtMs = startsAtMs
+		self.endsAtMs = endsAtMs
+		self.programs = programs
+	}
+}
+
+public struct CouchTvGuideView: Codable, Sendable, Hashable {
+	public let status: LoadStatus
+	/// Today's broadcast day and the ones after it.
+	public let days: [CouchTvGuideDay]
+	/// The channel's time zone (IANA), in which its days run.
+	public let timeZone: String
+	public let problem: Problem?
+
+	public init(status: LoadStatus, days: [CouchTvGuideDay], timeZone: String, problem: Problem? = nil) {
+		self.status = status
+		self.days = days
+		self.timeZone = timeZone
+		self.problem = problem
+	}
+}
+
+/// What a viewer without an account types on the channel link's page.
+public struct CouchTvJoin: Codable, Sendable, Hashable {
+	/// The code from the channel link (`/tv/join/<code>`).
+	public let code: String
+	public let name: String
+
+	public init(code: String, name: String) {
+		self.code = code
+		self.name = name
+	}
+}
+
+public struct CouchTvMember: Codable, Sendable, Hashable {
+	public let id: String
+	public let displayName: String
+	public let avatar: Image?
+	/// Seeds a generated avatar for members without one.
+	public let seed: String
+	/// Watches through the channel link without an account.
+	public let guest: Bool
+	public let me: Bool
+
+	public init(id: String, displayName: String, avatar: Image? = nil, seed: String, guest: Bool, me: Bool) {
+		self.id = id
+		self.displayName = displayName
+		self.avatar = avatar
+		self.seed = seed
+		self.guest = guest
+		self.me = me
+	}
+}
+
+public struct CouchTvOnNowView: Codable, Sendable, Hashable {
+	public let status: LoadStatus
+	/// What is on: a program or a break.
+	public let now: CouchTvProgram?
+	public let next: CouchTvProgram?
+	public let problem: Problem?
+
+	public init(status: LoadStatus, now: CouchTvProgram? = nil, next: CouchTvProgram? = nil, problem: Problem? = nil) {
+		self.status = status
+		self.now = now
+		self.next = next
+		self.problem = problem
+	}
+}
+
+public struct CouchTvReaction: Codable, Sendable, Hashable {
+	public let id: UInt64
+	public let viewerId: String
+	public let emoji: String
+
+	public init(id: UInt64, viewerId: String, emoji: String) {
+		self.id = id
+		self.viewerId = viewerId
+		self.emoji = emoji
+	}
+}
+
+/// An audio or subtitle language of the channel; its id is the language code.
+public struct CouchTvTrack: Codable, Sendable, Hashable {
+	public let id: String
+	public let lang: String
+	public let selected: Bool
+
+	public init(id: String, lang: String, selected: Bool) {
+		self.id = id
+		self.lang = lang
+		self.selected = selected
+	}
+}
+
+public enum CouchTvStatus: String, Codable, Sendable, Hashable {
+	case idle
+	/// Tuning in, or the player has not shown a picture yet.
+	case tuning
+	/// The picture plays; `CouchTvView.now` says what it shows.
+	case onAir
+	/// Nothing is on air.
+	case offAir
+	/// The channel cannot be played (`CouchTvView.problem` says why).
+	case failed
+}
+
+/// The room's socket: presence and reactions.
+public enum CouchTvConnection: String, Codable, Sendable, Hashable {
+	case offline
+	case connecting
+	case open
+	/// The socket dropped; the core reconnects with backoff.
+	case reconnecting
+}
+
+public struct CouchTvView: Codable, Sendable, Hashable {
+	public let status: CouchTvStatus
+	public let connection: CouchTvConnection
+	/// What the picture shows, by its program date, not the wall clock.
+	public let now: CouchTvProgram?
+	/// The next program after it.
+	public let next: CouchTvProgram?
+	public let later: [CouchTvProgram]
+	/// The picture's program date when last reported, at `programDateAtMs` on the shell's clock:
+	/// the bug's clock and the progress line run on from it while the picture plays.
+	public let programDateMs: UInt64?
+	public let programDateAtMs: UInt64
+	public let cues: CouchTvCues
+	/// Everyone watching, each viewer once.
+	public let viewers: UInt32
+	/// The first of them, in the order they tuned in.
+	public let members: [CouchTvMember]
+	public let reactions: [CouchTvReaction]
+	public let audio: [CouchTvTrack]
+	public let subtitles: [CouchTvTrack]
+	/// The name this device watches under as a guest; absent when signed in or not joined.
+	public let guest: String?
+	/// Joining through the channel link.
+	public let joining: Bool
+	public let problem: Problem?
+
+	public init(status: CouchTvStatus, connection: CouchTvConnection, now: CouchTvProgram? = nil, next: CouchTvProgram? = nil, later: [CouchTvProgram], programDateMs: UInt64? = nil, programDateAtMs: UInt64, cues: CouchTvCues, viewers: UInt32, members: [CouchTvMember], reactions: [CouchTvReaction], audio: [CouchTvTrack], subtitles: [CouchTvTrack], guest: String? = nil, joining: Bool, problem: Problem? = nil) {
+		self.status = status
+		self.connection = connection
+		self.now = now
+		self.next = next
+		self.later = later
+		self.programDateMs = programDateMs
+		self.programDateAtMs = programDateAtMs
+		self.cues = cues
+		self.viewers = viewers
+		self.members = members
+		self.reactions = reactions
+		self.audio = audio
+		self.subtitles = subtitles
+		self.guest = guest
+		self.joining = joining
+		self.problem = problem
+	}
+}
+
 public enum CouchStatus: String, Codable, Sendable, Hashable {
 	case idle
 	/// Creating or joining, or opening the socket for the first time.
@@ -1588,6 +1828,19 @@ public struct ListBlock: Codable, Sendable, Hashable {
 	}
 }
 
+public struct LiveStream: Codable, Sendable, Hashable {
+	/// How far behind the live edge to play (three target durations, hls.js
+	/// `liveSyncDuration`); the core holds it there with `rate` and `seek`.
+	public let latencySeconds: Double
+	/// The playlists' target duration.
+	public let targetDurationSeconds: Double
+
+	public init(latencySeconds: Double, targetDurationSeconds: Double) {
+		self.latencySeconds = latencySeconds
+		self.targetDurationSeconds = targetDurationSeconds
+	}
+}
+
 public struct MarkdownDoc: Codable, Sendable, Hashable {
 	public let blocks: [Block]
 
@@ -1687,6 +1940,19 @@ public enum Event: Codable, Sendable, Hashable {
 	case downloadRemoved(DownloadRef)
 	/// Play a finished download from the device.
 	case downloadPlayRequested(DownloadRef)
+	/// The live channel's screen opened: tune in to Couch TV (signed in, or as the guest this
+	/// device joined as) and play it.
+	case couchTvTuneRequested
+	/// The live channel's screen went away: stop its player and leave the room.
+	case couchTvClosed
+	/// A viewer without an account typed their name on the channel link's page; the core joins
+	/// as a guest, and the next tune-in plays the channel for them.
+	case couchTvJoinRequested(CouchTvJoin)
+	case couchTvReactionSent(CouchReaction)
+	/// One of the channel's audio languages, by its id in `CouchTvView.audio`.
+	case couchTvAudioChosen(TrackChoice)
+	/// One of the channel's subtitle languages, or none.
+	case couchTvSubtitlesChosen(TrackChoice)
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case appStarted,
@@ -1742,7 +2008,13 @@ public enum Event: Codable, Sendable, Hashable {
 			downloadRequested,
 			downloadRetried,
 			downloadRemoved,
-			downloadPlayRequested
+			downloadPlayRequested,
+			couchTvTuneRequested,
+			couchTvClosed,
+			couchTvJoinRequested,
+			couchTvReactionSent,
+			couchTvAudioChosen,
+			couchTvSubtitlesChosen
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -1995,6 +2267,32 @@ public enum Event: Codable, Sendable, Hashable {
 					self = .downloadPlayRequested(content)
 					return
 				}
+			case .couchTvTuneRequested:
+				self = .couchTvTuneRequested
+				return
+			case .couchTvClosed:
+				self = .couchTvClosed
+				return
+			case .couchTvJoinRequested:
+				if let content = try? container.decode(CouchTvJoin.self, forKey: .content) {
+					self = .couchTvJoinRequested(content)
+					return
+				}
+			case .couchTvReactionSent:
+				if let content = try? container.decode(CouchReaction.self, forKey: .content) {
+					self = .couchTvReactionSent(content)
+					return
+				}
+			case .couchTvAudioChosen:
+				if let content = try? container.decode(TrackChoice.self, forKey: .content) {
+					self = .couchTvAudioChosen(content)
+					return
+				}
+			case .couchTvSubtitlesChosen:
+				if let content = try? container.decode(TrackChoice.self, forKey: .content) {
+					self = .couchTvSubtitlesChosen(content)
+					return
+				}
 			}
 		}
 		throw DecodingError.typeMismatch(Event.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Event"))
@@ -2150,6 +2448,22 @@ public enum Event: Codable, Sendable, Hashable {
 			try container.encode(content, forKey: .content)
 		case .downloadPlayRequested(let content):
 			try container.encode(CodingKeys.downloadPlayRequested, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .couchTvTuneRequested:
+			try container.encode(CodingKeys.couchTvTuneRequested, forKey: .type)
+		case .couchTvClosed:
+			try container.encode(CodingKeys.couchTvClosed, forKey: .type)
+		case .couchTvJoinRequested(let content):
+			try container.encode(CodingKeys.couchTvJoinRequested, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .couchTvReactionSent(let content):
+			try container.encode(CodingKeys.couchTvReactionSent, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .couchTvAudioChosen(let content):
+			try container.encode(CodingKeys.couchTvAudioChosen, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .couchTvSubtitlesChosen(let content):
+			try container.encode(CodingKeys.couchTvSubtitlesChosen, forKey: .type)
 			try container.encode(content, forKey: .content)
 		}
 	}
@@ -2399,8 +2713,11 @@ public struct PlayerLoad: Codable, Sendable, Hashable {
 	public let linear: Bool
 	/// For the system's Now Playing and lock-screen controls.
 	public let nowPlaying: NowPlaying
+	/// A live stream (Couch TV): it starts at the live edge, the viewer neither seeks nor pauses,
+	/// and the player reports the program date on screen.
+	public let live: LiveStream?
 
-	public init(url: String, source: PlayerSource, startSeconds: Double, autoplay: Bool, maxHeight: UInt32? = nil, subtitles: [PlayerSubtitle], subtitle: String? = nil, audioLang: String? = nil, audioIndex: UInt32? = nil, linear: Bool, nowPlaying: NowPlaying) {
+	public init(url: String, source: PlayerSource, startSeconds: Double, autoplay: Bool, maxHeight: UInt32? = nil, subtitles: [PlayerSubtitle], subtitle: String? = nil, audioLang: String? = nil, audioIndex: UInt32? = nil, linear: Bool, nowPlaying: NowPlaying, live: LiveStream? = nil) {
 		self.url = url
 		self.source = source
 		self.startSeconds = startSeconds
@@ -2412,6 +2729,15 @@ public struct PlayerLoad: Codable, Sendable, Hashable {
 		self.audioIndex = audioIndex
 		self.linear = linear
 		self.nowPlaying = nowPlaying
+		self.live = live
+	}
+}
+
+public struct PlayerRate: Codable, Sendable, Hashable {
+	public let rate: Double
+
+	public init(rate: Double) {
+		self.rate = rate
 	}
 }
 
@@ -2423,14 +2749,18 @@ public struct PlayerReport: Codable, Sendable, Hashable {
 	public let buffering: Bool?
 	public let ended: Bool?
 	public let failed: String?
+	/// The program date of the picture on screen (`EXT-X-PROGRAM-DATE-TIME`), in Unix
+	/// milliseconds: live streams only.
+	public let programDateMs: UInt64?
 
-	public init(positionSeconds: Double, durationSeconds: Double, playing: Bool, buffering: Bool? = nil, ended: Bool? = nil, failed: String? = nil) {
+	public init(positionSeconds: Double, durationSeconds: Double, playing: Bool, buffering: Bool? = nil, ended: Bool? = nil, failed: String? = nil, programDateMs: UInt64? = nil) {
 		self.positionSeconds = positionSeconds
 		self.durationSeconds = durationSeconds
 		self.playing = playing
 		self.buffering = buffering
 		self.ended = ended
 		self.failed = failed
+		self.programDateMs = programDateMs
 	}
 }
 
@@ -2800,6 +3130,13 @@ public enum Surface: Codable, Sendable, Hashable {
 	case couch
 	/// The account's downloads on this device: preparing, fetching and ready to play offline.
 	case downloads
+	/// The live channel: what is on by the picture's clock, the overlays, who is watching and
+	/// their reactions.
+	case couchTv
+	/// Couch TV's programs, today and the next seven days.
+	case couchTvGuide
+	/// What is on Couch TV now and next, for the home screen's card.
+	case couchTvOnNow
 
 	enum CodingKeys: String, CodingKey, Codable {
 		case app,
@@ -2823,7 +3160,10 @@ public enum Surface: Codable, Sendable, Hashable {
 			profileEditor,
 			player,
 			couch,
-			downloads
+			downloads,
+			couchTv,
+			couchTvGuide,
+			couchTvOnNow
 	}
 
 	private enum ContainerCodingKeys: String, CodingKey {
@@ -2910,6 +3250,15 @@ public enum Surface: Codable, Sendable, Hashable {
 			case .downloads:
 				self = .downloads
 				return
+			case .couchTv:
+				self = .couchTv
+				return
+			case .couchTvGuide:
+				self = .couchTvGuide
+				return
+			case .couchTvOnNow:
+				self = .couchTvOnNow
+				return
 			}
 		}
 		throw DecodingError.typeMismatch(Surface.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Surface"))
@@ -2967,6 +3316,12 @@ public enum Surface: Codable, Sendable, Hashable {
 			try container.encode(CodingKeys.couch, forKey: .type)
 		case .downloads:
 			try container.encode(CodingKeys.downloads, forKey: .type)
+		case .couchTv:
+			try container.encode(CodingKeys.couchTv, forKey: .type)
+		case .couchTvGuide:
+			try container.encode(CodingKeys.couchTvGuide, forKey: .type)
+		case .couchTvOnNow:
+			try container.encode(CodingKeys.couchTvOnNow, forKey: .type)
 		}
 	}
 }
@@ -3633,6 +3988,9 @@ public enum PlayerCommand: Codable, Sendable, Hashable {
 	case selectAudio(AudioRendition)
 	/// Show this subtitle track, or none.
 	case selectSubtitles(SubtitleSelection)
+	/// Play faster or slower than real time (1 is real time): a live player held on the
+	/// channel's clock plays up to 10 % either way.
+	case rate(PlayerRate)
 	/// Stop and release the player.
 	case stop
 
@@ -3643,6 +4001,7 @@ public enum PlayerCommand: Codable, Sendable, Hashable {
 			seek,
 			selectAudio,
 			selectSubtitles,
+			rate,
 			stop
 	}
 
@@ -3680,6 +4039,11 @@ public enum PlayerCommand: Codable, Sendable, Hashable {
 					self = .selectSubtitles(content)
 					return
 				}
+			case .rate:
+				if let content = try? container.decode(PlayerRate.self, forKey: .content) {
+					self = .rate(content)
+					return
+				}
 			case .stop:
 				self = .stop
 				return
@@ -3706,6 +4070,9 @@ public enum PlayerCommand: Codable, Sendable, Hashable {
 			try container.encode(content, forKey: .content)
 		case .selectSubtitles(let content):
 			try container.encode(CodingKeys.selectSubtitles, forKey: .type)
+			try container.encode(content, forKey: .content)
+		case .rate(let content):
+			try container.encode(CodingKeys.rate, forKey: .type)
 			try container.encode(content, forKey: .content)
 		case .stop:
 			try container.encode(CodingKeys.stop, forKey: .type)

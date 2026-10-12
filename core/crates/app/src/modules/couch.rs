@@ -1004,7 +1004,7 @@ fn target(media: &CouchMediaRef) -> Option<PlayTarget> {
 }
 
 /// The socket's scheme for a server address: wss for https, ws for http, nothing for the web.
-fn socket_base(base: &str) -> String {
+pub(crate) fn socket_base(base: &str) -> String {
     if let Some(rest) = base.strip_prefix("https://") {
         format!("wss://{rest}")
     } else if let Some(rest) = base.strip_prefix("http://") {

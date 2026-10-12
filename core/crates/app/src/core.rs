@@ -14,6 +14,7 @@ use crate::messages::{
 use crate::modules::accounts::{Accounts, AccountsChange, AccountsPending};
 use crate::modules::catalog::{self, Catalog, CatalogChange, CatalogPending, Env};
 use crate::modules::couch::{self, Couch, CouchChange, CouchPending};
+use crate::modules::couchtv::{self, CouchTv, CouchTvChange, CouchTvPending};
 use crate::modules::downloads::{self, Downloads, DownloadsChange, DownloadsPending};
 use crate::modules::images::Images;
 use crate::modules::markdown;
@@ -37,6 +38,7 @@ pub enum Pending {
     Playback(PlaybackPending),
     Couch(CouchPending),
     Downloads(DownloadsPending),
+    CouchTv(CouchTvPending),
 }
 
 /// Where the app is, so a shell knows which root screen to show.
@@ -86,6 +88,7 @@ struct Model {
     playback: Playback,
     couch: Couch,
     downloads: Downloads,
+    couchtv: CouchTv,
     notices: Notices,
     phase: AppPhase,
     /// Persisted reads still outstanding at start-up; the phase is decided when they land.
@@ -112,6 +115,7 @@ impl Core {
             playback: Playback::default(),
             couch: Couch::default(),
             downloads: Downloads::default(),
+            couchtv: CouchTv::default(),
             notices: Notices::default(),
             phase: AppPhase::Starting,
             boot_reads: 0,
@@ -191,6 +195,21 @@ fn couch_env<'a>(
 /// Artwork for a couch joined as a guest: from its server, with the session's grant.
 fn guest_images(couch: &Couch, guest: &Endpoint) -> Images {
     Images { base: guest.base.clone(), grant: couch.artwork_grant().map(str::to_string) }
+}
+
+/// Couch TV's requests: the account's server, or the web's origin for a guest on the channel
+/// cookie.
+fn couchtv_env<'a>(
+    session: &'a Session,
+    web_guest: Option<&'a Endpoint>,
+    config: &CoreConfig,
+) -> Option<couchtv::Env<'a>> {
+    session.endpoint().or(web_guest).map(|endpoint| couchtv::Env {
+        endpoint,
+        language: session.language(),
+        signed_in: session.username().is_some(),
+        cookie: config.auth_mode == AuthMode::Cookie,
+    })
 }
 
 fn downloads_env<'a>(
@@ -305,6 +324,12 @@ impl Model {
             | Event::DownloadRetried(_)
             | Event::DownloadRemoved(_)
             | Event::DownloadPlayRequested(_)) => self.download_event(ctx, offline),
+            channel @ (Event::CouchTvTuneRequested
+            | Event::CouchTvClosed
+            | Event::CouchTvJoinRequested(_)
+            | Event::CouchTvReactionSent(_)
+            | Event::CouchTvAudioChosen(_)
+            | Event::CouchTvSubtitlesChosen(_)) => self.couchtv_event(ctx, channel),
             browsing @ (Event::ScreenOpened(_)
             | Event::ScreenClosed(_)
             | Event::RefreshRequested(_)
@@ -406,8 +431,54 @@ impl Model {
         }
     }
 
+    /// Couch TV: tuning in and out, joining as a guest, reactions and the channel's languages.
+    fn couchtv_event(&mut self, ctx: &mut Ctx, event: Event) {
+        let Some(env) = couchtv_env(&self.session, self.guest.as_ref(), &self.config) else {
+            return;
+        };
+        match event {
+            Event::CouchTvTuneRequested => {
+                // the channel takes the player over from a title playing on it
+                if self.playback.target().is_some() {
+                    self.playback.close(ctx, env.endpoint);
+                }
+                self.couchtv.tune(ctx, &env);
+            }
+            Event::CouchTvClosed => self.couchtv.close(ctx),
+            Event::CouchTvJoinRequested(join) => self.couchtv.join(ctx, &env, &join),
+            Event::CouchTvReactionSent(reaction) => self.couchtv.react(ctx, &reaction.emoji),
+            Event::CouchTvAudioChosen(choice) => {
+                self.couchtv.choose_audio(ctx, choice.id.as_deref());
+            }
+            Event::CouchTvSubtitlesChosen(choice) => {
+                self.couchtv.choose_subtitles(ctx, choice.id.as_deref());
+            }
+            _ => {}
+        }
+    }
+
+    fn couchtv_changed(&mut self, ctx: &mut Ctx, change: CouchTvChange) {
+        match change {
+            CouchTvChange::Unauthorized => self.session_rejected(ctx),
+            CouchTvChange::None => {}
+        }
+    }
+
     /// The catalog's events: screens opening and closing, listings, search, My List.
     fn browse(&mut self, ctx: &mut Ctx, event: Event) {
+        if let Event::ScreenOpened(surface)
+        | Event::RefreshRequested(surface)
+        | Event::ScreenClosed(surface) = &event
+            && CouchTv::owns(surface)
+        {
+            if matches!(event, Event::ScreenClosed(_)) {
+                self.couchtv.closed(ctx, surface);
+            } else {
+                let env = couchtv_env(&self.session, self.guest.as_ref(), &self.config);
+                self.couchtv.opened(ctx, env.as_ref(), surface);
+            }
+            return;
+        }
         if let Event::ScreenOpened(surface) | Event::RefreshRequested(surface) = &event
             && ranks::owns(surface)
         {
@@ -546,7 +617,14 @@ impl Model {
                 let change = self.profile.resolve(ctx, p, output);
                 self.profile_changed(ctx, change);
             }
+            Pending::CouchTv(p) => self.couchtv_resolved(ctx, p, output),
         }
+    }
+
+    fn couchtv_resolved(&mut self, ctx: &mut Ctx, pending: CouchTvPending, output: EffectOutput) {
+        let env = couchtv_env(&self.session, self.guest.as_ref(), &self.config);
+        let change = self.couchtv.resolve(ctx, env.as_ref(), pending, output);
+        self.couchtv_changed(ctx, change);
     }
 
     fn profile_changed(&mut self, ctx: &mut Ctx, change: ProfileChange) {
@@ -587,6 +665,19 @@ impl Model {
 
     /// The player: what plays, what the shell's player reports, tracks and what comes next.
     fn watch(&mut self, ctx: &mut Ctx, event: Event) {
+        if let Event::PlayerReported(report) = &event
+            && self.couchtv.plays()
+        {
+            if let Some(env) = couchtv_env(&self.session, self.guest.as_ref(), &self.config) {
+                let change = self.couchtv.report(ctx, &env, report);
+                self.couchtv_changed(ctx, change);
+            }
+            return;
+        }
+        if matches!(event, Event::PlayRequested(_)) {
+            // a title ("Watch from the start") takes the player over from the channel
+            self.couchtv.close(ctx);
+        }
         if matches!(event, Event::PlayRequested(_)) && self.couch.guest().is_some() {
             // this device's own title takes over from following another server's couch
             self.couch_event(ctx, Event::CouchLeft);
@@ -899,6 +990,9 @@ impl Model {
             // a profile asked for in the language left behind is dropped when it arrives
             self.ranks.language_changed();
             self.learn_accent(ctx);
+            if let Some(env) = couchtv_env(&self.session, self.guest.as_ref(), &self.config) {
+                self.couchtv.language_changed(ctx, &env);
+            }
         }
     }
 
@@ -990,6 +1084,7 @@ impl Model {
         self.playback.reset(ctx);
         self.couch.reset(ctx);
         self.downloads.reset(ctx);
+        self.couchtv.reset(ctx);
     }
 
     /// A module's request came back 401: the active session is no longer valid.
@@ -1018,9 +1113,9 @@ impl Model {
     /// Where artwork comes from for the active account: its server, with its grant.
     fn images(&self) -> Images {
         let Some(account) = self.session.account_id() else {
-            // a web guest without an account loads artwork with the session's grant
-            let grant = self.couch.artwork_grant().map(str::to_string);
-            return Images { base: String::new(), grant };
+            // a web guest without an account loads artwork with the couch's or the channel's grant
+            let grant = self.couch.artwork_grant().or(self.couchtv.artwork_grant());
+            return Images { base: String::new(), grant: grant.map(str::to_string) };
         };
         let server = self.accounts.server_of(account).and_then(|s| self.servers.get(s));
         Images {
@@ -1070,6 +1165,9 @@ impl Model {
                 serde_json::to_string(&self.couch.view(&images, &self.config.origin, &images.base))
             }
             Surface::Downloads => serde_json::to_string(&self.downloads.view(&images)),
+            Surface::CouchTv => serde_json::to_string(&self.couchtv.view(&images)),
+            Surface::CouchTvGuide => serde_json::to_string(&self.couchtv.guide_view(&images)),
+            Surface::CouchTvOnNow => serde_json::to_string(&self.couchtv.on_now_view(&images)),
         };
         json.expect("view models always serialize")
     }

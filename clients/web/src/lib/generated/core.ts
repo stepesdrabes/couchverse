@@ -303,6 +303,157 @@ export interface CouchReaction {
 	emoji: string;
 }
 
+/** The live overlays (D14), by the picture's clock. */
+export interface CouchTvCues {
+	/**
+	 * The corner bug with LIVE and the clock: over programs, not over breaks, which carry the
+	 * channel's own graphics.
+	 */
+	bug: boolean;
+	/** The "Now" caption, for the first seconds of a program. */
+	nowCaption: boolean;
+	/** The "Next" caption, for a while two minutes before a program leaves the air. */
+	nextCaption: boolean;
+}
+
+export interface CouchTvEpisode {
+	season: number;
+	number: number;
+	name?: string;
+}
+
+export enum CouchTvItemKind {
+	Program = "program",
+	/** Between two programs: idents, promos and up next, drawn by the broadcast itself. */
+	Break = "break",
+}
+
+/** An item of the schedule: a program with its title, or a break. */
+export interface CouchTvProgram {
+	id: string;
+	kind: CouchTvItemKind;
+	startsAtMs: number;
+	endsAtMs: number;
+	title?: string;
+	/** The title page. */
+	titleSlug?: string;
+	episode?: CouchTvEpisode;
+	overview?: string;
+	/** The rule that chose the program (`premiere`, `saga`, `strip`...), for a badge. */
+	fill?: string;
+	poster?: Image;
+	backdrop?: Image;
+	/** "Watch from the start" in the on-demand player: signed-in viewers only. */
+	play?: PlayTarget;
+}
+
+export interface CouchTvGuideDay {
+	/** The broadcast day's date in the channel's time zone (`2026-10-12`). */
+	date: string;
+	/** From its first anchor (06:00) to the next day's. */
+	startsAtMs: number;
+	endsAtMs: number;
+	programs: CouchTvProgram[];
+}
+
+export interface CouchTvGuideView {
+	status: LoadStatus;
+	/** Today's broadcast day and the ones after it. */
+	days: CouchTvGuideDay[];
+	/** The channel's time zone (IANA), in which its days run. */
+	timeZone: string;
+	problem?: Problem;
+}
+
+/** What a viewer without an account types on the channel link's page. */
+export interface CouchTvJoin {
+	/** The code from the channel link (`/tv/join/<code>`). */
+	code: string;
+	name: string;
+}
+
+export interface CouchTvMember {
+	id: string;
+	displayName: string;
+	avatar?: Image;
+	/** Seeds a generated avatar for members without one. */
+	seed: string;
+	/** Watches through the channel link without an account. */
+	guest: boolean;
+	me: boolean;
+}
+
+export interface CouchTvOnNowView {
+	status: LoadStatus;
+	/** What is on: a program or a break. */
+	now?: CouchTvProgram;
+	next?: CouchTvProgram;
+	problem?: Problem;
+}
+
+export interface CouchTvReaction {
+	id: number;
+	viewerId: string;
+	emoji: string;
+}
+
+/** An audio or subtitle language of the channel; its id is the language code. */
+export interface CouchTvTrack {
+	id: string;
+	lang: string;
+	selected: boolean;
+}
+
+export enum CouchTvStatus {
+	Idle = "idle",
+	/** Tuning in, or the player has not shown a picture yet. */
+	Tuning = "tuning",
+	/** The picture plays; `CouchTvView.now` says what it shows. */
+	OnAir = "onAir",
+	/** Nothing is on air. */
+	OffAir = "offAir",
+	/** The channel cannot be played (`CouchTvView.problem` says why). */
+	Failed = "failed",
+}
+
+/** The room's socket: presence and reactions. */
+export enum CouchTvConnection {
+	Offline = "offline",
+	Connecting = "connecting",
+	Open = "open",
+	/** The socket dropped; the core reconnects with backoff. */
+	Reconnecting = "reconnecting",
+}
+
+export interface CouchTvView {
+	status: CouchTvStatus;
+	connection: CouchTvConnection;
+	/** What the picture shows, by its program date, not the wall clock. */
+	now?: CouchTvProgram;
+	/** The next program after it. */
+	next?: CouchTvProgram;
+	later: CouchTvProgram[];
+	/**
+	 * The picture's program date when last reported, at `programDateAtMs` on the shell's clock:
+	 * the bug's clock and the progress line run on from it while the picture plays.
+	 */
+	programDateMs?: number;
+	programDateAtMs: number;
+	cues: CouchTvCues;
+	/** Everyone watching, each viewer once. */
+	viewers: number;
+	/** The first of them, in the order they tuned in. */
+	members: CouchTvMember[];
+	reactions: CouchTvReaction[];
+	audio: CouchTvTrack[];
+	subtitles: CouchTvTrack[];
+	/** The name this device watches under as a guest; absent when signed in or not joined. */
+	guest?: string;
+	/** Joining through the channel link. */
+	joining: boolean;
+	problem?: Problem;
+}
+
 export enum CouchStatus {
 	Idle = "idle",
 	/** Creating or joining, or opening the socket for the first time. */
@@ -869,6 +1020,16 @@ export interface ListBlock {
 	items: ListItem[];
 }
 
+export interface LiveStream {
+	/**
+	 * How far behind the live edge to play (three target durations, hls.js
+	 * `liveSyncDuration`); the core holds it there with `rate` and `seek`.
+	 */
+	latencySeconds: number;
+	/** The playlists' target duration. */
+	targetDurationSeconds: number;
+}
+
 export interface MarkdownDoc {
 	blocks: Block[];
 }
@@ -971,7 +1132,24 @@ export type Event =
 	/** Delete a download from this device and from the account's list. */
 	| { type: "downloadRemoved", content: DownloadRef }
 	/** Play a finished download from the device. */
-	| { type: "downloadPlayRequested", content: DownloadRef };
+	| { type: "downloadPlayRequested", content: DownloadRef }
+	/**
+	 * The live channel's screen opened: tune in to Couch TV (signed in, or as the guest this
+	 * device joined as) and play it.
+	 */
+	| { type: "couchTvTuneRequested", content?: undefined }
+	/** The live channel's screen went away: stop its player and leave the room. */
+	| { type: "couchTvClosed", content?: undefined }
+	/**
+	 * A viewer without an account typed their name on the channel link's page; the core joins
+	 * as a guest, and the next tune-in plays the channel for them.
+	 */
+	| { type: "couchTvJoinRequested", content: CouchTvJoin }
+	| { type: "couchTvReactionSent", content: CouchReaction }
+	/** One of the channel's audio languages, by its id in `CouchTvView.audio`. */
+	| { type: "couchTvAudioChosen", content: TrackChoice }
+	/** One of the channel's subtitle languages, or none. */
+	| { type: "couchTvSubtitlesChosen", content: TrackChoice };
 
 /** Something that happened in the shell: a user intent or a lifecycle change. */
 export interface Message {
@@ -1126,6 +1304,15 @@ export interface PlayerLoad {
 	linear: boolean;
 	/** For the system's Now Playing and lock-screen controls. */
 	nowPlaying: NowPlaying;
+	/**
+	 * A live stream (Couch TV): it starts at the live edge, the viewer neither seeks nor pauses,
+	 * and the player reports the program date on screen.
+	 */
+	live?: LiveStream;
+}
+
+export interface PlayerRate {
+	rate: number;
 }
 
 /** The shell's player state. `failed` carries a short reason when the player gave up. */
@@ -1136,6 +1323,11 @@ export interface PlayerReport {
 	buffering?: boolean;
 	ended?: boolean;
 	failed?: string;
+	/**
+	 * The program date of the picture on screen (`EXT-X-PROGRAM-DATE-TIME`), in Unix
+	 * milliseconds: live streams only.
+	 */
+	programDateMs?: number;
 }
 
 export interface PlayerSeason {
@@ -1365,7 +1557,16 @@ export type Surface =
 	/** The couch session: members, reactions, the host's state and the follower's sync. */
 	| { type: "couch", content?: undefined }
 	/** The account's downloads on this device: preparing, fetching and ready to play offline. */
-	| { type: "downloads", content?: undefined };
+	| { type: "downloads", content?: undefined }
+	/**
+	 * The live channel: what is on by the picture's clock, the overlays, who is watching and
+	 * their reactions.
+	 */
+	| { type: "couchTv", content?: undefined }
+	/** Couch TV's programs, today and the next seven days. */
+	| { type: "couchTvGuide", content?: undefined }
+	/** What is on Couch TV now and next, for the home screen's card. */
+	| { type: "couchTvOnNow", content?: undefined };
 
 export interface RenderRequest {
 	surfaces: Surface[];
@@ -1640,6 +1841,11 @@ export type PlayerCommand =
 	| { type: "selectAudio", content: AudioRendition }
 	/** Show this subtitle track, or none. */
 	| { type: "selectSubtitles", content: SubtitleSelection }
+	/**
+	 * Play faster or slower than real time (1 is real time): a live player held on the
+	 * channel's clock plays up to 10 % either way.
+	 */
+	| { type: "rate", content: PlayerRate }
 	/** Stop and release the player. */
 	| { type: "stop", content?: undefined };
 

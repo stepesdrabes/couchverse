@@ -77,6 +77,7 @@ fn report(shell: &mut Shell, position: f64, playing: bool) {
         buffering: false,
         ended: false,
         failed: None,
+        program_date_ms: None,
     }));
 }
 
@@ -317,6 +318,7 @@ fn an_instant_play_session_gives_way_to_a_sibling_and_back() {
         buffering: false,
         ended: false,
         failed: Some("forbidden".into()),
+        program_date_ms: None,
     }));
     shell.respond("GET", &format!("{API}/playback/movie/m1?lang=en"), 200, info("hls"));
     assert_eq!(last_load(&shell).url, format!("{API}/media/{GRANT}/hls/master.m3u8"));
@@ -412,6 +414,7 @@ fn the_next_episode_counts_down_and_plays_at_the_end() {
         buffering: false,
         ended: true,
         failed: None,
+        program_date_ms: None,
     }));
     shell.request("PUT", &format!("{API}/progress"));
     shell.respond(
@@ -436,6 +439,7 @@ fn skipping_to_the_end_still_plays_the_next_episode() {
         buffering: false,
         ended: true,
         failed: None,
+        program_date_ms: None,
     }));
     shell.request("GET", &format!("{API}/playback/episode/e2?lang=en"));
 }
@@ -456,6 +460,7 @@ fn a_dismissed_countdown_stops_at_the_end() {
         buffering: false,
         ended: true,
         failed: None,
+        program_date_ms: None,
     }));
     assert!(shell.find_request("GET", &format!("{API}/playback/episode/e2?lang=en")).is_none());
 }
@@ -490,6 +495,7 @@ fn a_failed_player_reloads_once_with_a_fresh_grant() {
             buffering: false,
             ended: false,
             failed: Some("forbidden".into()),
+            program_date_ms: None,
         }));
     };
     failed(&mut shell);

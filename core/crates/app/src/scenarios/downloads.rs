@@ -323,6 +323,7 @@ fn offline_a_download_plays_from_the_device_and_its_progress_waits() {
             buffering: false,
             ended: false,
             failed: None,
+            program_date_ms: None,
         }));
     }
     let saved_at = shell.now;

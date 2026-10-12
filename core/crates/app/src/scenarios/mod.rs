@@ -4,6 +4,7 @@
 mod boot;
 mod catalog;
 mod couch;
+mod couchtv;
 mod downloads;
 mod pairing;
 mod playback;

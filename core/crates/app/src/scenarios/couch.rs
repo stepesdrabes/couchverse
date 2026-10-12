@@ -70,6 +70,7 @@ fn report(shell: &mut Shell, position: f64, playing: bool) {
         buffering: false,
         ended: false,
         failed: None,
+        program_date_ms: None,
     }));
 }
 
@@ -398,6 +399,7 @@ fn a_followers_failed_player_reloads_the_hosts_media_from_the_couch() {
             buffering: false,
             ended: false,
             failed: Some("decode".into()),
+            program_date_ms: None,
         }));
     };
     let playback = format!("{API}/couch/123456/playback?lang=en");

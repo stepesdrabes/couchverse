@@ -23,6 +23,17 @@ pub fn unix_seconds(timestamp: &str) -> Option<i64> {
     Some(days_from_civil(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second - offset)
 }
 
+/// Milliseconds since the epoch for an RFC 3339 timestamp, its fraction of a second included
+/// (the live channel's times are to the millisecond).
+pub fn unix_ms(timestamp: &str) -> Option<i64> {
+    let seconds = unix_seconds(timestamp)?;
+    let (_, rest) = timestamp.split_once(['T', 't', ' '])?;
+    let fraction = rest.split_once('.').map_or("", |(_, f)| f);
+    let digits: String = fraction.chars().take_while(char::is_ascii_digit).take(3).collect();
+    let ms = format!("{digits:0<3}").parse::<i64>().ok()?;
+    Some(seconds * 1000 + ms)
+}
+
 /// Days since 1970-01-01 in the proleptic Gregorian calendar (Howard Hinnant's algorithm).
 fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
     let year = if month <= 2 { year - 1 } else { year };
@@ -74,6 +85,14 @@ mod tests {
         assert_eq!(unix_seconds("2026-10-02T14:00:00.987654+02:00"), Some(1_790_942_400));
         assert_eq!(unix_seconds("2000-02-29T23:59:59-01:30"), Some(951_874_199));
         assert_eq!(unix_seconds("not a date"), None);
+    }
+
+    #[test]
+    fn timestamps_keep_their_milliseconds() {
+        assert_eq!(unix_ms("2026-10-02T12:00:00Z"), Some(1_790_942_400_000));
+        assert_eq!(unix_ms("2026-10-02T12:00:00.5Z"), Some(1_790_942_400_500));
+        assert_eq!(unix_ms("2026-10-02T14:00:00.987654+02:00"), Some(1_790_942_400_987));
+        assert_eq!(unix_ms("nope"), None);
     }
 
     #[test]
