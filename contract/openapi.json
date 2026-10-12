@@ -1880,105 +1880,6 @@
         ],
         "type": "object"
       },
-      "CouchTvOnAir": {
-        "additionalProperties": false,
-        "properties": {
-          "backdropId": {
-            "type": "string"
-          },
-          "backdropVer": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "endsAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "episodeId": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "episodeName": {
-            "type": "string"
-          },
-          "episodeNumber": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "fill": {
-            "description": "The rule that chose the program (premiere, saga...); absent for a break.",
-            "enum": [
-              "strip",
-              "marathon",
-              "reruns",
-              "movie",
-              "matinee",
-              "premiere",
-              "saga",
-              "encore",
-              "filler"
-            ],
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "kind": {
-            "enum": [
-              "program",
-              "break"
-            ],
-            "type": "string"
-          },
-          "overview": {
-            "description": "The episode's overview for an episode, else the title's.",
-            "type": "string"
-          },
-          "posterId": {
-            "type": "string"
-          },
-          "posterVer": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "seasonNumber": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "startsAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "titleId": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "titleKind": {
-            "enum": [
-              "movie",
-              "series"
-            ],
-            "type": "string"
-          },
-          "titleName": {
-            "type": "string"
-          },
-          "titleSlug": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "startsAt",
-          "endsAt"
-        ],
-        "type": [
-          "object",
-          "null"
-        ]
-      },
       "CouchTvOverview": {
         "additionalProperties": false,
         "properties": {
@@ -2603,12 +2504,12 @@
             "type": "array"
           },
           "next": {
-            "$ref": "#/components/schemas/CouchTvOnAir",
-            "description": "The next program; null when nothing is planned."
+            "$ref": "#/components/schemas/CouchTvListing",
+            "description": "The next program; absent when nothing is planned."
           },
           "now": {
-            "$ref": "#/components/schemas/CouchTvOnAir",
-            "description": "What is on air, a program or a break; null while nothing is."
+            "$ref": "#/components/schemas/CouchTvListing",
+            "description": "What is on air, a program or a break; absent while nothing is."
           },
           "serverTime": {
             "description": "The server clock when the answer was made, in Unix milliseconds. Players hold the program date at server time minus three target durations.",
@@ -2631,8 +2532,6 @@
           "serverTime",
           "targetDuration",
           "languages",
-          "now",
-          "next",
           "later"
         ],
         "type": "object"

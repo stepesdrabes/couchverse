@@ -48,12 +48,6 @@ type CouchTvListing struct {
 	BackdropVer   int64     `json:"backdropVer,omitempty"`
 }
 
-// CouchTvOnAir is a listing that may be missing: what is on, or what is next.
-type CouchTvOnAir struct {
-	_ struct{} `nullable:"true"`
-	CouchTvListing
-}
-
 // CouchTvTune is everything a player needs to tune in to the channel.
 type CouchTvTune struct {
 	Grant          string           `json:"grant" doc:"The channel grant every channel URL carries; it expires, so tune in again on grant_expired."`
@@ -61,8 +55,8 @@ type CouchTvTune struct {
 	ServerTime     int64            `json:"serverTime" doc:"The server clock when the answer was made, in Unix milliseconds. Players hold the program date at server time minus three target durations."`
 	TargetDuration int              `json:"targetDuration" doc:"The channel's EXT-X-TARGETDURATION, in seconds."`
 	Languages      []string         `json:"languages" doc:"The audio and subtitle languages of the stream, in its playlists' order."`
-	Now            *CouchTvOnAir    `json:"now" doc:"What is on air, a program or a break; null while nothing is."`
-	Next           *CouchTvOnAir    `json:"next" doc:"The next program; null when nothing is planned."`
+	Now            *CouchTvListing  `json:"now,omitempty" doc:"What is on air, a program or a break; absent while nothing is."`
+	Next           *CouchTvListing  `json:"next,omitempty" doc:"The next program; absent when nothing is planned."`
 	Later          []CouchTvListing `json:"later" doc:"The programs after the next one, up to four."`
 	ArtworkGrant   string           `json:"artworkGrant,omitempty" doc:"A guest's: lets them load artwork without an account (append it to artwork URLs as ?g=)."`
 	Guest          *CouchTvGuest    `json:"guest,omitempty" doc:"The guest tuning in; absent for a signed-in viewer."`
@@ -152,10 +146,10 @@ func (v *Viewer) tune(ctx context.Context, g grant.Grant) (CouchTvTune, error) {
 	for _, l := range listings {
 		switch {
 		case out.Now == nil && !l.StartsAt.After(now):
-			out.Now = &CouchTvOnAir{CouchTvListing: l}
+			out.Now = &l
 		case l.Kind != KindProgram:
 		case out.Next == nil:
-			out.Next = &CouchTvOnAir{CouchTvListing: l}
+			out.Next = &l
 		case len(out.Later) < 4:
 			out.Later = append(out.Later, l)
 		}

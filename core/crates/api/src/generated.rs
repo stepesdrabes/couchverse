@@ -1873,148 +1873,6 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct CouchTvOnAir {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub backdrop_id: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub backdrop_ver: Option<i64>,
-        pub ends_at: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub episode_id: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub episode_name: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub episode_number: Option<i64>,
-        /// The rule that chose the program (premiere, saga...); absent for a break.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub fill: Option<CouchTvOnAirFill>,
-        pub id: String,
-        pub kind: CouchTvOnAirKind,
-        /// The episode's overview for an episode, else the title's.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub overview: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub poster_id: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub poster_ver: Option<i64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub season_number: Option<i64>,
-        pub starts_at: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub title_id: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub title_kind: Option<CouchTvOnAirTitleKind>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub title_name: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub title_slug: Option<String>,
-    }
-
-    /// The rule that chose the program (premiere, saga...); absent for a break.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-    pub enum CouchTvOnAirFill {
-        #[serde(rename = "strip")]
-        Strip,
-        #[serde(rename = "marathon")]
-        Marathon,
-        #[serde(rename = "reruns")]
-        Reruns,
-        #[serde(rename = "movie")]
-        Movie,
-        #[serde(rename = "matinee")]
-        Matinee,
-        #[serde(rename = "premiere")]
-        Premiere,
-        #[serde(rename = "saga")]
-        Saga,
-        #[serde(rename = "encore")]
-        Encore,
-        #[serde(rename = "filler")]
-        Filler,
-        /// A value this client does not know yet.
-        #[serde(other)]
-        Unknown,
-    }
-
-    impl CouchTvOnAirFill {
-        pub fn as_str(self) -> &'static str {
-            match self {
-                CouchTvOnAirFill::Strip => "strip",
-                CouchTvOnAirFill::Marathon => "marathon",
-                CouchTvOnAirFill::Reruns => "reruns",
-                CouchTvOnAirFill::Movie => "movie",
-                CouchTvOnAirFill::Matinee => "matinee",
-                CouchTvOnAirFill::Premiere => "premiere",
-                CouchTvOnAirFill::Saga => "saga",
-                CouchTvOnAirFill::Encore => "encore",
-                CouchTvOnAirFill::Filler => "filler",
-                CouchTvOnAirFill::Unknown => "unknown",
-            }
-        }
-    }
-
-    impl std::fmt::Display for CouchTvOnAirFill {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str(self.as_str())
-        }
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-    pub enum CouchTvOnAirKind {
-        #[serde(rename = "program")]
-        Program,
-        #[serde(rename = "break")]
-        Break,
-        /// A value this client does not know yet.
-        #[serde(other)]
-        Unknown,
-    }
-
-    impl CouchTvOnAirKind {
-        pub fn as_str(self) -> &'static str {
-            match self {
-                CouchTvOnAirKind::Program => "program",
-                CouchTvOnAirKind::Break => "break",
-                CouchTvOnAirKind::Unknown => "unknown",
-            }
-        }
-    }
-
-    impl std::fmt::Display for CouchTvOnAirKind {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str(self.as_str())
-        }
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-    pub enum CouchTvOnAirTitleKind {
-        #[serde(rename = "movie")]
-        Movie,
-        #[serde(rename = "series")]
-        Series,
-        /// A value this client does not know yet.
-        #[serde(other)]
-        Unknown,
-    }
-
-    impl CouchTvOnAirTitleKind {
-        pub fn as_str(self) -> &'static str {
-            match self {
-                CouchTvOnAirTitleKind::Movie => "movie",
-                CouchTvOnAirTitleKind::Series => "series",
-                CouchTvOnAirTitleKind::Unknown => "unknown",
-            }
-        }
-    }
-
-    impl std::fmt::Display for CouchTvOnAirTitleKind {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str(self.as_str())
-        }
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct CouchTvOverview {
         pub config: CouchTvConfig,
         /// When the last planned airing ends; null before the first plan.
@@ -2540,10 +2398,12 @@ pub mod types {
         pub languages: Vec<String>,
         /// The programs after the next one, up to four.
         pub later: Vec<CouchTvListing>,
-        /// The next program; null when nothing is planned.
-        pub next: Option<CouchTvOnAir>,
-        /// What is on air, a program or a break; null while nothing is.
-        pub now: Option<CouchTvOnAir>,
+        /// The next program; absent when nothing is planned.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub next: Option<CouchTvListing>,
+        /// What is on air, a program or a break; absent while nothing is.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub now: Option<CouchTvListing>,
         /// The server clock when the answer was made, in Unix milliseconds. Players hold the program date at server time minus three target durations.
         pub server_time: i64,
         /// The live multivariant playlist; its default audio follows the display language.

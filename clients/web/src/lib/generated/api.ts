@@ -595,36 +595,6 @@ export type CouchTvListingKind = 'program' | 'break';
 
 export type CouchTvListingTitleKind = 'movie' | 'series';
 
-export interface CouchTvOnAir {
-	backdropId?: string;
-	backdropVer?: number;
-	endsAt: string;
-	episodeId?: string;
-	episodeName?: string;
-	episodeNumber?: number;
-	/** The rule that chose the program (premiere, saga...); absent for a break. */
-	fill?: CouchTvOnAirFill;
-	id: string;
-	kind: CouchTvOnAirKind;
-	/** The episode's overview for an episode, else the title's. */
-	overview?: string;
-	posterId?: string;
-	posterVer?: number;
-	seasonNumber?: number;
-	startsAt: string;
-	titleId?: string;
-	titleKind?: CouchTvOnAirTitleKind;
-	titleName?: string;
-	titleSlug?: string;
-}
-
-/** The rule that chose the program (premiere, saga...); absent for a break. */
-export type CouchTvOnAirFill = 'strip' | 'marathon' | 'reruns' | 'movie' | 'matinee' | 'premiere' | 'saga' | 'encore' | 'filler';
-
-export type CouchTvOnAirKind = 'program' | 'break';
-
-export type CouchTvOnAirTitleKind = 'movie' | 'series';
-
 export interface CouchTvOverview {
 	config: CouchTvConfig;
 	/** When the last planned airing ends; null before the first plan. */
@@ -854,10 +824,10 @@ export interface CouchTvTune {
 	languages: string[];
 	/** The programs after the next one, up to four. */
 	later: CouchTvListing[];
-	/** The next program; null when nothing is planned. */
-	next: CouchTvOnAir | null;
-	/** What is on air, a program or a break; null while nothing is. */
-	now: CouchTvOnAir | null;
+	/** The next program; absent when nothing is planned. */
+	next?: CouchTvListing;
+	/** What is on air, a program or a break; absent while nothing is. */
+	now?: CouchTvListing;
 	/** The server clock when the answer was made, in Unix milliseconds. Players hold the program date at server time minus three target durations. */
 	serverTime: number;
 	/** The live multivariant playlist; its default audio follows the display language. */

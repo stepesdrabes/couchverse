@@ -21,8 +21,7 @@ use couchverse_api::ops::{
     GetCouchTvGuideQuery, JoinCouchTvQuery, TuneCouchTvGuestQuery, TuneCouchTvQuery,
 };
 use couchverse_api::types::{
-    CouchTvGuest, CouchTvGuide, CouchTvJoin as JoinBody, CouchTvListing, CouchTvTune,
-    JoinCouchTvDelivery,
+    CouchTvGuest, CouchTvGuide, CouchTvJoin as JoinBody, CouchTvTune, JoinCouchTvDelivery,
 };
 use couchverse_api::{Call, ops};
 use serde::{Deserialize, Serialize};
@@ -1067,9 +1066,6 @@ fn now_ms(now: U53) -> i64 {
 
 /// What is on, next and later from a tune-in, in order.
 fn lineup(tune: &CouchTvTune) -> Vec<Listing> {
-    let on_air = [&tune.now, &tune.next].into_iter().flatten().filter_map(|l| {
-        // the API's "on air" listing is the same JSON as a listing
-        serde_json::to_value(l).ok().and_then(|v| serde_json::from_value::<CouchTvListing>(v).ok())
-    });
+    let on_air = [&tune.now, &tune.next].into_iter().flatten().cloned();
     on_air.chain(tune.later.iter().cloned()).filter_map(Listing::new).collect()
 }
