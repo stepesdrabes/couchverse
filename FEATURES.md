@@ -1612,26 +1612,29 @@ through the `@couchverse/broadcast` alias in `svelte.config.js`), and the render
 the built page `dist/render.html` (`make broadcast`) in headless Chromium. What the admin
 approves is what airs.
 
-- **Layout**: `src/core` (the Timeline, curves and springs, the accent palette, DOM helpers,
-  artwork framing, a seeded PRNG), `src/audio` (the graph with per-piece music, sfx, voice and
-  reverb buses into glue, limiter and trim; the synthesized kit; beds with ducking and tape
-  stops; onset detection; BS.1770 loudness and true peak; WAV; the `synth:` placeholder beds),
-  `src/brand` (everything that is the brand: mark, lockup, corner bug, the promo's channel
-  tag, the sonic logo and theme, the ident and the stings, plus `brand.css`; a brand redesign
-  replaces this folder only), `src/templates` (one module per template, `index.ts` the
-  registry), `spec.ts` (the data contract), `piece.ts` (a loaded clip and the offline audio
-  render), `stage.ts` (a 1920x1080 stage in a shadow root), `player.ts` (live playback against
-  the audio clock), `render.ts` (the sidecar's API). Design tokens come from
-  `src/generated/tokens.ts`, written by `cargo xtask codegen`; Plus Jakarta Sans (latin and
-  latin-ext) is bundled in `src/assets/fonts`.
-- **Templates** (`template` in the spec): `ident` (`cut` full 11.52 s or short 5 s; a placeholder
-  until the remade ident), `sting` (gap filler, any whole number of frames from 2 to 6 s; the
-  library is 2, 3 and 5 s), `upNext` (default 8 s, countdown), `promo` (moods `cinematic`,
-  `grit`, `bright`; `premiere`; `part` `body`, `end` or `full`), `evergreenEnd` ("Coming up on
-  Couch TV"), `stripPromo` (moods `bright`, `dark`), `shortPromo`, `lineup` (2 to 5 rows),
-  `squeeze` (handover `expand` or `line`), `standby` ("Technical difficulties", loops
-  seamlessly). Copy is English (D13); every time and day arrives as a preformatted phrase
-  (`Airing`), so templates do no clock maths.
+- **Layout**: `src/core` (the Timeline, curves and springs, `moves.ts`'s whole-piece `motion`
+  and `windows` with cuts on frame edges, the accent palette, DOM helpers, artwork framing, a
+  seeded PRNG), `src/audio` (the graph with per-piece music, sfx, voice and reverb buses into
+  glue, limiter and trim, the reverb a generated hall; the synthesized kit; `orchestra.ts`, the
+  theme's instruments; beds with ducking and tape stops; onset detection; BS.1770 loudness and
+  true peak; WAV; the `synth:` placeholder beds), `src/brand` (everything that is the brand,
+  see "Brand"; a brand redesign replaces this folder only), `src/templates` (one module per
+  template, `index.ts` the registry), `spec.ts` (the data contract), `piece.ts` (a loaded clip
+  and the offline audio render), `stage.ts` (a 1920x1080 stage in a shadow root), `player.ts`
+  (live playback against the audio clock), `render.ts` (the sidecar's API). Design tokens come
+  from `src/generated/tokens.ts`, written by `cargo xtask codegen`; Plus Jakarta Sans and Saira
+  (OFL, latin and latin-ext; Saira's files are `@fontsource-variable/saira` 5.3.0's weight
+  axis) are bundled in `src/assets/fonts` and registered by `ensureFonts`.
+- **Templates** (`template` in the spec): `ident` (`cut` full 10.52 s or short 4.52 s;
+  `posters`, up to four poster URLs the brackets frame, stand-in cards without), `sting` (gap
+  filler, any whole number of frames from 2 to 6 s; the library is 2, 3 and 5 s), `upNext`
+  (default 8 s, countdown), `promo` (moods `cinematic`, `grit`, `bright`; `premiere`; `part`
+  `body`, `end` or `full`), `evergreenEnd` ("Coming up on Couch TV"), `stripPromo` (moods
+  `bright`, `dark`), `shortPromo`, `lineup` (2 to 5 rows), `squeeze` (handover `expand`,
+  11.52 s, or `cursor`, 10.6 s: the program collapses into the red cursor block the short ident
+  opens on, and its last frame is the ident's first, pixel for pixel), `standby` ("Technical
+  difficulties", loops seamlessly). Copy is English (D13); every time and day arrives as a
+  preformatted phrase (`Airing`), so templates do no clock maths.
 - **Spec**: `src/spec.ts` is the single source; `npm run schema` writes
   `contract/broadcast-spec.schema.json` (CI fails on drift) for the server's composer. Beds are
   `{url, in, out}` excerpts (WAV, FLAC or Ogg Opus: open-source Chromium has no AAC); footage is
@@ -1663,21 +1666,46 @@ approves is what airs.
   browser's own evaluation at `currentTime = t`; values that change (counters, footage frames)
   are pure functions of t (`Timeline.dynamic`); noise and jitter come from seeded generators,
   and every sound cue reseeds by its index, so its noise is the same wherever playback starts;
-  nothing reads the wall clock or keeps state between frames; templates build only after
-  fonts, artwork and beds are loaded (layout and beat-synced cuts depend on them); images
-  rasterize with their frame (`decoding = 'sync'`). Two audio renders differ only by float noise
-  (under 1e-5).
+  nothing reads the wall clock or keeps state between frames; templates build only after fonts,
+  artwork and beds are loaded (layout and beat-synced cuts depend on them); images rasterize
+  with their frame (`decoding = 'sync'`). Cuts built with `motion`/`windows` sit on frame edges
+  (half a frame before the frame nearest their beat), so float error never moves one to the
+  neighbouring frame and a 120 bpm cue lands within half a frame of its sound. Two audio renders
+  differ only by float noise (under 1e-5).
 - **Squeeze compositing**: the spec's `program` fills the panel with the program's last seconds
-  as frames (`frames`: the renderer extracts them from `credits_at` and the page draws them,
-  no compositing needed), a stand-in (`standIn`: the ending title's backdrop under a credits
-  roll, the preview), or nothing (`key`): the panel is then transparent (the picture shows the
-  background behind it), `keyRect(t)` gives its rectangle per frame (driven by the same data
-  as the animation), and the `matte` layer renders white where the program shows (corner
-  radius and opacity included) on black. An ffmpeg composite places the program at
-  `keyRect`, takes its alpha from the matte (`alphamerge`) and overlays it on the picture; the
-  white flash of the `line` handover is drawn at full strength in the picture with its fade in
-  the matte, so a standard overlay comes out right. A colour key is avoided on purpose (JPEG
-  capture and 4:2:0 chroma fringe it).
+  as frames (`frames`: the renderer extracts them from `credits_at` and the page draws them, no
+  compositing needed), a stand-in (`standIn`: the ending title's backdrop under a credits roll,
+  the preview), or nothing (`key`): the panel is then transparent (the picture shows the
+  background behind it), `keyRect(t)` gives its rectangle per frame (driven by the same data as
+  the animation), and the `matte` layer renders white where the program shows (corner radius and
+  opacity included) on black. An ffmpeg composite places the program at `keyRect`, takes its
+  alpha from the matte (`alphamerge`) and overlays it on the picture; the red the `cursor`
+  handover fills the panel with is drawn at full strength in the picture with its fade in the
+  matte, so a standard overlay comes out right. A colour key is avoided on purpose (JPEG capture
+  and 4:2:0 chroma fringe it).
+- **Brand** (`src/brand`, D27): **C()UCH TV**, Saira 700 caps, pure red (the token accent,
+  #e50914), black and white. `wordmark.ts` is the one lockup: a layout in em measured from the
+  bundled Saira (a golden test re-measures it) places every part absolutely; the O is drawn as
+  two superellipses fitted to Saira's O (within 0.003 em), cut into the brackets, so a bracket
+  can grow to frame a poster with its outline scaled and its stroke kept at the lockup's weight;
+  the TV block and the cursor sit on whole pixels. `wordmark()` builds the animated DOM version
+  (the ident, the stings, the promo tag), `animateBrackets` drives the brackets' shape and place
+  as a pure function of t (`Timeline.dynamic`). `lockup.ts`: the static lockup, the corner bug,
+  `channelTag` (the promo end card's tag: closed on the hook's first note, the brackets open on
+  notes 2-4, TV drops into its block on the long note). `theme.ts`: theme 1 "hybrid epic" on
+  the reel's 120 bpm grid (D minor build, D major on the hit, the A4 D5 A5 G5 F#5 hook on brass,
+  a D add9 final chord), `themeTag` (the hook condensed, the tags and stings) and `themeChime`
+  (the hook on the glockenspiel, the standby card); its chords are checked against their keys
+  by a unit test. `ident.ts`: variant B "frame", full (lockup, the brackets burst out and frame
+  ON, 20:15, posters, a star, NOW, a play sign, MOVIES, SERIES, test-card RGB and the couch on
+  beat cuts over black, red and white fields, slam back into the O on the hit at 6.0, a beat of
+  red, the hook, TV at 7.25, the tagline typed at 8.0) and short (the squeeze's cursor becomes
+  the O, a one-bar sequence, the hit at 2.0, TV at 3.25), both from the reel's cue tables.
+  `sting.ts`: the ident's finale on the tag's hook (from 3 s with the short ident's opening).
+  **For clients** (D14 overlays), the package exports `lockupSvg({ size, ink, brand, onBrand,
+  label })`, a pure function returning the static lockup as a standalone SVG string (one font
+  size tall, about 4.96 wide; the letters are text in `DISPLAY_FAMILY`, so call `ensureFonts()`
+  first, the brackets and block are paths); the broadcast's corner bug is drawn with it.
 - **Adding a template**: add its spec interface to `spec.ts` and to `ClipSpec`; write
   `src/templates/<name>.ts` exporting a `Template` (`version` and `build(ctx, spec)` returning a
   `Timeline`; only `transform`, `opacity` and `visibility` animate; text from the spec goes in
@@ -1685,14 +1713,16 @@ approves is what airs.
   `npm run schema`; add a fixture to `test/fixtures/specs.ts` and its golden frames to
   `test/golden/frames.spec.ts`; offer it in the web's `features/couchtv/preview.ts`. Bump a
   template's `version` whenever its picture or sound changes.
-- **Tests** (`make broadcast-test`, CI `broadcast.yml`): vitest for curves, springs, the palette,
-  the timeline, loudness, WAV and the schema; Playwright in Chromium against the built render
-  page for golden frames (480x270, `test/golden/__goldens__`, refresh with `npx playwright test
-  --update-snapshots`), and invariants: a frame is a function of t, a promo body does not
-  depend on its airing, the end card continues the body on the next frame, the key rectangle
-  follows the panel, two audio renders agree and hit their loudness, the standby loop has no
-  seam. Stand-in media (gradient art, two footage shots, a bed) are committed in `test/media`
-  with the script that made them. `npm run dev` (port 5190) plays every fixture.
+- **Tests** (`make broadcast-test`, CI `broadcast.yml`): vitest for curves, springs, the
+  palette, the timeline, loudness, WAV and the schema; Playwright in Chromium against the built
+  render page for golden frames (480x270, `test/golden/__goldens__`, refresh with `npx
+  playwright test --update-snapshots`), and invariants: a frame is a function of t, a promo body
+  does not depend on its airing, the end card continues the body on the next frame, the key
+  rectangle follows the panel, the `cursor` squeeze ends on the short ident's first frame
+  (pixel-equal), the wordmark's metrics are the bundled face's, two audio renders agree and hit
+  their loudness, the standby loop has no seam. Stand-in media (gradient art, two footage shots,
+  a bed) are committed in `test/media` with the script that made them. `npm run dev` (port 5190)
+  plays every fixture.
 
 ## Backend dependency graph
 

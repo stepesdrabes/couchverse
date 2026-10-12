@@ -595,9 +595,10 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   for the composer (6.5) to validate what it writes. Airings arrive as English phrases
   (`{eyebrow, day, time}`); beds as `{url, in, out}` in WAV, FLAC or Ogg Opus (open-source
   Chromium has no AAC); footage as 25 fps JPEG frame URLs per shot.
-- **Durations**: full ident 11.52 s and the expand squeeze 11.52 s (whole frames); short ident
-  5 s; stings any whole number of frames from 2 to 6 s (the hold absorbs it), so a gap can be
-  closed by one sting; up next 8 s by default (6 to 12); a promo body ends on a frame-aligned
+- **Durations**: full ident 10.52 s and short ident 4.52 s (the reel's 10.5 and 4.5 s grid
+  cuts rounded to whole frames); the expand squeeze 11.52 s, the cursor squeeze 10.6 s; stings
+  any whole number of frames from 2 to 6 s (the hold absorbs it), so a gap can be closed by one
+  sting; up next 8 s by default (6 to 12); a promo body ends on a frame-aligned
   cut snapped to the bed (cinematic about 17 s, premiere about 19 s, grit about 13 s, bright
   about 13.5 s) and its end card is 4 s; the body is airing-independent by construction (a test
   proves it), and the break audio renders the promo `full` so its bed runs across the cut.
@@ -613,10 +614,19 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
 - **Static holds**: `isStatic` is exact but today's templates keep subtle motion in every frame
   (a breathing LIVE dot, slow pushes, grain), so the 6.7 budget should not count on skipped
   frames; freezing those motions on long holds is a later optimization.
-- **Brand isolation**: the owner asked for a new ident and theme (typographic, a new lockup and
-  possibly a display face); the lockup, corner bug, channel tag, sonic logo and theme, ident
-  and stings live in `src/brand` so the remake replaces that folder only. The current ident is
-  a placeholder.
+- **Brand isolation**: the lockup, corner bug, channel tag, sonic logo and theme, ident and
+  stings live in `src/brand`, so a redesign replaces that folder only.
+- **The brand (D27, ported from the reel)**: C()UCH TV with Saira bundled (no CDN), ident
+  variant B (full and short) and theme 1 as the sonic logo, its tag closing every promo and
+  stings of 2-6 s derived from it. The reel's one known issue is fixed: the brackets are drawn
+  as superellipses fitted to Saira's O, so when they hug a poster their outline grows but the
+  stroke keeps the lockup's weight (the reel scaled the glyph, about three times heavier). The
+  ident's posters come from the spec (`posters`, stand-in cards without). Cuts sit on the frame
+  nearest their beat (at 25 fps a 120 bpm grid falls between frames). The squeeze's `cursor`
+  handover (replacing `line`) ends on the short ident's first frame pixel for pixel. Measured
+  against the reel at 48 kHz, the theme matches within 0.1 dB in every band and 0.1 LU in
+  loudness. The engine's reverb is now the reel's generated hall (every template's version
+  moved to 2). `lockupSvg` gives the clients the lockup for their live overlays (FEATURES.md).
 
 ### 6.9 Presence, reactions, progress, analytics, ranks
 - **Hub**: an in-memory channel room (like couch's Hub, much simpler: no host). WebSocket
