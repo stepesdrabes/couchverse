@@ -165,6 +165,13 @@ func (a *App) Start(ctx context.Context) error {
 	if err := d.CouchTvAnalysis.Start(ctx); err != nil {
 		return err
 	}
+	// breaks are composed here and rendered by the sidecar (`couchverse render`), which
+	// registers couchtv_render and couchtv_assemble itself
+	composer := &couchtv.Composer{Store: d.CouchTv.Store, Settings: d.Settings, Jobs: d.Jobs}
+	runner.Register(couchtv.ComposeJob, 1, composer.Handle)
+	if err := composer.Start(ctx); err != nil {
+		return err
+	}
 	// files an older prober read are brought up to date in the background
 	if _, err := d.Jobs.EnqueueJobOnce(ctx, "reprobe", struct{}{}, jobs.EnqueueOpts{}); err != nil {
 		return err

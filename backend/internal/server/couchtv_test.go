@@ -181,3 +181,128 @@ func TestCouchTvConfigStored(t *testing.T) {
 		t.Error("the API shows the guest link hash")
 	}
 }
+
+// TestCouchTvComposeJob plans the seeded library and composes its breaks: nothing before a
+// render sidecar has published its templates, then every break of the next 48 hours with a
+// recipe as long as the break, its clips requested once and queued for rendering, the
+// evergreen break and the standby card; once clips are rendered their breaks are queued for
+// assembly and the evergreen break is recomposed with promos.
+func TestCouchTvComposeJob(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := context.Background()
+	prague, _ := time.LoadLocation("Europe/Prague")
+	clock := time.Date(2026, 10, 12, 10, 0, 0, 0, prague)
+	now := func() time.Time { return clock }
+	jb, set := jobs.NewStore(env.pool), settings.NewStore(env.pool)
+	store := couchtv.NewStore(env.pool)
+	plan := &couchtv.Scheduler{Store: store, Settings: set, Jobs: jb, Now: now}
+	if err := plan.Handle(ctx, &jobs.Job{}, func(int) {}); err != nil {
+		t.Fatal(err)
+	}
+	composer := &couchtv.Composer{Store: store, Settings: set, Jobs: jb, Now: now}
+	compose := func() {
+		t.Helper()
+		if err := composer.Handle(ctx, &jobs.Job{}, func(int) {}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	count := func(query string, args ...any) int {
+		t.Helper()
+		var n int
+		if err := env.pool.QueryRow(ctx, query, args...).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+
+	compose()
+	if n := count(`SELECT count(*) FROM couchtv_breaks`); n != 0 {
+		t.Fatalf("%d breaks composed before a renderer published its templates", n)
+	}
+	versions := `{"ident": 1, "sting": 1, "upNext": 1, "promo": 1, "evergreenEnd": 1, "stripPromo": 1, "shortPromo": 1,
+		"lineup": 1, "squeeze": 1, "standby": 1}`
+	if err := set.Set(ctx, "couchtv_render", json.RawMessage(`{"versions": `+versions+`, "seenAt": "2026-10-12T08:00:00Z"}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	compose()
+	window := []any{clock, clock.Add(48 * time.Hour)}
+	breaks := count(`SELECT count(*) FROM couchtv_airings WHERE kind = 'break' AND starts_at >= $1 AND starts_at < $2`, window...)
+	if composed := count(`SELECT count(*) FROM couchtv_breaks b JOIN couchtv_airings a ON a.id = b.airing_id
+		WHERE b.state = 'composed'`); breaks == 0 || composed != breaks {
+		t.Fatalf("%d of %d breaks composed", composed, breaks)
+	}
+	// every recipe fills its break to the frame with clips back to back
+	rows, err := env.pool.Query(ctx, `SELECT a.starts_at, a.ends_at, b.recipe FROM couchtv_breaks b
+		JOIN couchtv_airings a ON a.id = b.airing_id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var starts, ends time.Time
+		var r couchtv.Recipe
+		if err := rows.Scan(&starts, &ends, &r); err != nil {
+			t.Fatal(err)
+		}
+		at := 0
+		for _, c := range r.Clips {
+			if c.At != at {
+				t.Fatalf("break at %s: clip at %d, want %d", starts, c.At, at)
+			}
+			at += c.Frames
+		}
+		if want := int(ends.Sub(starts).Round(40*time.Millisecond) / (40 * time.Millisecond)); at != want || r.Frames != want {
+			t.Errorf("break at %s: %d frames of clips, the break is %d", starts, at, want)
+		}
+		if len(r.Clips) == 0 || r.Clips[len(r.Clips)-1].Kind != couchtv.ClipUpNext {
+			t.Errorf("break at %s does not end on up next: %+v", starts, r.Clips)
+		}
+	}
+	rows.Close()
+	if n := count(`SELECT count(*) FROM couchtv_breaks WHERE kind = 'evergreen' AND state = 'composed'`); n != 1 {
+		t.Errorf("%d evergreen breaks", n)
+	}
+	if n := count(`SELECT count(*) FROM couchtv_clips WHERE kind = 'standby'`); n != 1 {
+		t.Errorf("%d standby cards", n)
+	}
+	clips := count(`SELECT count(*) FROM couchtv_clips`)
+	renders := count(`SELECT count(*) FROM jobs WHERE type = $1 AND status = 'pending'`, couchtv.RenderJob)
+	if clips == 0 || renders != clips {
+		t.Errorf("%d clips, %d renders queued", clips, renders)
+	}
+	if n := count(`SELECT count(*) FROM couchtv_clips WHERE kind = 'promo_body'`); n == 0 {
+		t.Error("no promo body requested")
+	}
+
+	// an unchanged schedule composes nothing new
+	compose()
+	if n := count(`SELECT count(*) FROM couchtv_clips`); n != clips {
+		t.Errorf("a second run requested %d clips more", n-clips)
+	}
+	if n := count(`SELECT count(*) FROM jobs WHERE type = $1 AND status = 'pending'`, couchtv.RenderJob); n != renders {
+		t.Errorf("a second run queued %d renders more", n-renders)
+	}
+
+	// rendered clips (promo bodies 16 s) queue the breaks that use them for assembly
+	if _, err := env.pool.Exec(ctx, `UPDATE couchtv_clips SET state = 'ready', rendered_at = now(),
+		duration_ms = CASE WHEN duration_ms = 0 THEN 16000 ELSE duration_ms END`); err != nil {
+		t.Fatal(err)
+	}
+	var identID string
+	if err := env.pool.QueryRow(ctx, `SELECT id FROM couchtv_clips WHERE kind = 'ident_short'`).Scan(&identID); err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := json.Marshal(couchtv.RenderPayload{ClipID: identID})
+	r := &couchtv.Renderer{Store: store, Jobs: jb, Settings: set}
+	if err := r.Render(ctx, &jobs.Job{Payload: payload}, func(int) {}); err != nil {
+		t.Fatal(err)
+	}
+	if n := count(`SELECT count(*) FROM jobs WHERE type = $1`, couchtv.AssembleJob); n == 0 {
+		t.Error("no assembly queued")
+	}
+	compose()
+	if n := count(`SELECT count(*) FROM couchtv_breaks b WHERE kind = 'evergreen'
+		AND recipe->'clips' @> '[{"kind": "promo_body"}]'`); n != 1 {
+		t.Errorf("%d evergreen breaks with promos", n)
+	}
+}

@@ -62,7 +62,7 @@ func (s *Scheduler) Handle(ctx context.Context, _ *jobs.Job, report func(int)) e
 	if err := s.queueNext(ctx, cfg, now); err != nil {
 		return err
 	}
-	return s.Store.Locked(ctx, func(st *Store) error {
+	err := s.Store.Locked(ctx, func(st *Store) error {
 		lib, err := st.Library(ctx)
 		if err != nil {
 			return err
@@ -77,6 +77,12 @@ func (s *Scheduler) Handle(ctx context.Context, _ *jobs.Job, report func(int)) e
 		report(80)
 		return swap(ctx, st, cfg, lib, now)
 	})
+	if err != nil {
+		return err
+	}
+	// the breaks of what changed are composed now rather than at the next hourly run
+	_, err = s.Jobs.EnqueueJobOnce(ctx, ComposeJob, ComposePayload{}, jobs.EnqueueOpts{})
+	return err
 }
 
 func (s *Scheduler) queueNext(ctx context.Context, cfg CouchTvConfig, now time.Time) error {
