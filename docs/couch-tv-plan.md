@@ -635,15 +635,23 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   ms>_<count>/<n>.jpg`, `/media/v1/audio/<file>/<start ms>_<length ms>.flac`; `v1` is the
   extraction recipe), so a new image, file or recipe makes a new key and nothing else needs
   versioning.
-- **Media**: extracted once before a clip loads (footage and the squeeze's program both as
-  frames: 25 fps, square pixels, within 1080p, SDR tone-mapped through `playback.SDRFilter`;
-  beds as stereo FLAC of the default track), touched on reuse, pruned after 14 days unused.
-- **Frame loop**: one CDP evaluate per frame (`isStatic` against the previous frame, else
-  `seek`) and one `captureScreenshot` (JPEG q92, `optimizeForSpeed`, from the surface); a
-  static frame reuses the previous JPEG. ffmpeg reads them with `image2pipe` and writes the
-  video rendition directly: libx264 `veryfast`, `-tune animation`, CRF 18, High@4.0, a 2 s
-  GOP without scene cuts (an IDR at the first frame), JPEG's full-range BT.601 converted to
-  limited-range BT.709 and tagged so.
+- **Media**: extracted once before a clip loads (promo footage as frames: 25 fps, square
+  pixels, within 1080p, SDR tone-mapped through `playback.SDRFilter`, served `no-store`; beds
+  as stereo FLAC of the default track), touched on reuse, pruned after 14 days unused.
+- **Frame loop**: one CDP evaluate per frame (`advance`: `isStatic` against the previous frame,
+  else the frame set up without waiting for a paint) and one `captureScreenshot` (JPEG q92,
+  `optimizeForSpeed`, from the surface, which forces a fresh frame of its own; the earlier
+  double `requestAnimationFrame` wait drew every frame twice); a static frame reuses the
+  previous JPEG. ffmpeg reads them with `image2pipe` and writes the video rendition directly:
+  libx264 `veryfast`, `-tune animation`, CRF 18, High@4.0, a 2 s GOP without scene cuts (an
+  IDR at the first frame), JPEG's full-range BT.601 converted to limited-range BT.709 and
+  tagged so.
+- **Squeeze composite**: the composer still writes `program.frames`; the sidecar loads the
+  squeeze keyed instead, reads `keyRect` for every frame and has the encoder decode the program
+  from its source (from the frames' start, cover-cropped, SDR, its last frame held), scale it
+  to each frame's box and lay it over the picture through a matte the sidecar draws from the
+  same rectangles (antialiased rounded corners times the opacity, a second pipe). Chromium
+  decodes no program frame and none is extracted (FEATURES.md "couchtv").
 - **Sound**: the page posts `renderAudio()`'s WAV back to the sidecar's server (a long break's
   sound is too big for base64 over CDP); AAC 192k. A break's sound renders as one break spec,
   split into parts that start at most 120 s apart (cut where a clip starts) so the page never
@@ -704,13 +712,15 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   clipped), delivered as a float WAV; a break spec lists clips and their starts, each ringing
   out under the next (`crossfade`, 0.3 s). Two renders differ only by float noise (< 1e-5).
 - **Squeeze**: the program panel's motion is data that drives both the animation and
-  `keyRect(t)`. The simplest path is `program.frames` (the renderer extracts the program's last
-  seconds as JPEG frames and the page draws them; no compositing). For an ffmpeg composite the
-  panel is left transparent (`program.kind = key`) and a `matte` layer carries the alpha; a
-  colour key was rejected (JPEG and 4:2:0 fringe it).
-- **Static holds**: `isStatic` is exact but today's templates keep subtle motion in every frame
-  (a breathing LIVE dot, slow pushes, grain), so the 6.7 budget should not count on skipped
-  frames; freezing those motions on long holds is a later optimization.
+  `keyRect(t)`. The simplest path is `program.frames` (the page draws the program's last
+  seconds as JPEG frames; no compositing), which the golden tests use. For an ffmpeg
+  composite, what the sidecar does (6.7), the panel is left transparent (`program.kind = key`)
+  and a `matte` layer carries the alpha; a colour key was rejected (JPEG and 4:2:0 fringe it).
+- **Static holds**: `isStatic` skips the holds between a whole-piece animation's keyframes
+  (linear `motion`/`windows`) and steady animations, but today's templates keep subtle
+  motion in nearly every frame (a breathing LIVE dot, slow pushes, grain): only the held
+  lockup of the idents and stings is static, so the 6.7 budget should not count on skipped
+  frames. Freezing the rest would change the approved motion, so it stays.
 - **Brand isolation**: the lockup, corner bug, channel tag, sonic logo and theme, ident and
   stings live in `src/brand`, so a redesign replaces that folder only.
 - **The brand (D27, ported from the reel)**: C()UCH TV with Saira bundled (no CDN), ident
@@ -1100,10 +1110,90 @@ The 60 s break (1500 frames) took **23 minutes** to render and 1 m 45 s to assem
 cap; host load average up to 14 while it ran. Graphics-only clips meet the benchmark
 (~2.3 fps); clips that draw video frames in the page (the squeeze's program, promo footage)
 run at a third of that, because Chromium decodes a full-size JPEG per frame on the Pi's CPU.
-At these speeds a day of breaks costs about 5-6 hours of rendering, mostly squeezes. Follow-up
-in Phase 3: composite video frames with ffmpeg through the `key` path (or extract them at the
-panel's size and the source's resolution), freeze idle motion on holds so `isStatic` skips
-frames, and keep the memory peak further under the cap.
+At these speeds a day of breaks costs about 5-6 hours of rendering, mostly squeezes. (The short
+promo draws no footage, the template takes none: what makes it slow is its film grain, see
+below.) The follow-up is the next section.
+
+**Render speedups** (2026-10-12, after the Pi measurement; 6.7 and FEATURES.md "couchtv"):
+- **One paint per frame**: the renderer steps with `advance(t)`, which sets the frame up
+  without the double `requestAnimationFrame` wait; `captureScreenshot` forces a fresh frame of
+  its own, so every frame used to be drawn twice. The captures are byte-identical for the
+  short ident, the sting, up next and a grit promo body, and within 55 dB (raster noise)
+  elsewhere.
+- **The squeeze's program is composited by ffmpeg**: the page renders the squeeze keyed, the
+  encoder decodes the program from its source and lays it over the picture at each frame's
+  `keyRect` through a matte the sidecar draws; Chromium decodes no program frame and nothing
+  is extracted for it. Against the in-page path: 38 dB on average, 40-41 dB through the hold
+  and 32 dB at worst in the squeeze's motion, where the program is placed on even pixels and
+  scaled once from the source instead of upscaled to 1080p, saved as JPEG and scaled again: it
+  comes out sharper, nearer the program as it aired. The panel's corners and the cursor
+  handover look as before; the frame's 1.5 px rim over the panel edge is covered by the
+  program. Composited in 4:2:0 without a full-frame canvas it costs half of the 4:4:4 graph
+  tried first.
+- **Static frames**: `isStatic` skips the holds between a whole-piece animation's keyframes, so
+  the idents' and stings' held lockups are captured once (26 of the short ident's 113 frames,
+  16 of a 6 s sting's 150). Everything else keeps moving by design (the breathing dot, slow
+  pushes, grain), so freezing it was not done.
+- **The short promo's rays** (a 2600 px masked conic gradient, rotating and scaling) were
+  painted again at every frame's scale; `will-change` keeps their first raster (52 dB, the
+  soft rays look the same). The hint everywhere scale animates was tried and dropped: it
+  softens the lockup's edges.
+- Promo footage frames are served `no-store` (Chromium's cache kept every one), and an empty
+  artwork URL (a title without a backdrop) no longer counts as missing media (the
+  `missing=[]` warning).
+- Tried and dropped: `--disable-frame-rate-limit` (light clips 2-3x faster, but the
+  compositor spins and heavy ones ran 2.5-5x slower on two cores); footage extracted at the
+  source's resolution (Chromium scales a lone image layer bilinearly, softer than ffmpeg's
+  bicubic upscale; promo bodies render once per title).
+
+**Measured locally, before and after**, the S2 clips (whole render jobs, a 720p `testsrc2`
+program with temporal noise as the squeeze's and the footage's source, no artwork) on two
+Pi-like proxies: the whole render (Chromium, ffmpeg, the Go process) on the M1 Pro's two
+efficiency cores (`taskpolicy -c background`, cores of about a Cortex-A72's speed; two runs,
+averaged), and on the performance cores with Chromium's main thread throttled 4x
+(`Emulation.setCPUThrottlingRate`; two runs, within 2 % of each other). Playwright's headless
+shell, compositing in software (fps):
+
+| Clip (frames) | 2 E-cores before | after | | 4x throttle before | after | |
+|---|---|---|---|---|---|---|
+| squeeze over the program (265) | 1.18 | 1.45 | 1.2x | 7.7 | 13.3 | 1.7x |
+| short ident (113) | 1.10 | 2.10 | 1.9x | 9.9 | 17.9 | 1.8x |
+| short promo (225) | 0.62 | 0.94 | 1.5x | 5.9 | 7.7 | 1.3x |
+| lineup (300) | 1.18 | 1.50 | 1.3x | 9.2 | 13.7 | 1.5x |
+| sting 6 s (150) | 1.29 | 2.02 | 1.6x | 10.7 | 18.2 | 1.7x |
+| up next (200) | 0.97 | 1.42 | 1.5x | 9.3 | 13.5 | 1.5x |
+| promo body with footage (415) | 0.93 | 1.05 | 1.1x | 7.0 | 9.0 | 1.3x |
+| **the S2 break** (1500, from the rows) | 27.5 min | 19.1 min | 1.44x | 193 s | 131 s | 1.47x |
+
+The proxies have no GPU, so graphics cost more there than on the Pi (the short ident ran at
+1.1 fps on the efficiency cores against the Pi's 2.3), and the Pi's in-page video penalty does
+not show (before, the squeeze ran as fast as the ident here, at a third of it on the Pi). On the
+efficiency cores the keyed squeeze's page alone runs at 2.6 fps and the encoder alone (the
+program decoded, composited and encoded) at 6.5-8.8 fps; sharing two cores they make 1.45. On
+the Pi the squeeze should therefore gain at least what the idents gain (it is now a graphics
+clip plus the encoding it already had), while the short promo stays slow because of its grain
+(below). Peak resident memory of the render's process tree (macOS, which counts shared pages
+per process) was the same or lower after: 0.82-0.86 GiB against 0.86-1.22 GiB on the
+efficiency cores, 1.50-1.57 against 1.58-1.59 GiB on the performance cores; on the Pi the
+squeeze no longer writes and reads its 288 extracted frames either. Unthrottled on the M1 Pro,
+`TestCouchTvRender` now renders its squeeze at 14.4 fps, the short ident and the sting at 19.3
+(8.8, 10.3 and 9.7 in the first S2 table), the composited panel 37.6 dB from its program.
+
+**Still open** (owner decisions, not done here):
+- **Grain**: a grain layer draws new noise every frame (5 % on the short promo, up to 13 % in
+  grit promos), so its JPEG captures are 0.5-0.6 MB and libx264 at CRF 18 makes 44 Mb/s of the
+  short promo, encoding it at a quarter of the speed it manages at 20 Mb/s (2 against 8 fps on
+  two efficiency cores, the encoder alone). On the Pi the encoder shares the sidecar's two CPUs
+  with Chromium, so this is most of the short promo's 0.84 fps, and a 44 Mb/s stretch is heavy
+  for the live stream too. A rate cap keeps the encoder fast but smooths the grain away (at 20
+  Mb/s already); a grain that changes every other frame would let x264 predict half of
+  them. Either changes the look.
+- The squeeze's frame rim (above).
+
+**To re-measure on the Pi**: the commands above, unchanged (`scripts/couchtv-s2.sql` now has
+the current brand's lengths: the cursor squeeze of 265 frames, the short ident of 113, up next
+of 222 to keep the break at 1500 frames). Record the per-clip fps from the `rendered a clip`
+lines, the break's render and assembly time, the peak memory and the validator's verdict here.
 
 ### Phase 1: Foundations
 Flag, settings (time zone, template), migrations, the pure generator + `couchtv_plan`, the

@@ -848,12 +848,23 @@ server that does not send it). The admin settings page toggles it.
   while no `transcode_hls` job runs (`jobs.Runner.Yield`), at nice 10. It serves the embedded
   broadcast bundle (`backend/broadcast`, `make build`) and the media above on localhost to one
   headless Chromium (chromedp; GPU flags on Linux when `/dev/dri` exists; restarted every 25
-  jobs) and publishes `versions()` at start. A render extracts its media first (frames
+  jobs) and publishes `versions()` at start. A render extracts its media first (footage frames
   1080p, square pixels, SDR via `playback.SDRFilter`, the source's last frame repeated past
-  its end; stereo FLAC of the default track), then per frame `seek(t)` and a JPEG q92 capture
-  (a frame `isStatic` reuses the last one) piped to libx264 (veryfast, `-tune animation`,
-  CRF 18, High@4.0, an IDR every 2 s and at the first frame, BT.709 limited range), then the
-  page's `renderAudio()` posted back as a WAV and encoded AAC 192k. An assembly renders the
+  its end, served `no-store`; stereo FLAC of the default track), then per frame `advance(t)`
+  (no paint wait: the capture draws a fresh frame itself) and a JPEG q92 capture (a frame
+  `isStatic` reuses the last one) piped to libx264 (veryfast, `-tune animation`, CRF 18,
+  High@4.0, an IDR every 2 s and at the first frame, BT.709 limited range), then the page's
+  `renderAudio()` posted back as a WAV and encoded AAC 192k. **A squeeze over the program's
+  frames is composited by ffmpeg** (`composite.go`): the sidecar loads it keyed (`program:
+  key`), reads `keyRect` for every frame, and the encoder decodes the program straight from
+  its source (`-ss` at the frames' start, `fps=25`, cover-cropped to 16:9, SDR, its last frame
+  held), scales it to each frame's box (the rectangle grown to even pixels; `scale` and
+  `overlay` expressions on the frame's time; padded to the largest box, since the overlay
+  keeps the size it started with) and lays it over the picture in 4:2:0 with that box's matte
+  as its alpha, which the sidecar draws from the same rectangles (rounded, antialiased by pixel
+  coverage, times the opacity) and streams on a second pipe; the picture's BT.601 JPEG becomes
+  BT.709 before the blend, so the program's pixels pass through as they aired. Chromium never
+  decodes a program frame and nothing is extracted for it. An assembly renders the
   break's sound in one pass (in parts of at most 120 s for long breaks), joins the clips'
   video by stream copy (each clip's init and segments as one fMP4, the concat demuxer at
   exact lengths) and segments both. Clips (`couchtv/clips/<key>`) and breaks
@@ -1018,7 +1029,9 @@ server that does not send it). The admin settings page toggles it.
   (a week of breaks composed on the seeded database, idempotent, assembly queued as clips
   render), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
   from `CHROMIUM_PATH` or installed, the bundle from `make broadcast`): renders a squeeze over a
-  generated program, an ident and a sting, assembles them and validates every package. The
+  generated program (composited, its panel at the hold compared with the program), an ident
+  and a sting, assembles them and validates every package; `couchtv/composite_test.go` (the
+  keyed spec, the matte against every pixel's coverage, the graph run in ffmpeg). The
   live stream: `couchtv/live_test.go` (the stream over a fake schedule: the lineup,
   boundaries, cuts at credits, trimmed audio, missing languages and subtitles, origins
   chaining, a restart listing the same playlists, a listed segment never changing, fresh
@@ -1963,16 +1976,22 @@ approves is what airs.
   `load(spec)` resolves with `{duration (whole frames), cues, fps, width, height, version (the
   template's, for the clip cache key), loop, keyed, missing}` once fonts, artwork and beds are
   in; `seek(t)` resolves once that frame is painted (footage and every image decoded);
-  `isStatic(t0, t1)` is true when nothing animates in between (no animation active, no dynamic
-  value changing; conservative), so the renderer can reuse a frame; `keyRect(t)` is the
-  squeeze's program rectangle `{x, y, width, height, radius, opacity}` in stage pixels;
+  `isStatic(t0, t1)` is true when nothing moves in between, so the renderer can reuse a frame:
+  no dynamic value changes, no steady animation starts or stops applying and no animation is
+  between two keyframes that differ (with a linear timing, as the whole-piece `motion` and
+  `windows` have; any other timing counts as moving all through); `advance(t, from)` is the
+  renderer's step: false when the frame at t is static since `from`, else it sets the frame up
+  with every image decoded and resolves without waiting for a paint (a screenshot draws a
+  fresh frame of its own; waiting drew each frame twice); `keyRect(t)` is the squeeze's
+  program rectangle `{x, y, width, height, radius, opacity}` in stage pixels;
   `setLayer('matte' | 'picture')`; `renderAudio()` is a 48 kHz stereo 32-bit float WAV of the
   loaded clip or break, normalized to its loudness with the true peak at or under -1 dBTP
   (`renderAudioBase64()` for CDP, `audioReport()` for the measured loudness and gain);
   `versions()` names every template's version (the sidecar publishes it, so the app keys clips
-  without a browser). Today's templates keep some motion in every frame (a breathing dot, a
-  slow push), so static holds are rare. The sidecar posts `renderAudio()`'s WAV back to its
-  own server rather than moving base64 over CDP (a long break's sound is large).
+  without a browser). Today's templates keep some motion in nearly every frame (a breathing
+  dot, a slow push, grain): only the held lockup (a quarter of the short ident, a tenth of a
+  6 s sting) and a few lineup frames are static. The sidecar posts `renderAudio()`'s WAV back
+  to its own server rather than moving base64 over CDP (a long break's sound is large).
 - **Determinism rule**: every frame and every audio sample is a function of t and the spec.
   Animations are paused Web Animations whose start is folded into `delay`, so a frame is the
   browser's own evaluation at `currentTime = t`; values that change (counters, footage frames)
@@ -1985,16 +2004,18 @@ approves is what airs.
   neighbouring frame and a 120 bpm cue lands within half a frame of its sound. Two audio renders
   differ only by float noise (under 1e-5).
 - **Squeeze compositing**: the spec's `program` fills the panel with the program's last seconds
-  as frames (`frames`: the renderer extracts them from `credits_at` and the page draws them, no
-  compositing needed), a stand-in (`standIn`: the ending title's backdrop under a credits roll,
-  the preview), or nothing (`key`): the panel is then transparent (the picture shows the
-  background behind it), `keyRect(t)` gives its rectangle per frame (driven by the same data as
-  the animation), and the `matte` layer renders white where the program shows (corner radius and
-  opacity included) on black. An ffmpeg composite places the program at `keyRect`, takes its
-  alpha from the matte (`alphamerge`) and overlays it on the picture; the red the `cursor`
+  as frames (`frames`: the page draws them; the composer writes this, and the sidecar renders
+  it keyed and composites the frames itself, see "couchtv"), a stand-in (`standIn`: the ending
+  title's backdrop under a credits roll, the preview), or nothing (`key`): the panel is then
+  transparent (the picture shows the background behind it), `keyRect(t)` gives its rectangle per
+  frame (driven by the same data as the animation), and the `matte` layer renders white where
+  the program shows (corner radius and opacity included) on black. An ffmpeg composite places
+  the program at `keyRect`, takes its alpha from a matte (the sidecar draws it from `keyRect`
+  rather than capturing this layer) and overlays it on the picture; the red the `cursor`
   handover fills the panel with is drawn at full strength in the picture with its fade in the
-  matte, so a standard overlay comes out right. A colour key is avoided on purpose (JPEG capture
-  and 4:2:0 chroma fringe it).
+  matte, so a standard overlay comes out right. What the page draws over the panel's area is
+  covered by the program (the frame's 1.5 px rim at the hold). A colour key is avoided on
+  purpose (JPEG capture and 4:2:0 chroma fringe it).
 - **Brand** (`src/brand`, D27): **C()UCH TV**, Saira 700 caps, pure red (the token accent,
   #e50914), black and white. `wordmark.ts` is the one lockup: a layout in em measured from the
   bundled Saira (a golden test re-measures it) places every part absolutely; the O is drawn as
@@ -2028,8 +2049,9 @@ approves is what airs.
 - **Tests** (`make broadcast-test`, CI `broadcast.yml`): vitest for curves, springs, the
   palette, the timeline, loudness, WAV and the schema; Playwright in Chromium against the built
   render page for golden frames (480x270, `test/golden/__goldens__`, refresh with `npx
-  playwright test --update-snapshots`), and invariants: a frame is a function of t, a promo body
-  does not depend on its airing, the end card continues the body on the next frame, the key
+  playwright test --update-snapshots`), and invariants: a frame is a function of t, `advance`
+  shows what `seek` shows and skips held frames, a promo body does not depend on its airing,
+  the end card continues the body on the next frame, the key
   rectangle follows the panel, the `cursor` squeeze ends on the short ident's first frame
   (pixel-equal), the wordmark's metrics are the bundled face's, two audio renders agree and hit
   their loudness, the standby loop has no seam. Stand-in media (gradient art, two footage shots,
