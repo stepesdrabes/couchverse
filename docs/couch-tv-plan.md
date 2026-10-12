@@ -738,6 +738,41 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   Crowd reactor), loyalty (Appointment TV, Marathoner, Premiere night). Pull-based like the
   rest of ranks.
 
+**Settled while building it (Phase 5, backend and core)**; the full reference is FEATURES.md
+"couchtv" and "Shared client core".
+- **Guests live in the database**, not the hub: `couchtv_guests` (a random token, hashed, the
+  name and the link they came through), so a restart keeps them. The cookie `couchverse_tv` is
+  scoped to `/api/v1/tv` for 30 days; a native guest gets the token with `delivery=body` and
+  sends `X-Couch-Tv-Token`. A guest tunes in with their own operation, `GET /tv/tune`
+  (`tuneCouchTvGuest`), under the cookie's path; `tuneCouchTv` stays signed-in only. Rotating
+  the link (`adminRotateCouchTvLink`, the code shown once) or turning it off
+  (`adminSetCouchTvLink`) deletes every guest and closes their sockets, and the channel grant
+  middleware asks `Guests.Allows` for a grant naming a guest (kept 30 s), so their stream ends
+  too. `adminUpdateCouchTv` keeps the stored link. The guide stays signed-in only: a guest sees
+  now, next and later from tuning in.
+- **The room**: viewers are `user-<id>` or `guest-<id>`, each counted once however many
+  devices; the presence names the first 24 to tune in; three reactions a second per viewer;
+  `schedule_changed` follows a plan run, an admin's regenerate and a prepare run's swaps
+  (`Scheduler.Changed`, `Preparer.Changed`; the admin's EPG edits should call it too), gathered
+  over 2 s.
+- **Reports** count a stretch when the picture moved on about as much as the clock (reports at
+  most 30 s apart); they are mapped onto what aired every 20 s, off the socket's read path.
+  Breaks and fillers count as channel time with a null title; a program watched to within 30 s
+  of where it left the air is saved as finished. `TvStatsRecorder` (stretches with the airing,
+  its kind, fill and time of day; reactions; the largest audience) has no implementation until
+  ranks scores the channel.
+- **The contract**: tuning in names the stream's `languages` (the menus' order) and lists now
+  and next as plain listings, absent rather than null; the guide names the broadcast `days`
+  its stretch overlaps, which the core asks for from a day back to a week ahead.
+- **The core**: the clock is the server's Unix time minus the shell's monotonic time, from the
+  tune-in's midpoint and refreshed by the socket's `hello`; the hold acts only on a report that
+  carries a fresh program date, from a playing, unbuffered player 3 s after a load or a seek.
+  The overlays: the Now caption for a program's first 8 s, the Next caption for 12 s from two
+  minutes before it leaves the air, the bug over programs only. A failing player is tuned in
+  again (a fresh grant) and reloaded three times in a row before the view fails with
+  `couchtv_playback_failed`. The new code took the wasm core from about 395 KB to 411 KB
+  gzipped, so its budget went from 400 KB to 440 KB.
+
 ---
 
 ## 7. Clients
@@ -1055,6 +1090,13 @@ What the run found and how it was settled:
 ### Phase 5: Web viewer
 The core module, `/tv`, overlays, Guide, home card, presence and reactions, guest join.
 **Exit**: e2e green; the owner watches an evening on the TV.
+
+**Built so far** (2026-10-12; 6.9 "Settled while building it"): the room (presence,
+reactions, schedule changes, reports), the guest link, progress and TV watch time (with an
+admin dashboard card), the `TvStatsRecorder` hook for ranks, the core's `couchtv` module with
+its scenarios, and `ElementPlayer`'s live mode (hls.js live settings, the program date, the
+rate); the native players follow the rate. The web pages (`/tv`, the guide, the home card,
+the join page) are next, on the core's views.
 
 ### Phase 6: Integration and admin tools
 Progress, analytics, ranks XP and achievements; the EPG editor; per-title tools (promo audio

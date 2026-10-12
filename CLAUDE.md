@@ -60,6 +60,16 @@ A feature owns its HTTP handlers, domain logic and SQL together.
     in `couch/protocol.go` (`ServerFrames`/`ClientFrames`, exported `Couch*` payload types);
     `couchverse couch-schema` publishes them and `contract/fixtures/couch` holds one golden
     frame per type (rerun `go test ./internal/feature/couch -update` after an intended change).
+  - **Couch TV's room** (`couchtv.Hub`, `GET /tv/socket`) keeps presence and reactions in
+    memory and turns the viewers' program-date reports into progress and the channel's own
+    watch time, reaching catalog, analytics and (later) ranks only through interfaces it
+    declares (`ProgressRecorder`, `TvWatchRecorder`, `TvStatsRecorder`, wired in
+    `internal/app`). Its frames follow couch's pattern (`couchtv/protocol.go`, `couchverse
+    couchtv-schema`, `contract/fixtures/couchtv`, `-update`). Guests join through the channel
+    link (its code stored hashed) and hold the `couchverse_tv` cookie scoped to `/api/v1/tv`;
+    a guest's channel grant names them and is re-checked (`Guests.Allows`) on every stream
+    request, so turning the link off or rotating it ends them at once. Whatever changes the
+    schedule calls `Scheduler.Changed`, so viewers read now and next again.
   - **Ranks** (XP, achievements, public profiles, leaderboards) is a near-leaf: it imports only
     `auth` and `catalog`'s `Localize`/`GenreLabel`, reaching every other table by SQL join, and
     **nothing imports it**. That is what lets `couch` report per-user counters through its own

@@ -24,11 +24,11 @@ that render a `XxxPage.svelte` component from the owning feature.
 | artwork | `internal/feature/artwork` | (via `catalog/api.artworkUrl`) | `artwork` |
 | jobs | `internal/feature/jobs` | `features/jobs` | `jobs` |
 | system | `internal/feature/system` | `features/settings`, `features/admin` | `settings`, `home_rows` |
-| analytics | `internal/feature/analytics` | (charts in `features/admin`) | `watch_time_daily`, `watch_time_hourly`, `couch_watch_time_daily` |
+| analytics | `internal/feature/analytics` | (charts in `features/admin`) | `watch_time_daily`, `watch_time_hourly`, `couch_watch_time_daily`, `tv_watch_time_daily` |
 | couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
 | ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters` |
 | downloads | `internal/feature/downloads` | (native clients only) | `download_files`, `downloads` |
-| couchtv | `internal/feature/couchtv` | `features/couchtv` (the admin section and title tools; the flag in `features/settings`) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_media`, `couchtv_clips`, `couchtv_breaks` |
+| couchtv | `internal/feature/couchtv` | `features/couchtv` (the admin section and title tools; the flag in `features/settings`; the viewer pages are next, on the core's `couchtv` module) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_media`, `couchtv_clips`, `couchtv_breaks`, `couchtv_guests` (the room is in memory) |
 
 Shared kernel (backend): `internal/app` (wiring of stores, services and the job runner),
 `internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
@@ -380,11 +380,14 @@ night-owl/early-bird achievements, and is pruned past 400 days by the hourly
 effort (analytics never fails a beacon). The
 separate **on-couch watch-time** stat lives here too: `RecordCouchWatch(titleId,
 seconds)` upserts the `couch_watch_time_daily` per-title rollup (no user
-dimension, so anonymous followers count), called best-effort by the couch hub.
+dimension, so anonymous followers count), called best-effort by the couch hub. Couch TV
+has its own bucket, `tv_watch_time_daily (day, user_id, title_id, seconds)` (unique with
+nulls not distinct: a null user is a guest, a null title a break or a filler), upserted by
+`RecordTvWatch` from the channel's room through its `TvWatchRecorder` interface.
 - Endpoints (admin): `/admin/analytics/overview?days=N` - dense daily series
-  (video/couch seconds, active users), totals, top titles, top couch
+  (video/couch/TV seconds, active users), totals, top titles, top couch
   titles, top users (each with `avatarId` for the dashboard leaderboard).
-- Web: charts + "Top viewers" and "On Couch watch-time" cards on
+- Web: charts + "Top viewers", "On Couch watch-time" and "Couch TV watch-time" cards on
   AdminDashboardPage (`features/admin`), api call in `features/jobs/api.ts` next to
   the other overview endpoints.
 
@@ -588,10 +591,12 @@ on the row, and records failures (`requestDownload` again re-queues a failed fil
 Couch TV, one auto-programmed, always-on channel (decisions D1-D32 and the roadmap in
 `docs/couch-tv-plan.md`). Built so far: the config and weekly template, the pure schedule
 generator, the plan job and the admin operations (Phase 1), the per-title analysis for
-promos and the break composition and rendering (Phase 3), and the live stream (Phase 4: the
-prepare job, the stream under channel grants, tuning in and the guide) and the admin tools
-(Phase 6: the schedule editor, the template, render health and the title tools); no viewer UI
-or guests yet. Gated by the admin `couchTvEnabled` flag, the one flag that is **off** while unset
+promos and the break composition and rendering (Phase 3), the live stream (Phase 4: the
+prepare job, the stream under channel grants, tuning in and the guide), the viewer's backend
+and core (Phase 5: the room, the guest link, progress and watch time, the core's `couchtv`
+module and the web player's live mode) and the admin tools (Phase 6: the schedule editor, the
+template, render health and the title tools); the web's viewer pages are next. Gated by the
+admin `couchTvEnabled` flag, the one flag that is **off** while unset
 (`flags.Load` leaves it out of the "missing means on" default; `flags.CouchTvOn` guards the
 viewer routes and the stream; the core reads it as `SessionView.features.couchTv`, `false` from a
 server that does not send it). The admin settings page toggles it.
@@ -599,8 +604,9 @@ server that does not send it). The admin settings page toggles it.
   `LoadConfig` falls back part by part, like `ranks.RankConfig`): `timeZone` (default
   `Europe/Prague`), `breakMinSeconds` (23), `rotation` (`primeRepeatMinDays` 5,
   `primeRepeatFactor` 0.8, `movieGapDays` 2, `rerunGapDays` 14, `premiereWindowDays` 28,
-  `fillerMinMinutes` 5), `guestLink.enabled` (its hash is stored beside the config and never
-  served) and `template.slots`. A slot has a `key`, `days`, an optional `start` (HH:MM; an
+  `fillerMinMinutes` 5), `guestLink` (`enabled`, `createdAt`; the code's hash is stored beside
+  the config and never served; `adminUpdateCouchTv` keeps the stored link whatever its body
+  says, since the link's own operations change it) and `template.slots`. A slot has a `key`, `days`, an optional `start` (HH:MM; an
   `anchor` starts exactly then, a flow slot uses it as the time the block before it fills up
   to; times before the day's first anchor are the night after it), a `fill` (`strip`,
   `marathon`, `reruns`, `movie`, `matinee`, `premiere`, `saga`, `encore`), a `pick` (genre
@@ -702,8 +708,11 @@ server that does not send it). The admin settings page toggles it.
     from the window to 6 h ahead, the fillers included; an audio group `cs`/`en` (`CHANNELS="2"`,
     the default from `?lang=`, else Czech) and a subtitle group `cs`/`en`.
 - **Channel grants** (`grant.Channel`, resource `grant.CouchTv`, 6 h; the subject is the user,
-  a guest will carry their id in the grant's `Couch` field): the `Routes.Channel` group under
-  `/tv/{grant}` (`channelGrant` in `internal/server`), gated by the flag. Raw operations:
+  a guest's carries their id in the grant's `Couch` field, which `channelGrant` checks against
+  `couchtv.Guests.Allows` on every request (kept for 30 s, cleared when the guests end), so a
+  rotated or switched-off link ends a guest's stream at once: 403 `grant_revoked`): the
+  `Routes.Channel` group under `/tv/{grant}` (`channelGrant` in `internal/server`), gated by
+  the flag. Raw operations:
   `getCouchTvMaster` (`/live/master.m3u8?lang=`), `getCouchTvPlaylist`
   (`/live/{video,audio-<lang>,subs-<lang>}.m3u8`), `getCouchTvAiringFile`
   (`/airings/{airing}/{track}/{file}`: an init section, segment or `<n>.vtt` of what a pinned
@@ -715,10 +724,50 @@ server that does not send it). The admin settings page toggles it.
   `grant_expired` (tune in again), any other 403 `invalid_grant`, nothing on air 404 `off_air`.
 - Viewer endpoints (signed in, flag-gated, localized): `GET /couchtv/tune` (`tuneCouchTv`: a
   channel grant, `streamUrl`, `serverTime` in ms for the program-date hold, `targetDuration`,
-  `now` (a program or a break), the `next` program and up to four `later`) and
-  `GET /couchtv/guide?from&to` (`getCouchTvGuide`: the programs overlapping, at most 8 days,
-  with the channel's time zone). Listings carry the localized title and episode, the overview,
-  poster and backdrop, and the `fill`.
+  the stream's `languages`, `now` (a program or a break, absent while nothing is), the `next`
+  program and up to four `later`) and `GET /couchtv/guide?from&to` (`getCouchTvGuide`: the
+  programs overlapping, at most 8 days, with the channel's time zone and the broadcast `days`
+  the stretch overlaps). Listings carry the localized title and episode, the overview, poster
+  and backdrop, and the `fill`.
+- **Guests** (D23, `couchtv.Guests`): the channel link's code is 24 random bytes whose hash
+  is stored in the `couchtv` settings; `POST /admin/couchtv/link` (`adminRotateCouchTvLink`)
+  makes a new one, turned on, and answers with its code and page (`/tv/join/<code>`) this
+  once; `PUT /admin/couchtv/link` (`adminSetCouchTvLink`, 409 `no_channel_link` before there
+  is one) turns it on or off. Rotating or turning it off ends every guest (their rows, their
+  sockets, their grants). `POST /tv/join/{code}` (`joinCouchTv`, public, flag-gated, 10 tries a
+  minute per address; 404 `no_channel_link`, 400 `invalid_name`) takes the name a guest types
+  (1-32 characters) and stores a guest (`couchtv_guests`: a random token, hashed, and the link
+  it came through), setting the httpOnly channel cookie `couchverse_tv`, scoped to
+  `/api/v1/tv` for 30 days (or, with `delivery=body`, answering with the token for the
+  `X-Couch-Tv-Token` header). `GET /tv/tune` (`tuneCouchTvGuest`, 401 `no_channel_guest`
+  without a working cookie or token) is tuning in for a guest: the live channel only (no
+  "Watch from the start", no guide, no library), under a grant naming them, with an
+  `artworkGrant` and the guest. The hourly cleanup forgets guests not seen for 30 days.
+- **The room** (`couchtv.Hub`, plan 6.9): an in-memory hub without a host on
+  `GET /tv/socket` (`couchTvSocket`, flag-gated; a signed-in viewer by their session, a guest
+  by the channel cookie or token; 401 `no_channel_guest` otherwise; cross-origin browser
+  upgrades refused). Frames (`couchtv/protocol.go`, published by `couchverse couchtv-schema` as
+  `contract/couchtv-protocol.schema.json`, one golden frame per type in
+  `contract/fixtures/couchtv`, `go test ./internal/feature/couchtv -update` after an intended
+  change): `hello` (`serverTime` in Unix ms, the viewer as everyone sees them, the presence),
+  `presence` (the count, each viewer once however many devices, and the first 24 to tune in;
+  ids `user-<id>` and `guest-<id>`, guests with the name they typed), `reaction` (relayed to
+  everyone, three a second per viewer at most), `schedule_changed` (after a plan run, an
+  admin's regenerate and a prepare run's swaps, through `Scheduler.Changed`/
+  `Preparer.Changed`, gathered over 2 s: viewers tune in again for now and next) and the
+  client's `reaction` and `report` (the program date on screen, every 10 s while playing).
+- **Reports** become what was watched (D12): a socket's report counts the stretch since its
+  previous one when the picture moved on about as much as the clock did (at most 30 s apart,
+  never from the future or long gone); every 20 s the room merges each viewer's stretches
+  (two devices showing the same picture count once), maps them onto what aired
+  (`Channel.Lineup`, whose parts now carry the airing's title, episode and fill) and records,
+  best effort: `tv_watch_time_daily` through `TvWatchRecorder` (`*analytics.Store`, wired in
+  `internal/app`; guests and breaks included, with a null user or title), `watch_progress`
+  through `ProgressRecorder` (`*catalog.Store`) once a signed-in viewer has watched two minutes
+  of a program (finished when they watched to within 30 s of where it left the air), and the
+  facts ranks will score through `TvStatsRecorder` (stretches with the airing, its kind and
+  fill and the picture's time of day; reactions; the most viewers watched with). Ranks does
+  not implement `TvStatsRecorder` yet, so `internal/app` hands it nothing.
 - **The `couchtv_plan` job** (`couchtv.Scheduler`, one slot): queued at startup, after every
   config save and daily at 04:00 in the channel's zone (its payload names the day, and each
   run queues the next one first, so a failing run cannot end the chain). It keeps the
@@ -878,7 +927,8 @@ server that does not send it). The admin settings page toggles it.
   spec, state, version, duration, path, size, `render_ms`, `needed_at`, `last_used_at`),
   `couchtv_breaks` (an airing's composition or an `evergreen` one: the recipe with its clips,
   frame offsets, sound spec and promoted titles; state, package path, which the live stream
-  airs); `titles` gained `tagline`, `collection_tmdb_id`, `collection_name`.
+  airs), `couchtv_guests` (the channel link's guests: token hash, name, the link they came
+  through, `seen_at`); `titles` gained `tagline`, `collection_tmdb_id`, `collection_name`.
 - Tests: `couchtv/plan_test.go` (the rules, airing to the credits), `couchtv/analysis_test.go`
   (promo and shot picks, the waveform), `library/fingerprint_test.go` and `credits_test.go`
   (the detectors, on fingerprints and logs from the production library in
@@ -908,7 +958,12 @@ server that does not send it). The admin settings page toggles it.
   the slate and a hole, looped around now, validated around boundaries and played by hls.js
   in Chromium (WebKit too with `VIEWERS`) with the program-date hold and by AVFoundation;
   `COUCHVERSE_SPIKE_HOLD=30m` keeps `/watch.html` up to watch it by hand or on a TV; results
-  in `docs/couch-tv-plan.md`, Phase 4).
+  in `docs/couch-tv-plan.md`, Phase 4). The room: `couchtv/hub_test.go` (hello first, presence
+  each viewer once, reactions and their limit, reports to watch time, progress and stats on a
+  fake lineup, two devices counted once, the end of a program finished, viewers who left, the
+  schedule change gathered, a guest's socket ended), `couchtv/protocol_test.go` (the golden
+  frames), `TestCouchTvGuests` (the link rotated, a guest joining, tuning in, streaming and in
+  the room beside a member, then ended with the link) and the conformance cases.
 
 ## Internationalization & multi-language media (cross-cutting)
 
@@ -1029,8 +1084,9 @@ messages and perform the effects it asks for.
 - **Effects** (`EffectRequest { id, effect }`): `http`, `upload` (a multipart form around a
   file the shell holds; the core only sees the shell's handle), `timer` (one-shot or
   repeating, stopped by `cancelTimer`), `store` and `secureStore` (read/write/delete),
-  `player` (load a source, play, pause, seek, select audio or subtitles, stop; the shell
-  reports back with `PlayerReported`), `socket` (open resolves `socketOpened`, a
+  `player` (load a source, live or not, play, pause, seek, select audio or subtitles, play at
+  a rate, stop; the shell reports back with `PlayerReported`, a live stream's with the
+  program date on screen), `socket` (open resolves `socketOpened`, a
   `socketText` per frame and ends with `socketClosed`; send and close), `download` (a
   background transfer into the app's downloads directory by a stable name: `downloadProgress`
   now and then, ending with `downloadFinished` or `downloadFailed`; starting a name already
@@ -1040,7 +1096,8 @@ messages and perform the effects it asks for.
 - **View models** are plain data per `Surface` (`app`, `servers`, `accounts`, `signIn`,
   `devices`, `pairingApproval`, `session`, `markdown(source)`, `home`, `browse(key)`,
   `title(slug)`, `genres`, `myList`, `search`, `notices`, `rank`, `profile(username)`,
-  `leaderboard(key)`, `profileEditor`, `player`, `couch`, `downloads`), each with a `LoadStatus`
+  `leaderboard(key)`, `profileEditor`, `player`, `couch`, `downloads`, `couchTv`,
+  `couchTvGuide`, `couchTvOnNow`), each with a `LoadStatus`
   (`idle|loading|loaded|stale|notFound|failed`: stale beats blank) and a `Problem { code }`
   that shells localize. `AppView.phase` (`starting|welcome|signIn|chooseAccount|ready`) picks
   the root screen; a TV always opens on "Who's watching?".
@@ -1078,7 +1135,29 @@ messages and perform the effects it asks for.
   artwork with the download effect, keeps the account's offline library in the store, plays
   it while `SessionView.offline`, and keeps progress that could not be saved, with the time it
   was watched, until the server answers again; signing out deletes the account's downloads),
-  `notices` (transient toasts), plus pure helpers `theme`
+  `couchtv` (Couch TV, plan 7.1: `CouchTvTuneRequested` tunes in, signed in or as the guest
+  `CouchTvJoinRequested` joined as through the channel link (the channel cookie on the web,
+  the guest token in `X-Couch-Tv-Token` natively), and loads the player with the live stream
+  (`PlayerLoad.live`: three target durations of latency); the **hold** keeps the picture's
+  program date that far behind the server's clock, learnt from the tune-in (the midpoint of
+  asking and hearing) and the room's `hello`, against the shell's monotonic clock: a drift
+  under 100 ms plays in real time, up to 2 s it plays `1 - drift / 5 s` faster or slower (at
+  most 10 %, the S1 spike's hold) through the player's `rate`, beyond that it seeks, and the
+  player settles 3 s after a load or a seek. `CouchTvView` says what is on by the picture's
+  program date, not the wall clock (the tune-in's now, next and later; a gap between two
+  programs is a break), with the overlay cues (the bug over programs, the Now caption for a
+  program's first 8 s, the Next caption for 12 s from two minutes before it leaves the air),
+  presence, reactions, the channel's audio and subtitle languages (`CouchTvAudioChosen`,
+  `CouchTvSubtitlesChosen`; kept across tune-ins) and stable problem codes; it renders when what
+  is on screen or a cue changes, and the shell runs the clock on from `programDateMs` at
+  `programDateAtMs`. The room's socket reconnects with backoff after a tune-in that says the
+  channel (and a guest's link) still works, reports the program date every 10 s while the
+  picture plays, and reads now and next again on `schedule_changed` or when the picture runs
+  past what is known; a failing player is tuned in again and reloaded three times in a row
+  before the view fails. `CouchTvGuideView` is today's broadcast day and the ones after it,
+  `CouchTvOnNowView` the home card's now and next, asked again when what is on ends; a
+  title's `PlayRequested` ("Watch from the start", signed-in viewers only) takes the player
+  over from the channel), `notices` (transient toasts), plus pure helpers `theme`
   (accent palettes from `contract/design/tokens.json`), `images` and `markdown` (bios as a
   safe tree: no HTML, no images, http(s)/mailto links only). Requests in flight carry a
   generation, so answers for a previous account or display language are dropped.
@@ -1094,7 +1173,7 @@ messages and perform the effects it asks for.
   host library for JVM tests and the Kotlin bindings for the Gradle `core` module; `make
   android-test` runs every JVM test and verifies the screenshots, docs/android.md) and `make
   core-wasm` (the web package in `clients/web/src/lib/core/pkg`, built for size with opt-level
-  "z" and `wasm-opt -Oz`, and checked against a 400 KB gzip budget). In CI `core.yml` builds
+  "z" and `wasm-opt -Oz`, and checked against a 440 KB gzip budget). In CI `core.yml` builds
   the wasm package, `apple.yml` the Apple one with the apps, `android.yml` the Android one with
   the Gradle project.
 
@@ -1493,7 +1572,8 @@ fetch on their own), so media is authorized by a capability in the URL.
 - **Channel grants** (6 hours, `tuneCouchTv`) unlock the Couch TV channel under
   `/tv/{grant}/...` (`Routes.Channel`): its playlists, the slate and the files of what airs
   around now, reached through an airing (`airings/{id}/{track}/{file}`) and never by a file
-  id, so a guest's grant will never reach the library (see couchtv).
+  id, so a guest's grant never reaches the library; a guest's grant also needs the channel
+  link they joined through to still work (see couchtv).
 
 ## Playback v2 (cross-cutting)
 
@@ -1647,6 +1727,13 @@ the typed client.
   (`PlayerView`, `CouchView`); the page owns only the element and its chrome (volume,
   fullscreen, picture-in-picture, the subtitle style). In cookie mode the core plays and
   follows a couch without a signed-in session too, for guests on the couch cookie.
+- **The live channel**: `ElementPlayer` plays a live load (`PlayerLoad.live`) in hls.js
+  wherever it can, Safari included (`liveSyncDuration` the load's latency,
+  `liveMaxLatencyDuration` two target durations more), with the channel's subtitle renditions
+  as hidden text tracks the page draws like any other (`subtitleDisplay` off), reports
+  `programDateMs` (hls.js's `playingDate`, else the native element's `getStartDate()` plus its
+  position) and sets `playbackRate` for the core's `rate`. Guests watch on the channel cookie
+  without a session, their artwork through the tune-in's grant.
 - **Traps**: a Rust panic aborts the wasm instance. The wasm-bindgen glue keeps its instance
   in module scope, so each core evaluates its own copy of the glue; after a trap a new core
   sends `AppStarted` again while the old views stay up, and its sockets are closed. Markdown that trapped it renders as
@@ -1890,7 +1977,9 @@ couch -> {playback, auth}  (top of the DAG; nothing imports couch)
 couchtv -> {auth, catalog, library, artwork, playback}  (nothing imports couchtv; reads media,
             variant and marker tables by SQL, imports library to queue its marker analysis
             and program preparation; playback's exported package helpers write and read its
-            renders and read the programs' packages)
+            renders and read the programs' packages; reaches analytics, catalog's progress
+            and (later) ranks through the TvWatchRecorder, ProgressRecorder and
+            TvStatsRecorder interfaces it declares, wired in internal/app)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
 ```
