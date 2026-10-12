@@ -408,6 +408,54 @@ gated by the flag. Built in Phase 3 (no UI yet): `GET/PUT /admin/couchtv/titles/
 the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs&points`
 (the loudest momentary loudness per step) and `GET/PUT /admin/media-files/{id}/markers`.
 
+**As built (Phase 6)**; the full reference is FEATURES.md "couchtv" (endpoints, web admin).
+- **The editor's operations**: `POST /admin/couchtv/airings` (`adminInsertAiring`: a movie or
+  an episode at a time, 201 with the airing) and `PATCH /admin/couchtv/airings/{id}`
+  (`adminUpdateAiring` with an `action`: `lock`, `unlock`, `pin` another title or episode in
+  the row and/or from another start, `swap` with another program, `remove`). A pin, swap or
+  insert makes an admin row (`source='admin'`), which replanning keeps like a locked one.
+  Everything but a lock runs in the planning transaction and replans the program's broadcast
+  day and every later one (`Scheduler.Edit`, which `adminRegenerateDay` now shares), so strips
+  stay in order; frozen days are replanned too, being explicit admin edits (5.3). Each edit
+  queues `couchtv_prepare` and `couchtv_compose` at once.
+- **Removing a planner's pick has to stick**: the planner is deterministic, so deleting the
+  row would bring the same program back at the next replan. A removed auto row stays as
+  `state = 'replaced'` (every read already skipped that state) and the planner leaves its
+  movie or episode out of that broadcast day: rotations and reruns choose another, a strip
+  passes the episode over (it is skipped, not postponed; moving it is a pin). Removing an
+  admin's own row deletes it, which gives the planner's choice back.
+- **Fixed rows count toward their slot** instead of consuming it: before, a locked strip
+  episode silenced the rest of its strip and a locked rerun turned its block into fillers. A
+  slot now airs `count` minus its fixed rows; a one-program slot with a fixed row still does
+  not run again.
+- **Fills of admin rows** (`adminFill`): a row keeps its fill while its title stays (another
+  episode of a strip restarts the strip there; the same film keeps a saga's place), else a
+  movie takes `movie` in a prime-time slot (`movie`, `premiere`, `saga`) and `matinee`
+  elsewhere, a series `reruns`, a gap filler stays `filler`; an inserted program is
+  `matinee` or `reruns`. So an edit never moves another series' strip cursor, never calls an
+  old movie a premiere and never advances a franchise.
+- **Checks**: a placed program starts after now, within the planned week (`outside_horizon`),
+  not into what is on air or right after it (`on_air`: an airing that started and runs up to
+  the new start, since the break leading into it announces it), and a shortest break clear of
+  every program that stays (`overlap`); its title is published, on the channel and playable
+  (`not_published`, `excluded`, `no_media`). A program that started only takes a lock.
+- **Stale compositions**: an unchanged break row keeps its id and so its composition; when
+  the program beside it changes, its up next or squeeze would be stale. The diff now drops
+  the composition of every not-yet-aired break beside a new program, and in-place edits do the
+  same for the rows they change (`Store.resetBreaksAround`).
+- **Config errors** carry stable codes (`couchtv.ConfigError`: `invalid_time_zone`,
+  `invalid_slot`, `day_needs_anchor`, ...) with `problem_` strings, and the template editor
+  repeats the checks to point at the slot and day before Save.
+- **Schedule rows** carry a break's render state (`render`: `uncomposed`, `composed`,
+  `rendering`, `ready`, `failed`); readiness is `couchtv_media` (6.6).
+- **The web admin** (4.3): one Couch TV section with tabs for the schedule (a week of day
+  columns in the channel's time zone, programs and breaks, a now-line, a side panel with the
+  actions), the template, render health and the broadcast preview; the title editor's Couch TV
+  panel (never on Couch TV, mood, promo audio over the waveform, footage shots, markers per
+  file, the analysis re-run). Stills and the promo excerpt play through the playback payload's
+  media grant for the file (the frame endpoint, its stream), never a URL of their own. The
+  guest link (`adminRotateCouchTvLink`) waits for Phase 5's guests.
+
 ### 6.5 Break composition
 - Inputs: the gap (next start minus this program's `credits_at`), the slot (top of hour?
   before 20:15?), promo candidates weighted by airing soon, premiere, strip, and not shown
@@ -1011,6 +1059,11 @@ The core module, `/tv`, overlays, Guide, home card, presence and reactions, gues
 ### Phase 6: Integration and admin tools
 Progress, analytics, ranks XP and achievements; the EPG editor; per-title tools (promo audio
 picker, markers, shots, "Never on Couch TV"). **Exit**: conformance + scenarios green.
+
+**Admin tools built** (2026-10-12; 6.4 "As built"): the EPG editor and its two operations, the
+template editor, render health and the title tools, with conformance cases,
+`TestCouchTvAiringEdits` and `e2e/couchtv-admin.spec.ts` (Chromium and WebKit). Progress,
+analytics and ranks remain for after Phase 5.
 
 ### Phase 7: Production
 Deploy (app + sidecar), the 7-day soak with monitoring, tuning, docs. **Exit**: success

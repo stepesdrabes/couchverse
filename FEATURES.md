@@ -28,7 +28,7 @@ that render a `XxxPage.svelte` component from the owning feature.
 | couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
 | ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters` |
 | downloads | `internal/feature/downloads` | (native clients only) | `download_files`, `downloads` |
-| couchtv | `internal/feature/couchtv` | (admin toggle in `features/settings`; no viewer UI yet) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_media`, `couchtv_clips`, `couchtv_breaks` |
+| couchtv | `internal/feature/couchtv` | `features/couchtv` (the admin section and title tools; the flag in `features/settings`) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_media`, `couchtv_clips`, `couchtv_breaks` |
 
 Shared kernel (backend): `internal/app` (wiring of stores, services and the job runner),
 `internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
@@ -237,7 +237,8 @@ upload targets, auto-created on first boot.)
   touched by the analysis, and an admin row without a start (`none`) says the file has none
   of that kind. `PUT .../markers` replaces a file's admin rows (a kind left out falls back to
   the analysis). Couch TV airs programs to their effective `credits` start and picks its
-  promo audio from `intro`/`credits_music`; VOD can use them later (skip intro).
+  promo audio from `intro`/`credits_music`; VOD can use them later (skip intro). The title
+  editor's Couch TV panel edits them (`features/couchtv` `MarkersEditor`).
 - **`analyze_markers`** (one slot, priority -5 for new files and -10 for the backfill, every
   ffmpeg nice'd): queued per new video file by the prober; at every start a backfill job
   queues every analyzable file (primary, video, source on disk, on a movie or an episode)
@@ -588,8 +589,9 @@ Couch TV, one auto-programmed, always-on channel (decisions D1-D32 and the roadm
 `docs/couch-tv-plan.md`). Built so far: the config and weekly template, the pure schedule
 generator, the plan job and the admin operations (Phase 1), the per-title analysis for
 promos and the break composition and rendering (Phase 3), and the live stream (Phase 4: the
-prepare job, the stream under channel grants, tuning in and the guide); no viewer UI or
-guests yet. Gated by the admin `couchTvEnabled` flag, the one flag that is **off** while unset
+prepare job, the stream under channel grants, tuning in and the guide) and the admin tools
+(Phase 6: the schedule editor, the template, render health and the title tools); no viewer UI
+or guests yet. Gated by the admin `couchTvEnabled` flag, the one flag that is **off** while unset
 (`flags.Load` leaves it out of the "missing means on" default; `flags.CouchTvOn` guards the
 viewer routes and the stream; the core reads it as `SessionView.features.couchTv`, `false` from a
 server that does not send it). The admin settings page toggles it.
@@ -629,8 +631,11 @@ server that does not send it). The admin settings page toggles it.
   else names sharing a prefix ("Iron Man", "Iron Man 2"), in release order, then the
   franchise shown longest ago (D30); a slot with neither runs the rotation (`fill: movie`).
   Each day draws from a seed of its date, so an unchanged day plans the same. Fixed rows
-  (admin, locked, already started) are obstacles the flow fits around, and a slot they carry
-  does not run again. A program airs to its credits start (its file's effective `credits`
+  (admin, locked, already started) are obstacles the flow fits around, and count toward the
+  slot they carry (a locked strip episode leaves the strip's other episodes in place; a
+  one-program slot with one does not run again). A program an admin removed (`state =
+  replaced`, `PlanInput.Removed`) stays off its broadcast day: rotations and reruns pick
+  something else and a strip passes the episode over. A program airs to its credits start (its file's effective `credits`
   marker, read by SQL join; `credits_at_ms` on the airing), else in full (`Media.onAir`); the
   rest of the credits plays in the break's squeeze. A marker that changes reaches the days
   the next plan run replans.
@@ -782,9 +787,32 @@ server that does not send it). The admin settings page toggles it.
   work directories after a day.
 - Endpoints (admin, not flag-gated, like `/admin/ranks`): `GET/PUT /admin/couchtv`
   (`adminGetCouchTv`, `adminUpdateCouchTv`: config plus `plannedUntil`; a save validates
-  pinned titles against their slot and queues a replan), `GET /admin/couchtv/airings?from&to`
-  (`adminListAirings`, at most 15 days, with title and episode names, `fill`, `slot` and
-  `ready`), `POST /admin/couchtv/days/{date}/regenerate` (`adminRegenerateDay`: replans that
+  pinned titles against their slot and queues a replan; a config the planner cannot follow
+  is a 400 with a stable code from `couchtv.ConfigError`: `invalid_time_zone`,
+  `invalid_rotation`, `invalid_slot`, `anchor_needs_time`, `day_without_slots`,
+  `day_needs_anchor`, `slot_out_of_order`, `reruns_without_end`, `invalid_pinned_title`),
+  `GET /admin/couchtv/airings?from&to` (`adminListAirings`, at most 15 days, with title and
+  episode names, `fill`, `slot`, `ready` and a break's `render` state: `uncomposed`,
+  `composed`, `rendering`, `ready`, `failed`), `POST /admin/couchtv/airings`
+  (`adminInsertAiring`, 201 with the airing: a movie or an episode at a time of the admin's
+  choosing, an admin row with `fill` `matinee` or `reruns`), `PATCH /admin/couchtv/airings/{id}`
+  (`adminUpdateAiring`, `action`: `lock`/`unlock` keep a program through replanning or hand
+  it back; `pin` airs another title (`titleId`, `episodeId`) in the row and/or from another
+  `startsAt`; `swap` trades programs with `swapWith`, each airing at the other's start;
+  `remove` takes it off: the planner's own pick stays as a `replaced` row that keeps its
+  program off the day, an admin's is deleted; answers with the days it touched). Every change
+  but a lock runs in the planning transaction and replans its broadcast day and the later
+  ones (frozen days too: an admin's edit is the change they take), keeping the edited rows'
+  ids; a pinned or swapped row keeps its slot and its fill while the title stays (another
+  episode of a strip restarts the strip there), else takes the plain rerun of its kind (or
+  the rotation's `movie` in a prime-time slot), so it never moves another strip or calls a
+  rerun a premiere (`couchtv.adminFill`). A placed program must start after now, within the
+  planned week, after what is on air (`on_air`, 409) and a shortest break clear of every
+  program that stays (`overlap`, 409); its title must be published (`not_published`), on the
+  channel (`excluded`) and playable (`no_media`). The breaks beside a changed program lose
+  their compositions (`Store.resetBreaksAround`, also run by the diff for every new program,
+  so an up next never announces what no longer airs).
+  `POST /admin/couchtv/days/{date}/regenerate` (`adminRegenerateDay`: replans that
   day and the later ones, today to a week ahead, and answers with the day),
   `GET/PUT /admin/couchtv/titles/{id}` (`adminGetCouchTvTitle`, `adminUpdateCouchTvTitle`:
   excluded, mood, promo audio, shots; a part left out of the PUT goes back to the analysis,
@@ -815,8 +843,35 @@ server that does not send it). The admin settings page toggles it.
   loudest steady stretch of 20 s or more; at most 40 s, the loudest 40 s of a longer one.
   Admin picks (`promo_audio_source`/`shots_source` `admin`) are never overwritten; ffmpeg
   failures leave a part empty and are logged.
+- **Web admin** (`features/couchtv`, routes under `/admin/couch-tv`, one sidebar entry and a
+  tab bar from `AdminCouchTvLayout`): **Schedule** (`AdminSchedulePage`, `ScheduleGrid`): a week
+  of columns from the hour the earliest broadcast day opens, in the channel's time zone
+  (`time.ts`, `schedule.ts`: wall-clock maths through `Intl`, clock changes included), programs
+  as blocks (title, episode, rule, a lock, a dot for a prepared package, admin rows outlined),
+  breaks in a thin lane coloured by render state, a now-line, readiness counts for the next
+  48 h; it polls every minute. A program opens `AiringPanel` (details, the breaks on either
+  side, lock, air something else, move, swap by clicking the other program, insert before or
+  after with `ProgramPicker`, replan the day, remove); a day header replans its day.
+  **Template** (`AdminTemplatePage` over `StreamedView`, `TemplateEditor`, `SlotEditor`): time
+  zone, shortest break, the rotation knobs and the slots (key, start, anchor, fill, genre,
+  count, days, pinned titles through the picker; reorder within the day shown), with
+  `FormState` and the server's checks repeated in `template.ts` (`problems`, the same codes,
+  shown through `problemMessage`), so Save stays disabled while the template is invalid.
+  **Render health** (`AdminRenderHealthPage`): `StatTile`s for the queue, speed, time to clear
+  and breaks at risk, a `SegmentBar` of the next 48 h of breaks, the fallbacks, a `RankedList`
+  of the disk and the failures; it polls every 10 s. **Preview**: the broadcast preview. The
+  title editor ends with `TitleCouchTvPanel`: never on Couch TV, mood, the promo audio picker
+  (`PromoAudioPicker` over `Waveform`: a file, five minutes of waveform at a time, a dragged or
+  typed selection of up to 40 s within the file, played through the file's playback payload),
+  the footage shots (`ShotsEditor`: stills from `getStreamFramePath` with the payload's grant,
+  reorder, remove), the markers per file (`MarkersEditor`: the analysis' and the admin's,
+  other times, "has none", back to the analysis; saved on their own) and the analysis re-run;
+  a part an admin edits is sent as the admin's pick, "back to the analysis" leaves it out.
+  `files.ts` finds the files a title airs as playback picks them; `media.ts` keeps one
+  playback payload per movie or episode. E2E: `e2e/couchtv-admin.spec.ts`.
 - Tables: `couchtv_airings` (programs and breaks, UTC; `fill`, `slot`, `source`, `locked`,
-  `state`, `credits_at_ms`, and once on air `feed` and `origin`), `couchtv_strips`,
+  `state` (`replaced`: an admin removed it), `credits_at_ms`, and once on air `feed` and
+  `origin`), `couchtv_strips`,
   `couchtv_titles` (`excluded`, promo audio, `shots` with `shots_source`, `mood`,
   `loudness_lufs`, `analyzed_version`/`analyzed_at`; the planner reads `excluded`, the composer
   the rest), `couchtv_media` (what `couchtv_prepare` found airable), `couchtv_clips` (kind, key,
@@ -831,8 +886,11 @@ server that does not send it). The admin settings page toggles it.
   database: a gapless week, the next daily run, a no-op replan, frozen days and a locked row
   kept, a swap), `TestMediaAnalysis` (a generated movie with a crawl, analyzed end to end; a
   season matched from cached production fingerprints; the admin's none),
-  `TestCouchTvConfigStored`, `TestApplyMetadataTaglineAndCollection`;
-  `couchtv/compose_test.go` (every gap up to half an hour filled exactly with valid specs, the
+  `TestCouchTvConfigStored`, `TestApplyMetadataTaglineAndCollection`, `TestCouchTvAiringEdits`
+  (the schedule editor on the seeded database: a removal kept off its day, a lock surviving
+  a replan, an insert flowed around, moved and removed, a stale composition dropped, gapless
+  throughout) and `TestFixedRowsCountTowardTheirSlot`, `TestRemovedPrograms`, `TestAdminFill`
+  in `plan_test.go`; `couchtv/compose_test.go` (every gap up to half an hour filled exactly with valid specs, the
   mix, promo ranking, clocks, loudness, phrases, the evergreen break), `TestCouchTvComposeJob`
   (a week of breaks composed on the seeded database, idempotent, assembly queued as clips
   render), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
