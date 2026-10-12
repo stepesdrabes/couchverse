@@ -3,6 +3,11 @@ import type { Spec } from '../../src/spec';
 import { BREAK, FIXTURES } from '../fixtures/specs';
 import { load, openRender, pageErrors, renderTwice } from './render';
 
+// Two renders differ by float noise only: under 1e-5 on macOS, but Linux Chromium's
+// convolution reverb is not bit-exact between renders (up to about 1.5e-4), so the bar is
+// -60 dBFS, far below anything audible under a soundtrack.
+const INAUDIBLE = 1e-3;
+
 test.beforeEach(async ({ page }) => openRender(page));
 test.afterEach(({ page }) => expect(pageErrors(page)).toEqual([]));
 
@@ -19,8 +24,7 @@ for (const [name, spec, target] of CASES) {
 		const out = await renderTwice(page);
 		expect(out.length).toBe(true);
 		expect(out.frames).toBe(Math.round(info.duration * 48000));
-		// float noise between renders, nothing audible
-		expect(out.maxDiff).toBeLessThan(1e-5);
+		expect(out.maxDiff).toBeLessThan(INAUDIBLE);
 		expect(out.report?.integrated).toBeCloseTo(target, 1);
 		expect(out.report?.truePeak).toBeLessThanOrEqual(-1 + 1e-6);
 	});
@@ -29,6 +33,6 @@ for (const [name, spec, target] of CASES) {
 test('the standby loop has no seam', async ({ page }) => {
 	await load(page, FIXTURES.standby);
 	const out = await renderTwice(page);
-	expect(out.maxDiff).toBeLessThan(1e-5);
+	expect(out.maxDiff).toBeLessThan(INAUDIBLE);
 	expect(out.seam).toBeLessThan(out.meanStep * 4);
 });
