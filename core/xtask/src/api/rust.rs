@@ -4,6 +4,7 @@ use std::fmt::Write as _;
 use std::io::Write as _;
 use std::process::{Command, Stdio};
 
+use super::Protocol;
 use super::model::{
     BodyKind, Field, FrameUnion, Item, Operation, Param, Response, Ty, bullet, pascal, snake,
     variant,
@@ -14,15 +15,15 @@ pub fn render(
     source: &str,
     types: &[&Item],
     ops: &[Operation],
-    couch: &[&Item],
-    shared: &[&str],
-    frames: &[FrameUnion],
+    protocols: &[Protocol],
 ) -> Result<String, String> {
     let mut s = out::header("//", source);
     s.push('\n');
     s.push_str(&items_module("types", types, &[], &[]));
     s.push_str(&ops_module(ops));
-    s.push_str(&items_module("couch", couch, shared, frames));
+    for p in protocols {
+        s.push_str(&items_module(p.module, &p.items, &p.shared, p.frames));
+    }
     rustfmt(&s)
 }
 

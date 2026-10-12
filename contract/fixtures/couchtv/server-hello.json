@@ -1,0 +1,30 @@
+{
+  "type": "hello",
+  "data": {
+    "serverTime": 1791043200000,
+    "me": {
+      "id": "guest-6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+      "displayName": "Babička",
+      "seed": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+      "guest": true
+    },
+    "presence": {
+      "count": 2,
+      "viewers": [
+        {
+          "id": "user-2",
+          "displayName": "Nora",
+          "avatarId": "00000000-0000-4000-8000-000000000405",
+          "seed": "nora",
+          "guest": false
+        },
+        {
+          "id": "guest-6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+          "displayName": "Babička",
+          "seed": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+          "guest": true
+        }
+      ]
+    }
+  }
+}

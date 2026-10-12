@@ -1,6 +1,7 @@
 //! Renders the model as `clients/web/src/lib/generated/api.ts`: interfaces for every schema,
-//! discriminated unions for the couch frames and one function per typed operation over the web's
-//! `api()` fetch wrapper (which adds `?lang=`, the cookie and error handling, and sends a JSON
+//! discriminated unions for the WebSocket protocols' frames and one function per typed operation
+//! over the web's `api()` fetch wrapper (which adds `?lang=`, the cookie and error handling, and
+//! sends a JSON
 //! body, a `FormData` or bytes as such). Each function takes a trailing `CallOptions` passed
 //! through to `api()`. Raw operations (byte streams, sockets) and uploads also get a path builder
 //! returning the full `<base>/...` path, for an `<img src>`, a media element or a request made
@@ -8,6 +9,7 @@
 
 use std::fmt::Write as _;
 
+use super::Protocol;
 use super::model::{
     BodyKind, Field, FrameUnion, Item, Operation, Param, Response, Ty, bullet, pascal,
 };
@@ -18,16 +20,17 @@ pub fn render(
     base: &str,
     types: &[&Item],
     ops: &[Operation],
-    couch: &[&Item],
-    frames: &[FrameUnion],
+    protocols: &[Protocol],
 ) -> String {
     let mut s = out::header("//", source);
     s.push_str("\nimport { api, qs, type CallOptions } from '$lib/api/client';\n");
-    for item in types.iter().chain(couch) {
+    for item in types.iter().chain(protocols.iter().flat_map(|p| &p.items)) {
         write_item(&mut s, item);
     }
-    for union in frames {
-        write_frames(&mut s, union);
+    for p in protocols {
+        for union in p.frames {
+            write_frames(&mut s, union, p.ts_prefix);
+        }
     }
     for op in ops {
         write_operation(&mut s, op, base);
@@ -97,9 +100,11 @@ fn write_field(s: &mut String, field: &Field) {
     let _ = writeln!(s, "\t{key}{optional}: {}{null};", ty(&field.ty));
 }
 
-fn write_frames(s: &mut String, union: &FrameUnion) {
+/// A protocol's frame union, named with the protocol's prefix: TypeScript has one namespace for
+/// every protocol.
+fn write_frames(s: &mut String, union: &FrameUnion, prefix: &str) {
     let _ = writeln!(s, "\n/** {} */", union.doc);
-    let _ = writeln!(s, "export type {} =", union.name);
+    let _ = writeln!(s, "export type {prefix}{} =", union.name);
     let variants: Vec<String> = union
         .variants
         .iter()

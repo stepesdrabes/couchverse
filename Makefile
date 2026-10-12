@@ -74,6 +74,7 @@ broadcast-test: $(BROADCAST_DEPS)
 contract:
 	cd backend && go run ./cmd/couchverse openapi > ../contract/openapi.json
 	cd backend && go run ./cmd/couchverse couch-schema > ../contract/couch-protocol.schema.json
+	cd backend && go run ./cmd/couchverse couchtv-schema > ../contract/couchtv-protocol.schema.json
 	cp contract/broadcast-spec.schema.json backend/internal/feature/couchtv/broadcast-spec.schema.json
 	cd core && cargo xtask codegen
 

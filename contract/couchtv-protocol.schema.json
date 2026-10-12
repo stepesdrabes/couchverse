@@ -1,0 +1,230 @@
+{
+  "$defs": {
+    "ClientFrame": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Send a reaction; a viewer sending them faster than about three a second has the extra ones dropped.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchTvReactionCommand"
+            },
+            "type": {
+              "const": "reaction"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "About every 10 s while the picture plays: the program date on screen, which counts toward progress and watch time.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchTvReport"
+            },
+            "type": {
+              "const": "report"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "CouchTvHello": {
+      "additionalProperties": false,
+      "properties": {
+        "me": {
+          "$ref": "#/$defs/CouchTvViewer"
+        },
+        "presence": {
+          "$ref": "#/$defs/CouchTvPresence"
+        },
+        "serverTime": {
+          "description": "The server clock when the frame was made, in Unix milliseconds: players hold the program date three target durations behind it.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "serverTime",
+        "me",
+        "presence"
+      ],
+      "type": "object"
+    },
+    "CouchTvPresence": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "description": "Everyone watching, each viewer once however many devices they watch on.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "viewers": {
+          "description": "The first viewers to tune in, at most 24.",
+          "items": {
+            "$ref": "#/$defs/CouchTvViewer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "count",
+        "viewers"
+      ],
+      "type": "object"
+    },
+    "CouchTvReaction": {
+      "additionalProperties": false,
+      "properties": {
+        "emoji": {
+          "type": "string"
+        },
+        "viewerId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "viewerId",
+        "emoji"
+      ],
+      "type": "object"
+    },
+    "CouchTvReactionCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "emoji": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "emoji"
+      ],
+      "type": "object"
+    },
+    "CouchTvReport": {
+      "additionalProperties": false,
+      "properties": {
+        "programDate": {
+          "description": "The program date of the picture on screen, in Unix milliseconds.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "programDate"
+      ],
+      "type": "object"
+    },
+    "CouchTvViewer": {
+      "additionalProperties": false,
+      "properties": {
+        "avatarId": {
+          "type": "string"
+        },
+        "displayName": {
+          "description": "The account's name, or the name a guest typed.",
+          "type": "string"
+        },
+        "guest": {
+          "description": "Joined through the channel link without an account.",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "Stable while the viewer is signed in or holds their guest cookie.",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Identicon seed: the username, or the guest's id.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "seed",
+        "guest"
+      ],
+      "type": "object"
+    },
+    "ServerFrame": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Sent on connect: the server clock, who this viewer is and who is watching.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchTvHello"
+            },
+            "type": {
+              "const": "hello"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Who is watching changed.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchTvPresence"
+            },
+            "type": {
+              "const": "presence"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A relayed reaction, the sender's own included.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CouchTvReaction"
+            },
+            "type": {
+              "const": "reaction"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The schedule changed (a replan, an admin's edit or a swap): tune in again for what is on and next, and read the guide again.",
+          "properties": {
+            "type": {
+              "const": "schedule_changed"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Frames on the Couch TV WebSocket (GET /api/v1/tv/socket). Every frame is {\"type\", \"data\"}; ServerFrame lists what the server sends and ClientFrame what clients send.",
+  "title": "Couchverse Couch TV protocol"
+}

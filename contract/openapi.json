@@ -402,6 +402,11 @@
             "format": "date",
             "type": "string"
           },
+          "tvSeconds": {
+            "description": "Seconds watched on Couch TV, guests included.",
+            "format": "int64",
+            "type": "integer"
+          },
           "videoSeconds": {
             "format": "int64",
             "type": "integer"
@@ -411,6 +416,7 @@
           "day",
           "videoSeconds",
           "couchSeconds",
+          "tvSeconds",
           "activeUsers"
         ],
         "type": "object"
@@ -535,6 +541,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "tvSeconds": {
+            "description": "Seconds watched on Couch TV, guests included.",
+            "format": "int64",
+            "type": "integer"
+          },
           "videoSeconds": {
             "format": "int64",
             "type": "integer"
@@ -543,6 +554,7 @@
         "required": [
           "videoSeconds",
           "couchSeconds",
+          "tvSeconds",
           "activeUsers"
         ],
         "type": "object"
@@ -1621,10 +1633,61 @@
         ],
         "type": "object"
       },
+      "CouchTvDay": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "description": "The day's date in the channel's time zone.",
+            "format": "date",
+            "type": "string"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "startsAt",
+          "endsAt"
+        ],
+        "type": "object"
+      },
+      "CouchTvGuest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "token": {
+            "description": "The guest token, only with delivery=body: send it as the X-Couch-Tv-Token header where a browser sends the channel cookie.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
       "CouchTvGuestLink": {
         "additionalProperties": false,
         "properties": {
+          "createdAt": {
+            "description": "When the current link was made; absent before the first one.",
+            "format": "date-time",
+            "type": "string"
+          },
           "enabled": {
+            "description": "Guests can join through the link.",
             "type": "boolean"
           }
         },
@@ -1636,6 +1699,13 @@
       "CouchTvGuide": {
         "additionalProperties": false,
         "properties": {
+          "days": {
+            "description": "The broadcast days the stretch overlaps, in order.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvDay"
+            },
+            "type": "array"
+          },
           "from": {
             "format": "date-time",
             "type": "string"
@@ -1660,7 +1730,57 @@
           "from",
           "to",
           "timeZone",
+          "days",
           "programs"
+        ],
+        "type": "object"
+      },
+      "CouchTvJoin": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The name the guest shows as to everyone watching.",
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "CouchTvLink": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The link's code; only its hash is kept.",
+            "type": "string"
+          },
+          "link": {
+            "$ref": "#/components/schemas/CouchTvGuestLink"
+          },
+          "path": {
+            "description": "The web page guests open: the server's address followed by this path.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "path",
+          "link"
+        ],
+        "type": "object"
+      },
+      "CouchTvLinkSwitch": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
         ],
         "type": "object"
       },
@@ -2456,9 +2576,17 @@
       "CouchTvTune": {
         "additionalProperties": false,
         "properties": {
+          "artworkGrant": {
+            "description": "A guest's: lets them load artwork without an account (append it to artwork URLs as ?g=).",
+            "type": "string"
+          },
           "grant": {
             "description": "The channel grant every channel URL carries; it expires, so tune in again on grant_expired.",
             "type": "string"
+          },
+          "guest": {
+            "$ref": "#/components/schemas/CouchTvGuest",
+            "description": "The guest tuning in; absent for a signed-in viewer."
           },
           "later": {
             "description": "The programs after the next one, up to four.",
@@ -7477,6 +7605,92 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CouchTvSchedule"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/admin/couchtv/link": {
+      "post": {
+        "description": "Makes a new channel link, turned on, and answers with its code this once (only its hash is kept); the old link stops working and every guest who joined through it is signed out.",
+        "operationId": "adminRotateCouchTvLink",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvLink"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "couchtv"
+        ]
+      },
+      "put": {
+        "description": "Turns the channel link on or off; off signs every guest out. 409 no_channel_link when there is no link to turn on.",
+        "operationId": "adminSetCouchTvLink",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CouchTvLinkSwitch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvGuestLink"
                 }
               }
             },
@@ -14321,6 +14535,195 @@
         ],
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/tv/join/{code}": {
+      "post": {
+        "description": "Lets a viewer without an account watch the live channel under the name they type (D23): it sets the channel cookie, scoped to /api/v1/tv, or answers with the guest token for delivery=body. 404 no_channel_link when the link was rotated or turned off; at most 10 tries a minute from one address.",
+        "operationId": "joinCouchTv",
+        "parameters": [
+          {
+            "description": "body returns the guest token in the response instead of setting the channel cookie.",
+            "explode": false,
+            "in": "query",
+            "name": "delivery",
+            "schema": {
+              "default": "cookie",
+              "description": "body returns the guest token in the response instead of setting the channel cookie.",
+              "enum": [
+                "cookie",
+                "body"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The code from the channel link.",
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "description": "The code from the channel link.",
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CouchTvJoin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvGuest"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Join Couch TV through the channel link",
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/tv/socket": {
+      "get": {
+        "description": "Upgrades to the channel's room: presence, reactions, schedule changes and the viewer's reports of what they watch. A signed-in viewer is known by their session, a guest by the channel cookie or the X-Couch-Tv-Token header (401 no_channel_guest otherwise). Cross-origin browser upgrades are refused.",
+        "operationId": "couchTvSocket",
+        "parameters": [
+          {
+            "description": "A guest's channel cookie, set by joinCouchTv.",
+            "in": "cookie",
+            "name": "couchverse_tv",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "A guest's token from joinCouchTv with delivery=body.",
+            "in": "header",
+            "name": "X-Couch-Tv-Token",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "Switched to the WebSocket protocol."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          },
+          {}
+        ],
+        "summary": "Open the Couch TV room's WebSocket",
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/tv/tune": {
+      "get": {
+        "description": "tuneCouchTv for a guest, by the channel cookie or the X-Couch-Tv-Token header (401 no_channel_guest without a working one): the live channel only, with an artwork grant.",
+        "operationId": "tuneCouchTvGuest",
+        "parameters": [
+          {
+            "description": "Display language (ISO 639-1). Empty serves the base text.",
+            "in": "query",
+            "name": "lang",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The channel cookie set by joinCouchTv.",
+            "in": "cookie",
+            "name": "couchverse_tv",
+            "schema": {
+              "description": "The channel cookie set by joinCouchTv.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The guest token from joinCouchTv with delivery=body.",
+            "in": "header",
+            "name": "X-Couch-Tv-Token",
+            "schema": {
+              "description": "The guest token from joinCouchTv with delivery=body.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvTune"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Tune in to Couch TV as a guest",
+        "tags": [
+          "couchtv"
         ]
       }
     },

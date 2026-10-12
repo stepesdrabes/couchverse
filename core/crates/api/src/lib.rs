@@ -17,7 +17,7 @@ mod generated;
 use std::fmt::{self, Write as _};
 use std::marker::PhantomData;
 
-pub use generated::{couch, ops, types};
+pub use generated::{couch, couchtv, ops, types};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Method {
