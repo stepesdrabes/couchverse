@@ -1,5 +1,6 @@
-// Couch TV admin data: the channel's config and schedule, render health and per-title
-// tools, plus the library reads the broadcast preview and the pickers use.
+// Couch TV admin data: the channel's config, guest link and schedule, render health and
+// per-title tools, plus the library reads the broadcast preview and the pickers use. Viewers
+// watch through the core (channel.ts).
 export {
 	adminAnalyzeCouchTvTitle,
 	adminCouchTvRenderHealth,
@@ -12,6 +13,8 @@ export {
 	adminListAirings,
 	adminListLibrary,
 	adminRegenerateDay,
+	adminRotateCouchTvLink,
+	adminSetCouchTvLink,
 	adminUpdateAiring,
 	adminUpdateCouchTv,
 	adminUpdateCouchTvTitle,
@@ -26,6 +29,7 @@ export type {
 	CouchTvAiring,
 	CouchTvAiringEdit,
 	CouchTvConfig,
+	CouchTvGuestLink,
 	CouchTvOverview,
 	CouchTvRenderHealth,
 	CouchTvSchedule,
