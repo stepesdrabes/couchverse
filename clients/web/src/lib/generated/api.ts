@@ -444,6 +444,26 @@ export type CouchTvAiringState = 'planned' | 'ready' | 'aired' | 'failed' | 'rep
 
 export type CouchTvAiringTitleKind = 'movie' | 'series';
 
+export interface CouchTvBreakReadiness {
+	/** Not ready and airing before the backlog would be rendered. */
+	atRisk: number;
+	/** Composed, waiting for clips or assembly. */
+	composed: number;
+	/** An evergreen break is assembled to air where a break is not ready. */
+	evergreen: boolean;
+	/** Could not be composed or assembled; the evergreen break airs instead. */
+	failed: number;
+	/** When the first break that is not ready airs; null when all are. */
+	nextUnready: string | null;
+	/** Assembled, ready to air. */
+	ready: number;
+	/** The standby card is rendered. */
+	standby: boolean;
+	uncomposed: number;
+	/** Breaks in the next 48 hours. */
+	upcoming: number;
+}
+
 export interface CouchTvConfig {
 	/**
 	 * The shortest break between programs.
@@ -489,6 +509,51 @@ export interface CouchTvPromoAudioPick {
 
 /** auto: the analysis' pick; admin: the admin's, which the analysis keeps. */
 export type CouchTvPromoAudioSource = 'auto' | 'admin';
+
+export interface CouchTvRenderCache {
+	breakBytes: number;
+	/** Assembled breaks on disk. */
+	breaks: number;
+	clipBytes: number;
+	/** Rendered clips kept for reuse. */
+	clips: number;
+}
+
+export interface CouchTvRenderFailure {
+	at: string;
+	error: string;
+	id: string;
+	kind: CouchTvRenderFailureKind;
+	/** The clip's kind, or the break's (airing, evergreen). */
+	what: string;
+}
+
+export type CouchTvRenderFailureKind = 'clip' | 'break';
+
+export interface CouchTvRenderHealth {
+	breaks: CouchTvBreakReadiness;
+	cache: CouchTvRenderCache;
+	/** The latest failed clips and breaks, newest first. */
+	failures: CouchTvRenderFailure[];
+	queue: CouchTvRenderQueue;
+	/** When the render sidecar last started or finished a job; null before it first ran. */
+	rendererSeenAt: string | null;
+}
+
+export interface CouchTvRenderQueue {
+	/** Breaks whose clips are all rendered, waiting to be assembled or assembling. */
+	assemblies: number;
+	/** Seconds of video those clips make (a promo body not rendered yet counts as 16 s). */
+	backlogSeconds: number;
+	/** Clips waiting to render or rendering. */
+	clips: number;
+	/** How long the backlog takes at that speed; null while the speed is unknown. */
+	etaSeconds: number | null;
+	/** Render speed over the last day's clips; 0 before any. */
+	framesPerSecond: number;
+	/** When the first waiting clip airs; null when none waits. */
+	neededAt: string | null;
+}
 
 export interface CouchTvRotation {
 	/**
@@ -2170,6 +2235,10 @@ export const adminCancelJob = (id: number, opts?: CallOptions) =>
  */
 export const adminCompleteUpload = (id: string, body: UploadAssignment, opts?: CallOptions) =>
 	api<CompletedUpload>(`/admin/uploads/${encodeURIComponent(id)}/complete`, { ...opts, method: 'POST', body });
+
+/** `GET /admin/couchtv/render` */
+export const adminCouchTvRenderHealth = (opts?: CallOptions) =>
+	api<CouchTvRenderHealth>(`/admin/couchtv/render`, opts);
 
 export interface AdminCouchTvWaveformQuery {
 	/**

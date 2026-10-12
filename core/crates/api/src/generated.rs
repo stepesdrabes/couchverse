@@ -1515,6 +1515,28 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct CouchTvBreakReadiness {
+        /// Not ready and airing before the backlog would be rendered.
+        pub at_risk: i64,
+        /// Composed, waiting for clips or assembly.
+        pub composed: i64,
+        /// An evergreen break is assembled to air where a break is not ready.
+        pub evergreen: bool,
+        /// Could not be composed or assembled; the evergreen break airs instead.
+        pub failed: i64,
+        /// When the first break that is not ready airs; null when all are.
+        pub next_unready: Option<String>,
+        /// Assembled, ready to air.
+        pub ready: i64,
+        /// The standby card is rendered.
+        pub standby: bool,
+        pub uncomposed: i64,
+        /// Breaks in the next 48 hours.
+        pub upcoming: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct CouchTvConfig {
         /// The shortest break between programs.
         /// From 5 to 600.
@@ -1588,6 +1610,84 @@ pub mod types {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvRenderCache {
+        pub break_bytes: i64,
+        /// Assembled breaks on disk.
+        pub breaks: i64,
+        pub clip_bytes: i64,
+        /// Rendered clips kept for reuse.
+        pub clips: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvRenderFailure {
+        pub at: String,
+        pub error: String,
+        pub id: String,
+        pub kind: CouchTvRenderFailureKind,
+        /// The clip's kind, or the break's (airing, evergreen).
+        pub what: String,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvRenderFailureKind {
+        #[serde(rename = "clip")]
+        Clip,
+        #[serde(rename = "break")]
+        Break,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvRenderFailureKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvRenderFailureKind::Clip => "clip",
+                CouchTvRenderFailureKind::Break => "break",
+                CouchTvRenderFailureKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvRenderFailureKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvRenderHealth {
+        pub breaks: CouchTvBreakReadiness,
+        pub cache: CouchTvRenderCache,
+        /// The latest failed clips and breaks, newest first.
+        pub failures: Vec<CouchTvRenderFailure>,
+        pub queue: CouchTvRenderQueue,
+        /// When the render sidecar last started or finished a job; null before it first ran.
+        pub renderer_seen_at: Option<String>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvRenderQueue {
+        /// Breaks whose clips are all rendered, waiting to be assembled or assembling.
+        pub assemblies: i64,
+        /// Seconds of video those clips make (a promo body not rendered yet counts as 16 s).
+        pub backlog_seconds: f64,
+        /// Clips waiting to render or rendering.
+        pub clips: i64,
+        /// How long the backlog takes at that speed; null while the speed is unknown.
+        pub eta_seconds: Option<f64>,
+        /// Render speed over the last day's clips; 0 before any.
+        pub frames_per_second: f64,
+        /// When the first waiting clip airs; null when none waits.
+        pub needed_at: Option<String>,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5826,6 +5926,17 @@ pub mod ops {
             format!("/admin/uploads/{}/complete", build::segment(id)),
             q,
             build::json_body(Some(body)),
+        ))
+    }
+
+    /// `GET /admin/couchtv/render`
+    pub fn admin_couch_tv_render_health() -> Call<CouchTvRenderHealth> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Get,
+            "/admin/couchtv/render".to_string(),
+            q,
+            Body::Empty,
         ))
     }
 
