@@ -88,9 +88,9 @@ pub struct CouchTvProgram {
     pub play: Option<PlayTarget>,
 }
 
-/// The live overlays (D14), for what the picture shows: over a program they stay up whether or
-/// not the controls are; over a break there are none, since breaks carry the channel's own
-/// graphics.
+/// The live overlays (D14), for what the picture shows: over a program the bug stays up all the
+/// time and the captions are there to show with the shell's controls; over a break there are
+/// none, since breaks carry the channel's own graphics.
 #[typeshare]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

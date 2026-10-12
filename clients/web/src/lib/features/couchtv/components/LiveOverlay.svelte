@@ -9,8 +9,8 @@
 	import Lockup from './Lockup.svelte';
 
 	// The live overlays (D14) in the broadcast's own look, as the core cues them for what the
-	// picture shows: over a program the corner bug and the Now and Next captions stay up, with
-	// the controls or without; a break carries the channel's own graphics instead.
+	// picture shows: over a program the corner bug stays up all the time, the Now and Next
+	// captions come with the controls; a break carries the channel's own graphics instead.
 	let {
 		view,
 		at,
@@ -19,7 +19,7 @@
 		view: CouchTvView;
 		/** the picture's program date, run on to now */
 		at?: number;
-		/** the viewer is about: the controls are up, and the captions make room for them */
+		/** the viewer is about: the controls are up */
 		active: boolean;
 	} = $props();
 
@@ -48,20 +48,18 @@
 		</div>
 	{/if}
 
-	<div
-		class="captions absolute flex flex-col items-start gap-1.5"
-		style="bottom: {active ? '7.5rem' : '1.75rem'}; left: {active ? '4.5rem' : '1.75rem'}"
-	>
-		{#if view.cues.nowCaption && now}
+	<!-- above the bar, aside for the quick reactions -->
+	<div class="absolute bottom-[7.5rem] left-[4.5rem] flex flex-col items-start gap-2">
+		{#if active && view.cues.nowCaption && now}
 			<div
 				in:fly={{ x: -48, duration: 450 }}
 				out:fade={{ duration: 300 }}
 				class="caption flex max-w-[min(36rem,85vw)] items-stretch"
 			>
 				<span class="tag">{m.couchtv_now()}</span>
-				<div class="panel flex min-w-0 items-baseline gap-3">
+				<div class="panel min-w-0">
 					<p class="title truncate">{now.title}</p>
-					<p class="meta hidden shrink-0 gap-x-2 sm:flex">
+					<p class="meta flex flex-wrap gap-x-2">
 						{#if now.episode}
 							<span>{episodeLabel(now.episode)}</span>
 						{/if}
@@ -70,7 +68,7 @@
 				</div>
 			</div>
 		{/if}
-		{#if view.cues.nextCaption && next}
+		{#if active && view.cues.nextCaption && next}
 			<div
 				in:fly={{ x: -48, duration: 450 }}
 				out:fade={{ duration: 300 }}
@@ -120,14 +118,6 @@
 		}
 	}
 
-	/* they stay up through a program, so one line each; with the controls up they make room
-	   for the quick reactions beside them */
-	.captions {
-		transition:
-			bottom 0.25s ease,
-			left 0.25s ease;
-	}
-
 	.caption {
 		filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.55));
 	}
@@ -140,13 +130,13 @@
 		color: white;
 		font-family: var(--display);
 		font-weight: 700;
-		font-size: 0.8rem;
+		font-size: 0.85rem;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 	}
 
 	.panel {
-		padding: 0.45rem 0.8rem;
+		padding: 0.55rem 0.9rem 0.6rem;
 		background: rgb(0 0 0 / 0.82);
 		color: white;
 	}
@@ -154,12 +144,13 @@
 	.title {
 		font-family: var(--display);
 		font-weight: 700;
-		font-size: 1.1rem;
+		font-size: 1.25rem;
 		line-height: 1.15;
 		text-transform: uppercase;
 	}
 
 	.meta {
+		margin-top: 0.15rem;
 		font-size: 0.8rem;
 		color: rgb(255 255 255 / 0.8);
 	}
@@ -167,7 +158,7 @@
 	.time {
 		font-family: var(--display);
 		font-weight: 700;
-		font-size: 1.1rem;
+		font-size: 1.25rem;
 		color: var(--brand-ink);
 	}
 </style>

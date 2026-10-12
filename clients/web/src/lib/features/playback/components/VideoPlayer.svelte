@@ -1293,11 +1293,7 @@
 			bottom: 8rem;
 		}
 
-		/* a live channel's Now and Next captions hold the lower left all through a program */
-		&.live {
-			bottom: 7.5rem;
-		}
-
+		/* with the controls, a live channel's Now and Next captions sit over the bar */
 		&.live.raised {
 			bottom: 13rem;
 		}

@@ -952,10 +952,10 @@ server that does not send it). The admin settings page toggles it.
   menus, a stopped picture resumes at the live edge; the `overlay`, `controls` and `actions`
   snippets) from the `CouchTv` view through `livePlayerView`. `LiveOverlay`: the corner bug
   (`Lockup`, the broadcast package's `lockupSvg` in the brand's red, a breathing LIVE and the
-  clock of the picture's program date, run on from `programDateMs` at `programDateAtMs`), the
-  Now caption (title, episode, start-end) and the Next caption ("Next 22:30 Dexter"), one line
-  each, up all through a program whether or not the controls are, as the view's cues say, in
-  the broadcast's look (Saira caps, red tags), with the live player's subtitles above them; `PresenceBar` (the reaction button, the main
+  clock of the picture's program date, run on from `programDateMs` at `programDateAtMs`) up all
+  through a program, and with the controls the Now caption (title, episode, start-end) and the
+  Next caption ("Next 22:30 Dexter") above the bar, as the view's cues say, in the broadcast's
+  look (Saira caps, red tags), the live player's subtitles lifted over them; `PresenceBar` (the reaction button, the main
   control a TV remote lands on, with five quick picks and couch's bundled emoji picker through
   `EmojiReactionButton`, and the viewers' faces opening the list, guests marked);
   `LiveReactions` (everyone's reactions rising up the left side with the sender's name);
@@ -1240,7 +1240,8 @@ messages and perform the effects it asks for.
   player settles 3 s after a load or a seek. `CouchTvView` says what is on by the picture's
   program date, not the wall clock (the tune-in's now, next and later; a gap between two
   programs is a break), with the overlay cues (the bug and the Now caption over programs, the
-  Next caption too once a program follows; none over breaks),
+  Next caption too once a program follows, none over breaks; shells show the captions with
+  their controls),
   presence, reactions, the channel's audio and subtitle languages (`CouchTvAudioChosen`,
   `CouchTvSubtitlesChosen`; kept across tune-ins) and stable problem codes; it renders when what
   is on screen or a cue changes, and the shell runs the clock on from `programDateMs` at

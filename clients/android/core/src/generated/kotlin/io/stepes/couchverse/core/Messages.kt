@@ -363,9 +363,9 @@ data class CouchReaction (
 	val emoji: String
 )
 
-/// The live overlays (D14), for what the picture shows: over a program they stay up whether or
-/// not the controls are; over a break there are none, since breaks carry the channel's own
-/// graphics.
+/// The live overlays (D14), for what the picture shows: over a program the bug stays up all the
+/// time and the captions are there to show with the shell's controls; over a break there are
+/// none, since breaks carry the channel's own graphics.
 @Serializable
 data class CouchTvCues (
 	/// The corner bug with LIVE and the clock.
