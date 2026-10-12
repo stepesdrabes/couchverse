@@ -114,7 +114,7 @@ export class AudioEngine {
 		this.sfxBus.connect(this.sum);
 		this.voiceBus.connect(this.sum);
 		const verb = ctx.createConvolver();
-		verb.buffer = makeImpulse(ctx, 3.4, 0.82);
+		verb.buffer = makeHall(ctx);
 		this.verbSend = this.gain(1);
 		const verbReturn = this.gain(0.55);
 		// keep mud out of the tail
@@ -238,6 +238,35 @@ export class AudioEngine {
 		s.start(when, this.rand() * 1.5);
 		s.stop(when + dur);
 		return this.track(b, s);
+	}
+
+	/** Looping noise from an offset set by `seed`, not by the call order. */
+	noiseAt(b: Bus, kind: 'white' | 'pink', when: number, dur: number, seed = 1, rate = 1) {
+		const s = this.ctx.createBufferSource();
+		s.buffer = kind === 'pink' ? this.pink : this.white;
+		s.loop = true;
+		s.playbackRate.value = rate;
+		s.start(when, ((seed % 997) / 997) * 1.6);
+		s.stop(when + dur);
+		return this.track(b, s);
+	}
+
+	/** An oscillator started part of a cycle early (from `r`), so stacked voices never start in phase. */
+	oscAt(
+		b: Bus,
+		type: OscillatorType,
+		freq: number,
+		when: number,
+		dur: number,
+		r: (() => number) | null
+	): OscillatorNode {
+		const o = this.ctx.createOscillator();
+		o.type = type;
+		o.frequency.value = freq;
+		const lead = r ? r() / freq : 0;
+		o.start(Math.max(0, when - lead));
+		o.stop(when + dur);
+		return this.track(b, o);
 	}
 
 	send(b: Bus, node: AudioNode, amount: number) {
@@ -409,30 +438,47 @@ function makeNoise(ctx: BaseAudioContext, kind: 'white' | 'pink'): AudioBuffer {
 	return buf;
 }
 
-/** A generated room: decorrelated stereo noise, exponential decay, darkening over time. */
-function makeImpulse(ctx: BaseAudioContext, seconds: number, decay: number): AudioBuffer {
+/**
+ * A generated hall: 18 seeded early reflections over the first 90 ms, then a diffuse tail that
+ * builds in density and decays per band (lows ring longest, highs die first), decorrelated
+ * between the channels. The convolver normalizes its level.
+ */
+function makeHall(ctx: BaseAudioContext, seconds = 3.2): AudioBuffer {
 	const sr = ctx.sampleRate;
 	const len = Math.floor(sr * seconds);
-	const pre = Math.floor(sr * 0.018);
+	const pre = Math.floor(sr * 0.014);
 	const buf = ctx.createBuffer(2, len, sr);
-	const r = rng(23);
+	const T60 = { low: 2.5, mid: 2.0, high: 0.85 };
+	const k = (t60: number) => 6.91 / t60;
+	const aLow = 1 - Math.exp((-2 * Math.PI * 450) / sr);
+	const aMid = 1 - Math.exp((-2 * Math.PI * 4200) / sr);
 	for (let ch = 0; ch < 2; ch++) {
+		const r = rng(23 + ch * 101);
 		const d = buf.getChannelData(ch);
-		let lp = 0;
+		let lo = 0;
+		let mi = 0;
 		for (let i = pre; i < len; i++) {
 			const t = (i - pre) / sr;
-			const k = 0.92 - 0.82 * Math.min(1, t / seconds);
-			lp += k * (r() * 2 - 1 - lp);
-			d[i] = lp * Math.exp(-t / decay) * 0.6;
+			const w = r() * 2 - 1;
+			lo += aLow * (w - lo);
+			mi += aMid * (w - mi);
+			const build = 1 - Math.exp(-t / 0.03);
+			d[i] =
+				(lo * 2.6 * Math.exp(-k(T60.low) * t) +
+					(mi - lo) * Math.exp(-k(T60.mid) * t) +
+					(w - mi) * 0.45 * Math.exp(-k(T60.high) * t)) *
+				build *
+				0.5;
 		}
-		for (const [ms, g] of [
-			[11, 0.5],
-			[19, 0.35],
-			[31, 0.28],
-			[43, 0.2]
-		]) {
-			const i = pre + Math.floor((ms + ch * 3) * sr * 0.001);
-			if (i < len) d[i] += g * (ch ? -1 : 1);
+		for (let e = 0; e < 18; e++) {
+			const ms = 4 + Math.pow(r(), 1.3) * 86;
+			const g = 0.55 * Math.exp(-ms / 40) * (r() < 0.5 ? -1 : 1);
+			const i = pre + Math.floor((ms * sr) / 1000);
+			if (i + 2 < len) {
+				d[i] += g;
+				d[i + 1] += g * 0.45;
+				d[i + 2] += g * 0.15;
+			}
 		}
 	}
 	return buf;

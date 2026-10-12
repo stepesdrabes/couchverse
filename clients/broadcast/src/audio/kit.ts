@@ -125,6 +125,8 @@ export class Kit extends AudioEngine {
 			verb?: number;
 			click?: number;
 			pan?: number;
+			/** Where it plays (the theme bus for the ident's hit); the piece's sfx bus by default. */
+			dest?: AudioNode;
 		} = {}
 	) {
 		const { gain = 0.6, size = 1, tone = 48, verb = 0.25, click = 1, pan = 0 } = o;
@@ -152,7 +154,7 @@ export class Kit extends AudioEngine {
 			.connect(rlp)
 			.connect(this.ad(when, gain * 0.9, 0.01, 1.5 * size))
 			.connect(out);
-		out.connect(b.sfx);
+		out.connect(o.dest ?? b.sfx);
 		this.send(b, out, verb);
 	}
 
@@ -308,6 +310,48 @@ export class Kit extends AudioEngine {
 		const { gain = 0.3, decay = 1.6 } = o;
 		const s = this.osc(b, 'sine', freq, when, decay + 0.2);
 		s.connect(this.ad(when, gain, 0.01, decay)).connect(b.sfx);
+	}
+
+	/** A modern keyboard key: a short bright tick over a soft low thock (typed text). */
+	keyClick(
+		b: Bus,
+		when: number,
+		o: { gain?: number; pan?: number; seed?: number; pitch?: number } = {}
+	) {
+		const { gain = 0.05, pan = 0, seed = 1, pitch = 1 } = o;
+		const r = rng(seed);
+		const out = this.pan(pan);
+		this.noiseAt(b, 'white', when, 0.03, seed)
+			.connect(this.filter('highpass', 1800, 0.7))
+			.connect(this.filter('bandpass', (3600 + r() * 900) * pitch, 1.4))
+			.connect(this.ad(when, gain, 0.0005, 0.012))
+			.connect(out);
+		const th = this.osc(b, 'sine', (210 + r() * 30) * pitch, when, 0.06);
+		th.frequency.setValueAtTime((210 + r() * 30) * pitch, when);
+		th.frequency.exponentialRampToValueAtTime(140 * pitch, when + 0.03);
+		th.connect(this.ad(when, gain * 0.9, 0.001, 0.03)).connect(out);
+		out.connect(b.sfx);
+		this.send(b, out, 0.05);
+	}
+
+	/** The brackets: a tight, pitched woody knock (open is higher than shut). */
+	clack(
+		b: Bus,
+		when: number,
+		o: { gain?: number; pan?: number; freq?: number; seed?: number } = {}
+	) {
+		const { gain = 0.06, pan = 0, freq = 1175, seed = 2 } = o;
+		const out = this.pan(pan);
+		const s = this.osc(b, 'sine', freq * 1.6, when, 0.08);
+		s.frequency.setValueAtTime(freq * 1.6, when);
+		s.frequency.exponentialRampToValueAtTime(freq, when + 0.012);
+		s.connect(this.ad(when, gain, 0.0008, 0.05)).connect(out);
+		this.noiseAt(b, 'white', when, 0.02, seed)
+			.connect(this.filter('bandpass', 2400, 1.2))
+			.connect(this.ad(when, gain * 0.5, 0.0005, 0.008))
+			.connect(out);
+		out.connect(b.sfx);
+		this.send(b, out, 0.12);
 	}
 
 	/** Typewriter key: a bright clack and a low thunk. */
