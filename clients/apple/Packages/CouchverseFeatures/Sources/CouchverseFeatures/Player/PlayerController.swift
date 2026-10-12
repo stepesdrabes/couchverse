@@ -99,6 +99,12 @@ public final class PlayerController: PlayerExecuting {
         case .selectSubtitles(let selection):
             subtitle = selection.id
             Task { await applySubtitles() }
+        case .rate(let rate):
+            // the live channel's hold; a paused player stays paused at the new rate
+            player.defaultRate = Float(rate.rate)
+            if player.rate != 0 {
+                player.rate = Float(rate.rate)
+            }
         case .stop:
             stop()
         }
@@ -116,6 +122,7 @@ public final class PlayerController: PlayerExecuting {
         audioIndex = load.audioIndex.map(Int.init)
         linear = load.linear
         localPause = LocalPause()
+        player.defaultRate = 1
         settling = true
         guard let url = url(for: load) else {
             settling = false
