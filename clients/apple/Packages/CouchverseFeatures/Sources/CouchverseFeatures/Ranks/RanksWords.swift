@@ -35,6 +35,14 @@ enum RanksWords {
         case "couch_join_10": L10n.achievementCouchJoin10Name
         case "couch_party_6": L10n.achievementCouchParty6Name
         case "emoji_100": L10n.achievementEmoji100Name
+        case "tv_prime_time_5": L10n.achievementTvPrimeTime5Name
+        case "tv_night_owl": L10n.achievementTvNightOwlName
+        case "tv_morning_5": L10n.achievementTvMorning5Name
+        case "tv_full_house": L10n.achievementTvFullHouseName
+        case "tv_reactions_100": L10n.achievementTvReactions100Name
+        case "tv_strip_5": L10n.achievementTvStrip5Name
+        case "tv_marathon": L10n.achievementTvMarathonName
+        case "tv_premiere": L10n.achievementTvPremiereName
         case "avatar_set": L10n.achievementAvatarSetName
         case "veteran_365": L10n.achievementVeteran365Name
         case "achievements_10": L10n.achievementAchievements10Name
@@ -71,6 +79,14 @@ enum RanksWords {
         case "couch_join_10": L10n.achievementCouchJoin10Desc
         case "couch_party_6": L10n.achievementCouchParty6Desc
         case "emoji_100": L10n.achievementEmoji100Desc
+        case "tv_prime_time_5": L10n.achievementTvPrimeTime5Desc
+        case "tv_night_owl": L10n.achievementTvNightOwlDesc
+        case "tv_morning_5": L10n.achievementTvMorning5Desc
+        case "tv_full_house": L10n.achievementTvFullHouseDesc
+        case "tv_reactions_100": L10n.achievementTvReactions100Desc
+        case "tv_strip_5": L10n.achievementTvStrip5Desc
+        case "tv_marathon": L10n.achievementTvMarathonDesc
+        case "tv_premiere": L10n.achievementTvPremiereDesc
         case "avatar_set": L10n.achievementAvatarSetDesc
         case "veteran_365": L10n.achievementVeteran365Desc
         case "achievements_10": L10n.achievementAchievements10Desc
@@ -104,13 +120,21 @@ enum RanksWords {
         case "couch_host_1", "couch_host_25": "sofa.fill"
         case "couch_join_10", "couch_party_6": "person.3.fill"
         case "emoji_100": "face.smiling.inverse"
+        case "tv_prime_time_5": "play.tv.fill"
+        case "tv_night_owl": "moon.zzz.fill"
+        case "tv_morning_5": "cup.and.saucer.fill"
+        case "tv_full_house": "person.3.sequence.fill"
+        case "tv_reactions_100": "hands.clap.fill"
+        case "tv_strip_5": "calendar.badge.clock"
+        case "tv_marathon": "medal.fill"
+        case "tv_premiere": "ticket.fill"
         case "avatar_set": "person.crop.circle.fill"
         default: "trophy.fill"
         }
     }
 
     /// The categories in the order the profile shows them, the server's own.
-    nonisolated static let categories = ["watching", "streaks", "explorer", "couch", "meta"]
+    nonisolated static let categories = ["watching", "streaks", "explorer", "couch", "tv", "meta"]
 
     static func category(_ code: String) -> String {
         switch code {
@@ -118,6 +142,7 @@ enum RanksWords {
         case "streaks": L10n.achievementCategoryStreaks
         case "explorer": L10n.achievementCategoryExplorer
         case "couch": L10n.achievementCategoryCouch
+        case "tv": L10n.achievementCategoryTv
         case "meta": L10n.achievementCategoryMeta
         default: code
         }
@@ -153,6 +178,7 @@ enum RanksWords {
     static func xpSource(_ key: String) -> String {
         switch key {
         case "video": L10n.rankSourceVideo
+        case "tv": L10n.rankSourceTv
         case "movies": L10n.rankSourceMovies
         case "episodes": L10n.rankSourceEpisodes
         case "couchHosted": L10n.rankSourceCouchHosted

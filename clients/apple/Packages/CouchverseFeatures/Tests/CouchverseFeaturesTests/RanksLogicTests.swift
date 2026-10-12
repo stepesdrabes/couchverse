@@ -18,8 +18,9 @@ struct RanksWordsTests {
         "first_play", "watch_10h", "watch_50h", "watch_200h", "watch_500h", "movies_25", "episodes_100",
         "series_done_1", "series_done_10", "marathon_6h", "streak_3", "streak_7", "streak_30", "night_owl_10",
         "early_bird_10", "active_days_50", "active_days_200", "genres_10", "titles_50", "watchlist_10", "decades_4",
-        "couch_host_1", "couch_host_25", "couch_join_10", "couch_party_6", "emoji_100", "avatar_set", "veteran_365",
-        "achievements_10", "achievements_20",
+        "couch_host_1", "couch_host_25", "couch_join_10", "couch_party_6", "emoji_100", "tv_prime_time_5",
+        "tv_night_owl", "tv_morning_5", "tv_full_house", "tv_reactions_100", "tv_strip_5", "tv_marathon",
+        "tv_premiere", "avatar_set", "veteran_365", "achievements_10", "achievements_20",
     ]
 
     @Test(arguments: codes)
@@ -43,7 +44,7 @@ struct RanksWordsTests {
         #expect(RanksWords.tierName(code) != code)
     }
 
-    @Test(arguments: ["video", "movies", "episodes", "couchHosted", "couchJoined", "achievements"])
+    @Test(arguments: ["video", "tv", "movies", "episodes", "couchHosted", "couchJoined", "achievements"])
     func theApisXpSourcesHaveWords(key: String) {
         #expect(RanksWords.xpSource(key) != key)
     }
