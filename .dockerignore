@@ -8,6 +8,7 @@ clients/web/.svelte-kit/
 clients/web/src/lib/core/pkg/
 core/target/
 backend/web/dist/*
+backend/broadcast/dist/*
 backend/bin/
 data/
 example_designs/

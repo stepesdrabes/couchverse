@@ -20,3 +20,11 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # the Couch TV render sidecar
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: render
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha

@@ -32,19 +32,56 @@ COPY clients/web/ ./
 COPY --from=core /repo/clients/web/src/lib/core/pkg ./src/lib/core/pkg
 RUN npm run build
 
+# ---- broadcast ----
+# Couch TV's render page, which the binary embeds for the render sidecar
+FROM --platform=$BUILDPLATFORM node:22-alpine AS broadcast
+WORKDIR /repo/clients/broadcast
+COPY clients/broadcast/package.json clients/broadcast/package-lock.json ./
+RUN npm ci
+COPY clients/broadcast/ ./
+RUN npm run build
+
 # ---- backend ----
 # Go cross-compiles, so this too runs on the build host instead of under emulation.
-FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS backend
-ARG TARGETOS
-ARG TARGETARCH
+FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS gosrc
 WORKDIR /src
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
+COPY --from=broadcast /repo/clients/broadcast/dist ./broadcast/dist
+
+FROM gosrc AS backend
+ARG TARGETOS
+ARG TARGETARCH
 COPY --from=web /repo/clients/web/build ./web/dist
 ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w -X couchverse/internal/version.Version=${VERSION}" -o /couchverse ./cmd/couchverse
+
+# the sidecar's build of the same binary leaves the SPA out, so it skips the core and web
+FROM gosrc AS render-backend
+ARG TARGETOS
+ARG TARGETARCH
+ARG VERSION=dev
+RUN mkdir -p web/dist && touch web/dist/.gitkeep \
+    && CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
+    go build -ldflags="-s -w -X couchverse/internal/version.Version=${VERSION}" -o /couchverse ./cmd/couchverse
+
+# ---- render sidecar ----
+# `docker build --target render`: `couchverse render` with Chromium, ffmpeg and Mesa's GL and
+# EGL drivers for the GPU (docs/couch-tv-plan.md 6.7); the bundle brings its own fonts. The
+# app image below stays as slim as it was.
+FROM debian:trixie-slim AS render
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends chromium ffmpeg ca-certificates tzdata \
+        libgl1-mesa-dri libegl1 libegl-mesa0 libgles2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -r -u 1000 -m couchverse \
+    && mkdir -p /data && chown couchverse /data
+COPY --from=render-backend /couchverse /usr/local/bin/couchverse
+ENV CHROMIUM_PATH=/usr/bin/chromium
+USER couchverse
+ENTRYPOINT ["couchverse", "render"]
 
 # ---- runtime ----
 FROM debian:trixie-slim

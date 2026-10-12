@@ -25,6 +25,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # The Couch TV render sidecar (docs/couch-tv-plan.md 6.7), only with
+  # `docker compose --profile render up -d`: renders cutscenes on the GPU into the
+  # shared data volume, capped so Postgres and the app keep their memory. RENDER_GID
+  # is the host's render group (getent group render), which owns /dev/dri/renderD128.
+  render:
+    build:
+      context: .
+      target: render
+    profiles: ["render"]
+    user: "${PUID:-1000}:${PGID:-1000}"
+    group_add:
+      - video
+      - "${RENDER_GID:-render}"
+    environment:
+      DATABASE_URL: postgres://couchverse:${DB_PASSWORD}@db:5432/couchverse
+      DATA_DIR: /data
+    volumes:
+      - ${MEDIA_ROOT:-mediadata}:/data
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/video11:/dev/video11
+    mem_limit: 1g
+    cpus: 2
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
   db:
     image: postgres:17
     environment:
