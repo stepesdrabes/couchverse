@@ -33,6 +33,10 @@ type loadResult struct {
 // render of a long break part.
 const callTimeout = 3 * time.Minute
 
+// startTimeout bounds Chromium's start: on a Pi with a transcode on every core it takes
+// well past chromedp's defaults (20 s to print its address, 10 s to answer).
+const startTimeout = 2 * time.Minute
+
 // open starts Chromium on the render page. On Linux it renders on the GPU when the
 // container has one (/dev/dri, the Pi's V3D; flags from the planning benchmark) and runs
 // without Chromium's sandbox, which needs privileges a container lacks; the page is the
@@ -42,6 +46,7 @@ func (b *browser) open(pageURL string) error {
 		chromedp.WindowSize(1920, 1080),
 		chromedp.Flag("force-device-scale-factor", "1"),
 		chromedp.Flag("run-all-compositor-stages-before-draw", true),
+		chromedp.WSURLReadTimeout(startTimeout),
 	)
 	if b.execPath != "" {
 		opts = append(opts, chromedp.ExecPath(b.execPath))
@@ -55,9 +60,10 @@ func (b *browser) open(pageURL string) error {
 	}
 	alloc, cancelAlloc := chromedp.NewExecAllocator(context.Background(), opts...)
 	// chromedp's protocol types trail the browser, so it reports events it cannot read
-	ctx, cancel := chromedp.NewContext(alloc, chromedp.WithErrorf(func(format string, args ...any) {
-		slog.Debug("chromium: " + fmt.Sprintf(format, args...))
-	}))
+	ctx, cancel := chromedp.NewContext(alloc, chromedp.WithBrowserOption(chromedp.WithDialTimeout(startTimeout)),
+		chromedp.WithErrorf(func(format string, args ...any) {
+			slog.Debug("chromium: " + fmt.Sprintf(format, args...))
+		}))
 	b.ctx = ctx
 	b.cancel = func() {
 		cancel()
