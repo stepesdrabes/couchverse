@@ -22,11 +22,11 @@ WHERE l.kind = 'movies' AND l.managed AND mf.path = :'file';
 INSERT INTO couchtv_clips (id, kind, key, spec, duration_ms, needed_at, last_used_at)
 SELECT c.id::uuid, c.kind, 's2-' || c.kind || c.n, c.spec, c.frames * 40, now(), now()
 FROM s2, LATERAL (VALUES
-    ('00000000-0000-4000-8000-00000000e201', 1, 'squeeze', 275, jsonb_build_object('template', 'squeeze', 'ending', s2.title,
-        'program', jsonb_build_object('kind', 'frames', 'frames', s2.frames), 'handover', 'line', 'clock', '20:13',
+    ('00000000-0000-4000-8000-00000000e201', 1, 'squeeze', 265, jsonb_build_object('template', 'squeeze', 'ending', s2.title,
+        'program', jsonb_build_object('kind', 'frames', 'frames', s2.frames), 'handover', 'cursor', 'clock', '20:13',
         'next', jsonb_build_object('title', s2.title, 'time', '20:15'),
         'bed', jsonb_build_object('url', s2.bed, 'in', 0, 'out', 11.52))),
-    ('00000000-0000-4000-8000-00000000e202', 1, 'ident_short', 125, '{"template": "ident", "cut": "short"}'::jsonb),
+    ('00000000-0000-4000-8000-00000000e202', 1, 'ident_short', 113, '{"template": "ident", "cut": "short"}'::jsonb),
     ('00000000-0000-4000-8000-00000000e203', 1, 'short_promo', 225, jsonb_build_object('template', 'shortPromo', 'title', s2.title,
         'airing', '{"eyebrow": "Tomorrow", "time": "21:00"}'::jsonb, 'duration', 9)),
     ('00000000-0000-4000-8000-00000000e204', 1, 'lineup', 300, jsonb_build_object('template', 'lineup', 'duration', 12, 'items', jsonb_build_array(
@@ -35,8 +35,8 @@ FROM s2, LATERAL (VALUES
     ('00000000-0000-4000-8000-00000000e205', 1, 'sting', 150, '{"template": "sting", "duration": 6}'::jsonb),
     ('00000000-0000-4000-8000-00000000e206', 2, 'short_promo', 225, jsonb_build_object('template', 'shortPromo', 'title', s2.title,
         'airing', '{"eyebrow": "Premiere", "day": "Saturday", "time": "20:15"}'::jsonb, 'duration', 9)),
-    ('00000000-0000-4000-8000-00000000e207', 1, 'upnext', 200, jsonb_build_object('template', 'upNext', 'title', s2.title,
-        'time', '20:15', 'clock', '20:14', 'duration', 8))
+    ('00000000-0000-4000-8000-00000000e207', 1, 'upnext', 222, jsonb_build_object('template', 'upNext', 'title', s2.title,
+        'time', '20:15', 'clock', '20:14', 'duration', 8.88))
 ) AS c(id, n, kind, frames, spec)
 ON CONFLICT (key) DO NOTHING;
 
