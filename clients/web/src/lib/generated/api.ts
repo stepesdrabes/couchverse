@@ -70,7 +70,7 @@ export interface AdminJob {
 	runAt: string;
 	status: AdminJobStatus;
 	subject?: JobSubject;
-	/** probe, extract_subtitles, transcode_hls, fetch_metadata, import_episodes or cleanup; rows left by older versions may carry retired types. */
+	/** probe, reprobe, extract_subtitles, transcode_hls, fetch_metadata, import_episodes, prepare_download, analyze_markers, couchtv_plan, couchtv_analyze or cleanup; rows left by older versions may carry retired types. */
 	type: string;
 }
 
@@ -470,6 +470,26 @@ export interface CouchTvOverview {
 	plannedUntil: string | null;
 }
 
+export interface CouchTvPromoAudio {
+	durationMs: number;
+	mediaFileId: string;
+	/** auto: the analysis' pick; admin: the admin's, which the analysis keeps. */
+	source: CouchTvPromoAudioSource;
+	startMs: number;
+}
+
+export interface CouchTvPromoAudioPick {
+	/** From 1000 to 120000. */
+	durationMs: number;
+	/** A file of the title (its own or one of its episodes'). */
+	mediaFileId: string;
+	/** At least 0. */
+	startMs: number;
+}
+
+/** auto: the analysis' pick; admin: the admin's, which the analysis keeps. */
+export type CouchTvPromoAudioSource = 'auto' | 'admin';
+
 export interface CouchTvRotation {
 	/**
 	 * A gap this long before a fixed time is filled with reruns where one fits; shorter gaps grow the break.
@@ -509,6 +529,27 @@ export interface CouchTvSchedule {
 	to: string;
 }
 
+export interface CouchTvShot {
+	/** Whole frames at 25 fps, 1 to 3 seconds. */
+	durationMs: number;
+	mediaFileId: string;
+	/** How well it suits a promo (motion and contrast), 0 to 1; 1 for an admin's pick. */
+	score: number;
+	startMs: number;
+}
+
+export interface CouchTvShotPick {
+	/**
+	 * Rounded down to whole frames at 25 fps.
+	 * From 1000 to 3000.
+	 */
+	durationMs: number;
+	/** A file of the title (its own or one of its episodes'). */
+	mediaFileId: string;
+	/** At least 0. */
+	startMs: number;
+}
+
 export interface CouchTvSlot {
 	/** Starts exactly at start; programs before it are shortened or swapped to make room. */
 	anchor?: boolean;
@@ -546,6 +587,64 @@ export type CouchTvSlotPick = 'any' | 'comedy' | 'animation' | 'drama' | 'family
 export interface CouchTvTemplate {
 	/** From 1 to 200 items. */
 	slots: CouchTvSlot[];
+}
+
+export interface CouchTvTitle {
+	/** When it ran; null before the first. */
+	analyzedAt: string | null;
+	/** The analysis that measured the title; 0 before the first. */
+	analyzedVersion: number;
+	/** An analysis of the title (its markers or its promo picks) is queued or running. */
+	analyzing: boolean;
+	/** Never on Couch TV: the planner leaves the title out. */
+	excluded: boolean;
+	/** The program's integrated loudness (EBU R128); null until measured. */
+	loudnessLufs: number | null;
+	/** The promo's mood; absent lets the composer choose. */
+	mood?: CouchTvTitleMood;
+	/** The promo soundtrack excerpt; absent when none was found. */
+	promoAudio?: CouchTvPromoAudio;
+	/** Footage for promos, in the order they air. */
+	shots: CouchTvShot[];
+	/** Who chose the shots; absent before the analysis. */
+	shotsSource?: CouchTvTitleShotsSource;
+	titleId: string;
+	titleKind: CouchTvTitleTitleKind;
+}
+
+/** The promo's mood; absent lets the composer choose. */
+export type CouchTvTitleMood = 'cinematic' | 'grit' | 'bright';
+
+/** Who chose the shots; absent before the analysis. */
+export type CouchTvTitleShotsSource = 'auto' | 'admin';
+
+export type CouchTvTitleTitleKind = 'movie' | 'series';
+
+export interface CouchTvTitleUpdate {
+	/** Never on Couch TV. */
+	excluded: boolean;
+	/** Absent lets the composer choose. */
+	mood?: CouchTvTitleUpdateMood;
+	/** Absent hands the promo audio back to the analysis. */
+	promoAudio?: CouchTvPromoAudioPick;
+	/**
+	 * In the order they air; absent or empty hands the shots back to the analysis.
+	 * At most 6 items.
+	 */
+	shots?: CouchTvShotPick[];
+}
+
+/** Absent lets the composer choose. */
+export type CouchTvTitleUpdateMood = 'cinematic' | 'grit' | 'bright';
+
+export interface CouchTvWaveform {
+	fromMs: number;
+	/** The loudest momentary loudness (LUFS, -70 to 0) of each step from fromMs. */
+	loudness: number[];
+	mediaFileId: string;
+	/** The span each value covers. */
+	stepMs: number;
+	toMs: number;
 }
 
 /** body returns the participant token in the response instead of setting the couch cookie. */
@@ -918,7 +1017,7 @@ export type JitPlanVideo = 'copy' | 'transcode';
 
 export interface JobPayload {
 	mediaFileId?: string;
-	/** Season numbers to import; empty imports every season. */
+	/** Season numbers to import (empty imports every season), or the one season analyze_markers matches. */
 	seasons?: number[];
 	titleId?: string;
 	tmdbId?: number;
@@ -2020,6 +2119,10 @@ export const addToWatchlist = (titleId: string, opts?: CallOptions) =>
 export const adminAbortUpload = (id: string, opts?: CallOptions) =>
 	api<void>(`/admin/uploads/${encodeURIComponent(id)}`, { ...opts, method: 'DELETE' });
 
+/** `POST /admin/couchtv/titles/{id}/analyze` */
+export const adminAnalyzeCouchTvTitle = (id: string, opts?: CallOptions) =>
+	api<CouchTvTitle>(`/admin/couchtv/titles/${encodeURIComponent(id)}/analyze`, { ...opts, method: 'POST' });
+
 export interface AdminAppendUploadQuery {
 	/**
 	 * Byte offset this chunk starts at.
@@ -2067,6 +2170,28 @@ export const adminCancelJob = (id: number, opts?: CallOptions) =>
  */
 export const adminCompleteUpload = (id: string, body: UploadAssignment, opts?: CallOptions) =>
 	api<CompletedUpload>(`/admin/uploads/${encodeURIComponent(id)}/complete`, { ...opts, method: 'POST', body });
+
+export interface AdminCouchTvWaveformQuery {
+	/**
+	 * Where the stretch starts.
+	 * At least 0.
+	 */
+	fromMs?: number;
+	/**
+	 * Where it ends; 5 minutes on (or the file's end) when omitted, at most 15 minutes after fromMs.
+	 * At least 0.
+	 */
+	toMs?: number;
+	/**
+	 * How many values to return (fewer for a stretch under 100 ms a value).
+	 * Default `300`, from 10 to 2000.
+	 */
+	points?: number;
+}
+
+/** `GET /admin/couchtv/media-files/{id}/waveform` */
+export const adminCouchTvWaveform = (id: string, query: AdminCouchTvWaveformQuery = {}, opts?: CallOptions) =>
+	api<CouchTvWaveform>(`/admin/couchtv/media-files/${encodeURIComponent(id)}/waveform${qs({ fromMs: query.fromMs, toMs: query.toMs, points: query.points })}`, opts);
 
 /**
  * `POST /admin/seasons/{id}/episodes`
@@ -2171,6 +2296,10 @@ export const adminGetAnalytics = (query: AdminGetAnalyticsQuery = {}, opts?: Cal
 /** `GET /admin/couchtv` */
 export const adminGetCouchTv = (opts?: CallOptions) =>
 	api<CouchTvOverview>(`/admin/couchtv`, opts);
+
+/** `GET /admin/couchtv/titles/{id}` */
+export const adminGetCouchTvTitle = (id: string, opts?: CallOptions) =>
+	api<CouchTvTitle>(`/admin/couchtv/titles/${encodeURIComponent(id)}`, opts);
 
 /** `GET /admin/episodes/{id}/translations` */
 export const adminGetEpisodeTranslations = (id: string, opts?: CallOptions) =>
@@ -2342,6 +2471,14 @@ export const adminSetTitleTranslation = (id: string, lang: string, body: Transla
  */
 export const adminUpdateCouchTv = (body: CouchTvConfig, opts?: CallOptions) =>
 	api<CouchTvOverview>(`/admin/couchtv`, { ...opts, method: 'PUT', body });
+
+/**
+ * `PUT /admin/couchtv/titles/{id}`
+ *
+ * @param body
+ */
+export const adminUpdateCouchTvTitle = (id: string, body: CouchTvTitleUpdate, opts?: CallOptions) =>
+	api<CouchTvTitle>(`/admin/couchtv/titles/${encodeURIComponent(id)}`, { ...opts, method: 'PUT', body });
 
 /**
  * `PATCH /admin/episodes/{id}`

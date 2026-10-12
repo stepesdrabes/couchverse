@@ -62,8 +62,10 @@ type Deps struct {
 	Grants    *grant.Signer
 	Downloads *downloads.Store
 	CouchTv   *couchtv.Scheduler
-	// Markers finds intros and credits (analyze_markers)
-	Markers *library.MarkerAnalyzer
+	// Markers finds intros and credits (analyze_markers); CouchTvAnalysis measures
+	// titles for the channel (couchtv_analyze)
+	Markers         *library.MarkerAnalyzer
+	CouchTvAnalysis *couchtv.Analyzer
 }
 
 type Server struct {
@@ -153,7 +155,7 @@ func (s *Server) register(v1 chi.Router) huma.API {
 	playback.NewModule(s.Stream, playback.NewAdminTranscode(s.Library, s.Settings, s.Jobs, s.Transcode, s.Config.FFmpegPath)).Register(rt)
 	couch.NewModule(s.Couch, s.Settings).Register(rt)
 	ranks.NewModule(s.Ranks, s.Settings).Register(rt)
-	couchtv.NewModule(s.CouchTv).Register(rt)
+	couchtv.NewModule(s.CouchTv, s.CouchTvAnalysis).Register(rt)
 	artwork.NewHandlers(s.Artwork).Register(rt)
 	subtitles.NewSubtitles(s.Subtitles.Subs, s.Library, s.Subtitles).Register(rt)
 	library.NewModule(s.Library, s.Uploads, s.Markers).Register(rt)

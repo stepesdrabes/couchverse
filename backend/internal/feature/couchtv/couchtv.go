@@ -1,6 +1,8 @@
 // Package couchtv runs Couch TV, the live channel (docs/couch-tv-plan.md): the weekly
-// template and its config, the pure schedule generator, the plan job and the admin
-// operations. It reads catalog and library tables by SQL join; nothing imports it.
+// template and its config, the pure schedule generator, the plan job, the per-title
+// analysis for promos and the admin operations. It reads catalog and library tables
+// (media markers included) by SQL join and imports library only to queue its marker
+// analysis; nothing imports it.
 package couchtv
 
 import "time"
@@ -41,16 +43,15 @@ type Airing struct {
 type Media struct {
 	FileID   string
 	Duration time.Duration
-	// CreditsAt is where the end credits start; 0 until the credits markers exist.
+	// CreditsAt is where the end credits start (the file's credits marker); 0 without one.
 	CreditsAt time.Duration
 	// Ready is whether the file is prepared for the channel.
 	Ready bool
 }
 
-// onAir is how long a program holds the screen. Once credits markers exist (a later
-// phase) a program airs up to its credits, rounded to its package's segment boundary,
-// and the rest of the credits plays inside the next break's squeeze; until then it
-// airs in full.
+// onAir is how long a program holds the screen: up to its credits when it has a credits
+// marker (the rest of the credits plays inside the next break's squeeze), else in full.
+// Phase 4 rounds it to the package's segment boundary.
 func (m Media) onAir() time.Duration {
 	if m.CreditsAt > 0 && m.CreditsAt < m.Duration {
 		return m.CreditsAt

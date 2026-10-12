@@ -43,7 +43,7 @@ type Job struct {
 // AdminJob is a job as the admin job list shows it, with its subject resolved.
 type AdminJob struct {
 	ID          int64       `json:"id"`
-	Type        string      `json:"type" doc:"probe, extract_subtitles, transcode_hls, fetch_metadata, import_episodes or cleanup; rows left by older versions may carry retired types."`
+	Type        string      `json:"type" doc:"probe, reprobe, extract_subtitles, transcode_hls, fetch_metadata, import_episodes, prepare_download, analyze_markers, couchtv_plan, couchtv_analyze or cleanup; rows left by older versions may carry retired types."`
 	Payload     JobPayload  `json:"payload"`
 	Status      string      `json:"status" enum:"pending,running,done,failed,cancelled"`
 	Priority    int         `json:"priority"`
@@ -61,14 +61,15 @@ type AdminJob struct {
 // JobPayload is a job's input. Which keys are set depends on the type:
 // mediaFileId for probe, extract_subtitles and transcode_hls (which adds
 // variant), titleId with tmdbId for fetch_metadata or with seasons for
-// import_episodes, and none for cleanup.
+// import_episodes, mediaFileId or titleId with one season for analyze_markers,
+// titleId for couchtv_analyze, and none for cleanup and the backfills.
 type JobPayload struct {
 	MediaFileID string `json:"mediaFileId,omitempty"`
 	Variant     string `json:"variant,omitempty" doc:"Transcode output: source, multiaudio or a rendition such as 720p."`
 	TitleID     string `json:"titleId,omitempty"`
 	TmdbID      int    `json:"tmdbId,omitempty"`
 	// a pointer so an explicit empty list (every season) is listed as stored
-	Seasons *[]int `json:"seasons,omitempty" doc:"Season numbers to import; empty imports every season."`
+	Seasons *[]int `json:"seasons,omitempty" doc:"Season numbers to import (empty imports every season), or the one season analyze_markers matches."`
 }
 
 // JobSubject names the content a job works on, resolved from the payload's

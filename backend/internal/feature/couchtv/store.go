@@ -65,6 +65,11 @@ const readySQL = `(EXISTS (SELECT 1 FROM transcode_variants v WHERE v.media_file
 // primaryFile is the playable file of a title or episode, as playback picks it.
 const primaryFile = `SELECT * FROM media_files WHERE %s ORDER BY (audio_role = 'primary') DESC, height DESC, id LIMIT 1`
 
+// creditsSQL is where the credits of media file mf start (ms), the admin's marker over
+// the analysis'; null without one, or when the admin says there are none.
+const creditsSQL = `(SELECT mm.start_ms FROM media_markers mm WHERE mm.media_file_id = mf.id AND mm.kind = 'credits'
+	ORDER BY mm.source = 'admin' DESC LIMIT 1)`
+
 // Library loads what the channel can air: published titles that are not excluded,
 // with a probed file; series by episodes in seasons 1 and up.
 func (s *Store) Library(ctx context.Context) (Library, error) {
@@ -75,7 +80,7 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 	lib := Library{Movies: []Movie{}, Series: []Series{}}
 	rows, err := s.q.Query(ctx, `
 		SELECT t.id, t.name, t.added_at, t.release_date, t.year, coalesce(t.collection_tmdb_id, 0), t.collection_name,
-		       mf.id, mf.duration_seconds::float8, `+readySQL+`
+		       mf.id, mf.duration_seconds::float8, `+readySQL+`, `+creditsSQL+`
 		FROM titles t
 		JOIN LATERAL (`+fmt.Sprintf(primaryFile, "title_id = t.id")+`) mf ON true
 		WHERE t.kind = 'movie' AND t.status = 'published' AND mf.duration_seconds > 0
@@ -87,13 +92,14 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 	for rows.Next() {
 		var m Movie
 		var released *time.Time
-		var year *int
+		var year, credits *int
 		var seconds float64
 		if err := rows.Scan(&m.ID, &m.Name, &m.AddedAt, &released, &year, &m.CollectionID, &m.CollectionName,
-			&m.FileID, &seconds, &m.Ready); err != nil {
+			&m.FileID, &seconds, &m.Ready, &credits); err != nil {
 			rows.Close()
 			return Library{}, err
 		}
+		m.CreditsAt = msToDuration(credits)
 		switch {
 		case released != nil:
 			m.Released = *released
@@ -110,7 +116,8 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 	}
 
 	rows, err = s.q.Query(ctx, `
-		SELECT t.id, t.name, e.id, s.season_number, e.episode_number, mf.id, mf.duration_seconds::float8, `+readySQL+`
+		SELECT t.id, t.name, e.id, s.season_number, e.episode_number, mf.id, mf.duration_seconds::float8, `+readySQL+`,
+		       `+creditsSQL+`
 		FROM titles t
 		JOIN seasons s ON s.title_id = t.id AND s.season_number > 0
 		JOIN episodes e ON e.season_id = s.id
@@ -126,10 +133,11 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 		var seriesID, name string
 		var e Episode
 		var seconds float64
-		if err := rows.Scan(&seriesID, &name, &e.ID, &e.Season, &e.Number, &e.FileID, &seconds, &e.Ready); err != nil {
+		var credits *int
+		if err := rows.Scan(&seriesID, &name, &e.ID, &e.Season, &e.Number, &e.FileID, &seconds, &e.Ready, &credits); err != nil {
 			return Library{}, err
 		}
-		e.Duration = secondsToDuration(seconds)
+		e.Duration, e.CreditsAt = secondsToDuration(seconds), msToDuration(credits)
 		if n := len(lib.Series); n == 0 || lib.Series[n-1].ID != seriesID {
 			lib.Series = append(lib.Series, Series{ID: seriesID, Name: name, Genres: genres[seriesID]})
 		}
@@ -141,6 +149,13 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 
 func secondsToDuration(s float64) time.Duration {
 	return time.Duration(s*1000) * time.Millisecond
+}
+
+func msToDuration(ms *int) time.Duration {
+	if ms == nil {
+		return 0
+	}
+	return time.Duration(*ms) * time.Millisecond
 }
 
 // genres maps title ids to their genre names.

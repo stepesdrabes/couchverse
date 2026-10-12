@@ -305,6 +305,20 @@ func apiCases() []apiCase {
 		{op: "adminListAirings", as: "admin", method: "GET", path: "/admin/couchtv/airings?from=" + couchTvNoon(1) + "&to=" + couchTvNoon(2), status: 200},
 		{op: "adminListAirings", as: "admin", method: "GET", path: "/admin/couchtv/airings", status: 200},
 		{op: "adminListAirings", as: "admin", method: "GET", path: "/admin/couchtv/airings?from=" + couchTvNoon(2) + "&to=" + couchTvNoon(1), status: 400},
+		{op: "adminGetCouchTvTitle", as: "admin", method: "GET", path: "/admin/couchtv/titles/" + seriesID, status: 200},
+		{op: "adminGetCouchTvTitle", as: "admin", method: "GET", path: "/admin/couchtv/titles/" + unknownID, status: 404},
+		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
+			"excluded": false, "mood": "grit",
+			"promoAudio": map[string]any{"mediaFileId": movieFileID, "startMs": 6_500_000, "durationMs": 30_000},
+			"shots":      []map[string]any{{"mediaFileId": movieFileID, "startMs": 600_000, "durationMs": 2_010}},
+		}, status: 200},
+		// a shot from another title's file
+		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
+			"excluded": false, "shots": []map[string]any{{"mediaFileId": hdrFileID, "startMs": 0, "durationMs": 2000}},
+		}, status: 400},
+		{op: "adminAnalyzeCouchTvTitle", as: "admin", method: "POST", path: "/admin/couchtv/titles/" + seriesID + "/analyze", status: 202},
+		// the seeded files are not on disk (a real one is measured in TestMediaAnalysis)
+		{op: "adminCouchTvWaveform", as: "admin", method: "GET", path: "/admin/couchtv/media-files/" + movieFileID + "/waveform", status: 404},
 
 		{op: "getArtworkGrant", as: "nora", method: "GET", path: "/me/artwork-grant", status: 200, save: map[string]string{"artGrant": "grant"}},
 		{op: "getArtwork", method: "GET", path: "/artwork/" + moviePosterID, status: 401},

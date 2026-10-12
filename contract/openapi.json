@@ -268,7 +268,7 @@
             "$ref": "#/components/schemas/JobSubject"
           },
           "type": {
-            "description": "probe, extract_subtitles, transcode_hls, fetch_metadata, import_episodes or cleanup; rows left by older versions may carry retired types.",
+            "description": "probe, reprobe, extract_subtitles, transcode_hls, fetch_metadata, import_episodes, prepare_download, analyze_markers, couchtv_plan, couchtv_analyze or cleanup; rows left by older versions may carry retired types.",
             "type": "string"
           }
         },
@@ -1516,6 +1516,65 @@
         ],
         "type": "object"
       },
+      "CouchTvPromoAudio": {
+        "additionalProperties": false,
+        "properties": {
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "mediaFileId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "source": {
+            "description": "auto: the analysis' pick; admin: the admin's, which the analysis keeps.",
+            "enum": [
+              "auto",
+              "admin"
+            ],
+            "type": "string"
+          },
+          "startMs": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mediaFileId",
+          "startMs",
+          "durationMs",
+          "source"
+        ],
+        "type": "object"
+      },
+      "CouchTvPromoAudioPick": {
+        "additionalProperties": false,
+        "properties": {
+          "durationMs": {
+            "format": "int64",
+            "maximum": 120000,
+            "minimum": 1000,
+            "type": "integer"
+          },
+          "mediaFileId": {
+            "description": "A file of the title (its own or one of its episodes').",
+            "format": "uuid",
+            "type": "string"
+          },
+          "startMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mediaFileId",
+          "startMs",
+          "durationMs"
+        ],
+        "type": "object"
+      },
       "CouchTvRotation": {
         "additionalProperties": false,
         "properties": {
@@ -1599,6 +1658,64 @@
           "to",
           "timeZone",
           "airings"
+        ],
+        "type": "object"
+      },
+      "CouchTvShot": {
+        "additionalProperties": false,
+        "properties": {
+          "durationMs": {
+            "description": "Whole frames at 25 fps, 1 to 3 seconds.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "mediaFileId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "score": {
+            "description": "How well it suits a promo (motion and contrast), 0 to 1; 1 for an admin's pick.",
+            "format": "double",
+            "type": "number"
+          },
+          "startMs": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mediaFileId",
+          "startMs",
+          "durationMs",
+          "score"
+        ],
+        "type": "object"
+      },
+      "CouchTvShotPick": {
+        "additionalProperties": false,
+        "properties": {
+          "durationMs": {
+            "description": "Rounded down to whole frames at 25 fps.",
+            "format": "int64",
+            "maximum": 3000,
+            "minimum": 1000,
+            "type": "integer"
+          },
+          "mediaFileId": {
+            "description": "A file of the title (its own or one of its episodes').",
+            "format": "uuid",
+            "type": "string"
+          },
+          "startMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mediaFileId",
+          "startMs",
+          "durationMs"
         ],
         "type": "object"
       },
@@ -1699,6 +1816,162 @@
         },
         "required": [
           "slots"
+        ],
+        "type": "object"
+      },
+      "CouchTvTitle": {
+        "additionalProperties": false,
+        "properties": {
+          "analyzedAt": {
+            "description": "When it ran; null before the first.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "analyzedVersion": {
+            "description": "The analysis that measured the title; 0 before the first.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "analyzing": {
+            "description": "An analysis of the title (its markers or its promo picks) is queued or running.",
+            "type": "boolean"
+          },
+          "excluded": {
+            "description": "Never on Couch TV: the planner leaves the title out.",
+            "type": "boolean"
+          },
+          "loudnessLufs": {
+            "description": "The program's integrated loudness (EBU R128); null until measured.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "mood": {
+            "description": "The promo's mood; absent lets the composer choose.",
+            "enum": [
+              "cinematic",
+              "grit",
+              "bright"
+            ],
+            "type": "string"
+          },
+          "promoAudio": {
+            "$ref": "#/components/schemas/CouchTvPromoAudio",
+            "description": "The promo soundtrack excerpt; absent when none was found."
+          },
+          "shots": {
+            "description": "Footage for promos, in the order they air.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvShot"
+            },
+            "type": "array"
+          },
+          "shotsSource": {
+            "description": "Who chose the shots; absent before the analysis.",
+            "enum": [
+              "auto",
+              "admin"
+            ],
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "titleKind": {
+            "enum": [
+              "movie",
+              "series"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "titleId",
+          "titleKind",
+          "excluded",
+          "shots",
+          "loudnessLufs",
+          "analyzedVersion",
+          "analyzedAt",
+          "analyzing"
+        ],
+        "type": "object"
+      },
+      "CouchTvTitleUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "excluded": {
+            "description": "Never on Couch TV.",
+            "type": "boolean"
+          },
+          "mood": {
+            "description": "Absent lets the composer choose.",
+            "enum": [
+              "cinematic",
+              "grit",
+              "bright"
+            ],
+            "type": "string"
+          },
+          "promoAudio": {
+            "$ref": "#/components/schemas/CouchTvPromoAudioPick",
+            "description": "Absent hands the promo audio back to the analysis."
+          },
+          "shots": {
+            "description": "In the order they air; absent or empty hands the shots back to the analysis.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvShotPick"
+            },
+            "maxItems": 6,
+            "type": "array"
+          }
+        },
+        "required": [
+          "excluded"
+        ],
+        "type": "object"
+      },
+      "CouchTvWaveform": {
+        "additionalProperties": false,
+        "properties": {
+          "fromMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "loudness": {
+            "description": "The loudest momentary loudness (LUFS, -70 to 0) of each step from fromMs.",
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "mediaFileId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "stepMs": {
+            "description": "The span each value covers.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "toMs": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mediaFileId",
+          "fromMs",
+          "toMs",
+          "stepMs",
+          "loudness"
         ],
         "type": "object"
       },
@@ -2897,7 +3170,7 @@
             "type": "string"
           },
           "seasons": {
-            "description": "Season numbers to import; empty imports every season.",
+            "description": "Season numbers to import (empty imports every season), or the one season analyze_markers matches.",
             "items": {
               "format": "int64",
               "type": "integer"
@@ -6539,6 +6812,248 @@
               }
             },
             "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/admin/couchtv/media-files/{id}/waveform": {
+      "get": {
+        "operationId": "adminCouchTvWaveform",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where the stretch starts.",
+            "explode": false,
+            "in": "query",
+            "name": "fromMs",
+            "schema": {
+              "description": "Where the stretch starts.",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Where it ends; 5 minutes on (or the file's end) when omitted, at most 15 minutes after fromMs.",
+            "explode": false,
+            "in": "query",
+            "name": "toMs",
+            "schema": {
+              "description": "Where it ends; 5 minutes on (or the file's end) when omitted, at most 15 minutes after fromMs.",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many values to return (fewer for a stretch under 100 ms a value).",
+            "explode": false,
+            "in": "query",
+            "name": "points",
+            "schema": {
+              "default": 300,
+              "description": "How many values to return (fewer for a stretch under 100 ms a value).",
+              "format": "int64",
+              "maximum": 2000,
+              "minimum": 10,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvWaveform"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/admin/couchtv/titles/{id}": {
+      "get": {
+        "operationId": "adminGetCouchTvTitle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvTitle"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "couchtv"
+        ]
+      },
+      "put": {
+        "operationId": "adminUpdateCouchTvTitle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CouchTvTitleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvTitle"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/admin/couchtv/titles/{id}/analyze": {
+      "post": {
+        "operationId": "adminAnalyzeCouchTvTitle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvTitle"
+                }
+              }
+            },
+            "description": "Accepted"
           },
           "default": {
             "content": {

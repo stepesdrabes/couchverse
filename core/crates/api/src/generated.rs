@@ -240,7 +240,7 @@ pub mod types {
         pub status: AdminJobStatus,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub subject: Option<JobSubject>,
-        /// probe, extract_subtitles, transcode_hls, fetch_metadata, import_episodes or cleanup; rows left by older versions may carry retired types.
+        /// probe, reprobe, extract_subtitles, transcode_hls, fetch_metadata, import_episodes, prepare_download, analyze_markers, couchtv_plan, couchtv_analyze or cleanup; rows left by older versions may carry retired types.
         pub r#type: String,
     }
 
@@ -1543,6 +1543,55 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct CouchTvPromoAudio {
+        pub duration_ms: i64,
+        pub media_file_id: String,
+        /// auto: the analysis' pick; admin: the admin's, which the analysis keeps.
+        pub source: CouchTvPromoAudioSource,
+        pub start_ms: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvPromoAudioPick {
+        /// From 1000 to 120000.
+        pub duration_ms: i64,
+        /// A file of the title (its own or one of its episodes').
+        pub media_file_id: String,
+        /// At least 0.
+        pub start_ms: i64,
+    }
+
+    /// auto: the analysis' pick; admin: the admin's, which the analysis keeps.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvPromoAudioSource {
+        #[serde(rename = "auto")]
+        Auto,
+        #[serde(rename = "admin")]
+        Admin,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvPromoAudioSource {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvPromoAudioSource::Auto => "auto",
+                CouchTvPromoAudioSource::Admin => "admin",
+                CouchTvPromoAudioSource::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvPromoAudioSource {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct CouchTvRotation {
         /// A gap this long before a fixed time is filled with reruns where one fits; shorter gaps grow the break.
         /// From 1 to 240.
@@ -1572,6 +1621,29 @@ pub mod types {
         /// The channel's time zone, for showing the times as the template has them.
         pub time_zone: String,
         pub to: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvShot {
+        /// Whole frames at 25 fps, 1 to 3 seconds.
+        pub duration_ms: i64,
+        pub media_file_id: String,
+        /// How well it suits a promo (motion and contrast), 0 to 1; 1 for an admin's pick.
+        pub score: f64,
+        pub start_ms: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvShotPick {
+        /// Rounded down to whole frames at 25 fps.
+        /// From 1000 to 3000.
+        pub duration_ms: i64,
+        /// A file of the title (its own or one of its episodes').
+        pub media_file_id: String,
+        /// At least 0.
+        pub start_ms: i64,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1731,6 +1803,180 @@ pub mod types {
     pub struct CouchTvTemplate {
         /// From 1 to 200 items.
         pub slots: Vec<CouchTvSlot>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvTitle {
+        /// When it ran; null before the first.
+        pub analyzed_at: Option<String>,
+        /// The analysis that measured the title; 0 before the first.
+        pub analyzed_version: i64,
+        /// An analysis of the title (its markers or its promo picks) is queued or running.
+        pub analyzing: bool,
+        /// Never on Couch TV: the planner leaves the title out.
+        pub excluded: bool,
+        /// The program's integrated loudness (EBU R128); null until measured.
+        pub loudness_lufs: Option<f64>,
+        /// The promo's mood; absent lets the composer choose.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub mood: Option<CouchTvTitleMood>,
+        /// The promo soundtrack excerpt; absent when none was found.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub promo_audio: Option<CouchTvPromoAudio>,
+        /// Footage for promos, in the order they air.
+        pub shots: Vec<CouchTvShot>,
+        /// Who chose the shots; absent before the analysis.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub shots_source: Option<CouchTvTitleShotsSource>,
+        pub title_id: String,
+        pub title_kind: CouchTvTitleTitleKind,
+    }
+
+    /// The promo's mood; absent lets the composer choose.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvTitleMood {
+        #[serde(rename = "cinematic")]
+        Cinematic,
+        #[serde(rename = "grit")]
+        Grit,
+        #[serde(rename = "bright")]
+        Bright,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvTitleMood {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvTitleMood::Cinematic => "cinematic",
+                CouchTvTitleMood::Grit => "grit",
+                CouchTvTitleMood::Bright => "bright",
+                CouchTvTitleMood::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvTitleMood {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// Who chose the shots; absent before the analysis.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvTitleShotsSource {
+        #[serde(rename = "auto")]
+        Auto,
+        #[serde(rename = "admin")]
+        Admin,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvTitleShotsSource {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvTitleShotsSource::Auto => "auto",
+                CouchTvTitleShotsSource::Admin => "admin",
+                CouchTvTitleShotsSource::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvTitleShotsSource {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvTitleTitleKind {
+        #[serde(rename = "movie")]
+        Movie,
+        #[serde(rename = "series")]
+        Series,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvTitleTitleKind {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvTitleTitleKind::Movie => "movie",
+                CouchTvTitleTitleKind::Series => "series",
+                CouchTvTitleTitleKind::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvTitleTitleKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvTitleUpdate {
+        /// Never on Couch TV.
+        pub excluded: bool,
+        /// Absent lets the composer choose.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub mood: Option<CouchTvTitleUpdateMood>,
+        /// Absent hands the promo audio back to the analysis.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub promo_audio: Option<CouchTvPromoAudioPick>,
+        /// In the order they air; absent or empty hands the shots back to the analysis.
+        /// At most 6 items.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub shots: Option<Vec<CouchTvShotPick>>,
+    }
+
+    /// Absent lets the composer choose.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvTitleUpdateMood {
+        #[serde(rename = "cinematic")]
+        Cinematic,
+        #[serde(rename = "grit")]
+        Grit,
+        #[serde(rename = "bright")]
+        Bright,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvTitleUpdateMood {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvTitleUpdateMood::Cinematic => "cinematic",
+                CouchTvTitleUpdateMood::Grit => "grit",
+                CouchTvTitleUpdateMood::Bright => "bright",
+                CouchTvTitleUpdateMood::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvTitleUpdateMood {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvWaveform {
+        pub from_ms: i64,
+        /// The loudest momentary loudness (LUFS, -70 to 0) of each step from fromMs.
+        pub loudness: Vec<f64>,
+        pub media_file_id: String,
+        /// The span each value covers.
+        pub step_ms: i64,
+        pub to_ms: i64,
     }
 
     /// body returns the participant token in the response instead of setting the couch cookie.
@@ -2927,7 +3173,7 @@ pub mod types {
     pub struct JobPayload {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub media_file_id: Option<String>,
-        /// Season numbers to import; empty imports every season.
+        /// Season numbers to import (empty imports every season), or the one season analyze_markers matches.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub seasons: Option<Vec<i64>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5503,6 +5749,17 @@ pub mod ops {
         ))
     }
 
+    /// `POST /admin/couchtv/titles/{id}/analyze`
+    pub fn admin_analyze_couch_tv_title(id: &str) -> Call<CouchTvTitle> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Post,
+            format!("/admin/couchtv/titles/{}/analyze", build::segment(id)),
+            q,
+            Body::Empty,
+        ))
+    }
+
     /// Query parameters of [`admin_append_upload`].
     #[derive(Debug, Clone, PartialEq)]
     pub struct AdminAppendUploadQuery {
@@ -5569,6 +5826,37 @@ pub mod ops {
             format!("/admin/uploads/{}/complete", build::segment(id)),
             q,
             build::json_body(Some(body)),
+        ))
+    }
+
+    /// Query parameters of [`admin_couch_tv_waveform`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct AdminCouchTvWaveformQuery {
+        /// Where the stretch starts.
+        /// At least 0.
+        pub from_ms: Option<i64>,
+        /// Where it ends; 5 minutes on (or the file's end) when omitted, at most 15 minutes after fromMs.
+        /// At least 0.
+        pub to_ms: Option<i64>,
+        /// How many values to return (fewer for a stretch under 100 ms a value).
+        /// Default `300`, from 10 to 2000.
+        pub points: Option<i64>,
+    }
+
+    /// `GET /admin/couchtv/media-files/{id}/waveform`
+    pub fn admin_couch_tv_waveform(
+        id: &str,
+        query: &AdminCouchTvWaveformQuery,
+    ) -> Call<CouchTvWaveform> {
+        let mut q = Vec::new();
+        build::push(&mut q, "fromMs", query.from_ms.as_ref());
+        build::push(&mut q, "toMs", query.to_ms.as_ref());
+        build::push(&mut q, "points", query.points.as_ref());
+        build::json(build::request(
+            Method::Get,
+            format!("/admin/couchtv/media-files/{}/waveform", build::segment(id)),
+            q,
+            Body::Empty,
         ))
     }
 
@@ -5768,6 +6056,17 @@ pub mod ops {
     pub fn admin_get_couch_tv() -> Call<CouchTvOverview> {
         let q = Vec::new();
         build::json(build::request(Method::Get, "/admin/couchtv".to_string(), q, Body::Empty))
+    }
+
+    /// `GET /admin/couchtv/titles/{id}`
+    pub fn admin_get_couch_tv_title(id: &str) -> Call<CouchTvTitle> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Get,
+            format!("/admin/couchtv/titles/{}", build::segment(id)),
+            q,
+            Body::Empty,
+        ))
     }
 
     /// `GET /admin/episodes/{id}/translations`
@@ -6113,6 +6412,17 @@ pub mod ops {
         build::json(build::request(
             Method::Put,
             "/admin/couchtv".to_string(),
+            q,
+            build::json_body(Some(body)),
+        ))
+    }
+
+    /// `PUT /admin/couchtv/titles/{id}`
+    pub fn admin_update_couch_tv_title(id: &str, body: &CouchTvTitleUpdate) -> Call<CouchTvTitle> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Put,
+            format!("/admin/couchtv/titles/{}", build::segment(id)),
             q,
             build::json_body(Some(body)),
         ))

@@ -72,7 +72,12 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 	// hub reuses its BuildPlayback to assemble follower payloads
 	stream := playback.NewStream(subtitleService.Subs, catalogStore, libraryStore, set, jobsStore, cfg.DataDir, sessionManager, cfg.FFmpegPath, grants)
 
+	// the channel picks its promos from the markers, so a title whose markers change is
+	// analyzed again (library cannot import couchtv)
 	markers := &library.MarkerAnalyzer{Files: libraryStore, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	couchTvStore := couchtv.NewStore(pool)
+	couchTvAnalysis := &couchtv.Analyzer{Store: couchTvStore, Jobs: jobsStore, Markers: markers, FFmpegPath: cfg.FFmpegPath}
+	markers.Analyzed = couchTvAnalysis.Queue
 
 	hubCtx, stop := context.WithCancel(context.Background())
 	couchHub := couch.NewHub(hubCtx, couch.Deps{
@@ -106,8 +111,10 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 			Couch:     couchHub,
 			Grants:    grants,
 			Downloads: downloads.NewStore(pool),
-			CouchTv:   &couchtv.Scheduler{Store: couchtv.NewStore(pool), Settings: set, Jobs: jobsStore},
-			Markers:   markers,
+			CouchTv:   &couchtv.Scheduler{Store: couchTvStore, Settings: set, Jobs: jobsStore},
+
+			Markers:         markers,
+			CouchTvAnalysis: couchTvAnalysis,
 		},
 		stop: stop,
 	}
@@ -148,10 +155,14 @@ func (a *App) Start(ctx context.Context) error {
 	if err := d.CouchTv.Start(ctx); err != nil {
 		return err
 	}
-	// media analysis is background work (nice'd, lowest priority); the backfill finds
+	// media analysis is background work (nice'd, lowest priority); each backfill finds
 	// nothing once the library is analyzed
 	runner.Register(library.MarkersJob, 1, d.Markers.Handle)
 	if err := d.Markers.Start(ctx); err != nil {
+		return err
+	}
+	runner.Register(couchtv.AnalyzeJob, 1, d.CouchTvAnalysis.Handle)
+	if err := d.CouchTvAnalysis.Start(ctx); err != nil {
 		return err
 	}
 	// files an older prober read are brought up to date in the background
