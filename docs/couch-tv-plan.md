@@ -880,6 +880,25 @@ peak memory (under 1 GiB) and the validator's verdict here. The script's media f
 not probed, so pick an SDR source (an HDR one would be cut without tone mapping), and one
 whose source is still on disk (a file removed after transcoding cannot be cut from yet).
 
+**Measured on the Pi 4** (2026-10-12, the commands above with the scratch data in the home
+folder instead of next to the media; Iron Man, 720p H.264, 20 minutes in; production idle):
+
+| Clip (frames) | fps | Clip (frames) | fps |
+|---|---|---|---|
+| squeeze over the program's frames (275) | 0.81 | short ident (125) | 2.30 |
+| short promo with footage (225, twice) | 0.84, 0.83 | lineup (300) | 2.34 |
+| up next (200) | 1.86 | sting 6 s (150) | 2.36 |
+
+The 60 s break (1500 frames) took **23 minutes** to render and 1 m 45 s to assemble;
+`validate-hls` 0 errors (the I-frame warning); peak container memory **907 MiB** of the 1 GiB
+cap; host load average up to 14 while it ran. Graphics-only clips meet the benchmark
+(~2.3 fps); clips that draw video frames in the page (the squeeze's program, promo footage)
+run at a third of that, because Chromium decodes a full-size JPEG per frame on the Pi's CPU.
+At these speeds a day of breaks costs about 5-6 hours of rendering, mostly squeezes. Follow-up
+in Phase 3: composite video frames with ffmpeg through the `key` path (or extract them at the
+panel's size and the source's resolution), freeze idle motion on holds so `isStatic` skips
+frames, and keep the memory peak further under the cap.
+
 ### Phase 1: Foundations
 Flag, settings (time zone, template), migrations, the pure generator + `couchtv_plan`, the
 markers table + `analyze_markers`, tagline and collection metadata, the admin EPG
