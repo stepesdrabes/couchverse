@@ -5,6 +5,8 @@
 	import MediaRow from '$lib/features/catalog/components/MediaRow.svelte';
 	import TitleCard from '$lib/features/catalog/components/TitleCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import OnNowCard from '$lib/features/couchtv/components/OnNowCard.svelte';
+	import { features } from '$lib/features/settings/features.svelte';
 	import { rowLabel } from '../labels';
 	import * as m from '$lib/paraglide/messages';
 
@@ -19,6 +21,9 @@
 	<HeroMarquee items={view.featured} />
 
 	<div class="relative z-10 -mt-10 space-y-10 pb-16">
+		{#if features.couchTvEnabled}
+			<OnNowCard />
+		{/if}
 		{#each view.rows as row (row.id)}
 			<MediaRow label={rowLabel(row)}>
 				{#each row.continueWatching as card (card.play.kind + card.play.id)}
