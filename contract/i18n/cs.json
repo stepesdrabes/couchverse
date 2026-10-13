@@ -977,6 +977,7 @@
 	"jobs_action_couchtv_plan": "Naplánovat Couch TV",
 	"jobs_action_couchtv_soundtrack": "Najít soundtrack pro Couch TV",
 	"jobs_action_extract_subtitles": "Extrahovat titulky",
+	"jobs_action_fetch_logos": "Načíst loga",
 	"jobs_action_fetch_metadata": "Načíst metadata",
 	"jobs_action_import_episodes": "Importovat epizody",
 	"jobs_action_probe": "Analyzovat",

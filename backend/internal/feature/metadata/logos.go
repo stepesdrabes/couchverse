@@ -61,6 +61,20 @@ func bestLogo(logos []Logo, lang string) *Logo {
 	return nil
 }
 
+// logoLangs are the languages a title keeps TMDB logos in: its content languages and English,
+// since Couch TV's cutscenes are English (D13) and an English logo also serves the viewers who
+// read in English. A legacy title without content languages keeps one logo not tied to a
+// language ("").
+func logoLangs(content []string) []string {
+	if len(content) == 0 {
+		return []string{""}
+	}
+	if slices.Contains(content, "en") {
+		return content
+	}
+	return append(slices.Clone(content), "en")
+}
+
 // tmdbLang is the TMDB language of a content language: a legacy title without
 // any gets TMDB's default, English.
 func tmdbLang(lang string) string {
@@ -70,12 +84,12 @@ func tmdbLang(lang string) string {
 	return lang
 }
 
-// applyLogos stores TMDB's logo for each content language in langs ("" for a
-// legacy title) as the title's logo in that language. With replace (metadata
-// apply) it also drops the TMDB logos it did not store, so linking the title
-// to another TMDB entry leaves none of the old one's behind; uploaded logos are
-// only ever overwritten. Without it (episode import) it fills just the
-// languages that have no logo yet.
+// applyLogos stores TMDB's logo for each language in langs (logoLangs) as the
+// title's logo in that language. With replace (metadata apply) it also drops the
+// TMDB logos it did not store, so linking the title to another TMDB entry leaves
+// none of the old one's behind; uploaded logos are only ever overwritten. Without
+// it (episode import, the backfill) it fills just the languages that have no logo
+// yet.
 func applyLogos(ctx context.Context, client *Client, art *artwork.Service, title *catalog.Title, tmdbID int, langs []string, replace bool) error {
 	existing, err := art.Store.ArtworkFor(ctx, "title", title.ID)
 	if err != nil {

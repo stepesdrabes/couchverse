@@ -13,7 +13,7 @@ import (
 )
 
 // FetchJob applies TMDB metadata + artwork (poster, backdrop, a logo per
-// content language) to a title.
+// content language and English) to a title.
 type FetchJob struct {
 	Catalog  *catalog.Store
 	Settings *settings.Store
@@ -140,7 +140,8 @@ func (j *FetchJob) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 	}
 	report(85)
 
-	if err := applyLogos(ctx, client, j.Artwork, title, p.TmdbID, langs, true); err != nil {
+	// English too, or an apply would drop the English logo the backfill stored
+	if err := applyLogos(ctx, client, j.Artwork, title, p.TmdbID, logoLangs(title.MetadataLanguages), true); err != nil {
 		return err
 	}
 

@@ -964,6 +964,7 @@
 	"jobs_action_couchtv_plan": "Plan Couch TV",
 	"jobs_action_couchtv_soundtrack": "Find a soundtrack for Couch TV",
 	"jobs_action_extract_subtitles": "Extract subtitles",
+	"jobs_action_fetch_logos": "Fetch logos",
 	"jobs_action_fetch_metadata": "Fetch metadata",
 	"jobs_action_import_episodes": "Import episodes",
 	"jobs_action_probe": "Analyze",

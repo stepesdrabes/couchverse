@@ -7,6 +7,7 @@ const actionByType: Record<string, () => string> = {
 	transcode_hls: m.jobs_action_transcode,
 	extract_subtitles: m.jobs_action_extract_subtitles,
 	fetch_metadata: m.jobs_action_fetch_metadata,
+	fetch_logos: m.jobs_action_fetch_logos,
 	import_episodes: m.jobs_action_import_episodes,
 	cleanup: m.jobs_action_cleanup,
 	couchtv_plan: m.jobs_action_couchtv_plan,

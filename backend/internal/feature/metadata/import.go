@@ -55,7 +55,7 @@ func (j *ImportEpisodesJob) Handle(ctx context.Context, job *jobs.Job, report fu
 
 	// shows linked before logos existed get them here; best effort, like stills
 	if j.Artwork != nil {
-		if err := applyLogos(ctx, client, j.Artwork, title, *title.TmdbID, langs, false); err != nil {
+		if err := applyLogos(ctx, client, j.Artwork, title, *title.TmdbID, logoLangs(title.MetadataLanguages), false); err != nil {
 			slog.Warn("tmdb logos", "titleId", title.ID, "err", err)
 		}
 	}

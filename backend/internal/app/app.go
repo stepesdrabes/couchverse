@@ -175,6 +175,12 @@ func (a *App) Start(ctx context.Context) error {
 	runner.Register("extract_subtitles", 1, d.Subtitles.HandleExtract)
 	runner.Register("fetch_metadata", 2, (&metadata.FetchJob{Catalog: d.Catalog, Settings: d.Settings, Artwork: d.Artwork}).Handle)
 	runner.Register("import_episodes", 1, (&metadata.ImportEpisodesJob{Catalog: d.Catalog, Settings: d.Settings, Artwork: d.Artwork}).Handle)
+	// titles linked to TMDB before logos existed get theirs
+	logos := &metadata.LogoBackfill{Catalog: d.Catalog, Settings: d.Settings, Artwork: d.Artwork, Jobs: d.Jobs}
+	runner.Register(metadata.LogosJob, 1, logos.Handle)
+	if err := logos.Start(ctx); err != nil {
+		return err
+	}
 	runner.Register("transcode_hls", transcodeSlots, d.Transcode.Handle)
 	runner.Register(downloads.JobType, 1, (&downloads.Preparer{Store: d.Downloads, Files: d.Library, Subtitles: d.Subtitles,
 		Settings: d.Settings, DataDir: d.Config.DataDir, FFmpegPath: d.Config.FFmpegPath}).Handle)

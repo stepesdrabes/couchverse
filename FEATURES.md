@@ -283,22 +283,33 @@ and bulk import of missing seasons/episodes for a series (episode stills are dow
 as episode `thumb` artwork). API key comes from settings.
 - Endpoints (admin): `/admin/metadata/search`, `/admin/titles/{id}/metadata/apply`,
   `/admin/titles/{id}/metadata/seasons`, `/admin/titles/{id}/metadata/import-episodes`.
-- Job handlers: `fetch_metadata`, `import_episodes`.
+- Job handlers: `fetch_metadata`, `import_episodes`, `fetch_logos`.
 - Apply also keeps the base language's **tagline** (`titles.tagline`; the other languages keep
   theirs in `translations`, and dropping the base language promotes the next one's) and a
   movie's TMDB **collection** (`belongs_to_collection` as `collection_tmdb_id`,
   `collection_name`, cleared when TMDB has none), for Couch TV's promos and Saga Sunday. No UI
   shows them yet.
 - **Logos** (`metadata/logos.go`): one `GET /{movie|tv}/{id}/images` call with
-  `include_image_language=<content languages>,null`; for each content language the
-  best-voted PNG logo in that language (vote average, then vote count), else the best-voted
-  language-neutral PNG, is stored as the title's logo in that language (SVGs are skipped; a
-  legacy title without content languages asks for English and stores a null-language logo;
-  languages sharing the neutral fallback share one download). Apply replaces them and drops
-  TMDB logos it did not store (a re-link to another TMDB entry leaves none of the old one's
-  behind) while uploaded logos are only ever overwritten; a failure fails the job like a
-  poster's. The episode import only fills languages without a logo, best effort, so shows
-  linked before logos existed get them from a re-import.
+  `include_image_language=<languages>,null`, the languages being the content languages and
+  English (`logoLangs`: Couch TV's cutscenes are English, D13, and an English logo also serves
+  English-display viewers); for each the best-voted PNG logo in that language (vote average,
+  then vote count), else the best-voted language-neutral PNG, is stored as the title's logo in
+  that language (SVGs are skipped; a legacy title without content languages asks for English
+  and stores a null-language logo; languages sharing the neutral fallback share one download).
+  Apply replaces them and drops TMDB logos it did not store (a re-link to another TMDB entry
+  leaves none of the old one's behind) while uploaded logos are only ever overwritten; a
+  failure fails the job like a poster's. The episode import only fills languages without a
+  logo, best effort.
+- **Logo backfill** (`metadata.LogoBackfill`, job `fetch_logos`, queued at every start,
+  priority -10): titles linked to TMDB before logos existed (the production library) get the
+  logos they lack, filled as the import fills them (never replacing a logo; a title with a
+  logo not tied to a language keeps it as every language's), without an admin applying each
+  title again. A title is marked once looked up (`titles.logos_version`), whether TMDB had
+  logos for it or not (a 404, a link TMDB no longer knows, counts too), so it is not asked
+  again at every start; raising `LogosVersion` (a better pick) looks every title up once more.
+  Only with a TMDB key; titles go one at a time, and three failing in a row (TMDB down, the
+  key refused) end the run, the job's retries and the next start carrying on. Tests:
+  `TestLogoBackfill` (a fake TMDB).
 - **Music facts** (`metadata/music.go`, for Couch TV's soundtrack finder): one
   `GET /{movie|tv}/{id}?append_to_response=credits,alternative_titles` answers the composers
   the crew names ("Original Music Composer", "Main Title Theme Composer", "Music",

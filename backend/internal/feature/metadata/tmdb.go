@@ -4,6 +4,7 @@ package metadata
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -78,9 +79,24 @@ func (c *Client) get(ctx context.Context, path string, params url.Values, out an
 		return fmt.Errorf("TMDB rejected the API key")
 	}
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("TMDB responded with %s", res.Status)
+		return &statusError{code: res.StatusCode, status: res.Status}
 	}
 	return json.NewDecoder(res.Body).Decode(out)
+}
+
+// statusError is TMDB answering with a status other than 200.
+type statusError struct {
+	code   int
+	status string
+}
+
+func (e *statusError) Error() string { return "TMDB responded with " + e.status }
+
+// unknownToTMDB reports whether TMDB answered that it has no such entry (a stale link):
+// asking again would not change that.
+func unknownToTMDB(err error) bool {
+	var se *statusError
+	return errors.As(err, &se) && se.code == http.StatusNotFound
 }
 
 // Search queries movies or TV shows. kind is "movie" or "series".

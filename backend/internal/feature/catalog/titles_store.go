@@ -368,6 +368,32 @@ func (s *Store) SetTitleReleaseDate(ctx context.Context, id string, date string)
 	return err
 }
 
+// LogoBackfillTitles are the TMDB-linked titles whose logos no logo backfill of version or
+// later looked up yet, in the order they were added.
+func (s *Store) LogoBackfillTitles(ctx context.Context, version int) ([]Title, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+titleCols+` FROM titles
+		WHERE tmdb_id IS NOT NULL AND logos_version < $1 ORDER BY added_at, id`, version)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Title
+	for rows.Next() {
+		t, err := scanTitle(ctx, rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *t)
+	}
+	return out, rows.Err()
+}
+
+// SetLogosVersion records that the logo backfill at version looked a title's logos up.
+func (s *Store) SetLogosVersion(ctx context.Context, id string, version int) error {
+	_, err := s.db.Exec(ctx, `UPDATE titles SET logos_version = $2 WHERE id = $1`, id, version)
+	return err
+}
+
 // TitleBackdrop returns the title's backdrop artwork id, version token (unix
 // seconds) and accent colour for the player banner, or zero values when absent.
 func (s *Store) TitleBackdrop(ctx context.Context, titleID string) (id *string, ver int64, accent string, err error) {
