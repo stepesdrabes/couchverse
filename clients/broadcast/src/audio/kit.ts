@@ -312,28 +312,6 @@ export class Kit extends AudioEngine {
 		s.connect(this.ad(when, gain, 0.01, decay)).connect(b.sfx);
 	}
 
-	/** A modern keyboard key: a short bright tick over a soft low thock (typed text). */
-	keyClick(
-		b: Bus,
-		when: number,
-		o: { gain?: number; pan?: number; seed?: number; pitch?: number } = {}
-	) {
-		const { gain = 0.05, pan = 0, seed = 1, pitch = 1 } = o;
-		const r = rng(seed);
-		const out = this.pan(pan);
-		this.noiseAt(b, 'white', when, 0.03, seed)
-			.connect(this.filter('highpass', 1800, 0.7))
-			.connect(this.filter('bandpass', (3600 + r() * 900) * pitch, 1.4))
-			.connect(this.ad(when, gain, 0.0005, 0.012))
-			.connect(out);
-		const th = this.osc(b, 'sine', (210 + r() * 30) * pitch, when, 0.06);
-		th.frequency.setValueAtTime((210 + r() * 30) * pitch, when);
-		th.frequency.exponentialRampToValueAtTime(140 * pitch, when + 0.03);
-		th.connect(this.ad(when, gain * 0.9, 0.001, 0.03)).connect(out);
-		out.connect(b.sfx);
-		this.send(b, out, 0.05);
-	}
-
 	/** Typewriter key: a bright clack and a low thunk. */
 	key(b: Bus, when: number, o: { gain?: number; pan?: number; seed?: number } = {}) {
 		const { gain = 0.08, pan = 0, seed = 1 } = o;
