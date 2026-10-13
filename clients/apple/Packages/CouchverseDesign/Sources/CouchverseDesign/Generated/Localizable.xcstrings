@@ -9534,6 +9534,23 @@
         }
       }
     },
+    "problem_invalid_bulletins": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Počasí potřebuje 1 až 20 měst v Česku, každé s vlastním názvem."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The weather needs 1 to 20 cities in Czechia, each with its own name."
+          }
+        }
+      }
+    },
     "problem_invalid_code": {
       "extractionState": "manual",
       "localizations": {

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.203.0.CZ.260731112019.XOCZ50_OKPR_000279</identifier>
+  <sender>chmi@chmi.cz</sender>
+  <sent>2026-07-31T13:20:19+02:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <scope>Public</scope>
+  <code>SIVS:CHMI/111/89/2018</code>
+  <code>SVRS</code>
+  <references>chmi@chmi.cz,2.49.0.0.203.0.CZ.260731092922.XOCZ50_OKPR_000278,2026-07-31T11:29:22+02:00</references>
+  <incidents></incidents>
+  <info>
+    <language>cs</language>
+    <category>Met</category>
+    <event>Velmi vysoké teploty</event>
+    <responseType>Prepare</responseType>
+    <responseType>Monitor</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <audience>veřejnost, HZS, web, Meteoalarm</audience>
+    <eventCode>
+      <valueName>SIVS</valueName>
+      <value>I.2</value>
+    </eventCode>
+    <onset>2026-07-31T13:17:45+02:00</onset>
+    <expires>2026-08-01T00:00:00+02:00</expires>
+    <senderName>ČHMÚ, Tomáš Mejstřík</senderName>
+    <description>Maximální teploty nad 37 °C. Komplikace zejména v dopravě, živočišné výrobě, energetice, službách. Pravděpodobný vliv na kolejovou dopravu, deformace a lom kolejnic. Možné ovlivnění silniční dopravy, odstavená vozidla, deformace silničních povrchů, zejména exponovaných slunečnímu svitu. Omezení provozu na některých komunikacích, výluky, zpoždění spojů. Problémy s uchlazením uzavřených hal (živočišná výroba, průmysl, logistika apod.). Možné výpadky v dodávkách elektřiny (výrazné zvýšení odběrů, možné narušení vedení). Částečné omezení zásobování a služeb.</description>
+    <instruction>Pravidelně ověřovat funkčnost podpůrných systémů (zejména chlazení a ventilace) a záložních energetických zdrojů. Důkladně zvážit a plánovat cesty, sledovat aktuální situaci v dopravě. Být připraven na možné výpadky v dodávkách elektřiny.</instruction>
+    <web>https://vystrahy-cr.chmi.cz/</web>
+    <parameter>
+      <valueName>situation</valueName>
+      <value>Kolem tlakové výše nad východní Evropou k nám bude nadále proudit mimořádně teplý vzduch od jihozápadu. </value>
+    </parameter>
+    <parameter>
+      <valueName>eventEndingTime</valueName>
+      <value>2026-08-01T00:00:00+02:00</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>5; high-temperature</value>
+    </parameter>
+    <resource>
+      <resourceDesc>Audiozáznam</resourceDesc>
+      <mimeType>audio/mpeg</mimeType>
+      <uri>https://vystrahy-cr.chmi.cz/data/audio/vystraha.mp3</uri>
+    </resource>
+    <area>
+      <areaDesc>Hlavní město Praha</areaDesc>
+      <geocode>
+        <valueName>CISORP</valueName>
+        <value>1100</value>
+      </geocode>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>CZ01100</value>
+      </geocode>
+    </area>
+    <!-- 9 more <area> blocks -->
+  </info>
+  <info>
+    <language>en-GB</language>
+    <category>Met</category>
+    <event>Major Heat Related Impact</event>
+    <responseType>Prepare</responseType>
+    <responseType>Monitor</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <audience>public, FRS, website, Meteoalarm</audience>
+    <eventCode>
+      <valueName>SIVS</valueName>
+      <value>I.2</value>
+    </eventCode>
+    <onset>2026-07-31T13:17:45+02:00</onset>
+    <expires>2026-08-01T00:00:00+02:00</expires>
+    <senderName>CHMI, Tomáš Mejstřík</senderName>
+    <description>Maximum air temperatures above 37 °C. Complications, especially in transport, livestock production, energy industry, and services. Likely impact on rail transport: rail deformation and fracture. Possible impact on road transport: stranded vehicles, deformation of road surfaces, particularly those exposed to sunlight. Traffic restrictions on some routes, closures, delays. Problems with cooling enclosed halls (livestock production, industry, logistics, etc.). Possible power outages. Essential services partial disruptions.</description>
+    <instruction>Check the functionality of support systems (especially cooling and ventilation) and backup power sources. Carefully consider travel plans, monitor the traffic situation. Be prepared for possible power outages.</instruction>
+    <web>https://vystrahy-cr.chmi.cz/</web>
+    <parameter>
+      <valueName>situation</valueName>
+      <value>Kolem tlakové výše nad východní Evropou k nám bude nadále proudit mimořádně teplý vzduch od jihozápadu. </value>
+    </parameter>
+    <parameter>
+      <valueName>eventEndingTime</valueName>
+      <value>2026-08-01T00:00:00+02:00</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>5; high-temperature</value>
+    </parameter>
+    <area>
+      <areaDesc>Hlavní město Praha</areaDesc>
+      <geocode>
+        <valueName>CISORP</valueName>
+        <value>1100</value>
+      </geocode>
+      <geocode>
+        <valueName>EMMA_ID</valueName>
+        <value>CZ01100</value>
+      </geocode>
+    </area>
+    <!-- 9 more <area> blocks -->
+  </info>
+  <!-- trimmed: 2 of 82 <info> blocks -->
+</alert>

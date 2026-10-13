@@ -92,6 +92,12 @@ func (m *Module) Register(rt httpx.Routes) {
 	toggle := tag.Op("adminSetCouchTvLink", http.MethodPut, "/couchtv/link")
 	toggle.Description = "Turns the channel link on or off; off signs every guest out. 409 no_channel_link when there is no link to turn on."
 	huma.Register(rt.Admin, toggle, m.guests.Switch)
+	bulletins := tag.Op("adminGetCouchTvBulletins", http.MethodGet, "/couchtv/bulletins")
+	bulletins.Summary = "Get Couch TV's bulletins"
+	bulletins.Description = "The newest weather and news bulletins couchtv_bulletins fetched for the breaks: the forecast for the " +
+		"configured cities with ČHMÚ's warnings, and the day's top stories by how many outlets carry them. A kind is absent " +
+		"before its first bulletin; a bad fetch leaves the last good one."
+	huma.Register(rt.Admin, bulletins, m.admin.Bulletins)
 }
 
 // socketOp describes the room's WebSocket upgrade, which stays a plain handler.

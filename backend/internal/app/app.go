@@ -212,6 +212,12 @@ func (a *App) Start(ctx context.Context) error {
 	if err := d.CouchTvPrepare.Start(ctx); err != nil {
 		return err
 	}
+	// the weather and the news for the breaks, a few small requests through the day
+	bulletins := &couchtv.Bulletins{Store: d.CouchTv.Store, Settings: d.Settings, Jobs: d.Jobs}
+	runner.Register(couchtv.BulletinsJob, 1, bulletins.Handle)
+	if err := bulletins.Start(ctx); err != nil {
+		return err
+	}
 	// each of these keeps every core of a small server busy: they take turns within the
 	// transcode budget instead of running side by side, the higher priority first
 	runner.Share(transcodeSlots, "transcode_hls", downloads.JobType, library.MarkersJob, couchtv.AnalyzeJob)

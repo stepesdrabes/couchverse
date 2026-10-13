@@ -70,7 +70,7 @@ class DesignTest {
         val adminOnly = setOf(
             "no_tmdb_id", "no_tmdb_key", "tmdb_error",
             "anchor_needs_time", "day_needs_anchor", "day_without_slots", "excluded", "file_missing",
-            "invalid_pinned_title", "invalid_rotation", "invalid_slot", "invalid_time_zone", "no_audio",
+            "invalid_bulletins", "invalid_pinned_title", "invalid_rotation", "invalid_slot", "invalid_time_zone", "no_audio",
             "no_media", "not_published", "on_air", "outside_horizon", "overlap", "reruns_without_end",
             "slot_out_of_order", "source_deleted",
         )

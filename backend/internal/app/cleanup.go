@@ -18,8 +18,8 @@ import (
 
 // cleanupHandler is the hourly housekeeping job: expired upload sessions,
 // stale finished jobs, expired auth sessions, orphaned HLS caches, aged-out
-// hour buckets, downloads past retention and Couch TV renders no longer needed.
-// It reschedules itself at the end of every run.
+// hour buckets, downloads past retention, Couch TV renders no longer needed and
+// its old bulletins. It reschedules itself at the end of every run.
 func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, an *analytics.Store, uploads *library.Manager, dl *downloads.Store, tv *couchtv.Store, dataDir string) func(context.Context, *jobs.Job, func(int)) error {
 	return func(ctx context.Context, _ *jobs.Job, _ func(int)) error {
 		if n, err := uploads.Reap(ctx); err != nil {
@@ -66,6 +66,9 @@ func cleanupHandler(lib *library.Store, au *auth.Store, jb *jobs.Store, an *anal
 		}
 
 		if err := couchtv.Prune(ctx, tv, dataDir, time.Now()); err != nil {
+			return err
+		}
+		if err := couchtv.PruneBulletins(ctx, tv, time.Now()); err != nil {
 			return err
 		}
 

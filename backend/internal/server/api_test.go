@@ -311,6 +311,9 @@ func apiCases() []apiCase {
 		{op: "adminUpdateCouchTv", as: "admin", method: "PUT", path: "/admin/couchtv", body: couchTvConfig(func(c *couchtv.CouchTvConfig) {
 			c.TimeZone = "Mars/Olympus"
 		}), status: 400},
+		{op: "adminUpdateCouchTv", as: "admin", method: "PUT", path: "/admin/couchtv", body: couchTvConfig(func(c *couchtv.CouchTvConfig) {
+			c.Bulletins.Cities[1].Name = "Praha"
+		}), status: 400},
 		{op: "adminRegenerateDay", as: "admin", method: "POST", path: "/admin/couchtv/days/" + couchTvDay(1) + "/regenerate", status: 200},
 		{op: "adminRegenerateDay", as: "admin", method: "POST", path: "/admin/couchtv/days/" + couchTvDay(30) + "/regenerate", status: 400},
 		{op: "adminRegenerateDay", as: "admin", method: "POST", path: "/admin/couchtv/days/tomorrow/regenerate", status: 404},
@@ -355,6 +358,9 @@ func apiCases() []apiCase {
 		{op: "adminCouchTvWaveform", as: "admin", method: "GET", path: "/admin/couchtv/media-files/" + movieFileID + "/waveform", status: 404},
 		{op: "adminCouchTvRenderHealth", as: "admin", method: "GET", path: "/admin/couchtv/render", status: 200},
 		{op: "adminCouchTvRenderHealth", as: "nora", method: "GET", path: "/admin/couchtv/render", status: 403},
+		// nothing fetched yet (the app's jobs do not run here; TestCouchTvBulletins checks a full answer)
+		{op: "adminGetCouchTvBulletins", as: "admin", method: "GET", path: "/admin/couchtv/bulletins", status: 200},
+		{op: "adminGetCouchTvBulletins", as: "nora", method: "GET", path: "/admin/couchtv/bulletins", status: 403},
 		// the schedule editor, on the days adminRegenerateDay planned above
 		{op: "adminInsertAiring", as: "admin", method: "POST", path: "/admin/couchtv/airings", body: map[string]any{
 			"titleId": movieID, "startsAt": couchTvNoon(3)}, status: 201, save: map[string]string{"inserted": "id"}},

@@ -1530,6 +1530,7 @@
 	"problem_forbidden": "K tomu nemáte přístup.",
 	"problem_generic": "Něco se pokazilo. Zkuste to znovu.",
 	"problem_invalid_address": "Zadejte adresu jako media.example.com nebo 192.168.1.5:8080.",
+	"problem_invalid_bulletins": "Počasí potřebuje 1 až 20 měst v Česku, každé s vlastním názvem.",
 	"problem_invalid_code": "Tento kód je neznámý, použitý nebo neplatný.",
 	"problem_invalid_credentials": "Nesprávné uživatelské jméno nebo heslo.",
 	"problem_invalid_name": "Napište jméno o délce 1 až 32 znaků.",

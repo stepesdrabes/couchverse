@@ -551,6 +551,7 @@ extension L10n {
     public static var problemForbidden: String { string("problem_forbidden") }
     public static var problemGeneric: String { string("problem_generic") }
     public static var problemInvalidAddress: String { string("problem_invalid_address") }
+    public static var problemInvalidBulletins: String { string("problem_invalid_bulletins") }
     public static var problemInvalidCode: String { string("problem_invalid_code") }
     public static var problemInvalidCredentials: String { string("problem_invalid_credentials") }
     public static var problemInvalidName: String { string("problem_invalid_name") }

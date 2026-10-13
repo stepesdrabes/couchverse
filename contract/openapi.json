@@ -1601,6 +1601,73 @@
         ],
         "type": "object"
       },
+      "CouchTvBulletins": {
+        "additionalProperties": false,
+        "properties": {
+          "news": {
+            "$ref": "#/components/schemas/CouchTvNews",
+            "description": "The newest news bulletin; absent before the first."
+          },
+          "weather": {
+            "$ref": "#/components/schemas/CouchTvWeather",
+            "description": "The newest weather bulletin; absent before the first."
+          }
+        },
+        "type": "object"
+      },
+      "CouchTvBulletinsConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "cities": {
+            "description": "The places the weather covers, each with its own forecast, in the order they are shown.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvCity"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "type": "array"
+          },
+          "enabled": {
+            "description": "Fetch the weather and the news headlines through the day.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "cities"
+        ],
+        "type": "object"
+      },
+      "CouchTvCity": {
+        "additionalProperties": false,
+        "properties": {
+          "lat": {
+            "description": "Latitude; within Czechia, the map the weather is drawn on.",
+            "format": "double",
+            "maximum": 51.1,
+            "minimum": 48.5,
+            "type": "number"
+          },
+          "lon": {
+            "description": "Longitude; within Czechia.",
+            "format": "double",
+            "maximum": 18.9,
+            "minimum": 12,
+            "type": "number"
+          },
+          "name": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "lat",
+          "lon"
+        ],
+        "type": "object"
+      },
       "CouchTvConfig": {
         "additionalProperties": false,
         "properties": {
@@ -1610,6 +1677,9 @@
             "maximum": 600,
             "minimum": 5,
             "type": "integer"
+          },
+          "bulletins": {
+            "$ref": "#/components/schemas/CouchTvBulletinsConfig"
           },
           "guestLink": {
             "$ref": "#/components/schemas/CouchTvGuestLink"
@@ -1631,7 +1701,8 @@
           "breakMinSeconds",
           "template",
           "rotation",
-          "guestLink"
+          "guestLink",
+          "bulletins"
         ],
         "type": "object"
       },
@@ -1879,6 +1950,138 @@
           "kind",
           "startsAt",
           "endsAt"
+        ],
+        "type": "object"
+      },
+      "CouchTvNews": {
+        "additionalProperties": false,
+        "properties": {
+          "feeds": {
+            "description": "What each source answered.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvNewsFeed"
+            },
+            "type": "array"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "stories": {
+            "description": "The top stories of the last 12 hours, most important first: 3 to 5.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvNewsStory"
+            },
+            "type": "array"
+          },
+          "validUntil": {
+            "description": "When the headlines are too old to air.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fetchedAt",
+          "validUntil",
+          "stories",
+          "feeds"
+        ],
+        "type": "object"
+      },
+      "CouchTvNewsFeed": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "description": "Why it could not be read; absent when it was.",
+            "type": "string"
+          },
+          "items": {
+            "description": "The news items it carried, sport, culture, lifestyle, opinion and shows left out.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "The source, e.g. ČT24 or ČT24 trending.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "items"
+        ],
+        "type": "object"
+      },
+      "CouchTvNewsStory": {
+        "additionalProperties": false,
+        "properties": {
+          "coverage": {
+            "description": "Every outlet carrying the story, those used only for ranking included.",
+            "items": {
+              "enum": [
+                "ct24",
+                "irozhlas",
+                "seznamzpravy",
+                "novinky",
+                "idnes",
+                "cnnprima",
+                "denik"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "editorsPick": {
+            "description": "In ČT24's editors' selection.",
+            "type": "boolean"
+          },
+          "headline": {
+            "description": "The outlet's own headline, never shortened or reworded (Český rozhlas forbids it): markup and entities resolved, spaces normalised and a no-break space after a one-letter preposition or conjunction, so a template wraps it as Czech typesetting does.",
+            "type": "string"
+          },
+          "outlet": {
+            "description": "The outlet the headline is from.",
+            "enum": [
+              "ct24",
+              "irozhlas",
+              "seznamzpravy",
+              "novinky",
+              "idnes"
+            ],
+            "type": "string"
+          },
+          "outletName": {
+            "description": "The outlet's name, the plain-text label to show with the headline (never its logo).",
+            "type": "string"
+          },
+          "publishedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "score": {
+            "description": "The ranking: an outlet carrying it 1, the editors' selection 1.5 more, trending 1 more, eased by age.",
+            "format": "double",
+            "type": "number"
+          },
+          "trending": {
+            "description": "Among ČT24's most read of the day.",
+            "type": "boolean"
+          },
+          "url": {
+            "description": "The article.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "headline",
+          "outlet",
+          "outletName",
+          "url",
+          "publishedAt",
+          "coverage",
+          "editorsPick",
+          "trending",
+          "score"
         ],
         "type": "object"
       },
@@ -2687,6 +2890,127 @@
         ],
         "type": "object"
       },
+      "CouchTvWarning": {
+        "additionalProperties": false,
+        "properties": {
+          "event": {
+            "description": "The event in Czech, as ČHMÚ names it.",
+            "type": "string"
+          },
+          "eventEn": {
+            "description": "The event in English, as ČHMÚ names it.",
+            "type": "string"
+          },
+          "expires": {
+            "description": "When it ends (the latest of its areas); null until further notice.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "level": {
+            "enum": [
+              "yellow",
+              "orange",
+              "red"
+            ],
+            "type": "string"
+          },
+          "onset": {
+            "description": "When it begins (the earliest of its areas).",
+            "format": "date-time",
+            "type": "string"
+          },
+          "regions": {
+            "description": "The kraje it covers, by code.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvWarningRegion"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "level",
+          "event",
+          "eventEn",
+          "onset",
+          "expires",
+          "regions"
+        ],
+        "type": "object"
+      },
+      "CouchTvWarningRegion": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The kraj's ISO 3166-2 code.",
+            "enum": [
+              "CZ-10",
+              "CZ-20",
+              "CZ-31",
+              "CZ-32",
+              "CZ-41",
+              "CZ-42",
+              "CZ-51",
+              "CZ-52",
+              "CZ-53",
+              "CZ-63",
+              "CZ-64",
+              "CZ-71",
+              "CZ-72",
+              "CZ-80"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "description": "In Czech.",
+            "type": "string"
+          },
+          "nameEn": {
+            "description": "In English.",
+            "type": "string"
+          },
+          "partial": {
+            "description": "Only some of its districts (ORP) are warned.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "nameEn",
+          "partial"
+        ],
+        "type": "object"
+      },
+      "CouchTvWarnings": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "The credit to show with them.",
+            "type": "string"
+          },
+          "issuedAt": {
+            "description": "When ČHMÚ issued the state of warnings this was read from.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "items": {
+            "description": "Yellow, orange and red warnings in force now or later today, the most severe first; empty on a quiet day.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvWarning"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "issuedAt",
+          "attribution",
+          "items"
+        ],
+        "type": "object"
+      },
       "CouchTvWaveform": {
         "additionalProperties": false,
         "properties": {
@@ -2722,6 +3046,154 @@
           "toMs",
           "stepMs",
           "loudness"
+        ],
+        "type": "object"
+      },
+      "CouchTvWeather": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "The credit Open-Meteo's licence (CC BY 4.0) asks for wherever the data is shown.",
+            "type": "string"
+          },
+          "cities": {
+            "description": "The configured cities, in their order.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvWeatherCity"
+            },
+            "type": "array"
+          },
+          "fetchedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "timeZone": {
+            "description": "The zone the days are dates in, the channel's.",
+            "type": "string"
+          },
+          "validUntil": {
+            "description": "When the forecast is too old to air.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "warnings": {
+            "$ref": "#/components/schemas/CouchTvWarnings",
+            "description": "ČHMÚ's warnings; absent when they could not be read."
+          }
+        },
+        "required": [
+          "fetchedAt",
+          "validUntil",
+          "attribution",
+          "timeZone",
+          "cities"
+        ],
+        "type": "object"
+      },
+      "CouchTvWeatherCity": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "description": "Today and the next four days.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvWeatherDay"
+            },
+            "type": "array"
+          },
+          "lat": {
+            "description": "Where the city is (the configured position, not the forecast's grid cell).",
+            "format": "double",
+            "type": "number"
+          },
+          "lon": {
+            "format": "double",
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "now": {
+            "$ref": "#/components/schemas/CouchTvWeatherNow"
+          }
+        },
+        "required": [
+          "name",
+          "lat",
+          "lon",
+          "now",
+          "days"
+        ],
+        "type": "object"
+      },
+      "CouchTvWeatherDay": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The WMO code of the daytime, 09-18: what most of those hours are, where the source's daily code is the day's worst hour.",
+            "format": "int64",
+            "maximum": 99,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "date": {
+            "description": "The day, in the channel's zone.",
+            "format": "date",
+            "type": "string"
+          },
+          "max": {
+            "description": "The day's highest temperature, °C.",
+            "format": "double",
+            "type": "number"
+          },
+          "min": {
+            "description": "The day's lowest temperature, °C (midnight to midnight).",
+            "format": "double",
+            "type": "number"
+          },
+          "precipitationProbability": {
+            "description": "The day's highest chance of precipitation, %; null when the forecast has none.",
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "date",
+          "min",
+          "max",
+          "code",
+          "precipitationProbability"
+        ],
+        "type": "object"
+      },
+      "CouchTvWeatherNow": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The WMO weather code (Open-Meteo's table).",
+            "format": "int64",
+            "maximum": 99,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "isDay": {
+            "description": "Daylight, for a sun or a moon.",
+            "type": "boolean"
+          },
+          "temperature": {
+            "description": "Air temperature, °C.",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "temperature",
+          "code",
+          "isDay"
         ],
         "type": "object"
       },
@@ -7644,6 +8116,46 @@
             "bearerDevice": []
           }
         ],
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/admin/couchtv/bulletins": {
+      "get": {
+        "description": "The newest weather and news bulletins couchtv_bulletins fetched for the breaks: the forecast for the configured cities with ČHMÚ's warnings, and the day's top stories by how many outlets carry them. A kind is absent before its first bulletin; a bad fetch leaves the last good one.",
+        "operationId": "adminGetCouchTvBulletins",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvBulletins"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "summary": "Get Couch TV's bulletins",
         "tags": [
           "couchtv"
         ]

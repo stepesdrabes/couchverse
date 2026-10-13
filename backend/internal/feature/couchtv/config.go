@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -80,13 +82,28 @@ type CouchTvGuestLink struct {
 	CreatedAt *time.Time `json:"createdAt,omitempty" doc:"When the current link was made; absent before the first one."`
 }
 
+// CouchTvCity is a place the weather bulletin covers.
+type CouchTvCity struct {
+	Name string  `json:"name" minLength:"1" maxLength:"40"`
+	Lat  float64 `json:"lat" minimum:"48.5" maximum:"51.1" doc:"Latitude; within Czechia, the map the weather is drawn on."`
+	Lon  float64 `json:"lon" minimum:"12" maximum:"18.9" doc:"Longitude; within Czechia."`
+}
+
+// CouchTvBulletinsConfig sets up the bulletins (plan 6.10): the weather and the news
+// headlines the couchtv_bulletins job keeps fresh for the breaks.
+type CouchTvBulletinsConfig struct {
+	Enabled bool          `json:"enabled" doc:"Fetch the weather and the news headlines through the day."`
+	Cities  []CouchTvCity `json:"cities" minItems:"1" maxItems:"20" doc:"The places the weather covers, each with its own forecast, in the order they are shown."`
+}
+
 // CouchTvConfig is the channel's whole tunable surface (settings key "couchtv").
 type CouchTvConfig struct {
-	TimeZone        string           `json:"timeZone" minLength:"1" doc:"IANA time zone the template's times are in."`
-	BreakMinSeconds int              `json:"breakMinSeconds" minimum:"5" maximum:"600" doc:"The shortest break between programs."`
-	Template        CouchTvTemplate  `json:"template"`
-	Rotation        CouchTvRotation  `json:"rotation"`
-	GuestLink       CouchTvGuestLink `json:"guestLink"`
+	TimeZone        string                 `json:"timeZone" minLength:"1" doc:"IANA time zone the template's times are in."`
+	BreakMinSeconds int                    `json:"breakMinSeconds" minimum:"5" maximum:"600" doc:"The shortest break between programs."`
+	Template        CouchTvTemplate        `json:"template"`
+	Rotation        CouchTvRotation        `json:"rotation"`
+	GuestLink       CouchTvGuestLink       `json:"guestLink"`
+	Bulletins       CouchTvBulletinsConfig `json:"bulletins"`
 }
 
 // storedConfig is the settings value: the config plus what the API never shows.
@@ -110,6 +127,27 @@ func DefaultConfig() CouchTvConfig {
 			PremiereWindowDays: 28,
 			FillerMinMinutes:   5,
 		},
+		Bulletins: CouchTvBulletinsConfig{Enabled: true, Cities: DefaultCities()},
+	}
+}
+
+// DefaultCities are the regional capitals (Praha seats Středočeský kraj too), at
+// GeoNames' coordinates. Pardubice is left out: 19 km from Hradec Králové, its label
+// would collide with that one on a map of Czechia.
+func DefaultCities() []CouchTvCity {
+	return []CouchTvCity{
+		{Name: "Praha", Lat: 50.0880, Lon: 14.4208},
+		{Name: "Brno", Lat: 49.1952, Lon: 16.6080},
+		{Name: "Ostrava", Lat: 49.8347, Lon: 18.2820},
+		{Name: "Plzeň", Lat: 49.7475, Lon: 13.3776},
+		{Name: "Liberec", Lat: 50.7671, Lon: 15.0562},
+		{Name: "Olomouc", Lat: 49.5955, Lon: 17.2518},
+		{Name: "České Budějovice", Lat: 48.9745, Lon: 14.4743},
+		{Name: "Hradec Králové", Lat: 50.2092, Lon: 15.8328},
+		{Name: "Ústí nad Labem", Lat: 50.6607, Lon: 14.0323},
+		{Name: "Zlín", Lat: 49.2265, Lon: 17.6707},
+		{Name: "Jihlava", Lat: 49.3961, Lon: 15.5912},
+		{Name: "Karlovy Vary", Lat: 50.2327, Lon: 12.8712},
 	}
 }
 
@@ -179,6 +217,10 @@ func (c CouchTvConfig) withDefaults() CouchTvConfig {
 	if c.Template.validate() != nil {
 		c.Template = def.Template
 	}
+	// a value stored before the bulletins existed has no cities, and gets them switched on
+	if c.Bulletins.validate() != nil {
+		c.Bulletins = def.Bulletins
+	}
 	return c
 }
 
@@ -202,6 +244,7 @@ const (
 	ErrSlotOrder   = "slot_out_of_order"    // times that do not ascend through the day
 	ErrRerunsEnd   = "reruns_without_end"   // a reruns slot with nothing timed after it
 	ErrPinnedTitle = "invalid_pinned_title" // a pinned title that is gone or does not suit its slot
+	ErrBulletins   = "invalid_bulletins"    // no city, too many, a nameless or repeated one, or one outside Czechia
 )
 
 func configError(code, format string, args ...any) error {
@@ -219,7 +262,40 @@ func (c CouchTvConfig) Validate() error {
 	if err := c.Rotation.validate(); err != nil {
 		return err
 	}
+	if err := c.Bulletins.validate(); err != nil {
+		return err
+	}
 	return c.Template.validate()
+}
+
+// The bulletins' limits: the weather is drawn on a map of Czechia, and each city is a
+// location Open-Meteo counts against its free tier on every run.
+const (
+	maxCities      = 20
+	maxCityName    = 40
+	minLat, maxLat = 48.5, 51.1
+	minLon, maxLon = 12.0, 18.9
+)
+
+func (b CouchTvBulletinsConfig) validate() error {
+	if len(b.Cities) == 0 || len(b.Cities) > maxCities {
+		return configError(ErrBulletins, "the weather needs 1 to %d cities", maxCities)
+	}
+	names := map[string]bool{}
+	for _, c := range b.Cities {
+		name := strings.TrimSpace(c.Name)
+		if name == "" || utf8.RuneCountInString(name) > maxCityName {
+			return configError(ErrBulletins, "every city needs a name of up to %d characters", maxCityName)
+		}
+		if names[name] {
+			return configError(ErrBulletins, "city %q appears twice", name)
+		}
+		names[name] = true
+		if c.Lat < minLat || c.Lat > maxLat || c.Lon < minLon || c.Lon > maxLon {
+			return configError(ErrBulletins, "city %q lies outside Czechia", name)
+		}
+	}
+	return nil
 }
 
 func (r CouchTvRotation) validate() error {

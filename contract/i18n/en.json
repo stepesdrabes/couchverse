@@ -1504,6 +1504,7 @@
 	"problem_forbidden": "You don't have access to that.",
 	"problem_generic": "Something went wrong. Try again.",
 	"problem_invalid_address": "Enter an address like media.example.com or 192.168.1.5:8080.",
+	"problem_invalid_bulletins": "The weather needs 1 to 20 cities in Czechia, each with its own name.",
 	"problem_invalid_code": "This code is unknown, used or expired.",
 	"problem_invalid_credentials": "Wrong username or password.",
 	"problem_invalid_name": "Type a name of 1 to 32 characters.",

@@ -562,6 +562,7 @@
     <string name="problem_forbidden">You don\'t have access to that.</string>
     <string name="problem_generic">Something went wrong. Try again.</string>
     <string name="problem_invalid_address">Enter an address like media.example.com or 192.168.1.5:8080.</string>
+    <string name="problem_invalid_bulletins">The weather needs 1 to 20 cities in Czechia, each with its own name.</string>
     <string name="problem_invalid_code">This code is unknown, used or expired.</string>
     <string name="problem_invalid_credentials">Wrong username or password.</string>
     <string name="problem_invalid_name">Type a name of 1 to 32 characters.</string>

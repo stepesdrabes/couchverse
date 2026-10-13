@@ -9,6 +9,7 @@ function config(): CouchTvConfig {
 		timeZone: 'Europe/Prague',
 		breakMinSeconds: 23,
 		guestLink: { enabled: true },
+		bulletins: { enabled: true, cities: [{ name: 'Praha', lat: 50.088, lon: 14.4208 }] },
 		rotation: {
 			primeRepeatMinDays: 5,
 			primeRepeatFactor: 0.8,

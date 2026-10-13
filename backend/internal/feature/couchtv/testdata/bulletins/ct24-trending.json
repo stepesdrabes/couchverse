@@ -1,0 +1,183 @@
+{
+ "message": "OK",
+ "data": {
+  "articles": [
+   {
+    "__typename": "ArticlePublished_Out",
+    "id": 378496,
+    "mainSection": {
+     "__typename": "Section_Out",
+     "id": 5,
+     "path": "domaci",
+     "name": "Domácí"
+    },
+    "title": {
+     "__typename": "Title_Out",
+     "main": "Ukrajině dodávali čínské drony, stát dle obžaloby obrali o 62 milionů. Jdou před soud",
+     "preview": null,
+     "prefix": null
+    },
+    "slug": "ukrajine-dodavali-cinske-drony-stat-meli-obrat-o-62-milionu-jdou-pred-soud",
+    "publication": {
+     "__typename": "ArticlePublication_Out",
+     "datePublished": 1791810681,
+     "firstPublished": 1791806188
+    }
+   },
+   {
+    "__typename": "ArticlePublished_Out",
+    "id": 378524,
+    "mainSection": {
+     "__typename": "Section_Out",
+     "id": 16,
+     "path": "svet",
+     "name": "Svět"
+    },
+    "title": {
+     "__typename": "Title_Out",
+     "main": "Bulharsko hlásí další útok na lodě v Černém moři, jedna se potopila",
+     "preview": null,
+     "prefix": null
+    },
+    "slug": "drony-zasahly-u-pobrezi-bulharska-dve-lode-jedna-se-potopila-oznamil-premier-radev",
+    "publication": {
+     "__typename": "ArticlePublication_Out",
+     "datePublished": 1791893509,
+     "firstPublished": 1791870708
+    }
+   },
+   {
+    "__typename": "ArticlePublished_Out",
+    "id": 378499,
+    "mainSection": {
+     "__typename": "Section_Out",
+     "id": 16,
+     "path": "svet",
+     "name": "Svět"
+    },
+    "title": {
+     "__typename": "Title_Out",
+     "main": "Pokroky v AI přivádějí matematiky do „existenční krize“",
+     "preview": null,
+     "prefix": null
+    },
+    "slug": "pokroky-v-ai-privadeji-matematiky-do-existencni-krize",
+    "publication": {
+     "__typename": "ArticlePublication_Out",
+     "datePublished": 1791810684,
+     "firstPublished": 1791808943
+    }
+   },
+   {
+    "__typename": "ArticlePublished_Out",
+    "id": 378527,
+    "mainSection": {
+     "__typename": "Section_Out",
+     "id": 25,
+     "path": "veda",
+     "name": "Věda"
+    },
+    "title": {
+     "__typename": "Title_Out",
+     "main": "Lídři v oblasti AI čekají na „AIpokalypsu“. Obávají se hněvu veřejnosti",
+     "preview": null,
+     "prefix": null
+    },
+    "slug": "lidri-v-oblasti-ai-cekaji-na-aipokalypsu-obavaji-se-hnevu-verejnosti",
+    "publication": {
+     "__typename": "ArticlePublication_Out",
+     "datePublished": 1791885419,
+     "firstPublished": 1791885419
+    }
+   },
+   {
+    "__typename": "ArticlePublished_Out",
+    "id": 378100,
+    "mainSection": {
+     "__typename": "Section_Out",
+     "id": 25,
+     "path": "veda",
+     "name": "Věda"
+    },
+    "title": {
+     "__typename": "Title_Out",
+     "main": "Před sto lety vstoupili do československé vlády Němci. Historik: Pozitivní dopady cítíme dodnes",
+     "preview": null,
+     "prefix": null
+    },
+    "slug": "pred-sto-lety-vstoupili-do-ceskoslovenske-vlady-nemci-historik-pozitivni-dopady-citime-dodnes",
+    "publication": {
+     "__typename": "ArticlePublication_Out",
+     "datePublished": 1791871200,
+     "firstPublished": 1791871200
+    }
+   },
+   {
+    "__typename": "ArticlePublished_Out",
+    "id": 378413,
+    "mainSection": {
+     "__typename": "Section_Out",
+     "id": 16,
+     "path": "svet",
+     "name": "Svět"
+    },
+    "title": {
+     "__typename": "Title_Out",
+     "main": "Vyšetřování či impeachment. Demokraté chtějí po volbách využít síly Kongresu",
+     "preview": null,
+     "prefix": null
+    },
+    "slug": "vysetrovani-ci-impeachment-demokrate-chteji-po-volbach-vyuzit-sily-kongresu",
+    "publication": {
+     "__typename": "ArticlePublication_Out",
+     "datePublished": 1791864000,
+     "firstPublished": 1791864000
+    }
+   },
+   {
+    "__typename": "ArticlePublished_Out",
+    "id": 378497,
+    "mainSection": {
+     "__typename": "Section_Out",
+     "id": 25,
+     "path": "veda",
+     "name": "Věda"
+    },
+    "title": {
+     "__typename": "Title_Out",
+     "main": "Plodiny za půl století ztratily půlku nutriční hodnoty, varuje zpráva",
+     "preview": null,
+     "prefix": null
+    },
+    "slug": "plodiny-za-pul-stoleti-ztratily-pulku-nutricni-hodnoty-varuje-zprava",
+    "publication": {
+     "__typename": "ArticlePublication_Out",
+     "datePublished": 1791867600,
+     "firstPublished": 1791867600
+    }
+   },
+   {
+    "__typename": "ArticlePublished_Out",
+    "id": 378523,
+    "mainSection": {
+     "__typename": "Section_Out",
+     "id": 16,
+     "path": "svet",
+     "name": "Svět"
+    },
+    "title": {
+     "__typename": "Title_Out",
+     "main": "Pomoc pro přeživší popravy Pikeovou se značně zpozdila, píše AP",
+     "preview": null,
+     "prefix": null
+    },
+    "slug": "pomoc-pro-prezivsi-popravy-pikeovou-se-znacne-zpozdila-pise-ap",
+    "publication": {
+     "__typename": "ArticlePublication_Out",
+     "datePublished": 1791872906,
+     "firstPublished": 1791872906
+    }
+   }
+  ]
+ }
+}

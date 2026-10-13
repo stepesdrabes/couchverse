@@ -497,12 +497,45 @@ export interface CouchTvBreakReadiness {
 	upcoming: number;
 }
 
+export interface CouchTvBulletins {
+	/** The newest news bulletin; absent before the first. */
+	news?: CouchTvNews;
+	/** The newest weather bulletin; absent before the first. */
+	weather?: CouchTvWeather;
+}
+
+export interface CouchTvBulletinsConfig {
+	/**
+	 * The places the weather covers, each with its own forecast, in the order they are shown.
+	 * From 1 to 20 items.
+	 */
+	cities: CouchTvCity[];
+	/** Fetch the weather and the news headlines through the day. */
+	enabled: boolean;
+}
+
+export interface CouchTvCity {
+	/**
+	 * Latitude; within Czechia, the map the weather is drawn on.
+	 * From 48.5 to 51.1.
+	 */
+	lat: number;
+	/**
+	 * Longitude; within Czechia.
+	 * From 12 to 18.9.
+	 */
+	lon: number;
+	/** From 1 to 40 characters. */
+	name: string;
+}
+
 export interface CouchTvConfig {
 	/**
 	 * The shortest break between programs.
 	 * From 5 to 600.
 	 */
 	breakMinSeconds: number;
+	bulletins: CouchTvBulletinsConfig;
 	guestLink: CouchTvGuestLink;
 	rotation: CouchTvRotation;
 	template: CouchTvTemplate;
@@ -594,6 +627,50 @@ export type CouchTvListingFill = 'strip' | 'marathon' | 'reruns' | 'movie' | 'ma
 export type CouchTvListingKind = 'program' | 'break';
 
 export type CouchTvListingTitleKind = 'movie' | 'series';
+
+export interface CouchTvNews {
+	/** What each source answered. */
+	feeds: CouchTvNewsFeed[];
+	fetchedAt: string;
+	/** The top stories of the last 12 hours, most important first: 3 to 5. */
+	stories: CouchTvNewsStory[];
+	/** When the headlines are too old to air. */
+	validUntil: string;
+}
+
+export interface CouchTvNewsFeed {
+	/** Why it could not be read; absent when it was. */
+	error?: string;
+	/** The news items it carried, sport, culture, lifestyle, opinion and shows left out. */
+	items: number;
+	/** The source, e.g. ČT24 or ČT24 trending. */
+	name: string;
+}
+
+export interface CouchTvNewsStory {
+	/** Every outlet carrying the story, those used only for ranking included. */
+	coverage: CouchTvNewsStoryCoverageItem[];
+	/** In ČT24's editors' selection. */
+	editorsPick: boolean;
+	/** The outlet's own headline, never shortened or reworded (Český rozhlas forbids it): markup and entities resolved, spaces normalised and a no-break space after a one-letter preposition or conjunction, so a template wraps it as Czech typesetting does. */
+	headline: string;
+	/** The outlet the headline is from. */
+	outlet: CouchTvNewsStoryOutlet;
+	/** The outlet's name, the plain-text label to show with the headline (never its logo). */
+	outletName: string;
+	publishedAt: string;
+	/** The ranking: an outlet carrying it 1, the editors' selection 1.5 more, trending 1 more, eased by age. */
+	score: number;
+	/** Among ČT24's most read of the day. */
+	trending: boolean;
+	/** The article. */
+	url: string;
+}
+
+export type CouchTvNewsStoryCoverageItem = 'ct24' | 'irozhlas' | 'seznamzpravy' | 'novinky' | 'idnes' | 'cnnprima' | 'denik';
+
+/** The outlet the headline is from. */
+export type CouchTvNewsStoryOutlet = 'ct24' | 'irozhlas' | 'seznamzpravy' | 'novinky' | 'idnes';
 
 export interface CouchTvOverview {
 	config: CouchTvConfig;
@@ -898,6 +975,45 @@ export interface CouchTvTune {
 	targetDuration: number;
 }
 
+export interface CouchTvWarning {
+	/** The event in Czech, as ČHMÚ names it. */
+	event: string;
+	/** The event in English, as ČHMÚ names it. */
+	eventEn: string;
+	/** When it ends (the latest of its areas); null until further notice. */
+	expires: string | null;
+	level: CouchTvWarningLevel;
+	/** When it begins (the earliest of its areas). */
+	onset: string;
+	/** The kraje it covers, by code. */
+	regions: CouchTvWarningRegion[];
+}
+
+export type CouchTvWarningLevel = 'yellow' | 'orange' | 'red';
+
+export interface CouchTvWarningRegion {
+	/** The kraj's ISO 3166-2 code. */
+	code: CouchTvWarningRegionCode;
+	/** In Czech. */
+	name: string;
+	/** In English. */
+	nameEn: string;
+	/** Only some of its districts (ORP) are warned. */
+	partial: boolean;
+}
+
+/** The kraj's ISO 3166-2 code. */
+export type CouchTvWarningRegionCode = 'CZ-10' | 'CZ-20' | 'CZ-31' | 'CZ-32' | 'CZ-41' | 'CZ-42' | 'CZ-51' | 'CZ-52' | 'CZ-53' | 'CZ-63' | 'CZ-64' | 'CZ-71' | 'CZ-72' | 'CZ-80';
+
+export interface CouchTvWarnings {
+	/** The credit to show with them. */
+	attribution: string;
+	/** When ČHMÚ issued the state of warnings this was read from. */
+	issuedAt: string;
+	/** Yellow, orange and red warnings in force now or later today, the most severe first; empty on a quiet day. */
+	items: CouchTvWarning[];
+}
+
 export interface CouchTvWaveform {
 	fromMs: number;
 	/** The loudest momentary loudness (LUFS, -70 to 0) of each step from fromMs. */
@@ -906,6 +1022,61 @@ export interface CouchTvWaveform {
 	/** The span each value covers. */
 	stepMs: number;
 	toMs: number;
+}
+
+export interface CouchTvWeather {
+	/** The credit Open-Meteo's licence (CC BY 4.0) asks for wherever the data is shown. */
+	attribution: string;
+	/** The configured cities, in their order. */
+	cities: CouchTvWeatherCity[];
+	fetchedAt: string;
+	/** The zone the days are dates in, the channel's. */
+	timeZone: string;
+	/** When the forecast is too old to air. */
+	validUntil: string;
+	/** ČHMÚ's warnings; absent when they could not be read. */
+	warnings?: CouchTvWarnings;
+}
+
+export interface CouchTvWeatherCity {
+	/** Today and the next four days. */
+	days: CouchTvWeatherDay[];
+	/** Where the city is (the configured position, not the forecast's grid cell). */
+	lat: number;
+	lon: number;
+	name: string;
+	now: CouchTvWeatherNow;
+}
+
+export interface CouchTvWeatherDay {
+	/**
+	 * The WMO code of the daytime, 09-18: what most of those hours are, where the source's daily code is the day's worst hour.
+	 * From 0 to 99.
+	 */
+	code: number;
+	/** The day, in the channel's zone. */
+	date: string;
+	/** The day's highest temperature, °C. */
+	max: number;
+	/** The day's lowest temperature, °C (midnight to midnight). */
+	min: number;
+	/**
+	 * The day's highest chance of precipitation, %; null when the forecast has none.
+	 * From 0 to 100.
+	 */
+	precipitationProbability: number | null;
+}
+
+export interface CouchTvWeatherNow {
+	/**
+	 * The WMO weather code (Open-Meteo's table).
+	 * From 0 to 99.
+	 */
+	code: number;
+	/** Daylight, for a sun or a moon. */
+	isDay: boolean;
+	/** Air temperature, °C. */
+	temperature: number;
 }
 
 /** body returns the participant token in the response instead of setting the couch cookie. */
@@ -2632,6 +2803,10 @@ export const adminGetAnalytics = (query: AdminGetAnalyticsQuery = {}, opts?: Cal
 /** `GET /admin/couchtv` */
 export const adminGetCouchTv = (opts?: CallOptions) =>
 	api<CouchTvOverview>(`/admin/couchtv`, opts);
+
+/** Get Couch TV's bulletins (`GET /admin/couchtv/bulletins`) */
+export const adminGetCouchTvBulletins = (opts?: CallOptions) =>
+	api<CouchTvBulletins>(`/admin/couchtv/bulletins`, opts);
 
 /** `GET /admin/couchtv/titles/{id}` */
 export const adminGetCouchTvTitle = (id: string, opts?: CallOptions) =>

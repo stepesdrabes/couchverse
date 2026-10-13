@@ -1657,10 +1657,45 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct CouchTvBulletins {
+        /// The newest news bulletin; absent before the first.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub news: Option<CouchTvNews>,
+        /// The newest weather bulletin; absent before the first.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub weather: Option<CouchTvWeather>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvBulletinsConfig {
+        /// The places the weather covers, each with its own forecast, in the order they are shown.
+        /// From 1 to 20 items.
+        pub cities: Vec<CouchTvCity>,
+        /// Fetch the weather and the news headlines through the day.
+        pub enabled: bool,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvCity {
+        /// Latitude; within Czechia, the map the weather is drawn on.
+        /// From 48.5 to 51.1.
+        pub lat: f64,
+        /// Longitude; within Czechia.
+        /// From 12 to 18.9.
+        pub lon: f64,
+        /// From 1 to 40 characters.
+        pub name: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct CouchTvConfig {
         /// The shortest break between programs.
         /// From 5 to 600.
         pub break_min_seconds: i64,
+        pub bulletins: CouchTvBulletinsConfig,
         pub guest_link: CouchTvGuestLink,
         pub rotation: CouchTvRotation,
         pub template: CouchTvTemplate,
@@ -1872,6 +1907,131 @@ pub mod types {
     }
 
     impl std::fmt::Display for CouchTvListingTitleKind {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvNews {
+        /// What each source answered.
+        pub feeds: Vec<CouchTvNewsFeed>,
+        pub fetched_at: String,
+        /// The top stories of the last 12 hours, most important first: 3 to 5.
+        pub stories: Vec<CouchTvNewsStory>,
+        /// When the headlines are too old to air.
+        pub valid_until: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvNewsFeed {
+        /// Why it could not be read; absent when it was.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub error: Option<String>,
+        /// The news items it carried, sport, culture, lifestyle, opinion and shows left out.
+        pub items: i64,
+        /// The source, e.g. ČT24 or ČT24 trending.
+        pub name: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvNewsStory {
+        /// Every outlet carrying the story, those used only for ranking included.
+        pub coverage: Vec<CouchTvNewsStoryCoverageItem>,
+        /// In ČT24's editors' selection.
+        pub editors_pick: bool,
+        /// The outlet's own headline, never shortened or reworded (Český rozhlas forbids it): markup and entities resolved, spaces normalised and a no-break space after a one-letter preposition or conjunction, so a template wraps it as Czech typesetting does.
+        pub headline: String,
+        /// The outlet the headline is from.
+        pub outlet: CouchTvNewsStoryOutlet,
+        /// The outlet's name, the plain-text label to show with the headline (never its logo).
+        pub outlet_name: String,
+        pub published_at: String,
+        /// The ranking: an outlet carrying it 1, the editors' selection 1.5 more, trending 1 more, eased by age.
+        pub score: f64,
+        /// Among ČT24's most read of the day.
+        pub trending: bool,
+        /// The article.
+        pub url: String,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvNewsStoryCoverageItem {
+        #[serde(rename = "ct24")]
+        Ct24,
+        #[serde(rename = "irozhlas")]
+        Irozhlas,
+        #[serde(rename = "seznamzpravy")]
+        Seznamzpravy,
+        #[serde(rename = "novinky")]
+        Novinky,
+        #[serde(rename = "idnes")]
+        Idnes,
+        #[serde(rename = "cnnprima")]
+        Cnnprima,
+        #[serde(rename = "denik")]
+        Denik,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvNewsStoryCoverageItem {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvNewsStoryCoverageItem::Ct24 => "ct24",
+                CouchTvNewsStoryCoverageItem::Irozhlas => "irozhlas",
+                CouchTvNewsStoryCoverageItem::Seznamzpravy => "seznamzpravy",
+                CouchTvNewsStoryCoverageItem::Novinky => "novinky",
+                CouchTvNewsStoryCoverageItem::Idnes => "idnes",
+                CouchTvNewsStoryCoverageItem::Cnnprima => "cnnprima",
+                CouchTvNewsStoryCoverageItem::Denik => "denik",
+                CouchTvNewsStoryCoverageItem::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvNewsStoryCoverageItem {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// The outlet the headline is from.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvNewsStoryOutlet {
+        #[serde(rename = "ct24")]
+        Ct24,
+        #[serde(rename = "irozhlas")]
+        Irozhlas,
+        #[serde(rename = "seznamzpravy")]
+        Seznamzpravy,
+        #[serde(rename = "novinky")]
+        Novinky,
+        #[serde(rename = "idnes")]
+        Idnes,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvNewsStoryOutlet {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvNewsStoryOutlet::Ct24 => "ct24",
+                CouchTvNewsStoryOutlet::Irozhlas => "irozhlas",
+                CouchTvNewsStoryOutlet::Seznamzpravy => "seznamzpravy",
+                CouchTvNewsStoryOutlet::Novinky => "novinky",
+                CouchTvNewsStoryOutlet::Idnes => "idnes",
+                CouchTvNewsStoryOutlet::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvNewsStoryOutlet {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -2567,6 +2727,140 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct CouchTvWarning {
+        /// The event in Czech, as ČHMÚ names it.
+        pub event: String,
+        /// The event in English, as ČHMÚ names it.
+        pub event_en: String,
+        /// When it ends (the latest of its areas); null until further notice.
+        pub expires: Option<String>,
+        pub level: CouchTvWarningLevel,
+        /// When it begins (the earliest of its areas).
+        pub onset: String,
+        /// The kraje it covers, by code.
+        pub regions: Vec<CouchTvWarningRegion>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvWarningLevel {
+        #[serde(rename = "yellow")]
+        Yellow,
+        #[serde(rename = "orange")]
+        Orange,
+        #[serde(rename = "red")]
+        Red,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvWarningLevel {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvWarningLevel::Yellow => "yellow",
+                CouchTvWarningLevel::Orange => "orange",
+                CouchTvWarningLevel::Red => "red",
+                CouchTvWarningLevel::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvWarningLevel {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvWarningRegion {
+        /// The kraj's ISO 3166-2 code.
+        pub code: CouchTvWarningRegionCode,
+        /// In Czech.
+        pub name: String,
+        /// In English.
+        pub name_en: String,
+        /// Only some of its districts (ORP) are warned.
+        pub partial: bool,
+    }
+
+    /// The kraj's ISO 3166-2 code.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvWarningRegionCode {
+        #[serde(rename = "CZ-10")]
+        CZ10,
+        #[serde(rename = "CZ-20")]
+        CZ20,
+        #[serde(rename = "CZ-31")]
+        CZ31,
+        #[serde(rename = "CZ-32")]
+        CZ32,
+        #[serde(rename = "CZ-41")]
+        CZ41,
+        #[serde(rename = "CZ-42")]
+        CZ42,
+        #[serde(rename = "CZ-51")]
+        CZ51,
+        #[serde(rename = "CZ-52")]
+        CZ52,
+        #[serde(rename = "CZ-53")]
+        CZ53,
+        #[serde(rename = "CZ-63")]
+        CZ63,
+        #[serde(rename = "CZ-64")]
+        CZ64,
+        #[serde(rename = "CZ-71")]
+        CZ71,
+        #[serde(rename = "CZ-72")]
+        CZ72,
+        #[serde(rename = "CZ-80")]
+        CZ80,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvWarningRegionCode {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvWarningRegionCode::CZ10 => "CZ-10",
+                CouchTvWarningRegionCode::CZ20 => "CZ-20",
+                CouchTvWarningRegionCode::CZ31 => "CZ-31",
+                CouchTvWarningRegionCode::CZ32 => "CZ-32",
+                CouchTvWarningRegionCode::CZ41 => "CZ-41",
+                CouchTvWarningRegionCode::CZ42 => "CZ-42",
+                CouchTvWarningRegionCode::CZ51 => "CZ-51",
+                CouchTvWarningRegionCode::CZ52 => "CZ-52",
+                CouchTvWarningRegionCode::CZ53 => "CZ-53",
+                CouchTvWarningRegionCode::CZ63 => "CZ-63",
+                CouchTvWarningRegionCode::CZ64 => "CZ-64",
+                CouchTvWarningRegionCode::CZ71 => "CZ-71",
+                CouchTvWarningRegionCode::CZ72 => "CZ-72",
+                CouchTvWarningRegionCode::CZ80 => "CZ-80",
+                CouchTvWarningRegionCode::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvWarningRegionCode {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvWarnings {
+        /// The credit to show with them.
+        pub attribution: String,
+        /// When ČHMÚ issued the state of warnings this was read from.
+        pub issued_at: String,
+        /// Yellow, orange and red warnings in force now or later today, the most severe first; empty on a quiet day.
+        pub items: Vec<CouchTvWarning>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct CouchTvWaveform {
         pub from_ms: i64,
         /// The loudest momentary loudness (LUFS, -70 to 0) of each step from fromMs.
@@ -2575,6 +2869,64 @@ pub mod types {
         /// The span each value covers.
         pub step_ms: i64,
         pub to_ms: i64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvWeather {
+        /// The credit Open-Meteo's licence (CC BY 4.0) asks for wherever the data is shown.
+        pub attribution: String,
+        /// The configured cities, in their order.
+        pub cities: Vec<CouchTvWeatherCity>,
+        pub fetched_at: String,
+        /// The zone the days are dates in, the channel's.
+        pub time_zone: String,
+        /// When the forecast is too old to air.
+        pub valid_until: String,
+        /// ČHMÚ's warnings; absent when they could not be read.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub warnings: Option<CouchTvWarnings>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvWeatherCity {
+        /// Today and the next four days.
+        pub days: Vec<CouchTvWeatherDay>,
+        /// Where the city is (the configured position, not the forecast's grid cell).
+        pub lat: f64,
+        pub lon: f64,
+        pub name: String,
+        pub now: CouchTvWeatherNow,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvWeatherDay {
+        /// The WMO code of the daytime, 09-18: what most of those hours are, where the source's daily code is the day's worst hour.
+        /// From 0 to 99.
+        pub code: i64,
+        /// The day, in the channel's zone.
+        pub date: String,
+        /// The day's highest temperature, °C.
+        pub max: f64,
+        /// The day's lowest temperature, °C (midnight to midnight).
+        pub min: f64,
+        /// The day's highest chance of precipitation, %; null when the forecast has none.
+        /// From 0 to 100.
+        pub precipitation_probability: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvWeatherNow {
+        /// The WMO weather code (Open-Meteo's table).
+        /// From 0 to 99.
+        pub code: i64,
+        /// Daylight, for a sun or a moon.
+        pub is_day: bool,
+        /// Air temperature, °C.
+        pub temperature: f64,
     }
 
     /// body returns the participant token in the response instead of setting the couch cookie.
@@ -6771,6 +7123,19 @@ pub mod ops {
     pub fn admin_get_couch_tv() -> Call<CouchTvOverview> {
         let q = Vec::new();
         build::json(build::request(Method::Get, "/admin/couchtv".to_string(), q, Body::Empty))
+    }
+
+    /// Get Couch TV's bulletins
+    ///
+    /// `GET /admin/couchtv/bulletins`
+    pub fn admin_get_couch_tv_bulletins() -> Call<CouchTvBulletins> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Get,
+            "/admin/couchtv/bulletins".to_string(),
+            q,
+            Body::Empty,
+        ))
     }
 
     /// `GET /admin/couchtv/titles/{id}`
