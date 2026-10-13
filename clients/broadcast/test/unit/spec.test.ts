@@ -69,6 +69,23 @@ describe('collectUrls', () => {
 		expect(collectUrls(FIXTURES['ident-full']).images).toEqual(FIXTURES['ident-full'].posters);
 	});
 
+	it('loads a title logo with the artwork, footage frame by frame', () => {
+		const title = {
+			name: 'Logo',
+			genres: [],
+			accents: {},
+			backdrop: '/b.jpg',
+			poster: '/p.jpg',
+			logo: { url: '/logo.png', aspect: 4 },
+			footage: [{ kind: 'footage' as const, frames: ['/shot/001.jpg'] }]
+		};
+		expect(collectUrls({ template: 'upNext', title, time: '20:15' }).images).toEqual([
+			'/b.jpg',
+			'/p.jpg',
+			'/logo.png'
+		]);
+	});
+
 	it('takes an empty URL for no artwork, not one to load', () => {
 		const title = { name: 'No Art', genres: [], accents: {}, backdrop: '', poster: '' };
 		expect(collectUrls({ template: 'upNext', title, time: '20:15' }).images).toEqual([]);

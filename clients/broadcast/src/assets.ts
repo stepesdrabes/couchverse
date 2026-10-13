@@ -135,6 +135,7 @@ export function collectUrls(spec: unknown): { images: string[]; beds: string[] }
 		}
 		const o = v as Record<string, unknown>;
 		if (key === 'bed' && typeof o.url === 'string') beds.add(o.url);
+		if (key === 'logo' && typeof o.url === 'string' && o.url) images.add(o.url);
 		// accents are colours keyed like the images they come from
 		if (key !== 'accents') for (const [k, x] of Object.entries(o)) walk(x, k);
 	};
