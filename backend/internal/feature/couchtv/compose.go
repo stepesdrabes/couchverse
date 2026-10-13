@@ -99,6 +99,9 @@ type BreakInput struct {
 	// Recent are the titles promoted in the breaks just before this one.
 	Recent   map[string]bool
 	Loudness float64
+	// Bulletins are the kinds of bulletin the break carries, in order: each a slot of its
+	// fixed length before up next (bulletin_slots.go).
+	Bulletins []string
 }
 
 // Part is one clip of a break.
@@ -112,6 +115,8 @@ type Part struct {
 	Sound *Spec
 	// TitleID is the title a promo part promotes.
 	TitleID string
+	// Slot is the kind of bulletin whose slot the part holds: it airs when no bulletin can.
+	Slot string
 }
 
 // Composition is a composed break.
@@ -121,6 +126,8 @@ type Composition struct {
 	Sound  BreakSpec
 	// Promos are the titles it promotes, in order.
 	Promos []string
+	// Slots are where its bulletins air.
+	Slots []Slot
 }
 
 // piece is a part in the making: a fixed length, or one the fit sizes.
@@ -131,7 +138,9 @@ type piece struct {
 
 // Compose fills a break.
 func Compose(in BreakInput) (Composition, error) {
-	g := in.Frames
+	bulletins, slotFrames := keptSlots(in)
+	// the slots are set aside: a break that keeps any is a normal one beside them
+	g := in.Frames - slotFrames
 	var head, tail []piece
 	var groups [][]piece
 	// left counts the flexible parts at their defaults; slack is what they can give back
@@ -167,6 +176,9 @@ func Compose(in BreakInput) (Composition, error) {
 			slack += lineupSpan.def - lineupSpan.min
 		}
 		groups, left = promos(in, left, slack)
+		if len(bulletins) > 0 {
+			tail = slices.Insert(tail, len(tail)-1, slotPieces(in, bulletins, groups)...)
+		}
 	case in.Next != nil && g >= upNextSpan.min:
 		tail = append(tail, upNextPiece(in, "cut"))
 		left -= upNextSpan.def
@@ -244,6 +256,7 @@ func assemble(in BreakInput, seq []piece) Composition {
 		c.Parts = append(c.Parts, part)
 	}
 	c.Frames = at
+	c.Slots = slotsOf(c.Parts)
 	return c
 }
 

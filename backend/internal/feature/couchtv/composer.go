@@ -242,6 +242,9 @@ func (r *composition) save(ctx context.Context, airingID string, airs time.Time,
 	if recipe.Promos == nil {
 		recipe.Promos = []string{}
 	}
+	for _, s := range comp.Slots {
+		recipe.Slots = append(recipe.Slots, RecipeSlot{Kind: s.Kind, At: s.At, Frames: s.Frames, Loudness: slotLoudness(comp.Sound.Loudness)})
+	}
 	invalid := validateSpec(comp.Sound)
 	keys := make([]string, len(comp.Parts))
 	for i, p := range comp.Parts {
@@ -398,6 +401,13 @@ func (r *composition) input(ctx context.Context, b Airing) (BreakInput, error) {
 	}
 	if in.Loudness == 0 && in.Next != nil {
 		in.Loudness = r.titles[in.Next.TitleID].Loudness
+	}
+	if r.cfg.Bulletins.Enabled && in.Next != nil {
+		var prevStart time.Time
+		if ending != nil {
+			prevStart = ending.StartsAt
+		}
+		in.Bulletins = bulletinKinds(b.StartsAt, b.EndsAt, prevStart, in.Next.Fill, loc)
 	}
 
 	// each title once, at its first airing after the break

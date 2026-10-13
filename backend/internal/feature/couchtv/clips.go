@@ -147,6 +147,18 @@ type Recipe struct {
 	Clips  []RecipeClip `json:"clips"`
 	Sound  BreakSpec    `json:"sound"`
 	Promos []string     `json:"promos"`
+	// Slots are where bulletins air: the break is assembled in sections around them.
+	Slots []RecipeSlot `json:"slots,omitempty"`
+}
+
+// RecipeSlot is a break's slot for a bulletin: its clips air unless a bulletin of the kind is
+// ready when the break goes on air. Its sound is mixed on its own at Loudness, the break's in
+// whole LU, which the bulletins' clips carry a rendition of.
+type RecipeSlot struct {
+	Kind     string  `json:"kind"`
+	At       int     `json:"at"`
+	Frames   int     `json:"frames"`
+	Loudness float64 `json:"loudness"`
 }
 
 // RecipeClip is one clip of a recipe, placed in frames.

@@ -3,6 +3,7 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -503,6 +504,7 @@ func TestCouchTvComposeJob(t *testing.T) {
 		t.Fatalf("%d of %d breaks composed", composed, breaks)
 	}
 	// every recipe fills its break to the frame with clips back to back
+	slotted := 0
 	rows, err := env.pool.Query(ctx, `SELECT a.starts_at, a.ends_at, b.recipe FROM couchtv_breaks b
 		JOIN couchtv_airings a ON a.id = b.airing_id`)
 	if err != nil {
@@ -527,8 +529,32 @@ func TestCouchTvComposeJob(t *testing.T) {
 		if len(r.Clips) == 0 || r.Clips[len(r.Clips)-1].Kind != couchtv.ClipUpNext {
 			t.Errorf("break at %s does not end on up next: %+v", starts, r.Clips)
 		}
+		// bulletins: the news on the hour from 06:00, in slots made of whole clips at the
+		// break's loudness in whole LU
+		onTheHour := ends.In(prague).Minute() == 0 && (ends.In(prague).Hour() >= 7 || ends.In(prague).Hour() == 0)
+		hasNews := slices.ContainsFunc(r.Slots, func(s couchtv.RecipeSlot) bool { return s.Kind == couchtv.BulletinNews })
+		if onTheHour && r.Frames >= 2000 && !hasNews || !onTheHour && hasNews && ends.In(prague).Hour() != 6 {
+			t.Errorf("break at %s ending %s: slots %+v", starts.In(prague), ends.In(prague), r.Slots)
+		}
+		if hasNews {
+			slotted++
+		}
+		for _, s := range r.Slots {
+			edges := 0
+			for _, c := range r.Clips {
+				if c.At == s.At || c.At+c.Frames == s.At+s.Frames {
+					edges++
+				}
+			}
+			if edges != 2 || s.Loudness != math.Round(r.Sound.Loudness) {
+				t.Errorf("break at %s: slot %+v over clips %+v", starts, s, r.Clips)
+			}
+		}
 	}
 	rows.Close()
+	if slotted == 0 {
+		t.Error("no break carries the news")
+	}
 	if n := count(`SELECT count(*) FROM couchtv_breaks WHERE kind = 'evergreen' AND state = 'composed'`); n != 1 {
 		t.Errorf("%d evergreen breaks", n)
 	}
