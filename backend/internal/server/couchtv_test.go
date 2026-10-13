@@ -383,6 +383,18 @@ func TestCouchTvPrune(t *testing.T) {
 		}
 		return rel
 	}
+	file := func(rel string, age time.Duration) string {
+		t.Helper()
+		dir(filepath.Dir(rel), 0)
+		path := filepath.Join(env.cfg.DataDir, rel)
+		if err := os.WriteFile(path, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(path, now.Add(-age), now.Add(-age)); err != nil {
+			t.Fatal(err)
+		}
+		return rel
+	}
 	exists := func(rel string) bool {
 		_, err := os.Stat(filepath.Join(env.cfg.DataDir, rel))
 		return err == nil
@@ -416,6 +428,7 @@ func TestCouchTvPrune(t *testing.T) {
 	heard, unheard := file("couchtv/soundtracks/deezer-2002.mp3", time.Hour), file("couchtv/soundtracks/itunes-1003.m4a", 30*24*time.Hour)
 	exec(`INSERT INTO couchtv_titles (title_id, soundtrack_id, soundtrack_source, soundtrack_path, soundtrack_start_ms,
 		soundtrack_duration_ms) VALUES ($1, $2, 'auto', $3, 0, 30000)`, movieID, soundtrackID, picked)
+	staleSound, freshSound := file("couchtv/sounds/stale.wav", 3*24*time.Hour), file("couchtv/sounds/mixed.wav", 20*time.Hour)
 
 	exec(`INSERT INTO couchtv_airings (id, starts_at, ends_at, kind) VALUES
 		('00000000-0000-4000-8000-00000000b001', $1, $2, 'break'), ('00000000-0000-4000-8000-00000000b002', $3, $4, 'break')`,
@@ -433,7 +446,8 @@ func TestCouchTvPrune(t *testing.T) {
 		t.Fatal(err)
 	}
 	for rel, want := range map[string]bool{aired: false, waiting: true, oldClip: false, usedClip: true,
-		oldGreen: false, newGreen: true, staleFrames: false, freshFrames: true, picked: true, heard: true, unheard: false} {
+		oldGreen: false, newGreen: true, staleFrames: false, freshFrames: true, picked: true, heard: true, unheard: false,
+		staleSound: false, freshSound: true} {
 		if exists(rel) != want {
 			t.Errorf("%s kept: %v, want %v", rel, exists(rel), want)
 		}

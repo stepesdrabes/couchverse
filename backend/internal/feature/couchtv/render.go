@@ -2,7 +2,6 @@ package couchtv
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,11 +68,10 @@ const (
 	videoDir = "source"
 	audioDir = "audio-1-aac"
 	// samplesPerFrame is the render's 48 kHz audio per 25 fps frame.
-	samplesPerFrame = 48000 / FPS
-	// partFrames bounds one audio render of a long break: the page holds a part's whole
-	// sound twice over (the offline render and its WAV), which must stay small next to the
-	// sidecar's 1 GB.
-	partFrames = 120 * FPS
+	samplesPerFrame = sampleRate / FPS
+	// itemTail is how long an item's sound may ring out past its end (the page's ITEM_TAIL),
+	// for the timeout of rendering it
+	itemTail = 4 * FPS
 )
 
 // fromJPEG converts the captured JPEGs (full-range BT.601) to the clips' limited-range BT.709.
@@ -114,6 +112,8 @@ type Renderer struct {
 	server  *mediaServer
 	browser *browser
 	jobs    int
+	// versions are the bundle's template versions, which key the items' sounds
+	versions map[string]int
 }
 
 // Start serves the bundle, opens Chromium, publishes the template versions and asks the
@@ -134,6 +134,7 @@ func (r *Renderer) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	r.versions = versions
 	if err := r.publish(ctx, versions); err != nil {
 		return err
 	}
@@ -329,7 +330,7 @@ func (r *Renderer) renderClip(ctx context.Context, clip *Clip, report func(int))
 	}
 
 	raw := filepath.Join(work, "sound.f32")
-	if err := r.renderSound(ctx, b, nil, raw, frames); err != nil {
+	if err := r.renderSound(ctx, b, raw, frames); err != nil {
 		return 0, 0, err
 	}
 	if err := r.encodeSound(ctx, raw, work); err != nil {
@@ -338,7 +339,59 @@ func (r *Renderer) renderClip(ctx context.Context, clip *Clip, report func(int))
 	if err := describe(work, frames); err != nil {
 		return 0, 0, err
 	}
+	if err := r.keepItemSound(ctx, b, clip, loaded); err != nil {
+		// the clip is fine; a break that has it renders its sound when it assembles
+		slog.Warn("couchtv: a clip's sound as a break item was not kept", "clipId", clip.ID, "err", err)
+	}
 	return frames, loaded.Version, r.place(work, filepath.Join("couchtv", "clips", clip.Key))
+}
+
+// keepItemSound has the page render the loaded clip's sound as an item of a break and keeps
+// it, so the breaks that have the clip only mix it.
+func (r *Renderer) keepItemSound(ctx context.Context, b *browser, clip *Clip, loaded loadResult) error {
+	var spec Spec
+	if err := json.Unmarshal(clip.Spec, &spec); err != nil {
+		return err
+	}
+	item, ok := itemSpec(clip.Kind, spec)
+	if !ok {
+		return nil
+	}
+	frames := framesOf(loaded.Duration)
+	if clip.Kind == ClipPromoBody {
+		frames += endCardFrames
+	}
+	if got := framesOf(loaded.SoundDuration); got != frames {
+		return fmt.Errorf("its sound is %d frames, a break gives it %d", got, frames)
+	}
+	key, err := soundKey(loaded.Version, item)
+	if err != nil {
+		return err
+	}
+	_, err = r.saveItemSound(ctx, b, key, frames)
+	return err
+}
+
+// saveItemSound has the page post the loaded clip's sound as a break item and keeps it as
+// key's, checked to last at least the frames of its slot.
+func (r *Renderer) saveItemSound(ctx context.Context, b *browser, key string, frames int) (string, error) {
+	path := soundPath(r.DataDir, key)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", err
+	}
+	tmp := path + ".tmp"
+	defer os.Remove(tmp)
+	if err := b.renderItemAudio(ctx, "/upload/"+r.server.expect(tmp), soundTimeout(frames+itemTail)); err != nil {
+		return "", err
+	}
+	n, err := wavSamples(tmp)
+	if err != nil {
+		return "", err
+	}
+	if n < frames*samplesPerFrame {
+		return "", fmt.Errorf("the item's sound is %d samples, %d frames take %d", n, frames, frames*samplesPerFrame)
+	}
+	return path, os.Rename(tmp, path)
 }
 
 func (r *Renderer) workDir(kind string) (string, error) {
@@ -417,70 +470,35 @@ func (e *encoder) abort() {
 	_ = e.cmd.Wait()
 }
 
-// renderSound renders the loaded clip's sound, or each part of a break's (parts loaded in
-// turn), and writes it to raw as interleaved 32-bit float samples, checked against frames.
-func (r *Renderer) renderSound(ctx context.Context, b *browser, parts []soundPart, raw string, frames int) error {
+// renderSound renders the loaded clip's own sound and writes it to raw as interleaved
+// 32-bit float samples, checked against frames.
+func (r *Renderer) renderSound(ctx context.Context, b *browser, raw string, frames int) error {
+	wav := raw + ".wav"
+	defer os.Remove(wav)
+	if err := b.renderAudio(ctx, "/upload/"+r.server.expect(wav), soundTimeout(frames)); err != nil {
+		return err
+	}
+	n, err := wavSamples(wav)
+	if err != nil {
+		return err
+	}
+	if n != frames*samplesPerFrame {
+		return fmt.Errorf("the sound is %d samples, %d frames take %d", n, frames, frames*samplesPerFrame)
+	}
+	in, err := os.Open(wav)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
 	out, err := os.Create(raw)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-	render := func(frames int) error {
-		wav := raw + ".wav"
-		defer os.Remove(wav)
-		if err := b.renderAudio(ctx, "/upload/"+r.server.expect(wav), soundTimeout(frames)); err != nil {
-			return err
-		}
-		return appendSamples(out, wav)
-	}
-	if parts == nil {
-		if err := render(frames); err != nil {
-			return err
-		}
-	}
-	for i, part := range parts {
-		spec, err := json.Marshal(part.spec)
-		if err != nil {
-			return err
-		}
-		start := time.Now()
-		if _, err := b.load(ctx, spec, soundTimeout(part.frames)); err != nil {
-			return err
-		}
-		loaded := time.Since(start)
-		if err := render(part.frames); err != nil {
-			return err
-		}
-		slog.Info("couchtv: rendered a break's sound", "part", i+1, "of", len(parts), "frames", part.frames,
-			"items", len(part.spec.Items), "load", loaded.Round(time.Second), "render", (time.Since(start) - loaded).Round(time.Second))
-	}
-	info, err := out.Stat()
-	if err != nil {
+	if _, err := io.Copy(out, io.NewSectionReader(in, wavHeader, int64(n)*8)); err != nil {
 		return err
 	}
-	if want := int64(frames) * samplesPerFrame * 2 * 4; info.Size() != want {
-		return fmt.Errorf("the sound is %d bytes, %d frames take %d", info.Size(), frames, want)
-	}
-	return nil
-}
-
-// appendSamples appends a render's samples (a 32-bit float stereo WAV with the plain
-// 44-byte header the broadcast package writes) to out.
-func appendSamples(out io.Writer, wav string) error {
-	f, err := os.Open(wav)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	var head [44]byte
-	if _, err := io.ReadFull(f, head[:]); err != nil {
-		return err
-	}
-	if string(head[36:40]) != "data" || binary.LittleEndian.Uint16(head[20:]) != 3 || binary.LittleEndian.Uint16(head[22:]) != 2 {
-		return errors.New("the page's sound is not a stereo float WAV")
-	}
-	_, err = io.CopyN(out, f, int64(binary.LittleEndian.Uint32(head[40:])))
-	return err
+	return out.Close()
 }
 
 // encodeSound encodes raw samples into the package's audio rendition.
@@ -578,14 +596,18 @@ func (r *Renderer) assemble(ctx context.Context, b *Break, clips []*Clip, report
 		return err
 	}
 	defer os.RemoveAll(work)
-	br, err := r.openBrowser()
+	start := time.Now()
+	items, rendered, err := r.itemSounds(ctx, b)
 	if err != nil {
 		return err
 	}
 	raw := filepath.Join(work, "sound.f32")
-	if err := r.renderSound(ctx, br, soundParts(b.Recipe.Sound, b.Recipe.Frames), raw, b.Recipe.Frames); err != nil {
+	loud, err := mixBreak(items, b.Recipe.Frames*samplesPerFrame, b.Recipe.Sound.Loudness, raw)
+	if err != nil {
 		return err
 	}
+	slog.Info("couchtv: mixed a break's sound", "breakId", b.ID, "items", len(items), "rendered", rendered,
+		"lufs", math.Round(loud.Integrated*10)/10, "gainDb", math.Round(loud.GainDB*10)/10, "took", time.Since(start).Round(time.Millisecond))
 	report(40)
 
 	// each clip's video as one fragmented MP4 (its init and segments end to end), joined
@@ -656,33 +678,75 @@ func joinSegments(dir, dst string) error {
 	return out.Close()
 }
 
-// soundPart is one render of a break's sound: its items, placed from the part's start, and
-// how many frames of the break it covers.
-type soundPart struct {
-	spec   BreakSpec
-	frames int
+// itemSounds finds the sound of every item of a break and where it goes, rendering in the
+// page, once each, those not kept yet (clips rendered before the page made them, sounds
+// pruned since, or a promo without its airing in the evergreen break); it reports how many
+// it rendered. Each one used is touched, so the cleanup keeps it.
+func (r *Renderer) itemSounds(ctx context.Context, b *Break) ([]mixItem, int, error) {
+	items := b.Recipe.Sound.Items
+	out := make([]mixItem, len(items))
+	rendered := 0
+	var br *browser // opened for the first sound missing, if any
+	for i, it := range items {
+		at, end := framesOf(it.At), b.Recipe.Frames
+		if i+1 < len(items) {
+			end = framesOf(items[i+1].At)
+		}
+		version, ok := r.versions[it.Spec.Template]
+		if !ok {
+			return nil, rendered, fmt.Errorf("item %d: no %q template", i, it.Spec.Template)
+		}
+		key, err := soundKey(version, it.Spec)
+		if err != nil {
+			return nil, rendered, err
+		}
+		path := soundPath(r.DataDir, key)
+		if n, err := wavSamples(path); err != nil || n < (end-at)*samplesPerFrame {
+			if br == nil {
+				if br, err = r.openBrowser(); err != nil {
+					return nil, rendered, err
+				}
+			}
+			if path, err = r.renderItemSound(ctx, br, it.Spec, key, end-at); err != nil {
+				return nil, rendered, fmt.Errorf("item %d (%s): %w", i, it.Spec.Template, err)
+			}
+			rendered++
+		} else {
+			now := time.Now()
+			_ = os.Chtimes(path, now, now)
+		}
+		out[i] = mixItem{path: path, at: at * samplesPerFrame, slot: (end - at) * samplesPerFrame}
+	}
+	return out, rendered, nil
 }
 
-// soundParts splits a break's sound, frames long, into renders that start at most
-// partFrames apart, each cut where a clip's sound starts (only the outgoing clip's ring-out
-// is lost there).
-func soundParts(s BreakSpec, frames int) []soundPart {
-	var parts []soundPart
-	from := 0 // where the current part starts in the break
-	for _, item := range s.Items {
-		at := framesOf(item.At)
-		if len(parts) == 0 || at-from >= partFrames {
-			if len(parts) > 0 {
-				parts[len(parts)-1].frames = at - from
-				from = at
-			}
-			parts = append(parts, soundPart{spec: BreakSpec{Template: s.Template, Loudness: s.Loudness}})
-		}
-		item.At = frameSeconds(at - from)
-		parts[len(parts)-1].spec.Items = append(parts[len(parts)-1].spec.Items, item)
+// renderItemSound renders an item's sound in the page, frames long before it rings out,
+// and keeps it as key's.
+func (r *Renderer) renderItemSound(ctx context.Context, b *browser, spec Spec, key string, frames int) (string, error) {
+	body, err := json.Marshal(soundSpec(spec))
+	if err != nil {
+		return "", err
 	}
-	if len(parts) > 0 {
-		parts[len(parts)-1].frames = frames - from
+	// a squeeze sounds the same keyed, and keyed it draws no program frames
+	body, _, err = keyedSpec(body)
+	if err != nil {
+		return "", err
 	}
-	return parts
+	if err := r.server.prepare(ctx, body); err != nil {
+		return "", err
+	}
+	start := time.Now()
+	loaded, err := b.loadSound(ctx, body, soundTimeout(frames))
+	if err != nil {
+		return "", err
+	}
+	if got := framesOf(loaded.SoundDuration); got != frames {
+		return "", fmt.Errorf("its sound is %d frames, the break gives it %d", got, frames)
+	}
+	path, err := r.saveItemSound(ctx, b, key, frames)
+	if err == nil {
+		slog.Info("couchtv: rendered an item's sound", "template", spec.Template, "frames", frames,
+			"took", time.Since(start).Round(time.Millisecond))
+	}
+	return path, err
 }

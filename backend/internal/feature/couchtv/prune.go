@@ -18,15 +18,19 @@ const (
 	clipKeep = 14 * 24 * time.Hour
 	// extractKeep drops extracted frames and excerpts no render has used in that long.
 	extractKeep = 14 * 24 * time.Hour
+	// soundKeep drops an item's sound no break has mixed in that long: most are one break's
+	// (a squeeze, an up next), assembled within a day of their render; the shared ones (idents,
+	// stings, promos) are mixed every day, and one dropped too soon is rendered again.
+	soundKeep = 2 * 24 * time.Hour
 	// workKeep drops what a crashed render left in its work directory.
 	workKeep = 24 * time.Hour
 )
 
 // Prune keeps the rendered media bounded: the packages of breaks that have aired, clips
 // no break has asked for in a while (never one a waiting break uses), evergreen breaks
-// older than the newest assembled one, extracted media, work directories and soundtrack
-// previews nobody used lately (never a title's pick); and it forgets guests long gone. It
-// runs in the hourly cleanup.
+// older than the newest assembled one, and extracted media, items' sounds, work
+// directories and soundtrack previews nobody used lately (never a title's pick); and it
+// forgets guests long gone. It runs in the hourly cleanup.
 func Prune(ctx context.Context, s *Store, dataDir string, now time.Time) error {
 	remove := func(query string, args ...any) (int, error) {
 		rows, err := s.q.Query(ctx, query, args...)
@@ -89,6 +93,7 @@ func Prune(ctx context.Context, s *Store, dataDir string, now time.Time) error {
 	}{
 		{filepath.Join(root, "frames", "*", "*"), extractKeep},
 		{filepath.Join(root, "audio", "*", "*"), extractKeep},
+		{filepath.Join(root, soundsDir, "*"), soundKeep},
 		{filepath.Join(root, "tmp", "*"), workKeep},
 	} {
 		matches, _ := filepath.Glob(dir.pattern)

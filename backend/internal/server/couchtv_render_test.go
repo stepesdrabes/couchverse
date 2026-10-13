@@ -108,10 +108,24 @@ func TestCouchTvRender(t *testing.T) {
 		recipe.Frames += c.frames
 	}
 
+	// every clip kept its sound as a break item; one kept before clips did (or pruned since)
+	// is rendered again when the break assembles
+	sounds, _ := filepath.Glob(filepath.Join(env.cfg.DataDir, "couchtv", "sounds", "*.wav"))
+	if len(sounds) != len(clips) {
+		t.Fatalf("%d item sounds kept for %d clips", len(sounds), len(clips))
+	}
+	if err := os.Remove(sounds[0]); err != nil {
+		t.Fatal(err)
+	}
 	breakID := insertBreak(t, env, recipe)
 	payload, _ := json.Marshal(couchtv.AssemblePayload{BreakID: breakID})
+	start := time.Now()
 	if err := r.Assemble(ctx, &jobs.Job{Payload: payload}, func(int) {}); err != nil {
 		t.Fatal(err)
+	}
+	t.Logf("assembled in %s, one item's sound rendered again", time.Since(start).Round(time.Millisecond))
+	if _, err := os.Stat(sounds[0]); err != nil {
+		t.Errorf("the missing item's sound was not kept: %v", err)
 	}
 	b, err := store.Break(ctx, breakID)
 	if err != nil {
@@ -121,10 +135,28 @@ func TestCouchTvRender(t *testing.T) {
 		t.Fatalf("break %s, %d frames", b.State, b.Frames)
 	}
 	validatePackage(t, filepath.Join(env.cfg.DataDir, b.Path), recipe.Frames)
+	if lufs := measureLoudness(t, filepath.Join(env.cfg.DataDir, b.Path, "audio-1-aac", "index.m3u8")); lufs < -20.5 || lufs > -19.5 {
+		t.Errorf("the break's sound is %.1f LUFS, the recipe asked for -20", lufs)
+	}
 	ev, err := store.Evergreen(ctx)
 	if err != nil || ev.ID != breakID {
 		t.Errorf("the evergreen break: %v %v", ev, err)
 	}
+}
+
+// measureLoudness is the integrated loudness ffmpeg's ebur128 measures of a rendition.
+func measureLoudness(t *testing.T, playlist string) float64 {
+	t.Helper()
+	out, err := exec.Command("ffmpeg", "-hide_banner", "-nostats", "-i", playlist, "-af", "ebur128", "-f", "null", "-").CombinedOutput()
+	if err != nil {
+		t.Fatalf("ebur128: %v %s", err, out)
+	}
+	m := regexp.MustCompile(`I:\s+(-?[\d.]+) LUFS`).FindAllSubmatch(out, -1)
+	if m == nil {
+		t.Fatalf("no loudness in %s", out)
+	}
+	lufs, _ := strconv.ParseFloat(string(m[len(m)-1][1]), 64)
+	return lufs
 }
 
 // checkComposite compares the squeeze's panel during its hold (6 s in: 1008x567 at 96,236,

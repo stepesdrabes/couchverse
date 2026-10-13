@@ -24,18 +24,20 @@ type browser struct {
 
 // loadResult is what the render page's load reports.
 type loadResult struct {
-	Duration float64  `json:"duration"`
-	Version  int      `json:"version"`
-	Missing  []string `json:"missing"`
+	Duration float64 `json:"duration"`
+	// SoundDuration is how long the clip's sound lasts as an item of a break
+	SoundDuration float64  `json:"soundDuration"`
+	Version       int      `json:"version"`
+	Missing       []string `json:"missing"`
 }
 
 // callTimeout bounds one call into the page: a frame, a capture, a clip's load with its
 // artwork.
 const callTimeout = 3 * time.Minute
 
-// soundTimeout bounds loading and rendering a sound frames long. The offline render of a
-// dense break runs about 5x slower than real time on a Pi (a 117 s part of 13 clips took
-// 9 m 53 s), so it grows with the sound, with room for twice that.
+// soundTimeout bounds loading and rendering a sound frames long. It grows with the sound:
+// a dense break rendered in one pass ran about 5x slower than real time on a Pi (a 117 s
+// part of 13 clips took 9 m 53 s), and an item alone, though far faster, gets the same room.
 func soundTimeout(frames int) time.Duration {
 	return callTimeout + 10*time.Duration(frames)*time.Second/FPS
 }
@@ -133,6 +135,12 @@ func (b *browser) load(ctx context.Context, spec []byte, timeout time.Duration) 
 	return res, b.evalWithin(ctx, timeout, fmt.Sprintf(`window.couchtvRender.load(%s)`, spec), &res)
 }
 
+// loadSound loads a clip spec for its sound alone (laid out, never shown).
+func (b *browser) loadSound(ctx context.Context, spec []byte, timeout time.Duration) (loadResult, error) {
+	var res loadResult
+	return res, b.evalWithin(ctx, timeout, fmt.Sprintf(`window.couchtvRender.load(%s, { sound: true })`, spec), &res)
+}
+
 // frame sets up the frame at index i for the next capture, unless nothing moves since the
 // one before it; it reports whether the picture changed. It does not wait for a paint: the
 // capture draws a fresh frame of its own, so waiting would draw every frame twice.
@@ -164,15 +172,24 @@ func (b *browser) capture(ctx context.Context) ([]byte, error) {
 	return buf, err
 }
 
-// renderAudio renders the loaded clip's or break's sound and has the page post the WAV to
-// url (a long break's WAV is too big to move as a string over CDP).
+// renderAudio renders the loaded clip's sound and has the page post the WAV to url (a
+// long WAV is too big to move as a string over CDP).
 func (b *browser) renderAudio(ctx context.Context, url string, timeout time.Duration) error {
+	return b.postAudio(ctx, "renderAudio", url, timeout)
+}
+
+// renderItemAudio has the page post the loaded clip's sound as an item of a break to url.
+func (b *browser) renderItemAudio(ctx context.Context, url string, timeout time.Duration) error {
+	return b.postAudio(ctx, "renderItemAudio", url, timeout)
+}
+
+func (b *browser) postAudio(ctx context.Context, method, url string, timeout time.Duration) error {
 	target, _ := json.Marshal(url)
 	var status int
 	js := fmt.Sprintf(`(async (r) => {
-		const wav = await r.renderAudio();
+		const wav = await r.%s();
 		return (await fetch(%s, { method: 'POST', body: wav })).status;
-	})(window.couchtvRender)`, target)
+	})(window.couchtvRender)`, method, target)
 	if err := b.evalWithin(ctx, timeout, js, &status); err != nil {
 		return err
 	}
