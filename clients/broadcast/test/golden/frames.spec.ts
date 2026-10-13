@@ -41,13 +41,14 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['short-long', [4.2]],
 	['lineup-long', [4.4, 7]],
 	['squeeze-long', [5]],
-	['weather', [3]],
+	// the bulletins' scenes: now, tomorrow and the next days; a story mid-bulletin
+	['weather', [3, 8, 13]],
 	['weather-quiet', [3]],
 	['weather-unread', [3]],
-	['news', [3]],
+	['news', [3, 9]],
 	['news-three', [3]],
 	// every default city and a warning of each level; the longest headlines
-	['weather-long', [3]],
+	['weather-long', [3, 8]],
 	['news-long', [3]]
 ];
 

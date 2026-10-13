@@ -6,6 +6,7 @@ import brandCss from './brand/brand.css?inline';
 import { parseHex } from './core/palette';
 import { colors, radius } from './generated/tokens';
 import stageCss from './styles/broadcast.css?inline';
+import bulletinCss from './styles/bulletins.css?inline';
 
 export type Layer = 'picture' | 'matte';
 
@@ -49,7 +50,7 @@ export class Stage {
 		this.root = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
 		this.root.replaceChildren();
 		const style = document.createElement('style');
-		style.textContent = `:host { display: block; position: relative; overflow: hidden; background: #000; }\n${stageCss}\n${brandCss}`;
+		style.textContent = `:host { display: block; position: relative; overflow: hidden; background: #000; }\n${stageCss}\n${bulletinCss}\n${brandCss}`;
 		this.root.appendChild(style);
 		this.el = document.createElement('div');
 		this.el.className = 'stage';

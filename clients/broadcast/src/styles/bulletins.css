@@ -1,0 +1,444 @@
+/* The bulletins (the weather and the news): night, paper type and the brand's red as square
+   blocks and bars, the channel's lockup in the corner. Sharp and flat: no radius, no shadow;
+   the only curves are the logo's, the type's and the circles the weather's icons are drawn
+   with. Colours are the screens' (DESIGN.md 1.2). */
+
+.bulletin {
+	--night: #050505;
+	--paper: #f4ede4;
+	--paper-72: #b1aca6;
+	--paper-56: #8b8782;
+	--paper-40: #65625e;
+	--paper-24: #3e3d3b;
+	--paper-12: #222120;
+	--red: var(--brand);
+	--ember-500: #7a0a14;
+	--ember-600: #560610;
+	--ember-800: #260306;
+	--ember-900: #140203;
+	--warn-yellow: #f5c518;
+	--warn-orange: #f57c00;
+	--warn-red: #e50914;
+	background: var(--night);
+	color: var(--paper);
+}
+
+/* the dusk: a still glow of ember rising from under the frame, and a still grain over it so 8-bit
+   video never bands it */
+.bl-dusk {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 1920px;
+	height: 1080px;
+	background: radial-gradient(
+		var(--dusk-rx, 1500px) var(--dusk-ry, 560px) at var(--dusk-x, 1240px) var(--dusk-y, 1220px),
+		var(--ember-600),
+		var(--ember-800) 38%,
+		var(--ember-900) 62%,
+		transparent
+	);
+	opacity: var(--dusk-a, 0.75);
+}
+.bl-grain {
+	position: absolute;
+	inset: 0;
+	opacity: 0.035;
+	background-repeat: repeat;
+}
+
+/* --- the header: the title, and its label in a red block ------------------------------------- */
+
+.bl-head {
+	position: absolute;
+	left: 96px;
+	top: 112px;
+	width: 760px;
+}
+/* a line revealed from behind its own edge: the clip keeps carons, acutes and descenders in */
+.bl-clip {
+	display: block;
+	overflow: hidden;
+	padding: 0.18em 0.1em 0.16em;
+	margin: -0.18em -0.1em -0.16em;
+}
+.bl-clip > * {
+	display: block;
+}
+.bl-title {
+	font-size: 88px;
+	font-weight: 800;
+	letter-spacing: -0.03em;
+	line-height: 1;
+	white-space: nowrap;
+}
+.bl-label {
+	position: absolute;
+	left: 0;
+	top: 112px;
+	display: flex;
+	align-items: center;
+	height: 52px;
+	padding: 0 18px;
+	font-size: 30px;
+	font-weight: 700;
+	letter-spacing: -0.005em;
+	line-height: 1;
+	white-space: nowrap;
+}
+.bl-label-block {
+	position: absolute;
+	inset: 0;
+	background: var(--red);
+	transform-origin: 0 50%;
+}
+.bl-label .bl-clip {
+	position: relative;
+}
+/* in the red block the parts are parted by a thin upright rule */
+.bl-label .bl-sep {
+	width: 2px;
+	height: 0.8em;
+	margin: 0 0.5em;
+	vertical-align: -0.08em;
+	background: var(--paper);
+	opacity: 0.55;
+}
+
+/* the channel's lockup where the corner bug sits on the other screens */
+.bl-mark {
+	position: absolute;
+	top: 66px;
+	right: 96px;
+}
+.bl-mark > svg {
+	display: block;
+}
+
+/* the credits along the foot: captions parted by small squares */
+.bl-credit {
+	position: absolute;
+	left: 96px;
+	bottom: 64px;
+	font-size: 20px;
+	font-weight: 500;
+	letter-spacing: 0.01em;
+	line-height: 1.3;
+	color: var(--paper-56);
+	white-space: nowrap;
+}
+.bl-sep {
+	display: inline-block;
+	width: 0.26em;
+	height: 0.26em;
+	margin: 0 0.62em;
+	vertical-align: 0.2em;
+	background: var(--paper-40);
+}
+
+/* --- the weather ------------------------------------------------------------------------------ */
+
+.wx-win {
+	position: absolute;
+	overflow: hidden;
+}
+.wx-in {
+	position: absolute;
+}
+.wx-kraj,
+.wx-lines,
+.wx-tint {
+	position: absolute;
+	overflow: visible;
+}
+.wx-kraj path {
+	fill-rule: evenodd;
+}
+.wx-lines .inner {
+	fill: none;
+	stroke: var(--ember-500);
+	stroke-width: 1.5;
+	stroke-linejoin: round;
+}
+.wx-lines .edge {
+	fill: none;
+	stroke: var(--ember-500);
+	stroke-width: 2.5;
+	stroke-linejoin: round;
+}
+.wx-tint path {
+	fill-rule: evenodd;
+	stroke-width: 2;
+	stroke-linejoin: round;
+}
+.wx-front {
+	position: absolute;
+	background: var(--red);
+}
+
+/* a city: its icon on its point, its temperature beside it, its name under it */
+.wx-icon {
+	position: absolute;
+	display: block;
+	overflow: visible;
+}
+.wx-temp {
+	position: absolute;
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	white-space: nowrap;
+}
+.wx-temp .hi {
+	font-size: 42px;
+	font-weight: 800;
+	letter-spacing: -0.03em;
+	line-height: 1;
+}
+.wx-temp .lo {
+	font-size: 27px;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	line-height: 1;
+	color: var(--paper-72);
+}
+.wx-name {
+	position: absolute;
+	font-size: 21px;
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--paper-72);
+	white-space: nowrap;
+}
+
+/* the left column's card: a bar in the warning's colour (or the brand's) and its lines */
+.wx-card {
+	position: absolute;
+	left: 96px;
+	top: 470px;
+	width: 470px;
+}
+.wx-card-bar {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 6px;
+	transform-origin: 50% 0;
+}
+.wx-card-body {
+	padding-left: 28px;
+}
+.wx-warning + .wx-warning {
+	margin-top: 32px;
+}
+.wx-warning {
+	position: relative;
+}
+.wx-level {
+	font-size: 26px;
+	font-weight: 700;
+	line-height: 1.1;
+}
+.wx-event {
+	margin-top: 10px;
+	font-size: 40px;
+	font-weight: 800;
+	letter-spacing: -0.02em;
+	line-height: 1.08;
+}
+.wx-when {
+	margin-top: 12px;
+	font-size: 28px;
+	font-weight: 600;
+	line-height: 1.2;
+}
+.wx-regions {
+	margin-top: 10px;
+	font-size: 22px;
+	font-weight: 500;
+	line-height: 1.36;
+	color: var(--paper-72);
+}
+.wx-more {
+	margin-top: 24px;
+	font-size: 24px;
+	font-weight: 700;
+	color: var(--paper-72);
+}
+.lv-yellow {
+	--level: var(--warn-yellow);
+}
+.lv-orange {
+	--level: var(--warn-orange);
+}
+.lv-red {
+	--level: var(--warn-red);
+}
+.wx-warning .wx-level {
+	color: var(--level);
+}
+.wx-range-label {
+	font-size: 30px;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--red);
+}
+.wx-range {
+	display: flex;
+	align-items: baseline;
+	gap: 16px;
+	margin-top: 18px;
+	white-space: nowrap;
+}
+.wx-range .k {
+	width: 96px;
+	font-size: 30px;
+	font-weight: 600;
+	color: var(--paper-72);
+}
+.wx-range .v {
+	font-size: 56px;
+	font-weight: 800;
+	letter-spacing: -0.03em;
+	line-height: 1;
+}
+.wx-calm {
+	margin-top: 26px;
+	font-size: 24px;
+	font-weight: 600;
+	color: var(--paper-56);
+}
+
+/* the next days: a row per city, a cell per day */
+.wx-table {
+	position: absolute;
+	left: 600px;
+	top: 186px;
+	width: 1224px;
+}
+.wx-thead {
+	display: flex;
+	align-items: center;
+	height: 44px;
+	font-size: 24px;
+	font-weight: 700;
+	color: var(--paper-72);
+}
+.wx-thead .today {
+	color: var(--paper);
+}
+.wx-rule {
+	height: 4px;
+	background: var(--red);
+}
+.wx-row {
+	display: flex;
+	align-items: center;
+	border-top: 2px solid var(--paper-12);
+}
+.wx-row:nth-child(even of .wx-row) {
+	background: rgb(244 237 228 / 0.025);
+}
+.wx-row .city {
+	font-size: 26px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+.wx-cell {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding-left: 4px;
+}
+.wx-cell .hi {
+	width: 50px;
+	font-size: 28px;
+	font-weight: 800;
+	letter-spacing: -0.02em;
+}
+.wx-cell .lo {
+	font-size: 24px;
+	font-weight: 600;
+	color: var(--paper-56);
+}
+
+/* --- the news ---------------------------------------------------------------------------------- */
+
+/* a segment per story: upcoming paper 12, its own red while it reads, paper 40 once read */
+.nw-seg {
+	position: absolute;
+	top: 330px;
+	height: 6px;
+	background: var(--paper-12);
+}
+.nw-seg > div {
+	position: absolute;
+	inset: 0;
+	transform-origin: 0 50%;
+	transform: scaleX(0);
+}
+.nw-seg .done {
+	background: var(--paper-40);
+}
+.nw-seg .on {
+	background: var(--red);
+}
+.nw-count {
+	position: absolute;
+	top: 290px;
+	font-size: 20px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	color: var(--paper-40);
+}
+.nw-story {
+	position: absolute;
+	left: 96px;
+	width: 1728px;
+}
+.nw-bar {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 8px;
+	background: var(--red);
+	transform-origin: 50% 0;
+}
+.nw-text {
+	padding-left: 48px;
+}
+.nw-meta {
+	display: flex;
+	align-items: baseline;
+	gap: 16px;
+	font-size: 30px;
+	line-height: 1.1;
+	white-space: nowrap;
+}
+.nw-outlet {
+	font-weight: 800;
+	letter-spacing: -0.01em;
+}
+.nw-reach {
+	font-weight: 600;
+	color: var(--paper-56);
+}
+.nw-headline {
+	margin-top: 26px;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	line-height: 1.16;
+	white-space: nowrap;
+}
+.nw-line {
+	display: block;
+	overflow: hidden;
+	padding: 0.14em 0.08em 0.14em;
+	margin: -0.14em -0.08em -0.14em;
+}
+.nw-line > span {
+	display: block;
+	white-space: pre;
+}

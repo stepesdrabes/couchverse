@@ -1070,8 +1070,8 @@ break or the standby card.
 ### 6.10 Bulletins (data)
 The owner wants a weather overview of Czechia and the day's top headlines in the breaks. The
 data layer is built (2026-10-13; FEATURES.md "couchtv", Bulletins) and the bulletins air in
-slots of the breaks ("On air" below), from placeholder templates until the bulletin design
-lands. The `couchtv_bulletins` job (app) fetches the news
+slots of the breaks ("On air" below), in their designed templates (DESIGN 2.10 and 2.11, made
+sharp, 2026-10-14). The `couchtv_bulletins` job (app) fetches the news
 every 20 minutes and the weather hourly from 05:30 to 00:30 in the channel's zone and at
 startup, politely (a User-Agent naming the app, 10 s timeouts, two retries, conditional GET),
 and keeps the last good bulletin of each kind in `couchtv_bulletins`, served by
@@ -1140,10 +1140,12 @@ how each was settled:
   open: an evening forecast's "tonight" from hourly temperatures.
 - **The map (D40).** Czechia's outline is a module of the broadcast package generated from the
   server's geojson (`npm run outline`), with a projection (`czechiaMap`) that places the
-  cities; the spec carries their positions. Still open for the design: kraj outlines for the
-  warnings (geoBoundaries CZE ADM1, same licence; the spec names the kraje by ISO 3166-2
-  code, so a module like the outline's would do) and the weather icons (the spec carries WMO
-  codes and daylight; MET Norway's MIT-licensed set maps onto them).
+  cities; the spec carries their positions. The kraje the warnings fill are a module like it
+  (2026-10-14: geoBoundaries CZE ADM1, same licence and credit, `couchtv/kraje.geojson`
+  simplified by `scripts/kraje.mjs` with each border between two kraje simplified once, so
+  neighbours share it; `src/generated/kraje.ts`), keyed by the ISO 3166-2 codes the spec
+  names. The weather icons are the brand's own, drawn in code from the WMO codes and daylight
+  (`weather-icons.ts`).
 - Development and e2e servers fetch too (a dozen requests at startup); switch
   `bulletins.enabled` off where that is unwanted. They render bulletins only with a sidecar
   and the channel on.
@@ -1157,8 +1159,11 @@ seconds and a held frame is not captured again, which scales to about 50 and 70 
 2-2.5 fps: 200-250 s a news, 150-190 s a weather, plus about 20 s each to load the page,
 render the sound and encode the eight slot loudnesses: **about 0.8-1 h a day**, all of it in
 the daytime, one render of 3-5 minutes before each slot, well inside the 15 minutes a slot
-leaves it. A designed template that holds still where it can keeps the cost near the
-placeholders'.
+leaves it. The designed bulletins (2026-10-14) move only into and between their scenes and
+stories: the sidecar captures 154 of the weather's 375 frames and 213 of a five-story news'
+500 (136 with three stories), against the placeholders' 68 and 63, at 66 and 60 ms a capture
+on the loaded M1 (the placeholders' 58 and 42). At the Pi's 2.4 captures a second that is
+about 65 s a weather and 90 s a news, with the 20 s around each: **about 25 minutes a day**.
 
 ---
 

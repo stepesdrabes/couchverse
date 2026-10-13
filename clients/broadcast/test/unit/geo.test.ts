@@ -4,7 +4,16 @@ import { describe, expect, it } from 'vitest';
 import { czechiaMap, krajeEdge } from '../../src/core/geo';
 import { CZECHIA } from '../../src/generated/czechia';
 import { KRAJE } from '../../src/generated/kraje';
-import { condition, degrees, warningTime } from '../../src/templates/weather';
+import type { NewsStory, WeatherWarning } from '../../src/spec';
+import { holds, reach } from '../../src/templates/news';
+import {
+	degrees,
+	range,
+	regionsPhrase,
+	warnedKraje,
+	warningTime
+} from '../../src/templates/weather';
+import { skyOf } from '../../src/templates/weather-icons';
 
 const data = (name: string) =>
 	JSON.parse(
@@ -91,15 +100,36 @@ describe('the Czechia map', () => {
 	});
 });
 
-describe('the weather placeholder', () => {
-	it('words codes, degrees and warning times', () => {
-		expect(condition(0)).toBe('Sunny');
-		expect(condition(0, false)).toBe('Clear');
-		expect(condition(80)).toBe('Showers');
-		expect(condition(99)).toBe('Thunderstorms with hail');
+const regions = (...r: [string, string, boolean][]) =>
+	r.map(([code, name, partial]) => ({ code, name, partial }) as WeatherWarning['regions'][0]);
+
+describe('the weather', () => {
+	it('reads WMO codes as skies', () => {
+		expect([0, 1, 2, 3, 45, 51, 56, 61, 66, 71, 80, 85, 95, 99].map(skyOf)).toEqual([
+			'clear',
+			'partly',
+			'partly',
+			'cloudy',
+			'fog',
+			'drizzle',
+			'sleet',
+			'rain',
+			'sleet',
+			'snow',
+			'showers',
+			'snow',
+			'thunder',
+			'thunder'
+		]);
+	});
+
+	it('words degrees, ranges and warning times', () => {
 		expect(degrees(-3)).toBe('−3°');
 		expect(degrees(0)).toBe('0°');
-		const regions = [{ code: 'CZ-10' as const, name: 'Prague', partial: false }];
+		expect(range([12, 16, 14])).toBe('12–16°');
+		expect(range([-3, 2])).toBe('−3° to 2°');
+		expect(range([5, 5])).toBe('5°');
+		const r = regions(['CZ-10', 'Prague', false]);
 		expect(
 			warningTime({
 				level: 'yellow',
@@ -107,11 +137,93 @@ describe('the weather placeholder', () => {
 				active: true,
 				from: { time: '16:00' },
 				until: { day: 'Wednesday', time: '02:00' },
-				regions
+				regions: r
 			})
 		).toBe('Now until Wednesday 02:00');
 		expect(
-			warningTime({ level: 'red', event: 'Heat', active: false, from: { time: '14:00' }, regions })
+			warningTime({
+				level: 'red',
+				event: 'Heat',
+				active: false,
+				from: { time: '14:00' },
+				regions: r
+			})
 		).toBe('From 14:00 until further notice');
+	});
+
+	it("names a warning's kraje whole, then those it covers in part", () => {
+		const w = (r: WeatherWarning['regions']): WeatherWarning => ({
+			level: 'yellow',
+			event: 'Wind',
+			active: true,
+			from: { time: '16:00' },
+			regions: r
+		});
+		expect(
+			regionsPhrase(
+				w(
+					regions(
+						['CZ-31', 'South Bohemian Region', true],
+						['CZ-63', 'Vysočina Region', false],
+						['CZ-71', 'Olomouc Region', true]
+					)
+				)
+			)
+		).toBe('Vysočina Region and parts of the South Bohemian and Olomouc Regions');
+		expect(regionsPhrase(w(regions(['CZ-20', 'Central Bohemian Region', true])))).toBe(
+			'parts of the Central Bohemian Region'
+		);
+		expect(
+			regionsPhrase(
+				w(regions(['CZ-10', 'Prague', false], ['CZ-52', 'Hradec Králové Region', false]))
+			)
+		).toBe('Prague and Hradec Králové Region');
+	});
+
+	it('fills each warned kraj at its most severe level', () => {
+		const base = { active: true, event: 'x', from: { time: '10:00' } };
+		const warned = warnedKraje([
+			{ ...base, level: 'orange', regions: regions(['CZ-20', 'Central', true]) },
+			{
+				...base,
+				level: 'yellow',
+				regions: regions(['CZ-20', 'Central', false], ['CZ-31', 'South', true])
+			},
+			{ ...base, level: 'orange', regions: regions(['CZ-20', 'Central', false]) }
+		]);
+		expect(warned.get('CZ-20')).toEqual({ level: 'orange', partial: false });
+		expect(warned.get('CZ-31')).toEqual({ level: 'yellow', partial: true });
+		expect(warned.has('CZ-10')).toBe(false);
+	});
+});
+
+describe('the news', () => {
+	const story = (headline: string, outlets = 1): NewsStory => ({
+		headline,
+		outlet: 'ČT24',
+		outlets
+	});
+
+	it('gives each story its reading time, filling the bulletin on the half beat', () => {
+		const slots = holds(
+			[story('a'.repeat(60)), story('b'.repeat(120)), story('c'.repeat(30))],
+			0.6,
+			19.5
+		);
+		expect(slots[0][0]).toBe(0.6);
+		expect(slots[2][1]).toBe(19.5);
+		for (let i = 1; i < slots.length; i++) {
+			expect(slots[i][0]).toBe(slots[i - 1][1]);
+			expect(Math.abs(slots[i][0] / 0.4 - Math.round(slots[i][0] / 0.4))).toBeLessThan(1e-9);
+		}
+		// the longest headline reads longest
+		const len = slots.map(([a, b]) => b - a);
+		expect(len[1]).toBeGreaterThan(len[0]);
+		expect(len[0]).toBeGreaterThan(len[2] - 0.4);
+	});
+
+	it('says how many outlets carry a story', () => {
+		expect(reach(story('x', 4))).toBe('Reported by 4 outlets');
+		expect(reach(story('x'))).toBe('');
 	});
 });

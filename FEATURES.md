@@ -2260,22 +2260,25 @@ approves is what airs.
 
 - **Layout**: `src/core` (the Timeline, curves and springs, `moves.ts`'s whole-piece `motion`
   and `windows` with cuts on frame edges, the accent palette, DOM helpers, artwork framing, a
-  seeded PRNG, `geo.ts`'s `czechiaMap`: Czechia's border and the weather's cities on the stage
-  by one projection), `src/audio` (the graph with per-piece music, sfx, voice and reverb buses
-  into glue, limiter and trim, the reverb a generated hall; the synthesized kit; `voices.ts`,
-  the house instruments every screen is scored with (see "Brand"); `pitch.ts`, note names in
-  Hz; `orchestra.ts`, the sample reel's orchestral voices, off air since the old theme went (two
-  full idents take `hz` from it); beds with ducking and tape stops; onset detection; BS.1770
-  loudness and true peak; WAV; the `synth:` placeholder beds), `src/brand` (everything that is
-  the brand, see "Brand"; a brand redesign replaces this folder only), `src/templates` (one
-  module per template, `index.ts` the registry), `spec.ts` (the data contract), `piece.ts` (a
-  loaded clip and the offline audio render), `stage.ts` (a 1920x1080 stage in a shadow root),
-  `player.ts` (live playback against the audio clock), `render.ts` (the sidecar's API). Design
-  tokens come from `src/generated/tokens.ts`, written by `cargo xtask codegen`, and Czechia's
-  border from `src/generated/czechia.ts`, written by `npm run outline` from the server's
-  `couchtv/czechia.geojson` (a unit test fails when they drift apart); Plus Jakarta Sans, the
-  brand's one face (OFL, latin and latin-ext), is bundled in `src/assets/fonts` and registered
-  by `ensureFonts`.
+  seeded PRNG, `geo.ts`'s `czechiaMap`: Czechia's border, its kraje and the weather's cities
+  on the stage by one projection), `src/audio` (the graph with per-piece music, sfx, voice and
+  reverb buses into glue, limiter and trim, the reverb a generated hall; the synthesized kit;
+  `voices.ts`, the house instruments every screen is scored with (see "Brand"); `pitch.ts`,
+  note names in Hz; `orchestra.ts`, the sample reel's orchestral voices, off air since the old
+  theme went (two full idents take `hz` from it); beds with ducking and tape stops; onset
+  detection; BS.1770 loudness and true peak; WAV; the `synth:` placeholder beds), `src/brand`
+  (everything that is the brand, see "Brand"; a brand redesign replaces this folder only),
+  `src/templates` (one module per template, `index.ts` the registry), `spec.ts` (the data
+  contract), `piece.ts` (a loaded clip and the offline audio render), `stage.ts` (a 1920x1080
+  stage in a shadow root), `player.ts` (live playback against the audio clock), `render.ts`
+  (the sidecar's API). Design tokens come from `src/generated/tokens.ts`, written by `cargo
+  xtask codegen`, and Czechia's border from `src/generated/czechia.ts` and its kraje from
+  `src/generated/kraje.ts`, both written by `npm run outline` from the server's
+  `couchtv/czechia.geojson` and `couchtv/kraje.geojson` (unit tests fail when they drift apart;
+  `scripts/kraje.mjs` made the kraje from geoBoundaries' CZE ADM1, ČÚZK, CC BY 4.0,
+  simplifying each border between two kraje once so neighbours share it); the bulletins'
+  styles are `src/styles/bulletins.css`; Plus Jakarta Sans, the brand's one face (OFL, latin
+  and latin-ext), is bundled in `src/assets/fonts` and registered by `ensureFonts`.
 - **Templates** (`template` in the spec): `ident` (`cut` full 10.52 s in one of four
   `design`s, see "Full idents", or short 4.52 s, their popcorn ending alone), `sting` (gap
   filler, any whole number of frames from 2 to 6 s, one design for every length), `upNext`
@@ -2285,14 +2288,19 @@ approves is what airs.
   11.52 s, or `ident`, 10.6 s: the program shrinks onto the couch in its place in the lockup
   and dissolves into it, and its last frame is the short ident's first, pixel for pixel;
   `cursor`, the old name, still renders as `ident`), `standby` ("Technical difficulties",
-  loops seamlessly), and the bulletins (placeholders until the bulletin design lands, quiet
-  screens whose held frames render as one capture): `weather` (15 s by default: every
-  configured city now on Czechia's outline, the first city's days, ČHMÚ's warnings) and `news`
-  (20 s: the top stories, each headline whole beside its outlet's name). A bulletin airs in a
-  slot of its own, so its sound starts and ends inside the clip. Copy is English (D13, D39 for
-  the bulletins: what the data brings, the city names and the Czech headlines, stays as
-  written); every time and day arrives as a preformatted phrase (`Airing`, the bulletins'
-  `asOf`, day labels and `BulletinTime`s), so templates do no clock maths.
+  loops seamlessly), and the bulletins, sharp screens that hold still between their moves
+  (held frames render as one capture), the channel's lockup in the bug's corner (no clock: a
+  bulletin binds to whichever slot it airs in, D38): `weather` (15 s by default, in scenes on
+  the beat: Czechia's kraje on the night with every configured city's sky and temperature now,
+  ČHMÚ's warnings filling the kraje they cover, hatched where they cover part, beside their
+  card; tomorrow, as a red front crosses the country west to east and turns each city; the
+  next days, a table a red bar sweeps in; under 13 s it skips tomorrow; WMO icons drawn in
+  code, `weather-icons.ts`) and `news` (20 s: the top stories one at a time, each headline
+  whole with its outlet's name, a red segment per story). A bulletin airs in a slot of its
+  own, so its sound starts and ends inside the clip. Copy is English (D13, D39 for the
+  bulletins: what the data brings, the city names and the Czech headlines, stays as written);
+  every time and day arrives as a preformatted phrase (`Airing`, the bulletins' `asOf`, day
+  labels and `BulletinTime`s), so templates do no clock maths.
 - **Spec**: `src/spec.ts` is the single source; `npm run schema` writes
   `contract/broadcast-spec.schema.json` (CI fails on drift) for the server's composer. Beds are
   `{url, in, out}` excerpts (WAV, FLAC or Ogg Opus: open-source Chromium has no AAC); footage is
