@@ -2248,7 +2248,10 @@ approves is what airs.
 - **Spec**: `src/spec.ts` is the single source; `npm run schema` writes
   `contract/broadcast-spec.schema.json` (CI fails on drift) for the server's composer. Beds are
   `{url, in, out}` excerpts (WAV, FLAC or Ogg Opus: open-source Chromium has no AAC); footage is
-  a list of 25 fps JPEG frame URLs per shot; `loudness` is the render's target in LUFS
+  a list of 25 fps JPEG frame URLs per shot; a title may carry its logo (`logo`: a trimmed PNG
+  and its aspect, drawn in place of the name where the title shows big) and scenes of itself
+  (`footage`, for the screens that show it in motion; without them they show its artwork);
+  `loudness` is the render's target in LUFS
   (default -18). A `break` spec lists clip specs with their start times: the break's sound,
   each clip ringing out under the next over `crossfade`. The sidecar mixes it from items
   rendered one at a time (`renderItemAudio`, kept for every break that has them); the page

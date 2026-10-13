@@ -181,6 +181,17 @@
 					"type": "string",
 					"description": "The name as shown (English where the title has it)."
 				},
+				"logo": {
+					"$ref": "#/definitions/Logo",
+					"description": "The title's logo in the language of `name` (else one not tied to a language), which a template draws in place of the name where it shows the title big; absent, the name is set in type."
+				},
+				"footage": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/FootageShot"
+					},
+					"description": "Scenes from the title, in order (its footage shots), for the screens that show it in motion; absent, they show its artwork."
+				},
 				"year": {
 					"type": "integer"
 				},
@@ -236,6 +247,61 @@
 			"additionalProperties": false,
 			"description": "A title as the templates show it."
 		},
+		"Logo": {
+			"type": "object",
+			"properties": {
+				"url": {
+					"type": "string",
+					"description": "A PNG trimmed to its visible pixels, transparent around the letters."
+				},
+				"aspect": {
+					"type": "number",
+					"description": "Its width over its height.",
+					"exclusiveMinimum": 0
+				}
+			},
+			"required": [
+				"url",
+				"aspect"
+			],
+			"additionalProperties": false,
+			"description": "A title's logo artwork."
+		},
+		"FootageShot": {
+			"type": "object",
+			"properties": {
+				"kind": {
+					"type": "string",
+					"const": "footage"
+				},
+				"frames": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"minItems": 1
+				},
+				"focus": {
+					"$ref": "#/definitions/Crop",
+					"description": "The part of the frame to keep in view when it is cropped (default: all of it)."
+				}
+			},
+			"required": [
+				"kind",
+				"frames"
+			],
+			"additionalProperties": false,
+			"description": "Real footage: one shot's frames as 25 fps JPEG URLs, shown frame by frame."
+		},
+		"Crop": {
+			"type": "array",
+			"items": {
+				"type": "number"
+			},
+			"minItems": 4,
+			"maxItems": 4,
+			"description": "A normalized crop of an image: `[x, y, width, height]`, each 0..1."
+		},
 		"Hex": {
 			"type": "string",
 			"description": "A colour as `#rrggbb`.",
@@ -277,15 +343,6 @@
 			},
 			"additionalProperties": false,
 			"description": "Framing for a title's backdrop per use: Ken Burns moves are `[from, to]`."
-		},
-		"Crop": {
-			"type": "array",
-			"items": {
-				"type": "number"
-			},
-			"minItems": 4,
-			"maxItems": 4,
-			"description": "A normalized crop of an image: `[x, y, width, height]`, each 0..1."
 		},
 		"Episode": {
 			"type": "object",
@@ -428,32 +485,6 @@
 					"$ref": "#/definitions/StillShot"
 				}
 			]
-		},
-		"FootageShot": {
-			"type": "object",
-			"properties": {
-				"kind": {
-					"type": "string",
-					"const": "footage"
-				},
-				"frames": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					},
-					"minItems": 1
-				},
-				"focus": {
-					"$ref": "#/definitions/Crop",
-					"description": "The part of the frame to keep in view when it is cropped (default: all of it)."
-				}
-			},
-			"required": [
-				"kind",
-				"frames"
-			],
-			"additionalProperties": false,
-			"description": "Real footage: one shot's frames as 25 fps JPEG URLs, shown frame by frame."
 		},
 		"StillShot": {
 			"type": "object",

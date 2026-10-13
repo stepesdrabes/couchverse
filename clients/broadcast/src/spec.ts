@@ -74,10 +74,32 @@ export interface TitleCrops {
 	squeeze?: Crop;
 }
 
+/** A title's logo artwork. */
+export interface Logo {
+	/** A PNG trimmed to its visible pixels, transparent around the letters. */
+	url: string;
+	/**
+	 * Its width over its height.
+	 * @exclusiveMinimum 0
+	 */
+	aspect: number;
+}
+
 /** A title as the templates show it. */
 export interface Title {
 	/** The name as shown (English where the title has it). */
 	name: string;
+	/**
+	 * The title's logo in the language of `name` (else one not tied to a language), which a
+	 * template draws in place of the name where it shows the title big; absent, the name is set
+	 * in type.
+	 */
+	logo?: Logo;
+	/**
+	 * Scenes from the title, in order (its footage shots), for the screens that show it in
+	 * motion; absent, they show its artwork.
+	 */
+	footage?: FootageShot[];
 	/** @asType integer */
 	year?: number;
 	/** @asType integer */
