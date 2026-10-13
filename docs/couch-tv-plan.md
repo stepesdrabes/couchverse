@@ -368,6 +368,7 @@ No cron exists; every periodic job re-enqueues itself like `cleanup`.
 | `couchtv_compose` | app | Per break, 24 h ahead (48 h until 2026-10-12): build the recipe (6.5), request missing clips. |
 | `couchtv_render` | **sidecar only** | Render one clip (6.7). |
 | `couchtv_assemble` | **sidecar only** | Render the break's audio mix, concatenate its clips' video (stream copy), mux, segment, write the break's `rendition.json`. |
+| `couchtv_bulletins` | app | The weather (hourly) and the news headlines (every 20 minutes) from 05:30 to 00:30, and at startup (6.10). |
 
 The sidecar registers only its two job types; the app never registers them. A render is
 claimed only while no `transcode_hls` job runs (a claim condition), and each render job is
@@ -926,6 +927,54 @@ break or the standby card.
   Marathoner by a rank tier beside the Marathon badge), so those got their own. A weekend is the channel's marathon airings
   without a two-day gap between them, planned ones included, so it completes with its last
   episode whatever count the template gives the slot.
+
+### 6.10 Bulletins (data)
+The owner wants a weather overview of Czechia and the day's top headlines in the breaks. The
+data layer is built (2026-10-13; FEATURES.md "couchtv", Bulletins); nothing airs it yet, since
+the templates wait for the new identity. The `couchtv_bulletins` job (app) fetches the news
+every 20 minutes and the weather hourly from 05:30 to 00:30 in the channel's zone and at
+startup, politely (a User-Agent naming the app, 10 s timeouts, two retries, conditional GET),
+and keeps the last good bulletin of each kind in `couchtv_bulletins`, served by
+`adminGetCouchTvBulletins`; config `bulletins` (`enabled`, `cities`).
+- **Sources and terms**:
+  - Weather: Open-Meteo `/v1/forecast`, one request for every city (free for non-commercial
+    use, CC BY 4.0, credit "Weather data by Open-Meteo.com"). A day's symbol is its daytime's
+    (09-18), since the daily code is the day's worst hour.
+  - Warnings: ČHMÚ's open data, the newest SIVS CAP message by the directory's date (free
+    public-sector information; credit "Zdroj: ČHMÚ", no logo, no implied endorsement).
+  - Map: geoBoundaries' CZE ADM0 outline (ČÚZK, CC BY 4.0, 643 points), embedded; credit
+    "Hranice: ČÚZK / geoBoundaries (CC BY 4.0)".
+  - News: the RSS of ČT24 and its editors' selection, iROZHLAS, Seznam Zprávy, Novinky and
+    iDNES (shown), CNN Prima and Deník (ranking only; Deník allows personal use only) and
+    ČT24's unofficial trending list (optional). ČTK and Economia (Aktuálně, HN) are left out:
+    ČTK forbids passing its texts on, even inside a private network, and Economia reserves
+    automated analysis (§ 39c).
+  - Headlines are stored whole, never shortened or reworded (Český rozhlas), text only, each
+    with its outlet's name as plain text (never a logo), and kept a day at most (iROZHLAS's
+    limit without a contract).
+- **Ranking**: the research's proxy: the last 12 hours, sport, culture, lifestyle, opinion and
+  shows left out, average-link clusters of word stems with one item per outlet, scored by
+  outlets (+1.5 editors' selection, +1 trending, halving over a day), the headline from ČT24,
+  then iROZHLAS, Seznam Zprávy, Novinky, iDNES. Items are remembered across runs (in memory):
+  Novinky's and iDNES's feeds reach back only two or three hours, so on 13 Oct at 17:40 a fresh
+  process already missed outlets that had carried the top stories an hour or two before.
+- **Open for the on-air slice**:
+  - When to render: breaks are composed up to 24 h ahead and rendered in the quiet hours,
+    while a news bulletin is good for 3 hours and a weather one for 6. Bulletins need a late
+    composition of their own (a clip rendered shortly before its break) or another path.
+  - Language: D13 makes cutscenes English, but the headlines are Czech and may not be
+    translated; the warnings and kraje carry both languages. Decide per segment.
+  - Which breaks carry them (on the hour? before prime time?), how long, and the credits on
+    screen: "Data o počasí: Open-Meteo.com (CC BY 4.0)", "Výstrahy: ČHMÚ", the map's line, the
+    outlet beside each headline and "Titulky z RSS uvedených médií, stav k HH:MM".
+  - Nights: nothing is fetched from 00:30 to 05:30, so news ends at 03:30 and weather at
+    06:30 unless older bulletins may air. An evening forecast wants "tonight" from hourly
+    temperatures (one more variable in the request; the daily minimum is midnight to
+    midnight).
+  - The warnings map needs kraj outlines (geoBoundaries CZE ADM1, same licence) and the icons
+    a set (MET Norway's MIT-licensed icons work with WMO codes).
+  - Development and e2e servers fetch too (a dozen requests at startup); switch
+    `bulletins.enabled` off where that is unwanted.
 
 ---
 

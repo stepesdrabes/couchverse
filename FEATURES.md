@@ -28,7 +28,7 @@ that render a `XxxPage.svelte` component from the owning feature.
 | couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
 | ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters`, `user_tv_viewing` |
 | downloads | `internal/feature/downloads` | (native clients only) | `download_files`, `downloads` |
-| couchtv | `internal/feature/couchtv` | `features/couchtv` (the admin section and title tools; the flag in `features/settings`; the viewer pages are next, on the core's `couchtv` module) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_soundtracks`, `couchtv_media`, `couchtv_clips`, `couchtv_breaks`, `couchtv_guests` (the room is in memory) |
+| couchtv | `internal/feature/couchtv` | `features/couchtv` (the admin section and title tools; the flag in `features/settings`; the viewer pages are next, on the core's `couchtv` module) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_soundtracks`, `couchtv_media`, `couchtv_clips`, `couchtv_breaks`, `couchtv_guests`, `couchtv_bulletins` (the room is in memory) |
 
 Shared kernel (backend): `internal/app` (wiring of stores, services and the job runner),
 `internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
@@ -641,8 +641,9 @@ generator, the plan job and the admin operations (Phase 1), the per-title analys
 promos and the break composition and rendering (Phase 3), the live stream (Phase 4: the
 prepare job, the stream under channel grants, tuning in and the guide), the viewer's side
 (Phase 5: the room, the guest link, progress and watch time, the core's `couchtv` module and
-the web's `/tv`, guide, home card and guest join) and the admin tools (Phase 6: the schedule
-editor, the template, render health and the title tools). Gated by the
+the web's `/tv`, guide, home card and guest join), the admin tools (Phase 6: the schedule
+editor, the template, render health and the title tools) and the bulletins' data (weather
+and news headlines for the breaks, not on air yet). Gated by the
 admin `couchTvEnabled` flag, the one flag that is **off** while unset
 (`flags.Load` leaves it out of the "missing means on" default; `flags.CouchTvOn` guards the
 viewer routes and the stream; the core reads it as `SessionView.features.couchTv`, `false` from a
@@ -653,7 +654,10 @@ server that does not send it). The admin settings page toggles it.
   `primeRepeatFactor` 0.8, `movieGapDays` 2, `rerunGapDays` 14, `premiereWindowDays` 28,
   `fillerMinMinutes` 5), `guestLink` (`enabled`, `createdAt`; the code's hash is stored beside
   the config and never served; `adminUpdateCouchTv` keeps the stored link whatever its body
-  says, since the link's own operations change it) and `template.slots`. A slot has a `key`, `days`, an optional `start` (HH:MM; an
+  says, since the link's own operations change it), `bulletins` (`enabled`, default on, and
+  `cities`: 1 to 20 named places in Czechia with `lat`/`lon`, by default the regional capitals
+  without Pardubice, whose label would collide with Hradec Králové's on a map; a config stored
+  before it gets the default) and `template.slots`. A slot has a `key`, `days`, an optional `start` (HH:MM; an
   `anchor` starts exactly then, a flow slot uses it as the time the block before it fills up
   to; times before the day's first anchor are the night after it), a `fill` (`strip`,
   `marathon`, `reruns`, `movie`, `matinee`, `premiere`, `saga`, `encore`), a `pick` (genre
@@ -952,7 +956,8 @@ server that does not send it). The admin settings page toggles it.
   pinned titles against their slot and queues a replan; a config the planner cannot follow
   is a 400 with a stable code from `couchtv.ConfigError`: `invalid_time_zone`,
   `invalid_rotation`, `invalid_slot`, `anchor_needs_time`, `day_without_slots`,
-  `day_needs_anchor`, `slot_out_of_order`, `reruns_without_end`, `invalid_pinned_title`),
+  `day_needs_anchor`, `slot_out_of_order`, `reruns_without_end`, `invalid_pinned_title`,
+  `invalid_bulletins`),
   `GET /admin/couchtv/airings?from&to` (`adminListAirings`, at most 15 days, with title and
   episode names, `fill`, `slot`, `ready` and a break's `render` state: `uncomposed`,
   `composed`, `rendering`, `ready`, `failed`), `POST /admin/couchtv/airings`
@@ -997,7 +1002,60 @@ server that does not send it). The admin settings page toggles it.
   `GET /admin/couchtv/render` (`adminCouchTvRenderHealth`: when the sidecar last worked, the
   render queue in clips and seconds of video with the measured speed and the time it takes
   against when the first waiting clip airs, the next 24 hours of breaks by state with those
-  at risk, the evergreen break and standby card, the latest failures, the disk renders take).
+  at risk, the evergreen break and standby card, the latest failures, the disk renders take)
+  and `GET /admin/couchtv/bulletins` (`adminGetCouchTvBulletins`, below).
+- **Bulletins** (plan 6.10; the data only, nothing airs them yet): the `couchtv_bulletins` job
+  (`couchtv.Bulletins`, app, one slot, priority -5, one attempt) keeps a weather and a news
+  bulletin. Each kind is a chain whose run queues the next one first (payload `{kind, at}`):
+  news every 20 minutes and weather every hour on a grid from 05:30 to 00:30 in the channel's
+  zone (`nextBulletin`), and a run of each at startup that fetches only what went stale while
+  the server was down. Every request names the app (`Couchverse/<version> (self-hosted media
+  server; Couch TV bulletins)`), gives up after 10 s, is tried twice more after a timeout, a
+  dropped connection, a 429 or a 5xx, and asks only for a change where the source sent an
+  ETag or Last-Modified (a 304 reuses the copy; `bulletins_fetch.go`). A run that yields a
+  bulletin good enough to air adds a `couchtv_bulletins` row (`kind`, `fetched_at`,
+  `valid_until`, `data`: the API's JSON); a failing source or too few stories leave the last
+  good one. The hourly cleanup keeps six of each kind and none older than a day
+  (`PruneBulletins`; iROZHLAS lets a reader keep its texts a day). With `bulletins.enabled`
+  off the chains run without fetching; they fetch whatever the `couchTvEnabled` flag says.
+  - **Weather** (`CouchTvWeather`, valid 6 h): one Open-Meteo `/v1/forecast` request for every
+    configured city (now: temperature, WMO code, `is_day`; hourly codes; five days of min, max,
+    code and the highest chance of precipitation; the channel's zone, wind in m/s), positions
+    kept as configured. A day's `code` is its daytime's, 09-18 (`daytimeCode`), since the
+    source's daily code is its worst hour: two stormy hours make a stormy day, three wet ones a
+    wet day (the most frequent kind), one or two a day of showers, fog in half the hours a foggy
+    one, else the dry hours' average cloud cover. Credit "Weather data by Open-Meteo.com".
+    `warnings` (absent until ČHMÚ was first read; the last state read stands in while it cannot
+    be): the newest SIVS CAP message (`alert_cap_50_*.xml`) by the directory listing's date, its
+    yellow, orange and red blocks in force now or later today, one warning per SIVS event and
+    level with ČHMÚ's Czech and English names, the earliest onset and latest expiry, and its
+    kraje by ISO 3166-2 code from the districts' CISORP codes (`partial` when not all of a
+    kraj's districts are warned). Credit "Zdroj: ČHMÚ". The map's outline is embedded as
+    `czechia.geojson` (`CzechiaOutline`: geoBoundaries CZE ADM0 from ČÚZK, CC BY 4.0, 643 points;
+    credit `OutlineAttribution`).
+  - **News** (`CouchTvNews`, valid 3 h, 3 to 5 stories): the RSS of ČT24 and its editors'
+    selection, iROZHLAS, Seznam Zprávy, Novinky and iDNES, which may be shown, and of CNN Prima
+    and Deník, which only weigh stories, plus ČT24's unofficial trending JSON when it answers;
+    ČTK and Economia are never read (their terms). Only RSS's own elements are read (iDNES's
+    `media:description` is not the description), in the declared charset; entities are
+    resolved inside CDATA too, tags dropped, spaces normalised, an em-dash made an en-dash, and
+    links lose `utm_` parameters and fragments. A feed whose channel title lacks its outlet
+    (a wrong address answered with a default feed) or that is empty has failed. Items of the
+    last 12 hours that are news (not sport, culture, lifestyle, opinion or shows, by category,
+    Seznam's sections or the address) are remembered across runs (in memory), since Novinky's
+    and iDNES's feeds reach back two or three hours. Stories are average-link clusters (TF-IDF cosine
+    over folded five-letter stems of title and perex, at least 0.25, never two items of one
+    outlet), scored by their outlets, 1.5 more in ČT24's editors' selection and 1 more when
+    trending, halving over a day of age. A story's headline is the first of ČT24, iROZHLAS,
+    Seznam Zprávy, Novinky and iDNES to carry it, whole (Český rozhlas forbids shortening or
+    rewording) with a no-break space after one-letter prepositions and conjunctions, and
+    labelled with the outlet's name; a story only CNN Prima and Deník carry, or one already
+    told (an outlet's second article on it), is passed over. `feeds` says how each source
+    answered.
+  - Tests: `bulletins_weather_test.go`, `bulletins_news_test.go` and `bulletins_test.go` on
+    sources recorded on 13 Oct 2026 (`couchtv/testdata/bulletins`, trimmed; the ranking
+    reproduces the research's day), and `TestCouchTvBulletins` (the job on a database over
+    them, the answer checked against the spec).
 - **The `couchtv_analyze` job** (`couchtv.Analyzer`, one slot, low priority, nice'd; plan 6.3):
   per title (published, not excluded), queued a few minutes after its markers change
   (`Analyzer.Queue`, the library hook), by the admin's analyze, and by a backfill at every
@@ -1138,7 +1196,9 @@ server that does not send it). The admin settings page toggles it.
   `couchtv_breaks` (an airing's composition or an `evergreen` one: the recipe with its clips,
   frame offsets, sound spec and promoted titles; state, package path, which the live stream
   airs), `couchtv_guests` (the channel link's guests: token hash, name, the link they came
-  through, `seen_at`); `titles` gained `tagline`, `collection_tmdb_id`, `collection_name`.
+  through, `seen_at`), `couchtv_bulletins` (the weather and news bulletins: kind, when fetched,
+  until when they air, the bulletin as JSON); `titles` gained `tagline`, `collection_tmdb_id`,
+  `collection_name`.
 - Tests: `couchtv/plan_test.go` (the rules, airing to the credits), `couchtv/analysis_test.go`
   (promo and shot picks, the waveform), `library/fingerprint_test.go` and `credits_test.go`
   (the detectors, on fingerprints and logs from the production library in
