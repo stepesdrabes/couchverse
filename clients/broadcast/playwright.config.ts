@@ -25,7 +25,9 @@ export default defineConfig({
 		...devices['Desktop Chrome'],
 		baseURL: `http://localhost:${PORT}`,
 		viewport: { width: 1920, height: 1080 },
-		deviceScaleFactor: 0.25
+		deviceScaleFactor: 0.25,
+		// as the render sidecar runs it: the full idents collect their canvas reads as they go
+		launchOptions: { args: ['--js-flags=--expose-gc'] }
 	},
 	projects: [{ name: 'chromium' }],
 	webServer: {

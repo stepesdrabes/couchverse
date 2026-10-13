@@ -13,6 +13,7 @@ import { css as style, div, span } from '../../../core/dom';
 import { edge, windows } from '../../../core/moves';
 import { frame } from '../../../core/timeline';
 import { timeline, type Ctx, type TL } from '../../../templates/shared';
+import { collectGarbage } from '../gc';
 import { toSrgb } from './color';
 import { CUES, D, DROP, LAND, LOCK, NOTES } from './plan';
 import { score } from './score';
@@ -98,6 +99,7 @@ function painter(canvas: HTMLCanvasElement) {
 				acc[q + 1] += LIN[d[p + 1]];
 				acc[q + 2] += LIN[d[p + 2]];
 			}
+			collectGarbage(d.byteLength);
 		}
 		const o = out.data;
 		const k = ENC_N / n;

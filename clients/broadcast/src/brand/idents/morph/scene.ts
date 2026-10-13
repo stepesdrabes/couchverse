@@ -17,6 +17,7 @@
 import { FONT_FAMILY } from '../../../assets';
 import { rng } from '../../../core/rng';
 import { COUCH, GAP, LOGO_W, POPCORN } from '../../glyph';
+import { collectGarbage } from '../gc';
 import { clamp01, color, CURVE, ease, hexLab, labRgb, num, span, type Key, type Lab } from './anim';
 
 export const W = 1920;
@@ -700,6 +701,7 @@ export class Picture {
 				acc[q + 1] += px[p + 1];
 				acc[q + 2] += px[p + 2];
 			}
+			collectGarbage(px.byteLength);
 		}
 		// the samples share the field's dither, so what holds still stays exactly as a single
 		// sample draws it (no grain switching as motion starts and stops)

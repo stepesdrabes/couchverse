@@ -4,6 +4,7 @@
 // viewer (no `hq`) a frame is drawn once, straight to the screen.
 
 import { rng } from '../../../core/rng';
+import { collectGarbage } from '../gc';
 
 export const W = 1920;
 export const H = 1080;
@@ -96,6 +97,7 @@ export class Film {
 				acc[j + 1] += lin[bits[i + 1]];
 				acc[j + 2] += lin[bits[i + 2]];
 			}
+			collectGarbage(bits.byteLength);
 		}
 		const px = this.img.data;
 		const enc = this.enc;
