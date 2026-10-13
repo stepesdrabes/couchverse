@@ -45,6 +45,52 @@ export const TITLES = {
 	}
 } satisfies Record<string, Title>;
 
+// the longest names, lines and genres the channel shows (some from its library), for fitting
+const LONG = {
+	hallows: {
+		...TITLES.night,
+		name: 'Harry Potter and the Deathly Hallows: Part 2',
+		year: 2011,
+		runtimeMinutes: 130,
+		genres: ['Adventure', 'Family', 'Fantasy'],
+		taglines: [
+			'Seven strangers, one snowed-in motel and a secret',
+			'none of them can afford to keep past midnight.'
+		]
+	},
+	phoenix: {
+		...TITLES.alley,
+		name: 'Harry Potter and the Order of the Phoenix',
+		year: 2007,
+		genres: ['Science Fiction', 'Dokumentární'],
+		taglines: [
+			'Something evil has',
+			'returned to Hogwarts, and it brought every last one of its friends.'
+		]
+	},
+	strangelove: {
+		...TITLES.sunny,
+		name: 'Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb',
+		year: 1964,
+		runtimeMinutes: 95,
+		genres: ['Action & Adventure', 'Sci-Fi & Fantasy', 'War & Politics'],
+		taglines: ['Something wicked this way comes, and it', 'brought every one of its friends along.']
+	},
+	zabky: { ...TITLES.water, name: 'ŽABKY NA TĚLÁK' },
+	verte: { ...TITLES.night, name: 'Věřte nevěřte', genres: ['Komedie', 'Dokumentární'] }
+} satisfies Record<string, Title>;
+
+const longEpisode = {
+	code: 'S03E14',
+	name: 'The One Where Everybody Finds Out About the Wedding',
+	runtimeMinutes: 23
+};
+const czechEpisode = {
+	code: 'S01E02',
+	name: 'Případ ztracené nevěsty a dvou podivných svědků',
+	runtimeMinutes: 52
+};
+
 const frames = (dir: string) =>
 	Array.from({ length: 25 }, (_, i) => `${M}/${dir}/${String(i + 1).padStart(3, '0')}.jpg`);
 
@@ -179,7 +225,94 @@ export const FIXTURES = {
 		clock: '20:13',
 		handover: 'expand'
 	},
-	standby: { template: 'standby', duration: 8 }
+	standby: { template: 'standby', duration: 8 },
+	'promo-cinematic-long': {
+		template: 'promo',
+		part: 'full',
+		mood: 'cinematic',
+		title: LONG.hallows,
+		shots: SHOTS,
+		airing: { eyebrow: 'This week', day: 'Wednesday', time: '20:15' },
+		bed: bed()
+	},
+	'promo-grit-long': {
+		template: 'promo',
+		part: 'full',
+		mood: 'grit',
+		title: LONG.phoenix,
+		shots: SHOTS,
+		airing: { eyebrow: 'Tomorrow', time: '21:00' },
+		bed: bed()
+	},
+	'promo-bright-long': {
+		template: 'promo',
+		part: 'full',
+		mood: 'bright',
+		title: LONG.strangelove,
+		shots: SHOTS,
+		airing: { eyebrow: 'Today', time: '18:00' },
+		bed: bed()
+	},
+	'evergreen-long': {
+		template: 'evergreenEnd',
+		mood: 'bright',
+		title: LONG.strangelove,
+		shots: SHOTS,
+		bed: bed()
+	},
+	'upnext-long': {
+		template: 'upNext',
+		title: LONG.hallows,
+		episode: longEpisode,
+		time: '18:00',
+		clock: '17:59',
+		bed: bed(2, 24)
+	},
+	'strip-long': {
+		template: 'stripPromo',
+		mood: 'dark',
+		title: LONG.hallows,
+		airing: { eyebrow: 'Every weekday', time: '22:30', days: [0, 1, 2, 3, 4] },
+		foot: { kind: 'from', season: 12, day: 2 },
+		bed: bed(4, 24)
+	},
+	'short-long': {
+		template: 'shortPromo',
+		title: LONG.hallows,
+		airing: { eyebrow: 'This week', day: 'Wednesday', time: '21:00' },
+		bed: bed()
+	},
+	'lineup-long': {
+		template: 'lineup',
+		items: [
+			{
+				time: '18:00',
+				title: LONG.hallows,
+				sub: `${longEpisode.code} · ${longEpisode.name}`,
+				state: 'live',
+				progress: 0.3
+			},
+			{
+				time: '18:25',
+				title: LONG.phoenix,
+				sub: 'Movie · Science Fiction · 138 min',
+				state: 'next',
+				badge: 'Next · in 125 min'
+			},
+			{ time: '20:15', title: LONG.strangelove, sub: 'Movie · Action & Adventure · 95 min' },
+			{ time: '22:30', title: LONG.verte, sub: `${czechEpisode.code} · ${czechEpisode.name}` },
+			{ time: '23:45', title: LONG.zabky, sub: 'Movie · Crime · 98 min' }
+		]
+	},
+	'squeeze-long': {
+		template: 'squeeze',
+		ending: TITLES.night,
+		program: { kind: 'standIn' },
+		next: { title: LONG.strangelove, episode: czechEpisode, time: '18:00' },
+		clock: '17:57',
+		handover: 'expand',
+		bed: bed(2, 24)
+	}
 } satisfies Record<string, ClipSpec>;
 
 export type FixtureName = keyof typeof FIXTURES;

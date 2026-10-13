@@ -2111,12 +2111,13 @@ approves is what airs.
   `features/couchtv/preview.ts`. Bump a template's `version` whenever its picture or sound
   changes.
 - **Tests** (`make broadcast-test`, CI `broadcast.yml`): vitest for curves, springs, the
-  palette, the timeline, loudness, WAV and the schema; Playwright in Chromium against the built
-  render page for golden frames (480x270, `test/golden/__goldens__`, refresh with `npx
-  playwright test --update-snapshots`), and invariants: a frame is a function of t, `advance`
-  shows what `seek` shows and skips held frames, a promo body does not depend on its airing,
-  the end card continues the body on the next frame, the key
-  rectangle follows the panel, the `cursor` squeeze ends on the short ident's first frame
+  palette, the timeline, line breaking, loudness, WAV and the schema; Playwright in Chromium
+  against the built render page for golden frames (480x270, `test/golden/__goldens__`, refresh
+  with `npx playwright test --update-snapshots`; the `-long` fixtures carry the longest names
+  and lines), and invariants: text that reads stays inside the title-safe width and on the
+  frame, a frame is a function of t, `advance` shows what `seek` shows and skips held frames, a
+  promo body does not depend on its airing, the end card continues the body on the next frame,
+  the key rectangle follows the panel, the `cursor` squeeze ends on the short ident's first frame
   (pixel-equal), the wordmark's metrics are the bundled face's, two audio renders agree and hit
   their loudness, the standby loop has no seam. Stand-in media (gradient art, two footage shots,
   a bed) are committed in `test/media` with the script that made them. `npm run dev` (port 5190)

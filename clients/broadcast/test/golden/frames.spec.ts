@@ -25,7 +25,17 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['squeeze-key', [5]],
 	['squeeze-key', [2.6], 'matte'],
 	['squeeze-frames', [1]],
-	['standby', [2]]
+	['standby', [2]],
+	// the longest names and lines: fitted, broken onto lines, never off the frame
+	['promo-cinematic-long', [3.4, 7, 16, 20]],
+	['promo-grit-long', [4, 6.5, 12.9, 16]],
+	['promo-bright-long', [2.4, 5, 8.4, 12.8, 17]],
+	['evergreen-long', [3]],
+	['upnext-long', [3]],
+	['strip-long', [8]],
+	['short-long', [4.2]],
+	['lineup-long', [4.4, 7]],
+	['squeeze-long', [5]]
 ];
 
 test.beforeEach(async ({ page }) => openRender(page));
@@ -43,6 +53,56 @@ for (const [name, times, layer] of GOLDEN) {
 		}
 	});
 }
+
+test('text stays inside the title-safe width and on the frame', async ({ page }) => {
+	for (const [name, times, layer] of GOLDEN) {
+		if (layer) continue;
+		await load(page, FIXTURES[name]);
+		for (const t of times) {
+			await seek(page, t);
+			const outside = await page.evaluate(() => {
+				const stage = document.getElementById('stage')?.shadowRoot?.querySelector('.stage');
+				const piece = stage?.querySelector('.piece');
+				if (!stage || !piece) return ['no piece'];
+				const out: string[] = [];
+				const range = document.createRange();
+				const walker = document.createTreeWalker(piece, NodeFilter.SHOW_TEXT);
+				for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+					const el = n.parentElement;
+					// the corner bug sits in the action-safe corner by design
+					if (!el || !n.textContent?.trim() || el.closest('.bug')) continue;
+					if (getComputedStyle(el).visibility === 'hidden') continue;
+					let opacity = 1;
+					const clips: DOMRect[] = [];
+					for (let a: Element | null = el; a && a !== piece; a = a.parentElement) {
+						const s = getComputedStyle(a);
+						opacity *= parseFloat(s.opacity);
+						if (s.overflow !== 'visible') clips.push(a.getBoundingClientRect());
+					}
+					// only what reads: the tail of a fade does not
+					if (opacity < 0.5) continue;
+					range.selectNodeContents(n);
+					for (const r of range.getClientRects()) {
+						const box = clips.reduce(
+							(b, c) => ({
+								l: Math.max(b.l, c.left),
+								r: Math.min(b.r, c.right),
+								t: Math.max(b.t, c.top),
+								b: Math.min(b.b, c.bottom)
+							}),
+							{ l: r.left, r: r.right, t: r.top, b: r.bottom }
+						);
+						if (box.r - box.l < 1 || box.b - box.t < 1) continue;
+						if (box.l < 95.5 || box.r > 1824.5 || box.t < 0 || box.b > 1080)
+							out.push(`${n.textContent} [${Math.round(box.l)}..${Math.round(box.r)}]`);
+					}
+				}
+				return out;
+			});
+			expect(outside, `${name} at ${t}`).toEqual([]);
+		}
+	}
+});
 
 test('versions name every template as load reports it', async ({ page }) => {
 	const versions = await page.evaluate(() => window.couchtvRender.versions());
