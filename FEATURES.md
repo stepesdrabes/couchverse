@@ -860,10 +860,11 @@ server that does not send it). The admin settings page toggles it.
   strip of several, left out for a series at random), else a short promo, and a gap longer
   than one round of the candidates starts another after a short ident. Airing phrases (`Today`,
   `Tonight` from 17:00, `Tomorrow`, `This week` + day, `Premiere` + day) mirror the broadcast
-  package's `airing.ts`. The break's sound is one break spec at the loudness of the program
-  before it (else after it), clamped to -23..-16 LUFS, -18 when unmeasured
-  (`couchtv_titles.loudness_lufs`). `ComposeEvergreen` is the fallback: the full ident, up
-  to three rendered promo bodies with the evergreen end card, the short ident.
+  package's `airing.ts`. The break's sound is one break spec (an item per clip that starts a
+  sound, a promo body's being its full promo; the sidecar mixes the items' sounds) at the
+  loudness of the program before it (else after it), clamped to -23..-16 LUFS, -18 when
+  unmeasured (`couchtv_titles.loudness_lufs`). `ComposeEvergreen` is the fallback: the full
+  ident, up to three rendered promo bodies with the evergreen end card, the short ident.
 - **The `couchtv_compose` job** (`couchtv.Composer`, app): at startup, after every plan run and
   hourly, it composes every break of the next 24 hours that has no composition (a failed one
   again after 6 h), and keeps the standby card and an evergreen break of the current
@@ -908,7 +909,11 @@ server that does not send it). The admin settings page toggles it.
   (no paint wait: the capture draws a fresh frame itself) and a JPEG q92 capture (a frame
   `isStatic` reuses the last one) piped to libx264 (veryfast, `-tune animation`, CRF 18,
   High@4.0, an IDR every 2 s and at the first frame, BT.709 limited range), then the page's
-  `renderAudio()` posted back as a WAV and encoded AAC 192k. **A squeeze over the program's
+  `renderAudio()` posted back as a WAV and encoded AAC 192k, and `renderItemAudio()`, the
+  clip's sound as a break item (`couchtv.itemSpec`: a promo body's is its full promo; the end
+  cards and the standby card make none), kept as `couchtv/sounds/<key>.wav` (`soundKey`: the
+  template's version and the spec, a promo's airing replaced by the body's, since a promo
+  sounds the same whenever it airs). **A squeeze over the program's
   frames is composited by ffmpeg** (`composite.go`): the sidecar loads it keyed (`program:
   key`), reads `keyRect` for every frame, and the encoder decodes the program straight from
   its source (`-ss` at the frames' start, `fps=25`, cover-cropped to 16:9, SDR, its last frame
@@ -918,8 +923,17 @@ server that does not send it). The admin settings page toggles it.
   as its alpha, which the sidecar draws from the same rectangles (rounded, antialiased by pixel
   coverage, times the opacity) and streams on a second pipe; the picture's BT.601 JPEG becomes
   BT.709 before the blend, so the program's pixels pass through as they aired. Chromium never
-  decodes a program frame and nothing is extracted for it. An assembly renders the
-  break's sound in one pass (in parts of at most 120 s for long breaks), joins the clips'
+  decodes a program frame and nothing is extracted for it. **An assembly mixes the break's
+  sound** (`sound.go`): every item of the break spec has its kept sound, rendered in the
+  page then and there when it has none (a clip rendered before items' sounds were kept, a
+  sound pruned, a promo without its airing in the evergreen break: loaded for its sound
+  alone, `load(spec, { sound: true })`, a squeeze keyed; its `soundDuration` checked against
+  the item's slot), and `mixBreak` adds them up at their starts in 10 s chunks, the
+  ring-out of each under the items after it, cuts the sum to the break's length to the
+  sample and normalizes it as the page normalizes a render (a Go port of its BS.1770
+  loudness and 4x true peak, `loudness.go`, which agrees with `loudness.ts` to 1e-9 LU on
+  the same samples: to the spec's loudness, the true peak at or under -1 dBTP); Chromium
+  opens only for a missing sound. It then joins the clips'
   video by stream copy (each clip's init and segments as one fMP4, the concat demuxer at
   exact lengths) and segments both. Clips (`couchtv/clips/<key>`) and breaks
   (`couchtv/breaks/<id>`) are packages like a media file's (`source/` and `audio-1-aac/`
@@ -930,8 +944,9 @@ server that does not send it). The admin settings page toggles it.
 - **Pruning** (the hourly cleanup, `couchtv.Prune`): an aired break's package after an hour
   (its row after a week), clips nobody asked for in 14 days unless a waiting break uses them,
   evergreen breaks older than the newest assembled one, extracted media unused for 14 days,
-  work directories after a day, soundtrack previews no title picked and nobody played in 14
-  days.
+  items' sounds no assembly mixed for 2 days (most are one break's; the shared ones are
+  mixed daily), work directories after a day, soundtrack previews no title picked and nobody
+  played in 14 days.
 - Endpoints (admin, not flag-gated, like `/admin/ranks`): `GET/PUT /admin/couchtv`
   (`adminGetCouchTv`, `adminUpdateCouchTv`: config plus `plannedUntil`; a save validates
   pinned titles against their slot and queues a replan; a config the planner cannot follow
@@ -981,7 +996,7 @@ server that does not send it). The admin settings page toggles it.
   minutes a request; `file_missing`/`source_deleted` 404 without the source),
   `GET /admin/couchtv/render` (`adminCouchTvRenderHealth`: when the sidecar last worked, the
   render queue in clips and seconds of video with the measured speed and the time it takes
-  against when the first waiting clip airs, the next 48 hours of breaks by state with those
+  against when the first waiting clip airs, the next 24 hours of breaks by state with those
   at risk, the evergreen break and standby card, the latest failures, the disk renders take).
 - **The `couchtv_analyze` job** (`couchtv.Analyzer`, one slot, low priority, nice'd; plan 6.3):
   per title (published, not excluded), queued a few minutes after its markers change
@@ -1090,7 +1105,7 @@ server that does not send it). The admin settings page toggles it.
   `FormState` and the server's checks repeated in `template.ts` (`problems`, the same codes,
   shown through `problemMessage`), so Save stays disabled while the template is invalid.
   **Render health** (`AdminRenderHealthPage`): `StatTile`s for the queue, speed, time to clear
-  and breaks at risk, a `SegmentBar` of the next 48 h of breaks, the fallbacks, a `RankedList`
+  and breaks at risk, a `SegmentBar` of the next 24 h of breaks, the fallbacks, a `RankedList`
   of the disk and the failures; it polls every 10 s. **Preview**: the broadcast preview. The
   title editor ends with `TitleCouchTvPanel`: never on Couch TV, mood, the promo audio (what
   the promos play once saved and who picked it, "Back to automatic" for an admin's pick of
@@ -1147,7 +1162,12 @@ server that does not send it). The admin settings page toggles it.
   render), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
   from `CHROMIUM_PATH` or installed, the bundle from `make broadcast`): renders a squeeze over a
   generated program (composited, its panel at the hold compared with the program), an ident
-  and a sting, assembles them and validates every package; `couchtv/composite_test.go` (the
+  and a sting, each keeping its item's sound, removes one of them, assembles the break (which
+  renders that one again) and validates every package and the break's loudness;
+  `couchtv/sound_test.go` (the loudness port against `loudness.ts`'s numbers, the mixer:
+  offsets, ring-out under the next item, the cut at the break's end, its length to the sample,
+  loudness and the true-peak cap, a sound shorter than its slot; the sound keys);
+  `couchtv/composite_test.go` (the
   keyed spec, the matte against every pixel's coverage, the graph run in ffmpeg). The
   live stream: `couchtv/live_test.go` (the stream over a fake schedule: the lineup,
   boundaries, cuts at credits, trimmed audio, missing languages and subtitles, origins
@@ -2094,18 +2114,25 @@ approves is what airs.
   `contract/broadcast-spec.schema.json` (CI fails on drift) for the server's composer. Beds are
   `{url, in, out}` excerpts (WAV, FLAC or Ogg Opus: open-source Chromium has no AAC); footage is
   a list of 25 fps JPEG frame URLs per shot; `loudness` is the render's target in LUFS
-  (default -18). A `break` spec lists clip specs with their start times, for one audio render
-  of the whole break (each clip ringing out under the next over `crossfade`).
+  (default -18). A `break` spec lists clip specs with their start times: the break's sound,
+  each clip ringing out under the next over `crossfade`. The sidecar mixes it from items
+  rendered one at a time (`renderItemAudio`, kept for every break that has them); the page
+  still renders a break spec in one pass, the reference the mixed items are tested against.
 - **Promo body and end card**: a promo is one timeline; its body is timeless (rendered once per
   title) and its end card (4 s, from a frame-aligned cut snapped to the bed) carries the airing.
   The body renders with a fixed airing whatever the spec says and the end card keeps a fixed
   place for the airing, so a body clip never depends on when the title airs; the end card's
-  timeless layer may enter during the body's last moments. The break's audio renders `full`,
-  so the bed runs across the cut. `evergreenEnd` is the same end card without an airing.
+  timeless layer may enter during the body's last moments. In a break the body's sound is its
+  full promo, so the bed runs across the cut: a body's `parts.sound` reaches through its end
+  card, and as the end card's words are seen, never heard, a body's item sound is its full
+  promo's whatever the airing (without one, the evergreen end card's, it sounds different).
+  `evergreenEnd` is the same end card without an airing.
 - **Render API** (`window.couchtvRender` in `dist/render.html`, 1920x1080, 25 fps):
-  `load(spec)` resolves with `{duration (whole frames), cues, fps, width, height, version (the
-  template's, for the clip cache key), loop, keyed, missing}` once fonts, artwork and beds are
-  in; `seek(t)` resolves once that frame is painted (footage and every image decoded);
+  `load(spec, { sound })` resolves with `{duration (whole frames), soundDuration (how long its
+  sound lasts as a break item, where the next item starts), cues, fps, width, height, version
+  (the template's, for the clip cache key), loop, keyed, missing}` once fonts, artwork and
+  beds are in (`sound` builds a clip for its sound alone, never shown or painted); `seek(t)`
+  resolves once that frame is painted (footage and every image decoded);
   `isStatic(t0, t1)` is true when nothing moves in between, so the renderer can reuse a frame:
   no dynamic value changes, no steady animation starts or stops applying and no animation is
   between two keyframes that differ (with a linear timing, as the whole-piece `motion` and
@@ -2117,6 +2144,10 @@ approves is what airs.
   `setLayer('matte' | 'picture')`; `renderAudio()` is a 48 kHz stereo 32-bit float WAV of the
   loaded clip or break, normalized to its loudness with the true peak at or under -1 dBTP
   (`renderAudioBase64()` for CDP, `audioReport()` for the measured loudness and gain);
+  `renderItemAudio()` is the loaded clip's sound as an item of a break, as one render of the
+  whole break played it: from its start, its buses faded out over 0.3 s from `soundDuration`,
+  the hall ringing out after that (up to 4 s, cut once under -120 dBFS), at the engine's level
+  (not normalized), placed 0.5 s into its own context like every item after a break's first;
   `versions()` names every template's version (the sidecar publishes it, so the app keys clips
   without a browser). Today's templates keep some motion in nearly every frame (a breathing
   dot, a slow push, grain): only the held lockup (a quarter of the short ident, a tenth of a
@@ -2132,7 +2163,15 @@ approves is what airs.
   with their frame (`decoding = 'sync'`). Cuts built with `motion`/`windows` sit on frame edges
   (half a frame before the frame nearest their beat), so float error never moves one to the
   neighbouring frame and a 120 bpm cue lands within half a frame of its sound. Two audio renders
-  differ only by float noise (under 1e-5).
+  differ only by float noise (under 1e-5). An offline render schedules each sound cue shortly
+  before it plays (`renderSounds`, through the context's `suspend`): Chromium pulls every
+  connected node every 128 frames, so a break's thousands of voices built up front rendered it
+  slower than real time; the samples are the same. Where a sound sits in its context is not
+  free, though: Chromium quantizes automation times to samples, so the same cue a few frames
+  later can move a sample (a voice whose pitch moves comes out in another phase, -30 to -45 dB
+  under the sound, as it always did from one break to the next), and the compressors open
+  every render clamped down for a few hundred milliseconds, which is why an item renders
+  0.5 s into its context.
 - **Text fitting** (`src/core/fit.ts`): every piece of spec text (names, taglines, episode
   names, kinetic words) goes through `fitText(el, box)`: the design's size when it fits its box
   (its layout column, or the 96 px title-safe width at the largest scale its animations reach
@@ -2196,7 +2235,11 @@ approves is what airs.
   promo body does not depend on its airing, the end card continues the body on the next frame,
   the key rectangle follows the panel, the `cursor` squeeze ends on the short ident's first frame
   (pixel-equal), the wordmark's metrics are the bundled face's, two audio renders agree and hit
-  their loudness, the standby loop has no seam. Stand-in media (gradient art, two footage shots,
+  their loudness, the standby loop has no seam, an item's sound is the clip's faded into its
+  ring-out, a promo sounds the same whatever its airing, and items rendered alone and mixed
+  sound like the break rendered in one pass (within 0.1 LU item by item, 0.5 LU in every 400 ms
+  after the first second, 0.2 dB of true peak); a unit test pins the loudness numbers the
+  server's Go port reproduces. Stand-in media (gradient art, two footage shots,
   a bed) are committed in `test/media` with the script that made them. `npm run dev` (port 5190)
   plays every fixture.
 

@@ -703,10 +703,14 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   to each frame's box and lay it over the picture through a matte the sidecar draws from the
   same rectangles (antialiased rounded corners times the opacity, a second pipe). Chromium
   decodes no program frame and none is extracted (FEATURES.md "couchtv").
-- **Sound**: the page posts `renderAudio()`'s WAV back to the sidecar's server (a long break's
-  sound is too big for base64 over CDP); AAC 192k. A break's sound renders as one break spec,
-  split into parts that start at most 120 s apart (cut where a clip starts) so the page never
-  holds more than a couple of minutes of float audio; its length is checked to the sample.
+- **Sound**: the page posts `renderAudio()`'s WAV back to the sidecar's server (too big for
+  base64 over CDP); AAC 192k. A clip's render also keeps its sound as a break item
+  (`renderItemAudio()`, `couchtv/sounds/<key>.wav`: from its start, faded out where the next
+  item starts with its ring-out after, at the engine's level), and an assembly mixes the
+  break's items' kept sounds in Go at their starts, normalizes the sum as the page does
+  (BS.1770 to the spec's loudness, true peak at or under -1 dBTP) and checks its length to the
+  sample; an item without a kept sound is rendered then, once. (A break's sound used to render
+  in the page as one break spec, in parts of up to 120 s: see "Render throughput" below.)
 - **Packages**: a clip (`couchtv/clips/<key>`) and a break (`couchtv/breaks/<id>`) are laid
   out like a Playback v2 package (`source/` video and `audio-1-aac/` English stereo, each
   with `rendition.json`, 6 s fMP4 segments on the package timeline through
@@ -720,6 +724,57 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   seamless loop).
 - **Leaks and failures**: Chromium restarts every 25 jobs (decoded artwork is cached
   for the page's life); any failed job closes it so the next starts clean.
+
+**Render throughput** (2026-10-13). On the Pi a break's sound, rendered in the page as one
+break spec, ran at 0.15-0.2x real time (120 s parts of 13-14 clips took 11-14 min), so a
+5-minute break spent 30-50 min on its sound after 6-10 min of clips, ~48 breaks a day asked
+for more than 24 h of the sidecar, and through most of 2026-10-12 breaks aired the evergreen
+break or the standby card.
+- **Why** (the S2 break on an M1 Pro): one render builds every item's voices before it starts
+  (S2: 3806 nodes: 1544 gains, 1154 oscillators, 439 biquads, 327 panners, 189 buffer
+  sources, 108 2x-oversampled waveshapers, 38 delays, one convolver, two compressors; the
+  short ident alone has 1655) and Chromium pulls every connected node every 128 frames from
+  the render's start, so the cost grows with the break's length times all its voices: S2's
+  60 s rendered in 15.6 s, its seven items alone in 5.7 s; a composed 300 s break of 20 items
+  took 599 s, slower than real time even here. Of S2's render the hall (a 3.2 s stereo
+  convolver) took 29 %, the compressors 12 %, the oversampled waveshapers 12 %; building the
+  hidden timelines took 0.1 s.
+- **Now**: offline renders schedule each cue 0.5-1 s before it plays (`suspend`; the samples
+  are the same within 4e-6; S2's one render 18.9 s to 10.2 s, a clip's own sound up to 1.9x
+  faster) and the hall, noise and projector buffers are made once per rate. Each item's sound
+  renders once, with its clip, and is kept (`couchtv/sounds`); an assembly mixes the kept
+  sounds in Go and opens Chromium only for an item without one.
+- **Measured** on the M1 Pro's two efficiency cores, the Pi proxy above: the S2 break
+  assembles in **5.4 s instead of 127 s** (its sound 2 min 1 s before, the mix 1 s now; the
+  rest is joining the video and encoding AAC); 47 s when none of its seven items has a kept
+  sound yet (each 4.4-8.8 s), as right after this change, when clips rendered before it make
+  their sounds as their breaks assemble. A 300 s break of 35 clips (S2's seven, five times)
+  assembles in **23 s instead of 22 min** (its mix 4.9 s; before, three parts of 9 min 31 s,
+  9 min 20 s and 2 min 49 s, much as the Pi's 120 s parts of 13-14 clips took 11-14 min).
+  Keeping an item's sound adds 2.5-11 s to its clip's render (48 s over nine clips) while the
+  clip's own sound got 14 s faster (53 to 39 s): a few percent of a clip's 1.5-2.5 min. In
+  the page alone on a performance core, composed breaks of 190, 300 and 320 s (14-21 items)
+  took 315, 599 and 800 s in one render and 21, 37 and 34 s with every item rendered alone.
+- **Sound**: mixed items against one render of the same break (S2 and the three composed
+  breaks): integrated loudness within 0.001 LU, true peak within 0.01 dB, each item within
+  0.01 LU, every 400 ms window within 0.15 LU (95 % within 0.03 LU) after the first second,
+  where one render opened its compressors cold (0.39 LU). Samples differ 31-33 dB under the
+  signal: Chromium quantizes automation times to samples, so a voice whose pitch moves lands
+  in another phase depending on where its item sits, as it did from break to break before
+  (one render put the same short promo 5 s or 7.5 s into a break 40-44 dB apart). Items
+  rendered where the one render had them differ from it by 70 dB under the signal (57 dBFS
+  at worst, at a boundary): the glue and the limiter running per item instead of over the
+  break, inaudible.
+- **Daily budget** (Pi, the measured clip speeds: squeeze 2.41 fps, up next 2.47, lineup
+  2.66, short promo 1.98; ~25 s to assemble a 5-minute break): a week planned over a library
+  shaped like production's composes ~31 breaks a day whose new clips are ~30 squeezes and up
+  nexts, 13-31 end cards, 6-11 short promos and 3-5 lineups (stings, idents, strip promos and
+  bodies come from the cache): 2.1-2.6 h of video, ~4 min of items' sounds and ~13 min of
+  assembly. At ~48 breaks a day that is ~3.5-4 h + ~6 min + ~20 min, inside the 8 h of quiet
+  hours; before, assembly alone was 24-40 h a day. So the policy stays (the quiet hours, 3 h
+  before airing at the latest), and render health's time to clear, which counts the clips'
+  video at their measured speed (each clip's sounds included) and leaves assemblies out, holds
+  again now that an assembly takes seconds.
 
 ### 6.8 The broadcast package
 - `clients/broadcast/`: a small TypeScript bundle (Vite library build, no framework), using
