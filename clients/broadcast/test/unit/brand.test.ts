@@ -2,23 +2,14 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { pitchClass } from '../../src/audio/pitch';
-import { bracketPath } from '../../src/brand/brackets';
 import { STAGE } from '../../src/brand/ending';
 import { LOGO, LOGO_H, LOGO_W, POPCORN, SILHOUETTE } from '../../src/brand/glyph';
 import { SHORT_IDENT, SHORT_IDENT_TIMES } from '../../src/brand/short-ident';
 import { BEAT, SONIC } from '../../src/brand/sonic';
-import { CHART, HOOK, SCALES } from '../../src/brand/theme';
+import { stingTimes } from '../../src/brand/sting';
 import { BRAND, geometry, lockupSvg, PARTS, ROW, WORD } from '../../src/brand/wordmark';
 import { edge, valueAt } from '../../src/core/moves';
 import { frame } from '../../src/core/timeline';
-
-/** The points of a bracket path: the outline from top to bottom, then the inner edge back. */
-function points(d: string): [number, number][] {
-	return d
-		.slice(1, -1)
-		.split('L')
-		.map((p) => p.split(' ').map(Number) as [number, number]);
-}
 
 const onFrame = (t: number) => Math.abs(t * 25 - Math.round(t * 25)) < 1e-9;
 const D_MAJOR = ['D', 'E', 'F#', 'G', 'A', 'B', 'C#'].map(pitchClass);
@@ -120,58 +111,23 @@ describe('the short ident', () => {
 	});
 });
 
-describe('the theme', () => {
-	it('keeps every chord in its key and the hook in D major', () => {
-		const inKey = (note: string, key: keyof typeof SCALES) =>
-			SCALES[key].map(pitchClass).includes(pitchClass(note));
-		for (const [name, { notes, key }] of Object.entries(CHART))
-			for (const n of notes) expect(inKey(n, key), `${name}: ${n} in ${key}`).toBe(true);
-		for (const n of HOOK.notes) expect(inKey(n, 'D major'), n).toBe(true);
-	});
-
-	it('lands the tag on frames', () => {
-		// the tag's hook lands on frames wherever the tag starts on one
-		for (const r of HOOK.tagAt) expect(Math.abs(r * 25 - Math.round(r * 25))).toBeLessThan(1e-9);
-	});
-});
-
-describe('the old brackets', () => {
-	const em = 190;
-	const n = 40;
-	const stroke = (k: number) => {
-		const p = points(bracketPath(em, k, -1));
-		const outer = p.slice(0, 2 * n + 1);
-		const inner = p.slice(2 * n + 1).reverse();
-		return {
-			bar: inner[0][1] - outer[0][1],
-			stem: inner[n][0] - outer[n][0],
-			height: outer[2 * n][1] - outer[0][1],
-			width: -outer[n][0]
-		};
-	};
-
-	it('grow whole with what they frame: the O of a bigger Saira, stroke and all', () => {
-		const rest = stroke(1);
-		for (const k of [1.5, 2.2, 3.1]) {
-			const s = stroke(k);
-			expect(s.height).toBeCloseTo(rest.height * k, 0);
-			expect(s.width).toBeCloseTo(rest.width * k, 0);
-			expect(s.bar).toBeCloseTo(rest.bar * k, 0);
-			expect(s.stem).toBeCloseTo(rest.stem * k, 0);
-		}
-		// Saira's O: a heavier stem than bar
-		expect(rest.stem / em).toBeCloseTo(0.175, 2);
-		expect(rest.bar / em).toBeCloseTo(0.132, 2);
-	});
-
-	it('open on the cut, mirrored', () => {
-		const l = points(bracketPath(em, 1, -1, 10, 20));
-		const r = points(bracketPath(em, 1, 1, 10, 20));
-		expect(l[0][0]).toBe(10);
-		expect(l[0][1]).toBeCloseTo(20 - 0.3495 * em, 1);
-		for (let i = 0; i < l.length; i++) {
-			expect(l[i][0] - 10).toBeCloseTo(-(r[i][0] - 10), 1);
-			expect(l[i][1]).toBe(r[i][1]);
+describe('stings', () => {
+	it('fit the moment and the sonic logo into every length from 2 to 6 s', () => {
+		for (let f = 50; f <= 150; f++) {
+			const D = f / 25;
+			const { land, notes, resolve: r } = stingTimes(D);
+			for (const n of notes) expect(onFrame(n), `${D}: ${n}`).toBe(true);
+			// the motif ends with a hold of at least 0.75 s
+			expect(D - notes[2], String(D)).toBeGreaterThanOrEqual(0.75);
+			if (land === null) {
+				expect(D).toBeLessThan(3.2);
+				expect(r?.[1]).toBeLessThanOrEqual(notes[0] + 1e-9);
+			} else {
+				expect(D).toBeGreaterThanOrEqual(3.2);
+				// the popcorn falls after the couch has come in, and couch types a beat after it lands
+				expect(land - 0.72).toBeGreaterThan(0);
+				expect(notes[0] - land).toBeCloseTo(BEAT, 9);
+			}
 		}
 	});
 });

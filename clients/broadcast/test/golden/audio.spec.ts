@@ -18,6 +18,7 @@ const CASES: [string, Spec, number][] = [
 	['ident-morph', FIXTURES['ident-morph'], -18],
 	['ident-assemble', FIXTURES['ident-assemble'], -18],
 	['ident-short (the house instruments and hall)', FIXTURES['ident-short'], -18],
+	['sting-5', { ...FIXTURES['sting-5'], loudness: -20 }, -20],
 	['promo-bright (bed, beats)', FIXTURES['promo-bright'], -18],
 	['squeeze-expand', { ...FIXTURES['squeeze-expand'], loudness: -23 }, -23],
 	['break', BREAK, -20]

@@ -167,12 +167,12 @@ export interface IdentSpec extends Loudness {
 	design?: 'journey' | 'cinematic' | 'morph' | 'assemble';
 }
 
-/** A gap filler in the ident's language: the lockup landing on the hook. */
+/** A gap filler in the brand's language: the ident's popcorn ending on the sonic logo. */
 export interface StingSpec extends Loudness {
 	template: 'sting';
 	/**
-	 * Seconds, a whole number of frames; the library is 2, 3 and 5 s and the hold absorbs
-	 * anything in between.
+	 * Seconds, a whole number of frames. One design for every length: from 3.2 s the popcorn
+	 * drops onto the couch, shorter stings resolve the logo in place.
 	 * @minimum 2
 	 * @maximum 6
 	 */

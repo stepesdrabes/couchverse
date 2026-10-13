@@ -334,26 +334,6 @@ export class Kit extends AudioEngine {
 		this.send(b, out, 0.05);
 	}
 
-	/** The brackets: a tight, pitched woody knock (open is higher than shut). */
-	clack(
-		b: Bus,
-		when: number,
-		o: { gain?: number; pan?: number; freq?: number; seed?: number } = {}
-	) {
-		const { gain = 0.06, pan = 0, freq = 1175, seed = 2 } = o;
-		const out = this.pan(pan);
-		const s = this.osc(b, 'sine', freq * 1.6, when, 0.08);
-		s.frequency.setValueAtTime(freq * 1.6, when);
-		s.frequency.exponentialRampToValueAtTime(freq, when + 0.012);
-		s.connect(this.ad(when, gain, 0.0008, 0.05)).connect(out);
-		this.noiseAt(b, 'white', when, 0.02, seed)
-			.connect(this.filter('bandpass', 2400, 1.2))
-			.connect(this.ad(when, gain * 0.5, 0.0005, 0.008))
-			.connect(out);
-		out.connect(b.sfx);
-		this.send(b, out, 0.12);
-	}
-
 	/** Typewriter key: a bright clack and a low thunk. */
 	key(b: Bus, when: number, o: { gain?: number; pan?: number; seed?: number } = {}) {
 		const { gain = 0.08, pan = 0, seed = 1 } = o;

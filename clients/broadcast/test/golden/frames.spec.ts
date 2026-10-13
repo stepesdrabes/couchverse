@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { METRICS } from '../../src/brand/brackets';
 import { COUCH, LOGO, LOGO_GAP, POPCORN, SILHOUETTE } from '../../src/brand/glyph';
 import { PARTS } from '../../src/brand/wordmark';
 import type { ClipSpec, PromoSpec, SqueezeSpec } from '../../src/spec';
@@ -15,9 +14,9 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['ident-assemble', [1.6, 4.4, 9]],
 	// the couch alone, the popcorn falling (motion blurred), the landing's rebound, the lockup
 	['ident-short', [0, 1.04, 1.28, 4.48]],
-	['sting-2', [1.2]],
-	['sting-3', [2]],
-	['sting-5', [3]],
+	['sting-2', [0.2, 0.84, 1.96]],
+	['sting-3', [0.24, 1.2, 2.96]],
+	['sting-5', [0.16, 1.4, 2.48, 4.96]],
 	['upnext', [2.5, 7.6]],
 	['promo-cinematic', [6, 13.5, 19.5]],
 	['promo-grit-premiere', [4, 14.6]],
@@ -265,29 +264,6 @@ test("the squeeze hands over on the short ident's first frame", async ({ page })
 	await load(page, FIXTURES['ident-short']);
 	await seek(page, 0);
 	expect((await page.screenshot()).equals(last)).toBe(true);
-});
-
-test('the wordmark is laid out from the bundled display face', async ({ page }) => {
-	await load(page, FIXTURES['ident-short']);
-	const measured = await page.evaluate(() => {
-		const g = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
-		g.font = '700 1000px "Couch TV Display"';
-		const width = Object.fromEntries(
-			['C', 'O', 'U', 'H', 'T', 'V'].map((ch) => [ch, g.measureText(ch).width / 1000 - 0.004])
-		);
-		const box = document.createElement('div');
-		box.style.cssText = 'position:absolute;font:700 1000px "Couch TV Display";line-height:1';
-		const probe = document.createElement('span');
-		probe.style.cssText = 'display:inline-block;width:0;height:0';
-		box.append('O', probe);
-		document.body.append(box);
-		const baseline = (probe.getBoundingClientRect().top - box.getBoundingClientRect().top) / 1000;
-		box.remove();
-		return { width, baseline };
-	});
-	for (const [ch, w] of Object.entries(METRICS.width))
-		expect(Math.abs(measured.width[ch] - w), ch).toBeLessThan(5e-4);
-	expect(measured.baseline).toBeCloseTo(METRICS.baseline, 3);
 });
 
 test('the corner bug', async ({ browser }) => {
