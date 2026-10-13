@@ -144,12 +144,15 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 		       coalesce(backdrop.id::text, ''), coalesce(backdrop.version, 0), coalesce(backdrop.accent, ''),
 		       coalesce(poster.id::text, ''), coalesce(poster.version, 0), coalesce(poster.accent, ''),
 		       coalesce(ct.mood, ''), coalesce(ct.shots, '[]'), coalesce(ct.promo_audio_file_id::text, ''),
-		       coalesce(ct.promo_audio_start_ms, 0), coalesce(ct.promo_audio_duration_ms, 0), coalesce(ct.loudness_lufs, 0),
+		       coalesce(ct.promo_audio_start_ms, 0), coalesce(ct.promo_audio_duration_ms, 0), coalesce(ct.promo_audio_source, ''),
+		       coalesce(ct.loudness_lufs, 0), coalesce(s.provider, ''), coalesce(s.track_id, ''),
+		       ct.soundtrack_path IS NOT NULL, coalesce(ct.soundtrack_start_ms, 0), coalesce(ct.soundtrack_duration_ms, 0),
 		       t.allow_random_playback
 		FROM titles t
 		`+art("backdrop")+`
 		`+art("poster")+`
 		LEFT JOIN couchtv_titles ct ON ct.title_id = t.id
+		LEFT JOIN couchtv_soundtracks s ON s.id = ct.soundtrack_id
 		WHERE t.id = ANY($1::uuid[])`, ids)
 	if err != nil {
 		return nil, err
@@ -157,14 +160,15 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 	defer rows.Close()
 	out := map[string]titleFacts{}
 	for rows.Next() {
-		var id, backdrop, bdAccent, poster, poAccent, promoFile string
+		var id, backdrop, bdAccent, poster, poAccent, promoFile, promoSource, catalog, trackID string
 		var bdVersion, poVersion int64
 		var shots []byte
-		var promoStart, promoLength int
+		var promoStart, promoLength, soundtrackStart, soundtrackLength int
+		var soundtrackReady bool
 		var f titleFacts
 		if err := rows.Scan(&id, &f.Name, &f.Year, &f.Runtime, &f.Tagline, &backdrop, &bdVersion, &bdAccent,
-			&poster, &poVersion, &poAccent, &f.Mood, &shots, &promoFile, &promoStart, &promoLength, &f.Loudness,
-			&f.Random); err != nil {
+			&poster, &poVersion, &poAccent, &f.Mood, &shots, &promoFile, &promoStart, &promoLength, &promoSource,
+			&f.Loudness, &catalog, &trackID, &soundtrackReady, &soundtrackStart, &soundtrackLength, &f.Random); err != nil {
 			return nil, err
 		}
 		f.Genres = genres[id]
@@ -181,9 +185,14 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 			f.Accents.Poster = poAccent
 		}
 		f.Shots = parseShots(shots)
-		if promoFile != "" && promoLength > 0 {
-			length := time.Duration(promoLength) * time.Millisecond
-			f.Promo = &Bed{URL: AudioURL(promoFile, time.Duration(promoStart)*time.Millisecond, length), Out: length.Seconds()}
+		ms := func(v int) time.Duration { return time.Duration(v) * time.Millisecond }
+		soundtrack := soundtrackReady && catalog != "" && soundtrackLength > 0
+		switch promoBed(promoFile != "" && promoLength > 0, promoSource, soundtrack) {
+		case BedSoundtrack:
+			f.Promo = &Bed{URL: SoundtrackURL(catalog, trackID, ms(soundtrackStart), ms(soundtrackLength)),
+				Out: ms(soundtrackLength).Seconds()}
+		case BedExcerpt:
+			f.Promo = &Bed{URL: AudioURL(promoFile, ms(promoStart), ms(promoLength)), Out: ms(promoLength).Seconds()}
 		}
 		out[id] = f
 	}

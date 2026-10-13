@@ -29,17 +29,21 @@ import (
 //	/media/v1/artwork/<artwork id>?v=<version>[&size=w780]
 //	/media/v1/frames/<media file id>/<start ms>_<count>/<n>.jpg   25 fps, 1080p, SDR
 //	/media/v1/audio/<media file id>/<start ms>_<length ms>.flac    the default track, stereo
+//	/media/v1/soundtrack/<catalog>/<track id>/<start ms>_<length ms>.flac
+//	                                         a catalog track's preview (soundtracks.go), stereo
 //
 // The v1 is the extraction recipe: a change to it changes every URL, so every clip key. The
 // squeeze's program frames are never extracted: ffmpeg composites them from the source
-// (composite.go), so only promo footage is drawn from these files.
+// (composite.go), so only promo footage is drawn from these files. Chromium has no AAC
+// decoder, so a preview from iTunes plays as FLAC like everything else.
 
 const mediaPrefix = "/media/v1/"
 
 var (
-	framesURL = regexp.MustCompile(`^/media/v1/frames/([0-9a-f-]{36})/(\d+)_(\d+)/(\d+)\.jpg$`)
-	audioURL  = regexp.MustCompile(`^/media/v1/audio/([0-9a-f-]{36})/(\d+)_(\d+)\.flac$`)
-	specMedia = regexp.MustCompile(`"(/media/v1/(?:frames|audio)/[^"]+)"`)
+	framesURL     = regexp.MustCompile(`^/media/v1/frames/([0-9a-f-]{36})/(\d+)_(\d+)/(\d+)\.jpg$`)
+	audioURL      = regexp.MustCompile(`^/media/v1/audio/([0-9a-f-]{36})/(\d+)_(\d+)\.flac$`)
+	soundtrackURL = regexp.MustCompile(`^/media/v1/soundtrack/(itunes|deezer)/(\d{1,20})/(\d+)_(\d+)\.flac$`)
+	specMedia     = regexp.MustCompile(`"(/media/v1/(?:frames|audio|soundtrack)/[^"]+)"`)
 )
 
 // FramesURLs are the URLs of count frames of a media file from start, at 25 fps.
@@ -54,6 +58,12 @@ func FramesURLs(mediaFileID string, start time.Duration, count int) []string {
 // AudioURL is the URL of an excerpt of a media file's default audio track.
 func AudioURL(mediaFileID string, start, length time.Duration) string {
 	return fmt.Sprintf("%saudio/%s/%d_%d.flac", mediaPrefix, mediaFileID, start.Milliseconds(), length.Milliseconds())
+}
+
+// SoundtrackURL is the URL of an excerpt of a catalog track's preview: another track or
+// another stretch of it is another URL, so the clips under it render again.
+func SoundtrackURL(catalog, trackID string, start, length time.Duration) string {
+	return fmt.Sprintf("%ssoundtrack/%s/%s/%d_%d.flac", mediaPrefix, catalog, trackID, start.Milliseconds(), length.Milliseconds())
 }
 
 // ArtworkURL is the URL of an artwork image at a version (it changes when the image is
@@ -142,6 +152,9 @@ func (m *mediaServer) local(u string) (string, bool) {
 	if g := audioURL.FindStringSubmatch(u); g != nil {
 		return filepath.Join(m.dataDir, "couchtv", "audio", g[1], g[2]+"_"+g[3]+".flac"), true
 	}
+	if g := soundtrackURL.FindStringSubmatch(u); g != nil {
+		return filepath.Join(m.dataDir, "couchtv", "audio", g[1]+"-"+g[2], g[3]+"_"+g[4]+".flac"), true
+	}
 	return "", false
 }
 
@@ -207,6 +220,18 @@ func (m *mediaServer) prepare(ctx context.Context, spec []byte) error {
 			length, _ := strconv.Atoi(g[3])
 			if err := m.extractAudio(ctx, g[1], time.Duration(start)*time.Millisecond, time.Duration(length)*time.Millisecond, path); err != nil {
 				return fmt.Errorf("audio %s: %w", u, err)
+			}
+		} else if g := soundtrackURL.FindStringSubmatch(u); g != nil {
+			path, _ := m.local(u)
+			if done[path] {
+				continue
+			}
+			done[path] = true
+			start, _ := strconv.Atoi(g[3])
+			length, _ := strconv.Atoi(g[4])
+			source := filepath.Join(m.dataDir, previewFile(g[1], g[2]))
+			if err := m.cutAudio(ctx, source, "0:a:0", time.Duration(start)*time.Millisecond, time.Duration(length)*time.Millisecond, path); err != nil {
+				return fmt.Errorf("soundtrack %s: %w", u, err)
 			}
 		}
 	}
@@ -302,6 +327,16 @@ func (m *mediaServer) extractAudio(ctx context.Context, fileID string, start, le
 		ORDER BY is_default DESC, stream_index LIMIT 1`, fileID).Scan(&index)
 	if err == nil {
 		stream = "0:" + strconv.Itoa(index)
+	}
+	return m.cutAudio(ctx, path, stream, start, length, out)
+}
+
+// cutAudio writes a stretch of a stream of path as stereo FLAC, unless it is on disk
+// already (then it is touched, for the cleanup).
+func (m *mediaServer) cutAudio(ctx context.Context, path, stream string, start, length time.Duration, out string) error {
+	if _, err := os.Stat(out); err == nil {
+		now := time.Now()
+		return os.Chtimes(out, now, now)
 	}
 	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 		return err

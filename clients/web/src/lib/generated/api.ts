@@ -760,6 +760,51 @@ export type CouchTvSlotFill = 'strip' | 'marathon' | 'reruns' | 'movie' | 'matin
 /** Genre the slot prefers; any when omitted. */
 export type CouchTvSlotPick = 'any' | 'comedy' | 'animation' | 'drama' | 'family';
 
+export interface CouchTvSoundtrack {
+	album: string;
+	artist: string;
+	/**
+	 * How sure the finder is that this is the title's own music and suits a promo; from 0.7 it picks one itself.
+	 * From 0 to 1.
+	 */
+	confidence: number;
+	/** The whole track's length; the preview is 30 s of it. */
+	durationMs: number;
+	id: string;
+	/** The catalog the preview comes from. */
+	provider: CouchTvSoundtrackProvider;
+	track: string;
+	/** The album's year; absent when the catalog does not say. */
+	year?: number;
+}
+
+export interface CouchTvSoundtrackPick {
+	/** How long it is; 0 until ready. */
+	durationMs: number;
+	/** The preview is downloaded and measured; until then the promos play the excerpt. */
+	ready: boolean;
+	/** One of the title's soundtracks. */
+	soundtrackId: string;
+	/** auto: the finder's confident match; admin: the admin's choice, which searches keep. */
+	source: CouchTvSoundtrackPickSource;
+	/** Where the promos' stretch of the preview starts; 0 until ready. */
+	startMs: number;
+}
+
+/** auto: the finder's confident match; admin: the admin's choice, which searches keep. */
+export type CouchTvSoundtrackPickSource = 'auto' | 'admin';
+
+/** The catalog the preview comes from. */
+export type CouchTvSoundtrackProvider = 'itunes' | 'deezer';
+
+export interface CouchTvSoundtrackSearch {
+	/**
+	 * The admin's own search ("simpsons danny elfman"); empty searches as the finder does. Its candidates only offer more to choose from: the pick stays.
+	 * At most 200 characters.
+	 */
+	query?: string;
+}
+
 export interface CouchTvTemplate {
 	/** From 1 to 200 items. */
 	slots: CouchTvSlot[];
@@ -780,16 +825,31 @@ export interface CouchTvTitle {
 	mood?: CouchTvTitleMood;
 	/** The promo soundtrack excerpt; absent when none was found. */
 	promoAudio?: CouchTvPromoAudio;
+	/** What the promos play under them now: the soundtrack from the web, the excerpt of the title's own audio (promoAudio), or nothing. */
+	promoBed: CouchTvTitlePromoBed;
+	/** A soundtrack search, or the download of the picked track, is queued or running. */
+	searchingSoundtrack: boolean;
 	/** Footage for promos, in the order they air. */
 	shots: CouchTvShot[];
 	/** Who chose the shots; absent before the analysis. */
 	shotsSource?: CouchTvTitleShotsSource;
+	/** The soundtrack from the web picked for the promos; absent when none is. */
+	soundtrack?: CouchTvSoundtrackPick;
+	/** The admin's own query of the last search; absent for the finder's. */
+	soundtrackQuery?: string;
+	/** When the soundtrack was last searched; null before the first search. */
+	soundtrackSearchedAt: string | null;
+	/** What the last soundtrack search found, best first (the pick among them). */
+	soundtracks: CouchTvSoundtrack[];
 	titleId: string;
 	titleKind: CouchTvTitleTitleKind;
 }
 
 /** The promo's mood; absent lets the composer choose. */
 export type CouchTvTitleMood = 'cinematic' | 'grit' | 'bright';
+
+/** What the promos play under them now: the soundtrack from the web, the excerpt of the title's own audio (promoAudio), or nothing. */
+export type CouchTvTitlePromoBed = 'none' | 'excerpt' | 'soundtrack';
 
 /** Who chose the shots; absent before the analysis. */
 export type CouchTvTitleShotsSource = 'auto' | 'admin';
@@ -801,13 +861,15 @@ export interface CouchTvTitleUpdate {
 	excluded: boolean;
 	/** Absent lets the composer choose. */
 	mood?: CouchTvTitleUpdateMood;
-	/** Absent hands the promo audio back to the analysis. */
+	/** An excerpt of the title's own audio for the promos, over any soundtrack; absent hands the promo audio back to the analysis. */
 	promoAudio?: CouchTvPromoAudioPick;
 	/**
 	 * In the order they air; absent or empty hands the shots back to the analysis.
 	 * At most 6 items.
 	 */
 	shots?: CouchTvShotPick[];
+	/** One of the title's soundtracks for the promos (not with promoAudio); absent hands the choice back to the finder. */
+	soundtrackId?: string;
 }
 
 /** Absent lets the composer choose. */
@@ -2438,6 +2500,13 @@ export const adminCompleteUpload = (id: string, body: UploadAssignment, opts?: C
 export const adminCouchTvRenderHealth = (opts?: CallOptions) =>
 	api<CouchTvRenderHealth>(`/admin/couchtv/render`, opts);
 
+/**
+ * Play a soundtrack candidate's preview (`GET /admin/couchtv/soundtracks/{id}/preview`)
+ *
+ * @param id The soundtrack candidate.
+ */
+export const adminCouchTvSoundtrackPreviewPath = (id: string) => `/api/v1/admin/couchtv/soundtracks/${encodeURIComponent(id)}/preview`;
+
 export interface AdminCouchTvWaveformQuery {
 	/**
 	 * Where the stretch starts.
@@ -2714,6 +2783,14 @@ export const adminRetryJob = (id: number, opts?: CallOptions) =>
 /** `POST /admin/couchtv/link` */
 export const adminRotateCouchTvLink = (opts?: CallOptions) =>
 	api<CouchTvLink>(`/admin/couchtv/link`, { ...opts, method: 'POST' });
+
+/**
+ * Search a title's soundtrack on the web again (`POST /admin/couchtv/titles/{id}/soundtracks/search`)
+ *
+ * @param body
+ */
+export const adminSearchCouchTvSoundtracks = (id: string, body: CouchTvSoundtrackSearch, opts?: CallOptions) =>
+	api<CouchTvTitle>(`/admin/couchtv/titles/${encodeURIComponent(id)}/soundtracks/search`, { ...opts, method: 'POST', body });
 
 export interface AdminSearchMetadataQuery {
 	/** At least 1 character. */

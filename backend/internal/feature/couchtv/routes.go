@@ -21,8 +21,9 @@ type Module struct {
 	settings *settings.Store
 }
 
-func NewModule(s *Scheduler, a *Analyzer, live *Live, hub *Hub, guests *Guests, set *settings.Store, grants *grant.Signer) *Module {
-	return &Module{admin: &Admin{scheduler: s}, titles: &Titles{analyzer: a}, guests: guests,
+func NewModule(s *Scheduler, a *Analyzer, soundtracks *Soundtracks, live *Live, hub *Hub, guests *Guests, set *settings.Store,
+	grants *grant.Signer) *Module {
+	return &Module{admin: &Admin{scheduler: s}, titles: &Titles{analyzer: a, soundtracks: soundtracks}, guests: guests,
 		viewer: &Viewer{scheduler: s, live: live, grants: grants, hub: hub, guests: guests}, live: live, settings: set}
 }
 
@@ -75,6 +76,13 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.Admin, tag.Op("adminGetCouchTvTitle", http.MethodGet, "/couchtv/titles/{id}"), m.titles.Get)
 	huma.Register(rt.Admin, tag.Op("adminUpdateCouchTvTitle", http.MethodPut, "/couchtv/titles/{id}"), m.titles.Update)
 	huma.Register(rt.Admin, tag.Accepted("adminAnalyzeCouchTvTitle", http.MethodPost, "/couchtv/titles/{id}/analyze"), m.titles.Analyze)
+	search := tag.Accepted("adminSearchCouchTvSoundtracks", http.MethodPost, "/couchtv/titles/{id}/soundtracks/search")
+	search.Summary = "Search a title's soundtrack on the web again"
+	search.Description = "Queues a search of iTunes and Deezer for the title's own music (searchingSoundtrack until it ends): " +
+		"the finder's search, or the admin's own query, whose candidates only offer more to choose from. 409 excluded " +
+		"for a title off the channel."
+	huma.Register(rt.Admin, search, m.titles.SearchSoundtrack)
+	httpx.Raw(rt.Admin, soundtrackPreviewOp(httpx.ErrorResponse(rt.Admin)), m.titles.SoundtrackPreview)
 	huma.Register(rt.Admin, tag.Op("adminCouchTvWaveform", http.MethodGet, "/couchtv/media-files/{id}/waveform"), m.titles.Waveform)
 	huma.Register(rt.Admin, tag.Op("adminCouchTvRenderHealth", http.MethodGet, "/couchtv/render"), m.admin.RenderHealth)
 	rotate := tag.Op("adminRotateCouchTvLink", http.MethodPost, "/couchtv/link")
@@ -185,6 +193,20 @@ func slateFileOp(apiErr *huma.Response) huma.Operation {
 	}
 	op.Responses = map[string]*huma.Response{
 		"200":     response("The file.", binarySchema, "video/mp4", "audio/mp4", "text/vtt"),
+		"default": apiErr,
+	}
+	return op
+}
+
+func soundtrackPreviewOp(apiErr *huma.Response) huma.Operation {
+	op := tag.Op("adminCouchTvSoundtrackPreview", http.MethodGet, "/couchtv/soundtracks/{id}/preview")
+	op.Summary = "Play a soundtrack candidate's preview"
+	op.Description = "The catalog's 30-second preview of a soundtrack candidate, from the server's copy (downloaded on " +
+		"first play), so the browser never reaches the catalog itself: AAC in MP4 from iTunes, MP3 from Deezer. 502 " +
+		"soundtrack_unavailable when the catalog does not deliver it."
+	op.Parameters = []*huma.Param{pathParam("id", "The soundtrack candidate.", &huma.Schema{Type: huma.TypeString, Format: "uuid"})}
+	op.Responses = map[string]*huma.Response{
+		"200":     response("The preview.", binarySchema, "audio/mp4", "audio/mpeg"),
 		"default": apiErr,
 	}
 	return op

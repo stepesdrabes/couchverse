@@ -2341,6 +2341,110 @@
         ],
         "type": "object"
       },
+      "CouchTvSoundtrack": {
+        "additionalProperties": false,
+        "properties": {
+          "album": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "confidence": {
+            "description": "How sure the finder is that this is the title's own music and suits a promo; from 0.7 it picks one itself.",
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "durationMs": {
+            "description": "The whole track's length; the preview is 30 s of it.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "provider": {
+            "description": "The catalog the preview comes from.",
+            "enum": [
+              "itunes",
+              "deezer"
+            ],
+            "type": "string"
+          },
+          "track": {
+            "type": "string"
+          },
+          "year": {
+            "description": "The album's year; absent when the catalog does not say.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "track",
+          "artist",
+          "album",
+          "durationMs",
+          "confidence"
+        ],
+        "type": "object"
+      },
+      "CouchTvSoundtrackPick": {
+        "additionalProperties": false,
+        "properties": {
+          "durationMs": {
+            "description": "How long it is; 0 until ready.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "ready": {
+            "description": "The preview is downloaded and measured; until then the promos play the excerpt.",
+            "type": "boolean"
+          },
+          "soundtrackId": {
+            "description": "One of the title's soundtracks.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "source": {
+            "description": "auto: the finder's confident match; admin: the admin's choice, which searches keep.",
+            "enum": [
+              "auto",
+              "admin"
+            ],
+            "type": "string"
+          },
+          "startMs": {
+            "description": "Where the promos' stretch of the preview starts; 0 until ready.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "soundtrackId",
+          "source",
+          "ready",
+          "startMs",
+          "durationMs"
+        ],
+        "type": "object"
+      },
+      "CouchTvSoundtrackSearch": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "description": "The admin's own search (\"simpsons danny elfman\"); empty searches as the finder does. Its candidates only offer more to choose from: the pick stays.",
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "CouchTvTemplate": {
         "additionalProperties": false,
         "properties": {
@@ -2403,6 +2507,19 @@
             "$ref": "#/components/schemas/CouchTvPromoAudio",
             "description": "The promo soundtrack excerpt; absent when none was found."
           },
+          "promoBed": {
+            "description": "What the promos play under them now: the soundtrack from the web, the excerpt of the title's own audio (promoAudio), or nothing.",
+            "enum": [
+              "none",
+              "excerpt",
+              "soundtrack"
+            ],
+            "type": "string"
+          },
+          "searchingSoundtrack": {
+            "description": "A soundtrack search, or the download of the picked track, is queued or running.",
+            "type": "boolean"
+          },
           "shots": {
             "description": "Footage for promos, in the order they air.",
             "items": {
@@ -2417,6 +2534,29 @@
               "admin"
             ],
             "type": "string"
+          },
+          "soundtrack": {
+            "$ref": "#/components/schemas/CouchTvSoundtrackPick",
+            "description": "The soundtrack from the web picked for the promos; absent when none is."
+          },
+          "soundtrackQuery": {
+            "description": "The admin's own query of the last search; absent for the finder's.",
+            "type": "string"
+          },
+          "soundtrackSearchedAt": {
+            "description": "When the soundtrack was last searched; null before the first search.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "soundtracks": {
+            "description": "What the last soundtrack search found, best first (the pick among them).",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvSoundtrack"
+            },
+            "type": "array"
           },
           "titleId": {
             "format": "uuid",
@@ -2438,7 +2578,11 @@
           "loudnessLufs",
           "analyzedVersion",
           "analyzedAt",
-          "analyzing"
+          "analyzing",
+          "promoBed",
+          "soundtracks",
+          "soundtrackSearchedAt",
+          "searchingSoundtrack"
         ],
         "type": "object"
       },
@@ -2460,7 +2604,7 @@
           },
           "promoAudio": {
             "$ref": "#/components/schemas/CouchTvPromoAudioPick",
-            "description": "Absent hands the promo audio back to the analysis."
+            "description": "An excerpt of the title's own audio for the promos, over any soundtrack; absent hands the promo audio back to the analysis."
           },
           "shots": {
             "description": "In the order they air; absent or empty hands the shots back to the analysis.",
@@ -2469,6 +2613,11 @@
             },
             "maxItems": 6,
             "type": "array"
+          },
+          "soundtrackId": {
+            "description": "One of the title's soundtracks for the promos (not with promoAudio); absent hands the choice back to the finder.",
+            "format": "uuid",
+            "type": "string"
           }
         },
         "required": [
@@ -7762,6 +7911,67 @@
         ]
       }
     },
+    "/admin/couchtv/soundtracks/{id}/preview": {
+      "get": {
+        "description": "The catalog's 30-second preview of a soundtrack candidate, from the server's copy (downloaded on first play), so the browser never reaches the catalog itself: AAC in MP4 from iTunes, MP3 from Deezer. 502 soundtrack_unavailable when the catalog does not deliver it.",
+        "operationId": "adminCouchTvSoundtrackPreview",
+        "parameters": [
+          {
+            "description": "The soundtrack candidate.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The preview."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "summary": "Play a soundtrack candidate's preview",
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
     "/admin/couchtv/titles/{id}": {
       "get": {
         "operationId": "adminGetCouchTvTitle",
@@ -7912,6 +8122,67 @@
             "bearerDevice": []
           }
         ],
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
+    "/admin/couchtv/titles/{id}/soundtracks/search": {
+      "post": {
+        "description": "Queues a search of iTunes and Deezer for the title's own music (searchingSoundtrack until it ends): the finder's search, or the admin's own query, whose candidates only offer more to choose from. 409 excluded for a title off the channel.",
+        "operationId": "adminSearchCouchTvSoundtracks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CouchTvSoundtrackSearch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouchTvTitle"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerDevice": []
+          }
+        ],
+        "summary": "Search a title's soundtrack on the web again",
         "tags": [
           "couchtv"
         ]

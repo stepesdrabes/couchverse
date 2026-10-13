@@ -2222,6 +2222,105 @@ pub mod types {
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct CouchTvSoundtrack {
+        pub album: String,
+        pub artist: String,
+        /// How sure the finder is that this is the title's own music and suits a promo; from 0.7 it picks one itself.
+        /// From 0 to 1.
+        pub confidence: f64,
+        /// The whole track's length; the preview is 30 s of it.
+        pub duration_ms: i64,
+        pub id: String,
+        /// The catalog the preview comes from.
+        pub provider: CouchTvSoundtrackProvider,
+        pub track: String,
+        /// The album's year; absent when the catalog does not say.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub year: Option<i64>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvSoundtrackPick {
+        /// How long it is; 0 until ready.
+        pub duration_ms: i64,
+        /// The preview is downloaded and measured; until then the promos play the excerpt.
+        pub ready: bool,
+        /// One of the title's soundtracks.
+        pub soundtrack_id: String,
+        /// auto: the finder's confident match; admin: the admin's choice, which searches keep.
+        pub source: CouchTvSoundtrackPickSource,
+        /// Where the promos' stretch of the preview starts; 0 until ready.
+        pub start_ms: i64,
+    }
+
+    /// auto: the finder's confident match; admin: the admin's choice, which searches keep.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvSoundtrackPickSource {
+        #[serde(rename = "auto")]
+        Auto,
+        #[serde(rename = "admin")]
+        Admin,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvSoundtrackPickSource {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvSoundtrackPickSource::Auto => "auto",
+                CouchTvSoundtrackPickSource::Admin => "admin",
+                CouchTvSoundtrackPickSource::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvSoundtrackPickSource {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// The catalog the preview comes from.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvSoundtrackProvider {
+        #[serde(rename = "itunes")]
+        Itunes,
+        #[serde(rename = "deezer")]
+        Deezer,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvSoundtrackProvider {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvSoundtrackProvider::Itunes => "itunes",
+                CouchTvSoundtrackProvider::Deezer => "deezer",
+                CouchTvSoundtrackProvider::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvSoundtrackProvider {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvSoundtrackSearch {
+        /// The admin's own search ("simpsons danny elfman"); empty searches as the finder does. Its candidates only offer more to choose from: the pick stays.
+        /// At most 200 characters.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub query: Option<String>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct CouchTvTemplate {
         /// From 1 to 200 items.
         pub slots: Vec<CouchTvSlot>,
@@ -2246,11 +2345,25 @@ pub mod types {
         /// The promo soundtrack excerpt; absent when none was found.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub promo_audio: Option<CouchTvPromoAudio>,
+        /// What the promos play under them now: the soundtrack from the web, the excerpt of the title's own audio (promoAudio), or nothing.
+        pub promo_bed: CouchTvTitlePromoBed,
+        /// A soundtrack search, or the download of the picked track, is queued or running.
+        pub searching_soundtrack: bool,
         /// Footage for promos, in the order they air.
         pub shots: Vec<CouchTvShot>,
         /// Who chose the shots; absent before the analysis.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub shots_source: Option<CouchTvTitleShotsSource>,
+        /// The soundtrack from the web picked for the promos; absent when none is.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub soundtrack: Option<CouchTvSoundtrackPick>,
+        /// The admin's own query of the last search; absent for the finder's.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub soundtrack_query: Option<String>,
+        /// When the soundtrack was last searched; null before the first search.
+        pub soundtrack_searched_at: Option<String>,
+        /// What the last soundtrack search found, best first (the pick among them).
+        pub soundtracks: Vec<CouchTvSoundtrack>,
         pub title_id: String,
         pub title_kind: CouchTvTitleTitleKind,
     }
@@ -2281,6 +2394,37 @@ pub mod types {
     }
 
     impl std::fmt::Display for CouchTvTitleMood {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    /// What the promos play under them now: the soundtrack from the web, the excerpt of the title's own audio (promoAudio), or nothing.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvTitlePromoBed {
+        #[serde(rename = "none")]
+        None,
+        #[serde(rename = "excerpt")]
+        Excerpt,
+        #[serde(rename = "soundtrack")]
+        Soundtrack,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvTitlePromoBed {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvTitlePromoBed::None => "none",
+                CouchTvTitlePromoBed::Excerpt => "excerpt",
+                CouchTvTitlePromoBed::Soundtrack => "soundtrack",
+                CouchTvTitlePromoBed::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvTitlePromoBed {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -2349,13 +2493,16 @@ pub mod types {
         /// Absent lets the composer choose.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub mood: Option<CouchTvTitleUpdateMood>,
-        /// Absent hands the promo audio back to the analysis.
+        /// An excerpt of the title's own audio for the promos, over any soundtrack; absent hands the promo audio back to the analysis.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub promo_audio: Option<CouchTvPromoAudioPick>,
         /// In the order they air; absent or empty hands the shots back to the analysis.
         /// At most 6 items.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub shots: Option<Vec<CouchTvShotPick>>,
+        /// One of the title's soundtracks for the promos (not with promoAudio); absent hands the choice back to the finder.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub soundtrack_id: Option<String>,
     }
 
     /// Absent lets the composer choose.
@@ -6382,6 +6529,21 @@ pub mod ops {
         ))
     }
 
+    /// Play a soundtrack candidate's preview
+    ///
+    /// `GET /admin/couchtv/soundtracks/{id}/preview`
+    ///
+    /// - `id`: The soundtrack candidate.
+    pub fn admin_couch_tv_soundtrack_preview(id: &str) -> Request {
+        let q = Vec::new();
+        build::request(
+            Method::Get,
+            format!("/admin/couchtv/soundtracks/{}/preview", build::segment(id)),
+            q,
+            Body::Empty,
+        )
+    }
+
     /// Query parameters of [`admin_couch_tv_waveform`].
     #[derive(Debug, Clone, Default, PartialEq)]
     pub struct AdminCouchTvWaveformQuery {
@@ -6916,6 +7078,22 @@ pub mod ops {
     pub fn admin_rotate_couch_tv_link() -> Call<CouchTvLink> {
         let q = Vec::new();
         build::json(build::request(Method::Post, "/admin/couchtv/link".to_string(), q, Body::Empty))
+    }
+
+    /// Search a title's soundtrack on the web again
+    ///
+    /// `POST /admin/couchtv/titles/{id}/soundtracks/search`
+    pub fn admin_search_couch_tv_soundtracks(
+        id: &str,
+        body: &CouchTvSoundtrackSearch,
+    ) -> Call<CouchTvTitle> {
+        let q = Vec::new();
+        build::json(build::request(
+            Method::Post,
+            format!("/admin/couchtv/titles/{}/soundtracks/search", build::segment(id)),
+            q,
+            build::json_body(Some(body)),
+        ))
     }
 
     /// Query parameters of [`admin_search_metadata`].

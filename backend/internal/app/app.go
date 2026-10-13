@@ -73,11 +73,20 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 	stream := playback.NewStream(subtitleService.Subs, catalogStore, libraryStore, set, jobsStore, cfg.DataDir, sessionManager, cfg.FFmpegPath, grants)
 
 	// the channel picks its promos from the markers, so a title whose markers change is
-	// analyzed again (library cannot import couchtv)
+	// analyzed again, and a new title gets its soundtrack searched (library cannot import
+	// couchtv); the search reads TMDB's composers through metadata
 	markers := &library.MarkerAnalyzer{Files: libraryStore, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	couchTvStore := couchtv.NewStore(pool)
 	couchTvAnalysis := &couchtv.Analyzer{Store: couchTvStore, Jobs: jobsStore, Markers: markers, FFmpegPath: cfg.FFmpegPath}
-	markers.Analyzed = couchTvAnalysis.Queue
+	couchTvSoundtracks := &couchtv.Soundtracks{Store: couchTvStore, Jobs: jobsStore,
+		Catalogs: []couchtv.SoundtrackCatalog{couchtv.NewITunes(), couchtv.NewDeezer()},
+		Music:    &metadata.MusicFacts{Settings: set}, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
+	markers.Analyzed = func(ctx context.Context, titleID string) error {
+		if err := couchTvAnalysis.Queue(ctx, titleID); err != nil {
+			return err
+		}
+		return couchTvSoundtracks.Queue(ctx, titleID)
+	}
 
 	hubCtx, stop := context.WithCancel(context.Background())
 	couchHub := couch.NewHub(hubCtx, couch.Deps{
@@ -129,9 +138,10 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 			Downloads: downloads.NewStore(pool),
 			CouchTv:   couchTvScheduler,
 
-			Markers:         markers,
-			CouchTvAnalysis: couchTvAnalysis,
-			CouchTvLive:     couchTvLive,
+			Markers:            markers,
+			CouchTvAnalysis:    couchTvAnalysis,
+			CouchTvSoundtracks: couchTvSoundtracks,
+			CouchTvLive:        couchTvLive,
 			CouchTvPrepare: &couchtv.Preparer{Store: couchTvStore, Files: libraryStore, Jobs: jobsStore, Settings: set,
 				DataDir: cfg.DataDir, Changed: couchTvHub.ScheduleChanged},
 			CouchTvHub:    couchTvHub,
@@ -184,6 +194,11 @@ func (a *App) Start(ctx context.Context) error {
 	}
 	runner.Register(couchtv.AnalyzeJob, 1, d.CouchTvAnalysis.Handle)
 	if err := d.CouchTvAnalysis.Start(ctx); err != nil {
+		return err
+	}
+	// mostly waiting on the music catalogs, so it takes no turn in the transcode budget
+	runner.Register(couchtv.SoundtrackJob, 1, d.CouchTvSoundtracks.Handle)
+	if err := d.CouchTvSoundtracks.Start(ctx); err != nil {
 		return err
 	}
 	// breaks are composed here and rendered by the sidecar (`couchverse render`), which

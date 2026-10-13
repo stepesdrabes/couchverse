@@ -62,7 +62,8 @@ type AdminJob struct {
 // mediaFileId for probe, extract_subtitles and transcode_hls (which adds
 // variant), titleId with tmdbId for fetch_metadata or with seasons for
 // import_episodes, mediaFileId or titleId with one season for analyze_markers,
-// titleId for couchtv_analyze, and none for cleanup and the backfills.
+// titleId for couchtv_analyze and couchtv_soundtrack, and none for cleanup and the
+// backfills.
 type JobPayload struct {
 	MediaFileID string `json:"mediaFileId,omitempty"`
 	Variant     string `json:"variant,omitempty" doc:"Transcode output: source, multiaudio or a rendition such as 720p."`

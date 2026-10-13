@@ -158,6 +158,14 @@ INSERT INTO couchtv_clips (id, kind, key, state, spec, duration_ms, path, size_b
     ('00000000-0000-4000-8000-000000000a02', 'sting', 'seeded-sting', 'failed', '{"template": "sting", "duration": 3}',
      3000, '', 0, 0, 'chromium: context deadline exceeded', 0, NULL, now());
 
+-- what a soundtrack search found for the movie (its previews are not on disk)
+INSERT INTO couchtv_soundtracks (id, title_id, provider, track_id, track, artist, album, year, duration_ms, preview_url, confidence) VALUES
+    ('00000000-0000-4000-8000-000000000b01', '00000000-0000-4000-8000-000000000101', 'itunes', '1001', 'Glass Harbor Main Title',
+     'Ada Lumen', 'Glass Harbor (Original Motion Picture Soundtrack)', 2025, 184000,
+     'https://audio-ssl.itunes.apple.com/preview/1001.m4a', 0.97),
+    ('00000000-0000-4000-8000-000000000b02', '00000000-0000-4000-8000-000000000101', 'deezer', '2002', 'Glass Harbor Theme',
+     'Piano Covers Club', 'Glass Harbor Theme', NULL, 120000, 'https://cdnt-preview.dzcdn.net/preview/2002.mp3', 0.42);
+
 -- fixed ids clear of the cleanup jobs the app enqueues at startup
 INSERT INTO jobs (id, type, payload, status, attempts, progress, last_error, created_at, finished_at)
 OVERRIDING SYSTEM VALUE VALUES

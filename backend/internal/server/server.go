@@ -63,9 +63,11 @@ type Deps struct {
 	Downloads *downloads.Store
 	CouchTv   *couchtv.Scheduler
 	// Markers finds intros and credits (analyze_markers); CouchTvAnalysis measures
-	// titles for the channel (couchtv_analyze)
-	Markers         *library.MarkerAnalyzer
-	CouchTvAnalysis *couchtv.Analyzer
+	// titles for the channel (couchtv_analyze), CouchTvSoundtracks finds their soundtracks
+	// on the web (couchtv_soundtrack)
+	Markers            *library.MarkerAnalyzer
+	CouchTvAnalysis    *couchtv.Analyzer
+	CouchTvSoundtracks *couchtv.Soundtracks
 	// CouchTvLive is the channel's live stream, CouchTvPrepare the job that
 	// readies its programs
 	CouchTvLive    *couchtv.Live
@@ -175,7 +177,7 @@ func (s *Server) register(v1 chi.Router) huma.API {
 	playback.NewModule(s.Stream, playback.NewAdminTranscode(s.Library, s.Settings, s.Jobs, s.Transcode, s.Config.FFmpegPath)).Register(rt)
 	couch.NewModule(s.Couch, s.Settings).Register(rt)
 	ranks.NewModule(s.Ranks, s.Settings).Register(rt)
-	couchtv.NewModule(s.CouchTv, s.CouchTvAnalysis, s.CouchTvLive, s.CouchTvHub, s.CouchTvGuests, s.Settings, s.Grants).Register(rt)
+	couchtv.NewModule(s.CouchTv, s.CouchTvAnalysis, s.CouchTvSoundtracks, s.CouchTvLive, s.CouchTvHub, s.CouchTvGuests, s.Settings, s.Grants).Register(rt)
 	artwork.NewHandlers(s.Artwork).Register(rt)
 	subtitles.NewSubtitles(s.Subtitles.Subs, s.Library, s.Subtitles).Register(rt)
 	library.NewModule(s.Library, s.Uploads, s.Markers).Register(rt)

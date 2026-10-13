@@ -393,10 +393,29 @@ func TestCouchTvPrune(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	file := func(rel string, age time.Duration) string {
+		t.Helper()
+		path := filepath.Join(env.cfg.DataDir, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("preview"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(path, now.Add(-age), now.Add(-age)); err != nil {
+			t.Fatal(err)
+		}
+		return rel
+	}
 	aired, waiting := dir("couchtv/breaks/aired", 0), dir("couchtv/breaks/waiting", 0)
 	oldClip, usedClip := dir("couchtv/clips/old", 0), dir("couchtv/clips/used", 0)
 	oldGreen, newGreen := dir("couchtv/breaks/old-evergreen", 0), dir("couchtv/breaks/new-evergreen", 0)
 	staleFrames, freshFrames := dir("couchtv/frames/f/0_75", 20*24*time.Hour), dir("couchtv/frames/f/40_75", time.Hour)
+	// soundtrack previews: the movie's pick, one the admin heard lately, one long ago
+	picked := file("couchtv/soundtracks/itunes-1001.m4a", 30*24*time.Hour)
+	heard, unheard := file("couchtv/soundtracks/deezer-2002.mp3", time.Hour), file("couchtv/soundtracks/itunes-1003.m4a", 30*24*time.Hour)
+	exec(`INSERT INTO couchtv_titles (title_id, soundtrack_id, soundtrack_source, soundtrack_path, soundtrack_start_ms,
+		soundtrack_duration_ms) VALUES ($1, $2, 'auto', $3, 0, 30000)`, movieID, soundtrackID, picked)
 
 	exec(`INSERT INTO couchtv_airings (id, starts_at, ends_at, kind) VALUES
 		('00000000-0000-4000-8000-00000000b001', $1, $2, 'break'), ('00000000-0000-4000-8000-00000000b002', $3, $4, 'break')`,
@@ -414,7 +433,7 @@ func TestCouchTvPrune(t *testing.T) {
 		t.Fatal(err)
 	}
 	for rel, want := range map[string]bool{aired: false, waiting: true, oldClip: false, usedClip: true,
-		oldGreen: false, newGreen: true, staleFrames: false, freshFrames: true} {
+		oldGreen: false, newGreen: true, staleFrames: false, freshFrames: true, picked: true, heard: true, unheard: false} {
 		if exists(rel) != want {
 			t.Errorf("%s kept: %v, want %v", rel, exists(rel), want)
 		}

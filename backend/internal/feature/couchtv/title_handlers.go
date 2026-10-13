@@ -2,20 +2,25 @@ package couchtv
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"os"
 
+	"couchverse/internal/db"
 	"couchverse/internal/feature/jobs"
 	"couchverse/internal/httpx"
 	"couchverse/internal/media"
 )
 
 // Titles serves the per-title channel operations: what a title's promos are made of,
-// whether it airs, its analysis and the promo audio picker's waveform.
+// whether it airs, its analysis, the promo audio picker's waveform and the soundtracks
+// found on the web.
 type Titles struct {
-	analyzer *Analyzer
+	analyzer    *Analyzer
+	soundtracks *Soundtracks
 }
 
 type titleInput struct {
@@ -48,12 +53,13 @@ type CouchTvShotPick struct {
 }
 
 // CouchTvTitleUpdate is an admin's edit of a title's channel facts. A part left out
-// goes back to the analysis, which picks it again.
+// goes back to the analysis (or the soundtrack finder), which picks it again.
 type CouchTvTitleUpdate struct {
-	Excluded   bool                   `json:"excluded" doc:"Never on Couch TV."`
-	Mood       *string                `json:"mood,omitempty" required:"false" enum:"cinematic,grit,bright" doc:"Absent lets the composer choose."`
-	PromoAudio *CouchTvPromoAudioPick `json:"promoAudio,omitempty" required:"false" doc:"Absent hands the promo audio back to the analysis."`
-	Shots      []CouchTvShotPick      `json:"shots,omitempty" required:"false" maxItems:"6" doc:"In the order they air; absent or empty hands the shots back to the analysis."`
+	Excluded     bool                   `json:"excluded" doc:"Never on Couch TV."`
+	Mood         *string                `json:"mood,omitempty" required:"false" enum:"cinematic,grit,bright" doc:"Absent lets the composer choose."`
+	PromoAudio   *CouchTvPromoAudioPick `json:"promoAudio,omitempty" required:"false" doc:"An excerpt of the title's own audio for the promos, over any soundtrack; absent hands the promo audio back to the analysis."`
+	SoundtrackID *string                `json:"soundtrackId,omitempty" required:"false" format:"uuid" doc:"One of the title's soundtracks for the promos (not with promoAudio); absent hands the choice back to the finder."`
+	Shots        []CouchTvShotPick      `json:"shots,omitempty" required:"false" maxItems:"6" doc:"In the order they air; absent or empty hands the shots back to the analysis."`
 }
 
 type updateTitleInput struct {
@@ -70,12 +76,24 @@ func (h *Titles) Update(ctx context.Context, in *updateTitleInput) (*titleOutput
 		return nil, err
 	}
 	b := in.Body
-	edit := titleEdit{excluded: b.Excluded, mood: b.Mood, shots: []CouchTvShot{}}
+	edit := titleEdit{excluded: b.Excluded, mood: b.Mood, shots: []CouchTvShot{}, soundtrack: b.SoundtrackID}
+	if b.PromoAudio != nil && b.SoundtrackID != nil {
+		return nil, httpx.BadRequestError("promos play one bed: promoAudio or soundtrackId, not both")
+	}
 	if p := b.PromoAudio; p != nil {
 		if err := h.checkRange(ctx, in.ID, p.MediaFileID, p.StartMs, p.DurationMs); err != nil {
 			return nil, err
 		}
 		edit.promo = &CouchTvPromoAudio{MediaFileID: p.MediaFileID, StartMs: p.StartMs, DurationMs: p.DurationMs, Source: SourceAdmin}
+	}
+	if id := b.SoundtrackID; id != nil {
+		ok, err := st.SoundtrackOfTitle(ctx, *id, in.ID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, httpx.BadRequestError(fmt.Sprintf("soundtrack %s is not the title's", *id))
+		}
 	}
 	for _, s := range b.Shots {
 		frames := s.DurationMs / 40
@@ -99,7 +117,63 @@ func (h *Titles) Update(ctx context.Context, in *updateTitleInput) (*titleOutput
 			return nil, err
 		}
 	}
+	// a new pick plays once its preview is downloaded
+	if pick, err := st.soundtrackPick(ctx, in.ID); err != nil {
+		return nil, err
+	} else if !b.Excluded && pick != nil && !pick.Ready {
+		if err := h.soundtracks.ready(ctx, in.ID); err != nil {
+			return nil, err
+		}
+	}
 	return h.Get(ctx, &titleInput{ID: in.ID})
+}
+
+// CouchTvSoundtrackSearch asks the finder to search a title's soundtrack again.
+type CouchTvSoundtrackSearch struct {
+	Query string `json:"query,omitempty" required:"false" maxLength:"200" doc:"The admin's own search (\"simpsons danny elfman\"); empty searches as the finder does. Its candidates only offer more to choose from: the pick stays."`
+}
+
+type searchSoundtrackInput struct {
+	ID   string `path:"id" format:"uuid"`
+	Body CouchTvSoundtrackSearch
+}
+
+// SearchSoundtrack queues a soundtrack search of the title.
+func (h *Titles) SearchSoundtrack(ctx context.Context, in *searchSoundtrackInput) (*titleOutput, error) {
+	t, err := h.analyzer.Store.Title(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	if t.Excluded {
+		return nil, httpx.Fail(http.StatusConflict, "excluded", "the title is not on Couch TV")
+	}
+	if err := h.soundtracks.Search(ctx, in.ID, in.Body.Query); err != nil {
+		return nil, err
+	}
+	return h.Get(ctx, &titleInput{ID: in.ID})
+}
+
+// SoundtrackPreview plays a candidate's preview to the admin from the server's copy, so
+// the browser never reaches the catalog's servers itself.
+func (h *Titles) SoundtrackPreview(w http.ResponseWriter, r *http.Request) {
+	id := httpx.UUID(r, "id")
+	if id == "" {
+		httpx.NotFound(w)
+		return
+	}
+	path, contentType, err := h.soundtracks.Preview(r.Context(), id)
+	switch {
+	case errors.Is(err, db.ErrNotFound):
+		httpx.NotFound(w)
+		return
+	case err != nil:
+		slog.Warn("couchtv: no soundtrack preview", "soundtrack", id, "err", err)
+		httpx.Error(w, http.StatusBadGateway, "soundtrack_unavailable", "the music catalog did not deliver the preview")
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+	httpx.ServeFile(w, r, path)
 }
 
 // checkRange rejects a stretch that is not within one of the title's files.

@@ -1,0 +1,22 @@
+{
+  "id": 671,
+  "title": "Harry Potter and the Philosopher's Stone",
+  "credits": {
+    "cast": [
+      {"name": "Daniel Radcliffe", "character": "Harry Potter"}
+    ],
+    "crew": [
+      {"name": "Chris Columbus", "job": "Director", "department": "Directing"},
+      {"name": "John Williams", "job": "Original Music Composer", "department": "Sound"},
+      {"name": "John Williams", "job": "Music", "department": "Sound"},
+      {"name": "Stephen Hunter Flick", "job": "Supervising Sound Editor", "department": "Sound"}
+    ]
+  },
+  "alternative_titles": {
+    "titles": [
+      {"iso_3166_1": "US", "title": "Harry Potter and the Sorcerer's Stone", "type": ""},
+      {"iso_3166_1": "CZ", "title": "Harry Potter a Kámen mudrců", "type": ""},
+      {"iso_3166_1": "GB", "title": "Harry Potter and the Philosopher's Stone", "type": ""}
+    ]
+  }
+}

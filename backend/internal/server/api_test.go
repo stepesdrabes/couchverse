@@ -53,6 +53,7 @@ const (
 	movieSubID     = "00000000-0000-4000-8000-000000000701"
 	failedRungID   = "00000000-0000-4000-8000-000000000802"
 	readyRungID    = "00000000-0000-4000-8000-000000000801"
+	soundtrackID   = "00000000-0000-4000-8000-000000000b01"
 	doneJobID      = "901"
 	failedJobID    = "902"
 	memberName     = "nora"
@@ -327,6 +328,28 @@ func apiCases() []apiCase {
 		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
 			"excluded": false, "shots": []map[string]any{{"mediaFileId": hdrFileID, "startMs": 0, "durationMs": 2000}},
 		}, status: 400},
+		// the soundtrack from the web: one of the title's candidates, never beside an excerpt
+		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
+			"excluded": false, "soundtrackId": soundtrackID,
+		}, status: 200},
+		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + seriesID, body: map[string]any{
+			"excluded": false, "soundtrackId": soundtrackID,
+		}, status: 400},
+		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
+			"excluded": false, "soundtrackId": soundtrackID,
+			"promoAudio": map[string]any{"mediaFileId": movieFileID, "startMs": 6_500_000, "durationMs": 30_000},
+		}, status: 400},
+		// searches are queued (the catalogs are never asked here; TestCouchTvSoundtracks fakes them)
+		{op: "adminSearchCouchTvSoundtracks", as: "admin", method: "POST", path: "/admin/couchtv/titles/" + movieID + "/soundtracks/search",
+			body: map[string]any{"query": "glass harbor ada lumen"}, status: 202},
+		{op: "adminSearchCouchTvSoundtracks", as: "admin", method: "POST", path: "/admin/couchtv/titles/" + seriesID + "/soundtracks/search",
+			body: map[string]any{}, status: 202},
+		{op: "adminSearchCouchTvSoundtracks", as: "admin", method: "POST", path: "/admin/couchtv/titles/" + unknownID + "/soundtracks/search",
+			body: map[string]any{}, status: 404},
+		{op: "adminSearchCouchTvSoundtracks", as: "nora", method: "POST", path: "/admin/couchtv/titles/" + movieID + "/soundtracks/search",
+			body: map[string]any{}, status: 403},
+		{op: "adminCouchTvSoundtrackPreview", as: "admin", method: "GET", path: "/admin/couchtv/soundtracks/" + unknownID + "/preview", status: 404},
+		{op: "adminCouchTvSoundtrackPreview", as: "nora", method: "GET", path: "/admin/couchtv/soundtracks/" + soundtrackID + "/preview", status: 403},
 		{op: "adminAnalyzeCouchTvTitle", as: "admin", method: "POST", path: "/admin/couchtv/titles/" + seriesID + "/analyze", status: 202},
 		// the seeded files are not on disk (a real one is measured in TestMediaAnalysis)
 		{op: "adminCouchTvWaveform", as: "admin", method: "GET", path: "/admin/couchtv/media-files/" + movieFileID + "/waveform", status: 404},
