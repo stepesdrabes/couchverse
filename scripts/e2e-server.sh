@@ -81,6 +81,19 @@ until curl -fs "http://127.0.0.1:$port/healthz" >/dev/null; do
   sleep 0.1
 done
 
+# the jobs the server queues at startup run over the empty database first: one reading the
+# seed half set up would act on it (the reprobe takes a seeded file whose clip is not there
+# yet for one without video), and a backfill would reach for the network
+for _ in $(seq 300); do
+  due=$(psql_ "$db_url" -At -c "SELECT count(*) FROM jobs WHERE status IN ('pending', 'running') AND run_at <= now()")
+  [ "$due" = 0 ] && break
+  sleep 0.1
+done
+if [ "$due" != 0 ]; then
+  log "the server's startup jobs did not finish in 30 s"
+  exit 1
+fi
+
 psql_ "$db_url" <"$root/backend/internal/server/testdata/seed.sql" >/dev/null
 
 # A real clip for the direct-play movie, in the Movies library the server created on
