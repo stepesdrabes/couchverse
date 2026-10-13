@@ -35,10 +35,11 @@ export function planCuts(
 	a: number,
 	b: number,
 	beats: number[],
-	{ min = 1.2, want = 2.4, first = 0, cursor = lengths.map(() => 0) } = {}
+	{ min = 1.2, want = 2.4, first = 0, cursor: used = lengths.map(() => 0) } = {}
 ): SceneCut[] {
 	const n = lengths.length;
 	if (!n) return [];
+	const cursor = [...used];
 	const out: SceneCut[] = [];
 	let t = a;
 	for (let k = first; t < b - 1e-6; k++) {

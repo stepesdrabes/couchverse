@@ -93,7 +93,8 @@ export const stripPromo: Template<StripPromoSpec> = {
 			: Array.from({ length: Math.ceil(D / BEAT) }, (_, i) => i * BEAT);
 
 		const tagAt = D - 3.6;
-		const close = tagAt - 1.3;
+		// the panel's sweep on the bed's strongest onset near its place
+		const close = edge(snap(tagAt - 1.3, 0.3, 0.5));
 		const closeDur = 0.62;
 
 		// --- the scenes, behind everything: full frame, then aside for the panel ---

@@ -1003,6 +1003,25 @@ break or the standby card.
     note, its fall breathing in 0.42 s before that, so its cue goes 1 s early; `gain` 0.5 is
     its level over a ducked bed) and `sonicChime(kit, bus, first note)`; `popcornBuild`,
     `popcornFall` and `popcornLanding` for the moment before.
+- **The strip and short promos, sharp (2026-10-14, D41)**: rebuilt from the screens' design (its
+  2.5 and 2.6) in the owner's sharp, flat direction (no rounded corners anywhere: square bars,
+  markers and label blocks; no shadows or glows; red as structural blocks and bars) on the
+  title's own logo and scenes (FEATURES.md "Strip and short promos" and "A title shown big").
+  Where they leave the design: the strip shows the series' footage beside a flat panel (paper by
+  day, night by night) rather than one backdrop under a gradient, so the scenes keep their
+  colour and the type never sits on a moving picture; the panel's red bar sweeps on across the
+  scenes before the tag, so the tag lands on a clean field and the strip's last seconds hold
+  still; the short promo's hit is a red swipe wiping the title card in rather than a hard cut,
+  and its airing sits in a red block at 58 px (44 in the design) to read beside a logo. A logo
+  that does not read on its field is redrawn lighter or darker once (Dexter's dark red on
+  night). Cost, with the screens' probe (frames the sidecar captures; median ms of an advance
+  and a JPEG capture on the M1, loaded by other work, so indicative) on the same real-media
+  specs (the kit's 1080p footage and 4K backdrops), today's templates against these: the strip
+  captures 343 of 400 frames instead of 400 (its last 2.3 s hold) at 73 and 99 ms instead of 66
+  and 90 (bright, dark; the footage decodes each frame), about 25 and 34 s a clip instead of 26
+  and 36; the short promo captures all 225 frames as before at 110 and 76 ms instead of 131 and
+  129 (the old one's rays, halftones and shake cost more than a footage frame), about 25 and
+  17 s instead of 30 and 29. So neither adds to the Pi's daily budget.
 
 ### 6.9 Presence, reactions, progress, analytics, ranks
 - **Hub**: an in-memory channel room (like couch's Hub, much simpler: no host). WebSocket
