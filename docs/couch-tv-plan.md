@@ -48,6 +48,7 @@ in section 3.
 | D30 | **The default weekly template is 5.1**, including **Saga Sunday** (the next film of a franchise every Sunday at 20:15, in order). |
 | D31 | **Branch**: a new `couch-tv` branch from `main`; `native-clients` is retired once its last docs commit is on `main`, so the remote keeps two branches (`main`, `couch-tv`). |
 | D32 | **The planning sample reel** (HTML/CSS/JS + README) is kept in `tools/couch-tv-samples/` as the reference for Phase 2; its media (soundtrack excerpts, artwork) is gitignored and fetched from the Pi read-only by a script. |
+| D35 | **All four full idents air, in turn** (2026-10-13). Journey, cinematic, morph and assemble, the four the owner approved, are the `ident` template's full cut (`design`), ported unchanged but for the sonic logo, A4 E5 D5 in all four (journey's and cinematic's motifs re-scored wherever they state it). The composer gives a break's first full ident the broadcast day's design (each day the next, so all four air within four days), the full idents a long gap repeats in the same break the designs after it, and the evergreen break always journey, so it is composed once. They render on the Pi, once per template version, at night: estimated 4 to 16 minutes each but cinematic, 65 to 116 (6.7); a render collects its canvas reads as it goes, which keeps it inside the sidecar's 1 GB. If cinematic's first render on the Pi runs past ~90 minutes, it ships pre-rendered. |
 | D36 | **Bulletins bind late, in slots of the breaks.** A break that carries a bulletin keeps a fixed-length slot for it after the promos and the lineup, before up next, holding a fallback of exactly that length (promos and stings, renderable ahead like any part), so the break is composed, rendered and assembled complete on its own. It is assembled in sections around its slots (a package each), its sound mixed per section so nothing rings across a slot's edge and each slot normalized on its own. When the live stream puts the break on air, a slot that airs whole takes the newest rendered bulletin still valid when the slot ends, at the slot's loudness, else its fallback; pinned, it never changes (6.10). |
 | D37 | **When the bulletins air** (defaults the owner tunes later): the news (20 s) in the breaks that end on the hour every two hours from 06:00 to midnight (06:00, 08:00 ... 24:00; the owner chose every two hours over every hour, 2026-10-13), the weather (15 s) in the first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the evening movie, never where a bulletin fetched on the grid 15 minutes before the break goes on air would have expired by its end; a break keeps a slot only beside the squeeze, the short ident, a short promo and the shortest up next. |
 | D38 | **A bulletin renders once, when it is the one that airs**: the bulletins job asks for a clip on its kind's last run in time for the next slot (one render per slot, not per fetch), the sidecar renders it as `couchtv_bulletin_render` ahead of every other clip, never waiting for a transcode or the quiet hours, and only while the channel is on. The clip carries its sound at every whole LU a break is mixed at (-23 to -16) and a slot's sound is mixed at its break's loudness in whole LU, so a bulletin sounds as loud as the fallback it replaces. A bulletin's clip goes an hour after its bulletin stops being valid. |
@@ -563,9 +564,9 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   the default -18 (their sound is only heard on its own); only the break spec carries the
   break's loudness.
 - **Evergreen**: the full ident (always journey), up to three rendered promo bodies (by title
-  name) with the evergreen end card, the short ident. The broadcast package has no generic up next, so the
-  live stream cuts the evergreen break to the gap and loops the standby card past its end.
-  It is recomposed whenever its clips' keys change; the newest assembled one is kept.
+  name) with the evergreen end card, the short ident. The broadcast package has no generic up
+  next, so the live stream cuts the evergreen break to the gap and loops the standby card past
+  its end. It is recomposed whenever its clips' keys change; the newest assembled one is kept.
 - **Lifecycle**: the compose job runs at startup, after every plan run and hourly, composing
   the next 24 h (48 h until the first day on the Pi showed how much a replan wastes); a replan
   or swap drops a break's composition with its airing, and the run cancels the renders no
@@ -815,6 +816,35 @@ break or the standby card.
   before airing at the latest), and render health's time to clear, which counts the clips'
   video at their measured speed (each clip's sounds included) and leaves assemblies out, holds
   again now that an assembly takes seconds.
+- **The full idents** (D35, 2026-10-13) carry no per-break data, so each design renders once per
+  template version: four clips, needed one day apart, each requested a day ahead and rendered
+  in that night's quiet hours. They cost far more than other clips, because every frame is
+  drawn on a canvas several times over (motion blur, up to 64 sub-frames). Measured on the M1
+  Pro through the sidecar's pipeline (capture, libx264 veryfast, both sounds), on a machine
+  shared with other work, so CPU time is the measure; the Pi is taken as 4.5x to 8x an M1 core
+  (the up next and squeeze renders, 2.47 and 2.41 fps on the Pi, ran 4.5 and 5.5 times their
+  total CPU time on the Mac):
+
+  | Design | Frames drawn | Mac CPU | Pi estimate | Page heap and buffers | Renderer |
+  |---|---|---|---|---|---|
+  | assemble | 201 of 263 | 47 s | 4-6 min | 12 MB | 354 MB |
+  | morph | 224 | 73 s | 6-10 min | 135 MB | 301 MB |
+  | journey | 192 | 123 s | 9-16 min | 119 MB | 269 MB |
+  | cinematic | 263 | 870 s | 65-116 min | 136 MB | 387 MB |
+
+  (A promo's renderer peaks at 280 MB the same way.) Before, a render read its canvas back
+  once per sub-frame and V8 left the buffers to pile up: journey's page held 1 GB and
+  cinematic's renderer 1.8 GB within a few frames, past the sidecar's 1 GB container; now every
+  64 MB of reads collects them (`--expose-gc`). Cinematic also counted the dusk hills' motion
+  after the camera had gone through the window, where they are not drawn, and drew 64
+  sub-frames where its room needed 13 to 59: 5184 sub-frames instead of 6435, its changed
+  frames within 62 dB PSNR of the approved render. Its slowest frame is about 10 s of Mac CPU,
+  a minute or two on the Pi, inside the 3 minutes a page call gets. At the estimate's middle
+  (~6x, 87 minutes) cinematic fits a night beside the day's other clips, but it is the one
+  that may not: if its first render on the Pi (render health shows the speed) runs past ~90
+  minutes, ship it pre-rendered (render it with the same bundle elsewhere and register the clip
+  package and its item sound on the Pi) or split its sub-frames across two workers, which the
+  sidecar's two CPUs would run in parallel.
 
 ### 6.8 The broadcast package
 - `clients/broadcast/`: a small TypeScript bundle (Vite library build, no framework), using
@@ -828,7 +858,8 @@ break or the standby card.
   renders golden frames and an audio hash.
 - The same bundle powers the admin **Broadcast preview** (live in the browser) and the
   sidecar's renders, so what the admin approves is what airs.
-- Templates (from the samples, D27): `ident` (full and short), `sting`, `upnext`, `promo`
+- Templates (from the samples, D27): `ident` (full and short; the full cut in four designs
+  since D35), `sting`, `upnext`, `promo`
   (moods `cinematic`, `grit`, `bright`; premiere variant; body plus end card), `strip`,
   `shortPromo`, `lineup`, `squeeze`, `standby` ("Technical difficulties"), `evergreenEnd`.
 
@@ -869,14 +900,25 @@ break or the standby card.
   frames. Freezing the rest would change the approved motion, so it stays.
 - **Brand isolation**: the lockup, corner bug, channel tag, sonic logo and theme, ident and
   stings live in `src/brand`, so a redesign replaces that folder only.
+- **The full idents (D35)**: the four idents approved on 2026-10-13 are the full cut's
+  `design`s, each in `src/brand/idents/<design>` with its picture and score, moved from the
+  planning harness. Every frame renders as the harness renders it (263 of 263 pixel-equal per
+  design) and the sound within float noise of the approved renders (-131 dB under the signal),
+  after two fixes the production pipeline needed: journey and assemble score as one cue built
+  before a render starts (their voices start slow oscillators up to a period early, which a
+  cue scheduled shortly before it plays started late), and journey's echo enters its feedback
+  loop through one delay (Chromium entered it from either side, so its right-hand repeats
+  landed a quantum apart from render to render). Journey's and cinematic's motifs were re-scored
+  to the sonic logo, A4 E5 D5; the old variant B full cut and its `posters` are gone. Cost and
+  memory: 6.7.
 - **The brand (D27, ported from the reel)**: C()UCH TV with Saira bundled (no CDN), ident
   variant B (full and short) and theme 1 as the sonic logo, its tag closing every promo and
   stings of 2-6 s derived from it. The brackets are drawn as superellipses fitted to Saira's O
   and scale whole, as the reel scaled the glyph. (The port first kept their stroke at the
   lockup's weight when they hug a poster; on air that read as a thinner, different font
   beside the words they frame, and the owner asked for the reel's brackets back on
-  2026-10-12: ident and sting version 3.) The
-  ident's posters come from the spec (`posters`, stand-in cards without). Cuts sit on the frame
+  2026-10-12: ident and sting version 3.) The short ident shows a stand-in poster card (the
+  spec's `posters` went with the old full cut, D35). Cuts sit on the frame
   nearest their beat (at 25 fps a 120 bpm grid falls between frames). The squeeze's `cursor`
   handover (replacing `line`) ends on the short ident's first frame pixel for pixel. Measured
   against the reel at 48 kHz, the theme matches within 0.1 dB in every band and 0.1 LU in

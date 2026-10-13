@@ -2426,7 +2426,8 @@ approves is what airs.
   buffers within a few frames, past the sidecar's 1 GB): every 64 MB of reads it calls `gc()`
   where the page has one (the sidecar and the golden tests start Chromium with `--expose-gc`),
   which keeps the page's heap and buffers under 140 MB (the renderer under 400 MB, a promo's
-  280).
+  280). Each design renders once per template version: an estimated 4 to 16 minutes on the Pi,
+  cinematic 65 to 116 (plan 6.7).
 - **Adding a template**: add its spec interface to `spec.ts` and to `ClipSpec`; write
   `src/templates/<name>.ts` exporting a `Template` (`version` and `build(ctx, spec)` returning a
   `Timeline`; only `transform`, `opacity` and `visibility` animate; text from the spec goes in
