@@ -1,7 +1,7 @@
 // The score: one idea, in D major at 100 bpm on the picture's 0.6 s grid.
 //
-// The sonic logo is three notes, 5-1-3 (A, D, F#: "couch", "t", "v"). At dusk it is heard
-// first as a slow, wistful echo in B minor (F#, B, D) on a felt piano over a dark pad. The
+// The sonic logo is three notes, 5-9-8 (A, E, D: "couch", "t", "v"). At dusk it is heard
+// first as a slow, wistful echo in B minor (F#, C#, B) on a felt piano over a dark pad. The
 // chords climb with the camera: Bm(add9) at dusk, Gmaj9 as the town turns into view, Em11 as we
 // push into the window, Asus4 swelling while the room goes dark, a felt pulse on D ticking
 // underneath. The popcorn lands on D major with a deep impact; then the logo, fast and bright,
@@ -92,12 +92,12 @@ export function score(k: Kit, b: Bus, when: number, D: number) {
 		attack: 0.02,
 		release: 1.8
 	});
-	// --- the motif at dusk: F#, B, D, slow, far away ---
+	// --- the motif at dusk: F#, C#, B, slow, far away ---
 	(
 		[
 			['F#4', at(1)],
-			['B4', at(2)],
-			['D5', at(3)]
+			['C#5', at(2)],
+			['B4', at(3)]
 		] as const
 	).forEach(([n, t], i) =>
 		felt(k, b, m, w(t), hz(n), {
@@ -173,8 +173,8 @@ export function score(k: Kit, b: Bus, when: number, D: number) {
 	felt(k, b, m, w(T.land), hz('D3'), { gain: 0.4, decay: 4, bright: 0.7, hall: 0.6, tone: 2400 });
 	felt(k, b, m, w(T.land), hz('A3'), { gain: 0.3, decay: 4, bright: 0.7, hall: 0.6, tone: 2600 });
 
-	// --- the sonic logo: A, D, F# ("couch", "t", "v") ---
-	(['A4', 'D5', 'F#5'] as const).forEach((n, i) => {
+	// --- the sonic logo: A, E, D ("couch", "t", "v") ---
+	(['A4', 'E5', 'D5'] as const).forEach((n, i) => {
 		const t = T.notes[i];
 		const last = i === 2;
 		felt(k, b, m, w(t), hz(n), {

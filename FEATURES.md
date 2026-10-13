@@ -2403,10 +2403,12 @@ approves is what airs.
   Every one ends the same way: the couch alone on black, a popcorn bucket drops onto it
   (gravity, a small rebound, the frame giving) and they are the Couchverse logo (`glyph.ts`: the
   logo split into couch and popcorn, from `couchverse-glyph.json`), then "couch", "t", "v" rise
-  in, Plus Jakarta Sans ExtraBold with `tv` in red, on the sonic logo's three notes. The
-  pictures are drawn from t on a 1920x1080 canvas (assemble: sixteen stacked SVG copies); a
-  render (the dynamic gets `wait`) averages sub-frames over a half-frame shutter in linear light
-  and dithers, so motion blurs like film, and live playback draws one sample. Each score is
+  in, Plus Jakarta Sans ExtraBold with `tv` in red, on the sonic logo's three notes, A4 E5 D5
+  (journey's motif, D5 A5 F#5, and cinematic's, A D F# with its B minor echo at dusk, were
+  re-scored to it wherever they state it, with their own instruments and timing). The pictures
+  are drawn from t on a 1920x1080 canvas (assemble: sixteen stacked SVG copies); a render (the
+  dynamic gets `wait`) averages sub-frames over a half-frame shutter in linear light and
+  dithers, so motion blurs like film, and live playback draws one sample. Each score is
   generated in Web Audio and scheduled as one cue built before an offline render starts, as the
   approved renders built it: their voices start slow oscillators up to a period early, which a
   cue scheduled shortly before it plays would start late. Journey's ping-pong echo is entered

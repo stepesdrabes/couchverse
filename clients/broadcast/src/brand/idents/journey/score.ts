@@ -2,9 +2,9 @@
 // per place: G (the dunes), Em (the sea), Cmaj7#11 (the city, the bVII's Lydian shimmer), A7sus4
 // (the rise), D on the landing: IV, ii, bVII, V, I.
 //
-// The motif is D5 A5 F#5: the channel's hook (A4 D5 A5 G5 F#5) condensed to its three pillars.
-// It is heard slowly on glass keys over the sea (quarters), quicker over the city (eighths),
-// and finally as the sonic logo on sixteenths, typing couch, t, v. A harp pulse on A, quickening
+// The motif is the sonic logo, A4 E5 D5 (the fifth, the ninth, the root). It is heard slowly
+// on glass keys over the sea (quarters), quicker over the city (eighths), and finally as the
+// sonic logo on sixteenths, typing couch, t, v. A harp pulse on A, quickening
 // into a climbing run, drives the build; the camera's rise opens into a held breath; the landing
 // is a tuned sub drop with the D chord blooming over it, the loudest moment; then everything
 // rings out into silence.
@@ -26,8 +26,8 @@ const CHORDS = {
 	D: { bass: 'D2', pad: ['D2', 'A2', 'D3', 'F#3', 'A3', 'E4', 'F#4'] }
 };
 
-/** The motif's three notes. */
-const MOTIF = ['D5', 'A5', 'F#5'];
+/** The motif's three notes: the sonic logo. */
+const MOTIF = ['A4', 'E5', 'D5'];
 
 export function score(k: Kit, D: number): Ev[] {
 	const ev: Ev[] = [];
@@ -153,7 +153,7 @@ export function score(k: Kit, D: number): Ev[] {
 	);
 
 	// --- the motif ----------------------------------------------------------------------------------
-	// over the sea: slow quarters, the F# arriving as the couch crosses the sun
+	// over the sea: slow quarters, the D arriving as the couch crosses the sun
 	MOTIF.forEach((n, i) =>
 		add((1 + i) * B, (w, b) =>
 			glass(k, b, w, n, {

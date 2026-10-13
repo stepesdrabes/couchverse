@@ -176,7 +176,7 @@ export function popIn(tl: TL, it: Framed, a: number, z: number) {
 }
 
 export const ident: Template<IdentSpec> = {
-	version: 4,
+	version: 5,
 	build(ctx, spec) {
 		if (spec.cut !== 'short') return buildFullIdent(ctx, spec);
 		const { root, sound } = ctx;
