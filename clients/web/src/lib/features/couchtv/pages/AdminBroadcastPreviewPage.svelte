@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { IDENT_DESIGNS, type IdentDesign } from '@couchverse/broadcast';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -79,6 +80,13 @@
 		{ value: 'weather', label: m.admin_couchtv_tpl_weather() },
 		{ value: 'news', label: m.admin_couchtv_tpl_news() }
 	]);
+
+	const designs = $derived<Record<IdentDesign, string>>({
+		journey: m.admin_couchtv_design_journey(),
+		cinematic: m.admin_couchtv_design_cinematic(),
+		morph: m.admin_couchtv_design_morph(),
+		assemble: m.admin_couchtv_design_assemble()
+	});
 
 	const titleItems = $derived(
 		rows.map((r) => ({ value: r.id, label: r.year ? `${r.name} (${r.year})` : r.name }))
@@ -218,6 +226,17 @@
 					<span class="text-xs font-medium text-muted">{m.admin_couchtv_premiere()}</span>
 					<Switch bind:checked={o.premiere} label={m.admin_couchtv_premiere()} />
 				</div>
+			</div>
+		{/if}
+
+		{#if t === 'identFull'}
+			<div class="space-y-2">
+				<p class="text-xs font-medium text-muted">{m.admin_couchtv_design()}</p>
+				<Select
+					items={IDENT_DESIGNS.map((d) => ({ value: d, label: designs[d] }))}
+					bind:value={o.identDesign}
+					class="w-full justify-between"
+				/>
 			</div>
 		{/if}
 

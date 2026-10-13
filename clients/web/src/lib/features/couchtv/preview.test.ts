@@ -1,3 +1,4 @@
+import { IDENT_DESIGNS } from '@couchverse/broadcast';
 import { describe, expect, it } from 'vitest';
 import type { AdminTitle } from '$lib/generated/api';
 import {
@@ -93,7 +94,8 @@ describe('buildSpec', () => {
 	it('needs no title for the brand pieces', () => {
 		expect(buildSpec(opts({ template: 'identFull' }), null, null)).toEqual({
 			template: 'ident',
-			cut: 'full'
+			cut: 'full',
+			design: 'journey'
 		});
 		expect(buildSpec(opts({ template: 'identShort' }), null, null)).toEqual({
 			template: 'ident',
@@ -117,6 +119,15 @@ describe('buildSpec', () => {
 		if (news?.template !== 'news') return;
 		expect(news.stories.map((s) => s.outlet)).toContain('iROZHLAS');
 		expect(news.credit).toContain('as of 17:02');
+	});
+
+	it('plays the full ident in the chosen design', () => {
+		for (const identDesign of IDENT_DESIGNS)
+			expect(buildSpec(opts({ template: 'identFull', identDesign }), movie, null)).toEqual({
+				template: 'ident',
+				cut: 'full',
+				design: identDesign
+			});
 	});
 
 	it('phrases the airing in English', () => {

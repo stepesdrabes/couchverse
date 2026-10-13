@@ -7,6 +7,7 @@ import {
 	type AiringKind,
 	type ClipSpec,
 	type Episode,
+	type IdentDesign,
 	type NewsSpec,
 	type Shot,
 	type Title,
@@ -34,6 +35,7 @@ export type PreviewBed = 'none' | 'synth:groove' | 'synth:pulse' | 'synth:drone'
 
 export interface PreviewOptions {
 	template: PreviewTemplate;
+	identDesign: IdentDesign;
 	promoMood: 'cinematic' | 'grit' | 'bright';
 	stripMood: 'bright' | 'dark';
 	premiere: boolean;
@@ -51,6 +53,7 @@ export interface PreviewOptions {
 
 export const DEFAULT_OPTIONS: PreviewOptions = {
 	template: 'promo',
+	identDesign: 'journey',
 	promoMood: 'cinematic',
 	stripMood: 'bright',
 	premiere: false,
@@ -263,7 +266,7 @@ export function buildSpec(
 	const when = airing(o.airs, o.time, o.day);
 	switch (o.template) {
 		case 'identFull':
-			return { template: 'ident', cut: 'full' };
+			return { template: 'ident', cut: 'full', design: o.identDesign };
 		case 'identShort':
 			return { template: 'ident', cut: 'short' };
 		case 'sting':
