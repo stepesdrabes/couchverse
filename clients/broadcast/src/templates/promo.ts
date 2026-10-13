@@ -564,8 +564,15 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				const caret = span('caret', lineEl);
 				// safe with the caret after the last letter
 				fitText(lineEl, { width: SAFE_WIDTH - 32, min: 48, lines: 2 });
-				const step = 0.055;
 				const startT = a + 0.25;
+				const stop = (i: number) => /[.,]/.test(tc.items[i - 1]?.textContent ?? '');
+				const stops = tc.items.filter((_, i) => stop(i)).length;
+				// a long line types faster, so all of it is there before the cut
+				const pace = Math.min(
+					1,
+					(b - 0.15 - startT) / ((tc.items.length - 1) * 0.055 + stops * 0.18)
+				);
+				const step = 0.055 * pace;
 				// the caret follows the typing onto the next line
 				const top = tc.items[0]?.offsetTop ?? 0;
 				const cx = (x: number, y = 0) => [
@@ -575,7 +582,7 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				tl.add(caret, cx(0), a, 0.01, 'linear');
 				let pause = 0;
 				tc.items.forEach((c, i) => {
-					if (/[.,]/.test(tc.items[i - 1]?.textContent ?? '')) pause += 0.18;
+					if (stop(i)) pause += 0.18 * pace;
 					const at = startT + i * step + pause;
 					if (at >= b - 0.1) return;
 					tl.add(c, [{ opacity: 0 }, { opacity: 1 }], at, 0.01, 'linear');
