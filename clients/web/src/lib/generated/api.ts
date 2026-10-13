@@ -493,7 +493,7 @@ export interface CouchTvBreakReadiness {
 	/** The standby card is rendered. */
 	standby: boolean;
 	uncomposed: number;
-	/** Breaks in the next 48 hours. */
+	/** Breaks in the next 24 hours, as far ahead as breaks are composed. */
 	upcoming: number;
 }
 

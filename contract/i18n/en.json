@@ -311,7 +311,7 @@
 			}
 		}
 	],
-	"admin_couchtv_health_breaks_ahead": "Breaks in the next 48 hours",
+	"admin_couchtv_health_breaks_ahead": "Breaks in the next 24 hours",
 	"admin_couchtv_health_clip": "Clip",
 	"admin_couchtv_health_clips": [
 		{
@@ -337,7 +337,7 @@
 	"admin_couchtv_health_needed": "the first clip airs in {when}",
 	"admin_couchtv_health_never": "The render sidecar has not run yet",
 	"admin_couchtv_health_next_unready": "The first one not ready airs {when}",
-	"admin_couchtv_health_no_breaks": "No breaks in the next 48 hours.",
+	"admin_couchtv_health_no_breaks": "No breaks in the next 24 hours.",
 	"admin_couchtv_health_no_failures": "Nothing failed.",
 	"admin_couchtv_health_nothing_waits": "nothing is waiting",
 	"admin_couchtv_health_queue": "Clips to render",
@@ -345,7 +345,7 @@
 	"admin_couchtv_health_seen": "The render sidecar last worked {when}",
 	"admin_couchtv_health_speed": "Frames per second",
 	"admin_couchtv_health_standby": "Standby card",
-	"admin_couchtv_health_upcoming": "of {count} in the next 48 h",
+	"admin_couchtv_health_upcoming": "of {count} in the next 24 h",
 	"admin_couchtv_inserted": "Program inserted",
 	"admin_couchtv_keys_hint": "With a player control focused, Space plays and pauses and the arrow keys step one frame.",
 	"admin_couchtv_length": "Length",

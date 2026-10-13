@@ -24,9 +24,10 @@ type CouchTvRenderQueue struct {
 	Assemblies      int        `json:"assemblies" doc:"Breaks whose clips are all rendered, waiting to be assembled or assembling."`
 }
 
-// CouchTvBreakReadiness counts the breaks of the next 48 hours by state.
+// CouchTvBreakReadiness counts the breaks of the next 24 hours, as far ahead as breaks are
+// composed, by state.
 type CouchTvBreakReadiness struct {
-	Upcoming    int        `json:"upcoming" doc:"Breaks in the next 48 hours."`
+	Upcoming    int        `json:"upcoming" doc:"Breaks in the next 24 hours, as far ahead as breaks are composed."`
 	Ready       int        `json:"ready" doc:"Assembled, ready to air."`
 	Composed    int        `json:"composed" doc:"Composed, waiting for clips or assembly."`
 	Uncomposed  int        `json:"uncomposed"`

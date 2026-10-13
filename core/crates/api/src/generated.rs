@@ -1651,7 +1651,7 @@ pub mod types {
         /// The standby card is rendered.
         pub standby: bool,
         pub uncomposed: i64,
-        /// Breaks in the next 48 hours.
+        /// Breaks in the next 24 hours, as far ahead as breaks are composed.
         pub upcoming: i64,
     }
 

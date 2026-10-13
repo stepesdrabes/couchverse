@@ -1583,7 +1583,7 @@
             "type": "integer"
           },
           "upcoming": {
-            "description": "Breaks in the next 48 hours.",
+            "description": "Breaks in the next 24 hours, as far ahead as breaks are composed.",
             "format": "int64",
             "type": "integer"
           }

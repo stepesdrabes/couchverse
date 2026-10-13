@@ -318,7 +318,7 @@
 			}
 		}
 	],
-	"admin_couchtv_health_breaks_ahead": "Přestávky v příštích 48 hodinách",
+	"admin_couchtv_health_breaks_ahead": "Přestávky v příštích 24 hodinách",
 	"admin_couchtv_health_clip": "Klip",
 	"admin_couchtv_health_clips": [
 		{
@@ -345,7 +345,7 @@
 	"admin_couchtv_health_needed": "první klip se vysílá za {when}",
 	"admin_couchtv_health_never": "Renderovací kontejner zatím neběžel",
 	"admin_couchtv_health_next_unready": "První nepřipravená se vysílá {when}",
-	"admin_couchtv_health_no_breaks": "V příštích 48 hodinách nejsou žádné přestávky.",
+	"admin_couchtv_health_no_breaks": "V příštích 24 hodinách nejsou žádné přestávky.",
 	"admin_couchtv_health_no_failures": "Nic neselhalo.",
 	"admin_couchtv_health_nothing_waits": "nic nečeká",
 	"admin_couchtv_health_queue": "Klipy k renderování",
@@ -353,7 +353,7 @@
 	"admin_couchtv_health_seen": "Renderovací kontejner naposledy pracoval {when}",
 	"admin_couchtv_health_speed": "Snímků za sekundu",
 	"admin_couchtv_health_standby": "Pohotovostní obrazovka",
-	"admin_couchtv_health_upcoming": "z {count} v příštích 48 h",
+	"admin_couchtv_health_upcoming": "z {count} v příštích 24 h",
 	"admin_couchtv_inserted": "Pořad vložen",
 	"admin_couchtv_keys_hint": "Když je aktivní ovládání přehrávače, mezerník spouští a zastavuje a šipky posouvají o snímek.",
 	"admin_couchtv_length": "Délka",
