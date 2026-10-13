@@ -2413,18 +2413,20 @@ approves is what airs.
   re-scored to it wherever they state it, with their own instruments and timing). The pictures
   are drawn from t on a 1920x1080 canvas (assemble: sixteen stacked SVG copies); a render (the
   dynamic gets `wait`) averages sub-frames over a half-frame shutter in linear light and
-  dithers, so motion blurs like film, and live playback draws one sample. Each score is
-  generated in Web Audio and scheduled as one cue built before an offline render starts, as the
-  approved renders built it: their voices start slow oscillators up to a period early, which a
-  cue scheduled shortly before it plays would start late. Journey's ping-pong echo is entered
-  through one delay only: Chromium pulls a feedback loop from wherever the graph first reaches
-  it and lags the edge into that node by a quantum, so a loop reached from two sides lagged its
-  repeats differently from render to render. Modules build nothing for the DOM as they load (the
-  web's unit tests import the package in Node). A render reads its canvas back once per
-  sub-frame, up to 64 full frames a frame, which V8 left to pile up (1 to 2 GB of array buffers
-  within a few frames, past the sidecar's 1 GB): every 64 MB of reads it calls `gc()` where the
-  page has one (the sidecar and the golden tests start Chromium with `--expose-gc`), which keeps
-  the page's heap and buffers under 140 MB (the renderer under 400 MB, a promo's 280).
+  dithers, so motion blurs like film, and live playback draws one sample; cinematic takes as
+  many sub-frames as its fastest drawn point needs (its dusk's layers count only while drawn).
+  Each score is generated in Web Audio and scheduled as one cue built before an offline render
+  starts, as the approved renders built it: their voices start slow oscillators up to a period
+  early, which a cue scheduled shortly before it plays would start late. Journey's ping-pong
+  echo is entered through one delay only: Chromium pulls a feedback loop from wherever the graph
+  first reaches it and lags the edge into that node by a quantum, so a loop reached from two
+  sides lagged its repeats differently from render to render. Modules build nothing for the DOM
+  as they load (the web's unit tests import the package in Node). A render reads its canvas back
+  once per sub-frame, up to 64 full frames a frame, which V8 left to pile up (1 to 2 GB of array
+  buffers within a few frames, past the sidecar's 1 GB): every 64 MB of reads it calls `gc()`
+  where the page has one (the sidecar and the golden tests start Chromium with `--expose-gc`),
+  which keeps the page's heap and buffers under 140 MB (the renderer under 400 MB, a promo's
+  280).
 - **Adding a template**: add its spec interface to `spec.ts` and to `ClipSpec`; write
   `src/templates/<name>.ts` exporting a `Template` (`version` and `build(ctx, spec)` returning a
   `Timeline`; only `transform`, `opacity` and `visibility` animate; text from the spec goes in

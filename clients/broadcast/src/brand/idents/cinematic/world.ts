@@ -75,7 +75,9 @@ export const shot: Shot = {
 		const a = camera(t);
 		const b = camera(t + dt);
 		let worst = Math.abs(b.pan - a.pan) + Math.abs(b.tilt - a.tilt);
-		worst = Math.max(worst, layersMotion(a, b), roomMotion(a, b), endingMotion(t));
+		// the dusk's layers count while they are drawn: through the window they are not
+		const dusk = outside(a) || outside(b) ? layersMotion(a, b) : 0;
+		worst = Math.max(worst, dusk, roomMotion(a, b), endingMotion(t));
 		return worst;
 	}
 };
