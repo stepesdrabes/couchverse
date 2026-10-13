@@ -55,7 +55,7 @@ export function contrast(a: Rgb, b: Rgb): number {
 	return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-function toHsl([r, g, b]: Rgb): [number, number, number] {
+export function toHsl([r, g, b]: Rgb): [number, number, number] {
 	const [rr, gg, bb] = [r / 255, g / 255, b / 255];
 	const max = Math.max(rr, gg, bb);
 	const min = Math.min(rr, gg, bb);
@@ -72,7 +72,7 @@ function toHsl([r, g, b]: Rgb): [number, number, number] {
 	return [h / 6, s, l];
 }
 
-function fromHsl([h, s, l]: [number, number, number]): Rgb {
+export function fromHsl([h, s, l]: [number, number, number]): Rgb {
 	const f = (n: number) => {
 		const k = (n + h * 12) % 12;
 		const a = s * Math.min(l, 1 - l);

@@ -164,6 +164,11 @@ export class Assets {
 		return this.pics.get(url) ?? stand();
 	}
 
+	/** The decoded image itself (to read its pixels), or null when it did not load. */
+	image(url: string): HTMLImageElement | null {
+		return this.missing.includes(url) ? null : (this.pics.get(url)?.keep ?? null);
+	}
+
 	/** A pre-blurred copy (blurred once on a canvas, never animated). */
 	blurred(url: string): string {
 		let b = blurs.get(url);

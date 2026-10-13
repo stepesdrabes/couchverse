@@ -6,6 +6,7 @@ import type {
 	BreakSpec,
 	ClipSpec,
 	FootageShot,
+	Logo,
 	Shot,
 	Title,
 	WeatherCity,
@@ -315,6 +316,23 @@ const PROMO = {
 
 const episode = { code: 'S01E02', name: 'Bart the Genius', runtimeMinutes: 23 };
 
+// a title as the screens that show it big get it: its logo (where it has one) and its scenes
+const SCENES: FootageShot[] = [
+	{ kind: 'footage', frames: frames('shot-a') },
+	{ kind: 'footage', frames: frames('shot-b') }
+];
+const LOGOS = {
+	// yellow outlined in near-black
+	sunny: { url: `${M}/logo-sunny.png`, aspect: 3 },
+	// a flat dark red, too dark to read on night as it is
+	water: { url: `${M}/logo-water.png`, aspect: 1000 / 420 }
+} satisfies Record<string, Logo>;
+const shown = (t: Title, logo?: Logo): Title => ({
+	...t,
+	...(logo ? { logo } : {}),
+	footage: SCENES
+});
+
 export const FIXTURES = {
 	'ident-journey': { template: 'ident', cut: 'full', design: 'journey' },
 	'ident-cinematic': { template: 'ident', cut: 'full', design: 'cinematic' },
@@ -397,7 +415,7 @@ export const FIXTURES = {
 	'strip-bright': {
 		template: 'stripPromo',
 		mood: 'bright',
-		title: TITLES.sunny,
+		title: shown(TITLES.sunny, LOGOS.sunny),
 		airing: { eyebrow: 'Every weekday', time: '18:00', days: [0, 1, 2, 3, 4] },
 		foot: { kind: 'count', count: 801 },
 		bed: bed()
@@ -405,16 +423,22 @@ export const FIXTURES = {
 	'strip-dark': {
 		template: 'stripPromo',
 		mood: 'dark',
-		title: TITLES.water,
+		title: shown(TITLES.water, LOGOS.water),
 		airing: { eyebrow: 'Every night', time: '22:30', days: [0, 1, 2, 3, 4, 5, 6] },
 		foot: { kind: 'from', season: 1, day: 0 },
 		bed: bed(4, 24)
 	},
 	short: {
 		template: 'shortPromo',
-		title: TITLES.alley,
+		title: shown(TITLES.alley),
 		airing: { eyebrow: 'Tomorrow', time: '21:00' },
 		bed: bed()
+	},
+	// a logo and the house's own music
+	'short-logo': {
+		template: 'shortPromo',
+		title: shown(TITLES.sunny, LOGOS.sunny),
+		airing: { eyebrow: 'Tonight', time: '20:15' }
 	},
 	lineup: {
 		template: 'lineup',
@@ -522,9 +546,18 @@ export const FIXTURES = {
 		foot: { kind: 'from', season: 12, day: 2 },
 		bed: bed(4, 24)
 	},
+	// the longest name on the paper panel, with the house's own music
+	'strip-long-bright': {
+		template: 'stripPromo',
+		mood: 'bright',
+		title: shown(LONG.strangelove),
+		airing: { eyebrow: 'Every night', time: '19:30', days: [0, 1, 2, 3, 4, 5, 6] },
+		foot: { kind: 'count', count: 26 },
+		duration: 12
+	},
 	'short-long': {
 		template: 'shortPromo',
-		title: LONG.hallows,
+		title: shown(LONG.hallows),
 		airing: { eyebrow: 'This week', day: 'Wednesday', time: '21:00' },
 		bed: bed()
 	},

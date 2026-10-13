@@ -1,232 +1,401 @@
-// A strip promo ("Every weekday at 18:00"): the time, then the days light up on the beat.
+// A strip promo ("Every weekday at 18:00"): the series' scenes, then a flat panel slides in over
+// the left half with a red bar on its edge, the scenes moving aside, and the column types in on
+// it: the eyebrow in a red block, the title's logo (else its name), the time as the hero numeral,
+// the week, whose aired days light red on the beat, and the foot line. Before the channel tag the
+// panel sweeps on across the scenes and the tag lands on the clean field. Moods: bright is day
+// (a paper panel, night type, the scenes as they are, hard cuts on the beat), dark is night (a
+// night panel with the dusk at its foot, the scenes dimmed, dissolves, slower moves).
 
+import type { Kit } from '../audio/kit';
 import { beatsIn, snapper } from '../audio/onsets';
-import { SPARKLE } from '../audio/kit';
+import { hz } from '../audio/pitch';
+import { air, glass, house, impact, pad, padSweep, piano, sub } from '../audio/voices';
 import { channelTag } from '../brand/lockup';
-import { chars, css, div, el, fadeUp, rise, span, words } from '../core/dom';
+import { BRAND } from '../brand/wordmark';
+import { chars, css, div, el, span } from '../core/dom';
 import { fitText } from '../core/fit';
-import { framed } from '../core/framing';
-import { applyPalette } from '../core/palette';
+import { edge } from '../core/moves';
 import type { StripPromoSpec } from '../spec';
-import { glow, outToBlack, timeline, titlePalette, type Template } from './shared';
+import { logoImage, planCuts, scenes, shotLengths } from './reel';
+import { timeline, type Template, type TL } from './shared';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+/** The house tempo: 75 bpm, a beat is 20 frames. */
+const BEAT = 0.8;
+/** The panel's edge: the frame's middle; its red bar rides on the scenes' side of it. */
+const SPLIT = 960;
+const BAR = 12;
+/** The column's width: from the title-safe line to 72 px before the panel's edge. */
+const COL_W = SPLIT - 96 - 72;
+
+/** Each mood's field and type tiers (on paper the tiers are night over paper, solid). */
+const MOODS = {
+	bright: {
+		field: BRAND.paper,
+		ink: BRAND.night,
+		soft: '#5f5a55',
+		dim: '#a39d96',
+		track: '#ddd5ca',
+		open: 0.9,
+		ease: 'glide',
+		fill: 0.36,
+		dissolve: 0,
+		want: 2.4
+	},
+	dark: {
+		field: BRAND.night,
+		ink: BRAND.paper,
+		soft: '#b1aca6',
+		dim: '#65625e',
+		track: '#3e3d3b',
+		open: 1.2,
+		ease: 'dolly',
+		fill: 0.5,
+		dissolve: 0.6,
+		want: 3.2
+	}
+} as const;
+
+/** The days' notes, climbing D major's pentatonic, one per lit day. */
+const DAY_NOTES = ['D5', 'E5', 'F#5', 'A5', 'B5', 'D6', 'E6'];
+
+/** A box that clips what rises into it from below (a masked reveal). */
+const mask = (parent: Element, cls = 'sp-mask') => div(cls, parent);
+
+function riseIn(tl: TL, e: Element, at: number, dur = 0.8, from = '105%') {
+	tl.add(
+		e,
+		[{ transform: `translateY(${from})` }, { transform: 'translateY(0)' }],
+		at,
+		dur,
+		'glide'
+	);
+}
+
 export const stripPromo: Template<StripPromoSpec> = {
-	version: 4,
+	version: 5,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 16;
 		const dark = spec.mood === 'dark';
+		const m = MOODS[spec.mood];
 		const tl = timeline(root, D);
-		applyPalette(root, titlePalette(t));
 		root.classList.add('strip', dark ? 'mood-dark' : 'mood-bright');
+		css(root, { background: BRAND.night });
 		const bed = assets.bed(spec.bed);
 		const onsets = bed?.onsets ?? [];
+		const snap = snapper(onsets);
+		// the beat grid the cuts and the days follow: the bed's beats, else the house tempo
+		const grid = bed
+			? onsets.filter((o) => o.s >= 0.45).map((o) => o.t)
+			: Array.from({ length: Math.ceil(D / BEAT) }, (_, i) => i * BEAT);
 
-		const gA = glow(root, 'accent', 380, 300, 760);
-		const gV = glow(root, dark ? 'red' : 'violet', 300, 1000, 640);
-		const panel = div('sp-panel', root);
-		const shot = framed(panel, assets.picture(t.backdrop), { w: 1180, h: 1080 });
-		const fr = t.crops?.strip ?? [
-			[0.3, 0, 0.7, 1],
-			[0.36, 0.05, 0.6, 0.86]
-		];
-		tl.add(
-			shot.img,
-			[{ transform: shot.tf(fr[0]) }, { transform: shot.tf(fr[1]) }],
-			0,
-			D,
-			'cubic-bezier(0.3, 0.2, 0.6, 1)'
-		);
-		if (dark) {
-			shot.img.style.filter = 'grayscale(0.45) contrast(1.15) brightness(0.62)';
-			css(div('fill', panel), {
-				background:
-					'radial-gradient(ellipse 70% 80% at 65% 45%, transparent 30%, rgb(10 3 5 / 0.8) 100%), linear-gradient(0deg, rgb(70 4 8 / 0.35), rgb(70 4 8 / 0.35))'
-			});
+		const tagAt = D - 3.6;
+		const close = tagAt - 1.3;
+		const closeDur = 0.62;
+
+		// --- the scenes, behind everything: full frame, then aside for the panel ---
+		const world = div('sp-world', root);
+		const cuts = planCuts(shotLengths(t), 0, close + closeDur, grid, {
+			min: 1.2,
+			want: m.want
+		});
+		scenes(tl, world, t, assets, cuts, [0, close + closeDur], {
+			dissolve: m.dissolve,
+			push: dark ? [1.02, 1.07] : [1, 1.05],
+			still: t.crops?.strip
+		});
+
+		// --- the panel: its right edge on the frame's middle at rest, its red bar beside it ---
+		const panel = css(div('sp-panel', root), { background: m.field });
+		div('sp-bar', panel);
+		// the night's dusk rising at the panel's foot (the scenes are dimmed by their own opacity,
+		// so this is the one layer over them)
+		if (dark) div('sp-dusk', root);
+
+		// --- the column ---
+		const col = css(div('sp-col', root), { color: m.ink });
+		const ebBox = div('sp-eyebrow', col);
+		const ebBlock = div('sp-eyebrow-block', ebBox);
+		const ebMask = mask(ebBox);
+		const ebText = div('sp-eyebrow-text', ebMask, spec.airing.eyebrow);
+		fitText(ebText, { width: COL_W - 40, min: 30 });
+
+		const titleBox = div('sp-title', col);
+		const logo = logoImage(titleBox, assets, t.logo, m.field, {
+			width: COL_W,
+			height: 300,
+			area: 207000
+		});
+		const titleParts: HTMLElement[] = [];
+		if (logo) {
+			const lm = mask(titleBox, 'sp-mask sp-logo-mask');
+			lm.appendChild(logo.el);
+			titleParts.push(logo.el);
 		} else {
-			css(div('fill', panel), {
-				background:
-					'linear-gradient(0deg, rgb(7 8 13 / 0.6), transparent 42%), linear-gradient(90deg, rgb(7 8 13 / 0.35), transparent 60%)'
-			});
-		}
-
-		const col = div('sp-col', root);
-		const ebRow = div('un-eyebrow', col);
-		const rail = css(div('rail', ebRow), { width: '56px' });
-		const eb = div('eyebrow', ebRow, spec.airing.eyebrow);
-		const title = words(div('hero sp-title', col), t.name);
-		fitText(title.root.parentElement as HTMLElement, { width: 960, min: 76, lines: 3 });
-		const timeWrap = div('sp-time tnum', col);
-		const tc = chars(span('mask', timeWrap), spec.airing.time);
-		const daysRow = div('sp-days', col);
-		const lit = new Set(spec.airing.days);
-		const chips = DAYS.map((name, d) => {
-			const c = div('day', daysRow);
-			const on = div('on', c);
-			span(null, c, name);
-			const lo = span('lbl-on', c, name);
-			if (dark) on.style.transformOrigin = '50% 0%';
-			return { c, on, lo, d, lit: lit.has(d) };
-		});
-		let foot: HTMLDivElement | null = null;
-		let countEl: HTMLElement | null = null;
-		const f = spec.foot;
-		if (f?.kind === 'count') {
-			foot = div('sp-count', col);
-			countEl = el('b', null, foot, '0');
-			foot.append(' episodes, in order');
-		} else if (f?.kind === 'from') {
-			foot = div('sp-count', col);
-			foot.append(`Season ${f.season} from `);
-			el('b', 'ink', foot, DAY_NAMES[f.day]);
-		}
-
-		// open
-		tl.add(gA, [{ opacity: 0 }, { opacity: 1 }], 0, 1.6, 'sine');
-		tl.add(gV, [{ opacity: 0 }, { opacity: 0.8 }], 0.2, 1.6, 'sine');
-		tl.add(
-			panel,
-			[
-				{ opacity: 0, transform: 'translateX(120px)' },
-				{ opacity: 1, transform: 'translateX(0)' }
-			],
-			0,
-			1.4,
-			'enter'
-		);
-		tl.cue('eyebrow', 0.45);
-		tl.add(rail, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], 0.45, 0.7, 'enter');
-		tl.add(
-			eb,
-			[
-				{ opacity: 0, transform: 'translateX(-14px)' },
-				{ opacity: 1, transform: 'translateX(0)' }
-			],
-			0.55,
-			0.8,
-			'enter'
-		);
-		tl.cue('title', 0.75);
-		rise(tl, title.items, 0.75, { stagger: 0.09, dur: 1.0 });
-		const timeAt = snapper(onsets)(1.6, 0.4, 0.3);
-		tl.cue('time', timeAt);
-		rise(tl, tc.items, timeAt, { stagger: 0.06, dur: 0.85, from: '100%', fade: false });
-		tl.sound(timeAt, (w, b) =>
-			sound.impact(b, w, { gain: dark ? 0.3 : 0.2, size: 0.8, tone: dark ? 40 : 50, click: 0.4 })
-		);
-
-		// days: appear, then light up on the music's beats
-		const daysAt = timeAt + 0.9;
-		chips.forEach((ch, i) => fadeUp(tl, ch.c, daysAt + i * 0.05, { y: 14, dur: 0.6 }));
-		const on = chips.filter((c) => c.lit);
-		const beats = beatsIn(onsets, daysAt + 0.5, D, dark ? 0.42 : 0.25, 0.3, 0);
-		let prev = daysAt + 0.4;
-		const litTimes = on.map(() => {
-			const tt =
-				beats.find((x) => x > prev + (dark ? 0.4 : 0.22) && x < prev + 0.9) ??
-				prev + (dark ? 0.5 : 0.32);
-			prev = tt;
-			return tt;
-		});
-		if (litTimes.length) tl.cue('days light up', litTimes[0]);
-		on.forEach((ch, i) => {
-			const at = litTimes[i];
-			tl.add(
-				ch.on,
-				[{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }],
-				at,
-				dark ? 0.5 : 0.32,
-				dark ? 'cubic-bezier(0.5, 0, 0.2, 1)' : 'pop'
-			);
-			tl.add(ch.lo, [{ opacity: 0 }, { opacity: 1 }], at + 0.04, 0.2, 'linear');
-			tl.add(
-				ch.c,
-				[{ transform: 'scale(1)' }, { transform: 'scale(1.1)' }, { transform: 'scale(1)' }],
-				at,
-				0.36,
-				'out'
-			);
-			tl.sound(at, (w, b) =>
-				sound.tick(b, w, {
-					freq: dark ? SPARKLE[[0, 2, 1, 3, 2, 4, 0][i % 7]] / 2 : SPARKLE[i % SPARKLE.length],
-					gain: dark ? 0.06 : 0.05,
-					pan: -0.6 + i * 0.12,
-					decay: dark ? 0.16 : 0.07,
-					type: dark ? 'triangle' : 'sine'
-				})
-			);
-		});
-		const afterDays = (litTimes[litTimes.length - 1] ?? daysAt) + 0.55;
-
-		if (f?.kind === 'from') {
-			const startChip = chips[f.day];
-			const ring = div('start-ring', startChip.c);
-			startChip.c.style.overflow = 'visible';
-			startChip.on.style.borderRadius = '18px';
-			tl.add(
-				ring,
-				[
-					{ opacity: 0, transform: 'scale(1.3)' },
-					{ opacity: 1, transform: 'scale(1)' }
-				],
-				afterDays,
-				0.6,
-				'enter'
-			);
-			tl.add(
-				ring,
-				[{ opacity: 1 }, { opacity: 0.35 }, { opacity: 1 }],
-				afterDays + 0.6,
-				1.4,
-				'sine',
-				{
-					iterations: Math.max(1, Math.ceil((D - afterDays) / 1.4))
-				}
-			);
-			tl.sound(afterDays, (w, b) =>
-				sound.tick(b, w, { freq: SPARKLE[0] / 2, gain: 0.06, decay: 0.25, type: 'triangle' })
-			);
-		}
-		if (foot) {
-			tl.cue(f?.kind === 'count' ? 'episode counter' : 'season line', afterDays + 0.15);
-			fadeUp(tl, foot, afterDays + 0.15, { y: 14 });
-			if (f?.kind === 'count' && countEl) {
-				const n = f.count;
-				const c0 = afterDays + 0.2;
-				const cd = 1.5;
-				tl.text(countEl, (tt) => {
-					const p = Math.min(1, Math.max(0, (tt - c0) / cd));
-					return String(Math.round(n * (1 - Math.pow(1 - p, 3))));
-				});
-				// a rolling counter: ticks that slow down with the ease-out
-				for (let i = 0; i < 12; i++) {
-					const at = c0 + cd * (1 - Math.pow(1 - i / 12, 1 / 3)) * 0.98;
-					tl.sound(at, (w, b) =>
-						sound.tick(b, w, { freq: 3200 - i * 90, gain: 0.018, decay: 0.02, pan: 0.3 })
-					);
-				}
+			const name = div('sp-name', titleBox, t.name);
+			fitText(name, { width: COL_W, min: 72, lines: 3 });
+			// one mask per fitted line, so each line rises into its own
+			const lines: Node[][] = [[]];
+			for (const n of [...name.childNodes]) {
+				if (n instanceof HTMLBRElement) lines.push([]);
+				else lines[lines.length - 1].push(n);
+			}
+			name.replaceChildren();
+			for (const line of lines) {
+				const lm = mask(name, 'sp-mask sp-line');
+				const inner = div('sp-line-in', lm);
+				inner.append(...line);
+				titleParts.push(inner);
 			}
 		}
 
-		const tagAt = D - 4.0;
-		channelTag(tl, root, tagAt, sound, { scrim: true });
-		outToBlack(tl, root, 0.8);
+		const timeMask = mask(col, 'sp-mask sp-time');
+		const time = chars(timeMask, spec.airing.time, 'tnum');
+
+		const week = div('sp-week', col);
+		const lit = new Set(spec.airing.days);
+		const slots = DAYS.map((name, d) => {
+			const s = div('sp-slot', week);
+			const lm = mask(s, 'sp-mask sp-day');
+			const lab = div('sp-day-in', lm);
+			const off = css(span('sp-day-off', lab, name), { color: m.dim });
+			const on = css(span('sp-day-on', lab, name), { color: m.ink });
+			const track = css(div('sp-track', s), { background: m.track });
+			const fill = div('sp-fill', track);
+			return { s, lab, off, on, track, fill, lit: lit.has(d) };
+		});
+
+		const f = spec.foot;
+		let foot: HTMLElement | null = null;
+		let marker: HTMLElement | null = null;
+		if (f) {
+			const fm = mask(col, 'sp-mask sp-foot');
+			foot = css(div('sp-foot-in', fm), { color: m.soft });
+			if (f.kind === 'count') {
+				css(el('b', 'tnum', foot, String(f.count)), { color: m.ink });
+				foot.append(f.count === 1 ? ' episode, in order' : ' episodes, in order');
+			} else {
+				foot.append(`Season ${f.season} from `);
+				css(el('b', null, foot, DAY_NAMES[f.day]), { color: m.ink });
+				marker = css(div('sp-marker', slots[f.day].s), { background: m.ink });
+			}
+			fitText(foot, { width: COL_W, min: 26 });
+		}
+		// the column sits on the frame's middle, a little high
+		css(col, { top: `${Math.round((1080 - col.offsetHeight) / 2 - 20)}px` });
+
+		// --- the open: the scenes come up, the panel slides in and pushes them aside ---
+		const veil = div('sp-veil', root);
+		tl.add(veil, [{ opacity: 1 }, { opacity: 0 }], 0, 0.4, 'sine');
+		const pIn = 0.16;
+		tl.cue('the panel slides in', pIn);
+		tl.add(
+			panel,
+			[{ transform: `translateX(${-SPLIT - BAR}px)` }, { transform: 'translateX(0px)' }],
+			pIn,
+			m.open,
+			m.ease
+		);
+		tl.add(
+			world,
+			[{ transform: 'translateX(0px)' }, { transform: `translateX(${SPLIT / 2}px)` }],
+			pIn,
+			m.open,
+			m.ease
+		);
+
+		// --- the column types in on the panel ---
+		const t0 = pIn + m.open * (dark ? 0.55 : 0.5);
+		tl.cue('eyebrow', t0);
+		tl.add(ebBlock, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], t0, 0.5, 'glide');
+		riseIn(tl, ebText, t0 + 0.12, 0.6);
+		const tTitle = t0 + 0.24;
+		tl.cue('title', tTitle);
+		titleParts.forEach((p, i) => riseIn(tl, p, tTitle + i * 0.08, 0.9));
+		const tTime = snap(tTitle + 0.75 + (dark ? 0.15 : 0), 0.35, 0.5);
+		tl.cue('time', tTime);
+		time.items.forEach((c, i) => riseIn(tl, c, tTime + i * 0.05, 0.85));
+		const tWeek = tTime + 0.6;
+		slots.forEach((s, i) => {
+			riseIn(tl, s.lab, tWeek + i * 0.035, 0.6);
+			tl.add(
+				s.track,
+				[{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
+				tWeek + i * 0.035,
+				0.6,
+				'glide'
+			);
+		});
+
+		// the aired days light up, on the beats where the bed has them, else half a beat apart
+		const litSlots = slots.filter((s) => s.lit);
+		const first = tWeek + 0.65;
+		const beats = bed ? beatsIn(onsets, first - 0.2, close, 0.28, 0.3, 0) : [];
+		let prev = first - 0.4;
+		const litAt = litSlots.map(() => {
+			const next = beats.find((x) => x > prev + 0.26 && x < prev + 0.7) ?? prev + BEAT / 2;
+			prev = edge(next);
+			return prev;
+		});
+		if (litAt.length) tl.cue('days light up', litAt[0]);
+		litSlots.forEach((s, i) => {
+			const at = litAt[i];
+			tl.add(s.fill, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], at, m.fill, 'glide');
+			tl.add(s.on, [{ opacity: 0 }, { opacity: 1 }], at, 0.2, 'linear');
+			tl.add(s.off, [{ opacity: 1 }, { opacity: 0 }], at, 0.2, 'linear');
+		});
+		const afterDays = (litAt[litAt.length - 1] ?? first) + 0.45;
+		if (marker) {
+			tl.add(
+				marker,
+				[
+					{ opacity: 0, transform: 'translateY(-10px)' },
+					{ opacity: 1, transform: 'translateY(0px)' }
+				],
+				afterDays,
+				0.5,
+				'glide'
+			);
+		}
+		if (foot) {
+			tl.cue(f?.kind === 'count' ? 'episode count' : 'season line', afterDays + 0.1);
+			riseIn(tl, foot, afterDays + 0.1, 0.8);
+		}
+
+		// --- the close: the panel sweeps on across the scenes, the tag lands on the field ---
+		tl.cue('the panel covers the scenes', close);
+		tl.add(
+			panel,
+			[{ transform: 'translateX(0px)' }, { transform: `translateX(${SPLIT + BAR}px)` }],
+			close,
+			closeDur,
+			'move'
+		);
+		tl.add(
+			world,
+			[
+				{ transform: `translateX(${SPLIT / 2}px)` },
+				{ transform: `translateX(${SPLIT / 2 + 240}px)` }
+			],
+			close,
+			closeDur,
+			'move'
+		);
+		tl.show(world, 0, close + closeDur);
+		const tag = channelTag(tl, root, tagAt, sound, { gain: 0.5 });
+		// on paper the lockup's white `couch` is inked in night, as `lockupSvg` draws it on light
+		if (!dark)
+			tag
+				.querySelectorAll(`path[fill="${BRAND.white}"]`)
+				.forEach((p) => p.setAttribute('fill', BRAND.night));
+
+		const out = div('sp-veil', root);
+		tl.add(out, [{ opacity: 0 }, { opacity: 1 }], D - 0.32, 0.32, 'sine');
+
+		// --- sound ---
+		score(tl, sound, { tTime, litAt, close, tagAt, D, dark, bed: !!bed });
 		tl.sound(
 			0,
 			(w, b, skip) =>
 				sound.bed(b, w, bed, skip, {
 					fadeIn: 0.3,
-					fadeOut: 2.2,
+					fadeOut: 1.6,
 					end: D,
 					gain: 1,
-					ducks: [{ at: tagAt, depth: 0.45, hold: 1.4, attack: 0.25 }]
+					ducks: [{ at: tagAt - 0.1, depth: 0.4, hold: 1.6, attack: 0.25 }]
 				}),
 			D
 		);
-		tl.sound(0, (w, b) => sound.whoosh(b, w, { dur: 1.2, pan: [0.8, 0.2], gain: 0.045 }));
 		return tl;
 	}
 };
+
+interface Moments {
+	tTime: number;
+	litAt: number[];
+	close: number;
+	tagAt: number;
+	D: number;
+	dark: boolean;
+	bed: boolean;
+}
+
+/**
+ * The house's part: under a bed only punctuation, 10 dB and more under it (air under the
+ * panel's moves, a soft landing for the time, a note per lit day: glass climbing D major's
+ * pentatonic, or in the dark the felt piano an octave lower); without one, the house music
+ * itself (a pad on D add9 opening up, a sub, the piano walking the chord on the beat) under the
+ * same notes. The tag's sonic logo comes with the tag.
+ */
+function score(tl: TL, sound: Kit, o: Moments) {
+	const k = o.bed ? 1 : 1.6;
+	tl.sound(0.05, (w, b) => {
+		const h = house(sound, b);
+		air(h, w, 1.5, { peakAt: 0.7, band: [380, 2400], pans: [-0.7, 0], gain: 0.35 * k, seed: 501 });
+	});
+	tl.sound(o.tTime, (w, b) => {
+		const h = house(sound, b);
+		impact(h, w, { gain: (o.bed ? 0.16 : 0.3) * (o.dark ? 1.2 : 1), root: 'D1', seed: 502 });
+	});
+	o.litAt.forEach((at, i) =>
+		tl.sound(at, (w, b) => {
+			const h = house(sound, b);
+			const note = DAY_NOTES[i % DAY_NOTES.length];
+			if (o.dark)
+				piano(h, w, hz(note) / 2, {
+					vel: 0.5,
+					dur: 1.1,
+					pan: -0.4 + i * 0.12,
+					verb: 0.6,
+					gain: (o.bed ? 0.55 : 0.9) * k,
+					seed: 510 + i
+				});
+			else
+				glass(h, w, note, {
+					decay: 1.6,
+					gain: (o.bed ? 0.5 : 0.8) * k,
+					pan: -0.45 + i * 0.15,
+					verb: 0.6,
+					seed: 520 + i
+				});
+		})
+	);
+	tl.sound(o.close - 0.1, (w, b) => {
+		const h = house(sound, b);
+		air(h, w, 1.0, { peakAt: 0.5, band: [500, 3200], pans: [-0.4, 0.8], gain: 0.3 * k, seed: 503 });
+	});
+	if (o.bed) return;
+	const D = o.D;
+	tl.sound(0, (w, b) => {
+		const h = house(sound, b);
+		const chord = o.dark ? ['D3', 'A3', 'B3', 'F#4'] : ['D3', 'A3', 'E4', 'F#4'];
+		pad(h, w, chord, Math.max(1, o.tagAt - 1.6), {
+			attack: 1.4,
+			release: 1.8,
+			level: 0.85,
+			seed: 530
+		});
+		padSweep(h, w, [
+			[0, 420],
+			[o.tTime, 1500],
+			[o.close, 2600],
+			[o.tagAt - 0.4, 1200],
+			[D, 800]
+		]);
+		sub(h, w + 0.3, 'D2', Math.max(1, o.tagAt - 1.8), { gain: 0.45, attack: 1.2, release: 1.4 });
+		// the piano walks the chord on the beat, from the time to the tag
+		const walk = o.dark ? ['D3', 'A3', 'F#3', 'E3'] : ['D4', 'A4', 'F#4', 'E4'];
+		for (let i = 0, at = o.tTime; at < o.tagAt - 0.9; i++, at += 2 * BEAT)
+			piano(h, w + at, walk[i % walk.length], {
+				vel: 0.4,
+				dur: 1.4,
+				pan: i % 2 ? 0.2 : -0.2,
+				verb: 0.55,
+				gain: 0.7,
+				seed: 540 + i
+			});
+	});
+}

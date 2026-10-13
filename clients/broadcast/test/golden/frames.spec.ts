@@ -26,9 +26,12 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['promo-bright', [1.5, 4.4, 10.6, 16]],
 	['promo-premiere', [12.4, 20.6]],
 	['evergreen', [2.5]],
-	['strip-bright', [13]],
-	['strip-dark', [7.5]],
-	['short', [3.5]],
+	// the panel sliding in, the week lit, the tag on the clean field
+	['strip-bright', [0.5, 7, 13.5]],
+	['strip-dark', [7, 13.5]],
+	// the rush, the swipe on the hit, the card
+	['short', [0.6, 1.2, 3.5]],
+	['short-logo', [3.5]],
 	['lineup', [1, 6]],
 	// the hold, the push into the card, its last frame (up next's first)
 	['squeeze-expand', [5, 10.4, 11.48]],
@@ -46,6 +49,7 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['promo-zabky', [3, 8, 16]],
 	['upnext-long', [3]],
 	['strip-long', [8]],
+	['strip-long-bright', [6]],
 	['short-long', [4.2]],
 	['lineup-long', [4.4, 7]],
 	['squeeze-long', [5]],
@@ -147,7 +151,8 @@ test('a frame is a function of t alone', async ({ page }) => {
 	for (const [name, t] of [
 		['promo-cinematic', 6.2],
 		['lineup', 4.4],
-		['squeeze-frames', 0.6]
+		['squeeze-frames', 0.6],
+		['strip-dark', 9.3]
 	] as const) {
 		await load(page, FIXTURES[name]);
 		await seek(page, t);

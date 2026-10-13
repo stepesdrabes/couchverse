@@ -20,6 +20,8 @@ const CASES: [string, Spec, number][] = [
 	['ident-short (the house instruments and hall)', FIXTURES['ident-short'], -18],
 	['sting-5', { ...FIXTURES['sting-5'], loudness: -20 }, -20],
 	['promo-bright (bed, beats)', FIXTURES['promo-bright'], -18],
+	['strip-dark (bed, the days on its beats)', FIXTURES['strip-dark'], -18],
+	['short-logo (the house music, no bed)', FIXTURES['short-logo'], -18],
 	['squeeze-expand', { ...FIXTURES['squeeze-expand'], loudness: -23 }, -23],
 	['break', BREAK, -20]
 ];

@@ -2433,6 +2433,40 @@ approves is what airs.
   breathing once a loop; its pad's partials make whole cycles per loop under a low-pass that
   opens and closes with the dusk, and the sonic logo opens each loop on the felt piano, so
   picture and sound loop without a seam (tests check both).
+- **A title shown big** (`src/templates/reel.ts`, the strip and short promos): its scenes are
+  its footage shots cut to the beat (`planCuts`: each cut as near the wanted length as the bed's
+  beats, else the house tempo's, allow and never longer than its shot has frames, the shots in
+  order and cycled, a shot used again picking up where it stopped), each cover-cropped toward
+  its `focus` in a box of its own shown only while it plays (so only the frame on screen
+  decodes) and slowly pushed; without footage, its backdrop pushed over the same window. Its
+  logo is sized by its aspect to the same area whatever its shape, inside a box (`logoSize`), and
+  drawn as it is when most of it, or its outline, reads on the field it sits on at 3:1 (a yellow
+  logo outlined in black reads on night by its fill and on paper by its outline); else it is
+  redrawn once on a canvas with every colour walked in HSL lightness away from the field to
+  4.5:1 and neutral colours inverted (Dexter's dark red lifts to a red that reads on night, a
+  black logo made for paper turns white), a pure function of its pixels. A logo replaces the
+  name; one that did not load falls back to the name in type.
+- **Strip and short promos** (sharp and flat, D41's logos and scenes): the strip (12-20 s) opens
+  on the series' scenes; a flat panel with a 12 px red bar on its edge slides in over the left
+  half while the scenes slide half as far aside (a parallax), and the column types in on it in
+  masked rises: the eyebrow in a red block, the logo (else the name), the time at 184 px figure
+  by figure on a strong onset, the week (seven sharp 8 px bars, square ends) whose aired days
+  fill red on the bed's beats, half a beat apart, each with a glass note climbing D major's
+  pentatonic (dark: the felt piano an octave down), and the foot line with a square marker under
+  a season's start day. 1.3 s before the channel tag the panel sweeps on across the scenes, its
+  red bar crossing them, and the tag lands on the clean field (on paper the lockup's `couch` is
+  inked night). Bright is day: a paper panel, night type, the scenes as they are, hard cuts;
+  dark is night: a night panel, the scenes at half strength (their own opacity, no layer over
+  them), the dusk rising at the panel's foot, dissolves, slower moves. The short promo (7-12 s)
+  rushes into the scenes from night (one scene, or two quick cuts, the second on the bed's
+  strongest beat before the hit), and on the bed's first hit a 240 px red bar crosses the frame
+  in 0.36 s with the title card wiped in behind it: the same scene carrying on under the night,
+  the logo (else the name) whole in the middle, slowly drifting closer, the airing rising into
+  a red block above it half a second later, the tag 3.6 s after the hit (no earlier than 4.2 s
+  and no later than 3.3 s before the end). Under a bed the house adds only punctuation (air under the
+  moves, a soft landing, the notes, a reversed swell into the hit); without one the house plays
+  the music itself (pads, sub, the felt piano on the beat; the short's hit an impact with D add 9
+  blooming and a felted pulse under the card).
 - **Squeeze compositing**: the spec's `program` fills the panel with the program's last seconds as
   frames (`frames`: the page draws them; the composer writes this, and the sidecar renders it keyed
   and composites the frames itself, see "couchtv"), a stand-in (`standIn`: the ending title's
@@ -2550,9 +2584,9 @@ approves is what airs.
   airing, a bulletin's sound starts silent and is over before its last frame, and items rendered
   alone and mixed sound like the break rendered in one pass (within 0.1 LU item by item, 0.5 LU
   in every 400 ms after the first second, 0.2 dB of true peak); a unit test pins the loudness
-  numbers the server's Go port reproduces. Stand-in media (gradient art, two footage shots, a
-  bed) are committed in `test/media` with the script that made them. `npm run dev` (port 5190)
-  plays every fixture.
+  numbers the server's Go port reproduces. Stand-in media (gradient art, title logos, two footage
+  shots, a bed) are committed in `test/media` with the script that made them. `npm run dev`
+  (port 5190) plays every fixture.
 
 ## Backend dependency graph
 

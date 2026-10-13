@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenerates the stand-in media the fixtures and golden frames use: gradient artwork for four
-# fictional titles, a logo, two short footage shots and a rhythmic bed. The files are committed
+# fictional titles, title logos, two short footage shots and a rhythmic bed. The files are committed
 # (golden frames depend on their exact bytes); rerun only to change them, then update the goldens.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -55,3 +55,21 @@ logo logo-wide.png 800x200 \
 logo logo-tall.png 460x200 \
 	0xd81d24:0:0:200:200 black@0:50:50:100:100 0xf2ece2:240:0:220:60 0xf2ece2:240:90:160:40 \
 	0xd81d24:240:160:220:40
+
+# the strip and short promos' logos, trimmed PNGs on transparency: blocks in yellow outlined in
+# near-black (they read on night by their fill and on paper by their outline) and a flat dark red
+# (too dark for night alone)
+blocklogo() { # name size boxes...
+	local name=$1 size=$2 vf="format=rgba"
+	shift 2
+	for b in "$@"; do vf="$vf,drawbox=$b:t=fill:replace=1"; done
+	ff -f lavfi -i "color=c=0x00000000:s=$size,format=rgba" -frames:v 1 -vf "$vf" "logo-$name.png"
+}
+blocklogo sunny 1200x400 \
+	x=0:y=0:w=360:h=400:color=0x141414@1 x=420:y=60:w=360:h=340:color=0x141414@1 \
+	x=840:y=0:w=360:h=400:color=0x141414@1 x=18:y=18:w=324:h=364:color=0xffd51c@1 \
+	x=438:y=78:w=324:h=304:color=0xffd51c@1 x=858:y=18:w=324:h=364:color=0xffd51c@1 \
+	x=120:y=120:w=120:h=160:color=0x141414@1 x=960:y=200:w=120:h=182:color=0x00000000@0
+blocklogo water 1000x420 \
+	x=0:y=0:w=260:h=420:color=0x8a1c22@1 x=330:y=100:w=260:h=320:color=0x8a1c22@1 \
+	x=660:y=0:w=340:h=420:color=0x8a1c22@1 x=740:y=120:w=180:h=180:color=0x00000000@0

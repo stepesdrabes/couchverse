@@ -488,193 +488,254 @@
 	bottom: 72px;
 }
 
-/* --- 5 strip promo ---------------------------------------------------------------------- */
+/* --- 5 strip promo: the scenes, the panel sliding over them and its column --------------------- */
 
+.sp-world {
+	position: absolute;
+	inset: 0;
+}
+/* the dark mood: the scenes at half strength on night (their own opacity: no layer over them)
+   and the dusk rising at the panel's foot, clear of its red bar */
+.mood-dark .sp-world .shot img {
+	opacity: 0.5;
+}
+.sp-dusk {
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(
+		1000px 560px at 420px 1240px,
+		rgb(86 6 16 / 0.9) 0%,
+		rgb(38 3 6 / 0.68) 38%,
+		rgb(20 2 3 / 0.36) 62%,
+		transparent 100%
+	);
+}
+/* the panel: a full frame wide, its right edge on the frame's middle at rest */
 .sp-panel {
 	position: absolute;
-	right: 0;
+	left: -960px;
 	top: 0;
-	width: 1180px;
+	width: 1920px;
 	height: 1080px;
-	overflow: hidden;
-	-webkit-mask-image: linear-gradient(
-		90deg,
-		transparent 0%,
-		rgb(0 0 0 / 0.12) 12%,
-		rgb(0 0 0 / 0.42) 24%,
-		rgb(0 0 0 / 0.78) 36%,
-		#000 50%
-	);
-	mask-image: linear-gradient(
-		90deg,
-		transparent 0%,
-		rgb(0 0 0 / 0.12) 12%,
-		rgb(0 0 0 / 0.42) 24%,
-		rgb(0 0 0 / 0.78) 36%,
-		#000 50%
-	);
+}
+.sp-bar {
+	position: absolute;
+	right: -12px;
+	top: 0;
+	width: 12px;
+	height: 1080px;
+	background: var(--brand);
 }
 .sp-col {
 	position: absolute;
-	left: var(--safe-x);
-	top: 0;
-	bottom: 0;
-	width: 980px;
+	left: 96px;
+	width: 792px;
 	display: flex;
 	flex-direction: column;
-	justify-content: center;
-	padding-bottom: 40px;
+	align-items: flex-start;
 }
-.sp-title {
-	font-size: 115px;
-	margin-top: 30px;
-}
-.sp-time {
-	font-size: 220px;
-	font-weight: 800;
-	letter-spacing: -0.04em;
-	line-height: 0.9;
-	color: var(--ink);
-	margin-top: 26px;
-}
-.sp-days {
-	display: flex;
-	gap: 14px;
-	margin-top: 48px;
-}
-.day {
-	position: relative;
-	width: 104px;
-	height: 76px;
-	border-radius: 18px;
-	display: grid;
-	place-items: center;
-	font-size: 28px;
-	font-weight: 700;
-	letter-spacing: 0.02em;
-	border: 2px solid rgb(255 255 255 / 0.16);
-	color: rgb(var(--text-rgb) / 0.55);
+/* a masked reveal: what rises into it from below is clipped at its edges */
+.sp-mask,
+.sh-mask {
+	display: block;
 	overflow: hidden;
 }
-.day .on {
-	position: absolute;
-	inset: -2px;
-	background: var(--accent);
-	transform-origin: 50% 100%;
-	transform: scaleY(0);
-}
-.day span {
+.sp-eyebrow {
 	position: relative;
+	height: 64px;
 }
-.day .lbl-on {
+.sp-eyebrow-block,
+.sh-block {
 	position: absolute;
 	inset: 0;
-	display: grid;
-	place-items: center;
-	color: var(--on-accent);
-	opacity: 0;
+	background: var(--brand);
+	transform-origin: 0 50%;
 }
-.day .start-ring {
-	position: absolute;
-	inset: -10px;
-	border-radius: 26px;
-	border: 3px solid var(--ink);
+.sp-eyebrow .sp-mask {
+	position: relative;
+	height: 64px;
+	padding: 0 20px;
 }
-.sp-count {
-	margin-top: 40px;
-	font-size: 36px;
-	font-weight: 600;
+.sp-eyebrow-text {
+	font-size: 40px;
+	font-weight: 700;
+	letter-spacing: -0.005em;
+	line-height: 64px;
 	white-space: nowrap;
-	color: rgb(var(--text-rgb) / 0.86);
+	color: #f4ede4;
 }
-.sp-count b {
-	font-weight: 800;
-	color: var(--text);
+.sp-title {
+	margin-top: 30px;
 }
-.sp-count b.ink {
-	color: var(--ink);
+.sp-title .title-logo {
+	display: block;
 }
-
-/* --- 6 short promo (comic energy) -------------------------------------------------------- */
-
-.rays {
-	position: absolute;
-	left: 50%;
-	top: 50%;
-	width: 2600px;
-	height: 2600px;
-	margin: -1300px 0 0 -1300px;
-	background: repeating-conic-gradient(
-		from 0deg,
-		rgb(var(--accent-rgb) / 0.09) 0deg 4deg,
-		transparent 4deg 12deg
-	);
-	-webkit-mask-image: radial-gradient(circle, transparent 12%, #000 30%, transparent 62%);
-	mask-image: radial-gradient(circle, transparent 12%, #000 30%, transparent 62%);
-	border-radius: 50%;
-	/* a render seeks paused animations, so without the hint every frame's new scale paints
-	   this large masked gradient again; held at its first raster the soft rays look the same */
-	will-change: transform;
-}
-.halftone {
-	position: absolute;
-	inset: 0;
-	background-image: radial-gradient(circle, rgb(var(--accent-rgb) / 0.5) 2.6px, transparent 3.2px);
-	background-size: 22px 22px;
-	-webkit-mask-image: radial-gradient(ellipse 60% 70% at 100% 100%, #000, transparent 70%);
-	mask-image: radial-gradient(ellipse 60% 70% at 100% 100%, #000, transparent 70%);
-}
-.halftone.tl {
-	-webkit-mask-image: radial-gradient(ellipse 55% 65% at 0% 0%, #000, transparent 70%);
-	mask-image: radial-gradient(ellipse 55% 65% at 0% 0%, #000, transparent 70%);
-}
-.burst {
-	position: absolute;
-	left: 50%;
-	top: 50%;
-	width: 1400px;
-	height: 1400px;
-	margin: -700px 0 0 -700px;
-	border-radius: 50%;
-	background-image: radial-gradient(circle, rgb(var(--accent-rgb) / 0.75) 3.5px, transparent 4.2px);
-	background-size: 26px 26px;
-	-webkit-mask-image: radial-gradient(circle, transparent 40%, #000 48%, transparent 64%);
-	mask-image: radial-gradient(circle, transparent 40%, #000 48%, transparent 64%);
-}
-.sh-word {
-	font-size: 300px;
+.sp-name {
+	font-size: 120px;
 	font-weight: 800;
 	letter-spacing: -0.035em;
-	line-height: 1;
-	text-transform: uppercase;
-	text-align: center;
-	color: var(--accent);
-	text-shadow:
-		0 12px 0 rgb(var(--shadow-rgb, 10 12 30)),
-		0 30px 80px rgb(0 0 0 / 0.5);
+	line-height: 0.98;
+}
+/* a line's mask reaches under its descenders */
+.sp-line {
+	padding: 0 0.08em 0.14em 0;
+	margin-bottom: -0.14em;
+}
+.sp-line-in {
+	display: block;
+	white-space: nowrap;
+}
+.sp-time {
+	/* the last figure's ink reaches past the tracked advance */
+	padding-right: 0.08em;
+	margin-top: 30px;
+	font-size: 184px;
+	font-weight: 800;
+	letter-spacing: -0.045em;
+	line-height: 0.86;
+	white-space: nowrap;
+}
+.sp-time .ch {
+	display: inline-block;
+}
+.sp-week {
+	display: flex;
+	gap: 10px;
+	margin-top: 46px;
+}
+.sp-slot {
+	position: relative;
+	width: 104px;
+}
+.sp-day-in {
+	position: relative;
+	height: 30px;
+	font-size: 24px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	line-height: 30px;
+	white-space: nowrap;
+}
+.sp-day-on {
+	position: absolute;
+	left: 0;
+	top: 0;
+	opacity: 0;
+}
+.sp-track {
+	position: relative;
+	margin-top: 12px;
+	height: 8px;
+	transform-origin: 0 50%;
+}
+.sp-fill {
+	position: absolute;
+	inset: 0;
+	background: var(--brand);
+	transform-origin: 0 50%;
+	transform: scaleX(0);
+}
+.sp-marker {
+	position: absolute;
+	left: 0;
+	top: 62px;
+	width: 12px;
+	height: 12px;
+}
+.sp-foot {
+	margin-top: 40px;
+}
+.sp-foot-in {
+	font-size: 32px;
+	font-weight: 500;
+	line-height: 1.25;
+	white-space: nowrap;
+}
+.sp-foot-in b {
+	font-weight: 700;
+}
+.sp-veil,
+.sh-veil {
+	position: absolute;
+	inset: 0;
+	background: #050505;
+}
+
+/* --- 6 short promo: the rush into the scenes, the red swipe on the hit, the title card ------- */
+
+.sh-rush,
+.sh-card,
+.sh-card-in {
+	position: absolute;
+	inset: 0;
+}
+.sh-card {
+	overflow: hidden;
+}
+/* the card's one grade: the night dim, the centre's shade under the title, the tag's corner */
+.sh-grade {
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(
+			760px 300px at 100% 100%,
+			rgb(5 5 5 / 0.6) 0%,
+			rgb(5 5 5 / 0.33) 45%,
+			transparent 100%
+		),
+		radial-gradient(1100px 640px at 50% 48%, rgb(5 5 5 / 0.38) 0%, rgb(5 5 5 / 0) 100%),
+		linear-gradient(rgb(5 5 5 / 0.5), rgb(5 5 5 / 0.5));
+}
+.sh-swipe {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 240px;
+	height: 1080px;
+	background: var(--brand);
+}
+.sh-group {
+	position: absolute;
+	inset: 0 96px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding-bottom: 40px;
 }
 .sh-when {
 	display: flex;
 	align-items: center;
-	gap: 26px;
-	margin-bottom: 36px;
-}
-.sh-when .eyebrow {
-	color: var(--text);
-	font-size: 34px;
-	margin-right: -0.3em;
-}
-.sh-time {
-	display: inline-flex;
-	align-items: center;
+	gap: 0.3em;
 	height: 84px;
-	padding: 0 30px;
-	border-radius: 999px;
-	background: var(--accent);
-	color: var(--on-accent);
-	font-size: 56px;
+	font-size: 58px;
 	font-weight: 800;
-	letter-spacing: -0.01em;
+	letter-spacing: -0.02em;
+	line-height: 84px;
+	white-space: nowrap;
+	color: #f4ede4;
+}
+.sh-eyebrow {
+	position: relative;
+}
+.sh-eyebrow .sh-mask {
+	position: relative;
+	height: 84px;
+	padding: 0 22px;
+}
+.sh-title {
+	margin-top: 40px;
+}
+.sh-title .title-logo {
+	display: block;
+}
+.sh-name {
+	font-size: 200px;
+	font-weight: 800;
+	letter-spacing: -0.04em;
+	line-height: 0.94;
+	text-align: center;
+	color: #f4ede4;
 }
 
 /* --- 7 lineup ------------------------------------------------------------------------------ */
