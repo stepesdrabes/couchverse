@@ -47,7 +47,7 @@
 
 			<div class="relative flex max-w-2xl flex-col justify-center gap-3 p-6 sm:p-8">
 				<div class="flex items-center gap-3">
-					<Lockup size={18} />
+					<Lockup size={16} />
 					<h2 id="couchtv-on-now" class="eyebrow">
 						{onAir ? m.couchtv_on_now() : m.couchtv_off_air()}
 					</h2>

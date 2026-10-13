@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { BRAND } from '@couchverse/broadcast/brand/wordmark';
 	import type { Snippet } from 'svelte';
-	import { colors } from '$lib/generated/tokens';
 	import Lockup from './Lockup.svelte';
 
 	// The channel's full-screen states without a picture: off air, a link that ended, a channel
-	// that would not play. The actions are the page's.
+	// that would not play, on the brand's flat night field (D42). The actions are the page's.
 	let {
 		title,
 		message = '',
@@ -13,15 +13,11 @@
 </script>
 
 <div
-	class="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-black px-6"
+	class="flex min-h-dvh w-full items-center justify-center px-6"
+	style="background: {BRAND.night}"
 >
-	<!-- a glow of the brand's red behind the lockup -->
-	<div
-		class="pointer-events-none absolute inset-0"
-		style="background: radial-gradient(ellipse at center, {colors.accent}29, transparent 65%)"
-	></div>
-	<div class="relative z-10 flex max-w-md flex-col items-center gap-5 text-center">
-		<Lockup size={44} />
+	<div class="flex max-w-md flex-col items-center gap-5 text-center">
+		<Lockup size={40} layout="stack" />
 		<div class="space-y-2">
 			<h1 class="text-xl font-bold text-white">{title}</h1>
 			{#if message}

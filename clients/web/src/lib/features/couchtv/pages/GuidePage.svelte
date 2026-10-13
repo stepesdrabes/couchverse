@@ -25,7 +25,7 @@
 	<!-- the heading and "Tune in" are the page's chrome, not the guide's, so they never shimmer -->
 	<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
 		<div class="flex items-center gap-4">
-			<Lockup size={30} />
+			<Lockup size={26} />
 			<h1 class="text-2xl font-bold">{m.couchtv_guide()}</h1>
 		</div>
 		<a
