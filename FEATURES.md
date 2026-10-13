@@ -964,11 +964,12 @@ server that does not send it). The admin settings page toggles it.
   whenever no render or assembly is due, so outside the
   quiet hours it holds no browser. It serves the embedded
   broadcast bundle (`backend/broadcast`, `make build`) and the media above on localhost to one
-  headless Chromium (chromedp; GPU flags on Linux when `/dev/dri` exists; restarted every 25
-  jobs) and publishes `versions()` at start. Artwork comes at the artwork feature's sizes or at
-  the screens' own, made once on the first request (`artwork.Service.Within`): `size=w1920`, a
-  backdrop at most 1920 wide, and `size=1600x800`, a logo within that box, still transparent
-  around its letters. A render extracts its media first (footage frames
+  headless Chromium (chromedp; GPU flags on Linux when `/dev/dri` exists; `--expose-gc`, so a
+  full ident's render collects its canvas reads; restarted every 25 jobs) and publishes
+  `versions()` at start. Artwork comes at the artwork feature's sizes or at the screens' own,
+  made once on the first request (`artwork.Service.Within`): `size=w1920`, a backdrop at most
+  1920 wide, and `size=1600x800`, a logo within that box, still transparent around its
+  letters. A render extracts its media first (footage frames
   1080p, square pixels, SDR via `playback.SDRFilter`, the source's last frame repeated past
   its end, served `no-store`; stereo FLAC of the default track; a soundtrack's stretch of its
   downloaded preview as stereo FLAC too, since Chromium has no AAC decoder), then per frame `advance(t)`

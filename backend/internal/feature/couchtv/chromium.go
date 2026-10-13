@@ -49,12 +49,15 @@ const startTimeout = 2 * time.Minute
 // open starts Chromium on the render page. On Linux it renders on the GPU when the
 // container has one (/dev/dri, the Pi's V3D; flags from the planning benchmark) and runs
 // without Chromium's sandbox, which needs privileges a container lacks; the page is the
-// sidecar's own bundle on localhost, never web content.
+// sidecar's own bundle on localhost, never web content. The page may collect garbage
+// (--expose-gc): a full ident's motion blur reads its canvas back dozens of times a frame,
+// which V8 would otherwise leave piling up past the container's memory.
 func (b *browser) open(pageURL string) error {
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.WindowSize(1920, 1080),
 		chromedp.Flag("force-device-scale-factor", "1"),
 		chromedp.Flag("run-all-compositor-stages-before-draw", true),
+		chromedp.Flag("js-flags", "--expose-gc"),
 		chromedp.WSURLReadTimeout(startTimeout),
 	)
 	if b.execPath != "" {
