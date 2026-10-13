@@ -25,7 +25,7 @@ const (
 	// wherever its data is shown.
 	WeatherAttribution = "Weather data by Open-Meteo.com"
 	// WarningsAttribution names ČHMÚ, whose open data asks for its source.
-	WarningsAttribution = "Zdroj: ČHMÚ"
+	WarningsAttribution = "Source: ČHMÚ"
 	forecastDays        = 5
 	// a day's symbol shows the weather of its daytime hours, 09:00 to 18:00
 	daytimeFrom, daytimeTo = 9, 18
@@ -465,7 +465,7 @@ func regionsOf(districts map[string]bool) []CouchTvWarningRegion {
 var czechiaGeoJSON []byte
 
 // OutlineAttribution is the credit the border's licence asks for.
-const OutlineAttribution = "Hranice: ČÚZK / geoBoundaries (CC BY 4.0)"
+const OutlineAttribution = "Borders: ČÚZK / geoBoundaries (CC BY 4.0)"
 
 // CzechiaOutline is Czechia's border as [longitude, latitude] points, closed: the last
 // point is the first.

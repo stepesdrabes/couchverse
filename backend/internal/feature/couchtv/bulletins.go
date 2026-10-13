@@ -65,7 +65,7 @@ type CouchTvBulletins struct {
 // ČHMÚ's warnings.
 type CouchTvWeather struct {
 	FetchedAt   time.Time            `json:"fetchedAt"`
-	ValidUntil  time.Time            `json:"validUntil" doc:"When the forecast is too old to air."`
+	ValidUntil  time.Time            `json:"validUntil" doc:"When the forecast is too old to air: six hours after it was fetched, by the midnight after it at the latest, since its days are named from that day."`
 	Attribution string               `json:"attribution" doc:"The credit Open-Meteo's licence (CC BY 4.0) asks for wherever the data is shown."`
 	TimeZone    string               `json:"timeZone" doc:"The zone the days are dates in, the channel's."`
 	Cities      []CouchTvWeatherCity `json:"cities" doc:"The configured cities, in their order."`
@@ -259,7 +259,7 @@ func (b *Bulletins) weather(ctx context.Context, cfg CouchTvConfig, now time.Tim
 	if err != nil {
 		return fmt.Errorf("the forecast: %w", err)
 	}
-	w := CouchTvWeather{FetchedAt: now, ValidUntil: now.Add(bulletinValid[BulletinWeather]), Attribution: WeatherAttribution,
+	w := CouchTvWeather{FetchedAt: now, ValidUntil: weatherUntil(now, cfg.location()), Attribution: WeatherAttribution,
 		TimeZone: cfg.TimeZone, Cities: cities}
 	if alert, err := readCAP(ctx, f); err != nil {
 		slog.Warn("couchtv: ČHMÚ's warnings could not be read", "err", err)
@@ -271,6 +271,17 @@ func (b *Bulletins) weather(ctx context.Context, cfg CouchTvConfig, now time.Tim
 			Items: warningsOf(*b.alert, now, cfg.location())}
 	}
 	return b.Store.saveBulletin(ctx, BulletinWeather, w.FetchedAt, w.ValidUntil, w)
+}
+
+// weatherUntil is when a forecast fetched at now stops airing: bulletinValid later, but by
+// midnight in loc at the latest, since its days are named from the day it was fetched
+// (Today, Tomorrow).
+func weatherUntil(now time.Time, loc *time.Location) time.Time {
+	l := now.In(loc)
+	if midnight := time.Date(l.Year(), l.Month(), l.Day()+1, 0, 0, 0, 0, loc); midnight.Before(now.Add(bulletinValid[BulletinWeather])) {
+		return midnight
+	}
+	return now.Add(bulletinValid[BulletinWeather])
 }
 
 // news fetches the feeds, ranks their stories and stores the bulletin when it has enough

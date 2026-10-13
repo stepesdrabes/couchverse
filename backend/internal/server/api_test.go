@@ -312,7 +312,7 @@ func apiCases() []apiCase {
 			c.TimeZone = "Mars/Olympus"
 		}), status: 400},
 		{op: "adminUpdateCouchTv", as: "admin", method: "PUT", path: "/admin/couchtv", body: couchTvConfig(func(c *couchtv.CouchTvConfig) {
-			c.Bulletins.Cities[1].Name = "Praha"
+			c.Bulletins.Cities[1].Name = "Prague"
 		}), status: 400},
 		{op: "adminRegenerateDay", as: "admin", method: "POST", path: "/admin/couchtv/days/" + couchTvDay(1) + "/regenerate", status: 200},
 		{op: "adminRegenerateDay", as: "admin", method: "POST", path: "/admin/couchtv/days/" + couchTvDay(30) + "/regenerate", status: 400},

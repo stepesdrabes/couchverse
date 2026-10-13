@@ -2881,7 +2881,7 @@ pub mod types {
         pub fetched_at: String,
         /// The zone the days are dates in, the channel's.
         pub time_zone: String,
-        /// When the forecast is too old to air.
+        /// When the forecast is too old to air: six hours after it was fetched, by the midnight after it at the latest, since its days are named from that day.
         pub valid_until: String,
         /// ČHMÚ's warnings; absent when they could not be read.
         #[serde(default, skip_serializing_if = "Option::is_none")]

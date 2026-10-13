@@ -3072,7 +3072,7 @@
             "type": "string"
           },
           "validUntil": {
-            "description": "When the forecast is too old to air.",
+            "description": "When the forecast is too old to air: six hours after it was fetched, by the midnight after it at the latest, since its days are named from that day.",
             "format": "date-time",
             "type": "string"
           },

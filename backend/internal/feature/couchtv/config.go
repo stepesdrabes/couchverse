@@ -131,12 +131,13 @@ func DefaultConfig() CouchTvConfig {
 	}
 }
 
-// DefaultCities are the regional capitals (Praha seats Středočeský kraj too), at
-// GeoNames' coordinates. Pardubice is left out: 19 km from Hradec Králové, its label
+// DefaultCities are the regional capitals (Prague seats Středočeský kraj too), at
+// GeoNames' coordinates, Prague by its English name (the weather is English, D13) and the
+// rest by their own. Pardubice is left out: 19 km from Hradec Králové, its label
 // would collide with that one on a map of Czechia.
 func DefaultCities() []CouchTvCity {
 	return []CouchTvCity{
-		{Name: "Praha", Lat: 50.0880, Lon: 14.4208},
+		{Name: "Prague", Lat: 50.0880, Lon: 14.4208},
 		{Name: "Brno", Lat: 49.1952, Lon: 16.6080},
 		{Name: "Ostrava", Lat: 49.8347, Lon: 18.2820},
 		{Name: "Plzeň", Lat: 49.7475, Lon: 13.3776},

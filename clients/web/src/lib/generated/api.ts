@@ -1032,7 +1032,7 @@ export interface CouchTvWeather {
 	fetchedAt: string;
 	/** The zone the days are dates in, the channel's. */
 	timeZone: string;
-	/** When the forecast is too old to air. */
+	/** When the forecast is too old to air: six hours after it was fetched, by the midnight after it at the latest, since its days are named from that day. */
 	validUntil: string;
 	/** ČHMÚ's warnings; absent when they could not be read. */
 	warnings?: CouchTvWarnings;

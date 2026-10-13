@@ -21,29 +21,29 @@ func readBulletinFixture(t *testing.T, name string) []byte {
 	return body
 }
 
-// The forecast of 13 Oct 17:00 for Praha, Brno and Ostrava, as Open-Meteo sent it.
+// The forecast of 13 Oct 17:00 for Prague, Brno and Ostrava, as Open-Meteo sent it.
 func TestParseForecast(t *testing.T) {
 	cities := DefaultCities()[:3]
 	got, err := parseForecast(readBulletinFixture(t, "openmeteo.json"), cities)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 3 || got[0].Name != "Praha" || got[2].Name != "Ostrava" {
+	if len(got) != 3 || got[0].Name != "Prague" || got[2].Name != "Ostrava" {
 		t.Fatalf("cities: %+v", got)
 	}
-	praha := got[0]
+	prague := got[0]
 	// the configured position, not the model's grid cell (50.087627, 14.409841)
-	if praha.Lat != 50.0880 || praha.Lon != 14.4208 {
-		t.Errorf("Praha is at %v, %v", praha.Lat, praha.Lon)
+	if prague.Lat != 50.0880 || prague.Lon != 14.4208 {
+		t.Errorf("Prague is at %v, %v", prague.Lat, prague.Lon)
 	}
-	if praha.Now != (CouchTvWeatherNow{Temperature: 14.9, Code: 1, IsDay: true}) {
-		t.Errorf("Praha now: %+v", praha.Now)
+	if prague.Now != (CouchTvWeatherNow{Temperature: 14.9, Code: 1, IsDay: true}) {
+		t.Errorf("Prague now: %+v", prague.Now)
 	}
-	if len(praha.Days) != forecastDays || praha.Days[0].Date != "2026-10-13" || praha.Days[4].Date != "2026-10-17" {
-		t.Fatalf("Praha's days: %+v", praha.Days)
+	if len(prague.Days) != forecastDays || prague.Days[0].Date != "2026-10-13" || prague.Days[4].Date != "2026-10-17" {
+		t.Fatalf("Prague's days: %+v", prague.Days)
 	}
-	if d := praha.Days[1]; d.Min != 9.9 || d.Max != 17.3 || d.PrecipitationProbability == nil || *d.PrecipitationProbability != 70 {
-		t.Errorf("Praha tomorrow: %+v", d)
+	if d := prague.Days[1]; d.Min != 9.9 || d.Max != 17.3 || d.PrecipitationProbability == nil || *d.PrecipitationProbability != 70 {
+		t.Errorf("Prague tomorrow: %+v", d)
 	}
 	for _, c := range []struct {
 		city, day int
@@ -230,7 +230,7 @@ func TestWarnings(t *testing.T) {
 	}
 }
 
-// The orange heat warning of 31 Jul 2026 over Praha (the sample keeps 2 of 82 blocks).
+// The orange heat warning of 31 Jul 2026 over Prague (the sample keeps 2 of 82 blocks).
 func TestWarningsOrange(t *testing.T) {
 	alert, err := parseCAP(readBulletinFixture(t, "cap-heat.xml"))
 	if err != nil {

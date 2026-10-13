@@ -92,7 +92,7 @@ func TestCouchTvBulletins(t *testing.T) {
 	}
 	got := readBulletins(t, env)
 	w := got.Weather
-	if w == nil || len(w.Cities) != 3 || w.Cities[0].Name != "Praha" || w.Cities[0].Now.Temperature != 14.9 ||
+	if w == nil || len(w.Cities) != 3 || w.Cities[0].Name != "Prague" || w.Cities[0].Now.Temperature != 14.9 ||
 		w.Attribution != couchtv.WeatherAttribution || !w.ValidUntil.Equal(clock.Add(6*time.Hour)) {
 		t.Fatalf("weather: %+v", w)
 	}

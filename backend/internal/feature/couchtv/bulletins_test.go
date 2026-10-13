@@ -78,6 +78,22 @@ func TestNextBulletin(t *testing.T) {
 	}
 }
 
+// A forecast airs six hours, never past the midnight after it was fetched: its days are
+// named from that day.
+func TestWeatherUntil(t *testing.T) {
+	prague, _ := time.LoadLocation("Europe/Prague")
+	at := func(day, hour, minute int) time.Time { return time.Date(2026, 10, day, hour, minute, 0, 0, prague) }
+	for _, c := range []struct{ fetched, want time.Time }{
+		{at(13, 11, 30), at(13, 17, 30)},
+		{at(13, 19, 30), at(14, 0, 0)},
+		{at(14, 0, 30), at(14, 6, 30)},
+	} {
+		if got := weatherUntil(c.fetched, prague); !got.Equal(c.want) {
+			t.Errorf("fetched %s: valid until %s, want %s", c.fetched, got.In(prague), c.want)
+		}
+	}
+}
+
 func TestFetcherIsPolite(t *testing.T) {
 	var calls atomic.Int32
 	var agents, validators []string
@@ -149,7 +165,7 @@ func TestBulletinsConfig(t *testing.T) {
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.Bulletins.Enabled || len(cfg.Bulletins.Cities) != 12 || cfg.Bulletins.Cities[0].Name != "Praha" {
+	if !cfg.Bulletins.Enabled || len(cfg.Bulletins.Cities) != 12 || cfg.Bulletins.Cities[0].Name != "Prague" {
 		t.Errorf("default bulletins: %+v", cfg.Bulletins)
 	}
 	for _, c := range cfg.Bulletins.Cities {
@@ -161,7 +177,7 @@ func TestBulletinsConfig(t *testing.T) {
 		"no city":       func(b *CouchTvBulletinsConfig) { b.Cities = nil },
 		"too many":      func(b *CouchTvBulletinsConfig) { b.Cities = append(b.Cities, DefaultCities()...) },
 		"nameless":      func(b *CouchTvBulletinsConfig) { b.Cities[1].Name = "  " },
-		"twice":         func(b *CouchTvBulletinsConfig) { b.Cities[1].Name = "Praha" },
+		"twice":         func(b *CouchTvBulletinsConfig) { b.Cities[1].Name = "Prague" },
 		"outside":       func(b *CouchTvBulletinsConfig) { b.Cities[2].Lat = 52.52 },
 		"wrong way out": func(b *CouchTvBulletinsConfig) { b.Cities[2].Lon = 11.5 },
 	} {
