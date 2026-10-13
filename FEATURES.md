@@ -322,6 +322,10 @@ on-demand resizing via ffmpeg (`?size=w342|w780`) with an mtime-keyed cache, and
 ingestion through `artwork.Service`. Every save measures the image (`width`/`height`, 0 for
 WebP, which the stdlib cannot decode) and extracts its accent (transparent pixels are
 skipped and edge pixels un-premultiplied, so a logo accents to its own colour).
+`Service.Within(art, width, height)` is a bounded copy for Couch TV's renders (no client asks
+for one): the original when it fits, else made once into the same cache
+(`<id>_<mtime>_<w>x<h>`), a logo as a PNG scaled like a stored one (below), anything else a
+JPEG at `-q:v 2`.
 - Endpoints: `/artwork/{id}`; admin `POST /admin/artwork` (multipart: `ownerKind`,
   `ownerId`, `kind`, optional `lang`, `file`), `DELETE /admin/artwork/{id}`.
 - **Slots** are `(owner_kind, owner_id, kind, lang)` (`UNIQUE NULLS NOT DISTINCT`): `lang` is
@@ -332,9 +336,12 @@ skipped and edge pixels un-premultiplied, so a logo accents to its own colour).
   uploads must be `.png` (TMDB's SVG logos are never stored), and their resizes are cached as
   PNG instead of JPEG so the alpha channel survives. Every stored logo is cropped to its
   visible pixels: clients lay a logo out from the leading edge and by its aspect, so a
-  transparent margin would read as an indent. `artwork.PickLogo` chooses which one a
-  viewer sees (see catalog). Dropping a content language deletes that language's logo
-  (`Service.DeleteForLang`).
+  transparent margin would read as an indent. It is also scaled down to fit within 2560 x 1280
+  (`fitLogo`; TMDB's run to 12000 px wide, 184 MB decoded), each pixel the average of what it
+  covers weighted by alpha, since a plain average mixes in the transparent pixels' colour
+  (black, as often as not) and draws a dark fringe around light letters. `artwork.PickLogo`
+  chooses which one a viewer sees (see catalog). Dropping a content language deletes that
+  language's logo (`Service.DeleteForLang`).
 
 ### jobs
 The Postgres-backed job queue (no Redis): enqueue/claim with `FOR UPDATE SKIP LOCKED`,
@@ -933,7 +940,10 @@ server that does not send it). The admin settings page toggles it.
   quiet hours it holds no browser. It serves the embedded
   broadcast bundle (`backend/broadcast`, `make build`) and the media above on localhost to one
   headless Chromium (chromedp; GPU flags on Linux when `/dev/dri` exists; restarted every 25
-  jobs) and publishes `versions()` at start. A render extracts its media first (footage frames
+  jobs) and publishes `versions()` at start. Artwork comes at the artwork feature's sizes or at
+  the screens' own, made once on the first request (`artwork.Service.Within`): `size=w1920`, a
+  backdrop at most 1920 wide, and `size=1600x800`, a logo within that box, still transparent
+  around its letters. A render extracts its media first (footage frames
   1080p, square pixels, SDR via `playback.SDRFilter`, the source's last frame repeated past
   its end, served `no-store`; stereo FLAC of the default track; a soundtrack's stretch of its
   downloaded preview as stereo FLAC too, since Chromium has no AAC decoder), then per frame `advance(t)`

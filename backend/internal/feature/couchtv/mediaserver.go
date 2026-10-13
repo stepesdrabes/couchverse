@@ -26,7 +26,7 @@ import (
 // media its specs name. Media URLs describe what they are cut from, so the composer (in
 // the app) writes them and the sidecar extracts each once, before a clip loads:
 //
-//	/media/v1/artwork/<artwork id>?v=<version>[&size=w780]
+//	/media/v1/artwork/<artwork id>?v=<version>[&size=w780|w1920|1600x800]
 //	/media/v1/frames/<media file id>/<start ms>_<count>/<n>.jpg   25 fps, 1080p, SDR
 //	/media/v1/audio/<media file id>/<start ms>_<length ms>.flac    the default track, stereo
 //	/media/v1/soundtrack/<catalog>/<track id>/<start ms>_<length ms>.flac
@@ -65,6 +65,17 @@ func AudioURL(mediaFileID string, start, length time.Duration) string {
 func SoundtrackURL(catalog, trackID string, start, length time.Duration) string {
 	return fmt.Sprintf("%ssoundtrack/%s/%s/%d_%d.flac", mediaPrefix, catalog, trackID, start.Milliseconds(), length.Milliseconds())
 }
+
+// Sizes of artwork made for the screens besides the artwork feature's own (w342, w780): the
+// screens that render for every break draw a backdrop 1920 wide, since a 4K original costs
+// decode and texture time on every frame on a Pi, and every screen a logo within 1600 x 800
+// (TMDB's run to 12000 px wide, 184 MB decoded).
+const (
+	backdropSize = "w1920"
+	logoSize     = "1600x800"
+)
+
+var screenSizes = map[string]struct{ width, height int }{backdropSize: {1920, 0}, logoSize: {1600, 800}}
 
 // ArtworkURL is the URL of an artwork image at a version (it changes when the image is
 // replaced); size is empty for the original.
@@ -122,12 +133,21 @@ func (m *mediaServer) artwork(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	path, err := m.art.Resolve(r.Context(), art, r.URL.Query().Get("size"))
+	path, err := m.artworkFile(r.Context(), art, r.URL.Query().Get("size"))
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	http.ServeFile(w, r, path)
+}
+
+// artworkFile is an artwork at the size its URL names: one of the screens' (made once and
+// cached), else one of the artwork feature's, else the original.
+func (m *mediaServer) artworkFile(ctx context.Context, art *artwork.Artwork, size string) (string, error) {
+	if s, ok := screenSizes[size]; ok {
+		return m.art.Within(ctx, art, s.width, s.height)
+	}
+	return m.art.Resolve(ctx, art, size)
 }
 
 // file serves extracted frames and excerpts, which prepare made before the clip loaded.
