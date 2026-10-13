@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func readFixture(t *testing.T, name string) []byte {
+func readBulletinFixture(t *testing.T, name string) []byte {
 	t.Helper()
 	body, err := os.ReadFile(filepath.Join("testdata", "bulletins", name))
 	if err != nil {
@@ -24,7 +24,7 @@ func readFixture(t *testing.T, name string) []byte {
 // The forecast of 13 Oct 17:00 for Praha, Brno and Ostrava, as Open-Meteo sent it.
 func TestParseForecast(t *testing.T) {
 	cities := DefaultCities()[:3]
-	got, err := parseForecast(readFixture(t, "openmeteo.json"), cities)
+	got, err := parseForecast(readBulletinFixture(t, "openmeteo.json"), cities)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestParseForecast(t *testing.T) {
 
 func TestParseForecastOneCity(t *testing.T) {
 	var locs []json.RawMessage
-	if err := json.Unmarshal(readFixture(t, "openmeteo.json"), &locs); err != nil {
+	if err := json.Unmarshal(readBulletinFixture(t, "openmeteo.json"), &locs); err != nil {
 		t.Fatal(err)
 	}
 	// asked for one place, Open-Meteo answers with an object rather than an array
@@ -156,7 +156,7 @@ func TestDaytimeCode(t *testing.T) {
 func TestNewestCAP(t *testing.T) {
 	// names reuse the day of the month: 31 Aug sorts last and 11 Jan is newer than 1 Jun
 	// 2025, but 11 Oct is the newest; the drought report (alert_cap_70) is no warning
-	name, err := newestCAP(readFixture(t, "cap-listing.html"))
+	name, err := newestCAP(readBulletinFixture(t, "cap-listing.html"))
 	if err != nil || name != "alert_cap_50_110758.xml" {
 		t.Errorf("newest: %q, %v", name, err)
 	}
@@ -178,7 +178,7 @@ func TestReadCAP(t *testing.T) {
 // ČHMÚ's state of 8 Oct 2026 10:42: strong wind from 16:00 in the north-west and from
 // 20:00 in the south and east, until 01:00 and 02:00.
 func TestWarnings(t *testing.T) {
-	alert, err := parseCAP(readFixture(t, "cap-wind.xml"))
+	alert, err := parseCAP(readBulletinFixture(t, "cap-wind.xml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestWarnings(t *testing.T) {
 
 // The orange heat warning of 31 Jul 2026 over Praha (the sample keeps 2 of 82 blocks).
 func TestWarningsOrange(t *testing.T) {
-	alert, err := parseCAP(readFixture(t, "cap-heat.xml"))
+	alert, err := parseCAP(readBulletinFixture(t, "cap-heat.xml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +252,7 @@ func TestWarningsOrange(t *testing.T) {
 }
 
 func TestWarningsQuietDay(t *testing.T) {
-	alert, err := parseCAP(readFixture(t, "cap-quiet.xml"))
+	alert, err := parseCAP(readBulletinFixture(t, "cap-quiet.xml"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -164,7 +164,7 @@ func (b bodyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 func TestReadFeedChecksTheChannel(t *testing.T) {
 	ct24 := feedNamed(t, "ČT24")
 	for name, body := range map[string]string{
-		"another feed": string(readFixture(t, "novinky.xml")),
+		"another feed": string(readBulletinFixture(t, "novinky.xml")),
 		"empty":        `<rss version="2.0"><channel><title>ČT24</title></channel></rss>`,
 		"a page":       `<!DOCTYPE html><html><head><title>Not found</title></head><body><p>Oops</body></html>`,
 	} {
@@ -257,7 +257,7 @@ func TestOffTopic(t *testing.T) {
 }
 
 func TestParseTrending(t *testing.T) {
-	articles, err := parseTrending(readFixture(t, "ct24-trending.json"))
+	articles, err := parseTrending(readBulletinFixture(t, "ct24-trending.json"))
 	if err != nil || len(articles) != 8 {
 		t.Fatalf("%d articles, %v", len(articles), err)
 	}

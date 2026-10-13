@@ -30,10 +30,10 @@ func init() {
 	}
 }
 
-// fixtureTransport serves fixtureFiles, the forecast for any query, and 404 for the rest.
-type fixtureTransport struct{ requests atomic.Int32 }
+// bulletinTransport serves fixtureFiles, the forecast for any query, and 404 for the rest.
+type bulletinTransport struct{ requests atomic.Int32 }
 
-func (t *fixtureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *bulletinTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.requests.Add(1)
 	name := fixtureFiles[req.URL.String()]
 	if strings.HasPrefix(req.URL.String(), openMeteoURL+"?") {
@@ -48,7 +48,7 @@ func (t *fixtureTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 }
 
 func fixtureFetcher() *fetcher {
-	return newFetcher(&http.Client{Transport: &fixtureTransport{}})
+	return newFetcher(&http.Client{Transport: &bulletinTransport{}})
 }
 
 func TestNextBulletin(t *testing.T) {
