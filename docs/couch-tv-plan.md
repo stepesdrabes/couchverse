@@ -40,7 +40,7 @@ in section 3.
 | D22 | **No time-of-day content rules.** (The admin can still take a title off the channel entirely, see 6.4.) |
 | D23 | **Access: signed-in users and anyone with the channel link.** One unguessable link the admin can copy, rotate or turn off. Guests get the live channel only (no "Watch from the start", no library), appear in presence as "Guest" with a name they type, and can react. |
 | D24 | **Saturday premieres**: a recently added movie that has never aired takes the Saturday 20:15 slot, promoted all week. |
-| D25 | **Promo soundtrack: automatic + admin override.** Series: the theme found by fingerprinting episodes. Movies: the end-credits music (the steadiest loud stretch near the end). The title editor gets a "Promo audio" picker with a waveform. |
+| D25 | **Promo soundtrack: automatic + admin override.** Series: the theme found by fingerprinting episodes. Movies: the end-credits music (the steadiest loud stretch near the end). The title editor gets a "Promo audio" picker with a waveform. Since 2026-10-13 the title's own soundtrack from the web (official previews from iTunes and Deezer) comes first and the excerpt is the fallback (6.3, "Promo audio from the web"). |
 | D26 | **No announcer voice in v1**; the audio mix reserves a voice bus so a local TTS voice can be added later. |
 | D27 | **Ident: a full cut (10-12 s) and a short cut (4-5 s)** from one design and one score. After two rejected rounds the owner asked for an ident "very inspired by" the Prima COOL idents (typographic, brackets that open as frames, pure colour, typed and edited text) with a more epic theme. Chosen (2026-10-12): the **C()UCH TV** brand (the O of COUCH splits into brackets that are also the couch's armrests; Saira; red, black and white), **ident variant B "frame"** (the brackets burst out to frame the screen and cut on the beat, then slam back into the O) and **theme 1 "hybrid epic"** (a D minor build lifting to D major on the hit, the A4 D5 A5 G5 F#5 hook on brass). Reference: `tools/couch-tv-samples`. |
 | D28 | **Time zone**: a channel setting, default `Europe/Prague`; schedule rows are stored in UTC. |
@@ -415,6 +415,30 @@ one clip (at most ~2 minutes of work), so a transcode never waits long.
   it to -23..-16 LUFS anyway).
 - **Airing to the credits**: the planner reads each file's effective `credits` start, so
   programs end there (`credits_at_ms`); days already frozen keep the plan they had.
+- **Promo audio from the web** (2026-10-13, after the owner found the in-file excerpts poor:
+  the library is mostly Czech dubs, so an intro or the credits can carry dubbed vocals or a
+  voice-over, and a film's credits often end on a pop song or quiet score): a new
+  `couchtv_soundtrack` job looks for the title's own soundtrack in iTunes Search and Deezer,
+  both keyless with an official 30-second preview of every track (iTunes AAC, Deezer MP3),
+  politely paced (iTunes one request every 4 s against its ~20 a minute, Deezer one a
+  second). A pure matcher scores what they return, since searches are noisy ("iron man
+  soundtrack" brings Black Sabbath, AC/DC's "Iron Man 2" album and "Epic Version" covers
+  before Ramin Djawadi's score): the album named after the title (a different number is a
+  different film, so each Harry Potter film gets its own score album), the track's role (main
+  title, theme, title track, opening), the original recording over covers (TMDB's composer,
+  the show itself as the artist, the title's own soundtrack album; karaoke, tribute, piano or
+  epic versions and the usual cover acts never count), the year. Only a confident top match
+  (from 0.7) is applied on its own; the admin hears every candidate through the server, picks
+  one or searches with their own words. The bed is now: the admin's excerpt of the title's
+  own audio, else the soundtrack from the web (the admin's choice or the confident match),
+  else the analysis' excerpt. The chosen preview is downloaded once into `DATA_DIR`, and the
+  render sidecar cuts its bed as FLAC (its Chromium has no AAC) from a URL naming the catalog,
+  the track and the stretch, so a new choice renders the promos again. Run on the production
+  titles (without TMDB), it picks each film's own score or soundtrack, the Simpsons' and
+  Dexter's original main titles, Primus' South Park theme and Christopher Tyng's Futurama
+  theme. **Terms**: the previews are meant for promoting the music; Couch TV is a private
+  server playing them in its own promos for its few viewers, never redistributing them, and
+  the catalogs' terms should be reread before anything here is offered more widely.
 
 ### 6.4 Admin operations (typed, `admin` prefix)
 `adminGetCouchTv`/`adminUpdateCouchTv` (settings, template), `adminListAirings` (range),

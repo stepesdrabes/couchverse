@@ -28,7 +28,7 @@ that render a `XxxPage.svelte` component from the owning feature.
 | couch | `internal/feature/couch` | `features/couch` | (in-memory; only `couch_watch_time_daily` via analytics) |
 | ranks | `internal/feature/ranks` | `features/ranks` | `user_achievements`, `user_counters`, `user_tv_viewing` |
 | downloads | `internal/feature/downloads` | (native clients only) | `download_files`, `downloads` |
-| couchtv | `internal/feature/couchtv` | `features/couchtv` (the admin section and title tools; the flag in `features/settings`; the viewer pages are next, on the core's `couchtv` module) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_media`, `couchtv_clips`, `couchtv_breaks`, `couchtv_guests` (the room is in memory) |
+| couchtv | `internal/feature/couchtv` | `features/couchtv` (the admin section and title tools; the flag in `features/settings`; the viewer pages are next, on the core's `couchtv` module) | `couchtv_airings`, `couchtv_strips`, `couchtv_titles`, `couchtv_soundtracks`, `couchtv_media`, `couchtv_clips`, `couchtv_breaks`, `couchtv_guests` (the room is in memory) |
 
 Shared kernel (backend): `internal/app` (wiring of stores, services and the job runner),
 `internal/config` (env), `internal/db` (pool, migrations, `ErrNotFound`), `internal/httpx`
@@ -299,6 +299,12 @@ as episode `thumb` artwork). API key comes from settings.
   behind) while uploaded logos are only ever overwritten; a failure fails the job like a
   poster's. The episode import only fills languages without a logo, best effort, so shows
   linked before logos existed get them from a re-import.
+- **Music facts** (`metadata/music.go`, for Couch TV's soundtrack finder): one
+  `GET /{movie|tv}/{id}?append_to_response=credits,alternative_titles` answers the composers
+  the crew names ("Original Music Composer", "Main Title Theme Composer", "Music",
+  "Composer") and the US and British names ("Harry Potter and the Sorcerer's Stone").
+  `metadata.MusicFacts` serves them with the server's key (nothing without one) through the
+  `couchtv.MusicFacts` interface, wired in `internal/app`.
 
 ### subtitles
 Side-car WebVTT subtitles: automatic extraction of embedded text subs (ffmpeg),
@@ -870,11 +876,13 @@ server that does not send it). The admin settings page toggles it.
   `make contract`) and use English names and taglines (D13). Media in specs are localhost URLs
   that say what they are cut from (`/media/v1/artwork/<id>?v=<version>`,
   `/media/v1/frames/<file>/<start ms>_<count>/<n>.jpg`, `/media/v1/audio/<file>/<start
-  ms>_<length ms>.flac`), so a replaced image or file changes the key. The squeeze takes the
+  ms>_<length ms>.flac`, `/media/v1/soundtrack/<catalog>/<track id>/<start ms>_<length
+  ms>.flac`), so a replaced image or file, or another soundtrack, changes the key. The squeeze takes the
   program's frames and sound from where it left the air (its backdrop when it airs in full);
   promos take `couchtv_titles` (footage shots `[{mediaFileId, startMs, durationMs, score}]`,
-  else stills from the artwork; the promo soundtrack excerpt as the bed, else none; the mood,
-  else one from the genres). Clips are requested in `couchtv_clips` (`needed_at` the earliest
+  else stills from the artwork; the bed (`promoBed`): an admin's excerpt of the title's own
+  audio, else the soundtrack from the web once its preview is ready, else the analysis'
+  excerpt, else none; the mood, else one from the genres). Clips are requested in `couchtv_clips` (`needed_at` the earliest
   air time, `last_used_at` touched) and their renders queued soonest-airing first, to run in
   the quiet hours (01:00-09:00 in the channel's zone) unless what they are for airs within
   3 h, and never later than 3 h before it airs (`renderAt`); missing promo bodies are
@@ -895,7 +903,8 @@ server that does not send it). The admin settings page toggles it.
   headless Chromium (chromedp; GPU flags on Linux when `/dev/dri` exists; restarted every 25
   jobs) and publishes `versions()` at start. A render extracts its media first (footage frames
   1080p, square pixels, SDR via `playback.SDRFilter`, the source's last frame repeated past
-  its end, served `no-store`; stereo FLAC of the default track), then per frame `advance(t)`
+  its end, served `no-store`; stereo FLAC of the default track; a soundtrack's stretch of its
+  downloaded preview as stereo FLAC too, since Chromium has no AAC decoder), then per frame `advance(t)`
   (no paint wait: the capture draws a fresh frame itself) and a JPEG q92 capture (a frame
   `isStatic` reuses the last one) piped to libx264 (veryfast, `-tune animation`, CRF 18,
   High@4.0, an IDR every 2 s and at the first frame, BT.709 limited range), then the page's
@@ -921,7 +930,8 @@ server that does not send it). The admin settings page toggles it.
 - **Pruning** (the hourly cleanup, `couchtv.Prune`): an aired break's package after an hour
   (its row after a week), clips nobody asked for in 14 days unless a waiting break uses them,
   evergreen breaks older than the newest assembled one, extracted media unused for 14 days,
-  work directories after a day.
+  work directories after a day, soundtrack previews no title picked and nobody played in 14
+  days.
 - Endpoints (admin, not flag-gated, like `/admin/ranks`): `GET/PUT /admin/couchtv`
   (`adminGetCouchTv`, `adminUpdateCouchTv`: config plus `plannedUntil`; a save validates
   pinned titles against their slot and queues a replan; a config the planner cannot follow
@@ -953,10 +963,19 @@ server that does not send it). The admin settings page toggles it.
   day and the later ones, today to a week ahead, and answers with the day; an operator on
   the server runs the same as `couchverse couchtv-regenerate YYYY-MM-DD`),
   `GET/PUT /admin/couchtv/titles/{id}` (`adminGetCouchTvTitle`, `adminUpdateCouchTvTitle`:
-  excluded, mood, promo audio, shots; a part left out of the PUT goes back to the analysis,
-  which runs again for it; leaving or rejoining the channel queues a replan),
+  excluded, mood, promo audio, the soundtrack (`soundtrackId`, one of the title's candidates;
+  400 beside `promoAudio`, since promos play one bed), shots; a part left out of the PUT goes
+  back to the analysis, which runs again for it, or to the soundtrack finder; leaving or
+  rejoining the channel queues a replan; the GET also answers `promoBed`, the `soundtrack`
+  pick with its source and readiness, the `soundtracks` found, `soundtrackQuery`,
+  `soundtrackSearchedAt` and `searchingSoundtrack`),
   `POST /admin/couchtv/titles/{id}/analyze` (`adminAnalyzeCouchTvTitle`, 202: the title's
-  markers and its whole analysis again) and `GET
+  markers and its whole analysis again), `POST /admin/couchtv/titles/{id}/soundtracks/search`
+  (`adminSearchCouchTvSoundtracks`, 202, body `{query?}`: the finder's search again, or the
+  admin's own words; 409 `excluded`), `GET /admin/couchtv/soundtracks/{id}/preview`
+  (`adminCouchTvSoundtrackPreview`, raw: a candidate's preview from the server's copy,
+  downloaded on first play, `audio/mp4` or `audio/mpeg`; 502 `soundtrack_unavailable` when the
+  catalog does not deliver it) and `GET
   /admin/couchtv/media-files/{id}/waveform?fromMs&toMs&points` (`adminCouchTvWaveform`: the
   promo audio picker's waveform, the loudest momentary loudness per step, at most 15
   minutes a request; `file_missing`/`source_deleted` 404 without the source),
@@ -980,7 +999,41 @@ server that does not send it). The admin settings page toggles it.
   the bigger, then the longer), its median episode; a movie's `credits_music`, else its
   loudest steady stretch of 20 s or more; at most 40 s, the loudest 40 s of a longer one.
   Admin picks (`promo_audio_source`/`shots_source` `admin`) are never overwritten; ffmpeg
-  failures leave a part empty and are logged.
+  failures leave a part empty and are logged. The excerpt is the fallback bed: a soundtrack
+  from the web comes first (below).
+- **The `couchtv_soundtrack` job** (`couchtv.Soundtracks`, one slot; plan 6.3 "Promo audio
+  from the web"): finds a title's own music in two keyless catalogs with official 30-second
+  previews, iTunes Search (`couchtv.ITunes`: AAC in MP4, one request every 4 s, well under its
+  ~20 a minute) and Deezer (`couchtv.Deezer`: MP3, one a second; its preview URLs expire within
+  the hour, so a download asks for the track again). Queued by a backfill at every start for
+  titles an older `SoundtrackVersion` (or none) searched, a few minutes after a title's markers
+  change (the library hook, so a new title is searched), by the admin's search, and to ready an
+  admin's pick. Each catalog gets an album search "<name> soundtrack" and a track search of the
+  same (a series also "<name> theme", a known composer "<composer> <name>"), then lists its two
+  albums named most like the title in full. The matcher (`soundtrack_match.go`, pure, replayed
+  on recorded answers for the production library in `couchtv/testdata/soundtracks`) compares
+  names without release words ("Original Motion Picture Soundtrack", "Main Title", a season or
+  volume, a year) by words in order, where a different number is a different work (Iron Man
+  is not Iron Man 2) and a game, stage show or, for a series, its movie is another work;
+  scores each track by the evidence that it is the title's music (its album named after the
+  title, its own name with a theme word, what it says it is from), whether it is the original
+  recording (TMDB's composer, the show as the artist, the title's own soundtrack album: a theme
+  alone on a single or a compilation is anyone's), the album's year (a film's within a year, a
+  series' from its first season), the marks of a cover (karaoke, tribute, piano or epic
+  versions, remixes, a list of the usual cover acts) and how it suits a promo (a main title,
+  theme or title track first, then an opening, suite or finale, never dialogue, at least
+  40 s). Confidence is 0-1; up to 12 candidates are kept (5 per album), the same recording from
+  both catalogs once (iTunes on a near tie). TMDB adds the composers and the US and British
+  names in one request (`metadata.MusicFacts`, wired in `internal/app`; nothing without a TMDB
+  key). The finder's own search stores the candidates in place of the last (a candidate found
+  again keeps its id, the pick is always kept) and picks the best from 0.7 unless an admin
+  chose; an admin's query only adds choices. The pick's preview is downloaded once into
+  `couchtv/soundtracks/<catalog>-<track id>.<ext>` (from the catalog's own hosts only) and
+  measured: the excerpt is the preview without its fade in and out (10 LU under its median),
+  at most 30 s, at least 12 s; a preview that cannot play drops the candidate and the next
+  confident one is picked. A catalog that fails (or a preview that will not download) leaves
+  the title as it was, unless the other catalog still found a confident match, and the title
+  tries again in 6 h, four times; it never fails the job.
 - **Web viewer** (`features/couchtv`, plan 7.2; the core's `couchtv` module does the work and
   `channel.ts` names its screens, sends its events and holds the overlay and guide maths):
   **`/tv`** (`TvPage`, public so a guest watches signed out; a member with the flag off gets a
@@ -1039,9 +1092,16 @@ server that does not send it). The admin settings page toggles it.
   **Render health** (`AdminRenderHealthPage`): `StatTile`s for the queue, speed, time to clear
   and breaks at risk, a `SegmentBar` of the next 48 h of breaks, the fallbacks, a `RankedList`
   of the disk and the failures; it polls every 10 s. **Preview**: the broadcast preview. The
-  title editor ends with `TitleCouchTvPanel`: never on Couch TV, mood, the promo audio picker
+  title editor ends with `TitleCouchTvPanel`: never on Couch TV, mood, the promo audio (what
+  the promos play once saved and who picked it, "Back to automatic" for an admin's pick of
+  either kind): the soundtrack from the web (`SoundtrackPicker`: the candidates with track,
+  artist, album, catalog and match, each played and stopped from the server's copy through
+  `adminCouchTvSoundtrackPreviewPath`, one chosen with Use, the one in the promos marked, the
+  last search's time and query, and a search again with the admin's own words; the panel
+  polls while `searchingSoundtrack`), then the excerpt of the title's own audio
   (`PromoAudioPicker` over `Waveform`: a file, five minutes of waveform at a time, a dragged or
-  typed selection of up to 40 s within the file, played through the file's playback payload),
+  typed selection of up to 40 s within the file, played through the file's playback payload;
+  choosing one or the other clears the other, since promos play one bed),
   the footage shots (`ShotsEditor`: stills from `getStreamFramePath` with the payload's grant,
   reorder, remove), the markers per file (`MarkersEditor`: the analysis' and the admin's,
   other times, "has none", back to the analysis; saved on their own) and the analysis re-run;
@@ -1052,8 +1112,13 @@ server that does not send it). The admin settings page toggles it.
   `state` (`replaced`: an admin removed it), `credits_at_ms`, and once on air `feed` and
   `origin`), `couchtv_strips`,
   `couchtv_titles` (`excluded`, promo audio, `shots` with `shots_source`, `mood`,
-  `loudness_lufs`, `analyzed_version`/`analyzed_at`; the planner reads `excluded`, the composer
-  the rest), `couchtv_media` (what `couchtv_prepare` found airable), `couchtv_clips` (kind, key,
+  `loudness_lufs`, `analyzed_version`/`analyzed_at`, the soundtrack pick `soundtrack_id` with
+  `soundtrack_source`, its downloaded `soundtrack_path` and excerpt
+  `soundtrack_start_ms`/`soundtrack_duration_ms`, `soundtrack_query`, `soundtrack_version`,
+  `soundtrack_searched_at`; the planner reads `excluded`, the composer the rest),
+  `couchtv_soundtracks` (a title's candidates from the last search: catalog, track id, track,
+  artist, album, year, the whole track's length, preview URL, confidence; unique per title,
+  catalog and track), `couchtv_media` (what `couchtv_prepare` found airable), `couchtv_clips` (kind, key,
   spec, state, version, duration, path, size, `render_ms`, `needed_at`, `last_used_at`),
   `couchtv_breaks` (an airing's composition or an `evergreen` one: the recipe with its clips,
   frame offsets, sound spec and promoted titles; state, package path, which the live stream
@@ -1101,7 +1166,19 @@ server that does not send it). The admin settings page toggles it.
   fake lineup, two devices counted once, the end of a program finished, viewers who left, the
   schedule change gathered, a guest's socket ended), `couchtv/protocol_test.go` (the golden
   frames), `TestCouchTvGuests` (the link rotated, a guest joining, tuning in, streaming and in
-  the room beside a member, then ended with the link) and the conformance cases.
+  the room beside a member, then ended with the link) and the conformance cases. The
+  soundtrack finder: `couchtv/soundtrack_test.go` (the production titles' picks replayed from
+  the catalogs' recorded answers, each film from its own album and a series' original before
+  the covers; what must never be confident (Black Sabbath's "Iron Man", AC/DC's "Iron Man 2",
+  cover acts, a game's or a movie's music for a series); the scoring rules on made-up tracks,
+  the composer included; names, queries, a catalog down or failing with an error body, preview
+  hosts, the excerpt, the bed's priority and a bed cut from a preview as the sidecar does;
+  `COUCHVERSE_SOUNDTRACK_PRINT=1` prints every pick, `COUCHVERSE_SOUNDTRACK_LIVE=1` asks the
+  catalogs and `COUCHVERSE_SOUNDTRACK_RECORD=1` records them again), `metadata/music_test.go`
+  (TMDB's composers and names) and `TestCouchTvSoundtracks` (the job over a fake catalog on the
+  seeded database: the backfill, the confident pick readied and measured, a preview served and
+  one fetched on first play, the promos' beds, an admin's choice kept through searches and
+  handed back, the admin's excerpt first, an outage changing nothing and retrying).
 
 ## Internationalization & multi-language media (cross-cutting)
 
@@ -2141,9 +2218,10 @@ couch -> {playback, auth}  (top of the DAG; nothing imports couch)
 couchtv -> {auth, catalog, library, artwork, playback}  (nothing imports couchtv; reads media,
             variant and marker tables by SQL, imports library to queue its marker analysis
             and program preparation; playback's exported package helpers write and read its
-            renders and read the programs' packages; reaches analytics, catalog's progress
-            and ranks through the TvWatchRecorder, ProgressRecorder and
-            TvStatsRecorder interfaces it declares, wired in internal/app)
+            renders and read the programs' packages; reaches analytics, catalog's progress,
+            ranks and metadata's TMDB music facts through the TvWatchRecorder,
+            ProgressRecorder, TvStatsRecorder and MusicFacts interfaces it declares, wired
+            in internal/app)
             (anything may import the kernel: jobs, settings, media,
              flags, db, httpx, slug, config)
 ```
@@ -2171,7 +2249,7 @@ Notes that keep it acyclic:
 - Media markers are library's, but Couch TV picks its promos from them: `couchtv` imports
   `library` (to queue a title's marker analysis) and the other way round is a callback,
   `library.MarkerAnalyzer.Analyzed`, which `internal/app` points at
-  `couchtv.Analyzer.Queue`.
+  `couchtv.Analyzer.Queue` and `couchtv.Soundtracks.Queue`.
 - Whether a series may play at random is catalog's, but Couch TV's strips follow it: the
   title editor announces a change through a callback, `catalog.Store.RandomPlaybackChanged`,
   which `internal/app` points at `couchtv.Scheduler.Start` (a plan run).
