@@ -49,7 +49,7 @@ in section 3.
 | D31 | **Branch**: a new `couch-tv` branch from `main`; `native-clients` is retired once its last docs commit is on `main`, so the remote keeps two branches (`main`, `couch-tv`). |
 | D32 | **The planning sample reel** (HTML/CSS/JS + README) is kept in `tools/couch-tv-samples/` as the reference for Phase 2; its media (soundtrack excerpts, artwork) is gitignored and fetched from the Pi read-only by a script. |
 | D36 | **Bulletins bind late, in slots of the breaks.** A break that carries a bulletin keeps a fixed-length slot for it after the promos and the lineup, before up next, holding a fallback of exactly that length (promos and stings, renderable ahead like any part), so the break is composed, rendered and assembled complete on its own. It is assembled in sections around its slots (a package each), its sound mixed per section so nothing rings across a slot's edge and each slot normalized on its own. When the live stream puts the break on air, a slot that airs whole takes the newest rendered bulletin still valid when the slot ends, at the slot's loudness, else its fallback; pinned, it never changes (6.10). |
-| D37 | **When the bulletins air** (defaults the owner tunes later): the news (20 s) in every break that ends on the hour from 06:00 to midnight, the weather (15 s) in the first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the evening movie, never where a bulletin fetched on the grid 15 minutes before the break goes on air would have expired by its end; a break keeps a slot only beside the squeeze, the short ident, a short promo and the shortest up next. |
+| D37 | **When the bulletins air** (defaults the owner tunes later): the news (20 s) in the breaks that end on the hour every two hours from 06:00 to midnight (06:00, 08:00 ... 24:00; the owner chose every two hours over every hour, 2026-10-13), the weather (15 s) in the first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the evening movie, never where a bulletin fetched on the grid 15 minutes before the break goes on air would have expired by its end; a break keeps a slot only beside the squeeze, the short ident, a short promo and the shortest up next. |
 | D38 | **A bulletin renders once, when it is the one that airs**: the bulletins job asks for a clip on its kind's last run in time for the next slot (one render per slot, not per fetch), the sidecar renders it as `couchtv_bulletin_render` ahead of every other clip, never waiting for a transcode or the quiet hours, and only while the channel is on. The clip carries its sound at every whole LU a break is mixed at (-23 to -16) and a slot's sound is mixed at its break's loudness in whole LU, so a bulletin sounds as loud as the fallback it replaces. A bulletin's clip goes an hour after its bulletin stops being valid. |
 | D39 | **D13 extended to the bulletins** (owner, 2026-10-13): English chrome (titles, labels, weekdays, times, the credits "Weather data by Open-Meteo.com", "Source: ČHMÚ", "Borders: ČÚZK / geoBoundaries (CC BY 4.0)", "Headlines from the outlets’ RSS feeds, as of 17:40"), ČHMÚ's English event and kraj names, Prague by its English name; the headlines stay Czech, whole and unaltered, each labelled with its outlet's name, since the outlets' terms forbid altering or shortening them and a translation would alter them. |
 | D40 | **Czechia's outline lives in the broadcast package**, a module generated from the server's `czechia.geojson` (`npm run outline`), not in every spec: it never changes from one bulletin to the next and a template's version covers a change; the spec carries the cities' positions and the map's credit. A forecast airs until midnight at the latest, since its days are named from the day it was fetched. |
@@ -1010,8 +1010,9 @@ how each was settled:
 - **Language (D39).** The owner's decision: English chrome everywhere the data allows (labels,
   weekdays, times, ČHMÚ's English event and kraj names, Prague by its English name, the
   credits), the headlines Czech, whole and unaltered, each with its outlet's name.
-- **Which breaks, how long, the credits (D37, D39).** The news (20 s) in every break that ends
-  on the hour from 06:00 to midnight (the breaks with the lineup), the weather (15 s) in the
+- **Which breaks, how long, the credits (D37, D39).** The news (20 s) in the breaks that end
+  on the hour every two hours from 06:00 to midnight (some of the breaks with the lineup; the
+  owner chose every two hours over every hour), the weather (15 s) in the
   first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the
   evening movie, both where the break keeps the squeeze, the short ident, a short promo and
   the shortest up next beside them. On screen: "Weather data by Open-Meteo.com" always,
@@ -1034,16 +1035,17 @@ how each was settled:
   `bulletins.enabled` off where that is unwanted. They render bulletins only with a sidecar
   and the channel on.
 
-**Render budget (the Pi).** A day has 19 news slots and 4 weather slots, 23 renders of
-11,000 frames. Measured on the M1 Pro under heavy load (the squeeze beside them at 2.76 fps,
-the Pi's 2.41): the placeholder news (500 frames) in 36 s and weather (375) in 50 s, since
-they hold still after their first seconds and a held frame is not captured again, which
-scales to about 50 and 70 s on the Pi: **about 20 minutes a day**. A design that moves in
-every frame renders at the Pi's measured 2-2.5 fps: 200-250 s a news, 150-190 s a weather,
-plus about 20 s each to load the page, render the sound and encode the eight slot loudnesses:
-**about 1.4-1.7 h a day**, all of it in the daytime, one render of 3-5 minutes before each
-slot, well inside the 15 minutes a slot leaves it. A designed template that holds still where
-it can keeps the cost near the placeholders'.
+**Render budget (the Pi).** A day has 10 news slots and 4 weather slots, 14 renders of
+6,500 frames (the news every hour would be 23 renders of 11,000 frames). Measured on the M1
+Pro under heavy load (the squeeze beside them at 2.76 fps, the Pi's 2.41): the placeholder
+news (500 frames) in 36 s and weather (375) in 50 s, since they hold still after their first
+seconds and a held frame is not captured again, which scales to about 50 and 70 s on the Pi:
+**about 13 minutes a day**. A design that moves in every frame renders at the Pi's measured
+2-2.5 fps: 200-250 s a news, 150-190 s a weather, plus about 20 s each to load the page,
+render the sound and encode the eight slot loudnesses: **about 0.8-1 h a day**, all of it in
+the daytime, one render of 3-5 minutes before each slot, well inside the 15 minutes a slot
+leaves it. A designed template that holds still where it can keeps the cost near the
+placeholders'.
 
 ---
 

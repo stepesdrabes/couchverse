@@ -171,13 +171,14 @@ func sectionsOf(r Recipe) []section {
 // sectionPath is where a break's section is assembled, under the break's own path.
 func sectionPath(path string, i int) string { return filepath.Join(path, strconv.Itoa(i)) }
 
-// When the breaks carry bulletins (plan 6.10, D37): the news in every break that ends on the
-// hour from 06:00 to midnight (the breaks with the lineup), the weather in the first break that
-// ends after 07:00, 12:00 and 17:00 (within the hour) and in the break before the evening
-// movie. A slot is only made where a bulletin fetched on the grid (nextBulletin) in time to be
-// rendered is still valid when the break ends.
+// When the breaks carry bulletins (plan 6.10, D37): the news in the breaks that end on the
+// hour every two hours from 06:00 to midnight (the owner's choice over every hour), the weather
+// in the first break that ends after 07:00, 12:00 and 17:00 (within the hour) and in the break
+// before the evening movie. A slot is only made where a bulletin fetched on the grid
+// (nextBulletin) in time to be rendered is still valid when the break ends.
 var (
 	newsFirstHour  = 6
+	newsEvery      = 2
 	weatherAt      = []int{7, 12, 17}
 	weatherWithin  = time.Hour
 	primeFrom      = 19
@@ -191,7 +192,11 @@ var (
 func bulletinKinds(start, end, prevStart time.Time, nextFill string, loc *time.Location) []string {
 	l := end.In(loc)
 	want := map[string]bool{}
-	if l.Minute() == 0 && l.Second() == 0 && l.Nanosecond() == 0 && (l.Hour() >= newsFirstHour || l.Hour() == 0) {
+	hour := l.Hour()
+	if hour == 0 {
+		hour = 24
+	}
+	if l.Minute() == 0 && l.Second() == 0 && l.Nanosecond() == 0 && hour >= newsFirstHour && (hour-newsFirstHour)%newsEvery == 0 {
 		want[BulletinNews] = true
 	}
 	for _, h := range weatherAt {
