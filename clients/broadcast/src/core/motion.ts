@@ -15,6 +15,12 @@ export const EASE = {
 	in: 'cubic-bezier(0.55, 0, 1, 0.45)',
 	snap: 'cubic-bezier(0.05, 0.9, 0.1, 1)',
 	pop: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+	// the screens' curves (the brand's): entrances and type-in, a change of place, a long move
+	// that lands softly, exits; never an overshoot
+	glide: bezier(curves.enter.bezier),
+	move: 'cubic-bezier(0.65, 0, 0.35, 1)',
+	dolly: 'cubic-bezier(0.6, 0, 0.2, 1)',
+	leave: 'cubic-bezier(0.5, 0, 0.75, 0)',
 	linear: 'linear'
 } as const;
 

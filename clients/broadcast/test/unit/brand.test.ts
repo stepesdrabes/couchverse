@@ -3,9 +3,11 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { pitchClass } from '../../src/audio/pitch';
 import { bracketPath } from '../../src/brand/brackets';
+import { STAGE } from '../../src/brand/ending';
 import { LOGO, LOGO_H, LOGO_W, POPCORN, SILHOUETTE } from '../../src/brand/glyph';
+import { SHORT_IDENT, SHORT_IDENT_TIMES } from '../../src/brand/short-ident';
 import { BEAT, SONIC } from '../../src/brand/sonic';
-import { CHART, GRID, HOOK, SCALES } from '../../src/brand/theme';
+import { CHART, HOOK, SCALES } from '../../src/brand/theme';
 import { BRAND, geometry, lockupSvg, PARTS, ROW, WORD } from '../../src/brand/wordmark';
 import { edge, valueAt } from '../../src/core/moves';
 import { frame } from '../../src/core/timeline';
@@ -39,6 +41,15 @@ describe('the logo', () => {
 });
 
 describe('the lockup', () => {
+	it('stacks as every ident ends: the logo 540 px wide at y 222 over a 184 px word at 650', () => {
+		expect(STAGE.logo.x).toBeCloseTo(690, 6);
+		expect(STAGE.logo.y).toBeCloseTo(222, 6);
+		expect(STAGE.logo.k * LOGO_W).toBeCloseTo(540, 6);
+		// the word's advance centred on the stage, its line box's top at 650
+		expect(STAGE.word.x + (WORD.advance / 2) * 184).toBeCloseTo(960, 6);
+		expect(STAGE.word.y - WORD.baseline * 184).toBeCloseTo(650, 6);
+	});
+
 	it('rows the word beside the logo as the corner bug draws them', () => {
 		// the bug: the logo 36 px tall beside a 34 px word whose line box shares its top
 		const bug = geometry(34, 'row');
@@ -96,6 +107,19 @@ describe('the sonic logo', () => {
 	});
 });
 
+describe('the short ident', () => {
+	it('lands the popcorn, then types couchtv a beat later, and holds', () => {
+		const { land, notes } = SHORT_IDENT_TIMES;
+		expect(frame(SHORT_IDENT)).toBe(4.52);
+		expect(land).not.toBeNull();
+		expect(notes[0]).toBeCloseTo((land ?? 0) + BEAT, 9);
+		expect(notes.map((n) => n - notes[0])).toEqual([0, 0.4, 0.8].map((x) => expect.closeTo(x, 9)));
+		for (const n of notes) expect(onFrame(n)).toBe(true);
+		// the last part types in well before the end
+		expect(SHORT_IDENT - (notes[2] + 0.26)).toBeGreaterThan(1);
+	});
+});
+
 describe('the theme', () => {
 	it('keeps every chord in its key and the hook in D major', () => {
 		const inKey = (note: string, key: keyof typeof SCALES) =>
@@ -105,8 +129,7 @@ describe('the theme', () => {
 		for (const n of HOOK.notes) expect(inKey(n, 'D major'), n).toBe(true);
 	});
 
-	it('cuts the idents to whole frames', () => {
-		expect(frame(GRID.D)).toBe(4.52);
+	it('lands the tag on frames', () => {
 		// the tag's hook lands on frames wherever the tag starts on one
 		for (const r of HOOK.tagAt) expect(Math.abs(r * 25 - Math.round(r * 25))).toBeLessThan(1e-9);
 	});

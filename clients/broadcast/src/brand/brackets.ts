@@ -1,6 +1,6 @@
-// The old C()UCH TV wordmark (D27, superseded by D33), which the short ident and the stings
-// still draw: Saira 700 caps, the O cut into a pair of brackets, TV in a red block and the
-// cursor that typed it. It goes with them when the new brand replaces them.
+// The old C()UCH TV wordmark (D27, superseded by D33), which the stings still draw: Saira 700
+// caps, the O cut into a pair of brackets, TV in a red block and the cursor that typed it. It
+// goes with them when the new brand replaces them.
 //
 // The brackets are drawn, not typed: the O is two superellipses fitted to Saira's. A bracket
 // that grows to frame something scales whole, its stroke with it, as the approved reel scaled

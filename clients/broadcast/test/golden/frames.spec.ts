@@ -13,7 +13,8 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['ident-cinematic', [1, 3.6, 9]],
 	['ident-morph', [1.6, 4.6, 9.5]],
 	['ident-assemble', [1.6, 4.4, 9]],
-	['ident-short', [1.12, 3.4]],
+	// the couch alone, the popcorn falling (motion blurred), the landing's rebound, the lockup
+	['ident-short', [0, 1.04, 1.28, 4.48]],
 	['sting-2', [1.2]],
 	['sting-3', [2]],
 	['sting-5', [3]],
@@ -153,7 +154,7 @@ test("the renderer's step shows the frame seek does and skips held ones", async 
 	expect(held).not.toBeNull();
 	if (held === null) return;
 	expect(await page.evaluate((t) => window.couchtvRender.advance(t, t - 0.04), held)).toBe(false);
-	for (const t of [0.6, held]) {
+	for (const t of [1.04, held]) {
 		await seek(page, t);
 		const seeked = await page.screenshot();
 		await seek(page, 0);

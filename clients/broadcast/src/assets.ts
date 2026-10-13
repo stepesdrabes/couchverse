@@ -14,7 +14,7 @@ import { rng } from './core/rng';
 import type { Bed, Spec } from './spec';
 
 export const FONT_FAMILY = 'Couch TV Sans';
-/** The old brand's display face (Saira): the short ident and the stings still draw it. */
+/** The old brand's display face (Saira): the stings still draw it. */
 export const DISPLAY_FAMILY = 'Couch TV Display';
 
 let fontsReady: Promise<void> | null = null;
@@ -26,8 +26,8 @@ const LATIN_EXT =
 
 /**
  * Register the faces on the document (shadow roots ignore @font-face) and load them: Plus
- * Jakarta Sans, the brand's face, and Saira for the old short ident and stings (both OFL, latin
- * and latin-ext; Saira's files are @fontsource-variable/saira 5.3.0's weight axis).
+ * Jakarta Sans, the brand's face, and Saira for the old stings (both OFL, latin and latin-ext;
+ * Saira's files are @fontsource-variable/saira 5.3.0's weight axis).
  */
 export function ensureFonts(): Promise<void> {
 	if (!fontsReady) {

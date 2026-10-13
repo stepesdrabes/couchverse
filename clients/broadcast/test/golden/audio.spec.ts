@@ -17,6 +17,7 @@ const CASES: [string, Spec, number][] = [
 	['ident-cinematic', FIXTURES['ident-cinematic'], -18],
 	['ident-morph', FIXTURES['ident-morph'], -18],
 	['ident-assemble', FIXTURES['ident-assemble'], -18],
+	['ident-short (the house instruments and hall)', FIXTURES['ident-short'], -18],
 	['promo-bright (bed, beats)', FIXTURES['promo-bright'], -18],
 	['squeeze-expand', { ...FIXTURES['squeeze-expand'], loudness: -23 }, -23],
 	['break', BREAK, -20]

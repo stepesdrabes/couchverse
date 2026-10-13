@@ -1,6 +1,7 @@
 // The credits squeeze: the program's last seconds shrink into a panel while "Up next" fills
-// the rest, then hand over (the next picture expands, or the program collapses into the red
-// cursor block the short ident opens on, over its black field: the ident's first frame).
+// the rest, then hand over (the next picture expands, or the program shrinks onto the couch in
+// its place in the lockup and dissolves into it, over the black field: the short ident's first
+// frame).
 //
 // The panel's motion is data (segments of translate/scale and opacity) that drives both the
 // animations and `keyRect(t)`, so the rectangle a compositor needs is exact for every frame.
@@ -9,13 +10,16 @@
 // showing the background behind it, and the `matte` layer carries the program's alpha).
 
 import { SPARKLE } from '../audio/kit';
-import { identCursor, identCursorRect } from '../brand/ident';
+import { Ending, STAGE } from '../brand/ending';
+import { COUCH_BOX } from '../brand/glyph';
 import { bug } from '../brand/lockup';
+import { SHORT_IDENT_TIMES } from '../brand/short-ident';
+import { BRAND } from '../brand/wordmark';
 import { css, div, fadeOut, fadeUp, img, rise, span, words } from '../core/dom';
 import { fitText } from '../core/fit';
 import { framed, W } from '../core/framing';
 import { bezierPoints, cubicBezierAt, easing, type Ease } from '../core/motion';
-import { edge } from '../core/moves';
+import { edge, windows } from '../core/moves';
 import { applyPalette } from '../core/palette';
 import type { KeyRect } from '../core/timeline';
 import type { SqueezeSpec } from '../spec';
@@ -96,15 +100,14 @@ const CREDITS: [string, string][] = [
 ];
 
 export const squeeze: Template<SqueezeSpec> = {
-	version: 4,
+	version: 5,
 	build({ root, sound, assets }, spec) {
-		const cursor = spec.handover === 'cursor';
-		const D = cursor ? 10.6 : 11.52;
+		const toIdent = spec.handover !== 'expand';
+		const D = toIdent ? 10.6 : 11.52;
 		const tl = timeline(root, D);
 		root.classList.add('squeeze');
 		const nx = spec.next;
 		applyPalette(root, titlePalette(nx.title));
-		const keyed = spec.program.kind === 'key';
 		const bed = assets.bed(spec.bed);
 
 		const gV = glow(root, 'violet', 400, 160, 760);
@@ -145,7 +148,6 @@ export const squeeze: Template<SqueezeSpec> = {
 		} else {
 			prog.classList.add('keyed');
 		}
-		const redFill = css(div('red-fill', prog), { opacity: '0' });
 		const frame = css(div('sq-frame', root), {
 			left: '96px',
 			top: '236px',
@@ -195,19 +197,19 @@ export const squeeze: Template<SqueezeSpec> = {
 		const h0 = 9.2;
 		const box = new Track<Box>(full, mixBox).to(s0, s1 - s0, sq, 'cubic-bezier(0.65, 0, 0.25, 1)');
 		const opacity = new Track<number>(1, mixNum);
-		const red = new Track<number>(0, mixNum);
-		const block = identCursorRect();
-		// once collapsed, the ident's own block takes over (its corners, not the panel's scaled ones)
-		const handed = edge(h0 + 1.1);
-		if (cursor) {
-			box.to(
-				h0 + 0.2,
-				0.9,
-				{ x: block.x, y: block.y, sx: block.width / W, sy: block.height / 1080 },
-				'cubic-bezier(0.7, 0, 0.2, 1)'
-			);
-			red.to(h0 + 0.4, 0.5, 1, 'in');
-			opacity.to(handed, 0.001, 0, 'linear');
+		// the couch's box in its place in the lockup
+		const lk = STAGE.logo.k;
+		const onto: Box = {
+			x: STAGE.logo.x + COUCH_BOX[0] * lk,
+			y: STAGE.logo.y + COUCH_BOX[1] * lk,
+			sx: ((COUCH_BOX[2] - COUCH_BOX[0]) * lk) / W,
+			sy: ((COUCH_BOX[3] - COUCH_BOX[1]) * lk) / 1080
+		};
+		// the stage is night by then: the couch shows under the panel, which dissolves into it
+		const handed = edge(h0 + 1.02);
+		if (toIdent) {
+			box.to(h0 + 0.1, 0.9, onto, 'move');
+			opacity.to(handed, D - 0.04 - handed, 0, 'sine');
 		} else {
 			box.to(h0, 0.8, { x: -40, y: 236, sx: 0.525, sy: 0.525 }, 'cubic-bezier(0.6, 0, 0.8, 0.5)');
 			opacity.to(h0, 0.8, 0, 'cubic-bezier(0.6, 0, 0.8, 0.5)');
@@ -215,16 +217,10 @@ export const squeeze: Template<SqueezeSpec> = {
 		tl.add(prog, [{ transform: tf(full) }, { transform: tf(full) }], 0, 0.01, 'linear');
 		box.animate(tl, prog, (v) => ({ transform: tf(v) }));
 		opacity.animate(tl, prog, (v) => ({ opacity: v }));
-		if (keyed) {
-			// keyed, the red is drawn at full strength and the matte carries its fade, so a
-			// standard overlay composite comes out right
-			if (red.segs.length) tl.show(redFill, red.segs[0].at, D + 1);
-			redFill.style.opacity = '1';
-		} else red.animate(tl, redFill, (v) => ({ opacity: v }));
 
 		tl.keyRect = (t: number): KeyRect | null => {
 			const v = box.at(t);
-			const alpha = opacity.at(t) * (1 - red.at(t));
+			const alpha = opacity.at(t);
 			if (alpha <= 0) return null;
 			return {
 				x: v.x,
@@ -297,26 +293,29 @@ export const squeeze: Template<SqueezeSpec> = {
 		fadeUp(tl, whenEl, c0 + 1.05, { y: 10 });
 
 		tl.cue(
-			cursor ? "handover: collapses into the ident's cursor" : 'handover: the next program expands',
+			toIdent ? "handover: onto the short ident's couch" : 'handover: the next program expands',
 			h0
 		);
 		[ebRow, title.root.parentElement as HTMLElement, epRow, whenEl].forEach((e, i) => {
 			if (e) fadeOut(tl, e, h0 + i * 0.05, { dur: 0.4, y: -10 });
 		});
 		tl.add(frame, [{ opacity: 1 }, { opacity: 0 }], h0, 0.3, 'sine');
-		if (cursor) {
-			// the ident's field is pure black: the stage settles into it under the collapse
-			const black = css(div('fill', root), { background: '#000' });
+		if (toIdent) {
+			// the stage settles into the ident's black field under the collapse
+			const black = css(div('fill', root), { background: BRAND.night });
 			root.insertBefore(black, prog);
-			tl.add(black, [{ opacity: 0 }, { opacity: 1 }], h0, 1.1, 'sine');
+			tl.add(black, [{ opacity: 0 }, { opacity: 1 }], h0, 0.9, 'sine');
 			tl.add(tvEl, [{ opacity: 1 }, { opacity: 0 }], h0, 0.45, 'sine');
 			if (b) fadeOut(tl, b, h0, { dur: 0.4, y: -10 });
-			for (const g of [gV, gT, gA]) tl.add(g, [{ opacity: 1 }, { opacity: 0 }], h0, 1.2, 'sine');
-			identCursor(tl, root, h0 + 1.1);
-			tl.sound(h0 + 0.2, (w, bus) =>
+			for (const g of [gV, gT, gA]) tl.add(g, [{ opacity: 1 }, { opacity: 0 }], h0, 0.9, 'sine');
+			// the short ident's first frame, drawn as the ident draws it (pixel for pixel)
+			const couch = new Ending(root, SHORT_IDENT_TIMES);
+			couch.show(couch.key(0), false);
+			root.insertBefore(couch.canvas, prog);
+			windows(tl, couch.canvas, [[handed, D + 1]]);
+			tl.sound(h0 + 0.1, (w, bus) =>
 				sound.whoosh(bus, w, { dur: 0.9, pan: [-0.5, 0], gain: 0.05 })
 			);
-			tl.sound(h0 + 1.1, (w, bus) => sound.keyClick(bus, w, { gain: 0.05, seed: 7 }));
 		} else {
 			tl.add(
 				tvEl,
