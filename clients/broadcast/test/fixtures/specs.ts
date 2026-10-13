@@ -5,6 +5,7 @@ import type {
 	Bed,
 	BreakSpec,
 	ClipSpec,
+	FootageShot,
 	Shot,
 	Title,
 	WeatherCity,
@@ -102,6 +103,20 @@ const czechEpisode = {
 
 const frames = (dir: string) =>
 	Array.from({ length: 25 }, (_, i) => `${M}/${dir}/${String(i + 1).padStart(3, '0')}.jpg`);
+
+// a title's scenes as the screens around the programs show them: two shots of two seconds (the
+// stand-in second, played forwards and back)
+const pingPong = (dir: string) => [...frames(dir), ...frames(dir).reverse()];
+const SCENES: FootageShot[] = [
+	{ kind: 'footage', frames: pingPong('shot-a') },
+	{ kind: 'footage', frames: pingPong('shot-b') }
+];
+/** With its logo (a 3.7:1 stand-in) and its scenes. */
+const NIGHT_ON_AIR: Title = {
+	...TITLES.night,
+	logo: { url: `${M}/night-logo.png`, aspect: 892 / 240 },
+	footage: SCENES
+};
 
 // the bulletins as the server writes them from the feeds recorded on 13 Oct 2026 at 17:02
 // (backend/internal/feature/couchtv/testdata/bulletins); ČHMÚ's warning is the recorded one
@@ -280,11 +295,18 @@ export const FIXTURES = {
 	'sting-5': { template: 'sting', duration: 5 },
 	upnext: {
 		template: 'upNext',
-		title: TITLES.sunny,
+		title: { ...TITLES.sunny, footage: SCENES },
 		episode,
 		time: '18:00',
 		clock: '17:59',
 		bed: bed(2, 24)
+	},
+	// a movie with its logo and scenes, scored by the house
+	'upnext-logo': {
+		template: 'upNext',
+		title: NIGHT_ON_AIR,
+		time: '20:15',
+		clock: '20:14'
 	},
 	'promo-cinematic': {
 		template: 'promo',
@@ -348,7 +370,7 @@ export const FIXTURES = {
 		items: [
 			{
 				time: '18:00',
-				title: TITLES.sunny,
+				title: { ...TITLES.sunny, footage: SCENES },
 				sub: 'S01E02 · Bart the Genius',
 				state: 'live',
 				progress: 0.16
@@ -360,7 +382,7 @@ export const FIXTURES = {
 				state: 'next',
 				badge: 'Next · in 21 min'
 			},
-			{ time: '20:15', title: TITLES.night, sub: 'Movie · Action · 126 min' },
+			{ time: '20:15', title: NIGHT_ON_AIR, sub: 'Movie · Action · 126 min' },
 			{ time: '22:30', title: TITLES.alley, sub: 'Movie · Crime · 154 min' }
 		]
 	},
@@ -464,7 +486,8 @@ export const FIXTURES = {
 			},
 			{ time: '20:15', title: LONG.strangelove, sub: 'Movie · Action & Adventure · 95 min' },
 			{ time: '22:30', title: LONG.verte, sub: `${czechEpisode.code} · ${czechEpisode.name}` },
-			{ time: '23:45', title: LONG.zabky, sub: 'Movie · Crime · 98 min' }
+			// no artwork: the channel's own plate
+			{ time: '23:45', title: { ...LONG.zabky, backdrop: '' }, sub: 'Movie · Crime · 98 min' }
 		]
 	},
 	'squeeze-long': {

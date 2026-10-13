@@ -903,6 +903,13 @@ break or the standby card.
   short ident's couch alone and its held lockup, a sting's holds; the bug's LIVE marker no
   longer breathes) are static, so the 6.7 budget should not count on skipped frames. Freezing the
   rest would change the approved motion, so it stays.
+- **The screens around the programs (2026-10-14)**: up next, the lineup and standby were
+  rebuilt from the screens' design spec in the new brand, as the owner directed that night:
+  sharp (no rounded corners anywhere), flat (no shadows, glows or glassy blurs), the red as
+  structural blocks and rules, type rising into place from behind its own edge; a title shows
+  big as its own logo and in pictures as scenes from itself (D41), its artwork only as the
+  fallback. Their parts are one module (`templates/onair.ts`); the reference is FEATURES.md
+  "Broadcast package".
 - **Brand isolation**: the lockup, corner bug, channel tag, sonic logo, idents and stings
   live in `src/brand`, so a redesign replaces that folder only.
 - **The full idents (D35)**: the four idents approved on 2026-10-13 are the full cut's

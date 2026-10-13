@@ -2377,6 +2377,28 @@ approves is what airs.
   a colon or before "and"/"the" only when it costs little width, never a widow, never a
   one-letter word ending a line. It runs once fonts are in, on what `words`/`chars` build (the
   breaks are `<br>`s), so per-word and per-character animations keep their targets.
+- **The screens around the programs** (`templates/onair.ts`: up next, the lineup and standby,
+  in the new brand since 2026-10-14): the idents' night, paper type and the brand's
+  red as sharp blocks and rules, square and flat (no rounded corners, shadows or glows). Type
+  rises into place from behind its own edge and lifts away the same way; a label is a red
+  block wiping open from its left edge. A title shown big is its own logo (`titleMark`: every
+  logo gets the same area within its box, never stretched; its name, fitted, when it has none
+  or it failed to load), and its picture is scenes from it (`scenes`: its footage shots in
+  order, cycling, each at most 3.2 s and dissolving into the next over 0.8 s, under one camera
+  pushed as a whole; its backdrop without footage, the channel's dusk plate without artwork).
+  `reel` is that schedule as a pure function, so a screen continuing another's picture shows
+  the same frame. **Up next**: the next title's scenes pushed from 1.04 to 1.12, its logo or
+  name lower left under a red "Up next" block, the episode and meta under it, and the horizon
+  line filling red, its red head reaching the start time as the program starts; the title's
+  bed with the sonic logo on glass on the last three beats (without a bed the house's D add 9
+  pad and felt piano). **The lineup**: "Later on couchtv" over rows on hairlines (names as
+  type, the live row's red time and progress, the next row's badge); a red marker walks the
+  rows on half beats and each lit row's scenes dissolve and slide in on the right, nothing
+  else moving between steps; the house's pad, felt piano eighths and a glass note per step.
+  **Standby**: the couch alone on a flat dusk horizon under twinkling square stars, the dusk
+  breathing once a loop; its pad's partials make whole cycles per loop under a low-pass that
+  opens and closes with the dusk, and the sonic logo opens each loop on the felt piano, so
+  picture and sound loop without a seam (tests check both).
 - **Squeeze compositing**: the spec's `program` fills the panel with the program's last seconds as
   frames (`frames`: the page draws them; the composer writes this, and the sidecar renders it keyed
   and composites the frames itself, see "couchtv"), a stand-in (`standIn`: the ending title's
@@ -2488,14 +2510,14 @@ approves is what airs.
   frame, the key rectangle follows the panel, the `ident` squeeze ends on the short ident's
   first frame (pixel-equal), the lockup's letters are the bundled face's outlines, the couch and
   the popcorn with its knockout are the logo, the corner bug (a full-size golden), two audio
-  renders agree (each full ident's too) and hit their loudness, the standby loop has no seam, an
-  item's sound is the clip's faded into its ring-out, a promo sounds the same whatever its
-  airing, a bulletin's sound starts silent and is over before its last frame, and items
-  rendered alone and mixed sound like the break rendered in one pass (within 0.1 LU item by
-  item, 0.5 LU in every 400 ms after the first second, 0.2 dB of true peak); a unit test pins
-  the loudness numbers the server's Go port reproduces. Stand-in media (gradient art, two
-  footage shots, a bed) are committed in `test/media` with the script that made them.
-  `npm run dev` (port 5190) plays every fixture.
+  renders agree (each full ident's too) and hit their loudness, the standby loop has no seam (its
+  last frame is its first, its sound wraps), an item's sound is the clip's faded into its
+  ring-out, a promo sounds the same whatever its airing, a bulletin's sound starts silent and is
+  over before its last frame, and items rendered alone and mixed sound like the break rendered in
+  one pass (within 0.1 LU item by item, 0.5 LU in every 400 ms after the first second, 0.2 dB of
+  true peak); a unit test pins the loudness numbers the server's Go port reproduces. Stand-in
+  media (gradient art, two footage shots, a bed) are committed in `test/media` with the script
+  that made them. `npm run dev` (port 5190) plays every fixture.
 
 ## Backend dependency graph
 

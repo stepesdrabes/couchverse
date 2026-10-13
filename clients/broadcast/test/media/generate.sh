@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Regenerates the stand-in media the fixtures and golden frames use: gradient artwork for four
-# fictional titles, two short footage shots and a rhythmic bed. The files are committed (golden
-# frames depend on their exact bytes); rerun only to change them, then update the goldens.
+# fictional titles, a logo, two short footage shots and a rhythmic bed. The files are committed
+# (golden frames depend on their exact bytes); rerun only to change them, then update the goldens.
 set -euo pipefail
 cd "$(dirname "$0")"
 ff() { ffmpeg -hide_banner -loglevel error -y "$@"; }
@@ -18,6 +18,12 @@ art night 0x0a2a44 0x3a6ea5 0x9fd3ff
 art alley 0x643906 0xd62316 0xffd28a
 art sunny 0xf5cc36 0xfed51c 0x2a62ff
 art water 0xd69a77 0xd81d24 0x101828
+
+# a title's logo: a PNG trimmed to its letters (four slanted gold blocks), transparent around them
+slant="X-0.3*(240-Y)"
+ff -f lavfi -i "color=c=black:s=892x240,format=rgba" -frames:v 1 \
+	-vf "geq=r='236-0.25*Y':g='184-0.45*Y':b='80-0.2*Y':a='255*gt(between($slant,0,150)+between($slant,190,400)*not(between(Y,70,170)*between($slant,250,340))+between($slant,440,560)+between($slant,600,820)*not(between(Y,0,80)*between($slant,660,760)),0)'" \
+	-pix_fmt rgba night-logo.png
 
 mkdir -p shot-a shot-b
 ff -f lavfi -i "testsrc2=s=480x270:r=25:d=1" -q:v 6 shot-a/%03d.jpg

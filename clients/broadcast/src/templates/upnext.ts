@@ -1,196 +1,233 @@
-// "Up next": the next program's picture, its title and a countdown ring into it.
+// "Up next": the next program's scenes under a slow push, its logo (or its name) lower left
+// under a red "Up next" block, and the horizon line along the foot of the frame filling red
+// until it reaches the start time, where the program begins. Ends on night (the program starts
+// from it); the bug stays to the last frame, where the player's own bug takes over at the same
+// place. After an expanding squeeze it continues that squeeze's last frame (`enter: 'continue'`).
+//
+// Score: the title's own bed leads, dipping under the sonic logo on glass on the last three
+// beats (A4, E5, D5), the D ringing on into the program; without a bed the house plays a D add 9
+// pad opening over the clip, the felt piano touching its notes, then the same glass logo.
 
-import { SPARKLE } from '../audio/kit';
+import type { Bus } from '../audio/engine';
+import type { Kit } from '../audio/kit';
+import { glass, house, pad, padSweep, piano, sub } from '../audio/voices';
 import { bug } from '../brand/lockup';
-import { css, div, fadeOut, fadeUp, rise, span, svg, words } from '../core/dom';
+import { SONIC } from '../brand/sonic';
+import { css, div, span } from '../core/dom';
 import { fitText } from '../core/fit';
-import { framed } from '../core/framing';
-import { applyPalette } from '../core/palette';
 import type { UpNextSpec } from '../spec';
-import { timeline, titlePalette, type Template } from './shared';
+import {
+	conceal,
+	GRADE,
+	grade,
+	INK,
+	label,
+	labelIn,
+	labelOut,
+	masked,
+	meta,
+	push,
+	reveal,
+	ringOn,
+	scenes,
+	titleMark
+} from './onair';
+import { timeline, type Template } from './shared';
+
+/** The picture's push (zoom at the first and the last frame) and its crop without scenes. */
+export const UPNEXT = {
+	zoom: [1.04, 1.12] as [number, number],
+	crop: [0.03, 0.03, 0.94, 0.94] as [number, number, number, number],
+	/**
+	 * Seconds of the next title's scenes an expanding squeeze has shown when up next continues
+	 * its last frame: the squeeze's card plays them from 3.0 to its end at 11.52.
+	 */
+	continued: 8.52
+};
+
+/** The type block's left edge, its widest line and its foot (DESIGN.md 1.6). */
+const BLOCK = { x: 96, width: 1104, foot: 920 };
+/** The horizon line and the start time over its end. */
+const HORIZON = { y: 984, x0: 96, x1: 1824 };
+/** A logo's place in the block: the same visual weight whatever its shape. */
+const LOGO = { area: 168000, width: 920, height: 300 };
 
 export const upNext: Template<UpNextSpec> = {
-	version: 5,
+	version: 6,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 8;
 		const tl = timeline(root, D);
-		applyPalette(root, titlePalette(t));
 		root.classList.add('upnext');
 		const continuing = spec.enter === 'continue';
 		const bed = assets.bed(spec.bed);
 
-		const shot = framed(root, assets.picture(t.backdrop));
-		const fr = t.crops?.upNext ?? [
-			[0, 0, 1, 1],
-			[0.08, 0.04, 0.88, 0.88]
-		];
-		tl.add(
-			shot.img,
-			[{ transform: shot.tf(fr[0], continuing ? 1.06 : 1) }, { transform: shot.tf(fr[1]) }],
-			0,
-			D,
-			'cubic-bezier(0.3, 0.2, 0.6, 1)'
-		);
-		const scrimL = div('fill scrim-left', root);
-		const scrimB = div('fill scrim-bottom', root);
-		if (!continuing) tl.add(shot.el, [{ opacity: 0 }, { opacity: 1 }], 0, 1.0, 'sine');
-		tl.add(scrimL, [{ opacity: 0 }, { opacity: 0.85 }], 0.1, 1.0, 'sine');
-		tl.add(scrimB, [{ opacity: 0 }, { opacity: 1 }], 0.1, 1.0, 'sine');
-		if (spec.clock) fadeUp(tl, bug(tl, root, spec.clock, { scrim: true }), 0.5, { y: -10 });
+		// the picture, graded into the night on the left and at the foot
+		const view = div('fill oa-view', root);
+		const cam = scenes(tl, view, t, assets, {
+			offset: continuing ? UPNEXT.continued : 0,
+			crop: t.crops?.upNext?.[0] ?? UPNEXT.crop
+		});
+		push(tl, cam, 0, D, UPNEXT.zoom);
+		grade(root, [GRADE.bug, GRADE.left(66), GRADE.foot(58), GRADE.dim(0.14)]);
 
-		const info = div('un-info', root);
-		const ebRow = div('un-eyebrow', info);
-		const rail = div('rail', ebRow);
-		const eb = div('eyebrow', ebRow, 'Up next');
-		const title = words(div('hero un-title', info), t.name);
-		fitText(title.root.parentElement as HTMLElement, { width: 1100, min: 84, lines: 3 });
-		const epRow = spec.episode ? div('un-ep', info) : null;
-		const chip = epRow ? span('chip solid', epRow, spec.episode?.code) : null;
-		const epName = epRow ? span(null, epRow, spec.episode?.name) : null;
-		// beside the chip, clear of the countdown
-		if (chip && epName)
-			fitText(epName, { width: 1076 - chip.offsetWidth, min: 32, lines: 2, leading: 1.15 });
-		const meta = div('un-meta', info);
+		// the horizon: a hairline that fills red until it reaches the start time
+		const track = css(div('abs un-track', root), {
+			left: `${HORIZON.x0}px`,
+			top: `${HORIZON.y}px`,
+			width: `${HORIZON.x1 - HORIZON.x0}px`
+		});
+		const fill = css(div('abs un-fill', root), {
+			left: `${HORIZON.x0}px`,
+			top: `${HORIZON.y - 1}px`,
+			width: `${HORIZON.x1 - HORIZON.x0}px`
+		});
+		const head = css(div('abs un-head', root), {
+			left: `${HORIZON.x0}px`,
+			top: `${HORIZON.y - 7}px`
+		});
+		const time = masked(root, 'un-time tnum', spec.time);
+		css(time.parentElement as HTMLElement, {
+			position: 'absolute',
+			right: `${1920 - HORIZON.x1}px`,
+			top: `${HORIZON.y - 58}px`
+		});
+
+		// night over the picture and the line at both ends: one layer instead of fading each
+		const dark = css(div('fill', root), { background: INK.night });
+
+		// the type, lower left
+		const block = css(div('abs un-block', root), {
+			left: `${BLOCK.x}px`,
+			bottom: `${1080 - BLOCK.foot}px`,
+			width: `${BLOCK.width}px`
+		});
+		const lbl = label(block, 'Up next', 'un-label');
+		const mark = titleMark(
+			block,
+			t,
+			assets,
+			'un-title',
+			{ width: BLOCK.width, min: 76, lines: 3 },
+			LOGO
+		);
+		let ep: HTMLElement | null = null;
+		if (spec.episode) {
+			ep = div('un-ep', div('oa-mask un-ep-mask', block));
+			span('un-code tnum', ep, spec.episode.code);
+			const name = span('un-ep-name', ep, spec.episode.name);
+			// beside the code, within the block
+			fitText(name, {
+				width: BLOCK.width - name.offsetLeft,
+				min: 30,
+				lines: 2,
+				leading: 1.2
+			});
+		}
 		const runtime = spec.episode?.runtimeMinutes ?? t.runtimeMinutes;
-		const metaItems = [
-			spec.time,
+		const metaEl = meta(div(`oa-mask un-meta-mask${ep ? ' after-ep' : ''}`, block), 'un-meta', [
 			...(spec.episode ? [] : t.year ? [String(t.year)] : []),
 			...t.genres.slice(0, 2),
 			...(runtime ? [`${runtime} min`] : [])
-		];
-		metaItems.forEach((x, i) => span(i ? 'dot-sep' : 'tnum', meta, x));
+		]);
 
-		const cd = div('countdown', root);
-		div('cd-disc', cd);
-		const lbl = div('cd-label', cd);
-		div('eyebrow', lbl, 'Starts in');
-		const ringBox = css(div(null, cd), { position: 'relative', width: '168px', height: '168px' });
-		const C = 2 * Math.PI * 78;
-		const ring = svg('svg', { class: 'ring-svg', viewBox: '0 0 168 168' }, ringBox);
-		svg('circle', { class: 'track', cx: 84, cy: 84, r: 78 }, ring);
-		const prog = svg(
-			'circle',
-			{ class: 'prog', cx: 84, cy: 84, r: 78, 'stroke-dasharray': C.toFixed(1) },
-			ring
-		);
-		const num = div('ring-num tnum', ringBox);
-		const line = div('progress-line', root);
+		if (spec.clock) bug(tl, root, spec.clock);
 
-		const T0 = continuing ? 0.25 : 0.45;
-		tl.cue('eyebrow + rail', T0);
-		tl.add(rail, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], T0, 0.75, 'enter');
+		// --- in ----------------------------------------------------------------------------------
+		const T0 = continuing ? 0.16 : 0.32;
+		if (!continuing) tl.add(dark, [{ opacity: 1 }, { opacity: 0 }], 0, 0.8, 'sine');
+		else dark.style.opacity = '0';
+		tl.add(track, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], 0, 0.9, 'glide');
+		tl.add(fill, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], 0, D, 'linear');
 		tl.add(
-			eb,
+			head,
 			[
-				{ opacity: 0, transform: 'translateX(-14px)' },
-				{ opacity: 1, transform: 'translateX(0)' }
-			],
-			T0 + 0.15,
-			0.8,
-			'enter'
-		);
-		tl.cue('title', T0 + 0.35);
-		rise(tl, title.items, T0 + 0.35, { stagger: 0.09, dur: 1.0 });
-		if (chip && epName) {
-			tl.cue('episode', T0 + 0.9);
-			tl.add(
-				chip,
-				[
-					{ opacity: 0, transform: 'scale(0.7)' },
-					{ opacity: 1, transform: 'scale(1)' }
-				],
-				T0 + 0.9,
-				0.5,
-				'pop'
-			);
-			tl.add(
-				epName,
-				[
-					{ opacity: 0, transform: 'translateX(-20px)' },
-					{ opacity: 1, transform: 'translateX(0)' }
-				],
-				T0 + 1.0,
-				0.8,
-				'enter'
-			);
-		}
-		fadeUp(tl, meta, T0 + 1.2, { y: 12 });
-
-		tl.cue('countdown ring', T0 + 0.6);
-		tl.add(
-			cd,
-			[
-				{ opacity: 0, transform: 'scale(0.86)' },
-				{ opacity: 1, transform: 'scale(1)' }
-			],
-			T0 + 0.6,
-			0.8,
-			'enter'
-		);
-		tl.add(prog, [{ strokeDashoffset: C }, { strokeDashoffset: 0 }], T0 + 0.6, 0.7, 'enter');
-		tl.add(
-			prog,
-			[{ strokeDashoffset: 0 }, { strokeDashoffset: C }],
-			T0 + 1.3,
-			D - T0 - 1.3,
-			'linear'
-		);
-		tl.add(line, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], 0, D, 'linear');
-		tl.add(
-			num,
-			[
-				{ transform: 'none', opacity: 1 },
-				{ transform: 'none', opacity: 1 }
+				{ transform: 'translateX(0px)' },
+				{ transform: `translateX(${HORIZON.x1 - HORIZON.x0 - 4}px)` }
 			],
 			0,
-			0.01,
+			D,
 			'linear'
 		);
-		for (let s = 1; s < D; s++)
-			tl.add(
-				num,
-				[
-					{ transform: 'translateY(12px)', opacity: 0.25 },
-					{ transform: 'translateY(0)', opacity: 1 }
-				],
-				s,
-				0.4,
-				'enter'
-			);
-		tl.text(num, (tt) => `0:${String(Math.max(0, Math.ceil(D - tt - 1e-3))).padStart(2, '0')}`);
+		// it comes with the line (a continuing frame 0 is the squeeze's last, which has none)
+		tl.add(head, [{ opacity: 0 }, { opacity: 1 }], 0.1, 0.4, 'sine');
+		tl.cue('up next', T0);
+		labelIn(tl, lbl, T0);
+		tl.cue(mark.logo ? 'the logo' : 'the title', T0 + 0.12);
+		reveal(tl, mark.lines, T0 + 0.12, { stagger: 0.08, dur: mark.logo ? 1.0 : 0.9 });
+		const after = T0 + 0.12 + (mark.lines.length - 1) * 0.08;
+		if (ep) reveal(tl, [[ep]], after + 0.3, { dur: 0.8 });
+		reveal(tl, [[metaEl]], after + (ep ? 0.4 : 0.3), { dur: 0.8 });
+		reveal(tl, [[time]], T0 + 0.6, { dur: 0.8 });
 
-		const out = D - 0.9;
-		tl.cue('handover', out);
-		fadeOut(tl, info, out, { dur: 0.6, x: -40, y: 0 });
-		fadeOut(tl, cd, out + 0.05, { dur: 0.55, y: 0, scale: 0.9 });
-		tl.add(scrimL, [{ opacity: 0.85 }, { opacity: 0.2 }], out, 0.9, 'sine');
-		tl.add(scrimB, [{ opacity: 1 }, { opacity: 0.4 }], out, 0.9, 'sine');
+		// --- out: the type lifts away, the line reaches the time, the picture goes to night ------
+		const out = D - 0.72;
+		tl.cue('type out', out);
+		labelOut(tl, lbl, out);
+		conceal(tl, [...mark.lines, ...(ep ? [[ep]] : []), [metaEl]], out + 0.03, { stagger: 0.03 });
+		tl.add(dark, [{ opacity: 0 }, { opacity: 1 }], D - 0.32, 0.32, 'sine');
+		tl.cue('the program', D);
 
+		// --- sound -------------------------------------------------------------------------------
+		const notes = SONIC.notes.map((_, i) => D - 2.4 + 0.8 * i);
 		tl.sound(
 			0,
-			(w, b, skip) =>
-				sound.bed(b, w, bed, skip, { fadeIn: 0.35, fadeOut: 1.3, end: D, gain: 0.95 }),
+			(w, b, skip) => {
+				// the logo's D rings on into the program
+				ringOn(sound, b);
+				sound.bed(b, w, bed, skip, {
+					fadeIn: 0.35,
+					fadeOut: 1.2,
+					end: D,
+					// a 3 dB dip under each note of the logo
+					ducks: notes.map((at) => ({ at, depth: 0.71, attack: 0.12, hold: 0.36, release: 0.3 }))
+				});
+			},
 			D
 		);
-		tl.sound(T0 - 0.05, (w, b) =>
-			sound.whoosh(b, w, { dur: 0.75, pan: [-0.7, -0.2], gain: 0.05, lo: 600, hi: 3200, body: 0.2 })
-		);
-		tl.sound(T0 + 0.35, (w, b) =>
-			sound.impact(b, w, { gain: 0.16, size: 0.6, tone: 52, click: 0.3 })
-		);
-		if (chip)
-			tl.sound(T0 + 0.9, (w, b) => sound.tick(b, w, { freq: SPARKLE[0], gain: 0.045, pan: -0.5 }));
-		for (const s of [D - 3, D - 2, D - 1])
-			tl.sound(s, (w, b) =>
-				sound.tick(b, w, {
-					freq: s === D - 1 ? SPARKLE[4] : SPARKLE[2],
-					gain: 0.04,
-					pan: 0.6,
-					decay: 0.09
-				})
-			);
-		tl.sound(D - 1.6, (w, b) => sound.riser(b, w, { dur: 1.5, gain: 0.035, tone: 0.3 }));
+		if (!bed) tl.sound(0, (w, b, skip) => houseBed(sound, b, w - skip, D), D);
+		notes.forEach((at, i) => tl.sound(at, (w, b) => logoNote(sound, b, w, i, !!bed)));
 		return tl;
 	}
 };
+
+/** The house's bed without the title's own: D add 9 opening over the clip, the piano touching it. */
+function houseBed(k: Kit, b: Bus, w: number, D: number) {
+	const h = house(k, b);
+	padSweep(h, w, [
+		[0, 400],
+		[D - 0.6, 2400],
+		[D + 1.5, 900]
+	]);
+	pad(h, w, ['D3', 'A3', 'E4', 'F#4'], D - 1.6, {
+		attack: 1.2,
+		release: 1.4,
+		level: 0.9,
+		seed: 61
+	});
+	sub(h, w + 0.05, 'D2', D - 2.2, { gain: 0.45, attack: 1.0, release: 1.2 });
+	// beats 1 and 3 of the first bar, then the next downbeat
+	(
+		[
+			[0.32, 'A3'],
+			[1.92, 'E4'],
+			[3.52, 'D4']
+		] as const
+	).forEach(([at, note], i) =>
+		piano(h, w + at, note, { vel: 0.5, dur: 2.6, pan: -0.12 + 0.12 * i, gain: 0.9, seed: 510 + i })
+	);
+}
+
+/** One note of the sonic logo on glass, the last one ringing into the program on the hall. */
+function logoNote(k: Kit, b: Bus, w: number, i: number, overBed: boolean) {
+	const h = house(k, b);
+	const last = i === SONIC.notes.length - 1;
+	glass(h, w, SONIC.notes[i], {
+		decay: last ? 3.2 : 1.8,
+		tone: 0.9,
+		gain: (overBed ? 0.55 : 0.9) * (last ? 1.15 : 1),
+		pan: [-0.18, 0.14, 0][i],
+		verb: last ? 0.8 : 0.6,
+		seed: 530 + i
+	});
+}

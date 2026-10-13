@@ -17,7 +17,9 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['sting-2', [0.2, 0.84, 1.96]],
 	['sting-3', [0.24, 1.2, 2.96]],
 	['sting-5', [0.16, 1.4, 2.48, 4.96]],
+	// up next over scenes; a logo in place of the name, the house's score
 	['upnext', [2.5, 7.6]],
+	['upnext-logo', [0.6, 3]],
 	['promo-cinematic', [6, 13.5, 19.5]],
 	['promo-grit-premiere', [4, 14.6]],
 	['promo-bright', [1.5, 10.8, 15.5]],
@@ -25,7 +27,7 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['strip-bright', [13]],
 	['strip-dark', [7.5]],
 	['short', [3.5]],
-	['lineup', [6]],
+	['lineup', [1, 6]],
 	['squeeze-expand', [5]],
 	['squeeze-key', [5]],
 	['squeeze-key', [2.6], 'matte'],
@@ -116,6 +118,14 @@ test('text stays inside the title-safe width and on the frame', async ({ page })
 			expect(outside, `${name} at ${t}`).toEqual([]);
 		}
 	}
+});
+
+test('the standby loop ends on its first frame', async ({ page }) => {
+	const info = await load(page, FIXTURES.standby);
+	await seek(page, 0);
+	const first = await page.screenshot();
+	await seek(page, info.duration);
+	expect((await page.screenshot()).equals(first)).toBe(true);
 });
 
 test('versions name every template as load reports it', async ({ page }) => {
