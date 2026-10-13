@@ -431,12 +431,24 @@ func TestCouchTvPrune(t *testing.T) {
 		(NULL, 'evergreen', 'ready', $3, '{}', $5 - interval '1 day'),
 		(NULL, 'evergreen', 'ready', $4, '{}', $5)`, aired, waiting, oldGreen, newGreen, now)
 
+	// bulletins' clips: one that may still air, one whose bulletin expired two hours ago, one
+	// whose bulletin is gone
+	airs, expired, orphan := dir("couchtv/clips/news-airs", 0), dir("couchtv/clips/news-expired", 0), dir("couchtv/clips/news-orphan", 0)
+	exec(`INSERT INTO couchtv_clips (id, kind, key, state, path, last_used_at) VALUES
+		('00000000-0000-4000-8000-00000000c003', 'news', 'news-airs', 'ready', $1, $4),
+		('00000000-0000-4000-8000-00000000c004', 'news', 'news-expired', 'ready', $2, $4),
+		('00000000-0000-4000-8000-00000000c005', 'weather', 'news-orphan', 'ready', $3, $4)`, airs, expired, orphan, now)
+	exec(`INSERT INTO couchtv_bulletins (kind, fetched_at, valid_until, data, clip_id) VALUES
+		('news', $1, $2, '{}', '00000000-0000-4000-8000-00000000c003'),
+		('news', $3, $4, '{}', '00000000-0000-4000-8000-00000000c004')`,
+		now.Add(-time.Hour), now.Add(2*time.Hour), now.Add(-5*time.Hour), now.Add(-2*time.Hour))
+
 	if err := couchtv.Prune(ctx, couchtv.NewStore(env.pool), env.cfg.DataDir, now); err != nil {
 		t.Fatal(err)
 	}
 	for rel, want := range map[string]bool{aired: false, waiting: true, oldClip: false, usedClip: true,
 		oldGreen: false, newGreen: true, staleFrames: false, freshFrames: true, picked: true, heard: true, unheard: false,
-		staleSound: false, freshSound: true, usedPlaylist: true, usedRaw: false} {
+		staleSound: false, freshSound: true, usedPlaylist: true, usedRaw: false, airs: true, expired: false, orphan: false} {
 		if exists(rel) != want {
 			t.Errorf("%s kept: %v, want %v", rel, exists(rel), want)
 		}

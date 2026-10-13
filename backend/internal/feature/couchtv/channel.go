@@ -46,6 +46,9 @@ type liveStore interface {
 	Evergreen(ctx context.Context) (*Break, error)
 	// Standby is the newest rendered standby card (db.ErrNotFound while none is).
 	Standby(ctx context.Context) (*Clip, error)
+	// ReadyBulletin is the rendered clip, frames long, of the newest bulletin of a kind
+	// still valid at until (db.ErrNotFound while there is none).
+	ReadyBulletin(ctx context.Context, kind string, until time.Time, frames int) (*Clip, error)
 	// FileSubtitles are a media file's subtitle tracks.
 	FileSubtitles(ctx context.Context, fileID string) ([]liveSubtitle, error)
 }
@@ -169,7 +172,7 @@ func (c *Channel) decide(ctx context.Context, a LiveAiring, start, next time.Tim
 		}
 	case KindBreak:
 		var parts []LivePart
-		parts, fallback = c.breakParts(ctx, a.ID, a.EndsAt.Sub(start))
+		parts, fallback = c.breakParts(ctx, a.ID, start, a.EndsAt.Sub(start))
 		for _, p := range parts {
 			f.add(p)
 		}
@@ -204,12 +207,12 @@ func (c *Channel) programPart(ctx context.Context, a LiveAiring, limit time.Dura
 		Audio: pickAudio(pkg.Stereo), Subtitles: pickSubtitles(subs)}, ""
 }
 
-// breakParts fill span with the break's assembled package, else the evergreen
-// break cut to the gap, else a filler; fallback names what stands in. The
-// break's own package shorter than the gap airs after a filler, so its up next
+// breakParts fill span from start with the break's assembled package, else the
+// evergreen break cut to the gap, else a filler; fallback names what stands in.
+// The break's own package shorter than the gap airs after a filler, so its up next
 // still counts down into the program; the evergreen break has no up next, so a
 // filler follows it.
-func (c *Channel) breakParts(ctx context.Context, id string, span time.Duration) (parts []LivePart, fallback string) {
+func (c *Channel) breakParts(ctx context.Context, id string, start time.Time, span time.Duration) (parts []LivePart, fallback string) {
 	if span <= 0 {
 		return nil, ""
 	}
@@ -217,7 +220,7 @@ func (c *Channel) breakParts(ctx context.Context, id string, span time.Duration)
 	b, err := c.store.ReadyBreak(ctx, id)
 	switch {
 	case err == nil && len(b.Recipe.Slots) > 0:
-		parts, err := c.sectionParts(ctx, b, span)
+		parts, err := c.sectionParts(ctx, b, start, span)
 		if err == nil {
 			return parts, ""
 		}
@@ -268,10 +271,12 @@ func (c *Channel) fitBreak(ctx context.Context, path string, b *breakMedia, span
 	return []LivePart{p, pad}
 }
 
-// sectionParts air a break assembled in sections around its bulletin slots, a part each, in
-// span: after a filler when they are shorter, else cut where span ends (the last section
-// absorbing a difference under minPart), as fitBreak airs a break.
-func (c *Channel) sectionParts(ctx context.Context, b *Break, span time.Duration) ([]LivePart, error) {
+// sectionParts air a break assembled in sections around its bulletin slots from start, a
+// part each, in span: after a filler when they are shorter, else cut where span ends (the
+// last section absorbing a difference under minPart), as fitBreak airs a break. A slot that
+// airs whole airs the newest bulletin still valid when it ends (bulletinPart), else its
+// fallback: this is where a slot binds, as the break goes on air.
+func (c *Channel) sectionParts(ctx context.Context, b *Break, start time.Time, span time.Duration) ([]LivePart, error) {
 	secs := sectionsOf(b.Recipe)
 	parts := make([]LivePart, len(secs))
 	var total time.Duration
@@ -284,23 +289,64 @@ func (c *Channel) sectionParts(ctx context.Context, b *Break, span time.Duration
 		parts[k] = breakPart(path, m)
 		total += m.duration()
 	}
-	if pad := span - total; pad >= minPart {
-		return append([]LivePart{c.fill(ctx, pad)}, parts...), nil
-	}
 	var out []LivePart
-	var at time.Duration
+	at := start
+	add := func(k int, p LivePart) {
+		if s := secs[k].slot; s != nil && p.Ms == parts[k].Ms {
+			if bulletin, ok := c.bulletinPart(ctx, *s, at.Add(p.duration())); ok {
+				p = bulletin
+			}
+		}
+		out = append(out, p)
+		at = at.Add(p.duration())
+	}
+	if pad := span - total; pad >= minPart {
+		filler := c.fill(ctx, pad)
+		out = append(out, filler)
+		at = at.Add(filler.duration())
+		for k, p := range parts {
+			add(k, p)
+		}
+		return out, nil
+	}
 	for k, p := range parts {
-		if d := p.duration(); k < len(parts)-1 && at+d < span {
-			out = append(out, p)
-			at += d
+		if d := p.duration(); k < len(parts)-1 && at.Add(d).Before(start.Add(span)) {
+			add(k, p)
 			continue
 		}
-		if p.Ms = (span - at).Milliseconds(); p.Ms > 0 {
-			out = append(out, p)
+		if p.Ms = start.Add(span).Sub(at).Milliseconds(); p.Ms > 0 {
+			add(k, p)
 		}
 		break
 	}
 	return out, nil
+}
+
+// bulletinPart airs the newest rendered bulletin of a slot's kind still valid at until in
+// the slot, at its loudness; false when there is none.
+func (c *Channel) bulletinPart(ctx context.Context, s RecipeSlot, until time.Time) (LivePart, bool) {
+	clip, err := c.store.ReadyBulletin(ctx, s.Kind, until, s.Frames)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotFound) {
+			slog.Warn("couchtv: a slot's bulletin", "kind", s.Kind, "err", err)
+		}
+		return LivePart{}, false
+	}
+	pkg, err := c.media.Clip(clip.Path)
+	if err != nil {
+		slog.Warn("couchtv: a bulletin's clip is unreadable; the slot airs its fallback", "clipId", clip.ID, "err", err)
+		return LivePart{}, false
+	}
+	audio := slotAudio(s.Loudness)
+	if !slices.ContainsFunc(pkg.Stereo, func(r playback.PackageRendition) bool { return r.Name == audio }) {
+		return LivePart{}, false
+	}
+	p := LivePart{Kind: PartBulletin, Ms: int64(s.Frames) * 1000 / FPS, File: clip.ID, Path: clip.Path, Video: pkg.Source.Name,
+		Audio: map[string]string{}}
+	for _, l := range Languages {
+		p.Audio[l] = audio
+	}
+	return p, true
 }
 
 // fill is what airs for d where nothing else can: the standby card looped, else

@@ -187,7 +187,7 @@ func (r *Renderer) openBrowser() (*browser, error) {
 // idle closes Chromium when no render or assembly is due: outside the quiet hours the
 // sidecar mostly waits, and a small server needs the memory more than a warm browser.
 func (r *Renderer) idle(ctx context.Context) {
-	if due, err := r.Jobs.AnyDue(ctx, []string{RenderJob, AssembleJob}); err == nil && !due {
+	if due, err := r.Jobs.AnyDue(ctx, []string{RenderJob, BulletinRenderJob, AssembleJob}); err == nil && !due {
 		r.dropBrowser()
 	}
 }
@@ -199,7 +199,7 @@ func (r *Renderer) dropBrowser() {
 	}
 }
 
-// Render is the couchtv_render job: one clip, frame by frame.
+// Render is the couchtv_render job, and couchtv_bulletin_render: one clip, frame by frame.
 func (r *Renderer) Render(ctx context.Context, job *jobs.Job, report func(int)) error {
 	defer r.idle(context.WithoutCancel(ctx))
 	var p RenderPayload
@@ -329,7 +329,7 @@ func (r *Renderer) renderClip(ctx context.Context, clip *Clip, report func(int))
 		return 0, 0, err
 	}
 
-	// beside the package, not in it: the package keeps only the encoded rendition
+	// beside the package, not in it: the package keeps only what is encoded from it
 	raw := work + ".f32"
 	defer os.Remove(raw)
 	if err := r.renderSound(ctx, b, raw, frames); err != nil {
@@ -340,6 +340,12 @@ func (r *Renderer) renderClip(ctx context.Context, clip *Clip, report func(int))
 	}
 	if err := describe(work, frames); err != nil {
 		return 0, 0, err
+	}
+	if _, ok := bulletinFrames[clip.Kind]; ok {
+		// a bulletin airs at the loudness of the slot it fills
+		if err := r.encodeSlotSounds(ctx, raw, work, frames); err != nil {
+			return 0, 0, err
+		}
 	}
 	if err := r.keepItemSound(ctx, b, clip, loaded); err != nil {
 		// the clip is fine; a break that has it renders its sound when it assembles

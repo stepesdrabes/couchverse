@@ -108,6 +108,72 @@ type SqueezeNext struct {
 	Time    string       `json:"time"`
 }
 
+// SpecTime is a moment a bulletin names: a clock time, with the English weekday when it is
+// another day than the bulletin's.
+type SpecTime struct {
+	Day  string `json:"day,omitempty"`
+	Time string `json:"time"`
+}
+
+// SpecCity is one city of the weather bulletin.
+type SpecCity struct {
+	Name string           `json:"name"`
+	Lat  float64          `json:"lat"`
+	Lon  float64          `json:"lon"`
+	Now  SpecWeatherNow   `json:"now"`
+	Days []SpecWeatherDay `json:"days"`
+}
+
+// SpecWeatherNow is a city's weather at the bulletin's time, in whole degrees.
+type SpecWeatherNow struct {
+	Temperature int  `json:"temperature"`
+	Code        int  `json:"code"`
+	Day         bool `json:"day"`
+}
+
+// SpecWeatherDay is one day of a city's forecast.
+type SpecWeatherDay struct {
+	Label         string `json:"label"`
+	Weekday       string `json:"weekday"`
+	Short         string `json:"short"`
+	Min           int    `json:"min"`
+	Max           int    `json:"max"`
+	Code          int    `json:"code"`
+	Precipitation *int   `json:"precipitation,omitempty"`
+}
+
+// SpecWarning is one of ČHMÚ's warnings, in English.
+type SpecWarning struct {
+	Level   string       `json:"level"`
+	Event   string       `json:"event"`
+	Active  bool         `json:"active"`
+	From    SpecTime     `json:"from"`
+	Until   *SpecTime    `json:"until,omitempty"`
+	Regions []SpecRegion `json:"regions"`
+}
+
+// SpecRegion is a kraj a warning covers.
+type SpecRegion struct {
+	Code    string `json:"code"`
+	Name    string `json:"name"`
+	Partial bool   `json:"partial"`
+}
+
+// SpecCredits are the weather's credits, each shown with its data.
+type SpecCredits struct {
+	Forecast string `json:"forecast"`
+	Warnings string `json:"warnings"`
+	Borders  string `json:"borders"`
+}
+
+// SpecStory is one story of the news bulletin.
+type SpecStory struct {
+	Headline string `json:"headline"`
+	Outlet   string `json:"outlet"`
+	Outlets  int    `json:"outlets"`
+	Trending bool   `json:"trending,omitempty"`
+}
+
 // Spec is one clip's spec (spec.ts ClipSpec): Template says which fields apply.
 type Spec struct {
 	Template string         `json:"template"`
@@ -130,6 +196,14 @@ type Spec struct {
 	Next     *SqueezeNext   `json:"next,omitempty"`
 	Handover string         `json:"handover,omitempty"`
 	Bed      *Bed           `json:"bed,omitempty"`
+	// the bulletins': when the data is of, the weather's cities, warnings (empty on a quiet
+	// day, nil while ČHMÚ is unread) and credits, the news' stories and credit line
+	AsOf     string         `json:"asOf,omitempty"`
+	Cities   []SpecCity     `json:"cities,omitempty"`
+	Warnings *[]SpecWarning `json:"warnings,omitempty"`
+	Credits  *SpecCredits   `json:"credits,omitempty"`
+	Stories  []SpecStory    `json:"stories,omitempty"`
+	Credit   string         `json:"credit,omitempty"`
 }
 
 // BreakItem places a clip's sound in a break.

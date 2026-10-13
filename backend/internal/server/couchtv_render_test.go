@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -168,6 +169,54 @@ func TestCouchTvRender(t *testing.T) {
 	if lufs := measureLoudness(t, filepath.Join(env.cfg.DataDir, b.Path, "1", "audio-1-aac", "index.m3u8")); lufs < -23.6 || lufs > -22.4 {
 		t.Errorf("the slot's sound is %.1f LUFS, the recipe asked for -23", lufs)
 	}
+
+	// the bulletins, as couchtv_bulletin_render renders them: a rendition at every slot loudness
+	day := func(label, weekday string) couchtv.SpecWeatherDay {
+		return couchtv.SpecWeatherDay{Label: label, Weekday: weekday, Short: weekday[:3], Min: 4, Max: 15, Code: 2}
+	}
+	days := []couchtv.SpecWeatherDay{day("Today", "Tuesday"), day("Tomorrow", "Wednesday"), day("Thursday", "Thursday"),
+		day("Friday", "Friday"), day("Saturday", "Saturday")}
+	quiet := []couchtv.SpecWarning{}
+	bulletins := []struct {
+		kind   string
+		frames int
+		spec   couchtv.Spec
+	}{
+		{couchtv.ClipWeather, 375, couchtv.Spec{Template: "weather", Duration: 15, AsOf: "17:00", Warnings: &quiet,
+			Cities: []couchtv.SpecCity{{Name: "Prague", Lat: 50.088, Lon: 14.4208, Now: couchtv.SpecWeatherNow{Temperature: 15, Code: 1, Day: true}, Days: days},
+				{Name: "Ostrava", Lat: 49.8347, Lon: 18.282, Now: couchtv.SpecWeatherNow{Temperature: -2, Code: 71}, Days: days}},
+			Credits: &couchtv.SpecCredits{Forecast: couchtv.WeatherAttribution, Warnings: couchtv.WarningsAttribution, Borders: couchtv.OutlineAttribution}}},
+		{couchtv.ClipNews, 500, couchtv.Spec{Template: "news", Duration: 20, AsOf: "17:30",
+			Stories: []couchtv.SpecStory{{Headline: "Bulharsko hlásí další útok na lodě v Černém moři, jedna se potopila", Outlet: "ČT24", Outlets: 4},
+				{Headline: "Letadlo do Norimberku doprovázely stíhačky a policie uzavřela letiště. Piloti omylem nahlásili nouzi",
+					Outlet: "iROZHLAS", Outlets: 5},
+				{Headline: "Spojenci nás nevarovali před posledním útokem na Kyjev, uvedl Zelenskyj", Outlet: "ČT24", Outlets: 3}},
+			Credit: "Headlines from the outlets’ RSS feeds, as of 17:30"}},
+	}
+	for _, bl := range bulletins {
+		id, _, err := store.RequestClip(ctx, bl.kind, bl.kind+"-test", bl.spec, bl.frames, time.Now().Add(time.Hour))
+		if err != nil {
+			t.Fatal(err)
+		}
+		payload, _ := json.Marshal(couchtv.RenderPayload{ClipID: id})
+		start := time.Now()
+		if err := r.Render(ctx, &jobs.Job{Payload: payload}, func(int) {}); err != nil {
+			t.Fatal(err)
+		}
+		took := time.Since(start)
+		t.Logf("%s: %d frames in %s, %.2f fps", bl.kind, bl.frames, took.Round(time.Millisecond), float64(bl.frames)/took.Seconds())
+		clip, err := store.Clip(ctx, id)
+		if err != nil || clip.State != couchtv.ClipReady || clip.Frames != bl.frames {
+			t.Fatalf("%s: %+v %v", bl.kind, clip, err)
+		}
+		dir := filepath.Join(env.cfg.DataDir, clip.Path)
+		validateRenditions(t, dir, bl.frames, 9)
+		for _, lufs := range []int{-23, -19, -16} {
+			if got := measureLoudness(t, filepath.Join(dir, fmt.Sprintf("audio-l%d-aac", -lufs), "index.m3u8")); math.Abs(got-float64(lufs)) > 0.6 {
+				t.Errorf("%s at %d LUFS measures %.1f", bl.kind, lufs, got)
+			}
+		}
+	}
 }
 
 // measureLoudness is the integrated loudness ffmpeg's ebur128 measures of a rendition.
@@ -228,6 +277,13 @@ func insertBreak(t *testing.T, env *testEnv, r couchtv.Recipe) string {
 // media file's package, and the video is frames long.
 func validatePackage(t *testing.T, dir string, frames int) {
 	t.Helper()
+	validateRenditions(t, dir, frames, 1)
+}
+
+// validateRenditions is validatePackage for a package of audio renditions: a bulletin's
+// carries one at each slot loudness besides its own sound.
+func validateRenditions(t *testing.T, dir string, frames, audio int) {
+	t.Helper()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -251,7 +307,7 @@ func validatePackage(t *testing.T, dir string, frames int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Source == nil || len(p.Stereo) != 1 {
+	if p.Source == nil || len(p.Stereo) != audio {
 		t.Fatalf("%s: not read as a package: %+v", dir, p)
 	}
 	if got := p.Source.Info.Duration * couchtv.FPS; got < float64(frames)-0.01 || got > float64(frames)+0.01 {

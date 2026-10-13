@@ -20,8 +20,9 @@ import (
 const renderRestartEvery = 25
 
 // runRender is `couchverse render`, the Couch TV render sidecar (docs/couch-tv-plan.md
-// 6.7): it works the couchtv_render and couchtv_assemble jobs with one headless Chromium,
-// one job at a time, never while a transcode runs, at a low CPU and the idle I/O
+// 6.7): it works the couchtv_render, couchtv_bulletin_render and couchtv_assemble jobs with
+// one headless Chromium, one job at a time, a clip's render never while a transcode runs (a
+// bulletin's aside), at a low CPU and the idle I/O
 // priority (its image's entrypoint). It shares the
 // app's database and DATA_DIR and serves no API.
 func runRender() error {
@@ -64,6 +65,8 @@ func runRender() error {
 	runner := jobs.NewRunner(jobStore, 1)
 	runner.Register(couchtv.RenderJob, 1, r.Render)
 	runner.Yield(couchtv.RenderJob, false, "transcode_hls")
+	// a bulletin airs within the hour: it does not wait for a transcode
+	runner.Register(couchtv.BulletinRenderJob, 1, r.Render)
 	runner.Register(couchtv.AssembleJob, 1, r.Assemble)
 	slog.Info("render: working the couch tv queue")
 	runner.Run(ctx)

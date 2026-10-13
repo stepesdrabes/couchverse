@@ -13,7 +13,7 @@ import (
 // while it waits to air.
 const packageTTL = 30 * time.Second
 
-// DiskMedia reads the programs', breaks' and standby cards' packages under the
+// DiskMedia reads the programs', breaks', bulletins' and standby cards' packages under the
 // data directory, and owns the slate.
 type DiskMedia struct {
 	dataDir string
@@ -22,6 +22,7 @@ type DiskMedia struct {
 	mu       sync.Mutex
 	packages map[string]cachedPackage
 	breaks   map[string]*breakMedia
+	clips    map[string]*playback.Package
 	fills    map[string]*fill
 }
 
@@ -32,7 +33,7 @@ type cachedPackage struct {
 
 func NewDiskMedia(dataDir string, slate *Slate) *DiskMedia {
 	return &DiskMedia{dataDir: dataDir, slate: slate, packages: map[string]cachedPackage{}, breaks: map[string]*breakMedia{},
-		fills: map[string]*fill{}}
+		clips: map[string]*playback.Package{}, fills: map[string]*fill{}}
 }
 
 // Package reads a media file's package.
@@ -75,6 +76,30 @@ func (m *DiskMedia) Break(path string) (*breakMedia, error) {
 	}
 	m.breaks[path] = b
 	return b, nil
+}
+
+// Clip reads a rendered clip's package (a bulletin's); once rendered it never changes.
+func (m *DiskMedia) Clip(path string) (*playback.Package, error) {
+	m.mu.Lock()
+	p, ok := m.clips[path]
+	m.mu.Unlock()
+	if ok {
+		return p, nil
+	}
+	p, err := playback.ReadPackageDir(m.resolve(path))
+	if err != nil {
+		return nil, err
+	}
+	if p.Source == nil {
+		return nil, fmt.Errorf("couchtv: %s holds no video rendition", path)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.clips) > 64 {
+		m.clips = map[string]*playback.Package{}
+	}
+	m.clips[path] = p
+	return p, nil
 }
 
 // Fill is the slate for path "", else a standby card's package (a rendered clip,

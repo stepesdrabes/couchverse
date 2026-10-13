@@ -199,17 +199,27 @@ func (b *Bulletins) Start(ctx context.Context) error {
 
 // Handle is a couchtv_bulletins run: it queues the kind's next run, then fetches the
 // bulletin and stores it when it is good enough to air. A bad one leaves the last good
-// one in place.
+// one in place. Either way the newest is then rendered for the next slot that airs one,
+// when this is the last run in time for it (renderForSlot).
 func (b *Bulletins) Handle(ctx context.Context, job *jobs.Job, _ func(int)) error {
 	var p BulletinsPayload
 	if err := json.Unmarshal(job.Payload, &p); err != nil {
 		return err
 	}
+	cfg := LoadConfig(ctx, b.Settings)
+	err := b.run(ctx, cfg, p)
+	if _, ok := bulletinEvery[p.Kind]; ok {
+		err = errors.Join(err, b.renderForSlot(ctx, cfg, p.Kind, b.now()))
+	}
+	return err
+}
+
+// run queues the kind's next run and fetches its bulletin.
+func (b *Bulletins) run(ctx context.Context, cfg CouchTvConfig, p BulletinsPayload) error {
 	every, ok := bulletinEvery[p.Kind]
 	if !ok {
 		return fmt.Errorf("no bulletin of kind %q", p.Kind)
 	}
-	cfg := LoadConfig(ctx, b.Settings)
 	now := b.now()
 	// the next run is queued first, so a failing run cannot end the chain
 	next := nextBulletin(now, cfg.location(), every)
@@ -361,12 +371,13 @@ func (s *Store) bulletinSince(ctx context.Context, kind string, since time.Time)
 	return fresh, err
 }
 
-// PruneBulletins keeps the newest bulletinKeep bulletins of each kind and none older than
-// bulletinMaxAge. It runs in the hourly cleanup.
+// PruneBulletins keeps the newest bulletinKeep bulletins of each kind, and those whose clips
+// may still air, but none older than bulletinMaxAge. It runs in the hourly cleanup.
 func PruneBulletins(ctx context.Context, s *Store, now time.Time) error {
 	_, err := s.q.Exec(ctx, `
 		DELETE FROM couchtv_bulletins WHERE fetched_at < $1 OR id IN (
-			SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY kind ORDER BY fetched_at DESC) AS n
-			                FROM couchtv_bulletins) newest WHERE n > $2)`, now.Add(-bulletinMaxAge), bulletinKeep)
+			SELECT id FROM (SELECT id, clip_id, valid_until, row_number() OVER (PARTITION BY kind ORDER BY fetched_at DESC) AS n
+			                FROM couchtv_bulletins) newest
+			WHERE n > $2 AND (clip_id IS NULL OR valid_until <= $3))`, now.Add(-bulletinMaxAge), bulletinKeep, now)
 	return err
 }

@@ -172,11 +172,18 @@ func TestCouchTvBulletins(t *testing.T) {
 		t.Errorf("a switched-off run fetched %d times: %v", sources.requests.Load()-before, err)
 	}
 
-	// the cleanup keeps six of each kind, none older than a day
+	// the cleanup keeps six of each kind and an older one whose clip may still air, none older
+	// than a day
 	clock = clock.Add(6 * time.Hour)
 	if _, err := env.pool.Exec(ctx, `
 		INSERT INTO couchtv_bulletins (kind, fetched_at, valid_until, data)
 		SELECT 'news', $1::timestamptz - n * interval '20 minutes', $1::timestamptz, '{}' FROM generate_series(1, 10) n`, clock); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		WITH clip AS (INSERT INTO couchtv_clips (kind, key) VALUES ('news', 'airs-on') RETURNING id)
+		INSERT INTO couchtv_bulletins (kind, fetched_at, valid_until, data, clip_id)
+		SELECT 'news', $1::timestamptz - interval '4 hours', $1::timestamptz + interval '1 hour', '{}', id FROM clip`, clock); err != nil {
 		t.Fatal(err)
 	}
 	if err := couchtv.PruneBulletins(ctx, store, clock); err != nil {
@@ -188,8 +195,113 @@ func TestCouchTvBulletins(t *testing.T) {
 		t.Fatal(err)
 	}
 	// the weather of the day before is over a day old
-	if news != 6 || weather != 0 {
+	if news != 7 || weather != 0 {
 		t.Errorf("kept %d news and %d weather bulletins", news, weather)
+	}
+}
+
+// TestCouchTvBulletinRenders runs couchtv_bulletins beside a break with a news slot at 18:00:
+// only the run that is the last in time for the slot (17:30, the next at 17:50 being too late
+// for a break on air at 17:55) asks the sidecar for a clip, of the newest bulletin, once,
+// ahead of every other render; nothing is asked while the channel is off.
+func TestCouchTvBulletinRenders(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := context.Background()
+	prague, _ := time.LoadLocation("Europe/Prague")
+	at := func(hour, minute int) time.Time { return time.Date(2026, 10, 13, hour, minute, 0, 0, prague) }
+	clock := at(17, 10)
+	set := settings.NewStore(env.pool)
+	b := &couchtv.Bulletins{Store: couchtv.NewStore(env.pool), Settings: set, Jobs: jobs.NewStore(env.pool),
+		HTTP: &http.Client{Transport: &bulletinSources{}}, Now: func() time.Time { return clock }}
+	run := func(periodic bool) {
+		t.Helper()
+		p := couchtv.BulletinsPayload{Kind: couchtv.BulletinNews}
+		if periodic {
+			p.At = clock.UTC().Format(time.RFC3339)
+		}
+		payload, _ := json.Marshal(p)
+		if err := b.Handle(ctx, &jobs.Job{Payload: payload}, func(int) {}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	count := func(query string, args ...any) int {
+		t.Helper()
+		var n int
+		if err := env.pool.QueryRow(ctx, query, args...).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	renders := func() int {
+		return count(`SELECT count(*) FROM jobs WHERE type = $1 AND status = 'pending' AND priority = 1`, couchtv.BulletinRenderJob)
+	}
+	setFeatures(t, env, true)
+	if err := set.Set(ctx, "couchtv_render", json.RawMessage(`{"versions": {"news": 1, "weather": 1}, "seenAt": "2026-10-13T08:00:00Z"}`)); err != nil {
+		t.Fatal(err)
+	}
+	// the break before 18:00, on air from 17:55, its news slot 4:32 into it
+	var airing string
+	if err := env.pool.QueryRow(ctx, `INSERT INTO couchtv_airings (starts_at, ends_at, kind) VALUES ($1, $2, 'break') RETURNING id`,
+		at(17, 55), at(18, 0)).Scan(&airing); err != nil {
+		t.Fatal(err)
+	}
+	recipe, _ := json.Marshal(couchtv.Recipe{Frames: 7500, Slots: []couchtv.RecipeSlot{{Kind: couchtv.BulletinNews, At: 6800, Frames: 500, Loudness: -19}}})
+	if _, err := env.pool.Exec(ctx, `INSERT INTO couchtv_breaks (airing_id, kind, recipe, state) VALUES ($1, 'airing', $2, 'composed')`,
+		airing, recipe); err != nil {
+		t.Fatal(err)
+	}
+
+	// 17:10: the 17:30 run renders in time, so this one does not
+	run(true)
+	if n := renders(); n != 0 {
+		t.Fatalf("the 17:10 run asked for %d renders", n)
+	}
+	// 17:30: the last run in time renders its own bulletin
+	clock = at(17, 30)
+	run(true)
+	if n := renders(); n != 1 {
+		t.Fatalf("the 17:30 run asked for %d renders", n)
+	}
+	var fetched time.Time
+	var spec []byte
+	var frames int
+	if err := env.pool.QueryRow(ctx, `SELECT b.fetched_at, c.spec, c.duration_ms * 25 / 1000 FROM couchtv_bulletins b
+		JOIN couchtv_clips c ON c.id = b.clip_id WHERE c.kind = 'news'`).Scan(&fetched, &spec, &frames); err != nil {
+		t.Fatal(err)
+	}
+	var news couchtv.Spec
+	if err := json.Unmarshal(spec, &news); err != nil {
+		t.Fatal(err)
+	}
+	if !fetched.Equal(clock) || frames != 500 || news.Template != "news" || news.AsOf != "17:30" ||
+		news.Credit != "Headlines from the outlets’ RSS feeds, as of 17:30" || len(news.Stories) != 5 {
+		t.Errorf("the news rendered: fetched %s, %d frames, %+v", fetched.In(prague), frames, news)
+	}
+	// a restart a minute later finds it rendering: never twice
+	clock = at(17, 31)
+	run(false)
+	if n := count(`SELECT count(*) FROM couchtv_clips WHERE kind = 'news'`); n != 1 || renders() != 1 {
+		t.Errorf("%d news clips and %d renders after a restart", n, renders())
+	}
+
+	// with the channel off nothing is rendered
+	setFeatures(t, env, false)
+	clock = at(17, 32)
+	if _, err := env.pool.Exec(ctx, `UPDATE couchtv_bulletins SET clip_id = NULL`); err != nil {
+		t.Fatal(err)
+	}
+	run(false)
+	if n := count(`SELECT count(*) FROM couchtv_bulletins WHERE clip_id IS NOT NULL`); n != 0 {
+		t.Errorf("%d bulletins rendered while the channel is off", n)
+	}
+	// nor by a sidecar from before the bulletins, which has no news template
+	setFeatures(t, env, true)
+	if err := set.Set(ctx, "couchtv_render", json.RawMessage(`{"versions": {"sting": 1}, "seenAt": "2026-10-13T08:00:00Z"}`)); err != nil {
+		t.Fatal(err)
+	}
+	run(false)
+	if n := count(`SELECT count(*) FROM couchtv_bulletins WHERE clip_id IS NOT NULL`); n != 0 {
+		t.Errorf("%d bulletins rendered by a sidecar without the template", n)
 	}
 }
 

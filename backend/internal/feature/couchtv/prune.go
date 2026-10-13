@@ -24,10 +24,14 @@ const (
 	soundKeep = 2 * 24 * time.Hour
 	// workKeep drops what a crashed render left in its work directory.
 	workKeep = 24 * time.Hour
+	// bulletinClipKeep keeps a bulletin's clip a little past its bulletin's validity, while
+	// players may still fetch a slot that ended then.
+	bulletinClipKeep = time.Hour
 )
 
 // Prune keeps the rendered media bounded: the packages of breaks that have aired, clips
-// no break has asked for in a while (never one a waiting break uses), evergreen breaks
+// no break has asked for in a while (never one a waiting break uses), bulletins' clips
+// whose bulletins can air no more, evergreen breaks
 // older than the newest assembled one, and extracted media, items' sounds, work
 // directories and soundtrack previews nobody used lately (never a title's pick), and the
 // raw sound older renders left in clip packages; and it forgets guests long gone. It runs
@@ -79,8 +83,17 @@ func Prune(ctx context.Context, s *Store, dataDir string, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	if aired+evergreen+clips > 0 {
-		slog.Info("cleanup: pruned couch tv renders", "airedBreaks", aired, "evergreenBreaks", evergreen, "clips", clips)
+	// a bulletin's clip, headlines and all, goes once its bulletin can air no more (or is gone)
+	bulletins, err := remove(`
+		DELETE FROM couchtv_clips c WHERE c.kind IN ('weather', 'news') AND NOT EXISTS (
+			SELECT 1 FROM couchtv_bulletins b WHERE b.clip_id = c.id AND b.valid_until > $1)
+		RETURNING c.path`, now.Add(-bulletinClipKeep))
+	if err != nil {
+		return err
+	}
+	if aired+evergreen+clips+bulletins > 0 {
+		slog.Info("cleanup: pruned couch tv renders", "airedBreaks", aired, "evergreenBreaks", evergreen, "clips", clips,
+			"bulletins", bulletins)
 	}
 	// a guest who has not tuned in for as long as their cookie lasts is gone
 	if _, err := s.q.Exec(ctx, `DELETE FROM couchtv_guests WHERE seen_at < $1`, now.Add(-guestKeep)); err != nil {

@@ -5,12 +5,13 @@ import (
 	"time"
 )
 
-// The parts of an airing the channel reports (couchtv's PartProgram and
-// PartBreak). Its fillers, the standby card and the slate, are not television
-// and earn nothing.
+// The parts of an airing the channel reports (couchtv's PartProgram, PartBreak
+// and PartBulletin, a bulletin airing in a break's slot). Its fillers, the
+// standby card and the slate, are not television and earn nothing.
 const (
-	tvProgram = "program"
-	tvBreak   = "break"
+	tvProgram  = "program"
+	tvBreak    = "break"
+	tvBulletin = "bulletin"
 )
 
 // What counts on Couch TV. A program is seen at half its time on air, at most
@@ -31,7 +32,7 @@ const (
 // RecordTvViewing adds a stretch a member watched of one part of an airing. at
 // is on the channel's clock, so its day and hour are the channel's.
 func (s *Store) RecordTvViewing(ctx context.Context, userID int64, airingID, kind string, at time.Time, seconds int) error {
-	if seconds <= 0 || (kind != tvProgram && kind != tvBreak) {
+	if seconds <= 0 || (kind != tvProgram && kind != tvBreak && kind != tvBulletin) {
 		return nil
 	}
 	_, err := s.db.Exec(ctx,

@@ -40,7 +40,7 @@ func TestRanksCouchTv(t *testing.T) {
 			if err := st.RecordTvViewing(ctx, nora, airingID, kind, from.Add(m), 60); err != nil {
 				t.Fatal(err)
 			}
-			if kind == "program" || kind == "break" {
+			if kind == "program" || kind == "break" || kind == "bulletin" {
 				tvSeconds += 60
 			}
 		}
@@ -93,13 +93,14 @@ func TestRanksCouchTv(t *testing.T) {
 		watch(id, "program", at(d, 6, 30), time.Duration(minutes)*time.Minute)
 	}
 
-	// a break between programs counts as channel time
+	// a break between programs counts as channel time, the bulletin in its slot too
 	var brk string
 	if err := env.pool.QueryRow(ctx, `INSERT INTO couchtv_airings (starts_at, ends_at, kind, state)
 		VALUES ($1, $2, 'break', 'aired') RETURNING id::text`, at(0, 22, 5), at(0, 22, 10)).Scan(&brk); err != nil {
 		t.Fatal(err)
 	}
-	watch(brk, "break", at(0, 22, 5), 5*time.Minute)
+	watch(brk, "break", at(0, 22, 5), 4*time.Minute)
+	watch(brk, "bulletin", at(0, 22, 9), time.Minute)
 
 	// the first weekend's marathon watched whole (an episode an admin took off
 	// aside); the next one only on its Saturday, while Sunday's is still to come

@@ -23,6 +23,23 @@ type fakeStore struct {
 	subs      map[string][]liveSubtitle
 	// recipes are the breaks' recipes, for those with bulletin slots
 	recipes map[string]Recipe
+	// bulletins are the rendered bulletins, oldest first
+	bulletins []fakeBulletin
+}
+
+type fakeBulletin struct {
+	kind  string
+	until time.Time
+	clip  *Clip
+}
+
+func (f *fakeStore) ReadyBulletin(_ context.Context, kind string, until time.Time, frames int) (*Clip, error) {
+	for i := len(f.bulletins) - 1; i >= 0; i-- {
+		if b := f.bulletins[i]; b.kind == kind && !b.until.Before(until) && b.clip.Frames == frames {
+			return b.clip, nil
+		}
+	}
+	return nil, db.ErrNotFound
 }
 
 func (f *fakeStore) LiveAirings(_ context.Context, from, to time.Time) ([]LiveAiring, error) {
@@ -90,10 +107,18 @@ func (f *fakeStore) FileSubtitles(_ context.Context, id string) ([]liveSubtitle,
 	return f.subs[id], nil
 }
 
-// fakeMedia holds packages and breaks in memory.
+// fakeMedia holds packages, breaks and clips in memory.
 type fakeMedia struct {
 	packages map[string]*playback.Package
 	breaks   map[string]*breakMedia
+	clips    map[string]*playback.Package
+}
+
+func (m fakeMedia) Clip(path string) (*playback.Package, error) {
+	if p := m.clips[path]; p != nil {
+		return p, nil
+	}
+	return nil, errors.New("no clip")
 }
 
 func (m fakeMedia) Package(id string) (*playback.Package, error) {

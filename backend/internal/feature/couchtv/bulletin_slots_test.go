@@ -104,8 +104,14 @@ func TestComposeBulletinSlotsFillEveryGap(t *testing.T) {
 	end := time.Date(2026, 10, 14, 7, 0, 0, 0, prague)
 	both := []string{BulletinNews, BulletinWeather}
 	var lengths []int
-	for f := 600; f <= 4000; f += 3 {
+	for f := 600; f <= 4000; f += 7 {
 		lengths = append(lengths, f)
+	}
+	// every frame where a slot comes or goes
+	for _, edge := range []int{slotRestFrames + newsFrames, slotRestFrames + newsFrames + weatherFrames} {
+		for f := edge - 30; f <= edge+30; f++ {
+			lengths = append(lengths, f)
+		}
 	}
 	for f := 4000; f <= 45000; f += 997 {
 		lengths = append(lengths, f)

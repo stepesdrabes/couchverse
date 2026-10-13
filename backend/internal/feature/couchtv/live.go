@@ -64,22 +64,24 @@ func liveKeys() []string {
 }
 
 // Kinds of parts. The standby card and the slate are fillers: what airs, looped,
-// where nothing else can.
+// where nothing else can. A bulletin airs in a break's slot.
 const (
-	PartProgram = "program"
-	PartBreak   = "break"
-	PartStandby = "standby"
-	PartSlate   = "slate"
+	PartProgram  = "program"
+	PartBreak    = "break"
+	PartBulletin = "bulletin"
+	PartStandby  = "standby"
+	PartSlate    = "slate"
 )
 
 // LivePart is a stretch of what an airing airs: a program from its package, a
-// break's assembled package, the standby card or the slate.
+// break's assembled package (or a section of it), a bulletin's clip, the standby
+// card or the slate.
 type LivePart struct {
 	Kind string `json:"kind"`
 	// Ms is the part's time on air in milliseconds.
 	Ms int64 `json:"ms"`
-	// File is a program's media file or the standby card's clip; Path a break's
-	// or the standby card's package, under DATA_DIR.
+	// File is a program's media file or the standby card's or a bulletin's clip;
+	// Path a break's or a clip's package, under DATA_DIR.
 	File string `json:"file,omitempty"`
 	Path string `json:"path,omitempty"`
 	// Video names the video rendition's directory; Audio the audio rendition's
@@ -219,6 +221,8 @@ func (b *breakMedia) duration() time.Duration {
 type liveMedia interface {
 	Package(fileID string) (*playback.Package, error)
 	Break(path string) (*breakMedia, error)
+	// Clip is a rendered clip's package (a bulletin's).
+	Clip(path string) (*playback.Package, error)
 	// Fill is a filler to loop: the slate for path "", else the standby card's package.
 	Fill(path string) (*fill, error)
 }
@@ -292,7 +296,8 @@ func partItem(id string, k int, p LivePart, m liveMedia) (hls.LiveItem, error) {
 	return item, nil
 }
 
-// partRenditions maps the renditions a program or break part airs by their directory name.
+// partRenditions maps the renditions a program, break or bulletin part airs by their
+// directory name.
 func partRenditions(p LivePart, m liveMedia) (map[string]*playback.PackageRendition, error) {
 	out := map[string]*playback.PackageRendition{}
 	if p.Kind == PartBreak {
@@ -306,7 +311,13 @@ func partRenditions(p LivePart, m liveMedia) (map[string]*playback.PackageRendit
 		}
 		return out, nil
 	}
-	pkg, err := m.Package(p.File)
+	var pkg *playback.Package
+	var err error
+	if p.Kind == PartBulletin {
+		pkg, err = m.Clip(p.Path)
+	} else {
+		pkg, err = m.Package(p.File)
+	}
 	if err != nil {
 		return nil, err
 	}

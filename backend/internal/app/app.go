@@ -202,7 +202,7 @@ func (a *App) Start(ctx context.Context) error {
 		return err
 	}
 	// breaks are composed here and rendered by the sidecar (`couchverse render`), which
-	// registers couchtv_render and couchtv_assemble itself
+	// registers couchtv_render, couchtv_bulletin_render and couchtv_assemble itself
 	composer := &couchtv.Composer{Store: d.CouchTv.Store, Settings: d.Settings, Jobs: d.Jobs}
 	runner.Register(couchtv.ComposeJob, 1, composer.Handle)
 	if err := composer.Start(ctx); err != nil {
@@ -224,7 +224,7 @@ func (a *App) Start(ctx context.Context) error {
 	// media analysis waits while the render sidecar works: Chromium and its encoder take
 	// most of a Pi's memory, and the two together swap
 	for _, t := range []string{library.MarkersJob, couchtv.AnalyzeJob} {
-		runner.Yield(t, true, couchtv.RenderJob, couchtv.AssembleJob)
+		runner.Yield(t, true, couchtv.RenderJob, couchtv.BulletinRenderJob, couchtv.AssembleJob)
 	}
 	// the slate is made once, before anything has to air it (a failure is logged)
 	go func() { _ = d.CouchTvLive.Slate.Ensure(ctx) }()

@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"couchverse/internal/feature/playback"
+	"couchverse/internal/hls"
 )
 
 // slotChannel airs, from 18:00:
@@ -30,7 +33,97 @@ func slotChannel() (*Channel, *fakeStore) {
 	}
 	st.breaks = map[string]string{uuidOf(2): "breaks/b9"}
 	st.recipes = map[string]Recipe{uuidOf(2): {Frames: 325, Slots: []RecipeSlot{{Kind: BulletinNews, At: 150, Frames: 100, Loudness: -19}}}}
+	// two rendered news bulletins of the slot's length, each with every slot loudness
+	files.clips = map[string]*playback.Package{}
+	for _, key := range []string{"n1", "n2"} {
+		pkg := &playback.Package{Source: ptr(rendition("source", rung, 4))}
+		for i, l := range slotLoudnesses() {
+			pkg.Stereo = append(pkg.Stereo, rendition(slotAudio(l), stereo("en", i == 0), 4.02))
+		}
+		files.clips["couchtv/clips/"+key] = pkg
+	}
+	c.media = files
 	return c, st
+}
+
+// newsClip is a rendered news bulletin (n1 or n2) of length frames, valid until until.
+func newsClip(key string, frames int, until time.Time) fakeBulletin {
+	return fakeBulletin{kind: BulletinNews, until: until,
+		clip: &Clip{ID: "clip-" + key, Kind: ClipNews, State: ClipReady, Frames: frames, Path: "couchtv/clips/" + key}}
+}
+
+// The slot airs the newest bulletin still valid when the slot ends, in its place and at its
+// loudness; else its fallback.
+func TestLiveBulletinFillsTheSlot(t *testing.T) {
+	slotEnd := at0.Add(30 * time.Second)
+	for _, c := range []struct {
+		name      string
+		bulletins []fakeBulletin
+		recipe    func(*Recipe)
+		want      string // the slot's part: its kind and path
+	}{
+		{"no bulletin: the fallback", nil, nil, "break breaks/b9/1"},
+		{"a valid bulletin", []fakeBulletin{newsClip("n1", 100, slotEnd.Add(time.Hour))}, nil, "bulletin couchtv/clips/n1"},
+		{"the newest valid one", []fakeBulletin{newsClip("n1", 100, slotEnd.Add(time.Hour)), newsClip("n2", 100, slotEnd.Add(2*time.Hour))},
+			nil, "bulletin couchtv/clips/n2"},
+		{"never past its validity", []fakeBulletin{newsClip("n1", 100, slotEnd.Add(time.Hour)), newsClip("n2", 100, slotEnd.Add(-time.Second))},
+			nil, "bulletin couchtv/clips/n1"},
+		{"an expired one: the fallback", []fakeBulletin{newsClip("n1", 100, slotEnd.Add(-time.Second))}, nil, "break breaks/b9/1"},
+		{"a weather slot takes no news", []fakeBulletin{newsClip("n1", 100, slotEnd.Add(time.Hour))},
+			func(r *Recipe) { r.Slots[0].Kind = BulletinWeather }, "break breaks/b9/1"},
+		{"a loudness without a rendition: the fallback", []fakeBulletin{newsClip("n1", 100, slotEnd.Add(time.Hour))},
+			func(r *Recipe) { r.Slots[0].Loudness = -12 }, "break breaks/b9/1"},
+	} {
+		ch, st := slotChannel()
+		st.bulletins = c.bulletins
+		if c.recipe != nil {
+			r := st.recipes[uuidOf(2)]
+			r.Slots = slices.Clone(r.Slots)
+			c.recipe(&r)
+			st.recipes[uuidOf(2)] = r
+		}
+		parts, err := ch.Lineup(context.Background(), at0, at0.Add(time.Minute))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := parts[2].Kind + " " + parts[2].Path; got != c.want || parts[2].End.Sub(parts[2].Start) != 4*time.Second {
+			t.Errorf("%s: the slot airs %s for %s, want %s", c.name, got, parts[2].End.Sub(parts[2].Start), c.want)
+		}
+	}
+
+	// on air: the bulletin's own renditions at the slot's loudness, under the slot's part
+	ch, st := slotChannel()
+	st.bulletins = []fakeBulletin{newsClip("n1", 100, slotEnd.Add(time.Hour))}
+	b := "../airings/" + uuidOf(2) + "/parts/1/"
+	video := playlist(t, ch, videoKey, at0.Add(31*time.Second))
+	audio := playlist(t, ch, audioKey("en"), at0.Add(31*time.Second))
+	if !slices.ContainsFunc(video.Segments, func(s hls.Segment) bool { return s.URI == b+"video/seg_00000.m4s" }) ||
+		!slices.ContainsFunc(audio.Segments, func(s hls.Segment) bool { return s.URI == b+"audio-en/seg_00000.m4s" }) {
+		t.Errorf("the slot's playlists:\n%s\n%s", video, audio)
+	}
+	pinned, _ := st.PinnedAiring(context.Background(), uuidOf(2))
+	part, _ := pinned.Feed.mediaPart(1)
+	if part.Kind != PartBulletin || part.File != "clip-n1" || part.Video != "source" || part.Audio["cs"] != "audio-l19-aac" {
+		t.Errorf("the pinned slot %+v", part)
+	}
+	// once on air the slot never changes, whatever arrives later
+	st.bulletins = append(st.bulletins, newsClip("n2", 100, slotEnd.Add(2*time.Hour)))
+	if again := playlist(t, ch, videoKey, at0.Add(31*time.Second)); again.String() != video.String() {
+		t.Errorf("a newer bulletin changed what aired:\n%s\n%s", again, video)
+	}
+
+	// a break cut into its slot airs the fallback's start
+	ch, st = slotChannel()
+	st.bulletins = []fakeBulletin{newsClip("n1", 100, slotEnd.Add(time.Hour))}
+	st.rows[1].EndsAt = at0.Add(28 * time.Second)
+	st.rows[2].StartsAt = st.rows[1].EndsAt
+	parts, err := ch.Lineup(context.Background(), at0, at0.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parts[2].Kind != PartBreak || parts[2].End.Sub(parts[2].Start) != 2*time.Second {
+		t.Errorf("a cut slot airs %+v", parts[2])
+	}
 }
 
 // A break with a bulletin slot airs in sections, each an item of its own (a discontinuity and

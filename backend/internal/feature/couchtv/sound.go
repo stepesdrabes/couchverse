@@ -39,10 +39,11 @@ var bodyAiring = SpecAiring{Eyebrow: "Tonight", Time: "20:15"}
 
 // itemSpec is the spec whose sound a clip of the given kind plays in a break, false for a
 // clip that has none of its own there: a promo body's sound is the full promo, which rings
-// on through its end card; the end cards and the standby card make none.
+// on through its end card; the end cards and the standby card make none, and a bulletin airs
+// its own sound in a slot's place, never in a break's mix.
 func itemSpec(kind string, spec Spec) (Spec, bool) {
 	switch kind {
-	case ClipPromoEnd, ClipEvergreenEnd, ClipStandby:
+	case ClipPromoEnd, ClipEvergreenEnd, ClipStandby, ClipWeather, ClipNews:
 		return Spec{}, false
 	case ClipPromoBody:
 		spec.Part = "full"
