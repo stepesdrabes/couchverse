@@ -70,8 +70,11 @@ type BreakProgram struct {
 type Candidate struct {
 	TitleID string
 	Title   SpecTitle
-	Airs    time.Time
-	Fill    string
+	// BodyBackdrop is the backdrop's original for the promo body, which renders once per title
+	// and crops into it; Title's is the copy the screens that render for every break draw.
+	BodyBackdrop string
+	Airs         time.Time
+	Fill         string
 	// Airing is the end card's and the short promo's phrase.
 	Airing SpecAiring
 	// Strip is set for a strip at a fixed time: the strip promo's phrase and its days;
@@ -346,12 +349,11 @@ func promoPieces(c Candidate, left int) ([]piece, int) {
 		return []piece{fixed(Part{Kind: ClipStripPromo, Spec: spec, Frames: stripPromoFrames, TitleID: c.TitleID})}, stripPromoFrames
 	case c.Strip == nil && c.BodyFrames > 0 && left >= c.BodyFrames+endCardFrames:
 		body := promoBody(c)
-		end := body
-		end.Part = "end"
 		airing := c.Airing
-		end.Airing = &airing
-		full := end
-		full.Part = "full"
+		full := body
+		full.Part, full.Airing = "full", &airing
+		end := full
+		end.Part, end.Title = "end", &title
 		return []piece{
 			fixed(Part{Kind: ClipPromoBody, Spec: body, Frames: c.BodyFrames, Sound: &full, TitleID: c.TitleID}),
 			fixed(Part{Kind: ClipPromoEnd, Spec: end, Frames: endCardFrames, TitleID: c.TitleID}),
@@ -367,6 +369,7 @@ func promoPieces(c Candidate, left int) ([]piece, int) {
 // promoBody is a candidate's promo body: timeless, so it renders once per title.
 func promoBody(c Candidate) Spec {
 	title := c.Title
+	title.Backdrop = c.BodyBackdrop
 	return Spec{Template: "promo", Part: "body", Mood: c.Mood, Premiere: c.Fill == FillPremiere, Title: &title,
 		Shots: c.Shots, Bed: c.Bed}
 }
@@ -450,6 +453,8 @@ func squeezePart(in BreakInput, handover string) Part {
 		program = &ProgramSource{Kind: "standIn", Credits: &[][]string{}}
 	}
 	ending := e.Title
+	// the panel is the program itself (or its backdrop), never scenes of it
+	ending.Footage = nil
 	return Part{Kind: ClipSqueeze, Frames: frames, Spec: Spec{
 		Template: "squeeze", Ending: &ending, Program: program,
 		Next:     &SqueezeNext{Title: n.Title, Episode: n.Episode, Time: localTime(n.Start, in.Loc)},

@@ -1,8 +1,11 @@
 package couchtv
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -249,6 +252,100 @@ func TestAiringPhrases(t *testing.T) {
 	}
 	if got := stripPhrase(dayNames, "18:00"); got.Eyebrow != "Every night" || len(got.Days) != 7 {
 		t.Errorf("nightly strip: %+v", got)
+	}
+}
+
+// Every screen draws a title's logo, and every one that shows a title in motion its scenes: up
+// next, the squeeze's next card, the lineup, the strip, short and full promos and the end
+// cards; the squeeze's ending is the program itself. The screens that render for every break
+// draw the backdrop's smaller copy, the promo body (rendered once per title) its original, and
+// the body's sound is keyed as its clip keeps it.
+func TestComposeTitlesLogosAndScenes(t *testing.T) {
+	in := breakAt(time.Date(2026, 10, 14, 18, 0, 0, 0, prague), 90*time.Second, FillStrip)
+	dress := func(st *SpecTitle) {
+		st.Logo = &SpecLogo{URL: "/media/v1/artwork/" + st.Name + "-logo?v=1&size=1600x800", Aspect: 3.2}
+		st.Footage = []Shot{{Kind: "footage", Frames: FramesURLs("f-"+st.Name, time.Minute, 50)}}
+	}
+	dress(&in.Ending.Title)
+	dress(&in.Next.Title)
+	for i := range in.Later {
+		dress(&in.Later[i].Title)
+	}
+	for i := range in.Candidates {
+		dress(&in.Candidates[i].Title)
+		in.Candidates[i].BodyBackdrop = "/media/v1/artwork/" + in.Candidates[i].TitleID + "-original"
+	}
+	c, err := Compose(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkComposition(t, in, c)
+	seen := map[string]bool{}
+	for _, p := range c.Parts {
+		seen[p.Kind] = true
+		var moving []*SpecTitle
+		switch p.Kind {
+		case ClipSqueeze:
+			if p.Spec.Ending.Footage != nil || p.Spec.Ending.Logo == nil {
+				t.Errorf("the squeeze's ending: %+v", p.Spec.Ending)
+			}
+			moving = append(moving, &p.Spec.Next.Title)
+		case ClipLineup:
+			for i := range p.Spec.Items {
+				moving = append(moving, &p.Spec.Items[i].Title)
+			}
+		case ClipUpNext, ClipStripPromo, ClipShortPromo, ClipPromoBody, ClipPromoEnd:
+			moving = append(moving, p.Spec.Title)
+		}
+		for _, st := range moving {
+			if st.Logo == nil || len(st.Footage) != 1 || st.Footage[0].Frames[0] != "/media/v1/frames/f-"+st.Name+"/60000_50/0.jpg" {
+				t.Errorf("%s shows %s with logo %v and %d scenes", p.Kind, st.Name, st.Logo, len(st.Footage))
+			}
+		}
+		switch p.Kind {
+		case ClipPromoBody:
+			if p.Spec.Title.Backdrop != "/media/v1/artwork/"+p.TitleID+"-original" || len(p.Spec.Shots) == 0 {
+				t.Errorf("the body of %s: backdrop %s, %d shots", p.TitleID, p.Spec.Title.Backdrop, len(p.Spec.Shots))
+			}
+			clip, _ := itemSpec(p.Kind, p.Spec)
+			kept, _ := soundKey(1, clip)
+			mixed, _ := soundKey(1, *p.Sound)
+			if kept != mixed {
+				t.Errorf("the body of %s sounds as %+v in the break, its clip keeps %+v", p.TitleID, *p.Sound, clip)
+			}
+		case ClipPromoEnd, ClipShortPromo, ClipStripPromo, ClipUpNext:
+			if p.Spec.Title.Backdrop != "/media/v1/artwork/"+p.Spec.Title.Name {
+				t.Errorf("%s draws the backdrop %s", p.Kind, p.Spec.Title.Backdrop)
+			}
+		}
+	}
+	for _, kind := range []string{ClipSqueeze, ClipUpNext, ClipLineup, ClipStripPromo, ClipShortPromo, ClipPromoBody, ClipPromoEnd} {
+		if !seen[kind] {
+			t.Errorf("no %s composed: %v", kind, kinds(c))
+		}
+	}
+}
+
+// A title's footage is its analysed shots, the frame URLs its promo body has, and none without
+// analysis; its logo goes along as the store read it.
+func TestTitleFootageAndLogo(t *testing.T) {
+	f := titleFacts{Name: "Iron Man", Logo: &SpecLogo{URL: "/media/v1/artwork/l?v=1&size=1600x800", Aspect: 3.994},
+		Shots: []analyzedShot{{MediaFileID: "file-1", StartMs: 600000, DurationMs: 2000}, {MediaFileID: "file-1", StartMs: 900040, DurationMs: 1240}}}
+	st := f.spec()
+	if !reflect.DeepEqual(st.Footage, f.shots()) || len(st.Footage) != 2 || len(st.Footage[1].Frames) != 31 ||
+		st.Footage[1].Frames[30] != "/media/v1/frames/file-1/900040_31/30.jpg" {
+		t.Errorf("footage %+v", st.Footage)
+	}
+	if st.Logo == nil || *st.Logo != *f.Logo || st.Logo == f.Logo {
+		t.Errorf("logo %+v", st.Logo)
+	}
+	bare := titleFacts{Name: "Bare"}
+	data, _ := json.Marshal(bare.spec())
+	if strings.Contains(string(data), "footage") || strings.Contains(string(data), "logo") {
+		t.Errorf("a title without analysis or logo: %s", data)
+	}
+	if shots := bare.shots(); len(shots) == 0 || shots[0].Kind != "still" {
+		t.Errorf("its promo body shows %+v", shots)
 	}
 }
 

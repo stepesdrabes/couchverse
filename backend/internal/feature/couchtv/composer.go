@@ -438,8 +438,8 @@ func (r *composition) input(ctx context.Context, b Airing) (BreakInput, error) {
 // candidate is a title as a promo shows it, at an airing (zero for the evergreen break).
 func (r *composition) candidate(id string, p program, from time.Time) Candidate {
 	t := r.titles[id]
-	c := Candidate{TitleID: id, Title: t.spec(), Airs: p.StartsAt, Fill: p.Fill, Mood: t.mood(), StripMood: t.stripMood(),
-		Shots: t.shots(), Bed: t.bed()}
+	c := Candidate{TitleID: id, Title: t.spec(), BodyBackdrop: t.BodyBackdrop, Airs: p.StartsAt, Fill: p.Fill, Mood: t.mood(),
+		StripMood: t.stripMood(), Shots: t.shots(), Bed: t.bed()}
 	if !p.StartsAt.IsZero() {
 		c.Airing = airingPhrase(p.StartsAt, from, r.cfg.location(), p.Fill)
 	}
@@ -511,18 +511,22 @@ func (r *composition) breakProgram(p program, loc *time.Location) *BreakProgram 
 
 // titleFacts is what the breaks show of a title and its promo material.
 type titleFacts struct {
-	Name     string
-	Year     int
-	Runtime  int
-	Genres   []string
-	Tagline  string
-	Backdrop string // artwork URLs
-	Poster   string
-	Accents  Accents
-	Mood     string
-	Shots    []analyzedShot
-	Promo    *Bed
-	Loudness float64
+	Name    string
+	Year    int
+	Runtime int
+	Genres  []string
+	Tagline string
+	// artwork URLs: the backdrop 1920 wide for the screens that render for every break, its
+	// original for the promo body
+	Backdrop     string
+	BodyBackdrop string
+	Poster       string
+	Logo         *SpecLogo
+	Accents      Accents
+	Mood         string
+	Shots        []analyzedShot
+	Promo        *Bed
+	Loudness     float64
 	// Random says the series' episodes air in any order (titles.allow_random_playback).
 	Random bool
 }
@@ -540,8 +544,13 @@ func (t titleFacts) spec() SpecTitle {
 	if genres == nil {
 		genres = []string{}
 	}
-	return SpecTitle{Name: t.Name, Year: t.Year, RuntimeMinutes: t.Runtime, Genres: genres, Accents: t.Accents,
-		Backdrop: t.Backdrop, Poster: t.Poster, Taglines: taglineLines(t.Tagline)}
+	title := SpecTitle{Name: t.Name, Footage: t.footage(), Year: t.Year, RuntimeMinutes: t.Runtime, Genres: genres,
+		Accents: t.Accents, Backdrop: t.Backdrop, Poster: t.Poster, Taglines: taglineLines(t.Tagline)}
+	if t.Logo != nil {
+		logo := *t.Logo
+		title.Logo = &logo
+	}
+	return title
 }
 
 // mood is the analysed promo mood, else one from the genres.
@@ -568,8 +577,9 @@ func (t titleFacts) stripMood() string {
 	return "dark"
 }
 
-// shots are the analysed footage shots (D18), else stills from the artwork.
-func (t titleFacts) shots() []Shot {
+// footage are the analysed footage shots (D18), for every screen that shows the title in
+// motion: the same frame URLs everywhere, so the sidecar extracts a shot once for all of them.
+func (t titleFacts) footage() []Shot {
 	var out []Shot
 	for _, s := range t.Shots {
 		frames := int(s.DurationMs * FPS / 1000)
@@ -578,8 +588,13 @@ func (t titleFacts) shots() []Shot {
 		}
 		out = append(out, Shot{Kind: "footage", Frames: FramesURLs(s.MediaFileID, time.Duration(s.StartMs)*time.Millisecond, frames)})
 	}
-	if len(out) > 0 {
-		return out
+	return out
+}
+
+// shots are the promo body's: the footage, else stills from the artwork.
+func (t titleFacts) shots() []Shot {
+	if footage := t.footage(); len(footage) > 0 {
+		return footage
 	}
 	return []Shot{
 		{Kind: "still", Image: "backdrop", From: &Crop{0, 0, 1, 1}, To: &Crop{0.3, 0.05, 0.5, 0.5}},

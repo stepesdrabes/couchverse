@@ -42,16 +42,25 @@ type Accents struct {
 	Poster   string `json:"poster,omitempty"`
 }
 
-// SpecTitle is a title as the templates show it.
+// SpecLogo is a title's logo: a PNG trimmed to its letters, and its width over its height.
+type SpecLogo struct {
+	URL    string  `json:"url"`
+	Aspect float64 `json:"aspect"`
+}
+
+// SpecTitle is a title as the templates show it. Footage is its analysed shots, for the
+// screens that show it in motion.
 type SpecTitle struct {
-	Name           string   `json:"name"`
-	Year           int      `json:"year,omitempty"`
-	RuntimeMinutes int      `json:"runtimeMinutes,omitempty"`
-	Genres         []string `json:"genres"`
-	Accents        Accents  `json:"accents"`
-	Backdrop       string   `json:"backdrop"`
-	Poster         string   `json:"poster"`
-	Taglines       []string `json:"taglines,omitempty"`
+	Name           string    `json:"name"`
+	Logo           *SpecLogo `json:"logo,omitempty"`
+	Footage        []Shot    `json:"footage,omitempty"`
+	Year           int       `json:"year,omitempty"`
+	RuntimeMinutes int       `json:"runtimeMinutes,omitempty"`
+	Genres         []string  `json:"genres"`
+	Accents        Accents   `json:"accents"`
+	Backdrop       string    `json:"backdrop"`
+	Poster         string    `json:"poster"`
+	Taglines       []string  `json:"taglines,omitempty"`
 }
 
 // SpecEpisode is an episode line (`S01E02`, its name).

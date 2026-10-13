@@ -3,6 +3,7 @@ package couchtv
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"regexp"
 	"time"
 
@@ -24,6 +25,10 @@ const (
 	englishTitle   = `CASE WHEN coalesce(t.metadata_languages[1], 'en') = 'en' THEN t.name ELSE coalesce(nullif(t.translations->'en'->>'name', ''), t.name) END`
 	englishTagline = `CASE WHEN coalesce(t.metadata_languages[1], 'en') = 'en' THEN t.tagline ELSE coalesce(t.translations->'en'->>'tagline', '') END`
 	englishEpisode = `CASE WHEN coalesce(t.metadata_languages[1], 'en') = 'en' THEN e.name ELSE coalesce(nullif(e.translations->'en'->>'name', ''), e.name) END`
+	// englishTitleLang is the language of englishTitle: English, unless the title has no
+	// English name and goes by its base language's
+	englishTitleLang = `CASE WHEN coalesce(t.metadata_languages[1], 'en') = 'en' OR coalesce(t.translations->'en'->>'name', '') <> ''
+		THEN 'en' ELSE t.metadata_languages[1] END`
 )
 
 // programs are the programs overlapping [from, to), in order.
@@ -138,12 +143,23 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 			WHERE owner_kind = 'title' AND owner_id = t.id::text AND kind = '` + kind + `'
 			ORDER BY lang IS NOT NULL, lang IS DISTINCT FROM 'en' LIMIT 1) ` + kind + ` ON true`
 	}
+	// the logo in the name's language, else one not tied to a language; one never measured has
+	// no aspect to lay it out by
+	logoJoin := `LEFT JOIN LATERAL (SELECT id, (extract(epoch FROM created_at) * 1000)::bigint AS version, width, height
+		FROM artwork WHERE owner_kind = 'title' AND owner_id = t.id::text AND kind = 'logo'
+		AND (lang IS NULL OR lang = ` + englishTitleLang + `) AND width > 0 AND height > 0
+		ORDER BY lang IS NULL LIMIT 1) logo ON true`
+	// a shot of a file that is gone (or lost its source) cannot be extracted, which would fail
+	// the render of every screen that shows the title
+	shots := `coalesce((SELECT jsonb_agg(x.shot ORDER BY x.n) FROM jsonb_array_elements(ct.shots) WITH ORDINALITY x(shot, n)
+		JOIN media_files mf ON mf.id::text = x.shot->>'mediaFileId' AND mf.source_deleted_at IS NULL), '[]')`
 	rows, err := s.q.Query(ctx, `
 		SELECT t.id, `+englishTitle+`, coalesce(t.year, 0), coalesce(t.runtime_minutes, 0),
 		       `+englishTagline+`,
 		       coalesce(backdrop.id::text, ''), coalesce(backdrop.version, 0), coalesce(backdrop.accent, ''),
 		       coalesce(poster.id::text, ''), coalesce(poster.version, 0), coalesce(poster.accent, ''),
-		       coalesce(ct.mood, ''), coalesce(ct.shots, '[]'), coalesce(ct.promo_audio_file_id::text, ''),
+		       coalesce(logo.id::text, ''), coalesce(logo.version, 0), coalesce(logo.width, 0), coalesce(logo.height, 0),
+		       coalesce(ct.mood, ''), `+shots+`, coalesce(ct.promo_audio_file_id::text, ''),
 		       coalesce(ct.promo_audio_start_ms, 0), coalesce(ct.promo_audio_duration_ms, 0), coalesce(ct.promo_audio_source, ''),
 		       coalesce(ct.loudness_lufs, 0), coalesce(s.provider, ''), coalesce(s.track_id, ''),
 		       ct.soundtrack_path IS NOT NULL, coalesce(ct.soundtrack_start_ms, 0), coalesce(ct.soundtrack_duration_ms, 0),
@@ -151,6 +167,7 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 		FROM titles t
 		`+art("backdrop")+`
 		`+art("poster")+`
+		`+logoJoin+`
 		LEFT JOIN couchtv_titles ct ON ct.title_id = t.id
 		LEFT JOIN couchtv_soundtracks s ON s.id = ct.soundtrack_id
 		WHERE t.id = ANY($1::uuid[])`, ids)
@@ -160,23 +177,29 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 	defer rows.Close()
 	out := map[string]titleFacts{}
 	for rows.Next() {
-		var id, backdrop, bdAccent, poster, poAccent, promoFile, promoSource, catalog, trackID string
-		var bdVersion, poVersion int64
+		var id, backdrop, bdAccent, poster, poAccent, logo, promoFile, promoSource, catalog, trackID string
+		var bdVersion, poVersion, logoVersion int64
 		var shots []byte
-		var promoStart, promoLength, soundtrackStart, soundtrackLength int
+		var logoWidth, logoHeight, promoStart, promoLength, soundtrackStart, soundtrackLength int
 		var soundtrackReady bool
 		var f titleFacts
 		if err := rows.Scan(&id, &f.Name, &f.Year, &f.Runtime, &f.Tagline, &backdrop, &bdVersion, &bdAccent,
-			&poster, &poVersion, &poAccent, &f.Mood, &shots, &promoFile, &promoStart, &promoLength, &promoSource,
+			&poster, &poVersion, &poAccent, &logo, &logoVersion, &logoWidth, &logoHeight,
+			&f.Mood, &shots, &promoFile, &promoStart, &promoLength, &promoSource,
 			&f.Loudness, &catalog, &trackID, &soundtrackReady, &soundtrackStart, &soundtrackLength, &f.Random); err != nil {
 			return nil, err
 		}
 		f.Genres = genres[id]
 		if backdrop != "" {
-			f.Backdrop = ArtworkURL(backdrop, bdVersion, "")
+			f.Backdrop = ArtworkURL(backdrop, bdVersion, backdropSize)
+			f.BodyBackdrop = ArtworkURL(backdrop, bdVersion, "")
 		}
 		if poster != "" {
 			f.Poster = ArtworkURL(poster, poVersion, "w780")
+		}
+		if logo != "" {
+			f.Logo = &SpecLogo{URL: ArtworkURL(logo, logoVersion, logoSize),
+				Aspect: math.Round(float64(logoWidth)/float64(logoHeight)*1000) / 1000}
 		}
 		if hexColour.MatchString(bdAccent) {
 			f.Accents.Backdrop = bdAccent

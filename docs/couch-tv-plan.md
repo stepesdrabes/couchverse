@@ -53,6 +53,7 @@ in section 3.
 | D38 | **A bulletin renders once, when it is the one that airs**: the bulletins job asks for a clip on its kind's last run in time for the next slot (one render per slot, not per fetch), the sidecar renders it as `couchtv_bulletin_render` ahead of every other clip, never waiting for a transcode or the quiet hours, and only while the channel is on. The clip carries its sound at every whole LU a break is mixed at (-23 to -16) and a slot's sound is mixed at its break's loudness in whole LU, so a bulletin sounds as loud as the fallback it replaces. A bulletin's clip goes an hour after its bulletin stops being valid. |
 | D39 | **D13 extended to the bulletins** (owner, 2026-10-13): English chrome (titles, labels, weekdays, times, the credits "Weather data by Open-Meteo.com", "Source: ČHMÚ", "Borders: ČÚZK / geoBoundaries (CC BY 4.0)", "Headlines from the outlets’ RSS feeds, as of 17:40"), ČHMÚ's English event and kraj names, Prague by its English name; the headlines stay Czech, whole and unaltered, each labelled with its outlet's name, since the outlets' terms forbid altering or shortening them and a translation would alter them. |
 | D40 | **Czechia's outline lives in the broadcast package**, a module generated from the server's `czechia.geojson` (`npm run outline`), not in every spec: it never changes from one bulletin to the next and a template's version covers a change; the spec carries the cities' positions and the map's credit. A forecast airs until midnight at the latest, since its days are named from the day it was fetched. |
+| D41 | **Screens show the title's own logo and real scenes** (owner, 2026-10-13: film logos and scenes, not only plain images; quality is the main focus). Every title in a spec carries its logo in the language of its name (else one not tied to a language) and, on every screen that shows it in motion (up next, the squeeze's next card, the lineup, the strip, short and full promos and their end cards), its analysed footage shots, the frame URLs the promo body uses, so each shot is extracted once for all of them; the squeeze's ending is the program itself. The production library was linked to TMDB before logos existed, so a backfill gives every linked title the logos it lacks (its content languages and English) once per backfill version, never replacing one. What a Pi draws on every frame stays bounded: logos within 1600 x 800 (stored within 2560 x 1280; TMDB's run to 12000 px wide), and the screens that render for every break take the backdrop 1920 wide, while the promo body, rendered once per title, keeps the original its stills crop into. |
 
 ---
 
@@ -547,6 +548,15 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   `couchtv_titles.mood`, else from the genres. The squeeze shows the program from where it
   left the air (the break's start), only when credits markers exist; otherwise the program
   aired in full and the squeeze shows its backdrop without a credits roll.
+- **The title's own logo and scenes** (2026-10-13, D41): every title in a spec carries its
+  logo in the language of its name (English, else the base language's for a title without an
+  English name; else one not tied to a language), bounded to 1600 x 800 with the aspect of its
+  stored size, and, on every screen that shows it in motion (up next, the squeeze's next card,
+  the lineup's rows, the strip, short and full promos and their end cards; not the squeeze's
+  ending, where the program plays), its footage shots as the promo body's frame URLs, none
+  without analysis (nor of a file that is gone, which would fail the render). Those screens
+  render for every break, so they take the backdrop 1920 wide; only the promo body, rendered
+  once per title, keeps the original its stills crop into.
 - **Loudness**: `couchtv_titles.loudness_lufs` (new, for `couchtv_analyze` to fill) of the
   program before the break, else after it, clamped to -23..-16 LUFS, else -18. Clips render at
   the default -18 (their sound is only heard on its own); only the break spec carries the
@@ -708,7 +718,9 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   are cut from (`/media/v1/artwork/<id>?v=<version>`, `/media/v1/frames/<file>/<start
   ms>_<count>/<n>.jpg`, `/media/v1/audio/<file>/<start ms>_<length ms>.flac`; `v1` is the
   extraction recipe), so a new image, file or recipe makes a new key and nothing else needs
-  versioning.
+  versioning. Artwork may name a size the server makes once and caches: the artwork feature's
+  (`w780`) or the screens' (2026-10-13, D41: `w1920`, a backdrop at most 1920 wide, and
+  `1600x800`, a logo within that box).
 - **Media**: extracted once before a clip loads (promo footage as frames: 25 fps, square
   pixels, within 1080p, SDR tone-mapped through `playback.SDRFilter`, served `no-store`; beds
   as stereo FLAC of the default track), touched on reuse, pruned after 14 days unused.

@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -709,5 +710,129 @@ func TestCouchTvComposeJob(t *testing.T) {
 	compose()
 	if n := count(`SELECT count(*) FROM couchtv_clips WHERE key NOT LIKE 'seeded-%'`); n != clips {
 		t.Errorf("composing again after the change requested %d clips more", n-clips)
+	}
+}
+
+// TestCouchTvComposedTitles composes the seeded day and reads back every clip's spec: a title
+// carries its logo in its name's language (else one not tied to a language) at the screens'
+// size, its scenes wherever a screen shows it in motion (the squeeze's ending aside) and none
+// without analysis, and the backdrop's 1920 copy on the screens that render for every break,
+// its original in the promo bodies and the evergreen break, which render once.
+func TestCouchTvComposedTitles(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := context.Background()
+	prague, _ := time.LoadLocation("Europe/Prague")
+	clock := time.Date(2026, 10, 12, 10, 0, 0, 0, prague)
+	now := func() time.Time { return clock }
+	jb, set, store := jobs.NewStore(env.pool), settings.NewStore(env.pool), couchtv.NewStore(env.pool)
+	exec := func(query string, args ...any) {
+		t.Helper()
+		if _, err := env.pool.Exec(ctx, query, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// the movie goes by its English name with two analysed shots (and one of a file since
+	// removed, which nothing could extract); the series by a Czech one, with a Czech logo beside
+	// an English one and its own not tied to a language
+	const file = "00000000-0000-4000-8000-000000000501"
+	exec(`INSERT INTO couchtv_titles (title_id, shots, shots_source) VALUES ($1, $2, 'auto')`, movieID,
+		`[{"mediaFileId": "00000000-0000-4000-8000-000000000599", "startMs": 1000, "durationMs": 2000, "score": 1},
+		  {"mediaFileId": "`+file+`", "startMs": 600000, "durationMs": 2000, "score": 0.9},
+		  {"mediaFileId": "`+file+`", "startMs": 900000, "durationMs": 1200, "score": 0.8}]`)
+	exec(`UPDATE titles SET name = 'Statický květ', metadata_languages = '{cs}' WHERE id = $1`, seriesID)
+	const seriesLogoCs = "00000000-0000-4000-8000-000000000921"
+	exec(`INSERT INTO artwork (id, owner_kind, owner_id, kind, lang, path, width, height, source) VALUES
+		($1, 'title', $2, 'logo', 'cs', 'artwork/bloom-logo-cs.png', 900, 300, 'uploaded'),
+		('00000000-0000-4000-8000-000000000922', 'title', $2, 'logo', 'en', 'artwork/bloom-logo-en.png', 700, 350, 'tmdb')`,
+		seriesLogoCs, seriesID)
+
+	if err := (&couchtv.Scheduler{Store: store, Settings: set, Jobs: jb, Now: now}).Handle(ctx, &jobs.Job{}, func(int) {}); err != nil {
+		t.Fatal(err)
+	}
+	if err := set.Set(ctx, "couchtv_render", json.RawMessage(`{"versions": {"ident": 1, "sting": 1, "upNext": 1, "promo": 1,
+		"evergreenEnd": 1, "stripPromo": 1, "shortPromo": 1, "lineup": 1, "squeeze": 1, "standby": 1}, "seenAt": "2026-10-12T08:00:00Z"}`)); err != nil {
+		t.Fatal(err)
+	}
+	composer := &couchtv.Composer{Store: store, Settings: set, Jobs: jb, Now: now}
+	compose := func() {
+		t.Helper()
+		if err := composer.Handle(ctx, &jobs.Job{}, func(int) {}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	compose()
+	// with the promo bodies rendered, breaks composed again carry full promos and end cards
+	exec(`UPDATE couchtv_clips SET state = 'ready', rendered_at = now(), version = 1, duration_ms = 16000 WHERE kind = 'promo_body'`)
+	exec(`DELETE FROM couchtv_breaks WHERE kind = 'airing'`)
+	compose()
+
+	check := func(kind string, title couchtv.SpecTitle, moving bool) {
+		t.Helper()
+		logo, aspect, footage := movieLogoEn, 2.667, 2
+		if title.Name == "Statický květ" {
+			logo, aspect, footage = seriesLogoCs, 3, 0
+		} else if title.Name != "Glass Harbor" {
+			t.Fatalf("%s shows %q", kind, title.Name)
+		}
+		if !moving {
+			footage = 0
+		}
+		if l := title.Logo; l == nil || !strings.HasPrefix(l.URL, "/media/v1/artwork/"+logo+"?v=") ||
+			!strings.HasSuffix(l.URL, "&size=1600x800") || l.Aspect != aspect {
+			t.Errorf("%s shows %s with the logo %+v", kind, title.Name, l)
+		}
+		if len(title.Footage) != footage || footage > 0 && title.Footage[1].Frames[29] != "/media/v1/frames/"+file+"/900000_30/29.jpg" {
+			var first []string
+			for _, shot := range title.Footage {
+				first = append(first, shot.Frames[0])
+			}
+			t.Errorf("%s shows %s with %d scenes from %v, want %d", kind, title.Name, len(title.Footage), first, footage)
+		}
+		if title.Name == "Glass Harbor" {
+			original := kind == couchtv.ClipPromoBody || kind == couchtv.ClipEvergreenEnd
+			if !strings.HasPrefix(title.Backdrop, "/media/v1/artwork/00000000-0000-4000-8000-000000000402?v=") ||
+				strings.HasSuffix(title.Backdrop, "&size=w1920") == original {
+				t.Errorf("%s draws the backdrop %s", kind, title.Backdrop)
+			}
+		}
+	}
+	rows, err := env.pool.Query(ctx, `SELECT kind, spec FROM couchtv_clips WHERE key NOT LIKE 'seeded-%'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	seen := map[string]int{}
+	for rows.Next() {
+		var kind string
+		var spec couchtv.Spec
+		if err := rows.Scan(&kind, &spec); err != nil {
+			t.Fatal(err)
+		}
+		seen[kind]++
+		switch kind {
+		case couchtv.ClipSqueeze:
+			check(kind, *spec.Ending, false)
+			check(kind, spec.Next.Title, true)
+		case couchtv.ClipLineup:
+			for _, it := range spec.Items {
+				check(kind, it.Title, true)
+			}
+		case couchtv.ClipUpNext, couchtv.ClipStripPromo, couchtv.ClipShortPromo, couchtv.ClipPromoBody, couchtv.ClipPromoEnd,
+			couchtv.ClipEvergreenEnd:
+			check(kind, *spec.Title, true)
+		}
+		// a promo body's shots are the same scenes, so the sidecar extracts each once
+		if kind == couchtv.ClipPromoBody && spec.Title.Name == "Glass Harbor" && !reflect.DeepEqual(spec.Shots, spec.Title.Footage) {
+			t.Errorf("the body's %d shots are not its title's %d scenes", len(spec.Shots), len(spec.Title.Footage))
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{couchtv.ClipSqueeze, couchtv.ClipUpNext, couchtv.ClipShortPromo, couchtv.ClipPromoBody,
+		couchtv.ClipPromoEnd, couchtv.ClipEvergreenEnd} {
+		if seen[kind] == 0 {
+			t.Errorf("no %s composed: %v", kind, seen)
+		}
 	}
 }

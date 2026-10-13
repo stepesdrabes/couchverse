@@ -923,7 +923,7 @@ server that does not send it). The admin settings page toggles it.
   template reaches the breaks composed before it; a clip still pending renders from the
   current template anyway. Specs are checked against `contract/broadcast-spec.schema.json` (embedded, copied by
   `make contract`) and use English names and taglines (D13). Media in specs are localhost URLs
-  that say what they are cut from (`/media/v1/artwork/<id>?v=<version>`,
+  that say what they are cut from (`/media/v1/artwork/<id>?v=<version>[&size=...]`,
   `/media/v1/frames/<file>/<start ms>_<count>/<n>.jpg`, `/media/v1/audio/<file>/<start
   ms>_<length ms>.flac`, `/media/v1/soundtrack/<catalog>/<track id>/<start ms>_<length
   ms>.flac`), so a replaced image or file, or another soundtrack, changes the key. The squeeze takes the
@@ -931,7 +931,18 @@ server that does not send it). The admin settings page toggles it.
   promos take `couchtv_titles` (footage shots `[{mediaFileId, startMs, durationMs, score}]`,
   else stills from the artwork; the bed (`promoBed`): an admin's excerpt of the title's own
   audio, else the soundtrack from the web once its preview is ready, else the analysis'
-  excerpt, else none; the mood, else one from the genres). Clips are requested in `couchtv_clips` (`needed_at` the earliest
+  excerpt, else none; the mood, else one from the genres). **A title in a spec** (D41) carries
+  its `logo` in the language of its name (English, else, without an English name, its base
+  language's; else one not tied to a language; none when it has neither or one never measured)
+  at `size=1600x800` with the aspect of its stored size, and its `footage`, the analysis' shots
+  as the promo body's frame URLs (so the sidecar extracts each once for every screen; none
+  without analysis; a shot of a file that is gone or lost its source is left out, the promo
+  body's too, as one failed extraction fails a render), on every screen that shows it in
+  motion: up next, the squeeze's next card, the lineup's rows, the strip, short and full promos
+  and their end cards, never the squeeze's ending, where the program itself plays. Those
+  screens render for every break, so they draw the backdrop at `size=w1920`; the promo body,
+  rendered once per title, keeps the original its stills crop into (`Candidate.BodyBackdrop`),
+  as does the evergreen break. Clips are requested in `couchtv_clips` (`needed_at` the earliest
   air time, `last_used_at` touched) and their renders queued soonest-airing first, to run in
   the quiet hours (01:00-09:00 in the channel's zone) unless what they are for airs within
   3 h, and never later than 3 h before it airs (`renderAt`); missing promo bodies are
@@ -1299,9 +1310,12 @@ server that does not send it). The admin settings page toggles it.
   `TestStripPromoFoot` and `TestCouchTvRandomPlayback` (the flag read by the library, a
   change in the title editor queueing a plan run);
   `couchtv/compose_test.go` (every gap up to half an hour filled exactly with valid specs, the
-  mix, promo ranking, clocks, loudness, phrases, the evergreen break), `TestCouchTvComposeJob`
+  mix, promo ranking, clocks, loudness, phrases, the evergreen break, a title's logo and scenes
+  on every screen that shows it, the backdrops), `TestCouchTvComposeJob`
   (a week of breaks composed on the seeded database, idempotent, assembly queued as clips
-  render), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
+  render), `TestCouchTvComposedTitles` (every composed spec's titles: the logo in the name's
+  language, scenes where they move, the backdrops' sizes), `couchtv/mediaserver_test.go` (the
+  screens' artwork sizes), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
   from `CHROMIUM_PATH` or installed, the bundle from `make broadcast`): renders a squeeze over a
   generated program (composited, its panel at the hold compared with the program), an ident
   and a sting, each keeping its item's sound, removes one of them, assembles the break (which
