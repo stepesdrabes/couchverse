@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { pitchClass } from '../../src/audio/orchestra';
+import { pitchClass } from '../../src/audio/pitch';
+import { BEAT, SONIC } from '../../src/brand/sonic';
 import { CHART, GRID, HOOK, SCALES } from '../../src/brand/theme';
 import { bracketPath, layout, lockupSvg, SPLIT } from '../../src/brand/wordmark';
 import { edge, valueAt } from '../../src/core/moves';
@@ -12,6 +13,23 @@ function points(d: string): [number, number][] {
 		.split('L')
 		.map((p) => p.split(' ').map(Number) as [number, number]);
 }
+
+const onFrame = (t: number) => Math.abs(t * 25 - Math.round(t * 25)) < 1e-9;
+const D_MAJOR = ['D', 'E', 'F#', 'G', 'A', 'B', 'C#'].map(pitchClass);
+
+describe('the sonic logo', () => {
+	it('is A4, E5, D5 in D major, settling on D add 9', () => {
+		expect(SONIC.notes).toEqual(['A4', 'E5', 'D5']);
+		for (const n of [...SONIC.notes, ...SONIC.chord])
+			expect(D_MAJOR.includes(pitchClass(n)), n).toBe(true);
+	});
+
+	it('plays couch on the beat, t and v half a beat apart, on frames', () => {
+		expect(BEAT).toBe(0.8);
+		expect(SONIC.at).toEqual([0, BEAT / 2, BEAT]);
+		for (const t of SONIC.at) expect(onFrame(t), String(t)).toBe(true);
+	});
+});
 
 describe('the theme', () => {
 	it('keeps every chord in its key and the hook in D major', () => {
