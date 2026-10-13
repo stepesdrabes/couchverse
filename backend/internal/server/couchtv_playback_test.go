@@ -42,12 +42,13 @@ type liveProgram struct {
 // subtitles; HDR10 HEVC in Czech and English from its rung; a 1080p source with
 // 10.5 s keyframes from its 1080p rung, cut at its credits), breaks assembled
 // as the render sidecar leaves them, two that are not (the evergreen break cut
-// to the gap, the standby card looped after it) and a hole in the schedule (the
-// standby card), looped around now.
+// to the gap, the standby card looped after it), a hole in the schedule (the
+// standby card) and a break assembled around a news slot with a bulletin ready
+// for it, looped around now.
 // Players tune in mid-item: hls.js in Chromium (e2e/live.mjs: pairs 20 s apart,
 // on hls.js's live edge and holding the program date) and, on macOS,
-// AVFoundation, while the HLS validator checks the presentation around four
-// boundaries. It needs COUCHVERSE_COUCHTV_LIVE=1, ffmpeg (with libx265) and
+// AVFoundation, while the HLS validator checks the presentation around the
+// edges of the first slot on air. It needs COUCHVERSE_COUCHTV_LIVE=1, ffmpeg (with libx265) and
 // clients/web's dependencies; COUCHVERSE_SPIKE_OUT keeps snapshots and samples,
 // COUCHVERSE_SPIKE_SECONDS sets how long the players play, COUCHVERSE_SPIKE_ADDR
 // and COUCHVERSE_SPIKE_HOLD serve /watch.html for a while afterwards (a TV or a
@@ -125,8 +126,14 @@ func TestCouchTvLive(t *testing.T) {
 				"-sc_threshold", "0", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-ac", "2"})...)
 	}
 	break1, break2 := breakClip("break1.mp4", 17.36), breakClip("break2.mp4", 12.48)
+	// a break assembled around a news slot (its sections: 6 s, the slot's 4 s fallback, 3 s)
+	// and the news bulletin that airs in the slot: red, at 990 Hz
+	sections := []string{breakClip("section0.mp4", 6), breakClip("section1.mp4", 4), breakClip("section2.mp4", 3)}
+	news := clip("Breaks (2026)", "news.mp4", cat([]string{"-f", "lavfi", "-i", "color=c=0xc01818:size=1920x1080:rate=25:duration=4"},
+		sine(990, 4), []string{"-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "veryfast", "-profile:v", "high", "-crf", "18",
+			"-g", "50", "-keyint_min", "50", "-sc_threshold", "0", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-ac", "2"})...)
 	w.drain(ctx)
-	for _, id := range []string{break1, break2} {
+	for _, id := range append([]string{break1, break2, news}, sections...) {
 		if _, err := w.jobs.EnqueueJob(ctx, "transcode_hls", playback.Payload{MediaFileID: id, Variant: media.VariantPackage}, jobs.EnqueueOpts{}); err != nil {
 			t.Fatal(err)
 		}
@@ -201,6 +208,27 @@ func TestCouchTvLive(t *testing.T) {
 		t.Fatal(err)
 	}
 	standbyCard(t, env, 4, 660)
+	// the slotted break laid out as couchtv_assemble leaves it, and the bulletin's clip with
+	// the slot's loudness, as couchtv_bulletin_render does, valid all through the test
+	slotted := filepath.Join("couchtv", "breaks", "slotted")
+	for i, id := range sections {
+		if err := os.CopyFS(filepath.Join(env.cfg.DataDir, slotted, fmt.Sprint(i)), os.DirFS(filepath.Join(env.cfg.DataDir, breakDir(id)))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bulletin := filepath.Join("couchtv", "clips", "news-live")
+	for from, to := range map[string]string{"source": "source", "audio-1-aac": "audio-l19-aac"} {
+		if err := os.CopyFS(filepath.Join(env.cfg.DataDir, bulletin, to), os.DirFS(filepath.Join(env.cfg.DataDir, breakDir(news), from))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := env.pool.Exec(ctx, `WITH clip AS (INSERT INTO couchtv_clips (kind, key, state, duration_ms, path, rendered_at)
+			VALUES ('news', 'news-live', 'ready', 4000, $1, now()) RETURNING id)
+		INSERT INTO couchtv_bulletins (kind, fetched_at, valid_until, data, clip_id) SELECT 'news', now(), now() + interval '2 hours', '{}', id FROM clip`,
+		bulletin); err != nil {
+		t.Fatal(err)
+	}
+	slotRecipe, _ := json.Marshal(couchtv.Recipe{Frames: 325, Slots: []couchtv.RecipeSlot{{Kind: couchtv.BulletinNews, At: 150, Frames: 100, Loudness: -19}}})
 	start := time.Now().Add(-95 * time.Second).Truncate(time.Second)
 	hold, _ := time.ParseDuration(os.Getenv("COUCHVERSE_SPIKE_HOLD"))
 	for at := start; at.Before(time.Now().Add(30*time.Minute + hold)); {
@@ -217,7 +245,14 @@ func TestCouchTvLive(t *testing.T) {
 			}
 			at = end.Add(gap)
 		}
+		// the hole (the standby card), then the slotted break, which the card pads
 		at = at.Add(5 * time.Second)
+		id := insert("break", at, at.Add(13*time.Second), nil)
+		if _, err := env.pool.Exec(ctx, `INSERT INTO couchtv_breaks (airing_id, recipe, state, path) VALUES ($1, $2, 'ready', $3)`,
+			id, slotRecipe, slotted); err != nil {
+			t.Fatal(err)
+		}
+		at = at.Add(13 * time.Second)
 	}
 
 	status, body, _ := env.request(t, env.clients[memberName], "GET", "/couchtv/tune?lang=cs", nil)
@@ -310,11 +345,17 @@ func TestCouchTvLive(t *testing.T) {
 		go run("AVFoundation", exec.CommandContext(players, "swift", "../../../scripts/avplayer-probe.swift", master,
 			"--live", seconds, "--audio", "2", "--subtitles", "2"))
 	}
+	// around the first slot on air: into the break's head, into the bulletin, out of it, and
+	// into the next program
 	var boundaries []time.Time
-	for _, p := range parts {
-		if p.Start.After(time.Now().Add(3*time.Second)) && len(boundaries) < 4 {
-			boundaries = append(boundaries, p.Start)
+	for i, p := range parts {
+		if p.Kind == couchtv.PartBulletin && p.Start.After(time.Now().Add(9*time.Second)) && i+2 < len(parts) {
+			boundaries = []time.Time{parts[i-1].Start, p.Start, p.End, parts[i+1].End}
+			break
 		}
+	}
+	if len(boundaries) == 0 {
+		t.Fatal("no bulletin airs in a slot")
 	}
 	validateLive(t, srv.Client(), master, boundaries, os.Getenv("COUCHVERSE_SPIKE_OUT"))
 	wg.Wait()
@@ -375,6 +416,8 @@ func describeLineup(t *testing.T, env *testEnv, parts []couchtv.LineupPart, prog
 		switch part.Kind {
 		case couchtv.PartBreak:
 			item.Tones = map[string]int{"cs": 880, "en": 880}
+		case couchtv.PartBulletin:
+			item.Tones = map[string]int{"cs": 990, "en": 990}
 		case couchtv.PartStandby:
 			item.Tones = map[string]int{"cs": 660, "en": 660}
 		case couchtv.PartProgram:
