@@ -540,8 +540,9 @@ func describe(work string, frames int) error {
 	return os.WriteFile(filepath.Join(work, "master.m3u8"), []byte(m.String()), 0o644)
 }
 
-// Assemble is the couchtv_assemble job: a break's sound in one render (in parts when it is
-// long), its clips' video joined by stream copy, both segmented into the break's package.
+// Assemble is the couchtv_assemble job: a break's items' sounds mixed, its clips' video joined
+// by stream copy, both segmented into the break's package (a package per section around its
+// bulletin slots, assembleSections).
 func (r *Renderer) Assemble(ctx context.Context, job *jobs.Job, report func(int)) error {
 	defer r.idle(context.WithoutCancel(ctx))
 	var p AssemblePayload
@@ -603,48 +604,101 @@ func (r *Renderer) assemble(ctx context.Context, b *Break, clips []*Clip, report
 	if err != nil {
 		return err
 	}
-	raw := filepath.Join(work, "sound.f32")
-	loud, err := mixBreak(items, b.Recipe.Frames*samplesPerFrame, b.Recipe.Sound.Loudness, raw)
+	// each clip's video as one fragmented MP4 (its init and segments end to end), for the
+	// concat demuxer to join at exact lengths
+	joined := make([]string, len(clips))
+	for i, c := range clips {
+		joined[i] = filepath.Join(work, fmt.Sprintf("clip%03d.mp4", i))
+		if err := joinSegments(filepath.Join(r.DataDir, c.Path, videoDir), joined[i]); err != nil {
+			return fmt.Errorf("clip %s: %w", c.ID, err)
+		}
+	}
+	out := filepath.Join(work, "package")
+	if len(b.Recipe.Slots) == 0 {
+		raw := filepath.Join(work, "sound.f32")
+		loud, err := mixBreak(items, b.Recipe.Frames*samplesPerFrame, b.Recipe.Sound.Loudness, raw)
+		if err != nil {
+			return err
+		}
+		slog.Info("couchtv: mixed a break's sound", "breakId", b.ID, "items", len(items), "rendered", rendered,
+			"lufs", math.Round(loud.Integrated*10)/10, "gainDb", math.Round(loud.GainDB*10)/10, "took", time.Since(start).Round(time.Millisecond))
+		report(40)
+		if err := r.mux(ctx, out, filepath.Join(work, "clips.ffconcat"), b.Recipe.Clips, joined, raw); err != nil {
+			return err
+		}
+	} else if err := r.assembleSections(ctx, b, work, out, joined, items, start); err != nil {
+		return err
+	}
+	report(90)
+	return r.place(out, filepath.Join("couchtv", "breaks", b.ID))
+}
+
+// assembleSections assembles a break with bulletin slots in sections (sectionsOf), each a
+// package of its own under out: the live stream airs a bulletin in a slot's place, so a slot's
+// sound is mixed on its own at the slot's loudness and nothing sounds across its edges.
+func (r *Renderer) assembleSections(ctx context.Context, b *Break, work, out string, joined []string, items []mixItem, start time.Time) error {
+	secs := sectionsOf(b.Recipe)
+	mixes := make([]mixSection, len(secs))
+	for k, s := range secs {
+		m := mixSection{from: s.from * samplesPerFrame, to: s.to * samplesPerFrame, loudness: b.Recipe.Sound.Loudness,
+			fade: s.slot != nil || k+1 < len(secs) && secs[k+1].slot != nil, out: filepath.Join(work, fmt.Sprintf("sound-%d.f32", k))}
+		if s.slot != nil {
+			m.group, m.loudness = k+1, s.slot.Loudness
+		}
+		mixes[k] = m
+	}
+	loud, err := mixSections(items, mixes)
 	if err != nil {
 		return err
 	}
-	slog.Info("couchtv: mixed a break's sound", "breakId", b.ID, "items", len(items), "rendered", rendered,
-		"lufs", math.Round(loud.Integrated*10)/10, "gainDb", math.Round(loud.GainDB*10)/10, "took", time.Since(start).Round(time.Millisecond))
-	report(40)
-
-	// each clip's video as one fragmented MP4 (its init and segments end to end), joined
-	// by the concat demuxer at exact lengths
-	var list strings.Builder
-	list.WriteString("ffconcat version 1.0\n")
-	for i, c := range clips {
-		joined := filepath.Join(work, fmt.Sprintf("clip%03d.mp4", i))
-		if err := joinSegments(filepath.Join(r.DataDir, c.Path, videoDir), joined); err != nil {
-			return fmt.Errorf("clip %s: %w", c.ID, err)
+	slog.Info("couchtv: mixed a break's sound around its slots", "breakId", b.ID, "items", len(items), "sections", len(secs),
+		"lufs", math.Round(loud[0].Integrated*10)/10, "took", time.Since(start).Round(time.Millisecond))
+	for k, s := range secs {
+		var clips []RecipeClip
+		var files []string
+		for i, c := range b.Recipe.Clips {
+			if c.At < s.from || c.At >= s.to {
+				continue
+			}
+			if c.At+c.Frames > s.to {
+				return fmt.Errorf("clip %s runs across the edge of a slot at %d", c.ClipID, s.to)
+			}
+			clips, files = append(clips, c), append(files, joined[i])
 		}
-		fmt.Fprintf(&list, "file '%s'\nduration %.3f\n", filepath.Base(joined), frameSeconds(c.Frames))
+		list := filepath.Join(work, fmt.Sprintf("clips-%d.ffconcat", k))
+		if err := r.mux(ctx, sectionPath(out, k), list, clips, files, mixes[k].out); err != nil {
+			return fmt.Errorf("section %d: %w", k, err)
+		}
 	}
-	listPath := filepath.Join(work, "clips.ffconcat")
-	if err := os.WriteFile(listPath, []byte(list.String()), 0o644); err != nil {
+	return nil
+}
+
+// mux joins clips' video (each joined into one MP4, listed for the concat demuxer in list) and
+// a raw sound into a package in out, checked to the clips' frames.
+func (r *Renderer) mux(ctx context.Context, out, list string, clips []RecipeClip, joined []string, raw string) error {
+	var text strings.Builder
+	text.WriteString("ffconcat version 1.0\n")
+	frames := 0
+	for i, c := range clips {
+		fmt.Fprintf(&text, "file '%s'\nduration %.3f\n", joined[i], frameSeconds(c.Frames))
+		frames += c.Frames
+	}
+	if err := os.WriteFile(list, []byte(text.String()), 0o644); err != nil {
 		return err
 	}
-	out := filepath.Join(work, "package")
 	for _, dir := range []string{videoDir, audioDir} {
 		if err := os.MkdirAll(filepath.Join(out, dir), 0o755); err != nil {
 			return err
 		}
 	}
-	args := playback.InputArgs(listPath, "-f", "concat", "-safe", "0")
+	args := playback.InputArgs(list, "-f", "concat", "-safe", "0")
 	args = append(args, "-f", "f32le", "-ar", "48000", "-ac", "2", "-i", raw)
 	args = append(args, playback.RenditionArgs(filepath.Join(out, videoDir), []string{"-map", "0:v", "-c:v", "copy"}, true)...)
 	args = append(args, playback.RenditionArgs(filepath.Join(out, audioDir), append([]string{"-map", "1:a"}, audioCodec...), false)...)
 	if o, err := exec.CommandContext(ctx, r.FFmpeg, args...).CombinedOutput(); err != nil {
 		return fmt.Errorf("mux: %v: %s", err, strings.TrimSpace(string(o)))
 	}
-	report(90)
-	if err := describe(out, b.Recipe.Frames); err != nil {
-		return err
-	}
-	return r.place(out, filepath.Join("couchtv", "breaks", b.ID))
+	return describe(out, frames)
 }
 
 // joinSegments writes a rendition's init section and segments as one fragmented MP4.

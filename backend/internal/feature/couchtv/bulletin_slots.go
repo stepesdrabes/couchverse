@@ -2,6 +2,8 @@ package couchtv
 
 import (
 	"math"
+	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -138,6 +140,36 @@ func slotsOf(parts []Part) []Slot {
 	}
 	return out
 }
+
+// section is a stretch of a break with bulletin slots that is assembled as a package of its
+// own (couchtv/breaks/<id>/<index>): a slot's fallback, or the clips around the slots.
+type section struct {
+	// from and to are where it starts and ends in the break, in frames
+	from, to int
+	// slot is the slot it holds, nil around them
+	slot *RecipeSlot
+}
+
+// sectionsOf cuts a break at the edges of its slots, in order.
+func sectionsOf(r Recipe) []section {
+	var out []section
+	at := 0
+	for i := range r.Slots {
+		s := &r.Slots[i]
+		if s.At > at {
+			out = append(out, section{from: at, to: s.At})
+		}
+		out = append(out, section{from: s.At, to: s.At + s.Frames, slot: s})
+		at = s.At + s.Frames
+	}
+	if at < r.Frames {
+		out = append(out, section{from: at, to: r.Frames})
+	}
+	return out
+}
+
+// sectionPath is where a break's section is assembled, under the break's own path.
+func sectionPath(path string, i int) string { return filepath.Join(path, strconv.Itoa(i)) }
 
 // When the breaks carry bulletins (plan 6.10, D37): the news in every break that ends on the
 // hour from 06:00 to midnight (the breaks with the lineup), the weather in the first break that

@@ -92,10 +92,28 @@ var (
 )
 
 // AiringFile serves an init section, a segment or a subtitle segment of what an
-// airing airs. Only an airing that went on air, within airingReach of its time
-// on air, is served, and only from the renditions its feed names, so the grant
-// reaches nothing else of the library.
+// airing airs: its first program or break. Only an airing that went on air,
+// within airingReach of its time on air, is served, and only from the renditions
+// its feed names, so the grant reaches nothing else of the library.
 func (l *Live) AiringFile(w http.ResponseWriter, r *http.Request) {
+	l.airingFile(w, r, 0)
+}
+
+// AiringPartFile is AiringFile for the airing's media part named in the path
+// (airingBase): the sections of a break with bulletin slots after its first.
+func (l *Live) AiringPartFile(w http.ResponseWriter, r *http.Request) {
+	k, err := strconv.Atoi(chi.URLParam(r, "part"))
+	if err != nil || k < 0 || k > maxParts {
+		httpx.NotFound(w)
+		return
+	}
+	l.airingFile(w, r, k)
+}
+
+// maxParts bounds a part's index in a path: a break has a few sections at most.
+const maxParts = 99
+
+func (l *Live) airingFile(w http.ResponseWriter, r *http.Request, k int) {
 	id, track, file := httpx.UUID(r, "airing"), chi.URLParam(r, "track"), chi.URLParam(r, "file")
 	if id == "" {
 		httpx.NotFound(w)
@@ -111,7 +129,7 @@ func (l *Live) AiringFile(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "off_air", "the airing is not on air")
 		return
 	}
-	part, _, ok := a.Feed.media()
+	part, ok := a.Feed.mediaPart(k)
 	if !ok {
 		httpx.NotFound(w)
 		return

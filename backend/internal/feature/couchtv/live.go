@@ -125,16 +125,19 @@ func (f *Feed) add(p LivePart) {
 	f.Parts = append(f.Parts, p)
 }
 
-// media is the part of a feed that is not a filler: its program or break.
-func (f Feed) media() (LivePart, time.Time, bool) {
-	at := f.Start
+// mediaPart is the k-th part of a feed that is not a filler, from 0: its program or break,
+// or one of the sections of a break with bulletin slots.
+func (f Feed) mediaPart(k int) (LivePart, bool) {
 	for _, p := range f.Parts {
-		if !p.filler() {
-			return p, at, true
+		if p.filler() {
+			continue
 		}
-		at = at.Add(p.duration())
+		if k == 0 {
+			return p, true
+		}
+		k--
 	}
-	return LivePart{}, time.Time{}, false
+	return LivePart{}, false
 }
 
 func slatePart(d time.Duration) LivePart {
@@ -228,11 +231,21 @@ func fillPrefix(p LivePart) string {
 	return "../slate/"
 }
 
-// partItem is the live item of one part of airing id's feed. A program's or a
-// break's media is reached through ../airings/<id>/<key>/, so a request names
-// the airing and the rendition, never a file of the library; a filler loops
-// under ../slate/ or ../standby/<clip>/.
-func partItem(id string, p LivePart, m liveMedia) (hls.LiveItem, error) {
+// airingBase is where the playlists reach the k-th media part of airing id's feed (mediaPart):
+// the first under ../airings/<id>/, the others (the sections of a break with bulletin slots)
+// under ../airings/<id>/parts/<k>/.
+func airingBase(id string, k int) string {
+	if k == 0 {
+		return "../airings/" + id + "/"
+	}
+	return "../airings/" + id + "/parts/" + strconv.Itoa(k) + "/"
+}
+
+// partItem is the live item of one part of airing id's feed, its k-th media part
+// unless it is a filler. A program's or a break's media is reached through
+// airingBase, so a request names the airing, the part and the rendition, never a
+// file of the library; a filler loops under ../slate/ or ../standby/<clip>/.
+func partItem(id string, k int, p LivePart, m liveMedia) (hls.LiveItem, error) {
 	d := p.duration()
 	item := hls.LiveItem{Duration: d, Renditions: map[string][]hls.Segment{}}
 	empty := subtitleSegments(d, func(int) string { return emptySubtitles })
@@ -258,7 +271,7 @@ func partItem(id string, p LivePart, m liveMedia) (hls.LiveItem, error) {
 	if err != nil {
 		return item, err
 	}
-	base := "../airings/" + id + "/"
+	base := airingBase(id, k)
 	video := renditions[p.Video]
 	if video == nil {
 		return item, fmt.Errorf("couchtv: %s has no video rendition %q", id, p.Video)

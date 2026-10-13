@@ -2,6 +2,7 @@ package couchtv
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -181,6 +182,69 @@ func TestMixBreak(t *testing.T) {
 	}
 	if _, err := mixBreak(items[:1], second, -20, out); err == nil {
 		t.Error("a broken item mixed")
+	}
+}
+
+// A break with a bulletin slot is mixed in sections: nothing rings across a slot's edge, what
+// sounds there fades out, and the slot is normalized on its own.
+func TestMixSections(t *testing.T) {
+	dir := t.TempDir()
+	const second = sampleRate
+	// each item rings out a second past its slot
+	a, b, c := tone(5*second/2, 220, 0.3), tone(2*second, 440, 0.1), tone(2*second, 660, 0.2)
+	for name, s := range map[string][]float32{"a": a, "b": b, "c": c} {
+		writeItem(t, filepath.Join(dir, name+".wav"), s)
+	}
+	items := []mixItem{
+		{path: filepath.Join(dir, "a.wav"), at: 0, slot: 3 * second / 2},
+		{path: filepath.Join(dir, "b.wav"), at: 3 * second / 2, slot: second},
+		{path: filepath.Join(dir, "c.wav"), at: 5 * second / 2, slot: second},
+	}
+	out := func(i int) string { return filepath.Join(dir, fmt.Sprintf("%d.f32", i)) }
+	sections := []mixSection{
+		{from: 0, to: 3 * second / 2, loudness: -20, fade: true, out: out(0)},
+		{from: 3 * second / 2, to: 5 * second / 2, group: 1, loudness: -23, fade: true, out: out(1)},
+		{from: 5 * second / 2, to: 7 * second / 2, loudness: -20, out: out(2)},
+	}
+	reports, err := mixSections(items, sections)
+	if err != nil {
+		t.Fatal(err)
+	}
+	own := [][]float32{a, b, c}
+	m := newMeter(sampleRate)
+	for i, s := range sections {
+		got := readF32(t, out(i))
+		if len(got) != 2*(s.to-s.from) {
+			t.Fatalf("section %d: %d samples, want %d", i, len(got)/2, s.to-s.from)
+		}
+		g := math.Pow(10, reports[s.group].GainDB/20)
+		for j := range s.to - s.from {
+			fade := 1.0
+			if s.fade && j >= s.to-s.from-edgeFade {
+				fade = 0.5 + 0.5*math.Cos(math.Pi*float64(j-(s.to-s.from-edgeFade))/edgeFade)
+			}
+			// the section's own item only: nothing of the one before rings into it
+			want := float64(own[i][2*j]) * fade * g
+			if math.Abs(float64(got[2*j])-want) > 1e-6 {
+				t.Fatalf("section %d sample %d is %g, want %g", i, j, got[2*j], want)
+			}
+		}
+		if s.fade && math.Abs(float64(got[len(got)-2])) > 1e-5 {
+			t.Errorf("section %d ends on %g", i, got[len(got)-2])
+		}
+		if s.group == 0 {
+			m.add(got)
+		} else {
+			slot := newMeter(sampleRate)
+			slot.add(got)
+			if l := slot.integrated(); math.Abs(l+23) > 0.001 {
+				t.Errorf("the slot measures %.4f LUFS, want -23", l)
+			}
+		}
+	}
+	// the break around the slot is normalized as one
+	if l := m.integrated(); math.Abs(l+20) > 0.001 {
+		t.Errorf("the break around the slot measures %.4f LUFS, want -20", l)
 	}
 }
 

@@ -346,6 +346,29 @@ func TestCouchTvChannel(t *testing.T) {
 		file("standby/"+clipID+"/video/init.mp4", 404, "")
 	}
 
+	// a break with a bulletin slot airs in sections: the parts after the first are reached
+	// under parts/<n>/, and only those its feed names
+	brokenUp := filepath.Join("couchtv", "breaks", "sections")
+	for i, seconds := range []float64{6, 4} {
+		writeRendition(t, filepath.Join(env.cfg.DataDir, brokenUp, fmt.Sprint(i), "source"), playback.RenditionInfo{Codec: "avc1.64001f",
+			Width: 1280, Height: 720, FrameRate: 25, VideoRange: "SDR"}, readFixture(t, "avc.init.mp4"), readFixture(t, "avc.seg.m4s"), seconds)
+	}
+	var sections string
+	sectionsStart := now.Add(-5 * time.Second)
+	insert(&sections, "break", sectionsStart, sectionsStart.Add(10*time.Second), nil, nil,
+		`{"mediaSequence": {"video": 50}, "discontinuitySequence": 20}`,
+		fmt.Sprintf(`{"start": %q, "parts": [{"kind": "break", "ms": 6000, "path": %q, "video": "source"},
+			{"kind": "break", "ms": 4000, "path": %q, "video": "source"}]}`, sectionsStart.Format(time.RFC3339Nano),
+			filepath.Join(brokenUp, "0"), filepath.Join(brokenUp, "1")))
+	file("airings/"+sections+"/video/seg_00000.m4s", 200, "")
+	if got := file("airings/"+sections+"/parts/1/video/seg_00000.m4s", 200, ""); string(got) != string(readFixture(t, "avc.seg.m4s")) {
+		t.Error("the second section's segment differs from its package's")
+	}
+	file("airings/"+sections+"/parts/1/video/init.mp4", 200, "")
+	file("airings/"+sections+"/parts/2/video/seg_00000.m4s", 404, "")
+	file("airings/"+sections+"/parts/x/video/seg_00000.m4s", 404, "")
+	file("airings/"+onAir+"/parts/1/video/seg_00000.m4s", 404, "")
+
 	// a grant reaches only its own routes, and only while it lasts
 	key, err := grant.LoadSecret(ctx, settings.NewStore(env.pool))
 	if err != nil {

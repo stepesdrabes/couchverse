@@ -7991,6 +7991,48 @@ pub mod ops {
         )
     }
 
+    /// Query parameters of [`get_couch_tv_airing_part_file`].
+    #[derive(Debug, Clone, Default, PartialEq)]
+    pub struct GetCouchTvAiringPartFileQuery {
+        /// Cut the segment to its first seconds (a segment that runs past its item).
+        pub keep: Option<f64>,
+    }
+
+    /// Get a file of one part of what an airing airs
+    ///
+    /// `GET /tv/{grant}/airings/{airing}/parts/{part}/{track}/{file}`
+    ///
+    /// - `grant`: The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.
+    /// - `airing`: The airing.
+    /// - `part`: The media part, counted from 0 among the airing's parts that are not fillers.
+    ///   From 0 to 99.
+    /// - `track`: video, audio-<lang> or subs-<lang>.
+    /// - `file`: init.mp4 or a segment.
+    pub fn get_couch_tv_airing_part_file(
+        grant: &str,
+        airing: &str,
+        part: i64,
+        track: &str,
+        file: &str,
+        query: &GetCouchTvAiringPartFileQuery,
+    ) -> Request {
+        let mut q = Vec::new();
+        build::push(&mut q, "keep", query.keep.as_ref());
+        build::request(
+            Method::Get,
+            format!(
+                "/tv/{}/airings/{}/parts/{}/{}/{}",
+                build::segment(grant),
+                build::segment(airing),
+                build::segment(&part.to_string()),
+                build::segment(track),
+                build::segment(file)
+            ),
+            q,
+            Body::Empty,
+        )
+    }
+
     /// Query parameters of [`get_couch_tv_guide`].
     #[derive(Debug, Clone, Default, PartialEq)]
     pub struct GetCouchTvGuideQuery {

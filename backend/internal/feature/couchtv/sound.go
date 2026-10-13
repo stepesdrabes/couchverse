@@ -120,6 +120,32 @@ type mixItem struct {
 // past the break's end cut), the sum normalized to loudness LUFS with the true peak at or
 // under -1 dBTP, as the page normalizes a render.
 func mixBreak(items []mixItem, samples int, loudness float64, out string) (LoudnessReport, error) {
+	reports, err := mixSections(items, []mixSection{{to: samples, loudness: loudness, out: out}})
+	return reports[0], err
+}
+
+// edgeFade is how long the sound at a bulletin slot's edge takes to fade out (20 ms).
+const edgeFade = sampleRate / 50
+
+// mixSection is a stretch of a break whose sound is mixed into a file of its own: the items
+// that start in it, whatever rings past its end cut. A break with bulletin slots is mixed in
+// sections, so a bulletin can air in a slot's place: the slots and the break around them never
+// sound into each other.
+type mixSection struct {
+	// from and to are where it starts and ends in the break, in samples
+	from, to int
+	// sections of a group are normalized together, to loudness LUFS
+	group    int
+	loudness float64
+	// fade fades out what still sounds at its end (a slot's edge)
+	fade bool
+	out  string
+}
+
+// mixSections mixes a break's items into its sections' files, interleaved 32-bit float stereo,
+// and normalizes each group of sections as the page normalizes a render; it reports each
+// group's normalization.
+func mixSections(items []mixItem, sections []mixSection) (map[int]LoudnessReport, error) {
 	type source struct {
 		mixItem
 		f *os.File
@@ -129,66 +155,94 @@ func mixBreak(items []mixItem, samples int, loudness float64, out string) (Loudn
 	for i, it := range items {
 		n, err := wavSamples(it.path)
 		if err != nil {
-			return LoudnessReport{}, fmt.Errorf("%s: %w", filepath.Base(it.path), err)
+			return nil, fmt.Errorf("%s: %w", filepath.Base(it.path), err)
 		}
 		if n < it.slot {
-			return LoudnessReport{}, fmt.Errorf("%s: %d samples, its slot is %d", filepath.Base(it.path), n, it.slot)
+			return nil, fmt.Errorf("%s: %d samples, its slot is %d", filepath.Base(it.path), n, it.slot)
 		}
 		f, err := os.Open(it.path)
 		if err != nil {
-			return LoudnessReport{}, err
+			return nil, err
 		}
 		defer f.Close()
 		srcs[i] = source{mixItem: it, f: f, n: n}
 	}
-	dst, err := os.OpenFile(out, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return LoudnessReport{}, err
-	}
-	defer dst.Close()
 
-	m := newMeter(sampleRate)
+	meters := map[int]*meter{}
+	dsts := make([]*os.File, len(sections))
 	mix := make([]float32, 2*mixChunk)
 	raw := make([]byte, 8*mixChunk)
-	for from := 0; from < samples; from += mixChunk {
-		n := min(mixChunk, samples-from)
-		clear(mix[:2*n])
-		for _, s := range srcs {
-			// the part of the item's sound inside [from, from+n)
-			lo, hi := max(from, s.at), min(from+n, s.at+s.n)
-			if lo >= hi {
-				continue
-			}
-			b := raw[:8*(hi-lo)]
-			if _, err := s.f.ReadAt(b, int64(wavHeader+8*(lo-s.at))); err != nil {
-				return LoudnessReport{}, err
-			}
-			for i, o := 0, 2*(lo-from); i < len(b); i, o = i+4, o+1 {
-				mix[o] += math.Float32frombits(binary.LittleEndian.Uint32(b[i:]))
-			}
+	for k, sec := range sections {
+		dst, err := os.OpenFile(sec.out, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
+		if err != nil {
+			return nil, err
 		}
-		m.add(mix[:2*n])
-		if _, err := dst.Write(f32bytes(raw, mix[:2*n])); err != nil {
-			return LoudnessReport{}, err
+		defer dst.Close()
+		dsts[k] = dst
+		m := meters[sec.group]
+		if m == nil {
+			m = newMeter(sampleRate)
+			meters[sec.group] = m
+		}
+		for from := sec.from; from < sec.to; from += mixChunk {
+			n := min(mixChunk, sec.to-from)
+			clear(mix[:2*n])
+			for _, s := range srcs {
+				// the part inside [from, from+n) of the sound of an item of this section
+				lo, hi := max(from, s.at), min(from+n, s.at+s.n)
+				if s.at < sec.from || s.at >= sec.to || lo >= hi {
+					continue
+				}
+				b := raw[:8*(hi-lo)]
+				if _, err := s.f.ReadAt(b, int64(wavHeader+8*(lo-s.at))); err != nil {
+					return nil, err
+				}
+				for i, o := 0, 2*(lo-from); i < len(b); i, o = i+4, o+1 {
+					mix[o] += math.Float32frombits(binary.LittleEndian.Uint32(b[i:]))
+				}
+			}
+			if sec.fade {
+				// a raised cosine from 1 to 0 over the last edgeFade samples
+				for i := max(from, sec.to-edgeFade); i < from+n; i++ {
+					g := float32(0.5 + 0.5*math.Cos(math.Pi*float64(i-(sec.to-edgeFade))/edgeFade))
+					mix[2*(i-from)] *= g
+					mix[2*(i-from)+1] *= g
+				}
+			}
+			m.add(mix[:2*n])
+			if _, err := dst.Write(f32bytes(raw, mix[:2*n])); err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	report := m.normalization(loudness, truePeakCeiling)
-	g := math.Pow(10, report.GainDB/20)
-	for from := 0; from < samples; from += mixChunk {
-		b := raw[:8*min(mixChunk, samples-from)]
-		if _, err := dst.ReadAt(b, int64(8*from)); err != nil {
-			return report, err
+	reports := map[int]LoudnessReport{}
+	for k, sec := range sections {
+		report, ok := reports[sec.group]
+		if !ok {
+			report = meters[sec.group].normalization(sec.loudness, truePeakCeiling)
+			reports[sec.group] = report
 		}
-		for i := 0; i < len(b); i += 4 {
-			v := float32(float64(math.Float32frombits(binary.LittleEndian.Uint32(b[i:]))) * g)
-			binary.LittleEndian.PutUint32(b[i:], math.Float32bits(v))
+		g := math.Pow(10, report.GainDB/20)
+		samples := sec.to - sec.from
+		for from := 0; from < samples; from += mixChunk {
+			b := raw[:8*min(mixChunk, samples-from)]
+			if _, err := dsts[k].ReadAt(b, int64(8*from)); err != nil {
+				return reports, err
+			}
+			for i := 0; i < len(b); i += 4 {
+				v := float32(float64(math.Float32frombits(binary.LittleEndian.Uint32(b[i:]))) * g)
+				binary.LittleEndian.PutUint32(b[i:], math.Float32bits(v))
+			}
+			if _, err := dsts[k].WriteAt(b, int64(8*from)); err != nil {
+				return reports, err
+			}
 		}
-		if _, err := dst.WriteAt(b, int64(8*from)); err != nil {
-			return report, err
+		if err := dsts[k].Close(); err != nil {
+			return reports, err
 		}
 	}
-	return report, dst.Close()
+	return reports, nil
 }
 
 // f32bytes writes samples into buf as little-endian float32 and returns the bytes written.

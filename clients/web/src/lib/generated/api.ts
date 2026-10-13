@@ -3295,6 +3295,23 @@ export interface GetCouchTvAiringFileQuery {
  */
 export const getCouchTvAiringFilePath = (grant: string, airing: string, track: string, file: string, query: GetCouchTvAiringFileQuery = {}) => `/api/v1/tv/${encodeURIComponent(grant)}/airings/${encodeURIComponent(airing)}/${encodeURIComponent(track)}/${encodeURIComponent(file)}${qs({ keep: query.keep })}`;
 
+export interface GetCouchTvAiringPartFileQuery {
+	/** Cut the segment to its first seconds (a segment that runs past its item). */
+	keep?: number;
+}
+
+/**
+ * Get a file of one part of what an airing airs (`GET /tv/{grant}/airings/{airing}/parts/{part}/{track}/{file}`)
+ *
+ * @param grant The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.
+ * @param airing The airing.
+ * @param part The media part, counted from 0 among the airing's parts that are not fillers.
+ * From 0 to 99.
+ * @param track video, audio-<lang> or subs-<lang>.
+ * @param file init.mp4 or a segment.
+ */
+export const getCouchTvAiringPartFilePath = (grant: string, airing: string, part: number, track: string, file: string, query: GetCouchTvAiringPartFileQuery = {}) => `/api/v1/tv/${encodeURIComponent(grant)}/airings/${encodeURIComponent(airing)}/parts/${encodeURIComponent(part)}/${encodeURIComponent(track)}/${encodeURIComponent(file)}${qs({ keep: query.keep })}`;
+
 export interface GetCouchTvGuideQuery {
 	/** Start of the stretch (RFC 3339); now when omitted. */
 	from?: string;

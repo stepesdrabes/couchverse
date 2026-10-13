@@ -15427,6 +15427,115 @@
         ]
       }
     },
+    "/tv/{grant}/airings/{airing}/parts/{part}/{track}/{file}": {
+      "get": {
+        "description": "getCouchTvAiringFile for the airing's media parts after its first, as the playlists list them: a break with bulletin slots airs in sections, a slot's own a bulletin when one is ready. Served while the airing is within ten minutes of its time on air; 404 off_air otherwise.",
+        "operationId": "getCouchTvAiringPartFile",
+        "parameters": [
+          {
+            "description": "The channel grant from tuneCouchTv; it expires, so tune in again on grant_expired.",
+            "in": "path",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The airing.",
+            "in": "path",
+            "name": "airing",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The media part, counted from 0 among the airing's parts that are not fillers.",
+            "in": "path",
+            "name": "part",
+            "required": true,
+            "schema": {
+              "maximum": 99,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "video, audio-\u003clang\u003e or subs-\u003clang\u003e.",
+            "in": "path",
+            "name": "track",
+            "required": true,
+            "schema": {
+              "pattern": "^(video|audio-[a-z]{2}|subs-[a-z]{2})$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "init.mp4 or a segment.",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cut the segment to its first seconds (a segment that runs past its item).",
+            "in": "query",
+            "name": "keep",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "audio/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "text/vtt": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The file."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a file of one part of what an airing airs",
+        "tags": [
+          "couchtv"
+        ]
+      }
+    },
     "/tv/{grant}/airings/{airing}/{track}/{file}": {
       "get": {
         "description": "The init section or a segment of a program's or break's rendition, or a WebVTT segment of a program's subtitles, as the playlists list them. Served while the airing is within ten minutes of its time on air; 404 off_air otherwise.",

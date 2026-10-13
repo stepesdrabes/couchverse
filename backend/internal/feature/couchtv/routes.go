@@ -64,6 +64,7 @@ func (m *Module) Register(rt httpx.Routes) {
 	httpx.Raw(channel, masterOp(apiErr), m.live.Master)
 	httpx.Raw(channel, playlistOp(apiErr), m.live.Playlist)
 	httpx.Raw(channel, airingFileOp(apiErr), m.live.AiringFile)
+	httpx.Raw(channel, airingPartFileOp(apiErr), m.live.AiringPartFile)
 	httpx.Raw(channel, slateFileOp(apiErr), m.live.SlateFile)
 	httpx.Raw(channel, standbyFileOp(apiErr), m.live.StandbyFile)
 
@@ -177,6 +178,28 @@ func airingFileOp(apiErr *huma.Response) huma.Operation {
 		pathParam("airing", "The airing.", &huma.Schema{Type: huma.TypeString, Format: "uuid"}),
 		pathParam("track", "video, audio-<lang> or subs-<lang>.", &huma.Schema{Type: huma.TypeString, Pattern: `^(video|audio-[a-z]{2}|subs-[a-z]{2})$`}),
 		pathParam("file", "init.mp4, a segment, or <n>.vtt for subtitles.", &huma.Schema{Type: huma.TypeString, Pattern: `^[A-Za-z0-9_.-]+$`}),
+		{Name: "keep", In: "query", Description: "Cut the segment to its first seconds (a segment that runs past its item).",
+			Schema: &huma.Schema{Type: huma.TypeNumber}},
+	}
+	op.Responses = map[string]*huma.Response{
+		"200":     response("The file.", binarySchema, "video/mp4", "audio/mp4", "text/vtt"),
+		"default": apiErr,
+	}
+	return op
+}
+
+func airingPartFileOp(apiErr *huma.Response) huma.Operation {
+	op := tag.Op("getCouchTvAiringPartFile", http.MethodGet, "/airings/{airing}/parts/{part}/{track}/{file}")
+	op.Summary = "Get a file of one part of what an airing airs"
+	op.Description = "getCouchTvAiringFile for the airing's media parts after its first, as the playlists list " +
+		"them: a break with bulletin slots airs in sections, a slot's own a bulletin when one is ready. Served " +
+		"while the airing is within ten minutes of its time on air; 404 off_air otherwise."
+	op.Parameters = []*huma.Param{
+		pathParam("airing", "The airing.", &huma.Schema{Type: huma.TypeString, Format: "uuid"}),
+		pathParam("part", "The media part, counted from 0 among the airing's parts that are not fillers.",
+			&huma.Schema{Type: huma.TypeInteger, Minimum: ptr(0.0), Maximum: ptr(float64(maxParts))}),
+		pathParam("track", "video, audio-<lang> or subs-<lang>.", &huma.Schema{Type: huma.TypeString, Pattern: `^(video|audio-[a-z]{2}|subs-[a-z]{2})$`}),
+		pathParam("file", "init.mp4 or a segment.", &huma.Schema{Type: huma.TypeString, Pattern: `^[A-Za-z0-9_.-]+$`}),
 		{Name: "keep", In: "query", Description: "Cut the segment to its first seconds (a segment that runs past its item).",
 			Schema: &huma.Schema{Type: huma.TypeNumber}},
 	}

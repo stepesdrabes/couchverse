@@ -21,6 +21,8 @@ type fakeStore struct {
 	evergreen string
 	standby   *Clip
 	subs      map[string][]liveSubtitle
+	// recipes are the breaks' recipes, for those with bulletin slots
+	recipes map[string]Recipe
 }
 
 func (f *fakeStore) LiveAirings(_ context.Context, from, to time.Time) ([]LiveAiring, error) {
@@ -65,7 +67,7 @@ func (f *fakeStore) PinnedAiring(_ context.Context, id string) (*LiveAiring, err
 
 func (f *fakeStore) ReadyBreak(_ context.Context, id string) (*Break, error) {
 	if path := f.breaks[id]; path != "" {
-		return &Break{AiringID: id, Kind: "airing", State: BreakReady, Path: path}, nil
+		return &Break{AiringID: id, Kind: "airing", State: BreakReady, Path: path, Recipe: f.recipes[id]}, nil
 	}
 	return nil, db.ErrNotFound
 }

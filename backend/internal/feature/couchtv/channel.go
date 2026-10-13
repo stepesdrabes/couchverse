@@ -216,6 +216,12 @@ func (c *Channel) breakParts(ctx context.Context, id string, span time.Duration)
 	missing := "not ready"
 	b, err := c.store.ReadyBreak(ctx, id)
 	switch {
+	case err == nil && len(b.Recipe.Slots) > 0:
+		parts, err := c.sectionParts(ctx, b, span)
+		if err == nil {
+			return parts, ""
+		}
+		missing = "unreadable: " + err.Error()
 	case err == nil:
 		m, err := c.media.Break(b.Path)
 		if err == nil {
@@ -234,16 +240,23 @@ func (c *Channel) breakParts(ctx context.Context, id string, span time.Duration)
 	return []LivePart{p}, fillerName(p) + " (" + missing + ")"
 }
 
-// fitBreak airs a break's package in span: cut short when it is longer, with a
-// filler before it (padFirst) or after it when it is shorter.
-func (c *Channel) fitBreak(ctx context.Context, path string, b *breakMedia, span time.Duration, padFirst bool) []LivePart {
-	p := LivePart{Kind: PartBreak, Path: path, Video: b.Video.Name, Ms: span.Milliseconds()}
+// breakPart airs a break's package (or a section of it) whole.
+func breakPart(path string, b *breakMedia) LivePart {
+	p := LivePart{Kind: PartBreak, Path: path, Video: b.Video.Name, Ms: b.duration().Milliseconds()}
 	if b.Audio != nil {
 		p.Audio = map[string]string{}
 		for _, l := range Languages {
 			p.Audio[l] = b.Audio.Name // the mix is the same in every language
 		}
 	}
+	return p
+}
+
+// fitBreak airs a break's package in span: cut short when it is longer, with a
+// filler before it (padFirst) or after it when it is shorter.
+func (c *Channel) fitBreak(ctx context.Context, path string, b *breakMedia, span time.Duration, padFirst bool) []LivePart {
+	p := breakPart(path, b)
+	p.Ms = span.Milliseconds()
 	if span-b.duration() < minPart {
 		return []LivePart{p}
 	}
@@ -253,6 +266,41 @@ func (c *Channel) fitBreak(ctx context.Context, path string, b *breakMedia, span
 		return []LivePart{pad, p}
 	}
 	return []LivePart{p, pad}
+}
+
+// sectionParts air a break assembled in sections around its bulletin slots, a part each, in
+// span: after a filler when they are shorter, else cut where span ends (the last section
+// absorbing a difference under minPart), as fitBreak airs a break.
+func (c *Channel) sectionParts(ctx context.Context, b *Break, span time.Duration) ([]LivePart, error) {
+	secs := sectionsOf(b.Recipe)
+	parts := make([]LivePart, len(secs))
+	var total time.Duration
+	for k := range secs {
+		path := sectionPath(b.Path, k)
+		m, err := c.media.Break(path)
+		if err != nil {
+			return nil, err
+		}
+		parts[k] = breakPart(path, m)
+		total += m.duration()
+	}
+	if pad := span - total; pad >= minPart {
+		return append([]LivePart{c.fill(ctx, pad)}, parts...), nil
+	}
+	var out []LivePart
+	var at time.Duration
+	for k, p := range parts {
+		if d := p.duration(); k < len(parts)-1 && at+d < span {
+			out = append(out, p)
+			at += d
+			continue
+		}
+		if p.Ms = (span - at).Milliseconds(); p.Ms > 0 {
+			out = append(out, p)
+		}
+		break
+	}
+	return out, nil
 }
 
 // fill is what airs for d where nothing else can: the standby card looped, else
@@ -286,12 +334,16 @@ func (c *Channel) items(a LiveAiring) []hls.LiveItem {
 	}
 	out := make([]hls.LiveItem, 0, len(a.Feed.Parts))
 	complete := true
+	k := 0 // the media part's index
 	for _, p := range a.Feed.Parts {
-		item, err := partItem(a.ID, p, c.media)
+		item, err := partItem(a.ID, k, p, c.media)
 		if err != nil {
 			slog.Warn("couchtv: a part's media is unreadable; the slate airs instead", "airingId", a.ID, "kind", p.Kind, "err", err)
-			item, _ = partItem(a.ID, slatePart(p.duration()), c.media)
+			item, _ = partItem(a.ID, k, slatePart(p.duration()), c.media)
 			complete = false
+		}
+		if !p.filler() {
+			k++
 		}
 		out = append(out, item)
 	}
@@ -360,7 +412,7 @@ func (c *Channel) Schedule(ctx context.Context, now time.Time) (*hls.LiveSchedul
 		s.Items = append(s.Items, c.items(a)...)
 	}
 	if end := on[len(on)-1].Feed.End(); !end.After(now) {
-		item, err := partItem("", c.fill(ctx, now.Sub(end)+liveWindow), c.media)
+		item, err := partItem("", 0, c.fill(ctx, now.Sub(end)+liveWindow), c.media)
 		if err != nil {
 			return nil, err
 		}

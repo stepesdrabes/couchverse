@@ -142,6 +142,32 @@ func TestCouchTvRender(t *testing.T) {
 	if err != nil || ev.ID != breakID {
 		t.Errorf("the evergreen break: %v %v", ev, err)
 	}
+
+	// the same clips around a slot for the news (the sting holds it): assembled in sections,
+	// a package each, the slot's sound at its own loudness
+	slotted := couchtv.Recipe{Key: "slotted", Sound: couchtv.BreakSpec{Template: "break", Loudness: -20}}
+	for _, i := range []int{0, 2, 1} {
+		c := recipe.Clips[i]
+		c.At = slotted.Frames
+		slotted.Clips = append(slotted.Clips, c)
+		slotted.Sound.Items = append(slotted.Sound.Items, couchtv.BreakItem{At: float64(c.At) / couchtv.FPS, Spec: clips[i].spec})
+		slotted.Frames += c.Frames
+	}
+	slotted.Slots = []couchtv.RecipeSlot{{Kind: couchtv.BulletinNews, At: 265, Frames: 52, Loudness: -23}}
+	breakID = insertBreak(t, env, slotted)
+	payload, _ = json.Marshal(couchtv.AssemblePayload{BreakID: breakID})
+	if err := r.Assemble(ctx, &jobs.Job{Payload: payload}, func(int) {}); err != nil {
+		t.Fatal(err)
+	}
+	if b, err = store.Break(ctx, breakID); err != nil || b.State != couchtv.BreakReady {
+		t.Fatalf("the break with a slot: %+v %v", b, err)
+	}
+	for i, frames := range []int{265, 52, 113} {
+		validatePackage(t, filepath.Join(env.cfg.DataDir, b.Path, fmt.Sprint(i)), frames)
+	}
+	if lufs := measureLoudness(t, filepath.Join(env.cfg.DataDir, b.Path, "1", "audio-1-aac", "index.m3u8")); lufs < -23.6 || lufs > -22.4 {
+		t.Errorf("the slot's sound is %.1f LUFS, the recipe asked for -23", lufs)
+	}
 }
 
 // measureLoudness is the integrated loudness ffmpeg's ebur128 measures of a rendition.
