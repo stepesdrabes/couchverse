@@ -548,6 +548,10 @@ func airingPhrase(at, from time.Time, loc *time.Location, fill string) SpecAirin
 	switch {
 	case fill == FillPremiere:
 		phrase.Eyebrow, phrase.Day = "Premiere", day
+	case fill == FillSaga:
+		phrase.Eyebrow, phrase.Day = "Saga", day
+	case fill == FillMarathon:
+		phrase.Eyebrow, phrase.Day = "Marathon", day
 	case days == 0 && a.Hour() >= 17:
 		phrase.Eyebrow = "Tonight"
 	case days == 0:

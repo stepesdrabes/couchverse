@@ -13,7 +13,8 @@ export const DAY_NAMES = [
 	'Sunday'
 ];
 
-export type AiringKind = 'tonight' | 'tomorrow' | 'day' | 'premiere' | 'weekdays' | 'nightly';
+export type AiringKind =
+	'tonight' | 'tomorrow' | 'day' | 'premiere' | 'saga' | 'marathon' | 'weekdays' | 'nightly';
 
 export function airing(kind: AiringKind, time: ClockTime, day: Weekday = 5): Airing {
 	switch (kind) {
@@ -25,6 +26,10 @@ export function airing(kind: AiringKind, time: ClockTime, day: Weekday = 5): Air
 			return { eyebrow: 'This week', day: DAY_NAMES[day], time };
 		case 'premiere':
 			return { eyebrow: 'Premiere', day: DAY_NAMES[day], time };
+		case 'saga':
+			return { eyebrow: 'Saga', day: DAY_NAMES[day], time };
+		case 'marathon':
+			return { eyebrow: 'Marathon', day: DAY_NAMES[day], time };
 		case 'weekdays':
 			return { eyebrow: 'Every weekday', time };
 		case 'nightly':

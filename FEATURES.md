@@ -900,13 +900,13 @@ server that does not send it). The admin settings page toggles it.
   at a fixed time ("Every weekday 18:00", with "2 episodes, in order" under the days for a
   strip of several, left out for a series at random), else a short promo, and a gap longer
   than one round of the candidates starts another after a short ident. Airing phrases (`Today`,
-  `Tonight` from 17:00, `Tomorrow`, `This week` + day, `Premiere` + day) mirror the broadcast
-  package's `airing.ts`. The break's sound is one break spec (an item per clip that starts a
-  sound, a promo body's being its full promo; the sidecar mixes the items' sounds) at the
-  loudness of the program before it (else after it), clamped to -23..-16 LUFS, -18 when
-  unmeasured (`couchtv_titles.loudness_lufs`). `ComposeEvergreen` is the fallback: the full
-  ident (always journey, so the evergreen break is not composed again every day), up to three
-  rendered promo bodies with the evergreen end card, the short ident.
+  `Tonight` from 17:00, `Tomorrow`, `This week` + day, `Premiere`, `Saga` and `Marathon` +
+  day) mirror the broadcast package's `airing.ts`. The break's sound is one break spec (an
+  item per clip that starts a sound, a promo body's being its full promo; the sidecar mixes
+  the items' sounds) at the loudness of the program before it (else after it), clamped to
+  -23..-16 LUFS, -18 when unmeasured (`couchtv_titles.loudness_lufs`). `ComposeEvergreen` is
+  the fallback: the full ident (always journey, so the evergreen break is not composed again
+  every day), up to three rendered promo bodies with the evergreen end card, the short ident.
 - **The `couchtv_compose` job** (`couchtv.Composer`, app): at startup, after every plan run and
   hourly, it composes every break of the next 24 hours that has no composition (a failed one
   again after 6 h), and keeps the standby card and an evergreen break of the current

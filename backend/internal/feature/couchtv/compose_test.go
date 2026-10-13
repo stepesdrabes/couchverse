@@ -240,7 +240,9 @@ func TestAiringPhrases(t *testing.T) {
 		{time.Date(2026, 10, 14, 20, 15, 0, 0, prague), FillMovie, SpecAiring{Eyebrow: "Tonight", Time: "20:15"}},
 		{time.Date(2026, 10, 15, 18, 0, 0, 0, prague), FillStrip, SpecAiring{Eyebrow: "Tomorrow", Time: "18:00"}},
 		{time.Date(2026, 10, 17, 20, 15, 0, 0, prague), FillPremiere, SpecAiring{Eyebrow: "Premiere", Day: "Saturday", Time: "20:15"}},
-		{time.Date(2026, 10, 18, 20, 15, 0, 0, prague), FillSaga, SpecAiring{Eyebrow: "This week", Day: "Sunday", Time: "20:15"}},
+		{time.Date(2026, 10, 18, 20, 15, 0, 0, prague), FillSaga, SpecAiring{Eyebrow: "Saga", Day: "Sunday", Time: "20:15"}},
+		{time.Date(2026, 10, 17, 14, 0, 0, 0, prague), FillMarathon, SpecAiring{Eyebrow: "Marathon", Day: "Saturday", Time: "14:00"}},
+		{time.Date(2026, 10, 18, 9, 30, 0, 0, prague), FillReruns, SpecAiring{Eyebrow: "This week", Day: "Sunday", Time: "09:30"}},
 	}
 	for _, tt := range tests {
 		if got := airingPhrase(tt.at, from, prague, tt.fill); fmt.Sprint(got) != fmt.Sprint(tt.want) {

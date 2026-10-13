@@ -543,8 +543,9 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   repeat promos; with nothing to promote the full ident repeats), so the planner's fillers
   matter for long gaps.
 - **Phrases**: `Today`, `Tonight` (from 17:00), `Tomorrow`, `This week` with the day,
-  `Premiere` with the day; strips `Every night`/`Every day` (all week), `Every weekday`, else
-  `Every week`, with their days lit.
+  `Premiere`, `Saga` (Saga Sunday) and `Marathon` (the weekend block) with the day; strips
+  `Every night`/`Every day` (all week), `Every weekday`, else `Every week`, with their days
+  lit.
 - **Inputs**: English names and taglines (the base text when the base language is English,
   else the English translation; the tagline split in two near the middle, at punctuation if
   close); backdrop original and poster w780; footage shots from `couchtv_titles.shots` as
