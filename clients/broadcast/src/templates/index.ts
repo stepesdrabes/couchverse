@@ -2,6 +2,7 @@ import { ident } from '../brand/ident';
 import { sting } from '../brand/sting';
 import type { ClipSpec, TemplateName } from '../spec';
 import { lineup } from './lineup';
+import { news } from './news';
 import { evergreenEnd, promo } from './promo';
 import type { Template } from './shared';
 import { shortPromo } from './short';
@@ -9,6 +10,7 @@ import { squeeze } from './squeeze';
 import { standby } from './standby';
 import { stripPromo } from './strip';
 import { upNext } from './upnext';
+import { weather } from './weather';
 
 type Registry = { [K in TemplateName]: Template<Extract<ClipSpec, { template: K }>> };
 
@@ -23,7 +25,9 @@ export const TEMPLATES: Registry = {
 	shortPromo,
 	lineup,
 	squeeze,
-	standby
+	standby,
+	weather,
+	news
 };
 
 export const TEMPLATE_NAMES = Object.keys(TEMPLATES) as TemplateName[];

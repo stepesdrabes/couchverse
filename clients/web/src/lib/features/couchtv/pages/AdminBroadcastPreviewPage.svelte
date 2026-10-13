@@ -77,7 +77,9 @@
 		{ value: 'shortPromo', label: m.admin_couchtv_tpl_short() },
 		{ value: 'lineup', label: m.admin_couchtv_tpl_lineup() },
 		{ value: 'squeeze', label: m.admin_couchtv_tpl_squeeze() },
-		{ value: 'standby', label: m.admin_couchtv_tpl_standby() }
+		{ value: 'standby', label: m.admin_couchtv_tpl_standby() },
+		{ value: 'weather', label: m.admin_couchtv_tpl_weather() },
+		{ value: 'news', label: m.admin_couchtv_tpl_news() }
 	]);
 
 	const titleItems = $derived(

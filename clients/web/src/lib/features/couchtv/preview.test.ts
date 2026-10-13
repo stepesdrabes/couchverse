@@ -102,6 +102,19 @@ describe('buildSpec', () => {
 		expect(buildSpec(opts({ template: 'promo' }), null, null)).toBeNull();
 	});
 
+	it('shows recorded bulletins without a title, credits and outlets on them', () => {
+		const weather = buildSpec(opts({ template: 'weather' }), null, null);
+		expect(weather).toMatchObject({ template: 'weather', duration: 15, asOf: '17:00' });
+		if (weather?.template !== 'weather') return;
+		expect(weather.cities[0].name).toBe('Prague');
+		expect(weather.credits.forecast).toBe('Weather data by Open-Meteo.com');
+		const news = buildSpec(opts({ template: 'news' }), null, null);
+		expect(news).toMatchObject({ template: 'news', duration: 20 });
+		if (news?.template !== 'news') return;
+		expect(news.stories.map((s) => s.outlet)).toContain('iROZHLAS');
+		expect(news.credit).toContain('as of 17:02');
+	});
+
 	it('frames library posters in the ident', () => {
 		const spec = buildSpec(opts({ template: 'identShort' }), movie, null, [movie, series]);
 		expect(spec).toEqual({

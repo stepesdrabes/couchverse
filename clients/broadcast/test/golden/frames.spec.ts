@@ -35,7 +35,15 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['strip-long', [8]],
 	['short-long', [4.2]],
 	['lineup-long', [4.4, 7]],
-	['squeeze-long', [5]]
+	['squeeze-long', [5]],
+	['weather', [3]],
+	['weather-quiet', [3]],
+	['weather-unread', [3]],
+	['news', [3]],
+	['news-three', [3]],
+	// every default city and a warning of each level; the longest headlines
+	['weather-long', [3]],
+	['news-long', [3]]
 ];
 
 test.beforeEach(async ({ page }) => openRender(page));

@@ -345,6 +345,208 @@ export interface StandbySpec extends Loudness {
 	duration?: number;
 }
 
+// Bulletins (plan 6.10): the weather and the news, rendered shortly before the break that airs
+// them from data the server fetched. Each airs in a slot of its own in the break, so its sound
+// starts and ends inside the clip: nothing may ring past its last frame. Chrome is English
+// (D13); what the data brings stays as the source wrote it (city names, Czech headlines).
+
+/**
+ * A WMO weather code as Open-Meteo reports it: 0 clear, 1 mainly clear, 2 partly cloudy, 3
+ * overcast, 45 and 48 fog, 51-57 drizzle, 61-67 rain, 71-77 snow, 80-82 rain showers, 85 and 86
+ * snow showers, 95-99 thunderstorms.
+ * @minimum 0
+ * @maximum 99
+ * @asType integer
+ */
+export type WmoCode = number;
+
+/**
+ * Whole degrees Celsius (the server rounds).
+ * @asType integer
+ */
+export type Celsius = number;
+
+/** A moment a bulletin names: a clock time, with its day when that is not the bulletin's own. */
+export interface BulletinTime {
+	/** The English weekday (`Wednesday`) when it is another day than the bulletin's; absent on that day. */
+	day?: string;
+	time: ClockTime;
+}
+
+/** The weather at the bulletin's time. */
+export interface WeatherNow {
+	temperature: Celsius;
+	code: WmoCode;
+	/** Daylight: a sun rather than a moon. */
+	day: boolean;
+}
+
+/** One day's forecast. */
+export interface WeatherDay {
+	/** `Today`, `Tomorrow`, then the weekday (`Thursday`), from the bulletin's day. */
+	label: string;
+	/** The weekday, `Thursday`. */
+	weekday: string;
+	/** The weekday's first three letters, `Thu`. */
+	short: string;
+	min: Celsius;
+	max: Celsius;
+	/** The weather of the daytime, 09-18 (not the day's worst hour). */
+	code: WmoCode;
+	/**
+	 * The day's highest chance of precipitation, %; absent when the forecast has none.
+	 * @minimum 0
+	 * @maximum 100
+	 * @asType integer
+	 */
+	precipitation?: number;
+}
+
+/** One place of the weather map, in the order the channel's config lists them. */
+export interface WeatherCity {
+	/** As the config names it (`Prague`, `České Budějovice`). */
+	name: string;
+	/**
+	 * Where it is, degrees north (WGS 84): `czechiaMap` (core/geo.ts) places it on the outline.
+	 * @minimum 48.5
+	 * @maximum 51.1
+	 */
+	lat: number;
+	/**
+	 * Degrees east.
+	 * @minimum 12
+	 * @maximum 18.9
+	 */
+	lon: number;
+	now: WeatherNow;
+	/**
+	 * Today and the days after it, in order.
+	 * @minItems 1
+	 * @maxItems 5
+	 */
+	days: WeatherDay[];
+}
+
+/** A kraj (region) of Czechia, by its ISO 3166-2 code. */
+export type KrajCode =
+	| 'CZ-10'
+	| 'CZ-20'
+	| 'CZ-31'
+	| 'CZ-32'
+	| 'CZ-41'
+	| 'CZ-42'
+	| 'CZ-51'
+	| 'CZ-52'
+	| 'CZ-53'
+	| 'CZ-63'
+	| 'CZ-64'
+	| 'CZ-71'
+	| 'CZ-72'
+	| 'CZ-80';
+
+/** A kraj a warning covers. */
+export interface WarningRegion {
+	code: KrajCode;
+	/** In English, `Central Bohemian Region`. */
+	name: string;
+	/** Only some of its districts are warned. */
+	partial: boolean;
+}
+
+/** One of ČHMÚ's warnings: an event at a level over the kraje it covers. */
+export interface WeatherWarning {
+	level: 'yellow' | 'orange' | 'red';
+	/** ČHMÚ's English name of the event, `Moderate Wind Related Impact`. */
+	event: string;
+	/** In force when the bulletin was made; otherwise it begins later that day. */
+	active: boolean;
+	/** When it begins (the earliest of its areas; past when it is active). */
+	from: BulletinTime;
+	/** When it ends (the latest of its areas); absent: until further notice. */
+	until?: BulletinTime;
+	/** @minItems 1 */
+	regions: WarningRegion[];
+}
+
+/** The credits the sources' terms ask for, each on screen whenever its data is. */
+export interface WeatherCredits {
+	/** `Weather data by Open-Meteo.com` (CC BY 4.0): always on screen. */
+	forecast: string;
+	/** `Source: ČHMÚ`: on screen whenever the warnings, or their absence, are. */
+	warnings: string;
+	/** `Borders: ČÚZK / geoBoundaries (CC BY 4.0)`: on screen whenever the map is drawn. */
+	borders: string;
+}
+
+/** The weather: every configured city now and over the next days, and ČHMÚ's warnings. */
+export interface WeatherSpec extends Loudness {
+	template: 'weather';
+	/**
+	 * Seconds, a whole number of frames: the length of the break's weather slot.
+	 * @minimum 10
+	 * @maximum 30
+	 * @default 15
+	 */
+	duration?: number;
+	/** When the forecast was read, on the channel's clock. */
+	asOf: ClockTime;
+	/**
+	 * @minItems 1
+	 * @maxItems 20
+	 */
+	cities: WeatherCity[];
+	/**
+	 * Yellow, orange and red warnings in force now or later that day, the most severe first;
+	 * empty on a quiet day, absent while ČHMÚ cannot be read.
+	 */
+	warnings?: WeatherWarning[];
+	credits: WeatherCredits;
+}
+
+/** One story of the news. */
+export interface NewsStory {
+	/**
+	 * The outlet's own headline in Czech, whole and unaltered: the outlets' terms forbid
+	 * shortening, rewording or translating it. A no-break space follows one-letter words, so it
+	 * wraps as Czech typesetting does; fit it, never cut it.
+	 */
+	headline: string;
+	/**
+	 * The outlet's name, shown with the headline as plain text, never as a logo: `ČT24`,
+	 * `iROZHLAS`, `Seznam Zprávy`, `Novinky.cz`, `iDNES.cz`.
+	 */
+	outlet: string;
+	/**
+	 * How many outlets carry the story.
+	 * @minimum 1
+	 * @asType integer
+	 */
+	outlets: number;
+	/** Among ČT24's most read of the day. */
+	trending?: boolean;
+}
+
+/** The news: the top stories of the last hours, most important first. */
+export interface NewsSpec extends Loudness {
+	template: 'news';
+	/**
+	 * Seconds, a whole number of frames: the length of the break's news slot.
+	 * @minimum 10
+	 * @maximum 40
+	 * @default 20
+	 */
+	duration?: number;
+	/** When the headlines were read, on the channel's clock. */
+	asOf: ClockTime;
+	/**
+	 * @minItems 1
+	 * @maxItems 5
+	 */
+	stories: NewsStory[];
+	/** The credit line, on screen throughout: `Headlines from the outlets’ RSS feeds, as of 17:40`. */
+	credit: string;
+}
+
 export type ClipSpec =
 	| IdentSpec
 	| StingSpec
@@ -355,7 +557,9 @@ export type ClipSpec =
 	| ShortPromoSpec
 	| LineupSpec
 	| SqueezeSpec
-	| StandbySpec;
+	| StandbySpec
+	| WeatherSpec
+	| NewsSpec;
 
 export interface BreakItem {
 	/**

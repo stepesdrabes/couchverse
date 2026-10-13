@@ -15,6 +15,7 @@
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"schema": "node scripts/schema.mjs",
+		"outline": "node scripts/outline.mjs",
 		"test": "vitest run",
 		"golden": "playwright test"
 	},

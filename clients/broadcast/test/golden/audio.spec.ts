@@ -61,6 +61,21 @@ test("an item's sound is the clip's, faded into its ring-out where the next item
 	expect(before - after).toBeGreaterThan(30);
 });
 
+test("a bulletin's sound starts and ends inside it: its slot cuts on both sides", async ({
+	page
+}) => {
+	for (const name of ['weather', 'news'] as const) {
+		const info = await load(page, FIXTURES[name]);
+		const own = await sound(page, 'renderAudio');
+		const end = Math.round(info.duration * RATE);
+		expect(own[0].length).toBe(end);
+		// silent at its first sample, and 50 dB under its body in its last 100 ms
+		expect(Math.abs(own[0][0]) + Math.abs(own[1][0])).toBeLessThan(1e-4);
+		const body = level(own, RATE, end - 2 * RATE);
+		expect(body - level(own, end - RATE / 10, end), name).toBeGreaterThan(50);
+	}
+});
+
 test('a promo sounds the same whatever airing its end card shows', async ({ page }) => {
 	for (const mood of ['promo-cinematic', 'promo-grit-premiere', 'promo-bright'] as const) {
 		const base = FIXTURES[mood] as PromoSpec;

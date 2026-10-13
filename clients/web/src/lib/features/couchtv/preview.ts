@@ -7,8 +7,11 @@ import {
 	type AiringKind,
 	type ClipSpec,
 	type Episode,
+	type NewsSpec,
 	type Shot,
-	type Title
+	type Title,
+	type WeatherDay,
+	type WeatherSpec
 } from '@couchverse/broadcast';
 import type { AdminTitle, Artwork } from '$lib/generated/api';
 
@@ -23,7 +26,9 @@ export type PreviewTemplate =
 	| 'shortPromo'
 	| 'lineup'
 	| 'squeeze'
-	| 'standby';
+	| 'standby'
+	| 'weather'
+	| 'news';
 
 export type PreviewBed = 'none' | 'synth:groove' | 'synth:pulse' | 'synth:drone';
 
@@ -71,7 +76,9 @@ export const NEEDS_TITLE: Record<PreviewTemplate, boolean> = {
 	shortPromo: true,
 	lineup: true,
 	squeeze: true,
-	standby: false
+	standby: false,
+	weather: false,
+	news: false
 };
 
 /** A library title as the templates show it. */
@@ -159,6 +166,97 @@ function identPosters(titles: (PreviewTitle | null)[]): { posters?: string[] } {
 	return posters.length ? { posters } : {};
 }
 
+const day = (
+	label: string,
+	weekday: string,
+	temps: [number, number],
+	code: number,
+	rain: number
+): WeatherDay => ({
+	label,
+	weekday,
+	short: weekday.slice(0, 3),
+	min: temps[0],
+	max: temps[1],
+	code,
+	precipitation: rain
+});
+
+const DAYS = [
+	day('Today', 'Tuesday', [4, 15], 2, 23),
+	day('Tomorrow', 'Wednesday', [10, 17], 2, 70),
+	day('Thursday', 'Thursday', [6, 15], 3, 0),
+	day('Friday', 'Friday', [5, 18], 1, 0),
+	day('Saturday', 'Saturday', [6, 14], 61, 17)
+];
+
+const city = (name: string, lat: number, lon: number, temperature: number, code: number) => ({
+	name,
+	lat,
+	lon,
+	now: { temperature, code, day: true },
+	days: DAYS
+});
+
+/** A weather bulletin as the server writes one, from the forecast of 13 Oct 2026, 17:00. */
+const WEATHER: WeatherSpec = {
+	template: 'weather',
+	duration: 15,
+	asOf: '17:00',
+	cities: [
+		city('Prague', 50.088, 14.4208, 15, 1),
+		city('Brno', 49.1952, 16.608, 15, 1),
+		city('Ostrava', 49.8347, 18.282, 12, 0)
+	],
+	warnings: [
+		{
+			level: 'yellow',
+			event: 'Moderate Wind Related Impact',
+			active: true,
+			from: { time: '16:00' },
+			until: { day: 'Wednesday', time: '02:00' },
+			regions: [
+				{ code: 'CZ-63', name: 'Vysočina Region', partial: false },
+				{ code: 'CZ-64', name: 'South Moravian Region', partial: true }
+			]
+		}
+	],
+	credits: {
+		forecast: 'Weather data by Open-Meteo.com',
+		warnings: 'Source: ČHMÚ',
+		borders: 'Borders: ČÚZK / geoBoundaries (CC BY 4.0)'
+	}
+};
+
+const story = (outlet: string, headline: string, outlets: number) => ({
+	outlet,
+	headline,
+	outlets
+});
+
+/** A news bulletin as the server writes one, from the feeds of 13 Oct 2026, 17:02. */
+const NEWS: NewsSpec = {
+	template: 'news',
+	duration: 20,
+	asOf: '17:02',
+	stories: [
+		story('ČT24', 'Bulharsko hlásí další útok na lodě v\u00a0Černém moři, jedna se potopila', 4),
+		story(
+			'ČT24',
+			'ČEZ se bude bránit nařízení k\u00a0Diag Human u\u00a0lucemburského soudu, uvedl Babiš',
+			4
+		),
+		story(
+			'iROZHLAS',
+			'Letadlo do Norimberku doprovázely stíhačky a\u00a0policie uzavřela letiště. Piloti omylem nahlásili nouzi',
+			5
+		),
+		story('ČT24', 'Spojenci nás nevarovali před posledním útokem na Kyjev, uvedl Zelenskyj', 3),
+		story('ČT24', 'Pomoc pro přeživší popravy Pikeovou se značně zpozdila, píše AP', 2)
+	],
+	credit: 'Headlines from the outlets’ RSS feeds, as of 17:02'
+};
+
 /**
  * The spec for the chosen template; null while a title it needs is missing. `following` are the
  * library titles after the chosen one (the lineup's rows, the ident's posters).
@@ -180,6 +278,10 @@ export function buildSpec(
 			return { template: 'sting', duration: o.stingLength };
 		case 'standby':
 			return { template: 'standby' };
+		case 'weather':
+			return WEATHER;
+		case 'news':
+			return NEWS;
 	}
 	if (!main) return null;
 	const title = { ...main.title, taglines: o.taglines.map((l) => l.trim()).filter(Boolean) };

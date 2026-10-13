@@ -45,6 +45,12 @@
 				},
 				{
 					"$ref": "#/definitions/StandbySpec"
+				},
+				{
+					"$ref": "#/definitions/WeatherSpec"
+				},
+				{
+					"$ref": "#/definitions/NewsSpec"
 				}
 			]
 		},
@@ -962,6 +968,381 @@
 			],
 			"additionalProperties": false,
 			"description": "\"Technical difficulties\": loops seamlessly, picture and sound, until the next airing."
+		},
+		"WeatherSpec": {
+			"type": "object",
+			"properties": {
+				"loudness": {
+					"type": "number",
+					"description": "Integrated loudness (ITU-R BS.1770) the audio render is normalized to, in LUFS; the true peak stays at or under -1 dBTP even when that leaves it quieter.",
+					"minimum": -31,
+					"maximum": -10,
+					"default": -18
+				},
+				"template": {
+					"type": "string",
+					"const": "weather"
+				},
+				"duration": {
+					"type": "number",
+					"description": "Seconds, a whole number of frames: the length of the break's weather slot.",
+					"minimum": 10,
+					"maximum": 30,
+					"default": 15
+				},
+				"asOf": {
+					"$ref": "#/definitions/ClockTime",
+					"description": "When the forecast was read, on the channel's clock."
+				},
+				"cities": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/WeatherCity"
+					},
+					"minItems": 1,
+					"maxItems": 20
+				},
+				"warnings": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/WeatherWarning"
+					},
+					"description": "Yellow, orange and red warnings in force now or later that day, the most severe first; empty on a quiet day, absent while ČHMÚ cannot be read."
+				},
+				"credits": {
+					"$ref": "#/definitions/WeatherCredits"
+				}
+			},
+			"required": [
+				"template",
+				"asOf",
+				"cities",
+				"credits"
+			],
+			"additionalProperties": false,
+			"description": "The weather: every configured city now and over the next days, and ČHMÚ's warnings."
+		},
+		"WeatherCity": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "As the config names it (`Prague`, `České Budějovice`)."
+				},
+				"lat": {
+					"type": "number",
+					"description": "Where it is, degrees north (WGS 84): `czechiaMap` (core/geo.ts) places it on the outline.",
+					"minimum": 48.5,
+					"maximum": 51.1
+				},
+				"lon": {
+					"type": "number",
+					"description": "Degrees east.",
+					"minimum": 12,
+					"maximum": 18.9
+				},
+				"now": {
+					"$ref": "#/definitions/WeatherNow"
+				},
+				"days": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/WeatherDay"
+					},
+					"description": "Today and the days after it, in order.",
+					"minItems": 1,
+					"maxItems": 5
+				}
+			},
+			"required": [
+				"name",
+				"lat",
+				"lon",
+				"now",
+				"days"
+			],
+			"additionalProperties": false,
+			"description": "One place of the weather map, in the order the channel's config lists them."
+		},
+		"WeatherNow": {
+			"type": "object",
+			"properties": {
+				"temperature": {
+					"$ref": "#/definitions/Celsius"
+				},
+				"code": {
+					"$ref": "#/definitions/WmoCode"
+				},
+				"day": {
+					"type": "boolean",
+					"description": "Daylight: a sun rather than a moon."
+				}
+			},
+			"required": [
+				"temperature",
+				"code",
+				"day"
+			],
+			"additionalProperties": false,
+			"description": "The weather at the bulletin's time."
+		},
+		"Celsius": {
+			"type": "integer",
+			"description": "Whole degrees Celsius (the server rounds)."
+		},
+		"WmoCode": {
+			"type": "integer",
+			"description": "A WMO weather code as Open-Meteo reports it: 0 clear, 1 mainly clear, 2 partly cloudy, 3 overcast, 45 and 48 fog, 51-57 drizzle, 61-67 rain, 71-77 snow, 80-82 rain showers, 85 and 86 snow showers, 95-99 thunderstorms.",
+			"minimum": 0,
+			"maximum": 99
+		},
+		"WeatherDay": {
+			"type": "object",
+			"properties": {
+				"label": {
+					"type": "string",
+					"description": "`Today`, `Tomorrow`, then the weekday (`Thursday`), from the bulletin's day."
+				},
+				"weekday": {
+					"type": "string",
+					"description": "The weekday, `Thursday`."
+				},
+				"short": {
+					"type": "string",
+					"description": "The weekday's first three letters, `Thu`."
+				},
+				"min": {
+					"$ref": "#/definitions/Celsius"
+				},
+				"max": {
+					"$ref": "#/definitions/Celsius"
+				},
+				"code": {
+					"$ref": "#/definitions/WmoCode",
+					"description": "The weather of the daytime, 09-18 (not the day's worst hour)."
+				},
+				"precipitation": {
+					"type": "integer",
+					"description": "The day's highest chance of precipitation, %; absent when the forecast has none.",
+					"minimum": 0,
+					"maximum": 100
+				}
+			},
+			"required": [
+				"label",
+				"weekday",
+				"short",
+				"min",
+				"max",
+				"code"
+			],
+			"additionalProperties": false,
+			"description": "One day's forecast."
+		},
+		"WeatherWarning": {
+			"type": "object",
+			"properties": {
+				"level": {
+					"type": "string",
+					"enum": [
+						"yellow",
+						"orange",
+						"red"
+					]
+				},
+				"event": {
+					"type": "string",
+					"description": "ČHMÚ's English name of the event, `Moderate Wind Related Impact`."
+				},
+				"active": {
+					"type": "boolean",
+					"description": "In force when the bulletin was made; otherwise it begins later that day."
+				},
+				"from": {
+					"$ref": "#/definitions/BulletinTime",
+					"description": "When it begins (the earliest of its areas; past when it is active)."
+				},
+				"until": {
+					"$ref": "#/definitions/BulletinTime",
+					"description": "When it ends (the latest of its areas); absent: until further notice."
+				},
+				"regions": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/WarningRegion"
+					},
+					"minItems": 1
+				}
+			},
+			"required": [
+				"level",
+				"event",
+				"active",
+				"from",
+				"regions"
+			],
+			"additionalProperties": false,
+			"description": "One of ČHMÚ's warnings: an event at a level over the kraje it covers."
+		},
+		"BulletinTime": {
+			"type": "object",
+			"properties": {
+				"day": {
+					"type": "string",
+					"description": "The English weekday (`Wednesday`) when it is another day than the bulletin's; absent on that day."
+				},
+				"time": {
+					"$ref": "#/definitions/ClockTime"
+				}
+			},
+			"required": [
+				"time"
+			],
+			"additionalProperties": false,
+			"description": "A moment a bulletin names: a clock time, with its day when that is not the bulletin's own."
+		},
+		"WarningRegion": {
+			"type": "object",
+			"properties": {
+				"code": {
+					"$ref": "#/definitions/KrajCode"
+				},
+				"name": {
+					"type": "string",
+					"description": "In English, `Central Bohemian Region`."
+				},
+				"partial": {
+					"type": "boolean",
+					"description": "Only some of its districts are warned."
+				}
+			},
+			"required": [
+				"code",
+				"name",
+				"partial"
+			],
+			"additionalProperties": false,
+			"description": "A kraj a warning covers."
+		},
+		"KrajCode": {
+			"type": "string",
+			"enum": [
+				"CZ-10",
+				"CZ-20",
+				"CZ-31",
+				"CZ-32",
+				"CZ-41",
+				"CZ-42",
+				"CZ-51",
+				"CZ-52",
+				"CZ-53",
+				"CZ-63",
+				"CZ-64",
+				"CZ-71",
+				"CZ-72",
+				"CZ-80"
+			],
+			"description": "A kraj (region) of Czechia, by its ISO 3166-2 code."
+		},
+		"WeatherCredits": {
+			"type": "object",
+			"properties": {
+				"forecast": {
+					"type": "string",
+					"description": "`Weather data by Open-Meteo.com` (CC BY 4.0): always on screen."
+				},
+				"warnings": {
+					"type": "string",
+					"description": "`Source: ČHMÚ`: on screen whenever the warnings, or their absence, are."
+				},
+				"borders": {
+					"type": "string",
+					"description": "`Borders: ČÚZK / geoBoundaries (CC BY 4.0)`: on screen whenever the map is drawn."
+				}
+			},
+			"required": [
+				"forecast",
+				"warnings",
+				"borders"
+			],
+			"additionalProperties": false,
+			"description": "The credits the sources' terms ask for, each on screen whenever its data is."
+		},
+		"NewsSpec": {
+			"type": "object",
+			"properties": {
+				"loudness": {
+					"type": "number",
+					"description": "Integrated loudness (ITU-R BS.1770) the audio render is normalized to, in LUFS; the true peak stays at or under -1 dBTP even when that leaves it quieter.",
+					"minimum": -31,
+					"maximum": -10,
+					"default": -18
+				},
+				"template": {
+					"type": "string",
+					"const": "news"
+				},
+				"duration": {
+					"type": "number",
+					"description": "Seconds, a whole number of frames: the length of the break's news slot.",
+					"minimum": 10,
+					"maximum": 40,
+					"default": 20
+				},
+				"asOf": {
+					"$ref": "#/definitions/ClockTime",
+					"description": "When the headlines were read, on the channel's clock."
+				},
+				"stories": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/NewsStory"
+					},
+					"minItems": 1,
+					"maxItems": 5
+				},
+				"credit": {
+					"type": "string",
+					"description": "The credit line, on screen throughout: `Headlines from the outlets’ RSS feeds, as of 17:40`."
+				}
+			},
+			"required": [
+				"template",
+				"asOf",
+				"stories",
+				"credit"
+			],
+			"additionalProperties": false,
+			"description": "The news: the top stories of the last hours, most important first."
+		},
+		"NewsStory": {
+			"type": "object",
+			"properties": {
+				"headline": {
+					"type": "string",
+					"description": "The outlet's own headline in Czech, whole and unaltered: the outlets' terms forbid shortening, rewording or translating it. A no-break space follows one-letter words, so it wraps as Czech typesetting does; fit it, never cut it."
+				},
+				"outlet": {
+					"type": "string",
+					"description": "The outlet's name, shown with the headline as plain text, never as a logo: `ČT24`, `iROZHLAS`, `Seznam Zprávy`, `Novinky.cz`, `iDNES.cz`."
+				},
+				"outlets": {
+					"type": "integer",
+					"description": "How many outlets carry the story.",
+					"minimum": 1
+				},
+				"trending": {
+					"type": "boolean",
+					"description": "Among ČT24's most read of the day."
+				}
+			},
+			"required": [
+				"headline",
+				"outlet",
+				"outlets"
+			],
+			"additionalProperties": false,
+			"description": "One story of the news."
 		},
 		"BreakSpec": {
 			"type": "object",
