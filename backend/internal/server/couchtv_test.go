@@ -405,20 +405,6 @@ func TestCouchTvPrune(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	file := func(rel string, age time.Duration) string {
-		t.Helper()
-		path := filepath.Join(env.cfg.DataDir, rel)
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte("preview"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chtimes(path, now.Add(-age), now.Add(-age)); err != nil {
-			t.Fatal(err)
-		}
-		return rel
-	}
 	aired, waiting := dir("couchtv/breaks/aired", 0), dir("couchtv/breaks/waiting", 0)
 	oldClip, usedClip := dir("couchtv/clips/old", 0), dir("couchtv/clips/used", 0)
 	oldGreen, newGreen := dir("couchtv/breaks/old-evergreen", 0), dir("couchtv/breaks/new-evergreen", 0)
