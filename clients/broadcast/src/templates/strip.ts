@@ -3,7 +3,8 @@
 import { beatsIn, snapper } from '../audio/onsets';
 import { SPARKLE } from '../audio/kit';
 import { channelTag } from '../brand/lockup';
-import { chars, css, div, el, fadeUp, fit, rise, span, words } from '../core/dom';
+import { chars, css, div, el, fadeUp, rise, span, words } from '../core/dom';
+import { fitText } from '../core/fit';
 import { framed } from '../core/framing';
 import { applyPalette } from '../core/palette';
 import type { StripPromoSpec } from '../spec';
@@ -13,7 +14,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export const stripPromo: Template<StripPromoSpec> = {
-	version: 2,
+	version: 3,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 16;
@@ -57,7 +58,7 @@ export const stripPromo: Template<StripPromoSpec> = {
 		const rail = css(div('rail', ebRow), { width: '56px' });
 		const eb = div('eyebrow', ebRow, spec.airing.eyebrow);
 		const title = words(div('hero sp-title', col), t.name);
-		fit(title.root.parentElement as HTMLElement, 960);
+		fitText(title.root.parentElement as HTMLElement, { width: 960, min: 76, lines: 3 });
 		const timeWrap = div('sp-time tnum', col);
 		const tc = chars(span('mask', timeWrap), spec.airing.time);
 		const daysRow = div('sp-days', col);

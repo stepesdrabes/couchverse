@@ -2,14 +2,15 @@
 
 import { SPARKLE } from '../audio/kit';
 import { bug } from '../brand/lockup';
-import { css, div, fadeOut, fadeUp, fit, rise, span, svg, words } from '../core/dom';
+import { css, div, fadeOut, fadeUp, rise, span, svg, words } from '../core/dom';
+import { fitText } from '../core/fit';
 import { framed } from '../core/framing';
 import { applyPalette } from '../core/palette';
 import type { UpNextSpec } from '../spec';
 import { timeline, titlePalette, type Template } from './shared';
 
 export const upNext: Template<UpNextSpec> = {
-	version: 2,
+	version: 3,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 8;
@@ -43,10 +44,13 @@ export const upNext: Template<UpNextSpec> = {
 		const rail = div('rail', ebRow);
 		const eb = div('eyebrow', ebRow, 'Up next');
 		const title = words(div('hero un-title', info), t.name);
-		fit(title.root.parentElement as HTMLElement, 1100);
+		fitText(title.root.parentElement as HTMLElement, { width: 1100, min: 84, lines: 3 });
 		const epRow = spec.episode ? div('un-ep', info) : null;
 		const chip = epRow ? span('chip solid', epRow, spec.episode?.code) : null;
 		const epName = epRow ? span(null, epRow, spec.episode?.name) : null;
+		// beside the chip, clear of the countdown
+		if (chip && epName)
+			fitText(epName, { width: 1076 - chip.offsetWidth, min: 32, lines: 2, leading: 1.15 });
 		const meta = div('un-meta', info);
 		const runtime = spec.episode?.runtimeMinutes ?? t.runtimeMinutes;
 		const metaItems = [

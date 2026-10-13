@@ -2,14 +2,15 @@
 // the airing pops, the channel tag closes.
 
 import { channelTag } from '../brand/lockup';
-import { css, div, fit, span } from '../core/dom';
+import { css, div, span } from '../core/dom';
+import { fitText } from '../core/fit';
 import { framed } from '../core/framing';
 import { applyPalette } from '../core/palette';
 import type { ShortPromoSpec } from '../spec';
 import { grain, rgbOf, shake, timeline, titlePalette, type Template } from './shared';
 
 export const shortPromo: Template<ShortPromoSpec> = {
-	version: 2,
+	version: 3,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 9;
@@ -56,7 +57,8 @@ export const shortPromo: Template<ShortPromoSpec> = {
 		);
 		const timeP = span('sh-time tnum', whenRow, spec.airing.time);
 		const word = div('sh-word', stack, t.name);
-		fit(word, 1680);
+		// under the airing, clear of the channel tag
+		fitText(word, { width: 1680, min: 180, lines: 3, height: 640 });
 		const flash = div('flash', root);
 		grain(tl, root, 0.05, 17);
 

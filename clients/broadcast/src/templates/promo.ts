@@ -10,7 +10,20 @@ import type { Bus, LoadedBed } from '../audio/engine';
 import { beatsIn, snapper } from '../audio/onsets';
 import { SPARKLE } from '../audio/kit';
 import { CHANNEL, channelTag } from '../brand/lockup';
-import { chars, css, div, fadeOut, fadeUp, fit, glint, img, rise, span, words } from '../core/dom';
+import {
+	byLine,
+	chars,
+	css,
+	div,
+	fadeOut,
+	fadeUp,
+	glint,
+	img,
+	rise,
+	span,
+	words
+} from '../core/dom';
+import { fitText, SAFE_WIDTH } from '../core/fit';
 import { SPRING, springFrames } from '../core/motion';
 import { applyPalette } from '../core/palette';
 import { rng } from '../core/rng';
@@ -132,7 +145,7 @@ const CUE: Record<Section['kind'], string> = {
 };
 
 export const promo: Template<PromoSpec> = {
-	version: 2,
+	version: 3,
 	build(ctx, spec) {
 		const airing = spec.part === 'body' ? BODY_AIRING : (spec.airing ?? null);
 		const tl = buildPromo(ctx, spec, airing);
@@ -145,7 +158,7 @@ export const promo: Template<PromoSpec> = {
 };
 
 export const evergreenEnd: Template<EvergreenEndSpec> = {
-	version: 2,
+	version: 3,
 	build(ctx, spec) {
 		const tl = buildPromo(ctx, spec, null);
 		tl.parts = { clip: tl.parts.end };
@@ -316,6 +329,8 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				tl.show(box, a, b + 0.001);
 				const ws = words(box, line);
 				ws.root.style.display = 'inline-block';
+				// safe at the push's largest
+				fitText(ws.root, { width: SAFE_WIDTH / 1.045, min: 72, lines: 2 });
 				rise(tl, ws.items, a + (a === 0 ? 1.0 : 0.35), { stagger: 0.12, dur: 1.1 });
 				// trailer type never sits still: a slow push for the life of the line
 				tl.add(
@@ -339,8 +354,9 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				const box = centerBox(a, b);
 				const wordEl = div('promo-word', box);
 				const cw = chars(wordEl, s.word);
-				fit(wordEl, 1640);
 				cw.root.style.display = 'inline-block';
+				// safe at the push and the exit's largest while it still reads
+				fitText(wordEl, { width: SAFE_WIDTH / 1.07, min: 150, lines: 2, leading: 1 });
 				if (bright) {
 					cw.items.forEach((c, i) => {
 						const sp = springFrames(
@@ -360,19 +376,22 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 						sound.shimmer(bus, w, { dur: 0.7, gain: 0.025, count: 9, seed: 5 })
 					);
 				} else {
-					const mid = (cw.items.length - 1) / 2;
-					cw.items.forEach((c, i) =>
-						tl.add(
-							c,
-							[
-								{ opacity: 0, transform: `translateX(${(i - mid) * 46}px)` },
-								{ opacity: 1, transform: 'translateX(0)' }
-							],
-							a + 0.05,
-							1.5,
-							'enter'
-						)
-					);
+					// each line gathers in to its own middle
+					for (const row of byLine(cw.root, cw.items)) {
+						const mid = (row.length - 1) / 2;
+						row.forEach((c, i) =>
+							tl.add(
+								c,
+								[
+									{ opacity: 0, transform: `translateX(${(i - mid) * 46}px)` },
+									{ opacity: 1, transform: 'translateX(0)' }
+								],
+								a + 0.05,
+								1.5,
+								'enter'
+							)
+						);
+					}
 					tl.add(
 						cw.root,
 						[{ transform: 'scale(1)' }, { transform: 'scale(1.035)' }],
@@ -406,7 +425,7 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				const slamEl = div('promo-slam', box);
 				const tc = chars(slamEl, s.word);
 				slamEl.style.display = 'inline-block';
-				fit(slamEl, 1640);
+				fitText(slamEl, { width: 1640, min: 160 });
 				tl.add(
 					glowA,
 					[
@@ -456,7 +475,7 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				const tEl = div('promo-title', box);
 				const tc = chars(tEl, t.name);
 				tEl.style.display = 'inline-block';
-				fit(tEl, 1660);
+				fitText(tEl, { width: 1660, min: 120, lines: 3, height: 600 });
 				const under = grit || bright ? div('card-under', box) : null;
 				const meta = div('promo-meta', box);
 				[
@@ -543,11 +562,15 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				const lineEl = div('type-line', box);
 				const tc = chars(lineEl, line);
 				const caret = span('caret', lineEl);
+				// safe with the caret after the last letter
+				fitText(lineEl, { width: SAFE_WIDTH - 32, min: 48, lines: 2 });
 				const step = 0.055;
 				const startT = a + 0.25;
-				const cx = (x: number) => [
-					{ transform: `translateX(${x}px)` },
-					{ transform: `translateX(${x}px)` }
+				// the caret follows the typing onto the next line
+				const top = tc.items[0]?.offsetTop ?? 0;
+				const cx = (x: number, y = 0) => [
+					{ transform: `translate(${x}px, ${y}px)` },
+					{ transform: `translate(${x}px, ${y}px)` }
 				];
 				tl.add(caret, cx(0), a, 0.01, 'linear');
 				let pause = 0;
@@ -556,7 +579,13 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 					const at = startT + i * step + pause;
 					if (at >= b - 0.1) return;
 					tl.add(c, [{ opacity: 0 }, { opacity: 1 }], at, 0.01, 'linear');
-					tl.add(caret, cx(c.offsetLeft + c.offsetWidth + 4), at, 0.01, 'linear');
+					tl.add(
+						caret,
+						cx(c.offsetLeft + c.offsetWidth + 4, c.offsetTop - top),
+						at,
+						0.01,
+						'linear'
+					);
 					tl.sound(at, (w, bus) =>
 						sound.key(bus, w, { gain: 0.07, pan: (i / tc.items.length) * 0.8 - 0.4, seed: i + 3 })
 					);
@@ -583,7 +612,7 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				const box = centerBox(a, b);
 				const inner = div(null, box);
 				const w = div('card-word', inner, s.word);
-				fit(w, 1640);
+				fitText(w, { width: 1640, min: 140, lines: 2, leading: 1 });
 				const under = div('card-under', inner);
 				tl.add(
 					w,
@@ -620,7 +649,8 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				dimFor(a, b);
 				const box = centerBox(a, b);
 				const wordEl = div('promo-word', box, s.word);
-				fit(wordEl, 1640);
+				// safe at the exit's largest while it still reads
+				fitText(wordEl, { width: SAFE_WIDTH / 1.07, min: 140, lines: 2, leading: 1 });
 				tl.add(
 					wordEl,
 					[
@@ -656,6 +686,8 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				const slab = div('slab-bg', box);
 				const ws = words(box, line);
 				ws.root.classList.add('slab-text');
+				// the slab's widest, less its padding
+				fitText(ws.root, { width: 1432, min: 60, lines: 2 });
 				const at0 = a + (a === 0 ? 0.5 : 0.25);
 				tl.add(slab, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], at0, 0.4, 'snap');
 				ws.items.forEach((it, i) => {
@@ -732,7 +764,7 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 		const ebRow = div('un-eyebrow', info);
 		const rail = css(div('rail', ebRow), { width: '56px' });
 		const title = words(div('hero ec-title', info), t.name);
-		fit(title.root.parentElement as HTMLElement, 980);
+		fitText(title.root.parentElement as HTMLElement, { width: 980, min: 84, lines: 3 });
 		// a fixed-height row: the airing never moves the timeless layout around it
 		const whenRow = div('ec-when', info);
 		const metaRow = div('ec-meta', info);

@@ -11,7 +11,8 @@
 import { SPARKLE } from '../audio/kit';
 import { identCursor, identCursorRect } from '../brand/ident';
 import { bug } from '../brand/lockup';
-import { css, div, fadeOut, fadeUp, fit, img, rise, span, words } from '../core/dom';
+import { css, div, fadeOut, fadeUp, img, rise, span, words } from '../core/dom';
+import { fitText } from '../core/fit';
 import { framed, W } from '../core/framing';
 import { bezierPoints, cubicBezierAt, easing, type Ease } from '../core/motion';
 import { edge } from '../core/moves';
@@ -95,7 +96,7 @@ const CREDITS: [string, string][] = [
 ];
 
 export const squeeze: Template<SqueezeSpec> = {
-	version: 2,
+	version: 3,
 	build({ root, sound, assets }, spec) {
 		const cursor = spec.handover === 'cursor';
 		const D = cursor ? 10.6 : 11.52;
@@ -158,10 +159,13 @@ export const squeeze: Template<SqueezeSpec> = {
 		const eb = div('eyebrow', ebRow, 'Up next');
 		const slot = div('sq-card-slot', col);
 		const title = words(div('hero sq-title', col), nx.title.name);
-		fit(title.root.parentElement as HTMLElement, 648);
+		fitText(title.root.parentElement as HTMLElement, { width: 648, min: 54, lines: 3 });
 		const epRow = nx.episode ? div('sq-ep', col) : null;
 		const chip = epRow ? span('chip solid', epRow, nx.episode?.code) : null;
 		const epName = epRow ? span(null, epRow, nx.episode?.name) : null;
+		// beside the chip, within the column
+		if (chip && epName)
+			fitText(epName, { width: 630 - chip.offsetWidth, min: 24, lines: 2, leading: 1.15 });
 		const whenEl = div('sq-when', col);
 		span('tnum when-time', whenEl, nx.time);
 		whenEl.append(' · after the break');

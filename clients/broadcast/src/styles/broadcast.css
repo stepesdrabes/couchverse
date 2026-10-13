@@ -468,6 +468,7 @@
 	font-weight: 800;
 	letter-spacing: -0.02em;
 	text-transform: uppercase;
+	text-align: center;
 	text-shadow: 0 10px 60px rgb(0 0 0 / 0.5);
 }
 .promo-time {
@@ -489,6 +490,7 @@
 	letter-spacing: -0.02em;
 	line-height: 1;
 	text-transform: uppercase;
+	text-align: center;
 	background: linear-gradient(180deg, #fff 30%, #c9ccd6 100%);
 	-webkit-background-clip: text;
 	background-clip: text;
@@ -576,6 +578,7 @@
 	font-weight: 800;
 	letter-spacing: -0.035em;
 	text-transform: uppercase;
+	text-align: center;
 	line-height: 0.92;
 }
 .card-under {
@@ -658,7 +661,7 @@
 	padding-bottom: 40px;
 }
 .sp-title {
-	font-size: 118px;
+	font-size: 115px;
 	margin-top: 30px;
 }
 .sp-time {
@@ -779,6 +782,7 @@
 	letter-spacing: -0.035em;
 	line-height: 1;
 	text-transform: uppercase;
+	text-align: center;
 	color: var(--accent);
 	text-shadow:
 		0 12px 0 rgb(var(--shadow-rgb, 10 12 30)),
@@ -858,6 +862,9 @@
 	left: calc(var(--safe-x) - 24px);
 	top: 352px;
 	width: 1060px;
+}
+.lu-list.rows-5 {
+	top: 272px;
 }
 .row {
 	position: relative;

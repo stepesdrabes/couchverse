@@ -2056,6 +2056,15 @@ approves is what airs.
   (half a frame before the frame nearest their beat), so float error never moves one to the
   neighbouring frame and a 120 bpm cue lands within half a frame of its sound. Two audio renders
   differ only by float noise (under 1e-5).
+- **Text fitting** (`src/core/fit.ts`): every piece of spec text (names, taglines, episode
+  names, kinetic words) goes through `fitText(el, box)`: the design's size when it fits its box
+  (its layout column, or the 96 px title-safe width at the largest scale its animations reach
+  while it reads), else shrunk to the role's minimum on one line, else broken at word boundaries
+  onto two (big display titles three) balanced lines, and shrunk further only when even that is
+  not enough. `breakLines` is the pure part: the widest line as narrow as possible, a break after
+  a colon or before "and"/"the" only when it costs little width, never a widow, never a
+  one-letter word ending a line. It runs once fonts are in, on what `words`/`chars` build (the
+  breaks are `<br>`s), so per-word and per-character animations keep their targets.
 - **Squeeze compositing**: the spec's `program` fills the panel with the program's last seconds
   as frames (`frames`: the page draws them; the composer writes this, and the sidecar renders
   it keyed and composites the frames itself, see "couchtv"), a stand-in (`standIn`: the ending
@@ -2096,10 +2105,11 @@ approves is what airs.
 - **Adding a template**: add its spec interface to `spec.ts` and to `ClipSpec`; write
   `src/templates/<name>.ts` exporting a `Template` (`version` and `build(ctx, spec)` returning a
   `Timeline`; only `transform`, `opacity` and `visibility` animate; text from the spec goes in
-  as text); register it in `templates/index.ts`; add styles to `src/styles/broadcast.css`; run
-  `npm run schema`; add a fixture to `test/fixtures/specs.ts` and its golden frames to
-  `test/golden/frames.spec.ts`; offer it in the web's `features/couchtv/preview.ts`. Bump a
-  template's `version` whenever its picture or sound changes.
+  as text and is fitted with `fitText`); register it in `templates/index.ts`; add styles to
+  `src/styles/broadcast.css`; run `npm run schema`; add a fixture to `test/fixtures/specs.ts`
+  and its golden frames to `test/golden/frames.spec.ts`; offer it in the web's
+  `features/couchtv/preview.ts`. Bump a template's `version` whenever its picture or sound
+  changes.
 - **Tests** (`make broadcast-test`, CI `broadcast.yml`): vitest for curves, springs, the
   palette, the timeline, loudness, WAV and the schema; Playwright in Chromium against the built
   render page for golden frames (480x270, `test/golden/__goldens__`, refresh with `npx

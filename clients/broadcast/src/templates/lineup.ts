@@ -3,13 +3,14 @@
 import { SPARKLE } from '../audio/kit';
 import { CHANNEL, lockup } from '../brand/lockup';
 import { css, div, el, fadeOut, img, rise, words } from '../core/dom';
+import { fitText } from '../core/fit';
 import { framed } from '../core/framing';
 import { applyPalette } from '../core/palette';
 import type { LineupSpec } from '../spec';
 import { glow, timeline, titlePalette, type Template } from './shared';
 
 export const lineup: Template<LineupSpec> = {
-	version: 2,
+	version: 3,
 	build({ root, sound, assets }, spec) {
 		const D = spec.duration ?? 12;
 		const tl = timeline(root, D);
@@ -30,6 +31,8 @@ export const lineup: Template<LineupSpec> = {
 		const logo = lockup(head, 56, 'lu-wm');
 		const title = words(div('hero lu-title', head), `Later on ${CHANNEL}`);
 		const list = div('lu-list', root);
+		// five rows start higher, so the last one clears the bottom of the frame
+		if (items.length > 4) list.classList.add('rows-5');
 		const hl = css(div('abs lu-highlight', list), {});
 		const rows = items.map((it) => {
 			const r = div('row', list);
@@ -39,7 +42,7 @@ export const lineup: Template<LineupSpec> = {
 			const pw = div('row-poster', r);
 			img(null, pw, assets.picture(it.title.poster).url);
 			const tx = div('row-text', r);
-			div('row-name', tx, it.title.name);
+			const name = div('row-name', tx, it.title.name);
 			div('row-sub', tx, it.sub);
 			let pill: HTMLElement | null = null;
 			let fill: HTMLElement | null = null;
@@ -53,13 +56,22 @@ export const lineup: Template<LineupSpec> = {
 			} else if (it.state === 'next') {
 				pill = div('pill-next', r, it.badge ?? 'Next');
 			}
+			// beside the pill, and within the row's height with what sits under the name
+			fitText(name, {
+				width: tx.clientWidth,
+				min: 28,
+				lines: 2,
+				leading: 1.1,
+				height: 124 - (tx.offsetHeight - name.offsetHeight)
+			});
 			return { r, pw, pill, fill, it };
 		});
 		const spot = div('lu-spot', root);
 		const captions = items.map((it) => {
 			const cpt = css(div('abs', spot), { right: '0', bottom: '0', textAlign: 'right' });
 			div('eyebrow', cpt, it.time);
-			div('hero lu-spot-name', cpt, it.title.name);
+			// right of the rows
+			fitText(div('hero lu-spot-name', cpt, it.title.name), { width: 580, min: 40, lines: 3 });
 			return cpt;
 		});
 

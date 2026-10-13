@@ -78,14 +78,15 @@ export function words(parent: Element, text: string, cls?: string) {
 	return { root, items };
 }
 
-/** Fit a single line into maxWidth by scaling its font size down (long titles). */
-export function fit<T extends HTMLElement>(e: T, maxWidth: number): T {
-	const w = e.scrollWidth;
-	if (w > maxWidth) {
-		const fs = parseFloat(getComputedStyle(e).fontSize);
-		e.style.fontSize = Math.floor((fs * maxWidth) / w) + 'px';
+/** `items` (in document order under `root`) grouped by line: fitted text breaks at `<br>`s. */
+export function byLine<T extends Element>(root: Element, items: T[]): T[][] {
+	const set = new Set<Element>(items);
+	const lines: T[][] = [[]];
+	for (const e of root.querySelectorAll('*')) {
+		if (e.tagName === 'BR') lines.push([]);
+		else if (set.has(e)) lines[lines.length - 1].push(e as T);
 	}
-	return e;
+	return lines.filter((l) => l.length);
 }
 
 export interface RiseOptions {
@@ -165,8 +166,10 @@ export function glint(
 	const copy = host.cloneNode(true) as HTMLElement;
 	copy.querySelector('.glint-wrap')?.remove();
 	copy.className = (host.className + ' glint-copy').replace('glint-host', '');
+	// a fitted host's size and leading stay, or the copy would not register with it
+	const { fontSize, lineHeight } = host.style;
 	copy.removeAttribute('style');
-	css(copy, { width: w + 'px', position: 'absolute', margin: '0' });
+	css(copy, { width: w + 'px', position: 'absolute', margin: '0', fontSize, lineHeight });
 	win.appendChild(copy);
 	tl.add(
 		win,
