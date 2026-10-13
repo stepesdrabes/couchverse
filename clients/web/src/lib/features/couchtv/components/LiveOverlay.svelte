@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { DISPLAY_FAMILY } from '@couchverse/broadcast/brand/wordmark';
 	import { fade, fly } from 'svelte/transition';
 	import type { CouchTvView } from '$lib/generated/core';
 	import { colors } from '$lib/generated/tokens';
@@ -26,9 +25,7 @@
 	const lang = $derived(currentLang());
 	const now = $derived(isProgram(view.now) ? view.now : undefined);
 	const next = $derived(view.next);
-	const style =
-		`--brand: ${colors.accent}; --brand-ink: ${colors['accent-ink']};` +
-		`--display: '${DISPLAY_FAMILY}', var(--font-sans);`;
+	const style = `--brand: ${colors.accent}; --brand-ink: ${colors['accent-ink']};`;
 </script>
 
 <div class="pointer-events-none absolute inset-0 z-10" {style}>
@@ -96,7 +93,6 @@
 
 	.live,
 	.clock {
-		font-family: var(--display);
 		font-weight: 700;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
@@ -128,7 +124,6 @@
 		padding: 0 0.75rem;
 		background: var(--brand);
 		color: white;
-		font-family: var(--display);
 		font-weight: 700;
 		font-size: 0.85rem;
 		letter-spacing: 0.06em;
@@ -142,8 +137,7 @@
 	}
 
 	.title {
-		font-family: var(--display);
-		font-weight: 700;
+		font-weight: 800;
 		font-size: 1.25rem;
 		line-height: 1.15;
 		text-transform: uppercase;
@@ -156,8 +150,7 @@
 	}
 
 	.time {
-		font-family: var(--display);
-		font-weight: 700;
+		font-weight: 800;
 		font-size: 1.25rem;
 		color: var(--brand-ink);
 	}
