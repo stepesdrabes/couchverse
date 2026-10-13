@@ -34,6 +34,12 @@ interface SoundCue {
 	dur: number;
 }
 
+/** A sound cue placed on an audio context: the time it plays at, and scheduling it. */
+export interface PlacedSound {
+	when: number;
+	play(): void;
+}
+
 interface Dynamic {
 	value: (t: number) => string | number;
 	apply: (v: string | number, wait: Promise<unknown>[] | null) => void;
@@ -273,17 +279,35 @@ export class Timeline {
 	 * same wherever playback starts.
 	 */
 	scheduleSounds(ctxStart: number, offset: number, bus: Bus, reseed?: (index: number) => void) {
+		for (const s of this.soundsFrom(ctxStart, offset, bus, reseed)) s.play();
+	}
+
+	/** `scheduleSounds` one cue at a time: when each plays, and the call that schedules it. */
+	soundsFrom(
+		ctxStart: number,
+		offset: number,
+		bus: Bus,
+		reseed?: (index: number) => void
+	): PlacedSound[] {
+		const out: PlacedSound[] = [];
 		this.sounds.forEach((s, i) => {
 			const inside = s.dur > 0 && offset > s.at && offset < s.at + s.dur;
 			if (s.at < offset - 0.03 && !inside) return;
 			const skip = Math.max(0, offset - s.at);
-			reseed?.(i);
-			try {
-				s.fn(ctxStart + Math.max(0, s.at - offset), bus, skip);
-			} catch (err) {
-				console.warn('sound cue failed', err);
-			}
+			const when = ctxStart + Math.max(0, s.at - offset);
+			out.push({
+				when,
+				play: () => {
+					reseed?.(i);
+					try {
+						s.fn(when, bus, skip);
+					} catch (err) {
+						console.warn('sound cue failed', err);
+					}
+				}
+			});
 		});
+		return out;
 	}
 }
 

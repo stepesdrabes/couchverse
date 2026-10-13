@@ -7,7 +7,7 @@ import { SAMPLE_RATE, type Bus } from './audio/engine';
 import { Kit } from './audio/kit';
 import { normalize, type LoudnessReport } from './audio/loudness';
 import { div } from './core/dom';
-import type { Cue, KeyRect } from './core/timeline';
+import type { Cue, KeyRect, PlacedSound } from './core/timeline';
 import { FPS } from './core/timeline';
 import type { BreakSpec, ClipSpec } from './spec';
 import type { Stage } from './stage';
@@ -127,10 +127,13 @@ async function renderScheduled(
 	const kits = new Set(items.map((i) => i.piece.kit));
 	for (const k of kits) k.build(ctx);
 	const buses: { bus: Bus; at: number }[] = [];
+	const sounds: PlacedSound[] = [];
 	for (let pass = 0; pass < passes; pass++) {
 		for (const { piece, at } of items) {
 			const bus = piece.kit.bus();
-			piece.tl.scheduleSounds(at + pass * length, piece.start, bus, (i) => piece.kit.reseed(i));
+			sounds.push(
+				...piece.tl.soundsFrom(at + pass * length, piece.start, bus, (i) => piece.kit.reseed(i))
+			);
 			buses.push({ bus, at: at + pass * length });
 		}
 	}
@@ -139,12 +142,42 @@ async function renderScheduled(
 		const next = buses[i + 1];
 		if (next && next.at > b.at && !loop) b.bus.fade(0, next.at, Math.max(0.01, crossfade));
 	});
-	const buffer = await ctx.startRendering();
+	const buffer = await renderSounds(ctx, sounds);
 	const channels = [0, 1].map((c) =>
 		buffer.getChannelData(c).slice(frames * (passes - 1), frames * passes)
 	);
 	const report = normalize(channels, SAMPLE_RATE, loudness);
 	return { channels, sampleRate: SAMPLE_RATE, report };
+}
+
+// a cue is scheduled between LOOKAHEAD - STEP and LOOKAHEAD seconds before it plays: well
+// before its earliest node starts (an oscillator may start a cycle early, 0.22 s at most)
+const LOOKAHEAD = 1;
+const STEP = 0.5;
+
+/**
+ * Render an offline context with its sound cues scheduled shortly before they play, not all
+ * up front: Chromium pulls every connected node every 128 frames, so a voice built at the
+ * start costs from then on, and a break's thousands of voices rendered slower than real time.
+ * A voice's nodes are silent until it starts either way, so the samples are the same.
+ */
+function renderSounds(ctx: OfflineAudioContext, sounds: PlacedSound[]): Promise<AudioBuffer> {
+	const queue = [...sounds].sort((a, b) => a.when - b.when);
+	let next = 0;
+	const until = (t: number) => {
+		while (next < queue.length && queue[next].when < t) queue[next++].play();
+	};
+	until(LOOKAHEAD);
+	const last = queue.length ? queue[queue.length - 1].when : 0;
+	const end = ctx.length / ctx.sampleRate;
+	for (let t = STEP; t < end && t + LOOKAHEAD - STEP <= last; t += STEP) {
+		const at = t;
+		void ctx.suspend(at).then(() => {
+			until(at + LOOKAHEAD);
+			return ctx.resume();
+		});
+	}
+	return ctx.startRendering();
 }
 
 export function renderPieceAudio(piece: Piece): Promise<AudioRender> {

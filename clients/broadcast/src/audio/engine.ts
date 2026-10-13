@@ -407,35 +407,56 @@ export function softClip(drive: number): Float32Array<ArrayBuffer> {
 	return c;
 }
 
+// what the generators below make depends on the sample rate alone: made once per rate, then
+// copied into every context (a render of a break builds one per item)
+const generated = new Map<string, Float32Array<ArrayBuffer>[]>();
+
+function made(
+	ctx: BaseAudioContext,
+	key: string,
+	length: number,
+	fill: (channels: Float32Array<ArrayBuffer>[]) => void
+): AudioBuffer {
+	const id = `${key}@${ctx.sampleRate}`;
+	let data = generated.get(id);
+	if (!data) {
+		data = [new Float32Array(length), new Float32Array(length)];
+		fill(data);
+		generated.set(id, data);
+	}
+	const buf = ctx.createBuffer(2, length, ctx.sampleRate);
+	data.forEach((d, c) => buf.copyToChannel(d, c));
+	return buf;
+}
+
 function makeNoise(ctx: BaseAudioContext, kind: 'white' | 'pink'): AudioBuffer {
 	const len = ctx.sampleRate * 2;
-	const buf = ctx.createBuffer(2, len, ctx.sampleRate);
-	const r = rng(kind === 'pink' ? 11 : 5);
-	for (let ch = 0; ch < 2; ch++) {
-		const d = buf.getChannelData(ch);
-		let b0 = 0,
-			b1 = 0,
-			b2 = 0,
-			b3 = 0,
-			b4 = 0,
-			b5 = 0,
-			b6 = 0;
-		for (let i = 0; i < len; i++) {
-			const w = r() * 2 - 1;
-			if (kind === 'pink') {
-				// Paul Kellet's refined pink filter
-				b0 = 0.99886 * b0 + w * 0.0555179;
-				b1 = 0.99332 * b1 + w * 0.0750759;
-				b2 = 0.969 * b2 + w * 0.153852;
-				b3 = 0.8665 * b3 + w * 0.3104856;
-				b4 = 0.55 * b4 + w * 0.5329522;
-				b5 = -0.7616 * b5 - w * 0.016898;
-				d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
-				b6 = w * 0.115926;
-			} else d[i] = w * 0.5;
+	return made(ctx, kind, len, (channels) => {
+		const r = rng(kind === 'pink' ? 11 : 5);
+		for (const d of channels) {
+			let b0 = 0,
+				b1 = 0,
+				b2 = 0,
+				b3 = 0,
+				b4 = 0,
+				b5 = 0,
+				b6 = 0;
+			for (let i = 0; i < len; i++) {
+				const w = r() * 2 - 1;
+				if (kind === 'pink') {
+					// Paul Kellet's refined pink filter
+					b0 = 0.99886 * b0 + w * 0.0555179;
+					b1 = 0.99332 * b1 + w * 0.0750759;
+					b2 = 0.969 * b2 + w * 0.153852;
+					b3 = 0.8665 * b3 + w * 0.3104856;
+					b4 = 0.55 * b4 + w * 0.5329522;
+					b5 = -0.7616 * b5 - w * 0.016898;
+					d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+					b6 = w * 0.115926;
+				} else d[i] = w * 0.5;
+			}
 		}
-	}
-	return buf;
+	});
 }
 
 /**
@@ -446,15 +467,18 @@ function makeNoise(ctx: BaseAudioContext, kind: 'white' | 'pink'): AudioBuffer {
 function makeHall(ctx: BaseAudioContext, seconds = 3.2): AudioBuffer {
 	const sr = ctx.sampleRate;
 	const len = Math.floor(sr * seconds);
+	return made(ctx, `hall${seconds}`, len, (channels) => fillHall(channels, sr, len));
+}
+
+function fillHall(channels: Float32Array[], sr: number, len: number) {
 	const pre = Math.floor(sr * 0.014);
-	const buf = ctx.createBuffer(2, len, sr);
 	const T60 = { low: 2.5, mid: 2.0, high: 0.85 };
 	const k = (t60: number) => 6.91 / t60;
 	const aLow = 1 - Math.exp((-2 * Math.PI * 450) / sr);
 	const aMid = 1 - Math.exp((-2 * Math.PI * 4200) / sr);
 	for (let ch = 0; ch < 2; ch++) {
 		const r = rng(23 + ch * 101);
-		const d = buf.getChannelData(ch);
+		const d = channels[ch];
 		let lo = 0;
 		let mi = 0;
 		for (let i = pre; i < len; i++) {
@@ -481,25 +505,23 @@ function makeHall(ctx: BaseAudioContext, seconds = 3.2): AudioBuffer {
 			}
 		}
 	}
-	return buf;
 }
 
 function makeProjector(ctx: BaseAudioContext): AudioBuffer {
 	const sr = ctx.sampleRate;
 	const len = sr; // one second loops cleanly at 24 frames
-	const buf = ctx.createBuffer(2, len, sr);
-	const r = rng(41);
-	for (let ch = 0; ch < 2; ch++) {
-		const d = buf.getChannelData(ch);
-		for (let i = 0; i < len; i++) d[i] = (r() * 2 - 1) * 0.06;
-		for (let f = 0; f < 24; f++) {
-			const at = Math.floor((f / 24) * len + r() * 60);
-			const amp = 0.5 + r() * 0.5;
-			for (let j = 0; j < sr * 0.006; j++) {
-				const i = at + j;
-				if (i < len) d[i] += (r() * 2 - 1) * amp * Math.exp(-j / (sr * 0.0012));
+	return made(ctx, 'projector', len, (channels) => {
+		const r = rng(41);
+		for (const d of channels) {
+			for (let i = 0; i < len; i++) d[i] = (r() * 2 - 1) * 0.06;
+			for (let f = 0; f < 24; f++) {
+				const at = Math.floor((f / 24) * len + r() * 60);
+				const amp = 0.5 + r() * 0.5;
+				for (let j = 0; j < sr * 0.006; j++) {
+					const i = at + j;
+					if (i < len) d[i] += (r() * 2 - 1) * amp * Math.exp(-j / (sr * 0.0012));
+				}
 			}
 		}
-	}
-	return buf;
+	});
 }
