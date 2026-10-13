@@ -29,8 +29,9 @@ const (
 // Prune keeps the rendered media bounded: the packages of breaks that have aired, clips
 // no break has asked for in a while (never one a waiting break uses), evergreen breaks
 // older than the newest assembled one, and extracted media, items' sounds, work
-// directories and soundtrack previews nobody used lately (never a title's pick); and it
-// forgets guests long gone. It runs in the hourly cleanup.
+// directories and soundtrack previews nobody used lately (never a title's pick), and the
+// raw sound older renders left in clip packages; and it forgets guests long gone. It runs
+// in the hourly cleanup.
 func Prune(ctx context.Context, s *Store, dataDir string, now time.Time) error {
 	remove := func(query string, args ...any) (int, error) {
 		rows, err := s.q.Query(ctx, query, args...)
@@ -102,6 +103,11 @@ func Prune(ctx context.Context, s *Store, dataDir string, now time.Time) error {
 				os.RemoveAll(m)
 			}
 		}
+	}
+	// the raw sound that clips rendered before it was kept out of their packages still carry
+	leftovers, _ := filepath.Glob(filepath.Join(root, "clips", "*", "sound.f32"))
+	for _, p := range leftovers {
+		os.Remove(p)
 	}
 	// previews nobody picked, which the admin listened to a while ago
 	picked, err := s.soundtrackPaths(ctx)

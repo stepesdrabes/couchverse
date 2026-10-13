@@ -329,7 +329,9 @@ func (r *Renderer) renderClip(ctx context.Context, clip *Clip, report func(int))
 		return 0, 0, err
 	}
 
-	raw := filepath.Join(work, "sound.f32")
+	// beside the package, not in it: the package keeps only the encoded rendition
+	raw := work + ".f32"
+	defer os.Remove(raw)
 	if err := r.renderSound(ctx, b, raw, frames); err != nil {
 		return 0, 0, err
 	}

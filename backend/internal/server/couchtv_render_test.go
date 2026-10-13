@@ -197,10 +197,20 @@ func insertBreak(t *testing.T, env *testEnv, r couchtv.Recipe) string {
 	return id
 }
 
-// validatePackage checks a rendered package: the validator finds no error in its master
-// playlist, playback reads it like a media file's package, and the video is frames long.
+// validatePackage checks a rendered package: it holds its renditions and its master playlist
+// and nothing else, the validator finds no error in the playlist, playback reads it like a
+// media file's package, and the video is frames long.
 func validatePackage(t *testing.T, dir string, frames int) {
 	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() && e.Name() != "master.m3u8" {
+			t.Errorf("%s holds %s, which is not a rendition", filepath.Base(dir), e.Name())
+		}
+	}
 	report, err := hls.Validate(context.Background(), hls.HTTPFetcher{}, "file://"+filepath.Join(dir, "master.m3u8"), hls.Options{})
 	if err != nil {
 		t.Fatal(err)

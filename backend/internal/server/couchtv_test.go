@@ -415,6 +415,8 @@ func TestCouchTvPrune(t *testing.T) {
 	exec(`INSERT INTO couchtv_titles (title_id, soundtrack_id, soundtrack_source, soundtrack_path, soundtrack_start_ms,
 		soundtrack_duration_ms) VALUES ($1, $2, 'auto', $3, 0, 30000)`, movieID, soundtrackID, picked)
 	staleSound, freshSound := file("couchtv/sounds/stale.wav", 3*24*time.Hour), file("couchtv/sounds/mixed.wav", 20*time.Hour)
+	// a clip rendered before its raw sound was kept out of its package
+	usedPlaylist, usedRaw := file(usedClip+"/master.m3u8", 0), file(usedClip+"/sound.f32", 0)
 
 	exec(`INSERT INTO couchtv_airings (id, starts_at, ends_at, kind) VALUES
 		('00000000-0000-4000-8000-00000000b001', $1, $2, 'break'), ('00000000-0000-4000-8000-00000000b002', $3, $4, 'break')`,
@@ -433,7 +435,7 @@ func TestCouchTvPrune(t *testing.T) {
 	}
 	for rel, want := range map[string]bool{aired: false, waiting: true, oldClip: false, usedClip: true,
 		oldGreen: false, newGreen: true, staleFrames: false, freshFrames: true, picked: true, heard: true, unheard: false,
-		staleSound: false, freshSound: true} {
+		staleSound: false, freshSound: true, usedPlaylist: true, usedRaw: false} {
 		if exists(rel) != want {
 			t.Errorf("%s kept: %v, want %v", rel, exists(rel), want)
 		}

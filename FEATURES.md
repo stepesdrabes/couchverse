@@ -950,7 +950,9 @@ server that does not send it). The admin settings page toggles it.
   evergreen breaks older than the newest assembled one, extracted media unused for 14 days,
   items' sounds no assembly mixed for 2 days (most are one break's; the shared ones are
   mixed daily), work directories after a day, soundtrack previews no title picked and nobody
-  played in 14 days.
+  played in 14 days, and the raw sound (`sound.f32`, 32-bit float, about 384 KB a second)
+  that older renders left in clip packages, a third of their size (a render now writes it
+  beside its package and drops it once encoded).
 - Endpoints (admin, not flag-gated, like `/admin/ranks`): `GET/PUT /admin/couchtv`
   (`adminGetCouchTv`, `adminUpdateCouchTv`: config plus `plannedUntil`; a save validates
   pinned titles against their slot and queues a replan; a config the planner cannot follow
