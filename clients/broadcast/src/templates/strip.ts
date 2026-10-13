@@ -14,7 +14,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export const stripPromo: Template<StripPromoSpec> = {
-	version: 3,
+	version: 4,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 16;
@@ -212,7 +212,7 @@ export const stripPromo: Template<StripPromoSpec> = {
 		}
 
 		const tagAt = D - 4.0;
-		channelTag(tl, root, tagAt, sound);
+		channelTag(tl, root, tagAt, sound, { scrim: true });
 		outToBlack(tl, root, 0.8);
 		tl.sound(
 			0,

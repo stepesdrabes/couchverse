@@ -1,99 +1,175 @@
 // The brand's small pieces on every template: the static lockup, the corner bug and the
-// end-of-promo channel tag. All of them draw the one wordmark (wordmark.ts); templates only
-// call these.
+// end-of-promo channel tag, all drawn from the one lockup geometry (wordmark.ts); templates only
+// call these. Their places are the screens' grid's: the bug's right edge on the title-safe line
+// (x 1824) and its top on y 64, the tag's slot ending on x 1824 and y 1008.
 
 import type { Kit } from '../audio/kit';
-import { div, span } from '../core/dom';
-import { motion, windows } from '../core/moves';
+import { div, span, svg } from '../core/dom';
+import { edge } from '../core/moves';
 import type { Timeline } from '../core/timeline';
-import { HOOK, themeTag } from './theme';
-import { CHANNEL, cursorAt, geometry, lockupSvg, wordmark } from './wordmark';
+import { COUCH, LOGO_GAP, LOGO_H, LOGO_W, POPCORN, SILHOUETTE } from './glyph';
+import { SONIC, sonicTag } from './sonic';
+import {
+	BRAND,
+	CHANNEL,
+	geometry,
+	lockupSvg,
+	PARTS,
+	ROW,
+	WORD,
+	type LockupLayout
+} from './wordmark';
 
 export { CHANNEL };
 
-/** The static lockup at font size `size` (px), as an inline SVG. */
-export function lockup(parent: Element, size: number, cls = 'lockup'): HTMLSpanElement {
+/** The static lockup with the word at `size` px, as an inline SVG. */
+export function lockup(
+	parent: Element,
+	size: number,
+	cls = 'lockup',
+	layout: LockupLayout = 'row'
+): HTMLSpanElement {
 	const s = span(cls, parent);
 	// our own markup from numbers and constants: no spec text goes in
-	s.innerHTML = lockupSvg({ size, label: CHANNEL });
+	s.innerHTML = lockupSvg({ size, layout, label: CHANNEL });
 	return s;
 }
 
-/** The corner bug: the lockup, a breathing LIVE dot and the clock. */
-export function bug(tl: Timeline, parent: Element, clock: string) {
+/**
+ * The corner bug: the row lockup (its word at 34 px), a rule, the LIVE marker and the clock (the
+ * minute the clip starts). Nothing in it moves (the dot is steady), so the renderer can skip a
+ * screen's held frames. `scrim` shades the corner under it, for a screen whose own grade does
+ * not.
+ */
+export function bug(_tl: Timeline, parent: Element, clock: string, { scrim = false } = {}) {
 	const b = div('bug', parent);
-	lockup(b, 27, 'bug-wm');
-	span('bug-sep', b);
+	if (scrim) div('bug-scrim', b);
+	lockup(b, 34, 'bug-wm');
+	span('bug-rule', b);
 	const live = span('live', b);
-	const dot = span('live-dot', live);
+	span('live-dot', live);
 	span(null, live, 'Live');
-	span('bug-sep', b);
 	span('clock tnum', b, clock);
-	// iterations rather than an infinite loop, so seeking still lands right
-	tl.add(dot, [{ opacity: 1 }, { opacity: 0.35 }, { opacity: 1 }], 0, 1.6, 'sine', {
-		iterations: Math.ceil(tl.duration / 1.6)
-	});
 	return b;
 }
 
+/** The lockup's four parts (the logo, couch, t, v) as SVGs placed from its geometry, to animate. */
+export function lockupParts(parent: Element, size: number, layout: LockupLayout = 'row') {
+	const g = geometry(size, layout);
+	const root = div('lockup-parts', parent);
+	Object.assign(root.style, { width: `${g.width}px`, height: `${g.height}px` });
+	const part = (at: { x: number; y: number; k: number }, box: number[]) => {
+		// a transform's origin is the middle of the part's own box
+		const [x0, y0, x1, y1] = box;
+		const e = svg(
+			'svg',
+			{
+				width: ((x1 - x0) * at.k).toFixed(2),
+				height: ((y1 - y0) * at.k).toFixed(2),
+				viewBox: `${x0} ${y0} ${x1 - x0} ${y1 - y0}`
+			},
+			root
+		);
+		e.setAttribute('aria-hidden', 'true');
+		Object.assign(e.style, {
+			position: 'absolute',
+			left: `${(at.x + x0 * at.k).toFixed(2)}px`,
+			top: `${(at.y + y0 * at.k).toFixed(2)}px`,
+			overflow: 'visible'
+		});
+		return e;
+	};
+	const logo = part(g.logo, [0, 0, LOGO_W, LOGO_H]);
+	// each part's box is its line box, as the idents' spans are: their scale settles about it
+	const top = -WORD.baseline * 1000;
+	const word = PARTS.map((p, i) => {
+		const e = part({ ...g.word, x: g.word.x + p.x * g.word.k }, [0, top, p.advance, top + 1000]);
+		svg('path', { d: p.d, fill: i ? BRAND.red : BRAND.white }, e);
+		return e;
+	});
+	return { root, logo, word };
+}
+
+/** The popcorn's fall in the tag, from rest 1.1 logo heights up. */
+const FALL = 0.42;
+/** couch types in half a beat after the landing. */
+const HALF = SONIC.at[1];
+
+let tags = 0;
+
 /**
- * The end-of-promo channel tag: the wordmark lands on the hook, condensed. It appears closed
- * on the first note, the brackets open a little on the next three (widest on the top note) and
- * TV drops into its block on the long last note, as the ident does.
+ * The end-of-promo channel tag, the row lockup `height` px tall in the tag slot: the couch fades
+ * in, the popcorn drops onto it with gravity and lands at `at` (a soft round impact), then
+ * couch, t and v type in on the compact sonic logo, half a beat apart, as every ident ends.
+ * Still from `at` + 1.5. `scrim` shades the slot, for a screen whose own grade does not.
  */
 export function channelTag(
 	tl: Timeline,
 	parent: Element,
 	at: number,
 	sound: Kit,
-	{ size = 62, cls = 'tag-lockup', gain = 0.5 } = {}
+	{ height = 80, cls = 'tag-lockup', gain = 0.5, scrim = false } = {}
 ) {
 	const wrap = div(cls, parent);
-	const wm = wordmark(wrap, size, { cls: 'wm-tag' });
-	const m = wm.m;
-	const R = HOOK.tagAt.map((r) => at + r);
-	tl.add(
-		wrap,
-		[
-			{ opacity: 0, transform: 'scale(0.92)' },
-			{ opacity: 1, transform: 'scale(1)' }
-		],
-		at - 0.02,
-		0.2,
-		'snap'
+	// the shade comes with the couch
+	if (scrim)
+		tl.add(div('tag-scrim', wrap), [{ opacity: 0 }, { opacity: 1 }], edge(at - 0.7), 0.4, 'sine');
+	const size = height / ROW.logo;
+	const { logo, word } = lockupParts(wrap, size);
+	// the couch under the popcorn's knockout: a mask, so the knockout shows what is behind
+	const id = `tag-knockout-${++tags}`;
+	const extent = { x: -400, y: -1600, width: LOGO_W + 800, height: LOGO_H + 2000 };
+	const mask = svg('mask', { id, maskUnits: 'userSpaceOnUse', ...extent }, logo);
+	svg('rect', { ...extent, fill: '#fff' }, mask);
+	const halo = svg('g', {}, mask);
+	svg(
+		'path',
+		{
+			d: SILHOUETTE,
+			fill: '#000',
+			stroke: '#000',
+			'stroke-width': LOGO_GAP * 2,
+			'stroke-linejoin': 'round'
+		},
+		halo
 	);
-	const moves = (
-		[
-			[R[1], 0.2],
-			[R[2], 0.42],
-			[R[3], 0.22]
-		] as const
-	).flatMap(([t, w]) => [
-		{ at: t, dur: 0.05, to: m.em * w + m.split, ease: 'out' },
-		{ at: t + 0.08, dur: 0.1, to: m.split, ease: 'inOut' }
-	]);
-	const half = wm.halves.red;
-	if (half) {
-		motion(tl, half.l.svg, m.split, moves, (g) => ({ transform: geometry(m, g).l }));
-		motion(tl, half.r.svg, m.split, moves, (g) => ({ transform: geometry(m, g).r }));
-	}
-	motion(tl, wm.c, m.split, moves, (g) => ({ transform: geometry(m, g).c }));
-	motion(tl, wm.rest, m.split, moves, (g) => ({ transform: geometry(m, g).rest }));
-	motion(
-		tl,
-		wm.cur,
-		cursorAt(m, m.tv.x),
-		[{ at: R[4], dur: 0.12, to: cursorAt(m, m.tv.x, m.tv.w), ease: 'snap' }],
-		(v) => ({ transform: v })
+	const couch = svg('path', { d: COUCH, fill: BRAND.red, mask: `url(#${id})` }, logo);
+	const pop = svg('g', {}, logo);
+	svg('path', { d: POPCORN, fill: BRAND.red }, pop);
+
+	tl.add(couch, [{ opacity: 0 }, { opacity: 1 }], edge(at - 0.7), 0.4, 'sine');
+	tl.add(pop, [{ opacity: 0 }, { opacity: 1 }], edge(at - FALL), 0.12, 'linear');
+	// gravity: a pure function of t, on the popcorn and its knockout alike
+	tl.dynamic(
+		(t) => {
+			const u = Math.min(1, Math.max(0, (t - (at - FALL)) / FALL));
+			return u >= 1 ? 'rest' : (-1.1 * LOGO_H * (1 - u * u)).toFixed(2);
+		},
+		(v) => {
+			const tf = v === 'rest' ? '' : `translate(0 ${v})`;
+			for (const e of [pop, halo]) e.setAttribute('transform', tf);
+		}
 	);
-	const D = tl.duration;
-	windows(tl, wm.cur, [[0, R[4] + 0.12]]);
-	windows(tl, wm.tvBg, [[R[4] + 0.12, D + 1]]);
-	windows(tl, wm.tvT, [[R[4], D + 1]]);
-	windows(tl, wm.tvV, [[R[4] + 0.06, D + 1]]);
-	// the cue starts early: the tag's swell leads into the first note, and live playback that
+	// the approved endings' type-in, scaled to the slot
+	const k = size / 184;
+	word.forEach((e, i) =>
+		tl.add(
+			e,
+			[
+				{
+					opacity: 0,
+					transform: `translateY(${((i ? 34 : 40) * k).toFixed(2)}px) scale(${i ? 1.2 : 1})`
+				},
+				{ opacity: 1, transform: 'translateY(0px) scale(1)' }
+			],
+			edge(at + HALF + SONIC.at[i]),
+			i ? 0.26 : 0.34,
+			i ? 'snap' : 'out'
+		)
+	);
+	// the cue starts early: the fall breathes in before the landing, and live playback that
 	// starts on the tag still hears it
-	tl.sound(at - 0.4, (w, b) => themeTag(sound, b, w + 0.4, { gain }));
-	tl.cue('channel tag', at);
+	tl.sound(at - 0.6, (w, b) => sonicTag(sound, b, w + 0.6 + HALF, { gain }));
+	tl.cue('channel tag: the popcorn lands', at);
 	return wrap;
 }

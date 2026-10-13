@@ -1,7 +1,6 @@
-// The Couch TV theme, "hybrid epic" (D27): a D minor build (i, bVI, bVII) lifting to D major on
-// the hit, the hook on brass, a D add9 final chord. `themeScore` scores the short ident (the
-// full idents score themselves, brand/idents), `themeTag` is the hook condensed (promo tags and
-// stings), `themeChime` the hook alone on the glockenspiel (the standby card).
+// The old C()UCH TV theme, "hybrid epic" (D27): a D minor build (i, bVI, bVII) lifting to D major
+// on the hit, the hook on brass, a D add9 final chord. `themeScore` scores the old short ident
+// and `themeTag` (the hook condensed) the stings, until the new brand (sonic.ts) replaces them.
 //
 // Grid: 120 bpm (a beat is 0.5 s). Picture (ident.ts) and score both read GRID, so the brackets
 // snap shut on the hit and TV drops into its block on the hook's last note.
@@ -353,17 +352,4 @@ export function themeTag(k: Kit, b: Bus, when: number, { gain = 0.5 } = {}) {
 	taikos(k, b, when, { gain: 0.3 * g, f: 50, decay: 1.1 });
 	taikos(k, b, n5, { gain: 0.42 * g, f: 46, decay: 1.6 });
 	crash(k, b, n5, { gain: 0.08 * g, decay: 2.2 });
-}
-
-/** The hook alone on the glockenspiel, an octave up, in the tag's rhythm (the standby card). */
-export function themeChime(k: Kit, b: Bus, when: number, { gain = 0.5 } = {}) {
-	const g = gain / 0.5;
-	HOOK.tagAt.forEach((r, i) =>
-		glock(k, b, when + r, HOOKF[i] * 2, {
-			gain: (i === 4 ? 0.09 : 0.065) * g,
-			decay: i === 4 ? 2.4 : 1.1,
-			pan: [-0.2, 0.1, 0.2, -0.1, 0][i]
-		})
-	);
-	subNote(k, b, when + HOOK.tagAt[4], hz('D2'), 0.4, { gain: 0.1 * g, r: 1.2 });
 }

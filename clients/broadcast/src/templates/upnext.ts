@@ -10,7 +10,7 @@ import type { UpNextSpec } from '../spec';
 import { timeline, titlePalette, type Template } from './shared';
 
 export const upNext: Template<UpNextSpec> = {
-	version: 3,
+	version: 4,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 8;
@@ -37,7 +37,7 @@ export const upNext: Template<UpNextSpec> = {
 		if (!continuing) tl.add(shot.el, [{ opacity: 0 }, { opacity: 1 }], 0, 1.0, 'sine');
 		tl.add(scrimL, [{ opacity: 0 }, { opacity: 0.85 }], 0.1, 1.0, 'sine');
 		tl.add(scrimB, [{ opacity: 0 }, { opacity: 1 }], 0.1, 1.0, 'sine');
-		if (spec.clock) fadeUp(tl, bug(tl, root, spec.clock), 0.5, { y: -10 });
+		if (spec.clock) fadeUp(tl, bug(tl, root, spec.clock, { scrim: true }), 0.5, { y: -10 });
 
 		const info = div('un-info', root);
 		const ebRow = div('un-eyebrow', info);

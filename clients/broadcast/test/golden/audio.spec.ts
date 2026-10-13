@@ -80,6 +80,8 @@ test("a bulletin's sound starts and ends inside it: its slot cuts on both sides"
 });
 
 test('a promo sounds the same whatever airing its end card shows', async ({ page }) => {
+	// nine promo renders
+	test.slow();
 	for (const mood of ['promo-cinematic', 'promo-grit-premiere', 'promo-bright'] as const) {
 		const base = FIXTURES[mood] as PromoSpec;
 		const renders: Float32Array[][] = [];

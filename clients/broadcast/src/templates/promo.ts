@@ -145,7 +145,7 @@ const CUE: Record<Section['kind'], string> = {
 };
 
 export const promo: Template<PromoSpec> = {
-	version: 3,
+	version: 4,
 	build(ctx, spec) {
 		const airing = spec.part === 'body' ? BODY_AIRING : (spec.airing ?? null);
 		const tl = buildPromo(ctx, spec, airing);
@@ -160,7 +160,7 @@ export const promo: Template<PromoSpec> = {
 };
 
 export const evergreenEnd: Template<EvergreenEndSpec> = {
-	version: 3,
+	version: 4,
 	build(ctx, spec) {
 		const tl = buildPromo(ctx, spec, null);
 		tl.parts = { clip: tl.parts.end };

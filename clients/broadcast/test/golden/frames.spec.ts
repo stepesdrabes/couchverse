@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { METRICS } from '../../src/brand/wordmark';
+import { METRICS } from '../../src/brand/brackets';
+import { COUCH, LOGO, LOGO_GAP, POPCORN, SILHOUETTE } from '../../src/brand/glyph';
+import { PARTS } from '../../src/brand/wordmark';
 import type { ClipSpec, PromoSpec, SqueezeSpec } from '../../src/spec';
 import { FIXTURES, type FixtureName } from '../fixtures/specs';
 import { load, openRender, pageErrors, seek } from './render';
@@ -285,4 +287,103 @@ test('the wordmark is laid out from the bundled display face', async ({ page }) 
 	for (const [ch, w] of Object.entries(METRICS.width))
 		expect(Math.abs(measured.width[ch] - w), ch).toBeLessThan(5e-4);
 	expect(measured.baseline).toBeCloseTo(METRICS.baseline, 3);
+});
+
+test('the corner bug', async ({ browser }) => {
+	const page = await browser.newPage({
+		viewport: { width: 1920, height: 1080 },
+		deviceScaleFactor: 1
+	});
+	await openRender(page);
+	await load(page, FIXTURES.upnext);
+	await seek(page, 2.5);
+	await expect(page).toHaveScreenshot('bug.png', {
+		clip: { x: 1340, y: 40, width: 520, height: 88 }
+	});
+	expect(pageErrors(page)).toEqual([]);
+	await page.close();
+});
+
+test('the couch and the popcorn with its knockout are the logo', async ({ page }) => {
+	const diff = await page.evaluate(
+		({ couch, popcorn, silhouette, logo, gap }) => {
+			const scale = 2;
+			const draw = (fn: (g: CanvasRenderingContext2D) => void) => {
+				const c = document.createElement('canvas');
+				c.width = 1046 * scale;
+				c.height = 745 * scale;
+				const g = c.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
+				g.fillStyle = '#000';
+				g.fillRect(0, 0, c.width, c.height);
+				g.scale(scale, scale);
+				g.fillStyle = '#fff';
+				fn(g);
+				return g.getImageData(0, 0, c.width, c.height).data;
+			};
+			const whole = draw((g) => g.fill(new Path2D(logo)));
+			const parts = draw((g) => {
+				g.fill(new Path2D(couch));
+				const halo = new Path2D(silhouette);
+				g.fillStyle = g.strokeStyle = '#000';
+				g.lineWidth = gap * 2;
+				g.lineJoin = 'round';
+				g.fill(halo);
+				g.stroke(halo);
+				g.fillStyle = '#fff';
+				g.fill(new Path2D(popcorn));
+			});
+			let off = 0;
+			for (let i = 0; i < whole.length; i += 4) if (Math.abs(whole[i] - parts[i]) > 128) off++;
+			return off;
+		},
+		{ couch: COUCH, popcorn: POPCORN, silhouette: SILHOUETTE, logo: LOGO, gap: LOGO_GAP }
+	);
+	// edges antialias alike, so no pixel is more than half a step apart
+	expect(diff).toBe(0);
+});
+
+test("the lockup's letters are the bundled face's own outlines", async ({ page }) => {
+	await load(page, FIXTURES['ident-short']);
+	const out = await page.evaluate(
+		({ parts }) => {
+			const size = 400;
+			const draw = (fn: (g: CanvasRenderingContext2D) => void) => {
+				const c = document.createElement('canvas');
+				c.width = 1800;
+				c.height = 520;
+				const g = c.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
+				g.fillStyle = '#000';
+				g.fillRect(0, 0, c.width, c.height);
+				g.fillStyle = '#fff';
+				fn(g);
+				return g.getImageData(0, 0, c.width, c.height).data;
+			};
+			const text = draw((g) => {
+				g.font = `800 ${size}px "Couch TV Sans"`;
+				g.letterSpacing = `${-0.035 * size}px`;
+				let x = 40;
+				for (const p of parts) {
+					g.fillText(p.text, x, 420);
+					x += g.measureText(p.text).width;
+				}
+			});
+			const paths = draw((g) => {
+				for (const p of parts) {
+					const k = size / 1000;
+					g.setTransform(k, 0, 0, k, 40 + p.x * k, 420);
+					g.fill(new Path2D(p.d));
+				}
+			});
+			let ink = 0;
+			let off = 0;
+			for (let i = 0; i < text.length; i += 4) {
+				if (text[i] > 128) ink++;
+				if (Math.abs(text[i] - paths[i]) > 128) off++;
+			}
+			return { ink, off };
+		},
+		{ parts: PARTS.map((p) => ({ text: p.text, x: p.x, d: p.d })) }
+	);
+	expect(out.ink).toBeGreaterThan(50000);
+	expect(out.off / out.ink).toBeLessThan(0.005);
 });

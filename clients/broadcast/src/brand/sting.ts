@@ -10,9 +10,9 @@ import { motion, windows, type Move } from '../core/moves';
 import { frame } from '../core/timeline';
 import type { StingSpec } from '../spec';
 import { timeline, type Template } from '../templates/shared';
+import { animateBrackets, centre, cursorAt, geometry, wordmark, type Frame } from './brackets';
 import { frameItem, popIn } from './ident';
 import { HOOK, themeTag } from './theme';
-import { animateBrackets, centre, cursorAt, geometry, wordmark, type Frame } from './wordmark';
 
 /** The ident's lockup size: a sting is the ident's finale. */
 const SIZE = 190;

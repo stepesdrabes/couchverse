@@ -10,7 +10,7 @@ import type { LineupSpec } from '../spec';
 import { glow, timeline, titlePalette, type Template } from './shared';
 
 export const lineup: Template<LineupSpec> = {
-	version: 3,
+	version: 4,
 	build({ root, sound, assets }, spec) {
 		const D = spec.duration ?? 12;
 		const tl = timeline(root, D);
@@ -28,7 +28,7 @@ export const lineup: Template<LineupSpec> = {
 		});
 		div('shade', panel);
 		const head = div('lu-head', root);
-		const logo = lockup(head, 56, 'lu-wm');
+		const logo = lockup(head, 48, 'lu-wm');
 		const title = words(div('hero lu-title', head), `Later on ${CHANNEL}`);
 		const list = div('lu-list', root);
 		// five rows start higher, so the last one clears the bottom of the frame

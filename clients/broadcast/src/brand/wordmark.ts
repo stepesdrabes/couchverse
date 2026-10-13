@@ -1,366 +1,164 @@
-// The Couch TV wordmark, C()UCH TV: Saira 700 caps, the O cut down the middle into a pair of
-// brackets (the couch's armrests: whatever sits between them is on the couch) and TV in a red
-// block, the cursor that typed it. One layout serves the animated wordmark (`wordmark`: the
-// ident, the stings, the promo tag) and the static lockup (`lockupSvg`: the corner bug, the
-// lineup header, the standby card and the web's live overlays).
+// The Couch TV lockup: the Couchverse logo (glyph.ts) and the wordmark `couchtv`, lowercase in
+// Plus Jakarta Sans ExtraBold at -0.035 em, `couch` in white and `tv` in the brand's red (as the
+// app's own `couchverse` wordmark pairs white and red). Two layouts: `stack`, the logo above the
+// word, as every ident ends; `row`, the logo left of the word for small sizes (the corner bug,
+// the promo tag, the web's overlays), as the app's header pairs its logo with `couchverse`.
 //
-// The brackets are drawn, not typed: the O is two superellipses fitted to Saira's. A bracket
-// that grows to frame something scales whole, its stroke with it, as the approved reel scaled
-// the O's glyph: at any size it is Saira 700's own O, the weight of the word it frames.
+// The letters are outlines, not text: the bundled face's glyphs at weight 800 (HarfBuzz's
+// hb-vector on src/assets/fonts' latin face), placed with its advances and the tracking as the
+// browser lays the word out, so the lockup draws the same everywhere without a font load; a
+// golden test draws them over the face's own text. The web imports this module directly
+// (`@couchverse/broadcast/brand/wordmark`), so it stays light: no templates, no audio.
 
-import { valueAt, windows, type Move } from '../core/moves';
-import type { Timeline } from '../core/timeline';
 import { colors } from '../generated/tokens';
-
-/** The display face (Saira, OFL), registered on the document by `ensureFonts`. */
-export const DISPLAY_FAMILY = 'Couch TV Display';
+import { LOGO, LOGO_H, LOGO_W } from './glyph';
 
 export const CHANNEL = 'Couch TV';
 
-// Saira 700 in em, measured from the bundled font (a golden test re-measures them): advances
-// with the wordmark's -0.004 em tracking, the baseline in a line-height 1 box, the cap height.
-const WIDTH = { C: 0.56584, O: 0.69894, U: 0.68572, H: 0.70942, T: 0.58339, V: 0.659 } as const;
-export const METRICS = { width: WIDTH, baseline: 0.848, cap: 0.688 } as const;
-/** The caps' centre line below the top of a line-height 1 box. */
-const CY = METRICS.baseline - METRICS.cap / 2;
-
-// the O as |x/a|^n + |y/b|^n = 1 about its centre, within 0.003 em of the outline
-const OUTER = { a: 0.2965, b: 0.3495, n: 3.76 };
-const INNER = { a: 0.1215, b: 0.2174, n: 4.9 };
-
-/** Closed, the brackets sit this far apart: an O at bug size, a pair of brackets up close. */
-export const SPLIT = 0.05;
-const TV_GAP = 0.24;
-const TV_PAD = 0.1;
-// the red blocks (TV, the cursor) overhang the caps
-const BLOCK = { top: 0.07, height: 0.86, radius: 0.07 };
-const CURSOR = 0.4;
-
-export interface Span {
-	x: number;
-	w: number;
-}
-
-/** The wordmark's geometry at one size, px from its top left. */
-export interface Layout {
-	em: number;
-	width: number;
-	split: number;
-	/** The cut between the brackets (the O's centre). */
-	cx: number;
-	/** The caps' centre line. */
-	cy: number;
-	baseline: number;
-	/** A bracket's width at rest (half the O). */
-	half: number;
-	capH: number;
-	c: Span;
-	o: Span;
-	uch: Span[];
-	/** The TV block, padding included. */
-	tv: Span;
-	t: Span;
-	v: Span;
-	restX: number;
-	curW: number;
-	blockTop: number;
-	blockH: number;
-	radius: number;
-}
-
-export function layout(em: number): Layout {
-	const span = (x: number, w: number): Span => ({ x: x * em, w: w * em });
-	let x = 0;
-	const c = span(x, WIDTH.C);
-	x += WIDTH.C + SPLIT / 2;
-	const o = span(x, WIDTH.O);
-	x += WIDTH.O + SPLIT / 2;
-	const restX = x;
-	const uch = (['U', 'C', 'H'] as const).map((ch) => {
-		const s = span(x, WIDTH[ch]);
-		x += WIDTH[ch];
-		return s;
-	});
-	x += TV_GAP;
-	const tvX = x;
-	const t = span(x + TV_PAD, WIDTH.T);
-	const v = span(x + TV_PAD + WIDTH.T, WIDTH.V);
-	const tvW = TV_PAD * 2 + WIDTH.T + WIDTH.V;
-	return {
-		em,
-		width: (tvX + tvW) * em,
-		split: SPLIT * em,
-		cx: o.x + o.w / 2,
-		cy: CY * em,
-		baseline: METRICS.baseline * em,
-		half: OUTER.a * em,
-		capH: METRICS.cap * em,
-		c,
-		o,
-		uch,
-		tv: span(tvX, tvW),
-		t,
-		v,
-		restX: restX * em,
-		curW: CURSOR * em,
-		// whole pixels: a block's fractional edge snaps differently on different compositing
-		// paths, and the squeeze has to end on the ident's exact first frame
-		blockTop: Math.round(BLOCK.top * em),
-		blockH: Math.round(BLOCK.height * em),
-		radius: BLOCK.radius * em
-	};
-}
-
-const radius = (s: { a: number; b: number; n: number }, ux: number, uy: number) =>
-	Math.pow(Math.pow(Math.abs(ux / s.a), s.n) + Math.pow(Math.abs(uy / s.b), s.n), -1 / s.n);
-
-const num = (v: number) => String(Math.round(v * 100) / 100);
+/**
+ * The brand's colours: the red (the token accent), night (the field, the idents' black), paper
+ * (the warm white of all type on air) and the white of the lockup's `couch`, which all four
+ * approved idents end on.
+ */
+export const BRAND = {
+	red: colors.accent,
+	night: '#050505',
+	paper: '#f4ede4',
+	white: '#ffffff'
+} as const;
 
 /**
- * One bracket as an SVG path (px), its open edge on (ox, oy): the left half of the O for
- * side -1, the right for 1, `k` times the O's size, stroke and all.
+ * couchtv's three parts as outlines in font units (1000 per em), y down from the baseline, each
+ * from its own origin; `x` is where it starts and `advance` how far the next one does (the
+ * glyphs' advances with the -0.035 em tracking after every letter, as CSS and canvas apply it).
  */
-export function bracketPath(em: number, k = 1, side: -1 | 1 = -1, ox = 0, oy = 0): string {
-	const n = 40;
-	const size = k * em;
-	const outer: string[] = [];
-	const inner: string[] = [];
-	for (let i = 0; i <= 2 * n; i++) {
-		const phi = (i / (2 * n)) * Math.PI;
-		const ux = Math.sin(phi);
-		const uy = -Math.cos(phi);
-		const ro = radius(OUTER, ux, uy) * size;
-		const ri = radius(INNER, ux, uy) * size;
-		outer.push(`${num(ox + side * ro * ux)} ${num(oy + ro * uy)}`);
-		inner.push(`${num(ox + side * ri * ux)} ${num(oy + ri * uy)}`);
+export const PARTS = [
+	{
+		text: 'couch',
+		x: 0,
+		advance: 2896,
+		d: 'M323 12Q241 12 175.5 -25.5Q110 -63 71.5 -128Q33 -193 33 -274Q33 -355 71 -419.5Q109 -484 175 -521Q241 -558 323 -558Q384 -558 436 -537Q488 -516 525 -478.5Q562 -441 578 -390L448 -334Q434 -375 400.5 -399Q367 -423 323 -423Q284 -423 253.5 -404Q223 -385 205.5 -351Q188 -317 188 -273Q188 -229 205.5 -195Q223 -161 253.5 -142Q284 -123 323 -123Q368 -123 401 -147Q434 -171 448 -212L578 -155Q563 -107 526 -69Q489 -31 437 -9.5Q385 12 323 12ZM902 12Q821 12 754.5 -25Q688 -62 648.5 -126.5Q609 -191 609 -273Q609 -356 648.5 -420Q688 -484 754.5 -521Q821 -558 902 -558Q983 -558 1049 -521Q1115 -484 1154.5 -420Q1194 -356 1194 -273Q1194 -191 1154.5 -126.5Q1115 -62 1049 -25Q983 12 902 12ZM902 -123Q943 -123 973.5 -142Q1004 -161 1021.5 -195Q1039 -229 1039 -273Q1039 -317 1021.5 -350.5Q1004 -384 973.5 -403.5Q943 -423 902 -423Q861 -423 830 -403.5Q799 -384 781.5 -350.5Q764 -317 764 -273Q764 -229 781.5 -195Q799 -161 830 -142Q861 -123 902 -123ZM1443 12Q1377 12 1330.5 -16.5Q1284 -45 1260 -96Q1236 -147 1236 -215L1236 -546L1386 -546L1386 -227Q1386 -196 1398.5 -172.5Q1411 -149 1434 -136Q1457 -123 1486 -123Q1516 -123 1538.5 -136Q1561 -149 1573.5 -172.5Q1586 -196 1586 -227L1586 -546L1736 -546L1736 0L1596 0L1596 -108L1604 -84Q1585 -35 1542.5 -11.5Q1500 12 1443 12ZM2079 12Q1997 12 1931.5 -25.5Q1866 -63 1827.5 -128Q1789 -193 1789 -274Q1789 -355 1827 -419.5Q1865 -484 1931 -521Q1997 -558 2079 -558Q2140 -558 2192 -537Q2244 -516 2281 -478.5Q2318 -441 2334 -390L2204 -334Q2190 -375 2156.5 -399Q2123 -423 2079 -423Q2040 -423 2009.5 -404Q1979 -385 1961.5 -351Q1944 -317 1944 -273Q1944 -229 1961.5 -195Q1979 -161 2009.5 -142Q2040 -123 2079 -123Q2124 -123 2157 -147Q2190 -171 2204 -212L2334 -155Q2319 -107 2282 -69Q2245 -31 2193 -9.5Q2141 12 2079 12ZM2387 0L2387 -757L2537 -757L2537 -438L2519 -462Q2538 -511 2580.5 -534.5Q2623 -558 2680 -558Q2742 -558 2788.5 -532Q2835 -506 2861 -459.5Q2887 -413 2887 -351L2887 0L2737 0L2737 -319Q2737 -351 2724.5 -374Q2712 -397 2689.5 -410Q2667 -423 2637 -423Q2608 -423 2585 -410Q2562 -397 2549.5 -374Q2537 -351 2537 -319L2537 0L2387 0Z'
+	},
+	{
+		text: 't',
+		x: 2896,
+		advance: 386,
+		d: 'M318 6Q219 6 164.5 -47.5Q110 -101 110 -197L110 -416L18 -416L18 -546L23 -546Q65 -546 87.5 -567Q110 -588 110 -630L110 -670L260 -670L260 -546L388 -546L388 -416L260 -416L260 -207Q260 -179 270 -160.5Q280 -142 301 -133Q322 -124 353 -124Q360 -124 369 -125Q378 -126 388 -127L388 0Q373 2 354 4Q335 6 318 6Z'
+	},
+	{
+		text: 'v',
+		x: 3282,
+		advance: 547,
+		d: 'M226 0L11 -546L173 -546L322 -133L260 -133L409 -546L571 -546L356 0L226 0Z'
 	}
-	return `M${outer.join('L')}L${inner.reverse().join('L')}Z`;
-}
-
-export type BracketColor = 'red' | 'black' | 'white';
-
-export interface Bracket {
-	svg: SVGSVGElement;
-	path: SVGPathElement;
-}
-
-/** The wordmark's parts, built absolutely from `layout`; motion is transforms on the parts. */
-export interface Wordmark {
-	root: HTMLDivElement;
-	c: HTMLSpanElement;
-	/** U, C, H and TV (and the cursor), which move aside together when the brackets open. */
-	rest: HTMLDivElement;
-	uch: HTMLSpanElement[];
-	tv: HTMLDivElement;
-	tvBg: HTMLElement;
-	tvT: HTMLSpanElement;
-	tvV: HTMLSpanElement;
-	cur: HTMLElement;
-	/** A copy of the brackets per colour (a piece shows one at a time as the field changes). */
-	halves: Partial<Record<BracketColor, { l: Bracket; r: Bracket }>>;
-	m: Layout;
-}
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
-function bracket(parent: Element, m: Layout, side: -1 | 1, color: BracketColor): Bracket {
-	const svg = document.createElementNS(SVG_NS, 'svg');
-	svg.setAttribute('class', `wm-h c-${color}`);
-	svg.setAttribute('width', '1');
-	svg.setAttribute('height', '1');
-	svg.style.left = `${m.cx + (side * m.split) / 2}px`;
-	svg.style.top = `${m.cy}px`;
-	const path = document.createElementNS(SVG_NS, 'path');
-	path.setAttribute('d', bracketPath(m.em, 1, side));
-	svg.appendChild(path);
-	parent.appendChild(svg);
-	return { svg, path };
-}
-
-function el<K extends keyof HTMLElementTagNameMap>(
-	tag: K,
-	cls: string,
-	parent: Element,
-	left: number,
-	text?: string
-): HTMLElementTagNameMap[K] {
-	const e = document.createElement(tag);
-	e.className = cls;
-	e.style.left = `${left}px`;
-	if (text) e.textContent = text;
-	parent.appendChild(e);
-	return e;
-}
+] as const;
 
 /**
- * Build a wordmark at font size `size` (px). `colors` are the bracket copies to build; the
- * cursor sits hidden in front of TV until a piece shows it.
+ * The word's metrics in em: its advance (where a centred line box puts its middle), the ink's
+ * left and right (the c's side bearing, the v past the last tracking), the baseline in a
+ * line-height 1 box (the face's ascent 1.038 and descent 0.222 centred in it) and the ink's
+ * depth under the baseline (the round letters' overshoot).
  */
-export function wordmark(
-	parent: Element,
-	size: number,
-	{ colors = ['red'], cls = '' }: { colors?: BracketColor[]; cls?: string } = {}
-): Wordmark {
-	const m = layout(size);
-	const root = document.createElement('div');
-	root.className = `wm ${cls}`.trim();
-	Object.assign(root.style, {
-		fontSize: `${size}px`,
-		width: `${m.width}px`,
-		height: `${size}px`
-	});
-	parent.appendChild(root);
-	const c = el('span', 'wm-l', root, m.c.x, 'C');
-	const halves: Wordmark['halves'] = {};
-	for (const col of colors)
-		halves[col] = { l: bracket(root, m, -1, col), r: bracket(root, m, 1, col) };
-	const rest = el('div', 'wm-rest', root, m.restX);
-	const uch = (['U', 'C', 'H'] as const).map((ch, i) =>
-		el('span', 'wm-l', rest, m.uch[i].x - m.restX, ch)
-	);
-	const tv = el('div', 'wm-tv', rest, m.tv.x - m.restX);
-	tv.style.width = `${m.tv.w}px`;
-	const tvBg = el('i', 'wm-block wm-tvbg', tv, 0);
-	const tvT = el('span', 'wm-l', tv, m.t.x - m.tv.x, 'T');
-	const tvV = el('span', 'wm-l', tv, m.v.x - m.tv.x, 'V');
-	// the cursor lives with UCH TV, so it moves with them when the brackets open
-	const cur = el('i', 'wm-block wm-cur', rest, 0);
-	cur.style.width = `${m.curW}px`;
-	for (const b of [tvBg, cur])
-		Object.assign(b.style, { top: `${m.blockTop}px`, height: `${m.blockH}px` });
-	return { root, c, rest, uch, tv, tvBg, tvT, tvV, cur, halves, m };
+export const WORD = {
+	advance: 3.829,
+	inkLeft: 0.033,
+	inkRight: 3.853,
+	baseline: 0.908,
+	depth: 0.012
+} as const;
+
+export type LockupLayout = 'row' | 'stack';
+
+/** Where things go, in px from the lockup's top left (its ink box). */
+export interface Geometry {
+	width: number;
+	height: number;
+	/** The logo's top left and px per logo unit. */
+	logo: { x: number; y: number; k: number };
+	/** The word's origin on its baseline and px per font unit. */
+	word: { x: number; y: number; k: number };
 }
 
+/** The stacked lockup as the idents end on it: the logo 540 px wide above a 184 px word. */
+const STACK = { logo: 540 / 184, wordTop: (650 - 222) / 184 } as const;
 /**
- * Transforms that open the brackets to an inner gap `g` px (between the open edges), moved by
- * (dx, dy); a bracket `k` times the O's size grows outwards from its open edge, so the letters
- * move aside by its extra width to clear it.
+ * The row lockup: the logo 36/34 em tall (the corner bug's 36 px logo beside a 34 px word), the
+ * word's line box (line-height 1) sharing its top, so the word sits on the logo's middle and
+ * on one line with the text beside it, its c 0.32 em from the logo.
  */
-export function geometry(m: Layout, g: number, { k = 1, dx = 0, dy = 0 } = {}) {
-	const d = (g - m.split) / 2;
-	const e = (k - 1) * m.half;
-	const at = (x: number) => `translate(${(x + dx).toFixed(2)}px, ${dy.toFixed(2)}px)`;
+export const ROW = { logo: 36 / 34, gap: 0.32 } as const;
+
+/** The lockup's geometry with the word at `size` px. */
+export function geometry(size: number, layout: LockupLayout = 'row'): Geometry {
+	const s = size;
+	const wk = s / 1000;
+	if (layout === 'stack') {
+		const lk = (STACK.logo * s) / LOGO_W;
+		// the logo centred over the word's advance, as the idents centre both on the stage
+		const logoX = (WORD.advance / 2) * s - (LOGO_W * lk) / 2;
+		const left = Math.min(WORD.inkLeft * s, logoX);
+		const baseline = (STACK.wordTop + WORD.baseline) * s;
+		return {
+			width: Math.max(WORD.inkRight * s, logoX + LOGO_W * lk) - left,
+			height: baseline + WORD.depth * s,
+			logo: { x: logoX - left, y: 0, k: lk },
+			word: { x: -left, y: baseline, k: wk }
+		};
+	}
+	const lk = (ROW.logo * s) / LOGO_H;
+	const wordX = LOGO_W * lk + (ROW.gap - WORD.inkLeft) * s;
 	return {
-		d,
-		l: at(-d),
-		r: at(d),
-		c: `translateX(${(-d - e).toFixed(2)}px)`,
-		rest: `translateX(${(d + e).toFixed(2)}px)`
+		width: wordX + WORD.inkRight * s,
+		height: LOGO_H * lk,
+		logo: { x: 0, y: 0, k: lk },
+		word: { x: wordX, y: WORD.baseline * s, k: wk }
 	};
-}
-
-/** The brackets' state: the gap between their open edges, their scale and offset (px). */
-export interface Frame {
-	g: number;
-	k: number;
-	dx: number;
-	dy: number;
-}
-
-const mixFrame = (a: Frame, b: Frame, p: number): Frame => ({
-	g: a.g + (b.g - a.g) * p,
-	k: a.k + (b.k - a.k) * p,
-	dx: a.dx + (b.dx - a.dx) * p,
-	dy: a.dy + (b.dy - a.dy) * p
-});
-
-/**
- * Drive the brackets through `moves` from `v0`: their shape and place are computed per frame
- * (a pure function of t) and set on every colour's copy; `win` says when each copy shows.
- */
-export function animateBrackets(
-	tl: Timeline,
-	wm: Wordmark,
-	v0: Frame,
-	moves: Move<Frame>[],
-	win: Partial<Record<BracketColor, [number, number][]>>
-) {
-	const m = wm.m;
-	const copies = Object.entries(wm.halves).map(([c, h]) => {
-		windows(tl, h.l.svg, win[c as BracketColor] ?? []);
-		windows(tl, h.r.svg, win[c as BracketColor] ?? []);
-		return h;
-	});
-	tl.dynamic(
-		(t) => {
-			const v = valueAt(v0, moves, tl.duration, t, mixFrame);
-			const d = (v.g - m.split) / 2;
-			return `${bracketPath(m.em, v.k, -1, v.dx - d, v.dy)}|${bracketPath(m.em, v.k, 1, v.dx + d, v.dy)}`;
-		},
-		(v) => {
-			const [l, r] = String(v).split('|');
-			for (const h of copies) {
-				h.l.path.setAttribute('d', l);
-				h.r.path.setAttribute('d', r);
-			}
-		}
-	);
-}
-
-/** The cursor block's transform: its left edge at x (px in the wordmark), `w` wide. */
-export function cursorAt(m: Layout, x: number, w = m.curW): string {
-	return `translateX(${(x - m.restX).toFixed(2)}px) scaleX(${(w / m.curW).toFixed(4)})`;
-}
-
-/**
- * Where a wordmark centred on (x, y) has its top left: its box centred, as the approved reel
- * placed it (the caps sit 0.004 em below the box's centre).
- */
-export const placeAt = (m: Layout, x: number, y: number) => ({
-	x: Math.round((x - m.width / 2) * 100) / 100,
-	y: Math.round((y - m.em / 2) * 100) / 100
-});
-
-/** Centre the wordmark on (x, y) of its parent; returns its top left. */
-export function centre(wm: Wordmark, x: number, y: number): { x: number; y: number } {
-	const p = placeAt(wm.m, x, y);
-	wm.root.classList.add('wm-abs');
-	wm.root.style.left = `${p.x}px`;
-	wm.root.style.top = `${p.y}px`;
-	return p;
 }
 
 export interface LockupOptions {
-	/** Font size, px: the lockup is one size tall and about 4.96 sizes wide. */
+	/** The word's size, px: a row is 1.06 of it tall and 5.63 wide, a stack 3.25 tall and 3.82 wide. */
 	size: number;
-	/** The letters. */
+	layout?: LockupLayout;
+	/** `couch`. */
 	ink?: string;
-	/** The brackets and the TV block. */
+	/** The logo and `tv`. */
 	brand?: string;
-	/** TV on its block. */
-	onBrand?: string;
 	/** An accessible name (`Couch TV`); without it the lockup is decorative. */
 	label?: string;
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+const num = (v: number) => String(Math.round(v * 100) / 100);
 const attr = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
+/** The SVG transform that draws `units` at a placement. */
+export const placed = (p: { x: number; y: number; k: number }) =>
+	`translate(${num(p.x)} ${num(p.y)}) scale(${p.k.toFixed(6)})`;
+
 /**
- * The static lockup as a standalone SVG string: a pure function of its options. The letters
- * are Saira text (the document needs the display face: `ensureFonts`), the brackets and the
- * block are paths. The broadcast's corner bug is drawn by it, so a client overlay built from it
+ * The static lockup as a standalone SVG string, a pure function of its options: paths only, so
+ * it needs no font. The broadcast's corner bug is drawn by it, so a client overlay built from it
  * matches the picture.
  */
 export function lockupSvg({
 	size,
-	ink = '#ffffff',
-	brand = colors.accent,
-	onBrand = '#ffffff',
+	layout = 'row',
+	ink = BRAND.white,
+	brand = BRAND.red,
 	label
 }: LockupOptions): string {
-	const m = layout(size);
-	const w = num(m.width);
-	const h = num(size);
-	const text = (s: Span, ch: string) => `<text x="${num(s.x)}" y="${num(m.baseline)}">${ch}</text>`;
-	const font = `font-family="'${DISPLAY_FAMILY}', Saira, sans-serif" font-weight="700" font-size="${num(size)}"`;
+	const g = geometry(size, layout);
+	const w = num(g.width);
+	const h = num(g.height);
 	const a11y = label ? `role="img" aria-label="${attr(label)}"` : 'aria-hidden="true"';
+	const [couch, t, v] = PARTS;
 	return (
 		`<svg xmlns="${SVG_NS}" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" ${a11y}>` +
-		`<g fill="${attr(ink)}" ${font}>${text(m.c, 'C')}${m.uch.map((s, i) => text(s, 'UCH'[i])).join('')}</g>` +
-		`<rect x="${num(m.tv.x)}" y="${num(m.blockTop)}" width="${num(m.tv.w)}" height="${num(m.blockH)}" rx="${num(m.radius)}" fill="${attr(brand)}"/>` +
-		`<g fill="${attr(onBrand)}" ${font}>${text(m.t, 'T')}${text(m.v, 'V')}</g>` +
-		`<g fill="${attr(brand)}"><path d="${bracketPath(size, 1, -1, m.cx - m.split / 2, m.cy)}"/>` +
-		`<path d="${bracketPath(size, 1, 1, m.cx + m.split / 2, m.cy)}"/></g>` +
-		`</svg>`
+		`<path fill="${attr(brand)}" transform="${placed(g.logo)}" d="${LOGO}"/>` +
+		`<g transform="${placed(g.word)}">` +
+		`<path fill="${attr(ink)}" d="${couch.d}"/>` +
+		`<g fill="${attr(brand)}"><path transform="translate(${t.x} 0)" d="${t.d}"/>` +
+		`<path transform="translate(${v.x} 0)" d="${v.d}"/></g></g></svg>`
 	);
 }

@@ -14,8 +14,6 @@ import { edge, motion, windows, type Move } from '../core/moves';
 import { frame } from '../core/timeline';
 import type { IdentSpec } from '../spec';
 import { timeline, type Template, type TL } from '../templates/shared';
-import { buildFullIdent } from './idents';
-import { GRID, HOOK, themeScore } from './theme';
 import {
 	animateBrackets,
 	centre,
@@ -26,7 +24,9 @@ import {
 	placeAt,
 	wordmark,
 	type Frame
-} from './wordmark';
+} from './brackets';
+import { buildFullIdent } from './idents';
+import { GRID, HOOK, themeScore } from './theme';
 
 /** The lockup's font size on the 1920x1080 stage. */
 const SIZE = 190;

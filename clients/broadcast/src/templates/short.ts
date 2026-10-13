@@ -10,7 +10,7 @@ import type { ShortPromoSpec } from '../spec';
 import { grain, rgbOf, shake, timeline, titlePalette, type Template } from './shared';
 
 export const shortPromo: Template<ShortPromoSpec> = {
-	version: 3,
+	version: 4,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 9;
@@ -163,7 +163,7 @@ export const shortPromo: Template<ShortPromoSpec> = {
 			0.9,
 			'inOut'
 		);
-		const tag = channelTag(tl, root, tagAt, sound);
+		const tag = channelTag(tl, root, tagAt, sound, { scrim: true });
 		tl.add(world, [{ opacity: 1 }, { opacity: 0 }], D - 0.55, 0.55, 'exit');
 		tl.add(stack, [{ opacity: 1 }, { opacity: 0 }], D - 0.6, 0.4, 'exit');
 		tl.add(tag, [{ opacity: 1 }, { opacity: 0 }], D - 0.45, 0.45, 'exit');

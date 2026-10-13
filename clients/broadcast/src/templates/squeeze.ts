@@ -96,7 +96,7 @@ const CREDITS: [string, string][] = [
 ];
 
 export const squeeze: Template<SqueezeSpec> = {
-	version: 3,
+	version: 4,
 	build({ root, sound, assets }, spec) {
 		const cursor = spec.handover === 'cursor';
 		const D = cursor ? 10.6 : 11.52;
@@ -169,7 +169,7 @@ export const squeeze: Template<SqueezeSpec> = {
 		const whenEl = div('sq-when', col);
 		span('tnum when-time', whenEl, nx.time);
 		whenEl.append(' · after the break');
-		const b = spec.clock ? bug(tl, root, spec.clock) : null;
+		const b = spec.clock ? bug(tl, root, spec.clock, { scrim: true }) : null;
 
 		// the next program's picture lives at stage level so it can expand to full frame
 		let slotX = 0;

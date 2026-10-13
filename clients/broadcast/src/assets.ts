@@ -9,12 +9,13 @@ import displayUrl from './assets/fonts/saira-latin-wght-normal.woff2?url';
 import { SAMPLE_RATE, type LoadedBed, type Onset } from './audio/engine';
 import { detectOnsets } from './audio/onsets';
 import { placeholderBed } from './audio/placeholder';
-import { DISPLAY_FAMILY } from './brand/wordmark';
 import type { Picture } from './core/framing';
 import { rng } from './core/rng';
 import type { Bed, Spec } from './spec';
 
 export const FONT_FAMILY = 'Couch TV Sans';
+/** The old brand's display face (Saira): the short ident and the stings still draw it. */
+export const DISPLAY_FAMILY = 'Couch TV Display';
 
 let fontsReady: Promise<void> | null = null;
 
@@ -25,8 +26,8 @@ const LATIN_EXT =
 
 /**
  * Register the faces on the document (shadow roots ignore @font-face) and load them: Plus
- * Jakarta Sans for text and Saira, the brand's display face (both OFL, latin and latin-ext;
- * Saira's files are @fontsource-variable/saira 5.3.0's weight axis).
+ * Jakarta Sans, the brand's face, and Saira for the old short ident and stings (both OFL, latin
+ * and latin-ext; Saira's files are @fontsource-variable/saira 5.3.0's weight axis).
  */
 export function ensureFonts(): Promise<void> {
 	if (!fontsReady) {

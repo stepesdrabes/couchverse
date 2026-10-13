@@ -1,8 +1,102 @@
-/* The brand on screen: the C()UCH TV wordmark, the corner bug, the ident and the stings. A
-   brand redesign replaces this file with the rest of src/brand. Pure red, black and white:
-   the red is the token accent (#e50914). */
+/* The brand on screen: the lockup (the Couchverse logo and couchtv), the corner bug, and the old
+   C()UCH TV wordmark the short ident and the stings still draw. A brand redesign replaces this
+   file with the rest of src/brand. The red is the token accent (#e50914), the field night
+   (#050505), type paper (#f4ede4). */
 
-/* --- the wordmark: Saira 700; every part is placed absolutely from wordmark.ts's layout ----- */
+/* --- the lockup ------------------------------------------------------------------------ */
+
+.lockup > svg,
+.bug-wm > svg,
+.lu-wm > svg,
+.sb-lockup > svg {
+	display: block;
+}
+/* the lockup in parts (the channel tag): each part an SVG placed from the lockup's geometry */
+.lockup-parts {
+	position: relative;
+}
+/* --- the corner bug: the row lockup, a rule, the steady LIVE marker and the clock; its right
+   edge on the title-safe line (x 1824), its top on y 64, 40 px tall ------------------------- */
+
+.bug {
+	position: absolute;
+	/* its scrim goes under its content, not under the screen */
+	isolation: isolate;
+	top: 64px;
+	right: 96px;
+	display: flex;
+	align-items: center;
+	gap: 18px;
+	height: 40px;
+	color: #f4ede4;
+	white-space: nowrap;
+}
+.bug-rule {
+	width: 2px;
+	height: 26px;
+	border-radius: 1px;
+	background: #3e3d3b;
+}
+.live {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	/* the tracking after the last letter is not a gap */
+	margin-right: -0.12em;
+	font-size: 19px;
+	font-weight: 800;
+	line-height: 1;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+.live-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--brand);
+}
+.clock {
+	font-size: 28px;
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: -0.01em;
+	font-variant-numeric: tabular-nums;
+}
+/* night shading the corner under the bug (fading with it), for screens without their own */
+.bug-scrim {
+	position: absolute;
+	z-index: -1;
+	top: -64px;
+	right: -96px;
+	width: 760px;
+	height: 300px;
+	background: radial-gradient(
+		100% 100% at 100% 0%,
+		rgb(5 5 5 / 0.6),
+		rgb(5 5 5 / 0.33) 45%,
+		transparent
+	);
+}
+/* the same in the tag's corner, under the tag (the slot's offsets reach the frame's corner) */
+.tag-lockup {
+	isolation: isolate;
+}
+.tag-scrim {
+	position: absolute;
+	z-index: -1;
+	right: -96px;
+	bottom: -72px;
+	width: 760px;
+	height: 300px;
+	background: radial-gradient(
+		100% 100% at 100% 100%,
+		rgb(5 5 5 / 0.6),
+		rgb(5 5 5 / 0.33) 45%,
+		transparent
+	);
+}
+
+/* --- the C()UCH TV wordmark: Saira 700; every part placed absolutely from brackets.ts ---- */
 
 .wm {
 	position: relative;
@@ -62,61 +156,7 @@
 	color: #000;
 	fill: #000;
 }
-/* the static lockup (lockupSvg) */
-.lockup > svg,
-.bug-wm > svg,
-.lu-wm > svg,
-.sb-lockup > svg {
-	display: block;
-}
-
-/* --- the corner bug --------------------------------------------------------------------- */
-
-.bug {
-	position: absolute;
-	top: 54px;
-	right: 72px;
-	display: flex;
-	align-items: center;
-	gap: 14px;
-	height: 60px;
-	padding: 0 20px 0 22px;
-	border-radius: 999px;
-	background: rgb(var(--bg-rgb) / 0.7);
-	border: 1px solid rgb(255 255 255 / 0.09);
-	box-shadow: 0 8px 30px rgb(0 0 0 / 0.25);
-	font-weight: 700;
-	white-space: nowrap;
-}
-.bug-sep {
-	width: 1px;
-	height: 24px;
-	background: rgb(255 255 255 / 0.16);
-}
-.live {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	font-size: 17px;
-	font-weight: 700;
-	letter-spacing: 0.18em;
-	text-transform: uppercase;
-}
-.live-dot {
-	width: 11px;
-	height: 11px;
-	border-radius: 50%;
-	background: var(--brand);
-	box-shadow: 0 0 0 0 rgb(var(--brand-rgb) / 0.5);
-}
-.clock {
-	font-size: 23px;
-	font-weight: 700;
-	font-variant-numeric: tabular-nums;
-	letter-spacing: 0.01em;
-}
-
-/* --- the ident and the stings: flat fields of pure colour, the wordmark and what its
+/* --- the short ident and the stings: flat fields of pure colour, the wordmark and what its
    brackets frame ------------------------------------------------------------------------- */
 
 .ident,

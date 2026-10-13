@@ -566,9 +566,10 @@
 	background: rgb(255 255 255 / 0.04);
 }
 .tag-lockup {
+	/* the tag slot: its right edge on the title-safe line (x 1824), its foot on y 1008 */
 	position: absolute;
-	right: var(--safe-x);
-	bottom: 92px;
+	right: 96px;
+	bottom: 72px;
 }
 
 /* grit mood (Pulp): black chapter cards, slabs, typewriter */

@@ -10,6 +10,6 @@ export { airing, DAY_NAMES, type AiringKind } from './airing';
 export { palette, pickAccent, type Palette } from './core/palette';
 export { FPS, type Cue, type KeyRect } from './core/timeline';
 export type * from './spec';
-// the brand for the clients' live overlays (D14): the static lockup and its display face
-export { CHANNEL, DISPLAY_FAMILY, lockupSvg, type LockupOptions } from './brand/wordmark';
+// the brand for the clients' live overlays (D14): the static lockup, in paths
+export { BRAND, CHANNEL, lockupSvg, type LockupLayout, type LockupOptions } from './brand/wordmark';
 export { ensureFonts } from './assets';
