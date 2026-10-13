@@ -48,6 +48,11 @@ in section 3.
 | D30 | **The default weekly template is 5.1**, including **Saga Sunday** (the next film of a franchise every Sunday at 20:15, in order). |
 | D31 | **Branch**: a new `couch-tv` branch from `main`; `native-clients` is retired once its last docs commit is on `main`, so the remote keeps two branches (`main`, `couch-tv`). |
 | D32 | **The planning sample reel** (HTML/CSS/JS + README) is kept in `tools/couch-tv-samples/` as the reference for Phase 2; its media (soundtrack excerpts, artwork) is gitignored and fetched from the Pi read-only by a script. |
+| D36 | **Bulletins bind late, in slots of the breaks.** A break that carries a bulletin keeps a fixed-length slot for it after the promos and the lineup, before up next, holding a fallback of exactly that length (promos and stings, renderable ahead like any part), so the break is composed, rendered and assembled complete on its own. It is assembled in sections around its slots (a package each), its sound mixed per section so nothing rings across a slot's edge and each slot normalized on its own. When the live stream puts the break on air, a slot that airs whole takes the newest rendered bulletin still valid when the slot ends, at the slot's loudness, else its fallback; pinned, it never changes (6.10). |
+| D37 | **When the bulletins air** (defaults the owner tunes later): the news (20 s) in every break that ends on the hour from 06:00 to midnight, the weather (15 s) in the first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the evening movie, never where a bulletin fetched on the grid 15 minutes before the break goes on air would have expired by its end; a break keeps a slot only beside the squeeze, the short ident, a short promo and the shortest up next. |
+| D38 | **A bulletin renders once, when it is the one that airs**: the bulletins job asks for a clip on its kind's last run in time for the next slot (one render per slot, not per fetch), the sidecar renders it as `couchtv_bulletin_render` ahead of every other clip, never waiting for a transcode or the quiet hours, and only while the channel is on. The clip carries its sound at every whole LU a break is mixed at (-23 to -16) and a slot's sound is mixed at its break's loudness in whole LU, so a bulletin sounds as loud as the fallback it replaces. A bulletin's clip goes an hour after its bulletin stops being valid. |
+| D39 | **D13 extended to the bulletins** (owner, 2026-10-13): English chrome (titles, labels, weekdays, times, the credits "Weather data by Open-Meteo.com", "Source: ČHMÚ", "Borders: ČÚZK / geoBoundaries (CC BY 4.0)", "Headlines from the outlets’ RSS feeds, as of 17:40"), ČHMÚ's English event and kraj names, Prague by its English name; the headlines stay Czech, whole and unaltered, each labelled with its outlet's name, since the outlets' terms forbid altering or shortening them and a translation would alter them. |
+| D40 | **Czechia's outline lives in the broadcast package**, a module generated from the server's `czechia.geojson` (`npm run outline`), not in every spec: it never changes from one bulletin to the next and a template's version covers a change; the spec carries the cities' positions and the map's credit. A forecast airs until midnight at the latest, since its days are named from the day it was fetched. |
 
 ---
 
@@ -558,6 +563,9 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   is composed again after 6 h, a failed clip is requeued when a break asks for it again.
   Renders are queued soonest-airing first (the job priority is minus the airing's minute;
   the evergreen break and standby card first of all).
+- **Bulletin slots** (2026-10-13, 6.10, D36-D37): a break that carries the news or the weather
+  keeps a slot of the bulletin's length before up next, holding promos and stings of exactly
+  that length, which air when no bulletin can.
 
 ### 6.6 The live stream
 - **Channel grant**: `grant.Grant{Scope: Channel, Subject: user or guest, Resource:
@@ -644,6 +652,20 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
 - **Measured** (`make couchtv-live`, M1 Pro): `validate-hls` finds no error around program,
   break, evergreen-after-slate, slate and hole boundaries (the `AVERAGE-BANDWIDTH` warning of
   S1 remains); the players' results are in the Phase 4 entry of the roadmap.
+- **Bulletin slots** (2026-10-13, 6.10, D36): a break with slots airs its sections, a part
+  each (the parts after an airing's first under `airings/<id>/parts/<n>/`); a slot binds when
+  the break goes on air, to the newest rendered bulletin still valid when it ends, else its
+  fallback. Measured (`make couchtv-live` three times, the M1 Pro under a load average of 20-45
+  from other work): `validate-hls` finds no error around the edges of a slot that airs a
+  bulletin (into the break, into and out of the bulletin, into the next program);
+  AVFoundation plays through them (9 boundaries, no stall, the program date about 1.1 s
+  behind the clock over 128 s); hls.js matches picture and sound to the program date and
+  changes item within 0.35 s of it for every viewer. The viewers on hls.js's own live edge
+  fail the drift check (their program date 2-8.6 s behind the clock where 1.5 s is allowed,
+  items at 84-100 % speed under that load), as the same test without a slot does on the same
+  machine (4.0 and 3.7 s, items at 93-100 %); in one run every viewer lost about 2 s at one
+  moment of wall time while the bulletin was on screen, in the last it played at 98-100 %
+  speed for all. Worth a run on an idle machine.
 
 ### 6.7 Rendering (the sidecar)
 - **Image**: a `render` target in the Dockerfile (the couchverse binary + Debian `chromium`,
@@ -725,6 +747,10 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   seamless loop).
 - **Leaks and failures**: Chromium restarts every 25 jobs (decoded artwork is cached
   for the page's life); any failed job closes it so the next starts clean.
+- **Bulletins** (2026-10-13, 6.10, D36, D38): a break with slots is assembled in sections, a
+  package each, its sound mixed per section; a bulletin's clip renders as
+  `couchtv_bulletin_render` (priority 1, not yielding to transcodes) and carries its sound at
+  every whole LU from -23 to -16.
 
 **Render throughput** (2026-10-13). On the Pi a break's sound, rendered in the page as one
 break spec, ran at 0.15-0.2x real time (120 s parts of 13-14 clips took 11-14 min), so a
@@ -930,8 +956,9 @@ break or the standby card.
 
 ### 6.10 Bulletins (data)
 The owner wants a weather overview of Czechia and the day's top headlines in the breaks. The
-data layer is built (2026-10-13; FEATURES.md "couchtv", Bulletins); nothing airs it yet, since
-the templates wait for the new identity. The `couchtv_bulletins` job (app) fetches the news
+data layer is built (2026-10-13; FEATURES.md "couchtv", Bulletins) and the bulletins air in
+slots of the breaks ("On air" below), from placeholder templates until the bulletin design
+lands. The `couchtv_bulletins` job (app) fetches the news
 every 20 minutes and the weather hourly from 05:30 to 00:30 in the channel's zone and at
 startup, politely (a User-Agent naming the app, 10 s timeouts, two retries, conditional GET),
 and keeps the last good bulletin of each kind in `couchtv_bulletins`, served by
@@ -941,9 +968,10 @@ and keeps the last good bulletin of each kind in `couchtv_bulletins`, served by
     use, CC BY 4.0, credit "Weather data by Open-Meteo.com"). A day's symbol is its daytime's
     (09-18), since the daily code is the day's worst hour.
   - Warnings: ČHMÚ's open data, the newest SIVS CAP message by the directory's date (free
-    public-sector information; credit "Zdroj: ČHMÚ", no logo, no implied endorsement).
+    public-sector information; credit "Source: ČHMÚ" on air (D39), no logo, no implied
+    endorsement).
   - Map: geoBoundaries' CZE ADM0 outline (ČÚZK, CC BY 4.0, 643 points), embedded; credit
-    "Hranice: ČÚZK / geoBoundaries (CC BY 4.0)".
+    "Borders: ČÚZK / geoBoundaries (CC BY 4.0)" on air (D39).
   - News: the RSS of ČT24 and its editors' selection, iROZHLAS, Seznam Zprávy, Novinky and
     iDNES (shown), CNN Prima and Deník (ranking only; Deník allows personal use only) and
     ČT24's unofficial trending list (optional). ČTK and Economia (Aktuálně, HN) are left out:
@@ -958,23 +986,64 @@ and keeps the last good bulletin of each kind in `couchtv_bulletins`, served by
   then iROZHLAS, Seznam Zprávy, Novinky, iDNES. Items are remembered across runs (in memory):
   Novinky's and iDNES's feeds reach back only two or three hours, so on 13 Oct at 17:40 a fresh
   process already missed outlets that had carried the top stories an hour or two before.
-- **Open for the on-air slice**:
-  - When to render: breaks are composed up to 24 h ahead and rendered in the quiet hours,
-    while a news bulletin is good for 3 hours and a weather one for 6. Bulletins need a late
-    composition of their own (a clip rendered shortly before its break) or another path.
-  - Language: D13 makes cutscenes English, but the headlines are Czech and may not be
-    translated; the warnings and kraje carry both languages. Decide per segment.
-  - Which breaks carry them (on the hour? before prime time?), how long, and the credits on
-    screen: "Data o počasí: Open-Meteo.com (CC BY 4.0)", "Výstrahy: ČHMÚ", the map's line, the
-    outlet beside each headline and "Titulky z RSS uvedených médií, stav k HH:MM".
-  - Nights: nothing is fetched from 00:30 to 05:30, so news ends at 03:30 and weather at
-    06:30 unless older bulletins may air. An evening forecast wants "tonight" from hourly
-    temperatures (one more variable in the request; the daily minimum is midnight to
-    midnight).
-  - The warnings map needs kraj outlines (geoBoundaries CZE ADM1, same licence) and the icons
-    a set (MET Norway's MIT-licensed icons work with WMO codes).
-  - Development and e2e servers fetch too (a dozen requests at startup); switch
-    `bulletins.enabled` off where that is unwanted.
+**On air (2026-10-13; FEATURES.md "couchtv", D36-D40).** The slice was open on five points;
+how each was settled:
+- **When to render (D36, D38).** Breaks are composed a day ahead and rendered at night, so a
+  bulletin cannot be part of a composed break. A break that carries one keeps a slot of the
+  bulletin's length instead, after the promos and the lineup, before up next, holding a
+  fallback of exactly that length: promos of titles the break does not promote yet, closed
+  with stings, renderable ahead like any part. The break is assembled in sections (the clips
+  around its slots and each slot's fallback, a package each) and its sound mixed per section:
+  what rings past a section's end is cut, faded out over 20 ms at a slot's edge, the break
+  around its slots normalized as one and each slot on its own at the break's loudness in
+  whole LU. The bulletin binds late: when the live stream puts the break on air (pins its
+  feed), a slot that airs whole takes the newest rendered bulletin of its kind still valid
+  when the slot ends, else its fallback, and every slot edge is a discontinuity with a
+  program date, the bulletin's audio cut at its edge with `?keep=` like any item's. The
+  clip carries its sound at every whole LU a break is mixed at (-23 to -16), so it airs as
+  loud as the fallback it replaces. The bulletins job asks the sidecar for the clip on its
+  kind's last run in time for the next slot (the slot's break on air 15 minutes later at the
+  latest), so a bulletin renders once and only when it is the one that airs: the news,
+  fetched every 20 minutes, once an hour. Its own job type (`couchtv_bulletin_render`) puts
+  it ahead of every other clip and lets it run while a transcode does, outside the quiet
+  hours. Nothing renders while the channel is off.
+- **Language (D39).** The owner's decision: English chrome everywhere the data allows (labels,
+  weekdays, times, ČHMÚ's English event and kraj names, Prague by its English name, the
+  credits), the headlines Czech, whole and unaltered, each with its outlet's name.
+- **Which breaks, how long, the credits (D37, D39).** The news (20 s) in every break that ends
+  on the hour from 06:00 to midnight (the breaks with the lineup), the weather (15 s) in the
+  first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the
+  evening movie, both where the break keeps the squeeze, the short ident, a short promo and
+  the shortest up next beside them. On screen: "Weather data by Open-Meteo.com" always,
+  "Source: ČHMÚ" with the warnings (or "No weather warnings"), "Borders: ČÚZK / geoBoundaries
+  (CC BY 4.0)" with the map, the outlet's name with every headline and "Headlines from the
+  outlets’ RSS feeds, as of 17:40".
+- **Nights.** A slot is only made where a bulletin fetched on the grid at least 15 minutes
+  before its break goes on air is still valid when the break ends: the 00:00 news airs the
+  23:30 fetch, the 06:00 news needs a break on air from 05:45, and no news is scheduled from
+  01:00 to 05:00. A forecast airs until midnight at the latest (D40), since its days are
+  named "Today" and "Tomorrow" from the day it was fetched; its slots are all by day. Still
+  open: an evening forecast's "tonight" from hourly temperatures.
+- **The map (D40).** Czechia's outline is a module of the broadcast package generated from the
+  server's geojson (`npm run outline`), with a projection (`czechiaMap`) that places the
+  cities; the spec carries their positions. Still open for the design: kraj outlines for the
+  warnings (geoBoundaries CZE ADM1, same licence; the spec names the kraje by ISO 3166-2
+  code, so a module like the outline's would do) and the weather icons (the spec carries WMO
+  codes and daylight; MET Norway's MIT-licensed set maps onto them).
+- Development and e2e servers fetch too (a dozen requests at startup); switch
+  `bulletins.enabled` off where that is unwanted. They render bulletins only with a sidecar
+  and the channel on.
+
+**Render budget (the Pi).** A day has 19 news slots and 4 weather slots, 23 renders of
+11,000 frames. Measured on the M1 Pro under heavy load (the squeeze beside them at 2.76 fps,
+the Pi's 2.41): the placeholder news (500 frames) in 36 s and weather (375) in 50 s, since
+they hold still after their first seconds and a held frame is not captured again, which
+scales to about 50 and 70 s on the Pi: **about 20 minutes a day**. A design that moves in
+every frame renders at the Pi's measured 2-2.5 fps: 200-250 s a news, 150-190 s a weather,
+plus about 20 s each to load the page, render the sound and encode the eight slot loudnesses:
+**about 1.4-1.7 h a day**, all of it in the daytime, one render of 3-5 minutes before each
+slot, well inside the 15 minutes a slot leaves it. A designed template that holds still where
+it can keeps the cost near the placeholders'.
 
 ---
 

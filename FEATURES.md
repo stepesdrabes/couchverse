@@ -642,8 +642,8 @@ promos and the break composition and rendering (Phase 3), the live stream (Phase
 prepare job, the stream under channel grants, tuning in and the guide), the viewer's side
 (Phase 5: the room, the guest link, progress and watch time, the core's `couchtv` module and
 the web's `/tv`, guide, home card and guest join), the admin tools (Phase 6: the schedule
-editor, the template, render health and the title tools) and the bulletins' data (weather
-and news headlines for the breaks, not on air yet). Gated by the
+editor, the template, render health and the title tools) and the bulletins (the weather and
+the news headlines, fetched through the day and aired in slots of the breaks). Gated by the
 admin `couchTvEnabled` flag, the one flag that is **off** while unset
 (`flags.Load` leaves it out of the "missing means on" default; `flags.CouchTvOn` guards the
 viewer routes and the stream; the core reads it as `SessionView.features.couchTv`, `false` from a
@@ -656,7 +656,8 @@ server that does not send it). The admin settings page toggles it.
   the config and never served; `adminUpdateCouchTv` keeps the stored link whatever its body
   says, since the link's own operations change it), `bulletins` (`enabled`, default on, and
   `cities`: 1 to 20 named places in Czechia with `lat`/`lon`, by default the regional capitals
-  without Pardubice, whose label would collide with Hradec Králové's on a map; a config stored
+  without Pardubice, whose label would collide with Hradec Králové's on a map, Prague by its
+  English name (the weather is English, D39) and the rest by their own; a config stored
   before it gets the default) and `template.slots`. A slot has a `key`, `days`, an optional `start` (HH:MM; an
   `anchor` starts exactly then, a flow slot uses it as the time the block before it fills up
   to; times before the day's first anchor are the night after it), a `fill` (`strip`,
@@ -763,6 +764,14 @@ server that does not send it). The admin settings page toggles it.
     (`Store.Evergreen`) cut to the gap, else a filler. A break's own package shorter than the gap
     airs after a filler, so its up next still counts down into the program; the evergreen break
     has no up next, so a filler follows it.
+  - **Bulletin slots** (plan 6.10, D36): a break with slots airs its sections (see the render
+    sidecar), a part each, so every slot edge is a discontinuity with a program date; padded and
+    cut as a break's package is (`sectionParts`). The parts after an airing's first are reached
+    under `../airings/<id>/parts/<n>/` (`getCouchTvAiringPartFile`). As the break goes on air, a
+    slot that airs whole binds: it airs the newest rendered bulletin of its kind still valid
+    when the slot ends (`Store.ReadyBulletin`, `bulletinPart`: the clip's video and its rendition
+    at the slot's loudness, in both languages, `PartBulletin`), else its fallback section. Pinned
+    with the feed, a slot never changes, whatever renders later.
   - **Fillers** air where nothing else can (after the evergreen break, for a program that cannot
     air, in a hole in the schedule, and for up to 6 h after the last airing, then the playlists
     answer `off_air`): the standby card (`Store.Standby`, the sidecar's rendered loop), else the
@@ -789,7 +798,9 @@ server that does not send it). The admin settings page toggles it.
   (`/live/{video,audio-<lang>,subs-<lang>}.m3u8`), `getCouchTvAiringFile`
   (`/airings/{airing}/{track}/{file}`: an init section, segment or `<n>.vtt` of what a pinned
   airing airs, served only within 10 minutes of its time on air and only from the renditions
-  its feed names, so the grant reaches nothing else of the library), `getCouchTvStandbyFile`
+  its feed names, so the grant reaches nothing else of the library), `getCouchTvAiringPartFile`
+  (`/airings/{airing}/parts/{part}/{track}/{file}`: the same for the airing's media parts after
+  its first, a slotted break's sections and bulletins), `getCouchTvStandbyFile`
   (`/standby/{clip}/{video,audio}/{init.mp4,<n>.m4s}`, a ready standby card only) and
   `getCouchTvSlateFile` (`/slate/{video,audio,subs}/{init.mp4,<n>.m4s,empty.vtt}`). An expired
   grant answers 403
@@ -852,7 +863,13 @@ server that does not send it). The admin settings page toggles it.
   is filled to the frame (25 fps) with the D17 mix: the credits squeeze (`line` into the
   ident; `expand` straight into up next when no ident fits), the short ident (the full one
   before a prime-time movie, `movie`/`premiere`/`saga`), promos while they fit, the lineup
-  when the break ends on the hour and a promo still fits beside it, and up next. Up next
+  when the break ends on the hour and a promo still fits beside it, a slot for each bulletin
+  it carries (`BreakInput.Bulletins`: the news, 20 s, then the weather, 15 s; the later goes
+  first where the break would keep less than the squeeze, the short ident, a short promo and
+  the shortest up next beside them), and up next. A slot holds a fallback of exactly its
+  length (`slotFallback`): promos of titles the break does not promote yet (else of others),
+  each title once, a promo leaving nothing or room for a sting, closed with stings; its parts
+  carry the slot's kind (`Part.Slot`, `Composition.Slots`). Up next
   (6-12 s), the lineup (10-16 s) and stings (any whole number of frames from 2 to 6 s, as few
   as possible, before the lineup and up next first, then between promos) take up the rest;
   under 2 s nothing fits (the break fails over to the evergreen one). Promos are ranked by a
@@ -872,9 +889,17 @@ server that does not send it). The admin settings page toggles it.
 - **The `couchtv_compose` job** (`couchtv.Composer`, app): at startup, after every plan run and
   hourly, it composes every break of the next 24 hours that has no composition (a failed one
   again after 6 h), and keeps the standby card and an evergreen break of the current
-  templates. It waits until a render sidecar has published its templates' versions (settings
-  key `couchtv_render`), since a clip's cache key is a hash of its template's version and its
-  spec. A break not on air yet that uses a clip rendered from another version of its template
+  templates. With `bulletins.enabled` a break carries bulletins (`bulletinKinds`, D37): the
+  news when it ends on the hour from 06:00 to midnight, the weather in the first break ending
+  within the hour after 07:00, 12:00 and 17:00 and in the break before a prime-time movie
+  (ending 19:00-21:00), each only where a bulletin fetched on the grid at least
+  `bulletinLead` (15 minutes) before the break goes on air is still valid when it ends
+  (`coverable`, `lastBulletin`: the 06:00 news only in a break on air from 05:45, after the
+  day's first fetch); the recipe records each slot (`slots`: kind, `at`, `frames` and the
+  loudness its sound is mixed at, the break's in whole LU). It waits until a render sidecar
+  has published its templates' versions (settings key `couchtv_render`), since a clip's
+  cache key is a hash of its template's version and its spec. A break not on air yet that uses
+  a clip rendered from another version of its template
   than the sidecar's is composed again (its own promotions forgotten first), so a changed
   template reaches the breaks composed before it; a clip still pending renders from the
   current template anyway. Specs are checked against `contract/broadcast-spec.schema.json` (embedded, copied by
@@ -896,13 +921,14 @@ server that does not send it). The admin settings page toggles it.
   cancelling those no composition uses any more (a replan moved their break, or it was
   composed again), promo bodies and the standby card aside.
 - **The render sidecar** (`couchverse render`, plan 6.7; `couchtv.Renderer`): a separate process
-  on the same database and `DATA_DIR` that registers only `couchtv_render` and
-  `couchtv_assemble` (the app never does), runs one job at a time and claims a render only
-  while no `transcode_hls` job runs (`jobs.Runner.Yield`; backfill such as the channel's
-  trick-play renditions does not count), at nice 10 and in the idle I/O class (the image's
-  entrypoint wraps it in `nice` and `ionice`, so Chromium and every ffmpeg inherit them), its
-  encoder on two threads (capture is
-  the bottleneck); it closes Chromium whenever no render or assembly is due, so outside the
+  on the same database and `DATA_DIR` that registers only `couchtv_render`,
+  `couchtv_bulletin_render` and `couchtv_assemble` (the app never does), runs one job at a time
+  and claims a clip's render only while no `transcode_hls` job runs (`jobs.Runner.Yield`;
+  backfill such as the channel's trick-play renditions does not count; a bulletin's render,
+  priority 1, ahead of every other job, never waits), at nice 10 and in the idle I/O class
+  (the image's entrypoint wraps it in `nice` and `ionice`, so Chromium and every ffmpeg
+  inherit them), its encoder on two threads (capture is the bottleneck); it closes Chromium
+  whenever no render or assembly is due, so outside the
   quiet hours it holds no browser. It serves the embedded
   broadcast bundle (`backend/broadcast`, `make build`) and the media above on localhost to one
   headless Chromium (chromedp; GPU flags on Linux when `/dev/dri` exists; restarted every 25
@@ -939,7 +965,16 @@ server that does not send it). The admin settings page toggles it.
   the same samples: to the spec's loudness, the true peak at or under -1 dBTP); Chromium
   opens only for a missing sound. It then joins the clips'
   video by stream copy (each clip's init and segments as one fMP4, the concat demuxer at
-  exact lengths) and segments both. Clips (`couchtv/clips/<key>`) and breaks
+  exact lengths) and segments both. A break with bulletin slots is assembled in sections
+  (`sectionsOf`: the clips around its slots and each slot's fallback, a package each in
+  `couchtv/breaks/<id>/<n>`): its items' sounds are mixed per section (`mixSections`), what
+  rings past a section's end cut and, at a slot's edge, faded out over 20 ms, the break around
+  the slots normalized as one and each slot on its own at the slot's loudness, so a bulletin
+  can take a slot's place with nothing sounding across its edges. A bulletin's clip (kinds
+  `weather` and `news`) keeps no item sound (it never sounds in a mix) and carries, besides
+  its own sound, a rendition at every whole LU a break is mixed at (`audio-l16-aac` to
+  `audio-l23-aac`, `encodeSlotSounds`: the page's render measured in Go, turned once per
+  level, faded in over 5 ms and out over 20 ms). Clips (`couchtv/clips/<key>`) and breaks
   (`couchtv/breaks/<id>`) are packages like a media file's (`source/` and `audio-1-aac/`
   with `rendition.json`, 6 s segments on the package timeline, plus a `master.m3u8`), read
   with `playback.ReadPackageDir`; the video's length is checked to the frame. The live stream
@@ -947,6 +982,8 @@ server that does not send it). The admin settings page toggles it.
   seamless loop).
 - **Pruning** (the hourly cleanup, `couchtv.Prune`): an aired break's package after an hour
   (its row after a week), clips nobody asked for in 14 days unless a waiting break uses them,
+  a bulletin's clip, headlines and all, an hour after its bulletin stopped being valid (or
+  once the bulletin is gone),
   evergreen breaks older than the newest assembled one, extracted media unused for 14 days,
   items' sounds no assembly mixed for 2 days (most are one break's; the shared ones are
   mixed daily), work directories after a day, soundtrack previews no title picked and nobody
@@ -1006,7 +1043,7 @@ server that does not send it). The admin settings page toggles it.
   against when the first waiting clip airs, the next 24 hours of breaks by state with those
   at risk, the evergreen break and standby card, the latest failures, the disk renders take)
   and `GET /admin/couchtv/bulletins` (`adminGetCouchTvBulletins`, below).
-- **Bulletins** (plan 6.10; the data only, nothing airs them yet): the `couchtv_bulletins` job
+- **Bulletins** (plan 6.10; on air in the breaks' slots, D36-D40): the `couchtv_bulletins` job
   (`couchtv.Bulletins`, app, one slot, priority -5, one attempt) keeps a weather and a news
   bulletin. Each kind is a chain whose run queues the next one first (payload `{kind, at}`):
   news every 20 minutes and weather every hour on a grid from 05:30 to 00:30 in the channel's
@@ -1017,12 +1054,25 @@ server that does not send it). The admin settings page toggles it.
   ETag or Last-Modified (a 304 reuses the copy; `bulletins_fetch.go`). A run that yields a
   bulletin good enough to air adds a `couchtv_bulletins` row (`kind`, `fetched_at`,
   `valid_until`, `data`: the API's JSON); a failing source or too few stories leave the last
-  good one. The hourly cleanup keeps six of each kind and none older than a day
-  (`PruneBulletins`; iROZHLAS lets a reader keep its texts a day). With `bulletins.enabled`
-  off the chains run without fetching; they fetch whatever the `couchTvEnabled` flag says.
-  - **Weather** (`CouchTvWeather`, valid 6 h): one Open-Meteo `/v1/forecast` request for every
-    configured city (now: temperature, WMO code, `is_day`; hourly codes; five days of min, max,
-    code and the highest chance of precipitation; the channel's zone, wind in m/s), positions
+  good one. The hourly cleanup keeps six of each kind, and those whose clips may still air,
+  but none older than a day (`PruneBulletins`; iROZHLAS lets a reader keep its texts a day).
+  With `bulletins.enabled` off the chains run without fetching; they fetch whatever the
+  `couchTvEnabled` flag says.
+  - **On air** (D38): every run, fetching or not, then asks the sidecar for a clip of the
+    newest bulletin of its kind still valid when the next slot of that kind ends
+    (`renderForSlot`), but only when it is the kind's last run before that slot's break goes
+    on air less `bulletinLead` (15 minutes), so a bulletin is rendered only when it is the one
+    that airs (the news, fetched every 20 minutes, once an hour), and only while the channel is
+    on and a sidecar has published its templates. The clip's spec is the stored bulletin as
+    the broadcast package reads it (`weatherSpec`, `newsSpec`: English chrome, the data's own
+    words, D39), its kind `weather` or `news`, its length the slot's; it is requested once per
+    bulletin (`couchtv_bulletins.clip_id`) and queued as `couchtv_bulletin_render` at priority
+    1, at once. A failed run renders the newest bulletin it has instead.
+  - **Weather** (`CouchTvWeather`, valid 6 h, by midnight at the latest since its days are
+    named from the day it was fetched, `weatherUntil`): one Open-Meteo `/v1/forecast` request
+    for every configured city (now: temperature, WMO code, `is_day`; hourly codes; five days
+    of min, max, code and the highest chance of precipitation; the channel's zone, wind in
+    m/s), positions
     kept as configured. A day's `code` is its daytime's, 09-18 (`daytimeCode`), since the
     source's daily code is its worst hour: two stormy hours make a stormy day, three wet ones a
     wet day (the most frequent kind), one or two a day of showers, fog in half the hours a foggy
@@ -1032,9 +1082,10 @@ server that does not send it). The admin settings page toggles it.
     yellow, orange and red blocks in force now or later today, one warning per SIVS event and
     level with ČHMÚ's Czech and English names, the earliest onset and latest expiry, and its
     kraje by ISO 3166-2 code from the districts' CISORP codes (`partial` when not all of a
-    kraj's districts are warned). Credit "Zdroj: ČHMÚ". The map's outline is embedded as
+    kraj's districts are warned). Credit "Source: ČHMÚ". The map's outline is embedded as
     `czechia.geojson` (`CzechiaOutline`: geoBoundaries CZE ADM0 from ČÚZK, CC BY 4.0, 643 points;
-    credit `OutlineAttribution`).
+    credit "Borders: ČÚZK / geoBoundaries (CC BY 4.0)", `OutlineAttribution`), which the
+    broadcast package draws from a module generated from it (`npm run outline`, D40).
   - **News** (`CouchTvNews`, valid 3 h, 3 to 5 stories): the RSS of ČT24 and its editors'
     selection, iROZHLAS, Seznam Zprávy, Novinky and iDNES, which may be shown, and of CNN Prima
     and Deník, which only weigh stories, plus ČT24's unofficial trending JSON when it answers;
@@ -1056,8 +1107,13 @@ server that does not send it). The admin settings page toggles it.
     answered.
   - Tests: `bulletins_weather_test.go`, `bulletins_news_test.go` and `bulletins_test.go` on
     sources recorded on 13 Oct 2026 (`couchtv/testdata/bulletins`, trimmed; the ranking
-    reproduces the research's day), and `TestCouchTvBulletins` (the job on a database over
-    them, the answer checked against the spec).
+    reproduces the research's day), `bulletin_spec_test.go` (the clips' specs from them,
+    checked against the broadcast schema: English days and warnings, whole headlines, the
+    credits), `bulletin_slots_test.go` (which breaks carry slots, their fallbacks, every gap
+    filled with its slots whole), `live_slots_test.go` (a slotted break's sections on air, a
+    bulletin binding to its slot or not), `TestCouchTvBulletins` (the job on a database over
+    them, the answer checked against the spec, the cleanup) and `TestCouchTvBulletinRenders`
+    (only the last run in time for a slot renders, once, and none while the channel is off).
 - **The `couchtv_analyze` job** (`couchtv.Analyzer`, one slot, low priority, nice'd; plan 6.3):
   per title (published, not excluded), queued a few minutes after its markers change
   (`Analyzer.Queue`, the library hook), by the admin's analyze, and by a backfill at every
@@ -1166,8 +1222,9 @@ server that does not send it). The admin settings page toggles it.
   shown through `problemMessage`), so Save stays disabled while the template is invalid.
   **Render health** (`AdminRenderHealthPage`): `StatTile`s for the queue, speed, time to clear
   and breaks at risk, a `SegmentBar` of the next 24 h of breaks, the fallbacks, a `RankedList`
-  of the disk and the failures; it polls every 10 s. **Preview**: the broadcast preview. The
-  title editor ends with `TitleCouchTvPanel`: never on Couch TV, mood, the promo audio (what
+  of the disk and the failures; it polls every 10 s. **Preview**: the broadcast preview (the
+  bulletins from the feeds recorded on 13 Oct 2026, `preview.ts`). The title editor ends with
+  `TitleCouchTvPanel`: never on Couch TV, mood, the promo audio (what
   the promos play once saved and who picked it, "Back to automatic" for an admin's pick of
   either kind): the soundtrack from the web (`SoundtrackPicker`: the candidates with track,
   artist, album, catalog and match, each played and stopped from the server's copy through
@@ -1199,7 +1256,8 @@ server that does not send it). The admin settings page toggles it.
   frame offsets, sound spec and promoted titles; state, package path, which the live stream
   airs), `couchtv_guests` (the channel link's guests: token hash, name, the link they came
   through, `seen_at`), `couchtv_bulletins` (the weather and news bulletins: kind, when fetched,
-  until when they air, the bulletin as JSON); `titles` gained `tagline`, `collection_tmdb_id`,
+  until when they air, the bulletin as JSON, `clip_id` its clip once one was asked for; clip
+  kinds `weather` and `news`); `titles` gained `tagline`, `collection_tmdb_id`,
   `collection_name`.
 - Tests: `couchtv/plan_test.go` (the rules, airing to the credits), `couchtv/analysis_test.go`
   (promo and shot picks, the waveform), `library/fingerprint_test.go` and `credits_test.go`
@@ -1225,9 +1283,12 @@ server that does not send it). The admin settings page toggles it.
   from `CHROMIUM_PATH` or installed, the bundle from `make broadcast`): renders a squeeze over a
   generated program (composited, its panel at the hold compared with the program), an ident
   and a sting, each keeping its item's sound, removes one of them, assembles the break (which
-  renders that one again) and validates every package and the break's loudness;
+  renders that one again) and validates every package and the break's loudness, assembles
+  the same clips around a slot (a package per section, the slot's sound at its own loudness)
+  and renders a weather and a news bulletin (every slot loudness measured);
   `couchtv/sound_test.go` (the loudness port against `loudness.ts`'s numbers, the mixer:
   offsets, ring-out under the next item, the cut at the break's end, its length to the sample,
+  sections around a slot (nothing across its edges, faded there, normalized apart),
   loudness and the true-peak cap, a sound shorter than its slot; the sound keys);
   `couchtv/composite_test.go` (the
   keyed spec, the matte against every pixel's coverage, the graph run in ffmpeg). The
@@ -1240,8 +1301,9 @@ server that does not send it). The admin settings page toggles it.
   playlists, trimmed segments, subtitles, the slate, files outside the window or not on air,
   the grant's scope and expiry, the flag), and env-gated `TestCouchTvLive` (`make
   couchtv-live`: generated programs readied by the real jobs, assembled and evergreen breaks,
-  the slate and a hole, looped around now, validated around boundaries and played by hls.js
-  in Chromium (WebKit too with `VIEWERS`) with the program-date hold and by AVFoundation;
+  the slate and a hole, a break in sections with a bulletin in its slot, looped around now,
+  validated around the slot's edges and played by hls.js in Chromium (WebKit too with
+  `VIEWERS`) with the program-date hold and by AVFoundation;
   `COUCHVERSE_SPIKE_HOLD=30m` keeps `/watch.html` up to watch it by hand or on a TV; results
   in `docs/couch-tv-plan.md`, Phase 4). The room: `couchtv/hub_test.go` (hello first, presence
   each viewer once, reactions and their limit, reports to watch time, progress and stats on a
@@ -2151,15 +2213,19 @@ approves is what airs.
 
 - **Layout**: `src/core` (the Timeline, curves and springs, `moves.ts`'s whole-piece `motion`
   and `windows` with cuts on frame edges, the accent palette, DOM helpers, artwork framing, a
-  seeded PRNG), `src/audio` (the graph with per-piece music, sfx, voice and reverb buses into
-  glue, limiter and trim, the reverb a generated hall; the synthesized kit; `orchestra.ts`, the
-  theme's instruments; beds with ducking and tape stops; onset detection; BS.1770 loudness and
+  seeded PRNG, `geo.ts`'s `czechiaMap`: Czechia's border and the weather's cities on the stage
+  by one projection), `src/audio` (the graph with per-piece music, sfx, voice and reverb buses
+  into glue, limiter and trim, the reverb a generated hall; the synthesized kit;
+  `orchestra.ts`, the theme's instruments; beds with ducking and tape stops; onset detection;
+  BS.1770 loudness and
   true peak; WAV; the `synth:` placeholder beds), `src/brand` (everything that is the brand,
   see "Brand"; a brand redesign replaces this folder only), `src/templates` (one module per
   template, `index.ts` the registry), `spec.ts` (the data contract), `piece.ts` (a loaded clip
   and the offline audio render), `stage.ts` (a 1920x1080 stage in a shadow root), `player.ts`
   (live playback against the audio clock), `render.ts` (the sidecar's API). Design tokens come
-  from `src/generated/tokens.ts`, written by `cargo xtask codegen`; Plus Jakarta Sans and Saira
+  from `src/generated/tokens.ts`, written by `cargo xtask codegen`, and Czechia's border from
+  `src/generated/czechia.ts`, written by `npm run outline` from the server's
+  `couchtv/czechia.geojson` (a unit test fails when they drift apart); Plus Jakarta Sans and Saira
   (OFL, latin and latin-ext; Saira's files are `@fontsource-variable/saira` 5.3.0's weight
   axis) are bundled in `src/assets/fonts` and registered by `ensureFonts`.
 - **Templates** (`template` in the spec): `ident` (`cut` full 10.52 s or short 4.52 s;
@@ -2170,8 +2236,14 @@ approves is what airs.
   `bright`, `dark`), `shortPromo`, `lineup` (2 to 5 rows), `squeeze` (handover `expand`,
   11.52 s, or `cursor`, 10.6 s: the program collapses into the red cursor block the short ident
   opens on, and its last frame is the ident's first, pixel for pixel), `standby` ("Technical
-  difficulties", loops seamlessly). Copy is English (D13); every time and day arrives as a
-  preformatted phrase (`Airing`), so templates do no clock maths.
+  difficulties", loops seamlessly), and the bulletins (placeholders until the bulletin design
+  lands, quiet screens whose held frames render as one capture): `weather` (15 s by default:
+  every configured city now on Czechia's outline, the first city's days, ČHMÚ's warnings) and
+  `news` (20 s: the top stories, each headline whole beside its outlet's name). A bulletin
+  airs in a slot of its own, so its sound starts and ends inside the clip. Copy is English
+  (D13, D39 for the bulletins: what the data brings, the city names and the Czech headlines,
+  stays as written); every time and day arrives as a preformatted phrase (`Airing`, the
+  bulletins' `asOf`, day labels and `BulletinTime`s), so templates do no clock maths.
 - **Spec**: `src/spec.ts` is the single source; `npm run schema` writes
   `contract/broadcast-spec.schema.json` (CI fails on drift) for the server's composer. Beds are
   `{url, in, out}` excerpts (WAV, FLAC or Ogg Opus: open-source Chromium has no AAC); footage is
@@ -2298,7 +2370,8 @@ approves is what airs.
   the key rectangle follows the panel, the `cursor` squeeze ends on the short ident's first frame
   (pixel-equal), the wordmark's metrics are the bundled face's, two audio renders agree and hit
   their loudness, the standby loop has no seam, an item's sound is the clip's faded into its
-  ring-out, a promo sounds the same whatever its airing, and items rendered alone and mixed
+  ring-out, a promo sounds the same whatever its airing, a bulletin's sound starts silent and
+  is over before its last frame, and items rendered alone and mixed
   sound like the break rendered in one pass (within 0.1 LU item by item, 0.5 LU in every 400 ms
   after the first second, 0.2 dB of true peak); a unit test pins the loudness numbers the
   server's Go port reproduces. Stand-in media (gradient art, two footage shots,
