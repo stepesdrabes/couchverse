@@ -42,12 +42,14 @@ in section 3.
 | D24 | **Saturday premieres**: a recently added movie that has never aired takes the Saturday 20:15 slot, promoted all week. |
 | D25 | **Promo soundtrack: automatic + admin override.** Series: the theme found by fingerprinting episodes. Movies: the end-credits music (the steadiest loud stretch near the end). The title editor gets a "Promo audio" picker with a waveform. Since 2026-10-13 the title's own soundtrack from the web (official previews from iTunes and Deezer) comes first and the excerpt is the fallback (6.3, "Promo audio from the web"). |
 | D26 | **No announcer voice in v1**; the audio mix reserves a voice bus so a local TTS voice can be added later. |
-| D27 | **Ident: a full cut (10-12 s) and a short cut (4-5 s)** from one design and one score. After two rejected rounds the owner asked for an ident "very inspired by" the Prima COOL idents (typographic, brackets that open as frames, pure colour, typed and edited text) with a more epic theme. Chosen (2026-10-12): the **C()UCH TV** brand (the O of COUCH splits into brackets that are also the couch's armrests; Saira; red, black and white), **ident variant B "frame"** (the brackets burst out to frame the screen and cut on the beat, then slam back into the O) and **theme 1 "hybrid epic"** (a D minor build lifting to D major on the hit, the A4 D5 A5 G5 F#5 hook on brass). Reference: `tools/couch-tv-samples`. |
+| D27 | *(Superseded by D33 on 2026-10-13: C()UCH TV looked too much like Prima COOL.)* **Ident: a full cut (10-12 s) and a short cut (4-5 s)** from one design and one score. After two rejected rounds the owner asked for an ident "very inspired by" the Prima COOL idents (typographic, brackets that open as frames, pure colour, typed and edited text) with a more epic theme. Chosen (2026-10-12): the **C()UCH TV** brand (the O of COUCH splits into brackets that are also the couch's armrests; Saira; red, black and white), **ident variant B "frame"** (the brackets burst out to frame the screen and cut on the beat, then slam back into the O) and **theme 1 "hybrid epic"** (a D minor build lifting to D major on the hit, the A4 D5 A5 G5 F#5 hook on brass). Reference: `tools/couch-tv-samples`. |
 | D28 | **Time zone**: a channel setting, default `Europe/Prague`; schedule rows are stored in UTC. |
 | D29 | **Gated** by an admin flag `couchTvEnabled` (mirrors `couchEnabled`), **off by default** until the channel has a rendered schedule. |
 | D30 | **The default weekly template is 5.1**, including **Saga Sunday** (the next film of a franchise every Sunday at 20:15, in order). |
 | D31 | **Branch**: a new `couch-tv` branch from `main`; `native-clients` is retired once its last docs commit is on `main`, so the remote keeps two branches (`main`, `couch-tv`). |
 | D32 | **The planning sample reel** (HTML/CSS/JS + README) is kept in `tools/couch-tv-samples/` as the reference for Phase 2; its media (soundtrack excerpts, artwork) is gitignored and fetched from the Pi read-only by a script. |
+| D33 | **The identity is the Couchverse logo** (2026-10-13, supersedes D27): the app's own logo (a couch with a popcorn bucket on it) and the wordmark `couchtv` in Plus Jakarta Sans ExtraBold at -0.035 em, lowercase, `couch` in white and `tv` in the red #e50914 (as the app pairs `couchverse`); Plus Jakarta Sans only; red, near-black (#050505) and white with tonal depth; no taglines, ever. Four approved full idents (journey, cinematic, morph, assemble) all end the same way: the couch alone on black, a popcorn bucket drops onto it (gravity, a small rebound, the frame giving a little), the two become the logo, then `couch`, `t`, `v` type in. A stacked lockup (as the idents end) and a row lockup for small sizes (the corner bug, the promo tag, the web's overlays), drawn as paths. Epic in vision, clean and modern in execution: no brackets, flares, particles, chrome, squash-and-settle or cartoon sofas. Reference: `clients/broadcast/concepts` (local, untracked). |
+| D34 | **One sonic logo, A4 E5 D5** (the fifth, ninth and root of D major; morph's and assemble's, 2026-10-13) on `couch`, `t`, `v`: the beat after the landing, then half a beat apart at 75 bpm, the last note held while D add9 settles, on a felt piano, a glass halo and a bowed swell; every screen is scored with one generated house palette (warm detuned pads, felt piano, glass, bowed swells, sub, soft impacts, air, a long generated hall). The **short ident** (4.52 s) is the shared popcorn ending alone, opening on the couch alone in its lockup place; **stings** (2-6 s) are one design, the ending placed by their length (a whole logo resolving in when short, the popcorn drop from 3.2 s); the **promo tag** is the row lockup landing on the compact sonic logo; the **credits squeeze hands over into the short ident** (handover `ident`: the program shrinks onto the couch and dissolves into it, its last frame the ident's first). |
 | D35 | **All four full idents air, in turn** (2026-10-13). Journey, cinematic, morph and assemble, the four the owner approved, are the `ident` template's full cut (`design`), ported unchanged but for the sonic logo, A4 E5 D5 in all four (journey's and cinematic's motifs re-scored wherever they state it). The composer gives a break's first full ident the broadcast day's design (each day the next, so all four air within four days), the full idents a long gap repeats in the same break the designs after it, and the evergreen break always journey, so it is composed once. They render on the Pi, once per template version, at night: estimated 4 to 16 minutes each but cinematic, 65 to 116 (6.7); a render collects its canvas reads as it goes, which keeps it inside the sidecar's 1 GB. If cinematic's first render on the Pi runs past ~90 minutes, it ships pre-rendered. |
 | D36 | **Bulletins bind late, in slots of the breaks.** A break that carries a bulletin keeps a fixed-length slot for it after the promos and the lineup, before up next, holding a fallback of exactly that length (promos and stings, renderable ahead like any part), so the break is composed, rendered and assembled complete on its own. It is assembled in sections around its slots (a package each), its sound mixed per section so nothing rings across a slot's edge and each slot normalized on its own. When the live stream puts the break on air, a slot that airs whole takes the newest rendered bulletin still valid when the slot ends, at the slot's loudness, else its fallback; pinned, it never changes (6.10). |
 | D37 | **When the bulletins air** (defaults the owner tunes later): the news (20 s) in the breaks that end on the hour every two hours from 06:00 to midnight (06:00, 08:00 ... 24:00; the owner chose every two hours over every hour, 2026-10-13), the weather (15 s) in the first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the evening movie, never where a bulletin fetched on the grid 15 minutes before the break goes on air would have expired by its end; a break keeps a slot only beside the squeeze, the short ident, a short promo and the shortest up next. |
@@ -55,6 +57,7 @@ in section 3.
 | D39 | **D13 extended to the bulletins** (owner, 2026-10-13): English chrome (titles, labels, weekdays, times, the credits "Weather data by Open-Meteo.com", "Source: ČHMÚ", "Borders: ČÚZK / geoBoundaries (CC BY 4.0)", "Headlines from the outlets’ RSS feeds, as of 17:40"), ČHMÚ's English event and kraj names, Prague by its English name; the headlines stay Czech, whole and unaltered, each labelled with its outlet's name, since the outlets' terms forbid altering or shortening them and a translation would alter them. |
 | D40 | **Czechia's outline lives in the broadcast package**, a module generated from the server's `czechia.geojson` (`npm run outline`), not in every spec: it never changes from one bulletin to the next and a template's version covers a change; the spec carries the cities' positions and the map's credit. A forecast airs until midnight at the latest, since its days are named from the day it was fetched. |
 | D41 | **Screens show the title's own logo and real scenes** (owner, 2026-10-13: film logos and scenes, not only plain images; quality is the main focus). Every title in a spec carries its logo in the language of its name (else one not tied to a language) and, on every screen that shows it in motion (up next, the squeeze's next card, the lineup, the strip, short and full promos and their end cards), its analysed footage shots, the frame URLs the promo body uses, so each shot is extracted once for all of them; the squeeze's ending is the program itself. The production library was linked to TMDB before logos existed, so a backfill gives every linked title the logos it lacks (its content languages and English) once per backfill version, never replacing one. What a Pi draws on every frame stays bounded: logos within 1600 x 800 (stored within 2560 x 1280; TMDB's run to 12000 px wide), and the screens that render for every break take the backdrop 1920 wide, while the promo body, rendered once per title, keeps the original its stills crop into. |
+| D42 | **Sharp and flat** (owner, 2026-10-14): "ALL of the screens should be re-done in new CouchTV branding... It should be in a sharp (meaning no border-radius, modern and flat), with nice animations." No border radius anywhere (panels, cards, chips, the squeeze's program panel with its key and matte, the corner bug's marker and rule, the web's overlay): only the logo's own curves and the type stay round. Flat: no shadows, glows or bevels; night corner shades (radial gradients) keep type legible over a picture. Applies to every screen redone in the new brand (D33). |
 
 ---
 
@@ -519,7 +522,7 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   loudness of the program around it (clamped to -23..-16 LUFS), so breaks never blast.
 
 **Settled in Phase 3** (`couchtv.Compose`, `couchtv.Composer`; FEATURES.md "couchtv"):
-- **Order**: squeeze (`line` handover into the short ident; `expand` straight into up next
+- **Order**: squeeze (`ident` handover into the short ident; `expand` straight into up next
   when a break is too short for an ident, 17.5 to 22 s), ident (the full cut when the next
   program is the evening movie: `movie`, `premiere`, `saga`; its design the broadcast day's,
   D35), promos, then the lineup (only
@@ -850,18 +853,17 @@ break or the standby card.
 - `clients/broadcast/`: a small TypeScript bundle (Vite library build, no framework), using
   the generated design tokens and Plus Jakarta Sans. It is the productionized samples:
   `core` (timeline, curves and springs from the tokens, accent palette from the core's
-  derivation), `audio` (engine, synthesized SFX kit, the theme and sonic logo, beds,
-  ducking, voice bus reserved), `templates` (one module per template, data in, timeline
-  out).
+  derivation), `audio` (engine, synthesized SFX kit, the house instruments, beds, ducking,
+  voice bus reserved), `templates` (one module per template, data in, timeline out).
 - **Determinism rule**: every frame and every sample is a pure function of t and the data
   (seeded PRNG, no wall clock, no accumulated `requestAnimationFrame` state); a CI test
   renders golden frames and an audio hash.
 - The same bundle powers the admin **Broadcast preview** (live in the browser) and the
   sidecar's renders, so what the admin approves is what airs.
-- Templates (from the samples, D27): `ident` (full and short; the full cut in four designs
-  since D35), `sting`, `upnext`, `promo`
-  (moods `cinematic`, `grit`, `bright`; premiere variant; body plus end card), `strip`,
-  `shortPromo`, `lineup`, `squeeze`, `standby` ("Technical difficulties"), `evergreenEnd`.
+- Templates (from the samples, D27; the brand since D33 and D34): `ident` (full and short; the
+  full cut in four designs since D35), `sting`, `upnext`, `promo` (moods `cinematic`, `grit`,
+  `bright`; premiere variant; body plus end card), `strip`, `shortPromo`, `lineup`, `squeeze`,
+  `standby` ("Technical difficulties"), `evergreenEnd`.
 
 **Settled while building it (Phase 2)**; the full reference is FEATURES.md "Broadcast package".
 - **Tokens**: `cargo xtask codegen` writes `clients/broadcast/src/generated/tokens.ts` (colours,
@@ -878,8 +880,9 @@ break or the standby card.
   (`{eyebrow, day, time}`); beds as `{url, in, out}` in WAV, FLAC or Ogg Opus (open-source
   Chromium has no AAC); footage as 25 fps JPEG frame URLs per shot.
 - **Durations**: full ident 10.52 s and short ident 4.52 s (the reel's 10.5 and 4.5 s grid
-  cuts rounded to whole frames); the expand squeeze 11.52 s, the cursor squeeze 10.6 s; stings
-  any whole number of frames from 2 to 6 s (the hold absorbs it), so a gap can be closed by one
+  cuts rounded to whole frames); the expand squeeze 11.52 s, the ident squeeze 10.6 s; stings
+  any whole number of frames from 2 to 6 s (one design scales to it: from 3.2 s the popcorn
+  drops onto the couch, shorter stings resolve the logo in), so a gap can be closed by one
   sting; up next 8 s by default (6 to 12); a promo body ends on a frame-aligned
   cut snapped to the bed (cinematic about 17 s, premiere about 19 s, grit about 13 s, bright
   about 13.5 s) and its end card is 4 s; the body is airing-independent by construction (a test
@@ -895,11 +898,12 @@ break or the standby card.
   and a `matte` layer carries the alpha; a colour key was rejected (JPEG and 4:2:0 fringe it).
 - **Static holds**: `isStatic` skips the holds between a whole-piece animation's keyframes
   (linear `motion`/`windows`) and steady animations, but today's templates keep subtle
-  motion in nearly every frame (a breathing LIVE dot, slow pushes, grain): only the held
-  lockup of the idents and stings is static, so the 6.7 budget should not count on skipped
-  frames. Freezing the rest would change the approved motion, so it stays.
-- **Brand isolation**: the lockup, corner bug, channel tag, sonic logo and theme, ident and
-  stings live in `src/brand`, so a redesign replaces that folder only.
+  motion in nearly every frame (slow pushes, grain): only the brand's still stretches (the
+  short ident's couch alone and its held lockup, a sting's holds; the bug's LIVE marker no
+  longer breathes) are static, so the 6.7 budget should not count on skipped frames. Freezing the
+  rest would change the approved motion, so it stays.
+- **Brand isolation**: the lockup, corner bug, channel tag, sonic logo, idents and stings
+  live in `src/brand`, so a redesign replaces that folder only.
 - **The full idents (D35)**: the four idents approved on 2026-10-13 are the full cut's
   `design`s, each in `src/brand/idents/<design>` with its picture and score, moved from the
   planning harness. Every frame renders as the harness renders it (263 of 263 pixel-equal per
@@ -911,19 +915,72 @@ break or the standby card.
   landed a quantum apart from render to render). Journey's and cinematic's motifs were re-scored
   to the sonic logo, A4 E5 D5; the old variant B full cut and its `posters` are gone. Cost and
   memory: 6.7.
-- **The brand (D27, ported from the reel)**: C()UCH TV with Saira bundled (no CDN), ident
-  variant B (full and short) and theme 1 as the sonic logo, its tag closing every promo and
-  stings of 2-6 s derived from it. The brackets are drawn as superellipses fitted to Saira's O
-  and scale whole, as the reel scaled the glyph. (The port first kept their stroke at the
-  lockup's weight when they hug a poster; on air that read as a thinner, different font
-  beside the words they frame, and the owner asked for the reel's brackets back on
-  2026-10-12: ident and sting version 3.) The short ident shows a stand-in poster card (the
-  spec's `posters` went with the old full cut, D35). Cuts sit on the frame
+- **The old brand (D27, ported from the reel; superseded by D33 and deleted once the stings, its
+  last users, moved to the new one: the bracket wordmark, the brass theme, Saira and the kit's
+  bracket knock and key click)**: C()UCH TV with Saira bundled (no CDN), ident variant B (full and
+  short) and theme 1 as the sonic logo, its tag closing every promo and stings of 2-6 s derived from
+  it. The brackets are drawn as superellipses fitted to Saira's O and scale whole, as the reel
+  scaled the glyph. (The port first kept their stroke at the lockup's weight when they hug a poster;
+  on air that read as a thinner, different font beside the words they frame, and the owner asked for
+  the reel's brackets back on 2026-10-12: ident and sting version 3.) The short ident shows a
+  stand-in poster card (the spec's `posters` went with the old full cut, D35). Cuts sit on the frame
   nearest their beat (at 25 fps a 120 bpm grid falls between frames). The squeeze's `cursor`
   handover (replacing `line`) ends on the short ident's first frame pixel for pixel. Measured
-  against the reel at 48 kHz, the theme matches within 0.1 dB in every band and 0.1 LU in
-  loudness. The engine's reverb is now the reel's generated hall (every template's version
-  moved to 2). `lockupSvg` gives the clients the lockup for their live overlays (FEATURES.md).
+  against the reel at 48 kHz, the theme matches within 0.1 dB in every band and 0.1 LU in loudness.
+  The engine's reverb is now the reel's generated hall (every template's version moved to 2).
+  `lockupSvg` gives the clients the lockup for their live overlays (FEATURES.md).
+- **The brand (D33, D34, built 2026-10-13)**, `src/brand` (FEATURES.md "Broadcast package",
+  "Brand"); the notes the screens built on it follow.
+  - **Colours**: `BRAND` in `wordmark.ts`: red #e50914 (the token accent; the logo and `tv`),
+    night #050505 (the field, the knockout), paper #f4ede4 (all type on air, as the screens'
+    design spec has it: morph's warm white), white #ffffff (the lockup's `couch`, as all four
+    approved endings draw it).
+  - **Type**: Plus Jakarta Sans only (`FONT_FAMILY`), the wordmark at 800 and -0.035 em as
+    outlines (`PARTS`); the bug's LIVE at 19 px 800 with 0.12 em tracking, uppercase.
+  - **The logo** (`glyph.ts`): the couch and the popcorn; the popcorn knocked out round its
+    `SILHOUETTE` by `LOGO_GAP` (28.5 logo units) is the app's logo.svg exactly (the short
+    ident, the stings, the tag, the static lockup). The full idents halo the whole popcorn path
+    by `GAP` (30), as their concepts did: under a pixel wider at the lockup's 540 px.
+  - **Lockups** (`geometry(size, layout)`, `size` the word's px): `stack` as the idents end
+    (on the stage: `STAGE` in `ending.ts`, the logo 540 px wide at (690, 222), the word at
+    184 px with its line box's top at 650, its advance centred); `row` 1.06 sizes tall and 5.63
+    wide (the logo 36/34 of the word's size, the word's line box sharing its top, the c 0.32
+    sizes from the logo).
+  - **The corner bug** (`bug`): its right edge on x 1824, its top on y 64, 40 px tall: the row
+    lockup at 34 (the logo 36 px tall), 18 px, a 2 x 26 px rule (paper 24), 18 px, a steady
+    10 px square red marker and LIVE (19 px 800, +0.12 em), 18 px, the clock (28 px 700,
+    -0.01 em, tabular), in paper, no plate; nothing in it moves, so a screen's held frames stay
+    still. A screen's grade shades the corner (`scrim` adds the shade where it does not: night
+    0.6 to 0.33 at 45 % to none, 760 x 300 from the corner). The web's live overlay draws the
+    same on the stream's 16:9 frame over the same shade.
+  - **Sharp and flat** (D42): no border radius but the logo's curves and the type (the squeeze's
+    program panel, its key rectangle and matte are square since squeeze version 6), no shadows,
+    glows or bevels; night corner shades are the one legibility device.
+  - **The channel tag** (`channelTag`): the row lockup 80 px tall in the tag slot (its right
+    edge on x 1824, its foot on y 1008); the couch fades in 0.7 s before `at` (0.4 s, sine), the
+    popcorn drops from rest 1.1 logo heights up over 0.42 s and lands at `at`, couch, t and v
+    type in at `at` + 0.4, 0.8, 1.2; still from `at` + 1.5.
+  - **Motion**: the approved ending's (`ending.ts`): the popcorn's fall is gravity from rest
+    (0.72 s, 760 px, tilting 14 degrees to 0), a 26 px rebound over 0.3 s, the frame's give
+    (7 px down at 0.18 of 0.36 s, -3, 1, 0, eased between), the couch pressed 7 px over 0.22 s;
+    type rises 40 px (couch, `out`) or 34 px from 1.2 times its size (t and v, `snap`) over
+    0.34 or 0.26 s, fading in with it: the lockup's type-in everywhere (idents, stings, the
+    tag). Everything else is on the screens' curves (`EASE` in `core/motion.ts`): `glide`
+    (0.16, 1, 0.3, 1) for entrances, `move` (0.65, 0, 0.35, 1) for a change of place, `dolly`
+    (0.6, 0, 0.2, 1), `leave` (0.5, 0, 0.75, 0) for exits, `sine` (0.37, 0, 0.63, 1) for light
+    and crossfades; never an overshoot. A half-frame shutter's motion blur on what the ending
+    moves.
+  - **Sound**: `src/audio/voices.ts`, one `house(kit, bus)` per piece and voices
+    `voice(house, when, ...)` with a seed: `piano` (felt), `pad` (detuned soft saws; `padSweep`
+    for the bus filter), `glass` (struck, or blooming with a longer `attack`), `bowed`, `sub`,
+    `impact`, `pulse` (a felted heartbeat), `air`, `inhale` and `riser` (into a hit),
+    `shimmer`, `fadeOut` (a ring-out). The sonic logo (`sonic.ts`): `SONIC` (notes, offsets,
+    chord), `BEAT` 0.8; `sonicLogo(house, first note)` (the full statement), `sonicSting(kit,
+    bus, first note, { lead })` (`lead` seconds of air and a low pad into the first note),
+    `sonicTag(kit, bus, first note, { gain })` (its popcorn lands half a beat before the first
+    note, its fall breathing in 0.42 s before that, so its cue goes 1 s early; `gain` 0.5 is
+    its level over a ducked bed) and `sonicChime(kit, bus, first note)`; `popcornBuild`,
+    `popcornFall` and `popcornLanding` for the moment before.
 
 ### 6.9 Presence, reactions, progress, analytics, ranks
 - **Hub**: an in-memory channel room (like couch's Hub, much simpler: no host). WebSocket
@@ -1142,11 +1199,14 @@ placeholders'.
   edge.
 - **The overlays** follow the core's cues on the picture's clock. The corner bug stays up
   through a program; the Now and Next captions show with the controls (D14; until 2026-10-12
-  the bug came with the controls and the captions for a few seconds each). Captions are lower
-  thirds in the broadcast's look (Saira caps, a red tag), above the bar and aside for the quick
-  reactions, with the live player's subtitles lifted over them. The lockup comes from the package's brand module, its fonts
-  from the package's loader once one is on screen, so pages with a lockup (home's card) never
-  load the templates or the audio engine.
+  the bug came with the controls and the captions for a few seconds each). Since D33 the bug is
+  the broadcast's own, drawn where a break burns its own into the picture, so a cut never moves
+  it, and the captions are in the brand's look (a red label, the title in 800 paper, the meta in
+  paper 72 %), above the bar and aside for the quick reactions, with the live player's subtitles
+  lifted over them. Sharp and flat (D42): the marks are square and nothing casts a shadow; the
+  bug and the captions sit on night corner shades, as the broadcast's bug and tag do. The
+  lockup comes from the package's brand module, in paths (no font to load), so pages with a
+  lockup (home's card) never load the templates or the audio engine.
 - **Reactions** reuse couch's emoji button and bundled picker, with five quick picks for one
   press (shown with focus as well as hover, for remotes); everyone's reactions rise up the
   left side with the sender's name.
@@ -1416,8 +1476,10 @@ below.) The follow-up is the next section.
   tried first.
 - **Static frames**: `isStatic` skips the holds between a whole-piece animation's keyframes, so
   the idents' and stings' held lockups are captured once (26 of the short ident's 113 frames,
-  16 of a 6 s sting's 150). Everything else keeps moving by design (the breathing dot, slow
-  pushes, grain), so freezing it was not done.
+  16 of a 6 s sting's 150; since D34 60 of the short ident's 113 and 63 of a 5 s sting's 125:
+  the couch alone, the logo before its type-in and the held lockup). Everything else keeps
+  moving by design (slow pushes, grain; the bug's LIVE marker no longer breathes), so freezing
+  it was not done.
 - **The short promo's rays** (a 2600 px masked conic gradient, rotating and scaling) were
   painted again at every frame's scale; `will-change` keeps their first raster (52 dB, the
   soft rays look the same). The hint everywhere scale animates was tried and dropped: it
@@ -1475,7 +1537,7 @@ squeeze no longer writes and reads its 288 extracted frames either. Unthrottled 
 - The squeeze's frame rim (above).
 
 **To re-measure on the Pi**: the commands above, unchanged (`scripts/couchtv-s2.sql` now has
-the current brand's lengths: the cursor squeeze of 265 frames, the short ident of 113, up next
+the current brand's lengths: the ident squeeze of 265 frames, the short ident of 113, up next
 of 222 to keep the break at 1500 frames). Record the per-clip fps from the `rendered a clip`
 lines, the break's render and assembly time, the peak memory and the validator's verdict here.
 
