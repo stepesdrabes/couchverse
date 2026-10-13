@@ -9976,6 +9976,23 @@
         }
       }
     },
+    "problem_soundtrack_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hudební katalog ukázku nedodal. Zkuste to později."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The music catalog did not deliver the preview. Try again later."
+          }
+        }
+      }
+    },
     "problem_source_deleted": {
       "extractionState": "manual",
       "localizations": {

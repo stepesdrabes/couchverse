@@ -592,6 +592,7 @@
     <string name="problem_server_outdated">Tento server je pro aplikaci příliš starý. Aktualizujte Couchverse na serveru.</string>
     <string name="problem_session_full">Tento gauč je plný.</string>
     <string name="problem_slot_out_of_order">Časy slotů musí během dne jít po sobě.</string>
+    <string name="problem_soundtrack_unavailable">Hudební katalog ukázku nedodal. Zkuste to později.</string>
     <string name="problem_source_deleted">Původní soubor byl po překódování odstraněn.</string>
     <string name="problem_timeout">Server neodpověděl včas.</string>
     <string name="problem_tls">Zabezpečené připojení k serveru selhalo.</string>

@@ -4,6 +4,7 @@ import type {
 	CouchTvAiringRender,
 	CouchTvAiringState,
 	CouchTvSlotPick,
+	CouchTvSoundtrackProvider,
 	CouchTvTitleMood,
 	MediaMarkerKind
 } from '$lib/generated/api';
@@ -75,6 +76,12 @@ const markers: Record<MediaMarkerKind, () => string> = {
 	credits_music: m.admin_couchtv_marker_credits_music
 };
 export const markerLabel = (kind: MediaMarkerKind) => markers[kind]();
+
+const catalogs: Record<CouchTvSoundtrackProvider, () => string> = {
+	itunes: m.admin_couchtv_soundtrack_catalog_itunes,
+	deezer: m.admin_couchtv_soundtrack_catalog_deezer
+};
+export const catalogLabel = (catalog: CouchTvSoundtrackProvider) => catalogs[catalog]();
 
 const dayIndex: Record<Day, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
 

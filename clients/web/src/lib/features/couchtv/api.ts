@@ -4,6 +4,8 @@
 export {
 	adminAnalyzeCouchTvTitle,
 	adminCouchTvRenderHealth,
+	// a soundtrack candidate's preview, played from the server's copy
+	adminCouchTvSoundtrackPreviewPath,
 	adminCouchTvWaveform,
 	adminGetCouchTv,
 	adminGetCouchTvTitle,
@@ -14,6 +16,7 @@ export {
 	adminListLibrary,
 	adminRegenerateDay,
 	adminRotateCouchTvLink,
+	adminSearchCouchTvSoundtracks,
 	adminSetCouchTvLink,
 	adminUpdateAiring,
 	adminUpdateCouchTv,
@@ -36,6 +39,7 @@ export type {
 	CouchTvShot,
 	CouchTvSlotFill,
 	CouchTvSlotPick,
+	CouchTvSoundtrack,
 	CouchTvTitle,
 	CouchTvTitleUpdate,
 	CouchTvWaveform,

@@ -588,6 +588,7 @@
     <string name="problem_server_outdated">This server is too old for this app. Update Couchverse on the server.</string>
     <string name="problem_session_full">This couch is full.</string>
     <string name="problem_slot_out_of_order">Slot times must follow one another through the day.</string>
+    <string name="problem_soundtrack_unavailable">The music catalog did not deliver the preview. Try again later.</string>
     <string name="problem_source_deleted">The original file was removed after transcoding.</string>
     <string name="problem_timeout">The server took too long to answer.</string>
     <string name="problem_tls">A secure connection to the server failed.</string>

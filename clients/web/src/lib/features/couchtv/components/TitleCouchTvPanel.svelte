@@ -13,6 +13,7 @@
 	import {
 		adminAnalyzeCouchTvTitle,
 		adminGetCouchTvTitle,
+		adminSearchCouchTvSoundtracks,
 		adminUpdateCouchTvTitle,
 		type AdminTitle,
 		type CouchTvShot,
@@ -25,9 +26,11 @@
 	import MarkersEditor from './MarkersEditor.svelte';
 	import PromoAudioPicker, { type AudioPick } from './PromoAudioPicker.svelte';
 	import ShotsEditor from './ShotsEditor.svelte';
+	import SoundtrackPicker from './SoundtrackPicker.svelte';
 
-	// A title's Couch TV tools in its editor: off the channel, the promo's mood, soundtrack
-	// excerpt and footage, and its files' intro and credits markers.
+	// A title's Couch TV tools in its editor: off the channel, the promo's mood, its music (a
+	// soundtrack from the web or an excerpt of its own audio) and footage, and its files'
+	// intro and credits markers.
 	let { title }: { title: AdminTitle } = $props();
 
 	let ct = $state<CouchTvTitle | null>(null);
@@ -37,12 +40,15 @@
 	let mood = $state('');
 	let promo = $state<AudioPick | null>(null);
 	let promoAdmin = $state(false);
+	let soundtrack = $state<string | null>(null);
+	let soundtrackAdmin = $state(false);
 	let shots = $state<CouchTvShot[]>([]);
 	let shotsAdmin = $state(false);
 	const form = new FormState(() => ({
 		excluded,
 		mood,
 		promo: promoAdmin ? promo : null,
+		soundtrack: soundtrackAdmin ? soundtrack : null,
 		shots: shotsAdmin ? shots : null
 	}));
 
@@ -68,6 +74,8 @@
 				}
 			: null;
 		promoAdmin = next.promoAudio?.source === 'admin';
+		soundtrack = next.soundtrack?.soundtrackId ?? null;
+		soundtrackAdmin = next.soundtrack?.source === 'admin';
 		shots = next.shots;
 		shotsAdmin = next.shotsSource === 'admin';
 		form.reset();
@@ -78,12 +86,23 @@
 	async function load() {
 		try {
 			const next = await adminGetCouchTvTitle(title.title.id);
-			// an analysis landing does not overwrite edits in progress
+			// an analysis or a search landing does not overwrite edits in progress
 			if (!form.loaded || !form.dirty) adopt(next);
-			else if (ct) ct = { ...ct, analyzing: next.analyzing };
+			else if (ct) {
+				ct = {
+					...ct,
+					analyzing: next.analyzing,
+					promoBed: next.promoBed,
+					soundtrack: next.soundtrack,
+					soundtracks: next.soundtracks,
+					soundtrackQuery: next.soundtrackQuery,
+					soundtrackSearchedAt: next.soundtrackSearchedAt,
+					searchingSoundtrack: next.searchingSoundtrack
+				};
+			}
 			failed = false;
 			clearTimeout(poll);
-			if (next.analyzing) poll = setTimeout(load, 5000);
+			if (next.analyzing || next.searchingSoundtrack) poll = setTimeout(load, 5000);
 		} catch {
 			failed = true;
 		}
@@ -100,6 +119,7 @@
 		const body: CouchTvTitleUpdate = { excluded };
 		if (mood) body.mood = mood as CouchTvTitleUpdate['mood'];
 		if (promoAdmin && promo) body.promoAudio = promo;
+		else if (soundtrackAdmin && soundtrack) body.soundtrackId = soundtrack;
 		if (shotsAdmin && shots.length) {
 			body.shots = shots.map((s) => ({
 				mediaFileId: s.mediaFileId,
@@ -110,7 +130,7 @@
 		try {
 			adopt(await adminUpdateCouchTvTitle(title.title.id, body));
 			toast.success(m.common_saved());
-			if (ct?.analyzing) poll = setTimeout(load, 5000);
+			if (ct?.analyzing || ct?.searchingSoundtrack) poll = setTimeout(load, 5000);
 		} catch (err) {
 			toast.error(problemMessage(err, m.common_save_failed()));
 		} finally {
@@ -130,8 +150,31 @@
 		}
 	}
 
+	async function searchSoundtrack(query: string) {
+		try {
+			const next = await adminSearchCouchTvSoundtracks(title.title.id, query ? { query } : {});
+			if (ct) ct = { ...ct, searchingSoundtrack: next.searchingSoundtrack };
+			toast.success(m.admin_couchtv_soundtrack_search_queued());
+			clearTimeout(poll);
+			poll = setTimeout(load, 3000);
+		} catch (err) {
+			toast.error(problemMessage(err, m.admin_couchtv_soundtrack_search_failed()));
+		}
+	}
+
 	const source = (admin: boolean) =>
 		admin ? m.admin_couchtv_picked_by_admin() : m.admin_couchtv_picked_by_analysis();
+
+	// what the promos play once saved: an admin's pick, else what the finder or the
+	// analysis picked on its own
+	const bed = $derived.by(() => {
+		if (promoAdmin) return m.admin_couchtv_bed_excerpt_admin();
+		if (soundtrackAdmin) return m.admin_couchtv_bed_soundtrack_admin();
+		if (ct?.soundtrack?.source === 'auto' && ct.soundtrack.ready)
+			return m.admin_couchtv_bed_soundtrack_auto();
+		if (ct?.promoAudio?.source === 'auto') return m.admin_couchtv_bed_excerpt_auto();
+		return m.admin_couchtv_bed_nothing();
+	});
 </script>
 
 <!-- not a form: the markers and the pickers inside it act on their own -->
@@ -188,35 +231,62 @@
 			{#if files.length === 0}
 				<p class="text-xs text-faint">{m.admin_couchtv_no_files()}</p>
 			{:else}
-				<section class="space-y-3 border-t border-edge/50 pt-5">
+				<section class="space-y-5 border-t border-edge/50 pt-5">
 					<div class="flex flex-wrap items-center justify-between gap-2">
 						<h3 class="text-xs font-semibold tracking-widest text-faint uppercase">
 							{m.admin_couchtv_promo_audio()}
 						</h3>
 						<span class="flex items-center gap-2 text-xs text-muted">
-							{promo ? source(promoAdmin) : m.admin_couchtv_promo_audio_none()}
-							{#if promoAdmin}
+							{bed}
+							{#if promoAdmin || soundtrackAdmin}
 								<button
 									type="button"
 									class="text-accent-ink hover:underline"
-									onclick={() => (promoAdmin = false)}
+									onclick={() => {
+										promoAdmin = false;
+										soundtrackAdmin = false;
+									}}
 								>
-									{m.admin_couchtv_back_to_analysis()}
+									{m.admin_couchtv_back_to_automatic()}
 								</button>
 							{/if}
 						</span>
 					</div>
-					{#key `${title.title.id}:${adopted}`}
-						<PromoAudioPicker
-							{files}
-							{grants}
-							pick={promo}
-							onpick={(p) => {
-								promo = p;
-								promoAdmin = true;
-							}}
-						/>
-					{/key}
+					{#if ct.soundtrack && !ct.soundtrack.ready}
+						<p class="text-[11px] text-faint">{m.admin_couchtv_bed_preparing()}</p>
+					{/if}
+					<SoundtrackPicker
+						title={ct}
+						chosen={soundtrackAdmin ? soundtrack : null}
+						onchoose={(id) => {
+							soundtrack = id;
+							soundtrackAdmin = true;
+							// one bed: an admin's excerpt would play instead
+							promoAdmin = false;
+						}}
+						onsearch={searchSoundtrack}
+					/>
+					<div class="space-y-3">
+						<div class="flex flex-wrap items-baseline justify-between gap-2">
+							<h4 class="text-xs font-medium text-muted">{m.admin_couchtv_excerpt_heading()}</h4>
+							<span class="text-[11px] text-faint">
+								{promo ? source(promoAdmin) : m.admin_couchtv_promo_audio_none()}
+							</span>
+						</div>
+						<p class="text-[11px] text-faint">{m.admin_couchtv_excerpt_hint()}</p>
+						{#key `${title.title.id}:${adopted}`}
+							<PromoAudioPicker
+								{files}
+								{grants}
+								pick={promo}
+								onpick={(p) => {
+									promo = p;
+									promoAdmin = true;
+									soundtrackAdmin = false;
+								}}
+							/>
+						{/key}
+					</div>
 				</section>
 
 				<section class="space-y-3 border-t border-edge/50 pt-5">

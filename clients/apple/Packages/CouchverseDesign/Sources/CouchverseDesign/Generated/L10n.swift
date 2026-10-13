@@ -577,6 +577,7 @@ extension L10n {
     public static var problemServerOutdated: String { string("problem_server_outdated") }
     public static var problemSessionFull: String { string("problem_session_full") }
     public static var problemSlotOutOfOrder: String { string("problem_slot_out_of_order") }
+    public static var problemSoundtrackUnavailable: String { string("problem_soundtrack_unavailable") }
     public static var problemSourceDeleted: String { string("problem_source_deleted") }
     public static var problemTimeout: String { string("problem_timeout") }
     public static var problemTls: String { string("problem_tls") }

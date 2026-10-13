@@ -11,7 +11,8 @@ const actionByType: Record<string, () => string> = {
 	cleanup: m.jobs_action_cleanup,
 	couchtv_plan: m.jobs_action_couchtv_plan,
 	analyze_markers: m.jobs_action_analyze_markers,
-	couchtv_analyze: m.jobs_action_couchtv_analyze
+	couchtv_analyze: m.jobs_action_couchtv_analyze,
+	couchtv_soundtrack: m.jobs_action_couchtv_soundtrack
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
