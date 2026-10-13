@@ -95,6 +95,10 @@ describe('buildSpec', () => {
 			template: 'ident',
 			cut: 'full'
 		});
+		expect(buildSpec(opts({ template: 'identShort' }), null, null)).toEqual({
+			template: 'ident',
+			cut: 'short'
+		});
 		expect(buildSpec(opts({ template: 'sting', stingLength: 5 }), null, null)).toEqual({
 			template: 'sting',
 			duration: 5
@@ -113,15 +117,6 @@ describe('buildSpec', () => {
 		if (news?.template !== 'news') return;
 		expect(news.stories.map((s) => s.outlet)).toContain('iROZHLAS');
 		expect(news.credit).toContain('as of 17:02');
-	});
-
-	it('frames library posters in the ident', () => {
-		const spec = buildSpec(opts({ template: 'identShort' }), movie, null, [movie, series]);
-		expect(spec).toEqual({
-			template: 'ident',
-			cut: 'short',
-			posters: [movie.title.poster, series.title.poster]
-		});
 	});
 
 	it('phrases the airing in English', () => {

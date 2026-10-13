@@ -158,11 +158,13 @@ export interface IdentSpec extends Loudness {
 	/** The full cut (10.52 s, before the prime-time movie) or the short one (4.52 s). */
 	cut: 'full' | 'short';
 	/**
-	 * Poster image URLs (2:3) the brackets frame, in order: the full cut shows four, the short
-	 * cut one; fewer repeat, none shows a stand-in card.
-	 * @maxItems 4
+	 * The full cut's design (the channel rotates them, D35): `journey` (a dream panorama at
+	 * dusk), `cinematic` (a short film from a hilltop into a room), `morph` (four posters joined
+	 * by shape morphs) or `assemble` (the couch built from its geometry). Every design ends on
+	 * the same lockup. The short cut ignores it.
+	 * @default journey
 	 */
-	posters?: string[];
+	design?: 'journey' | 'cinematic' | 'morph' | 'assemble';
 }
 
 /** A gap filler in the ident's language: the lockup landing on the hook. */

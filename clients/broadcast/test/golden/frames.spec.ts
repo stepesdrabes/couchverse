@@ -6,9 +6,12 @@ import { load, openRender, pageErrors, seek } from './render';
 
 // chosen frames of every template (seconds into the clip)
 const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
-	['ident-full', [1.72, 2.2, 9]],
+	// the full idents: early, mid-way and the held lockup
+	['ident-journey', [1.2, 3.2, 9]],
+	['ident-cinematic', [1, 3.6, 9]],
+	['ident-morph', [1.6, 4.6, 9.5]],
+	['ident-assemble', [1.6, 4.4, 9]],
 	['ident-short', [1.12, 3.4]],
-	['ident-bare', [2.2]],
 	['sting-2', [1.2]],
 	['sting-3', [2]],
 	['sting-5', [3]],
@@ -156,6 +159,46 @@ test("the renderer's step shows the frame seek does and skips held ones", async 
 		expect((await page.screenshot()).equals(seeked), `t=${t}`).toBe(true);
 	}
 });
+
+// a full ident while it moves (a render averages sub-frames) and the frame its lockup holds
+// from; cinematic's film grain moves to the end
+const HELD: [FixtureName, number, number | null][] = [
+	['ident-journey', 3.2, 197],
+	['ident-cinematic', 3.6, null],
+	['ident-morph', 4.6, 224],
+	['ident-assemble', 4.4, 201]
+];
+
+for (const [name, moving, held] of HELD) {
+	test(`${name}: the renderer's step shows the frame seek does and skips the hold`, async ({
+		page
+	}) => {
+		const info = await load(page, FIXTURES[name]);
+		expect(info.duration).toBeCloseTo(10.52, 6);
+		const frames = Math.round(info.duration * 25);
+		// the first frame from which every frame is the one before it
+		const hold = await page.evaluate((n) => {
+			let from: number | null = null;
+			for (let i = n - 1; i > 0; i--) {
+				if (!window.couchtvRender.isStatic((i - 1) / 25, i / 25)) break;
+				from = i;
+			}
+			return from;
+		}, frames);
+		expect(hold).toBe(held);
+		for (const t of held === null ? [moving] : [moving, held / 25]) {
+			await seek(page, t);
+			const seeked = await page.screenshot();
+			await seek(page, 0);
+			expect(await page.evaluate((x) => window.couchtvRender.advance(x, -1), t)).toBe(true);
+			expect((await page.screenshot()).equals(seeked), `t=${t}`).toBe(true);
+		}
+		if (held !== null)
+			expect(
+				await page.evaluate((t) => window.couchtvRender.advance(t, t - 0.04), (held + 1) / 25)
+			).toBe(false);
+	});
+}
 
 test('a promo body does not depend on the airing', async ({ page }) => {
 	for (const mood of ['promo-cinematic', 'promo-grit-premiere', 'promo-bright'] as const) {

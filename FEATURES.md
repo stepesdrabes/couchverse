@@ -2264,8 +2264,8 @@ approves is what airs.
   `couchtv/czechia.geojson` (a unit test fails when they drift apart); Plus Jakarta Sans and Saira
   (OFL, latin and latin-ext; Saira's files are `@fontsource-variable/saira` 5.3.0's weight
   axis) are bundled in `src/assets/fonts` and registered by `ensureFonts`.
-- **Templates** (`template` in the spec): `ident` (`cut` full 10.52 s or short 4.52 s;
-  `posters`, up to four poster URLs the brackets frame, stand-in cards without), `sting` (gap
+- **Templates** (`template` in the spec): `ident` (`cut` full 10.52 s in one of four
+  `design`s, see "Full idents", or short 4.52 s), `sting` (gap
   filler, any whole number of frames from 2 to 6 s; the library is 2, 3 and 5 s), `upNext`
   (default 8 s, countdown), `promo` (moods `cinematic`, `grit`, `bright`; `premiere`; `part`
   `body`, `end` or `full`), `evergreenEnd` ("Coming up on Couch TV"), `stripPromo` (moods
@@ -2323,8 +2323,9 @@ approves is what airs.
   (not normalized), placed 0.5 s into its own context like every item after a break's first;
   `versions()` names every template's version (the sidecar publishes it, so the app keys clips
   without a browser). Today's templates keep some motion in nearly every frame (a breathing
-  dot, a slow push, grain): only the held lockup (a quarter of the short ident, a tenth of a
-  6 s sting) and a few lineup frames are static. The sidecar posts `renderAudio()`'s WAV back
+  dot, a slow push, grain): only the held lockups (a quarter of the short ident, a tenth of a
+  6 s sting, the last 1.6 to 2.6 s of the full idents but cinematic, whose grain moves to the
+  end) and a few lineup frames are static. The sidecar posts `renderAudio()`'s WAV back
   to its own server rather than moving base64 over CDP (a long break's sound is large).
 - **Determinism rule**: every frame and every audio sample is a function of t and the spec.
   Animations are paused Web Animations whose start is folded into `delay`, so a frame is the
@@ -2381,16 +2382,38 @@ approves is what airs.
   the reel's 120 bpm grid (D minor build, D major on the hit, the A4 D5 A5 G5 F#5 hook on brass,
   a D add9 final chord), `themeTag` (the hook condensed, the tags and stings) and `themeChime`
   (the hook on the glockenspiel, the standby card); its chords are checked against their keys
-  by a unit test. `ident.ts`: variant B "frame", full (lockup, the brackets burst out and frame
-  ON, 20:15, posters, a star, NOW, a play sign, MOVIES, SERIES, test-card RGB and the couch on
-  beat cuts over black, red and white fields, slam back into the O on the hit at 6.0, a beat of
-  red, the hook, TV at 7.25, the tagline typed at 8.0) and short (the squeeze's cursor becomes
-  the O, a one-bar sequence, the hit at 2.0, TV at 3.25), both from the reel's cue tables.
+  by a unit test. `ident.ts`: the `ident` template; its full cut is one of the full idents
+  (below), its short cut variant B "frame" (the squeeze's cursor becomes the O, a one-bar
+  sequence over black and red fields with a stand-in poster card, the hit at 2.0, TV at 3.25),
+  from the reel's cue table.
   `sting.ts`: the ident's finale on the tag's hook (from 3 s with the short ident's opening).
   **For clients** (D14 overlays), the package exports `lockupSvg({ size, ink, brand, onBrand,
   label })`, a pure function returning the static lockup as a standalone SVG string (one font
   size tall, about 4.96 wide; the letters are text in `DISPLAY_FAMILY`, so call `ensureFonts()`
   first, the brackets and block are paths); the broadcast's corner bug is drawn with it.
+- **Full idents** (`src/brand/idents`, D35): the `ident` template's full cut in four designs
+  (`design`, journey by default; `buildFullIdent`, `IDENT_DESIGNS` in the order the channel
+  rotates them), each in its own folder with its picture and score, ported from the planning
+  harness as approved on 2026-10-13: `journey` (one camera move through a dream panorama: dusk
+  dunes, the sun setting into the sea behind the couch, a city lighting up, the stars going out
+  like a cinema's lights), `cinematic` (a short film: the couch on a hilltop at dusk, a whip to
+  a lit window in town, a push into the room as it goes dark), `morph` (four flat posters,
+  night, sunset, space and a stage, each shape becoming the next) and `assemble` (the couch
+  built from its geometry: two circles orbiting into the arms, the dome, the slab, the feet).
+  Every one ends the same way: the couch alone on black, a popcorn bucket drops onto it
+  (gravity, a small rebound, the frame giving) and they are the Couchverse logo (`glyph.ts`: the
+  logo split into couch and popcorn, from `couchverse-glyph.json`), then "couch", "t", "v" rise
+  in, Plus Jakarta Sans ExtraBold with `tv` in red, on the sonic logo's three notes. The
+  pictures are drawn from t on a 1920x1080 canvas (assemble: sixteen stacked SVG copies); a
+  render (the dynamic gets `wait`) averages sub-frames over a half-frame shutter in linear light
+  and dithers, so motion blurs like film, and live playback draws one sample. Each score is
+  generated in Web Audio and scheduled as one cue built before an offline render starts, as the
+  approved renders built it: their voices start slow oscillators up to a period early, which a
+  cue scheduled shortly before it plays would start late. Journey's ping-pong echo is entered
+  through one delay only: Chromium pulls a feedback loop from wherever the graph first reaches
+  it and lags the edge into that node by a quantum, so a loop reached from two sides lagged its
+  repeats differently from render to render. Modules build nothing for the DOM as they load (the
+  web's unit tests import the package in Node).
 - **Adding a template**: add its spec interface to `spec.ts` and to `ClipSpec`; write
   `src/templates/<name>.ts` exporting a `Template` (`version` and `build(ctx, spec)` returning a
   `Timeline`; only `transform`, `opacity` and `visibility` animate; text from the spec goes in
@@ -2404,17 +2427,18 @@ approves is what airs.
   against the built render page for golden frames (480x270, `test/golden/__goldens__`, refresh
   with `npx playwright test --update-snapshots`; the `-long` fixtures carry the longest names
   and lines), and invariants: text that reads stays inside the title-safe width and on the
-  frame, a frame is a function of t, `advance` shows what `seek` shows and skips held frames, a
-  promo body does not depend on its airing, the end card continues the body on the next frame,
-  the key rectangle follows the panel, the `cursor` squeeze ends on the short ident's first frame
-  (pixel-equal), the wordmark's metrics are the bundled face's, two audio renders agree and hit
-  their loudness, the standby loop has no seam, an item's sound is the clip's faded into its
-  ring-out, a promo sounds the same whatever its airing, a bulletin's sound starts silent and
-  is over before its last frame, and items rendered alone and mixed
-  sound like the break rendered in one pass (within 0.1 LU item by item, 0.5 LU in every 400 ms
-  after the first second, 0.2 dB of true peak); a unit test pins the loudness numbers the
-  server's Go port reproduces. Stand-in media (gradient art, two footage shots,
-  a bed) are committed in `test/media` with the script that made them. `npm run dev` (port 5190)
+  frame, a frame is a function of t, `advance` shows what `seek` shows and skips held frames
+  (each full ident too, mid-motion and from where its lockup holds), the package loads without a
+  DOM, a promo body does not depend on its airing, the end card continues the body on the next
+  frame, the key rectangle follows the panel, the `cursor` squeeze ends on the short ident's
+  first frame (pixel-equal), the wordmark's metrics are the bundled face's, two audio renders
+  agree (each full ident's too) and hit their loudness, the standby loop has no seam, an item's
+  sound is the clip's faded into its ring-out, a promo sounds the same whatever its airing, a
+  bulletin's sound starts silent and is over before its last frame, and items rendered alone
+  and mixed sound like the break rendered in one pass (within 0.1 LU item by item, 0.5 LU in
+  every 400 ms after the first second, 0.2 dB of true peak); a unit test pins the loudness
+  numbers the server's Go port reproduces. Stand-in media (gradient art, two footage shots, a
+  bed) are committed in `test/media` with the script that made them. `npm run dev` (port 5190)
   plays every fixture.
 
 ## Backend dependency graph

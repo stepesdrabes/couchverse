@@ -13,7 +13,10 @@ test.beforeEach(async ({ page }) => openRender(page));
 test.afterEach(({ page }) => expect(pageErrors(page)).toEqual([]));
 
 const CASES: [string, Spec, number][] = [
-	['ident-full', FIXTURES['ident-full'], -18],
+	['ident-journey', FIXTURES['ident-journey'], -18],
+	['ident-cinematic', FIXTURES['ident-cinematic'], -18],
+	['ident-morph', FIXTURES['ident-morph'], -18],
+	['ident-assemble', FIXTURES['ident-assemble'], -18],
 	['promo-bright (bed, beats)', FIXTURES['promo-bright'], -18],
 	['squeeze-expand', { ...FIXTURES['squeeze-expand'], loudness: -23 }, -23],
 	['break', BREAK, -20]

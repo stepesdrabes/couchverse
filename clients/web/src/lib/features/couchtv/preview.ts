@@ -158,14 +158,6 @@ const sub = (t: PreviewTitle) =>
 				.filter(Boolean)
 				.join(' · ');
 
-/** The posters the ident frames: the chosen title's, then the following ones (four at most). */
-function identPosters(titles: (PreviewTitle | null)[]): { posters?: string[] } {
-	const posters = [
-		...new Set(titles.map((t) => t?.title.poster).filter((p): p is string => !!p))
-	].slice(0, 4);
-	return posters.length ? { posters } : {};
-}
-
 const day = (
 	label: string,
 	weekday: string,
@@ -259,7 +251,7 @@ const NEWS: NewsSpec = {
 
 /**
  * The spec for the chosen template; null while a title it needs is missing. `following` are the
- * library titles after the chosen one (the lineup's rows, the ident's posters).
+ * library titles after the chosen one (the lineup's rows).
  */
 export function buildSpec(
 	o: PreviewOptions,
@@ -271,9 +263,9 @@ export function buildSpec(
 	const when = airing(o.airs, o.time, o.day);
 	switch (o.template) {
 		case 'identFull':
-			return { template: 'ident', cut: 'full', ...identPosters([main, ...following]) };
+			return { template: 'ident', cut: 'full' };
 		case 'identShort':
-			return { template: 'ident', cut: 'short', ...identPosters([main, ...following]) };
+			return { template: 'ident', cut: 'short' };
 		case 'sting':
 			return { template: 'sting', duration: o.stingLength };
 		case 'standby':

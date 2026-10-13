@@ -4,6 +4,7 @@
 export { Player, type PlayerSnapshot, type PlayerState } from './player';
 export { Stage, type Layer } from './stage';
 export { TEMPLATES, TEMPLATE_NAMES } from './templates';
+export { IDENT_DESIGNS, type IdentDesign } from './brand/idents';
 export { PLACEHOLDER_BEDS } from './audio/placeholder';
 export { airing, DAY_NAMES, type AiringKind } from './airing';
 export { palette, pickAccent, type Palette } from './core/palette';

@@ -125,12 +125,7 @@ export function collectUrls(spec: unknown): { images: string[]; beds: string[] }
 		}
 		if (!v || typeof v !== 'object') {
 			// an empty URL is a title without that artwork: its stand-in is no failure
-			if (
-				v &&
-				typeof v === 'string' &&
-				(key === 'backdrop' || key === 'poster' || key === 'posters')
-			)
-				images.add(v);
+			if (v && typeof v === 'string' && (key === 'backdrop' || key === 'poster')) images.add(v);
 			return;
 		}
 		const o = v as Record<string, unknown>;

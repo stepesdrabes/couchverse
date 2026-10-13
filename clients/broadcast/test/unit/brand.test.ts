@@ -23,8 +23,7 @@ describe('the theme', () => {
 	});
 
 	it('cuts the idents to whole frames', () => {
-		expect(frame(GRID.full.D)).toBe(10.52);
-		expect(frame(GRID.short.D)).toBe(4.52);
+		expect(frame(GRID.D)).toBe(4.52);
 		// the tag's hook lands on frames wherever the tag starts on one
 		for (const r of HOOK.tagAt) expect(Math.abs(r * 25 - Math.round(r * 25))).toBeLessThan(1e-9);
 	});

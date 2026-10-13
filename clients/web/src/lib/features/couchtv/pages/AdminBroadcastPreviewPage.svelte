@@ -58,9 +58,7 @@
 
 	// only the titles the chosen template shows, so loading the others never reloads it
 	const following = $derived(
-		['lineup', 'identFull', 'identShort'].includes(o.template)
-			? lineupIds.map(preview).filter((t) => t !== null)
-			: []
+		o.template === 'lineup' ? lineupIds.map(preview).filter((t) => t !== null) : []
 	);
 	const spec = $derived(
 		buildSpec(o, preview(mainId), o.template === 'squeeze' ? preview(nextId) : null, following)

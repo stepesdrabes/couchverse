@@ -1,6 +1,6 @@
 // The Couch TV theme, "hybrid epic" (D27): a D minor build (i, bVI, bVII) lifting to D major on
-// the hit, the hook on brass, a D add9 final chord. Everything that sounds like the brand is
-// here: `themeScore` scores an ident cut, `themeTag` is the hook condensed (promo tags and
+// the hit, the hook on brass, a D add9 final chord. `themeScore` scores the short ident (the
+// full idents score themselves, brand/idents), `themeTag` is the hook condensed (promo tags and
 // stings), `themeChime` the hook alone on the glockenspiel (the standby card).
 //
 // Grid: 120 bpm (a beat is 0.5 s). Picture (ident.ts) and score both read GRID, so the brackets
@@ -36,17 +36,14 @@ import {
 import type { SoundFn } from '../core/timeline';
 
 export interface Grid {
-	cut: 'full' | 'short';
 	/** The cut's length in the score (the clip rounds it to whole frames). */
 	D: number;
 	hit: number;
 	final: number;
 }
 
-export const GRID: Record<Grid['cut'], Grid> = {
-	full: { cut: 'full', D: 10.5, hit: 6.0, final: 8.0 },
-	short: { cut: 'short', D: 4.5, hit: 2.0, final: 3.25 }
-};
+/** The short ident's grid (the full idents are designs of their own, brand/idents). */
+export const GRID: Grid = { D: 4.5, hit: 2.0, final: 3.25 };
 
 export const HOOK = {
 	notes: ['A4', 'D5', 'A5', 'G5', 'F#5'],
@@ -63,7 +60,6 @@ export const SCALES = {
 
 /** Every chord of the theme with the key it must belong to (a unit test checks them). */
 export const CHART = {
-	Dm: { notes: ['D2', 'A2', 'D3', 'F3'], key: 'D minor' },
 	Bb: { notes: ['Bb1', 'F2', 'Bb2', 'D3'], key: 'D minor' },
 	C: { notes: ['C2', 'G2', 'C3', 'E3'], key: 'D minor' },
 	Cstr: { notes: ['C3', 'G3', 'C4', 'E4'], key: 'D minor' },
@@ -78,7 +74,6 @@ export const CHART = {
 } as const satisfies Record<string, { notes: readonly string[]; key: keyof typeof SCALES }>;
 
 const C = (name: keyof typeof CHART) => CHART[name].notes.map(hz);
-const F = (names: string[]) => names.map(hz);
 const HOOKF = HOOK.notes.map(hz);
 
 export interface ScoreEvent {
@@ -96,204 +91,79 @@ function events() {
 	return { list, at };
 }
 
-/** The ident's score for one cut of the grid. */
+/** The short ident's score on its grid. */
 export function themeScore(k: Kit, g: Grid): ScoreEvent[] {
 	const { list, at } = events();
 	const H = g.hit;
 	const end = g.final;
 
 	// --- the build -----------------------------------------------------------------------------
-	if (g.cut === 'full') {
-		at(
-			0,
-			(w, b) => {
-				taikos(k, b, w, { gain: 0.3, f: 50, decay: 1.4 });
-				braam(k, b, w, C('Dm'), { gain: 0.24, dur: 2.2, drive: 1.3, open: [160, 1500, 520] });
-				subNote(k, b, w, hz('D1'), 1.8, { gain: 0.1, a: 0.05, r: 0.4 });
-			},
-			2
-		);
-		// low strings hold the tonic, then lean into the build
-		at(
-			0.05,
-			(w, b) =>
-				strings(k, b, w, F(['D2', 'A2', 'D3']), 5.7, {
-					gain: 0.112,
-					a: 1.2,
-					r: 0.2,
-					cutoff: 1400,
-					hp: 50,
-					swell: [
-						[0, 0.6],
-						[4, 1],
-						[5.8, 1.4]
-					]
-				}),
-			5.9
-		);
-		for (const [t, f, gn] of [
-			[1.0, 62, 0.16],
-			[1.5, 70, 0.22],
-			[1.75, 70, 0.16]
-		])
-			at(t, (w, b) => drum(k, b, w, { gain: gn, f, decay: 0.7, pan: -0.2, seed: seedOf(t) }));
-		at(
-			2.0,
-			(w, b) => {
-				taikos(k, b, w, { gain: 0.46, f: 47, decay: 1.4 });
-				braam(k, b, w, C('Bb'), { gain: 0.26, dur: 2.1, drive: 1.3, open: [170, 1800, 560] });
-				subNote(k, b, w, hz('Bb1'), 1.8, { gain: 0.09, a: 0.02, r: 0.3 });
-			},
-			2
-		);
-		for (const [t, f, gn, p] of [
-			[2.75, 88, 0.24, 0.3],
-			[3.0, 66, 0.3, -0.2],
-			[3.5, 88, 0.26, 0.35],
-			[3.75, 100, 0.22, -0.3]
-		])
-			at(t, (w, b) => drum(k, b, w, { gain: gn, f, decay: 0.6, pan: p, seed: seedOf(t, 2) }));
-		at(
-			4.0,
-			(w, b) => {
-				taikos(k, b, w, { gain: 0.5, f: 52, decay: 1.2 });
-				braam(k, b, w, C('C'), { gain: 0.27, dur: 1.9, drive: 1.35, open: [180, 2000, 600] });
-				subNote(k, b, w, hz('C2'), 1.8, { gain: 0.07, a: 0.02, r: 0.1 });
-				brass(k, b, w, C('Chorn'), 0.32, { gain: 0.242, bright: 0.7, r: 0.25, seed: 4 });
-			},
-			2
-		);
-		at(5.0, (w, b) =>
-			brass(k, b, w, C('Chorn'), 0.32, { gain: 0.286, bright: 0.9, r: 0.25, seed: 5 })
-		);
-		at(
-			4.0,
-			(w, b) =>
-				strings(k, b, w, C('Cstr'), 1.86, {
-					gain: 0.112,
-					a: 0.08,
-					r: 0.04,
-					trem: 0.7,
-					cutoff: 3600,
-					swell: [
-						[0, 0.5],
-						[1.86, 1.25]
-					]
-				}),
-			1.9
-		);
-		at(4.0, (w, b) =>
-			roll(k, b, w, w + 1.9, {
-				voice: 'drum',
-				f: 78,
-				gain: 0.3,
-				from: 0.35,
-				to: 1,
-				pitch: [1, 1.3],
-				verb: 0.25
-			})
-		);
-		at(5.0, (w, b) =>
-			roll(k, b, w, w + 0.9, {
-				voice: 'snare',
-				gain: 0.17,
-				from: 0.25,
-				to: 1,
-				grid: [0.125, 0.0625, 0.03125]
-			})
-		);
-		at(4.4, (w, b) => swell(k, b, w + 1.5, 1.5, { gain: 0.1 }));
-		at(4.0, (w, b) => shepard(k, b, w, 1.9, { gain: 0.045 }));
-		// the pulse: eighths on D, then sixteenths through B-flat and C, out a beat before the hit
-		at(0.5, (w, b) => {
-			const steps: SpiccatoStep[] = [];
-			for (let t = 0.5; t < 5.5 - 1e-6; t += t < 2 ? 0.25 : 0.125) {
-				const i = Math.round(t / 0.125);
-				const pat =
-					t < 2
-						? ['D2', 'D3']
-						: t < 4
-							? ['Bb1', 'Bb2', 'F2', 'Bb2']
-							: t < 5
-								? ['C2', 'C3', 'G2', 'C3']
-								: ['C3', 'G3', 'C4', 'G3'];
-				steps.push({
-					when: w + t - 0.5,
-					f: hz(pat[i % pat.length]),
-					gain: (0.05 + 0.07 * (t / 5.5)) * (i % 4 === 0 ? 1.3 : 1),
-					pan: i % 2 ? 0.25 : -0.25
-				});
-			}
-			spiccato(k, b, steps, { cutoff: [500, 3200], verb: 0.2 });
-		});
-	} else {
-		at(
-			0,
-			(w, b) => {
-				taikos(k, b, w, { gain: 0.42, f: 47, decay: 1.2 });
-				braam(k, b, w, C('Bb'), { gain: 0.25, dur: 1.1, drive: 1.3, open: [170, 1800, 560] });
-				subNote(k, b, w, hz('Bb1'), 0.9, { gain: 0.08, a: 0.02, r: 0.1 });
-			},
-			1
-		);
-		at(
-			1.0,
-			(w, b) => {
-				taikos(k, b, w, { gain: 0.46, f: 52, decay: 1.0 });
-				braam(k, b, w, C('C'), { gain: 0.26, dur: 0.95, drive: 1.35, open: [180, 2000, 600] });
-				subNote(k, b, w, hz('C2'), 0.85, { gain: 0.065, a: 0.02, r: 0.05 });
-				brass(k, b, w, C('Chorn'), 0.3, { gain: 0.264, bright: 0.8, r: 0.2, seed: 6 });
-				strings(k, b, w, C('Cstr'), 0.88, {
-					gain: 0.112,
-					a: 0.06,
-					r: 0.03,
-					trem: 0.7,
-					cutoff: 3600,
-					swell: [
-						[0, 0.6],
-						[0.88, 1.3]
-					]
-				});
-			},
-			1
-		);
-		at(0.25, (w, b) =>
-			roll(k, b, w, w + 1.65, {
-				voice: 'drum',
-				f: 78,
-				gain: 0.28,
-				from: 0.3,
-				to: 1,
-				pitch: [1, 1.3],
-				grid: [0.25, 0.125, 0.0625]
-			})
-		);
-		at(1.25, (w, b) =>
-			roll(k, b, w, w + 0.65, {
-				voice: 'snare',
-				gain: 0.16,
-				from: 0.3,
-				to: 1,
-				grid: [0.0625, 0.03125]
-			})
-		);
-		at(0.6, (w, b) => swell(k, b, w + 1.3, 1.3, { gain: 0.1 }));
-		at(0, (w, b) => shepard(k, b, w, 1.9, { gain: 0.045 }));
-		at(0, (w, b) => {
-			const steps: SpiccatoStep[] = [];
-			for (let t = 0; t < 1.5 - 1e-6; t += 0.125) {
-				const i = Math.round(t / 0.125);
-				const pat = t < 1 ? ['Bb1', 'Bb2', 'F2', 'Bb2'] : ['C3', 'G3', 'C4', 'G3'];
-				steps.push({
-					when: w + t,
-					f: hz(pat[i % 4]),
-					gain: (0.06 + 0.07 * (t / 1.5)) * (i % 4 === 0 ? 1.3 : 1),
-					pan: i % 2 ? 0.25 : -0.25
-				});
-			}
-			spiccato(k, b, steps, { cutoff: [700, 3200], verb: 0.2 });
-		});
-	}
+	at(
+		0,
+		(w, b) => {
+			taikos(k, b, w, { gain: 0.42, f: 47, decay: 1.2 });
+			braam(k, b, w, C('Bb'), { gain: 0.25, dur: 1.1, drive: 1.3, open: [170, 1800, 560] });
+			subNote(k, b, w, hz('Bb1'), 0.9, { gain: 0.08, a: 0.02, r: 0.1 });
+		},
+		1
+	);
+	at(
+		1.0,
+		(w, b) => {
+			taikos(k, b, w, { gain: 0.46, f: 52, decay: 1.0 });
+			braam(k, b, w, C('C'), { gain: 0.26, dur: 0.95, drive: 1.35, open: [180, 2000, 600] });
+			subNote(k, b, w, hz('C2'), 0.85, { gain: 0.065, a: 0.02, r: 0.05 });
+			brass(k, b, w, C('Chorn'), 0.3, { gain: 0.264, bright: 0.8, r: 0.2, seed: 6 });
+			strings(k, b, w, C('Cstr'), 0.88, {
+				gain: 0.112,
+				a: 0.06,
+				r: 0.03,
+				trem: 0.7,
+				cutoff: 3600,
+				swell: [
+					[0, 0.6],
+					[0.88, 1.3]
+				]
+			});
+		},
+		1
+	);
+	at(0.25, (w, b) =>
+		roll(k, b, w, w + 1.65, {
+			voice: 'drum',
+			f: 78,
+			gain: 0.28,
+			from: 0.3,
+			to: 1,
+			pitch: [1, 1.3],
+			grid: [0.25, 0.125, 0.0625]
+		})
+	);
+	at(1.25, (w, b) =>
+		roll(k, b, w, w + 0.65, {
+			voice: 'snare',
+			gain: 0.16,
+			from: 0.3,
+			to: 1,
+			grid: [0.0625, 0.03125]
+		})
+	);
+	at(0.6, (w, b) => swell(k, b, w + 1.3, 1.3, { gain: 0.1 }));
+	at(0, (w, b) => shepard(k, b, w, 1.9, { gain: 0.045 }));
+	at(0, (w, b) => {
+		const steps: SpiccatoStep[] = [];
+		for (let t = 0; t < 1.5 - 1e-6; t += 0.125) {
+			const i = Math.round(t / 0.125);
+			const pat = t < 1 ? ['Bb1', 'Bb2', 'F2', 'Bb2'] : ['C3', 'G3', 'C4', 'G3'];
+			steps.push({
+				when: w + t,
+				f: hz(pat[i % 4]),
+				gain: (0.06 + 0.07 * (t / 1.5)) * (i % 4 === 0 ? 1.3 : 1),
+				pan: i % 2 ? 0.25 : -0.25
+			});
+		}
+		spiccato(k, b, steps, { cutoff: [700, 3200], verb: 0.2 });
+	});
 
 	// --- the hit: D major ---------------------------------------------------------------------
 	at(
@@ -334,7 +204,7 @@ export function themeScore(k: Kit, g: Grid): ScoreEvent[] {
 			len
 		);
 	// the hook: trumpets at pitch, horns an octave below, a glockenspiel an octave above
-	const last = end - H - 1.25 + (g.cut === 'full' ? 0.9 : 0.6);
+	const last = end - H - 1.25 + 0.6;
 	HOOK.at.forEach((r, i) => {
 		const len = i < 4 ? HOOK.at[i + 1] - r - 0.02 : last;
 		const f = HOOKF[i];
@@ -398,7 +268,7 @@ export function themeScore(k: Kit, g: Grid): ScoreEvent[] {
 	at(
 		end,
 		(w, b) => {
-			taikos(k, b, w, { gain: g.cut === 'full' ? 0.45 : 0.4, f: 48, decay: 1.8 });
+			taikos(k, b, w, { gain: 0.4, f: 48, decay: 1.8 });
 			crash(k, b, w, { gain: 0.13, decay: 3 });
 			braam(k, b, w, C('Dhit'), {
 				gain: 0.22,
