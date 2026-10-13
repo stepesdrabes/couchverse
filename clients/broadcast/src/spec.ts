@@ -348,11 +348,11 @@ export interface SqueezeSpec extends Loudness {
 	/** The corner bug's clock; no bug without it. */
 	clock?: ClockTime;
 	/**
-	 * `expand` (11.52 s): the next picture grows to full frame; `cursor` (10.6 s): the program
-	 * collapses into the red cursor block the short ident opens on, its last frame the ident's
-	 * first.
+	 * `expand` (11.52 s): the next picture grows to full frame; `ident` (10.6 s): the program
+	 * shrinks onto the couch in its place in the lockup and dissolves into it, its last frame
+	 * the short ident's first.
 	 */
-	handover: 'expand' | 'cursor';
+	handover: 'expand' | 'ident';
 	/** The program's own sound from the credits, ducked under "Up next". */
 	bed?: Bed;
 }

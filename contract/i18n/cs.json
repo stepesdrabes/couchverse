@@ -287,7 +287,7 @@
 	"admin_couchtv_guest_link_url": "Odkaz ke sdílení",
 	"admin_couchtv_handover": "Přechod",
 	"admin_couchtv_handover_expand": "Další obraz se zvětší",
-	"admin_couchtv_handover_cursor": "Složí se do kurzoru znělky",
+	"admin_couchtv_handover_ident": "Zmenší se na gauč krátké znělky",
 	"admin_couchtv_health_assemblies": [
 		{
 			"declarations": [

@@ -73,7 +73,7 @@ func TestCouchTvRender(t *testing.T) {
 		frames int
 		spec   couchtv.Spec
 	}{
-		{couchtv.ClipSqueeze, 265, couchtv.Spec{Template: "squeeze", Ending: &title, Handover: "cursor",
+		{couchtv.ClipSqueeze, 265, couchtv.Spec{Template: "squeeze", Ending: &title, Handover: "ident",
 			Program: &couchtv.ProgramSource{Kind: "frames", Frames: couchtv.FramesURLs(fileID, creditsAt, 288)},
 			Next:    &couchtv.SqueezeNext{Title: title, Time: "20:15"}, Clock: "20:13",
 			Bed: &couchtv.Bed{URL: couchtv.AudioURL(fileID, creditsAt, 11*time.Second), In: 0, Out: 11}}},

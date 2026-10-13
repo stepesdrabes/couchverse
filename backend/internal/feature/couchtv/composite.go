@@ -14,11 +14,11 @@ import (
 )
 
 // The credits squeeze's program is composited by ffmpeg (plan 6.7): the page renders the
-// squeeze with its panel keyed (`program.kind = key`: transparent, the red of the cursor
-// handover at full strength), ffmpeg decodes the program itself and lays it over the
-// picture at the panel's rectangle, and the alpha is a matte drawn here from the same
-// rectangles. Chromium then never decodes a video frame: drawing them, the squeeze rendered
-// on the Pi at a third of the speed of a clip of graphics alone.
+// squeeze with its panel keyed (`program.kind = key`: transparent, the short ident's couch
+// drawn under it as the ident handover dissolves into it), ffmpeg decodes the program itself
+// and lays it over the picture at the panel's rectangle, and the alpha is a matte drawn here
+// from the same rectangles. Chromium then never decodes a video frame: drawing them, the
+// squeeze rendered on the Pi at a third of the speed of a clip of graphics alone.
 
 const stageWidth, stageHeight = 1920, 1080
 

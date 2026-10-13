@@ -255,7 +255,7 @@ test('the key rectangle follows the program panel', async ({ page }) => {
 test("the squeeze hands over on the short ident's first frame", async ({ page }) => {
 	const squeeze: SqueezeSpec = {
 		...(FIXTURES['squeeze-expand'] as SqueezeSpec),
-		handover: 'cursor'
+		handover: 'ident'
 	};
 	const info = await load(page, squeeze);
 	expect(info.duration).toBeCloseTo(10.6, 6);

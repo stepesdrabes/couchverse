@@ -165,11 +165,11 @@ describe('buildSpec', () => {
 	});
 
 	it('squeezes into the next title', () => {
-		const spec = buildSpec(opts({ template: 'squeeze', handover: 'cursor' }), movie, series);
+		const spec = buildSpec(opts({ template: 'squeeze', handover: 'ident' }), movie, series);
 		expect(spec).toMatchObject({
 			ending: { name: 'Iron Man' },
 			next: { title: { name: 'The Simpsons' } },
-			handover: 'cursor',
+			handover: 'ident',
 			program: { kind: 'standIn' }
 		});
 	});

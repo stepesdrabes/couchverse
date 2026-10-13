@@ -15,7 +15,7 @@ import (
 
 func TestKeyedSpec(t *testing.T) {
 	const file = "6f1c2c1e-6d55-4bb4-9a51-4f0b2f8f2d10"
-	squeeze := Spec{Template: "squeeze", Handover: "cursor",
+	squeeze := Spec{Template: "squeeze", Handover: "ident",
 		Program: &ProgramSource{Kind: "frames", Frames: FramesURLs(file, 1200*time.Second, 288)}}
 	spec, _ := json.Marshal(squeeze)
 	out, program, err := keyedSpec(spec)
@@ -26,7 +26,7 @@ func TestKeyedSpec(t *testing.T) {
 		t.Fatalf("program %+v", program)
 	}
 	var keyed Spec
-	if err := json.Unmarshal(out, &keyed); err != nil || keyed.Program.Kind != "key" || len(keyed.Program.Frames) != 0 || keyed.Handover != "cursor" {
+	if err := json.Unmarshal(out, &keyed); err != nil || keyed.Program.Kind != "key" || len(keyed.Program.Frames) != 0 || keyed.Handover != "ident" {
 		t.Errorf("keyed spec %s (%v)", out, err)
 	}
 

@@ -102,6 +102,7 @@ const CREDITS: [string, string][] = [
 export const squeeze: Template<SqueezeSpec> = {
 	version: 5,
 	build({ root, sound, assets }, spec) {
+		// `cursor` is this handover's old name, which squeezes composed before the rename carry
 		const toIdent = spec.handover !== 'expand';
 		const D = toIdent ? 10.6 : 11.52;
 		const tl = timeline(root, D);

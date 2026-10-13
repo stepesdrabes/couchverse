@@ -40,7 +40,7 @@ export interface PreviewOptions {
 	stripMood: 'bright' | 'dark';
 	premiere: boolean;
 	part: 'full' | 'body' | 'end';
-	handover: 'expand' | 'cursor';
+	handover: 'expand' | 'ident';
 	stingLength: number;
 	airs: AiringKind;
 	/** `HH:MM`. */

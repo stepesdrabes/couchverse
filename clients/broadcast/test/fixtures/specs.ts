@@ -378,7 +378,7 @@ export const FIXTURES = {
 		ending: TITLES.alley,
 		program: { kind: 'key' },
 		next: { title: TITLES.water, time: '22:30' },
-		handover: 'cursor'
+		handover: 'ident'
 	},
 	'squeeze-frames': {
 		template: 'squeeze',
@@ -569,7 +569,7 @@ export const BREAK: BreakSpec = {
 	template: 'break',
 	loudness: -20,
 	items: [
-		{ at: 0, spec: { ...FIXTURES['squeeze-expand'], handover: 'cursor' } },
+		{ at: 0, spec: { ...FIXTURES['squeeze-expand'], handover: 'ident' } },
 		{ at: 10.6, spec: FIXTURES['ident-short'] },
 		{ at: 15.12, spec: { ...FIXTURES['promo-bright'], loudness: -20 } }
 	]

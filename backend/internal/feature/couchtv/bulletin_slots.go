@@ -32,7 +32,7 @@ type Slot struct {
 
 // slotRestFrames is the least a break keeps beside its slots: the squeeze, the short ident, a
 // short promo and the shortest up next. A shorter break carries no bulletin.
-var slotRestFrames = squeezeCursorFrames + identShortFrames + shortPromoFrames + upNextSpan.min
+var slotRestFrames = squeezeIdentFrames + identShortFrames + shortPromoFrames + upNextSpan.min
 
 // keptSlots are the bulletins a break has room for, in order, and the frames they take:
 // the later ones go first when it is too short for all of them.

@@ -890,9 +890,9 @@
 					"type": "string",
 					"enum": [
 						"expand",
-						"cursor"
+						"ident"
 					],
-					"description": "`expand` (11.52 s): the next picture grows to full frame; `cursor` (10.6 s): the program collapses into the red cursor block the short ident opens on, its last frame the ident's first."
+					"description": "`expand` (11.52 s): the next picture grows to full frame; `ident` (10.6 s): the program shrinks onto the couch in its place in the lockup and dissolves into it, its last frame the short ident's first."
 				},
 				"bed": {
 					"$ref": "#/definitions/Bed",

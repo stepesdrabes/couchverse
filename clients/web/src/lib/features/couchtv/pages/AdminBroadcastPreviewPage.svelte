@@ -261,7 +261,7 @@
 				<Select
 					items={[
 						{ value: 'expand', label: m.admin_couchtv_handover_expand() },
-						{ value: 'cursor', label: m.admin_couchtv_handover_cursor() }
+						{ value: 'ident', label: m.admin_couchtv_handover_ident() }
 					]}
 					bind:value={o.handover}
 					class="w-full justify-between"

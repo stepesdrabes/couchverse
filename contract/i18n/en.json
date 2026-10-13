@@ -282,7 +282,7 @@
 	"admin_couchtv_guest_link_url": "Link to share",
 	"admin_couchtv_handover": "Handover",
 	"admin_couchtv_handover_expand": "Next picture expands",
-	"admin_couchtv_handover_cursor": "Collapses into the ident's cursor",
+	"admin_couchtv_handover_ident": "Shrinks onto the short ident's couch",
 	"admin_couchtv_health_assemblies": [
 		{
 			"declarations": [

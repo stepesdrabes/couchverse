@@ -44,6 +44,7 @@ describe('the spec schema', () => {
 		expect(validate({ ...FIXTURES['ident-morph'], design: 'frame' })).toBe(false);
 		expect(validate({ ...FIXTURES['ident-short'], posters: [] })).toBe(false);
 		expect(validate({ ...FIXTURES['squeeze-key'], handover: 'line' })).toBe(false);
+		expect(validate({ ...FIXTURES['squeeze-key'], handover: 'cursor' })).toBe(false);
 	});
 });
 
