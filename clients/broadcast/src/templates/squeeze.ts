@@ -25,9 +25,6 @@ import type { KeyRect } from '../core/timeline';
 import type { SqueezeSpec } from '../spec';
 import { glow, timeline, titlePalette, type Template, type TL } from './shared';
 
-/** The program panel's radius in its own (unscaled) pixels. */
-const RADIUS = 46;
-
 interface Box {
 	x: number;
 	y: number;
@@ -100,7 +97,7 @@ const CREDITS: [string, string][] = [
 ];
 
 export const squeeze: Template<SqueezeSpec> = {
-	version: 5,
+	version: 6,
 	build({ root, sound, assets }, spec) {
 		// `cursor` is this handover's old name, which squeezes composed before the rename carry
 		const toIdent = spec.handover !== 'expand';
@@ -228,7 +225,7 @@ export const squeeze: Template<SqueezeSpec> = {
 				y: v.y,
 				width: W * v.sx,
 				height: 1080 * v.sy,
-				radius: RADIUS * Math.min(v.sx, v.sy),
+				radius: 0,
 				opacity: alpha
 			};
 		};

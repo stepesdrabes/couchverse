@@ -42,7 +42,6 @@ canvas.ending {
 .bug-rule {
 	width: 2px;
 	height: 26px;
-	border-radius: 1px;
 	background: #3e3d3b;
 }
 .live {
@@ -60,7 +59,6 @@ canvas.ending {
 .live-dot {
 	width: 10px;
 	height: 10px;
-	border-radius: 50%;
 	background: var(--brand);
 }
 .clock {
