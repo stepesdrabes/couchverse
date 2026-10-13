@@ -376,6 +376,91 @@ func TestStripPromoFoot(t *testing.T) {
 	}
 }
 
+// fullDesigns are the designs of a break's full idents, in order.
+func fullDesigns(c Composition) []string {
+	var out []string
+	for _, p := range c.Parts {
+		if p.Kind == ClipIdentFull {
+			out = append(out, p.Spec.Design)
+		}
+		if p.Kind == ClipIdentShort && p.Spec.Design != "" {
+			out = append(out, "short:"+p.Spec.Design)
+		}
+	}
+	return out
+}
+
+// The full ident's designs take turns by broadcast day (D35): the prime-time ident is the
+// day's, the full idents a long gap repeats in the same break take the designs after it.
+func TestIdentDesigns(t *testing.T) {
+	next := func(d string) string {
+		return identDesigns[(slices.Index(identDesigns, d)+1)%len(identDesigns)]
+	}
+	// a week of prime-time breaks: each day the next design, all of them within four days
+	seen := map[string]bool{}
+	prev := ""
+	for d := range 7 {
+		in := breakAt(time.Date(2026, 10, 14+d, 20, 15, 0, 0, prague), time.Minute, FillMovie)
+		in.Day = time.Date(2026, 10, 14+d, 0, 0, 0, 0, prague)
+		c, err := Compose(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkComposition(t, in, c)
+		got := fullDesigns(c)
+		if len(got) != 1 || !slices.Contains(identDesigns, got[0]) {
+			t.Fatalf("day %d: full idents %v", d, got)
+		}
+		if prev != "" && got[0] != next(prev) {
+			t.Errorf("day %d: %s after %s, want %s", d, got[0], prev, next(prev))
+		}
+		if d < len(identDesigns) {
+			seen[got[0]] = true
+		}
+		prev = got[0]
+	}
+	if len(seen) != len(identDesigns) {
+		t.Errorf("the first %d days air %v", len(identDesigns), seen)
+	}
+
+	// a long gap with nothing to promote repeats the full ident in the designs that follow,
+	// after the prime-time one or on its own
+	day := time.Date(2026, 10, 16, 0, 0, 0, 0, prague)
+	first := identDesign(day, 0)
+	for _, tt := range []struct {
+		name string
+		end  time.Time
+		fill string
+	}{
+		{"before the movie", time.Date(2026, 10, 16, 20, 15, 0, 0, prague), FillMovie},
+		{"between reruns", time.Date(2026, 10, 16, 15, 25, 0, 0, prague), FillReruns},
+	} {
+		in := breakAt(tt.end, 3*time.Minute, tt.fill)
+		in.Day, in.Candidates = day, nil
+		c, err := Compose(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkComposition(t, in, c)
+		got := fullDesigns(c)
+		if len(got) < len(identDesigns)+1 || got[0] != first {
+			t.Fatalf("%s: full idents %v, want at least %d from %s", tt.name, got, len(identDesigns)+1, first)
+		}
+		for i := 1; i < len(got); i++ {
+			if got[i] != next(got[i-1]) {
+				t.Errorf("%s: %v does not take turns", tt.name, got)
+				break
+			}
+		}
+	}
+
+	// a break after midnight is the broadcast day before it
+	cfg := DefaultConfig()
+	if a, b := identDesign(cfg.dayOf(local("2026-10-17", "00:40")), 0), identDesign(cfg.dayOf(local("2026-10-16", "20:15")), 0); a != b {
+		t.Errorf("00:40 airs %s, the evening before %s", a, b)
+	}
+}
+
 func TestComposeEvergreen(t *testing.T) {
 	stills := []Shot{{Kind: "still", Image: "backdrop", From: &Crop{0, 0, 1, 1}}}
 	c := ComposeEvergreen([]Candidate{
@@ -385,6 +470,10 @@ func TestComposeEvergreen(t *testing.T) {
 	want := []string{ClipIdentFull, ClipPromoBody, ClipEvergreenEnd, ClipPromoBody, ClipEvergreenEnd, ClipIdentShort}
 	if !slices.Equal(kinds(c), want) {
 		t.Errorf("%v, want %v", kinds(c), want)
+	}
+	// one design whatever the day, so the evergreen break is composed once
+	if got := fullDesigns(c); !slices.Equal(got, []string{evergreenDesign}) {
+		t.Errorf("full idents %v, want %s", got, evergreenDesign)
 	}
 	if c.Frames != identFullFrames+330+340+2*endCardFrames+identShortFrames {
 		t.Errorf("%d frames", c.Frames)

@@ -880,14 +880,16 @@ server that does not send it). The admin settings page toggles it.
 - **Break composition** (Phase 3, `couchtv.Compose`, pure, rules in `compose_test.go`): a break
   is filled to the frame (25 fps) with the D17 mix: the credits squeeze (`line` into the
   ident; `expand` straight into up next when no ident fits), the short ident (the full one
-  before a prime-time movie, `movie`/`premiere`/`saga`), promos while they fit, the lineup
-  when the break ends on the hour and a promo still fits beside it, a slot for each bulletin
-  it carries (`BreakInput.Bulletins`: the news, 20 s, then the weather, 15 s; the later goes
-  first where the break would keep less than the squeeze, the short ident, a short promo and
-  the shortest up next beside them), and up next. A slot holds a fallback of exactly its
-  length (`slotFallback`): promos of titles the break does not promote yet (else of others),
-  each title once, a promo leaving nothing or room for a sting, closed with stings; its parts
-  carry the slot's kind (`Part.Slot`, `Composition.Slots`). Up next
+  before a prime-time movie, `movie`/`premiere`/`saga`, in the broadcast day's design: the four
+  take turns day by day, D35, and the full idents a long gap with nothing to promote repeats
+  in the same break take the designs after it), promos while they fit, the lineup when the
+  break ends on the hour and a promo still fits beside it, a slot for each bulletin it carries
+  (`BreakInput.Bulletins`: the news, 20 s, then the weather, 15 s; the later goes first where
+  the break would keep less than the squeeze, the short ident, a short promo and the shortest
+  up next beside them), and up next. A slot holds a fallback of exactly its length
+  (`slotFallback`): promos of titles the break does not promote yet (else of others), each
+  title once, a promo leaving nothing or room for a sting, closed with stings; its parts carry
+  the slot's kind (`Part.Slot`, `Composition.Slots`). Up next
   (6-12 s), the lineup (10-16 s) and stings (any whole number of frames from 2 to 6 s, as few
   as possible, before the lineup and up next first, then between promos) take up the rest;
   under 2 s nothing fits (the break fails over to the evergreen one). Promos are ranked by a
@@ -903,7 +905,8 @@ server that does not send it). The admin settings page toggles it.
   sound, a promo body's being its full promo; the sidecar mixes the items' sounds) at the
   loudness of the program before it (else after it), clamped to -23..-16 LUFS, -18 when
   unmeasured (`couchtv_titles.loudness_lufs`). `ComposeEvergreen` is the fallback: the full
-  ident, up to three rendered promo bodies with the evergreen end card, the short ident.
+  ident (always journey, so the evergreen break is not composed again every day), up to three
+  rendered promo bodies with the evergreen end card, the short ident.
 - **The `couchtv_compose` job** (`couchtv.Composer`, app): at startup, after every plan run and
   hourly, it composes every break of the next 24 hours that has no composition (a failed one
   again after 6 h), and keeps the standby card and an evergreen break of the current
@@ -1310,8 +1313,9 @@ server that does not send it). The admin settings page toggles it.
   `TestStripPromoFoot` and `TestCouchTvRandomPlayback` (the flag read by the library, a
   change in the title editor queueing a plan run);
   `couchtv/compose_test.go` (every gap up to half an hour filled exactly with valid specs, the
-  mix, promo ranking, clocks, loudness, phrases, the evergreen break, a title's logo and scenes
-  on every screen that shows it, the backdrops), `TestCouchTvComposeJob`
+  mix, promo ranking, clocks, loudness, phrases, the full ident's designs taking turns by
+  broadcast day and within a break, the evergreen break, a title's logo and scenes on every
+  screen that shows it, the backdrops), `TestCouchTvComposeJob`
   (a week of breaks composed on the seeded database, idempotent, assembly queued as clips
   render), `TestCouchTvComposedTitles` (every composed spec's titles: the logo in the name's
   language, scenes where they move, the backdrops' sizes), `couchtv/mediaserver_test.go` (the

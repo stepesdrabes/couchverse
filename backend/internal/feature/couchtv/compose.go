@@ -14,7 +14,8 @@ import (
 // one break spec. A normal break is the credits squeeze, an ident (the full cut before a
 // prime-time movie), as many promos as fit (a body with its end card, a short promo, or a
 // strip promo), the lineup in a break that ends on the hour, and up next; up next, the
-// lineup and stings (any whole number of frames from 2 to 6 s) absorb what is left.
+// lineup and stings (any whole number of frames from 2 to 6 s) absorb what is left. The full
+// ident comes in four designs that take turns by broadcast day (D35).
 
 // Template lengths in frames, as the broadcast package builds them.
 const (
@@ -48,6 +49,14 @@ const (
 
 // errTooShort means a gap no clip can fill (under a 2 s sting).
 var errTooShort = errors.New("couchtv: the break is shorter than the shortest sting")
+
+// identDesigns are the full ident's designs in the order they take turns (the broadcast
+// package's IDENT_DESIGNS).
+var identDesigns = []string{"journey", "cinematic", "morph", "assemble"}
+
+// evergreenDesign is the evergreen break's full ident: always the same one, so the break is
+// not composed and rendered again every day.
+const evergreenDesign = "journey"
 
 // BreakProgram is a program next to a break, as the break shows it.
 type BreakProgram struct {
@@ -94,6 +103,9 @@ type BreakInput struct {
 	Start  time.Time
 	Frames int
 	Loc    *time.Location
+	// Day is the broadcast day the break airs in (its date), which picks its full idents'
+	// designs.
+	Day    time.Time
 	Ending *BreakProgram
 	Next   *BreakProgram
 	// Later are the programs after Next, for the lineup.
@@ -149,6 +161,11 @@ func Compose(in BreakInput) (Composition, error) {
 	// left counts the flexible parts at their defaults; slack is what they can give back
 	left, slack := g, 0
 	normal := g >= squeezeCursorFrames+identShortFrames+upNextSpan.min
+	fulls := 0
+	full := func() Part {
+		fulls++
+		return fullIdent(identDesign(in.Day, fulls-1))
+	}
 
 	switch {
 	case in.Ending != nil && in.Next != nil && !normal && g >= squeezeExpandFrames+upNextSpan.min:
@@ -166,9 +183,9 @@ func Compose(in BreakInput) (Composition, error) {
 			left -= upNextSpan.def
 			slack += upNextSpan.def - upNextSpan.min
 		}
-		ident := identPart(false)
+		ident := shortIdent()
 		if in.Next != nil && primeTime(in.Next.Fill) && left+slack >= identFullFrames {
-			ident = identPart(true)
+			ident = full()
 		}
 		head = append(head, fixed(ident))
 		left -= ident.Frames
@@ -178,7 +195,7 @@ func Compose(in BreakInput) (Composition, error) {
 			left -= lineupSpan.def
 			slack += lineupSpan.def - lineupSpan.min
 		}
-		groups, left = promos(in, left, slack)
+		groups, left = promos(in, left, slack, full)
 		if len(bulletins) > 0 {
 			tail = slices.Insert(tail, len(tail)-1, slotPieces(in, bulletins, groups)...)
 		}
@@ -303,8 +320,8 @@ func fit(spans []span, need int) (sizes []int, stings int, ok bool) {
 
 // promos fills the space left (and the slack the flexible parts can give back) with
 // promos, the best candidates first; a gap longer than one round of the candidates starts
-// another after a short ident.
-func promos(in BreakInput, left, slack int) ([][]piece, int) {
+// another after a short ident. full makes the break's next full ident.
+func promos(in BreakInput, left, slack int, full func() Part) ([][]piece, int) {
 	ranked := rankCandidates(in)
 	var groups [][]piece
 	for round := 0; len(ranked) > 0; round++ {
@@ -319,7 +336,7 @@ func promos(in BreakInput, left, slack int) ([][]piece, int) {
 				if left+slack < n+identShortFrames {
 					continue
 				}
-				groups = append(groups, []piece{fixed(identPart(false))})
+				groups = append(groups, []piece{fixed(shortIdent())})
 				left -= identShortFrames
 			}
 			groups = append(groups, grp)
@@ -332,7 +349,7 @@ func promos(in BreakInput, left, slack int) ([][]piece, int) {
 	}
 	// a long gap with nothing to promote is the full ident on repeat, not a run of stings
 	for left >= identFullFrames+2*stingSpan.max {
-		groups = append(groups, []piece{fixed(identPart(true))})
+		groups = append(groups, []piece{fixed(full())})
 		left -= identFullFrames
 	}
 	return groups, left
@@ -434,10 +451,20 @@ func endsOnTheHour(in BreakInput) bool {
 	return in.Next != nil && in.Next.Start.In(in.Loc).Minute() == 0
 }
 
-func identPart(full bool) Part {
-	if full {
-		return Part{Kind: ClipIdentFull, Spec: Spec{Template: "ident", Cut: "full"}, Frames: identFullFrames}
-	}
+// identDesign is the design of a break's n-th full ident: the broadcast day picks the first
+// (each day the next design, so the four air within four days), the ones after it in the same
+// break take the designs that follow.
+func identDesign(day time.Time, n int) string {
+	days := int(civil(day).Unix() / (24 * 60 * 60))
+	k := len(identDesigns)
+	return identDesigns[((days+n)%k+k)%k]
+}
+
+func fullIdent(design string) Part {
+	return Part{Kind: ClipIdentFull, Spec: Spec{Template: "ident", Cut: "full", Design: design}, Frames: identFullFrames}
+}
+
+func shortIdent() Part {
 	return Part{Kind: ClipIdentShort, Spec: Spec{Template: "ident", Cut: "short"}, Frames: identShortFrames}
 }
 
@@ -562,7 +589,7 @@ func civil(t time.Time) time.Time {
 // the full ident, promo bodies with the evergreen end card, the short ident. Every clip
 // is airing-independent, so it is rendered once and kept.
 func ComposeEvergreen(bodies []Candidate) Composition {
-	seq := []piece{fixed(identPart(true))}
+	seq := []piece{fixed(fullIdent(evergreenDesign))}
 	for _, c := range bodies {
 		c.Fill = "" // a premiere's body says so; the evergreen break airs any time
 		body := promoBody(c)
@@ -574,6 +601,6 @@ func ComposeEvergreen(bodies []Candidate) Composition {
 			fixed(Part{Kind: ClipPromoBody, Spec: body, Frames: c.BodyFrames, Sound: &full, TitleID: c.TitleID}),
 			fixed(Part{Kind: ClipEvergreenEnd, Spec: end, Frames: endCardFrames, TitleID: c.TitleID}))
 	}
-	seq = append(seq, fixed(identPart(false)))
+	seq = append(seq, fixed(shortIdent()))
 	return assemble(BreakInput{}, seq)
 }

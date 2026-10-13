@@ -187,6 +187,7 @@ type SpecStory struct {
 type Spec struct {
 	Template string         `json:"template"`
 	Cut      string         `json:"cut,omitempty"`
+	Design   string         `json:"design,omitempty"`
 	Duration float64        `json:"duration,omitempty"`
 	Part     string         `json:"part,omitempty"`
 	Mood     string         `json:"mood,omitempty"`

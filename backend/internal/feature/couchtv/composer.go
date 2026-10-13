@@ -375,7 +375,8 @@ func (r *composition) sortedTitles() []string {
 // input is everything a break's composition depends on.
 func (r *composition) input(ctx context.Context, b Airing) (BreakInput, error) {
 	loc := r.cfg.location()
-	in := BreakInput{Start: b.StartsAt, Frames: framesOf((b.EndsAt.Sub(b.StartsAt)).Seconds()), Loc: loc, Recent: map[string]bool{}}
+	in := BreakInput{Start: b.StartsAt, Frames: framesOf((b.EndsAt.Sub(b.StartsAt)).Seconds()), Loc: loc,
+		Day: r.cfg.dayOf(b.StartsAt), Recent: map[string]bool{}}
 	var ending *program
 	for i := range r.programs {
 		p := &r.programs[i]

@@ -520,7 +520,8 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
 **Settled in Phase 3** (`couchtv.Compose`, `couchtv.Composer`; FEATURES.md "couchtv"):
 - **Order**: squeeze (`line` handover into the short ident; `expand` straight into up next
   when a break is too short for an ident, 17.5 to 22 s), ident (the full cut when the next
-  program is the evening movie: `movie`, `premiere`, `saga`), promos, then the lineup (only
+  program is the evening movie: `movie`, `premiere`, `saga`; its design the broadcast day's,
+  D35), promos, then the lineup (only
   when the break ends on the hour and a promo still fits beside it), stings, up next. The
   minimum is 22 s; under 2 s nothing fits and the break fails over to the evergreen one.
 - **Closing the gap**: up next (6-12 s), the lineup (10-16 s) and stings (2-6 s, as few as
@@ -561,8 +562,8 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   program before the break, else after it, clamped to -23..-16 LUFS, else -18. Clips render at
   the default -18 (their sound is only heard on its own); only the break spec carries the
   break's loudness.
-- **Evergreen**: the full ident, up to three rendered promo bodies (by title name) with the
-  evergreen end card, the short ident. The broadcast package has no generic up next, so the
+- **Evergreen**: the full ident (always journey), up to three rendered promo bodies (by title
+  name) with the evergreen end card, the short ident. The broadcast package has no generic up next, so the
   live stream cuts the evergreen break to the gap and loops the standby card past its end.
   It is recomposed whenever its clips' keys change; the newest assembled one is kept.
 - **Lifecycle**: the compose job runs at startup, after every plan run and hourly, composing
