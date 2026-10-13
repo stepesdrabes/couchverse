@@ -25,7 +25,8 @@ func breakAt(end time.Time, length time.Duration, nextFill string) BreakInput {
 	cands := []Candidate{
 		{TitleID: "soon", Title: specTitle("soon"), Airs: start.Add(2 * time.Hour), Fill: FillMovie, Mood: "cinematic", Shots: stills, BodyFrames: 415},
 		{TitleID: "later", Title: specTitle("later"), Airs: start.Add(50 * time.Hour), Fill: FillReruns, Mood: "bright", Shots: stills, BodyFrames: 330},
-		{TitleID: "strip", Title: specTitle("strip"), Airs: start.Add(20 * time.Hour), Fill: FillStrip, StripMood: "bright", StripCount: 2},
+		{TitleID: "strip", Title: specTitle("strip"), Airs: start.Add(20 * time.Hour), Fill: FillStrip, StripMood: "bright",
+			StripFoot: &StripFoot{Kind: "count", Count: 2}},
 		{TitleID: "unrendered", Title: specTitle("unrendered"), Airs: start.Add(5 * time.Hour), Fill: FillStrip, Mood: "grit", Shots: stills},
 		{TitleID: "next", Title: specTitle("next"), Airs: end, Fill: nextFill, Mood: "grit", Shots: stills, BodyFrames: 400},
 	}
@@ -248,6 +249,33 @@ func TestAiringPhrases(t *testing.T) {
 	}
 	if got := stripPhrase(dayNames, "18:00"); got.Eyebrow != "Every night" || len(got.Days) != 7 {
 		t.Errorf("nightly strip: %+v", got)
+	}
+}
+
+// A strip promo's foot counts the episodes "in order", which a series airing at random
+// does not keep, so its promo has none.
+func TestStripPromoFoot(t *testing.T) {
+	r := &composition{cfg: DefaultConfig(), titles: map[string]titleFacts{
+		"ordered": {Name: "Ordered"}, "random": {Name: "Random", Random: true},
+	}}
+	from := local("2026-10-14", "12:00")
+	for _, c := range []struct {
+		title, slot string
+		want        *StripFoot
+	}{
+		{"ordered", "sitcom-strip", &StripFoot{Kind: "count", Count: 2}},
+		{"random", "sitcom-strip", nil},
+		{"ordered", "early-strip", nil}, // one episode a day, nothing to count
+	} {
+		p := program{Airing: Airing{StartsAt: local("2026-10-14", "18:00"), Fill: FillStrip, Slot: c.slot}}
+		got := r.candidate(c.title, p, from)
+		if got.Strip == nil || fmt.Sprint(got.StripFoot) != fmt.Sprint(c.want) {
+			t.Errorf("%s in %s: strip %v, foot %+v, want %+v", c.title, c.slot, got.Strip, got.StripFoot, c.want)
+		}
+		grp, _ := promoPieces(got, stripPromoFrames)
+		if len(grp) != 1 || grp[0].part.Kind != ClipStripPromo || fmt.Sprint(grp[0].part.Spec.Foot) != fmt.Sprint(c.want) {
+			t.Errorf("%s in %s: the strip promo's foot is %+v", c.title, c.slot, grp)
+		}
 	}
 }
 

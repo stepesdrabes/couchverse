@@ -144,7 +144,8 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 		       coalesce(backdrop.id::text, ''), coalesce(backdrop.version, 0), coalesce(backdrop.accent, ''),
 		       coalesce(poster.id::text, ''), coalesce(poster.version, 0), coalesce(poster.accent, ''),
 		       coalesce(ct.mood, ''), coalesce(ct.shots, '[]'), coalesce(ct.promo_audio_file_id::text, ''),
-		       coalesce(ct.promo_audio_start_ms, 0), coalesce(ct.promo_audio_duration_ms, 0), coalesce(ct.loudness_lufs, 0)
+		       coalesce(ct.promo_audio_start_ms, 0), coalesce(ct.promo_audio_duration_ms, 0), coalesce(ct.loudness_lufs, 0),
+		       t.allow_random_playback
 		FROM titles t
 		`+art("backdrop")+`
 		`+art("poster")+`
@@ -162,7 +163,8 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 		var promoStart, promoLength int
 		var f titleFacts
 		if err := rows.Scan(&id, &f.Name, &f.Year, &f.Runtime, &f.Tagline, &backdrop, &bdVersion, &bdAccent,
-			&poster, &poVersion, &poAccent, &f.Mood, &shots, &promoFile, &promoStart, &promoLength, &f.Loudness); err != nil {
+			&poster, &poVersion, &poAccent, &f.Mood, &shots, &promoFile, &promoStart, &promoLength, &f.Loudness,
+			&f.Random); err != nil {
 			return nil, err
 		}
 		f.Genres = genres[id]

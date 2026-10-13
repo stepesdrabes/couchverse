@@ -56,6 +56,7 @@ func Plan(in PlanInput) []Airing {
 	for _, f := range in.Fixed {
 		if f.Kind == KindProgram {
 			fixed = append(fixed, f)
+			p.fixedAt[programKey(f)] = append(p.fixedAt[programKey(f)], f.StartsAt)
 		}
 	}
 	slices.SortStableFunc(fixed, func(a, b Airing) int { return a.StartsAt.Compare(b.StartsAt) })
@@ -171,6 +172,9 @@ type planner struct {
 	sagaMark  mark                 // the latest saga airing
 	strips    map[string]mark      // series id -> its latest strip or marathon episode
 	prevEnd   time.Time
+	// fixedAt are the starts of the fixed programs of the planned days by movie or
+	// episode id, which a random pick keeps clear of before they air
+	fixedAt map[string][]time.Time
 
 	out []Airing
 	day *dayState
@@ -200,6 +204,7 @@ func newPlanner(cfg CouchTvConfig, lib Library, history []Airing, cursors []Curs
 		lastPrime:  map[string]time.Time{},
 		lastSaga:   map[string]time.Time{},
 		strips:     map[string]mark{},
+		fixedAt:    map[string][]time.Time{},
 	}
 	for i := range lib.Movies {
 		if m := &lib.Movies[i]; m.onAir() > 0 {
@@ -349,11 +354,13 @@ type dayState struct {
 	prime      *Movie          // tonight's prime-time movie, for the encore
 	turns      map[string]int  // where each reruns rotation stands
 	held       map[string]bool // movies kept back for the premiere or the saga
+	seed       uint64
 	rng        *rand.Rand
 }
 
 func (p *planner) newDay(date time.Time, fixed, removed []Airing) *dayState {
 	slots := p.cfg.Template.slotsOn(date.Weekday())
+	seed := daySeed(date)
 	d := &dayState{
 		date:    date,
 		start:   p.cfg.dayStart(date),
@@ -363,7 +370,8 @@ func (p *planner) newDay(date time.Time, fixed, removed []Airing) *dayState {
 		removed: map[string]bool{},
 		turns:   map[string]int{},
 		held:    map[string]bool{},
-		rng:     daySeed(date),
+		seed:    seed,
+		rng:     rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)),
 	}
 	for _, f := range fixed {
 		if f.Slot != "" {
@@ -416,11 +424,19 @@ func (p *planner) newDay(date time.Time, fixed, removed []Airing) *dayState {
 }
 
 // daySeed makes a day's choices depend on its date alone.
-func daySeed(date time.Time) *rand.Rand {
+func daySeed(date time.Time) uint64 {
 	h := fnv.New64a()
 	h.Write([]byte(date.Format(time.DateOnly)))
-	seed := h.Sum64()
-	return rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
+	return h.Sum64()
+}
+
+// draw is an episode's place in the day's random order, from the day's seed and the
+// episode alone, so a random pick changes only when the episodes it chooses from do,
+// not when another choice of the day draws differently.
+func (d *dayState) draw(id string) uint64 {
+	h := fnv.New64a()
+	h.Write([]byte(id))
+	return rand.NewPCG(d.seed, h.Sum64()).Uint64()
 }
 
 func (p *planner) templateHas(fill string) bool {
@@ -438,6 +454,17 @@ func programKey(a Airing) string {
 // removed reports whether an admin took a movie or an episode (by id) off today.
 func (p *planner) removed(id string) bool {
 	return p.day != nil && p.day.removed[id]
+}
+
+// fixedIn reports whether a fixed program airs a movie or an episode (by id) in [from, to).
+func (p *planner) fixedIn(id string, from, to time.Time) bool {
+	return slices.ContainsFunc(p.fixedAt[id], func(t time.Time) bool { return !t.Before(from) && t.Before(to) })
+}
+
+// airsToday reports whether a movie or an episode (by id) aired earlier today or a fixed
+// program airs it today.
+func (p *planner) airsToday(id string) bool {
+	return !p.lastAired[id].Before(p.day.start) || p.fixedIn(id, p.day.start, p.day.end)
 }
 
 // filled reports whether the fixed programs carrying a slot already air all it would.

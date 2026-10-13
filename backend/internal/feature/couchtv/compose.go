@@ -74,13 +74,14 @@ type Candidate struct {
 	Fill    string
 	// Airing is the end card's and the short promo's phrase.
 	Airing SpecAiring
-	// Strip is set for a strip at a fixed time: the strip promo's phrase and its days.
-	Strip      *SpecAiring
-	StripCount int
-	Mood       string // the promo's: cinematic, grit, bright
-	StripMood  string // the strip promo's: bright, dark
-	Shots      []Shot
-	Bed        *Bed
+	// Strip is set for a strip at a fixed time: the strip promo's phrase and its days;
+	// StripFoot is the line under them, nil for none.
+	Strip     *SpecAiring
+	StripFoot *StripFoot
+	Mood      string // the promo's: cinematic, grit, bright
+	StripMood string // the strip promo's: bright, dark
+	Shots     []Shot
+	Bed       *Bed
 	// BodyFrames is the length of the title's rendered promo body; 0 until it is rendered.
 	BodyFrames int
 }
@@ -327,11 +328,8 @@ func promoPieces(c Candidate, left int) ([]piece, int) {
 	title := c.Title
 	switch {
 	case c.Strip != nil && left >= stripPromoFrames:
-		spec := Spec{Template: "stripPromo", Mood: c.StripMood, Title: &title, Airing: c.Strip,
+		spec := Spec{Template: "stripPromo", Mood: c.StripMood, Title: &title, Airing: c.Strip, Foot: c.StripFoot,
 			Duration: frameSeconds(stripPromoFrames), Bed: c.Bed}
-		if c.StripCount > 1 {
-			spec.Foot = &StripFoot{Kind: "count", Count: c.StripCount}
-		}
 		return []piece{fixed(Part{Kind: ClipStripPromo, Spec: spec, Frames: stripPromoFrames, TitleID: c.TitleID})}, stripPromoFrames
 	case c.Strip == nil && c.BodyFrames > 0 && left >= c.BodyFrames+endCardFrames:
 		body := promoBody(c)

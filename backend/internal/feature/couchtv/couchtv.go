@@ -88,9 +88,12 @@ type Movie struct {
 // Series is a published series with its airable episodes in broadcast order: seasons
 // ascending (specials left out), episodes ascending.
 type Series struct {
-	ID       string
-	Name     string
-	Genres   []string
+	ID     string
+	Name   string
+	Genres []string
+	// Random says its episodes may play in any order (titles.allow_random_playback), so
+	// its strips draw them at random instead of following a cursor.
+	Random   bool
 	Episodes []Episode
 }
 

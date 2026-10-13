@@ -102,6 +102,9 @@ func (p *planner) pick(s *daySlot, start, limit time.Time) (placement, bool) {
 	mode := p.readinessAt(start)
 	switch s.Fill {
 	case FillStrip, FillMarathon:
+		if ser := p.assigned[s.Key]; ser != nil && ser.Random {
+			return p.pickAtRandom(s, ser, start, limit, mode)
+		}
 		return p.pickInOrder(s, start, limit)
 	case FillReruns:
 		var soft time.Time
@@ -171,6 +174,56 @@ func (p *planner) pickInOrder(s *daySlot, start, limit time.Time) (placement, bo
 	return placement{ser.ID, ep.ID, ep.Media, s.Fill}, true
 }
 
+// pickAtRandom is a strip's or marathon's next episode of a series whose episodes may
+// air in any order, so it has no cursor: any episode that fits (randomEpisode). Too close
+// to air with nothing of it prepared, a prepared rerun stands in, as for a strip in order.
+func (p *planner) pickAtRandom(s *daySlot, ser *Series, start, limit time.Time, mode readiness) (placement, bool) {
+	for _, pass := range mode.passes() {
+		if ep, ok := p.randomEpisode(ser, start, limit, pass); ok {
+			return placement{ser.ID, ep.ID, ep.Media, s.Fill}, true
+		}
+		if pass == onlyReady {
+			if pl, ok := p.pickRerun(s.Key, p.series, start, limit, time.Time{}, FillReruns, onlyReady); ok {
+				return pl, true
+			}
+		}
+	}
+	return placement{}, false
+}
+
+// randomEpisode picks an episode of a series airing at random that fits before limit and
+// does not air today already: one that never aired, in the day's random order, else the
+// one aired longest ago, outside rerunGapDays first. One that a fixed program airs within
+// rerunGapDays after start goes last, since it would repeat that soon.
+func (p *planner) randomEpisode(ser *Series, start, limit time.Time, pass readiness) (Episode, bool) {
+	days := p.cfg.Rotation.RerunGapDays
+	since, until := start.AddDate(0, 0, -days), start.AddDate(0, 0, days)
+	unplanned := func(e Episode) bool { return !p.fixedIn(e.ID, start, until) }
+	tiers := []func(Episode) bool{
+		func(e Episode) bool { return p.lastAired[e.ID].IsZero() && unplanned(e) },
+		func(e Episode) bool { return p.lastAired[e.ID].Before(since) && unplanned(e) },
+		unplanned,
+		func(Episode) bool { return true },
+	}
+	for t, tier := range tiers {
+		var cands []Episode
+		for _, e := range ser.Episodes {
+			if tier(e) && p.fits(e.Media, start, limit) && !p.removed(e.ID) && !p.airsToday(e.ID) {
+				cands = append(cands, e)
+			}
+		}
+		cands = byReadiness(cands, func(e Episode) bool { return e.Ready }, pass)
+		if len(cands) == 0 {
+			continue
+		}
+		if t == 0 {
+			return slices.MinFunc(cands, func(a, b Episode) int { return cmp.Compare(p.day.draw(a.ID), p.day.draw(b.ID)) }), true
+		}
+		return slices.MinFunc(cands, func(a, b Episode) int { return p.lastAired[a.ID].Compare(p.lastAired[b.ID]) }), true
+	}
+	return Episode{}, false
+}
+
 // rerunPool is the series a reruns slot draws from: its pinned series, else those of
 // its genre, else every series.
 func (p *planner) rerunPool(s CouchTvSlot) []*Series {
@@ -195,9 +248,9 @@ func (p *planner) rerunPool(s CouchTvSlot) []*Series {
 }
 
 // pickRerun takes turns through the pool's series (from a seeded first one) and picks
-// an episode that fits: one that aired before but not within rerunGapDays, else any
-// not within it, else the one aired longest ago. With a soft end, the episode must be
-// at least half over by then.
+// an episode that fits: one that aired before (any, for a series airing at random) but
+// not within rerunGapDays, else any not within it, else the one aired longest ago. With
+// a soft end, the episode must be at least half over by then.
 func (p *planner) pickRerun(key string, pool []*Series, start, limit, soft time.Time, fill string, mode readiness) (placement, bool) {
 	if len(pool) == 0 {
 		return placement{}, false
@@ -207,10 +260,13 @@ func (p *planner) pickRerun(key string, pool []*Series, start, limit, soft time.
 		turn = p.day.rng.IntN(len(pool))
 	}
 	gap := start.AddDate(0, 0, -p.cfg.Rotation.RerunGapDays)
-	tiers := []func(Episode) bool{
-		func(e Episode) bool { at := p.lastAired[e.ID]; return !at.IsZero() && at.Before(gap) },
-		func(e Episode) bool { return p.lastAired[e.ID].Before(gap) },
-		func(Episode) bool { return true },
+	tiers := []func(*Series, Episode) bool{
+		func(s *Series, e Episode) bool {
+			at := p.lastAired[e.ID]
+			return (s.Random || !at.IsZero()) && at.Before(gap)
+		},
+		func(_ *Series, e Episode) bool { return p.lastAired[e.ID].Before(gap) },
+		func(*Series, Episode) bool { return true },
 	}
 	for _, pass := range mode.passes() {
 		for t, tier := range tiers {
@@ -218,7 +274,7 @@ func (p *planner) pickRerun(key string, pool []*Series, start, limit, soft time.
 				ser := pool[(turn+k)%len(pool)]
 				var cands []Episode
 				for _, e := range ser.Episodes {
-					if p.fits(e.Media, start, limit) && (soft.IsZero() || !start.Add(e.onAir()/2).After(soft)) && tier(e) &&
+					if p.fits(e.Media, start, limit) && (soft.IsZero() || !start.Add(e.onAir()/2).After(soft)) && tier(ser, e) &&
 						!p.removed(e.ID) {
 						cands = append(cands, e)
 					}

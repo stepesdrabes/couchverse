@@ -642,6 +642,369 @@ func TestReruns(t *testing.T) {
 	}
 }
 
+// randomLibrary has Toons, a series whose episodes may air in any order, beside Saga, one
+// that airs in order, and Filler for the reruns around them. Every episode runs about 22
+// minutes, so no filler fits the gap a block leaves before an anchor.
+func randomLibrary() testLibrary {
+	l := testLibrary{names: map[string]string{}}
+	l.series(1, "Toons", repeat(20, 60), 22, "Animation", "Comedy")
+	l.Series[0].Random = true
+	l.series(2, "Saga", repeat(10, 40), 22, "Drama")
+	l.series(3, "Filler", repeat(20, 200), 22, "Comedy")
+	return l
+}
+
+// randomConfig airs two Toons at 17:00 and two Saga at 18:00, between reruns of Filler.
+func randomConfig() CouchTvConfig {
+	cfg := DefaultConfig()
+	cfg.Template = CouchTvTemplate{Slots: []CouchTvSlot{
+		{Key: "open", Days: dayNames, Start: "06:00", Anchor: true, Fill: FillReruns, Titles: []string{uid(2, 3)}},
+		{Key: "toons", Days: dayNames, Start: "17:00", Anchor: true, Fill: FillStrip, Titles: []string{uid(2, 1)}, Count: 2},
+		{Key: "saga", Days: dayNames, Start: "18:00", Anchor: true, Fill: FillStrip, Titles: []string{uid(2, 2)}, Count: 2},
+		{Key: "late", Days: dayNames, Start: "19:00", Anchor: true, Fill: FillReruns, Titles: []string{uid(2, 3)}},
+	}}
+	return cfg
+}
+
+// aired is a past airing of an episode.
+func aired(ser Series, i int, at time.Time, fill string) Airing {
+	e := ser.Episodes[i]
+	return Airing{Kind: KindProgram, TitleID: ser.ID, EpisodeID: e.ID, MediaFileID: e.FileID, Fill: fill, Source: SourceAuto,
+		StartsAt: at, EndsAt: at.Add(e.Duration), State: StatePlanned}
+}
+
+// A strip of a series that may air in any order draws its episodes at random: those
+// that never aired first, none twice within rerunGapDays, the same rows again for an
+// unchanged day, while a strip in order goes on in order.
+func TestRandomStrips(t *testing.T) {
+	l := randomLibrary()
+	cfg := randomConfig()
+	toons := &l.Series[0]
+	// five episodes aired within the gap of the planned week, five long before it
+	var history []Airing
+	for i := range 10 {
+		at := local("2026-10-05", "17:00")
+		if i >= 5 {
+			at = local("2026-09-01", "17:00")
+		}
+		history = append(history, aired(*toons, i, at.Add(time.Duration(i%5)*25*time.Minute), FillStrip))
+	}
+	plan := func(from string, days int, history []Airing) []Airing {
+		return planWeek(l.Library, from, days, func(in *PlanInput) { in.Config, in.History = cfg, history })
+	}
+	week := plan("2026-10-12", 7, history)
+	checkTimeline(t, cfg, l, week)
+
+	strip := inSlot(week, "toons")
+	if len(strip) != 14 {
+		t.Fatalf("%d Toons in a week of two a day: %v", len(strip), l.labels(strip))
+	}
+	var order []int
+	for _, a := range strip {
+		i := indexOf(toons, a.EpisodeID)
+		if a.TitleID != toons.ID || a.Fill != FillStrip || i < 0 {
+			t.Fatalf("the Toons strip airs %s (%s)", l.label(a), a.Fill)
+		}
+		if i < 10 {
+			t.Errorf("%s at %s aired before, while 50 episodes never did", l.label(a), clock(a.StartsAt))
+		}
+		order = append(order, i)
+	}
+	if slices.IsSorted(order) {
+		t.Errorf("the strip airs in order: %v", l.labels(strip))
+	}
+	// whichever slot airs a Toons episode, it does not come back within the gap
+	last := map[string]time.Time{}
+	for _, a := range append(slices.Clone(history), programs(week)...) {
+		if a.TitleID != toons.ID {
+			continue
+		}
+		if at, ok := last[a.EpisodeID]; ok && a.StartsAt.Before(at.AddDate(0, 0, cfg.Rotation.RerunGapDays)) {
+			t.Errorf("%s at %s again, after %s", l.label(a), clock(a.StartsAt), at.Format(time.DateOnly))
+		}
+		last[a.EpisodeID] = a.StartsAt
+	}
+
+	// the strip in order is untouched
+	var saga []string
+	for _, a := range inSlot(week, "saga") {
+		saga = append(saga, l.label(a))
+	}
+	want := []string{"Saga S01E01", "Saga S01E02", "Saga S01E03", "Saga S01E04", "Saga S01E05", "Saga S01E06", "Saga S01E07",
+		"Saga S01E08", "Saga S01E09", "Saga S01E10", "Saga S02E01", "Saga S02E02", "Saga S02E03", "Saga S02E04"}
+	if !reflect.DeepEqual(saga, want) {
+		t.Errorf("Saga strip %v", saga)
+	}
+
+	// an unchanged week plans the same, and the days after the ones planned already come
+	// out the same when replanned on their own
+	if again := plan("2026-10-12", 7, history); !reflect.DeepEqual(again, week) {
+		t.Error("two plans of the same week differ")
+	}
+	thursday := cfg.dayStart(day("2026-10-15"))
+	past := slices.Clone(history)
+	for _, a := range programs(week) {
+		if a.StartsAt.Before(thursday) {
+			past = append(past, a)
+		}
+	}
+	later := slices.DeleteFunc(programs(week), func(a Airing) bool { return a.StartsAt.Before(thursday) })
+	if got := programs(plan("2026-10-15", 4, past)); !reflect.DeepEqual(got, later) {
+		t.Errorf("Thursday to Sunday replanned differ: %v, want %v", l.labels(inSlot(got, "toons")), l.labels(inSlot(later, "toons")))
+	}
+
+	// a draw changes only with its own episodes: ten more that never aired had aired
+	// long ago, and Monday airs the same two
+	monday := inSlot(onDay(cfg, week, "2026-10-12"), "toons")
+	more := slices.Clone(history)
+	for i := 10; len(more) < len(history)+10; i++ {
+		if !slices.ContainsFunc(monday, func(a Airing) bool { return a.EpisodeID == toons.Episodes[i].ID }) {
+			more = append(more, aired(*toons, i, local("2026-08-01", "17:00").Add(time.Duration(i)*25*time.Minute), FillReruns))
+		}
+	}
+	if got := inSlot(plan("2026-10-12", 1, more), "toons"); !reflect.DeepEqual(l.labels(got), l.labels(monday)) {
+		t.Errorf("with ten fewer episodes to draw from Monday airs %v, want %v", l.labels(got), l.labels(monday))
+	}
+}
+
+// On a library shaped like production's, the series the owner lets play at random keep
+// their strips (plan 5.1's lineup) and air them out of order without a repeat all week;
+// Dexter stays in order.
+func TestRandomOwnerWeek(t *testing.T) {
+	lib := ownerLibrary()
+	for i := range lib.Series {
+		switch lib.Series[i].Name {
+		case "Simpsonovi", "Městečko South Park", "Věřte nevěřte":
+			lib.Series[i].Random = true
+		}
+	}
+	cfg := DefaultConfig()
+	rows := planWeek(lib.Library, "2026-10-12", 7)
+	checkTimeline(t, cfg, lib, rows)
+	for slot, name := range map[string]string{"early-strip": "Věřte nevěřte", "sitcom-strip": "Simpsonovi",
+		"second-sitcom-strip": "Městečko South Park"} {
+		strip := inSlot(rows, slot)
+		var order []int
+		for _, a := range strip {
+			i := slices.IndexFunc(lib.Series, func(s Series) bool { return s.ID == a.TitleID })
+			if i < 0 || lib.Series[i].Name != name || a.Fill != FillStrip {
+				t.Fatalf("%s airs %s (%s)", slot, lib.label(a), a.Fill)
+			}
+			order = append(order, indexOf(&lib.Series[i], a.EpisodeID))
+		}
+		if len(strip) < 7 || slices.IsSorted(order) {
+			t.Errorf("%s: %v", slot, lib.labels(strip))
+		}
+	}
+	seen := map[string]string{}
+	for _, a := range programs(rows) {
+		i := slices.IndexFunc(lib.Series, func(s Series) bool { return s.ID == a.TitleID })
+		if i < 0 || !lib.Series[i].Random {
+			continue
+		}
+		if at, ok := seen[a.EpisodeID]; ok {
+			t.Errorf("%s at %s again, after %s", lib.label(a), clock(a.StartsAt), at)
+		}
+		seen[a.EpisodeID] = clock(a.StartsAt)
+	}
+	var dexter []string
+	for _, a := range programs(rows) {
+		if (a.Fill == FillStrip || a.Fill == FillMarathon) && lib.names[a.TitleID] == "Dexter" {
+			dexter = append(dexter, lib.names[a.EpisodeID])
+		}
+	}
+	if len(dexter) < 6 || !slices.IsSorted(dexter) || dexter[0] != "S01E01" {
+		t.Errorf("Dexter: %v", dexter)
+	}
+}
+
+// Once every episode aired, a strip at random airs the one aired longest ago, outside
+// rerunGapDays first, and never the same episode twice in a day.
+func TestRandomStripRepeats(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Template = CouchTvTemplate{Slots: []CouchTvSlot{
+		{Key: "open", Days: dayNames, Start: "06:00", Anchor: true, Fill: FillReruns, Titles: []string{uid(2, 3)}},
+		{Key: "strip", Days: dayNames, Start: "18:00", Anchor: true, Fill: FillStrip, Titles: []string{uid(2, 1)}, Count: 2},
+		{Key: "late", Days: dayNames, Start: "19:00", Anchor: true, Fill: FillReruns, Titles: []string{uid(2, 3)}},
+	}}
+	tests := []struct {
+		name     string
+		episodes int
+		history  func(Series) []Airing
+		check    func(t *testing.T, days [][]int)
+	}{
+		{"never aired first, then the one aired longest ago", 6, nil, func(t *testing.T, days [][]int) {
+			if first := slices.Concat(days[0], days[1], days[2]); len(slices.Compact(slices.Sorted(slices.Values(first)))) != 6 {
+				t.Errorf("the first three days air %v, not all six episodes", first)
+			}
+			for d := 3; d < len(days); d++ {
+				if !slices.Equal(days[d], days[d-3]) {
+					t.Errorf("day %d airs %v, want %v as aired three days before", d, days[d], days[d-3])
+				}
+			}
+		}},
+		{"outside the gap first", 6, func(ser Series) []Airing {
+			return []Airing{
+				aired(ser, 0, local("2026-10-09", "18:00"), FillStrip), aired(ser, 1, local("2026-10-09", "18:25"), FillStrip),
+				aired(ser, 2, local("2026-09-20", "18:00"), FillStrip), aired(ser, 3, local("2026-09-20", "18:25"), FillStrip),
+				aired(ser, 4, local("2026-09-21", "18:00"), FillStrip), aired(ser, 5, local("2026-09-21", "18:25"), FillStrip),
+			}
+		}, func(t *testing.T, days [][]int) {
+			if want := [][]int{{2, 3}, {4, 5}, {0, 1}, {2, 3}}; !reflect.DeepEqual(days[:4], want) {
+				t.Errorf("days %v, want %v", days[:4], want)
+			}
+		}},
+		{"the strip airs an episode once a day", 1, nil, func(t *testing.T, days [][]int) {
+			for d, eps := range days {
+				if !slices.Equal(eps, []int{0}) {
+					t.Errorf("day %d airs %v", d, eps)
+				}
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := testLibrary{names: map[string]string{}}
+			l.series(1, "Few", []int{tt.episodes}, 22, "Comedy")
+			l.Series[0].Random = true
+			l.series(3, "Filler", repeat(20, 200), 22, "Comedy")
+			few := &l.Series[0]
+			var history []Airing
+			if tt.history != nil {
+				history = tt.history(*few)
+			}
+			rows := planWeek(l.Library, "2026-10-12", 7, func(in *PlanInput) { in.Config, in.History = cfg, history })
+			checkTimeline(t, cfg, l, rows)
+			var days [][]int
+			for d := range 7 {
+				var eps []int
+				for _, a := range inSlot(onDay(cfg, rows, day("2026-10-12").AddDate(0, 0, d).Format(time.DateOnly)), "strip") {
+					if a.TitleID != few.ID || a.Fill != FillStrip {
+						t.Errorf("the strip airs %s (%s)", l.label(a), a.Fill)
+					}
+					eps = append(eps, indexOf(few, a.EpisodeID))
+				}
+				days = append(days, eps)
+			}
+			tt.check(t, days)
+		})
+	}
+}
+
+// Close to air a strip at random draws prepared episodes, and with none of the series
+// prepared a prepared rerun stands in; further out it draws from them all.
+func TestRandomStripReadiness(t *testing.T) {
+	l := randomLibrary()
+	cfg := randomConfig()
+	toons := &l.Series[0]
+	for i := range toons.Episodes {
+		toons.Episodes[i].Ready = i%3 == 0
+	}
+	now := local("2026-10-12", "16:00")
+	plan := func() []Airing {
+		return programs(planWeek(l.Library, "2026-10-12", 5, func(in *PlanInput) { in.Config, in.Now = cfg, now }))
+	}
+	unprepared := 0
+	for _, a := range inSlot(plan(), "toons") {
+		ready := toons.Episodes[indexOf(toons, a.EpisodeID)].Ready
+		switch {
+		case a.TitleID != toons.ID || a.Fill != FillStrip:
+			t.Errorf("the strip airs %s (%s) at %s", l.label(a), a.Fill, clock(a.StartsAt))
+		case !ready && a.StartsAt.Before(now.Add(prepareAhead)):
+			t.Errorf("unprepared %s at %s, while prepared episodes never aired", l.label(a), clock(a.StartsAt))
+		case !ready:
+			unprepared++
+		}
+	}
+	if unprepared == 0 {
+		t.Error("beyond 48 hours the strip drew prepared episodes only")
+	}
+
+	for i := range toons.Episodes {
+		toons.Episodes[i].Ready = false
+	}
+	for _, a := range inSlot(onDay(cfg, plan(), "2026-10-12"), "toons") {
+		if a.TitleID == toons.ID || a.Fill != FillReruns {
+			t.Errorf("an hour before air the strip airs %s (%s) with nothing of it prepared", l.label(a), a.Fill)
+		}
+	}
+}
+
+// A strip at random leaves out what an admin took off its day, counts a fixed program
+// toward itself, and keeps clear of episodes fixed later that day or within the gap after.
+func TestRandomStripRemovedAndFixed(t *testing.T) {
+	l := randomLibrary()
+	cfg := randomConfig()
+	toons := l.Series[0]
+	plan := func(set func(*PlanInput)) []Airing {
+		return planWeek(l.Library, "2026-10-12", 3, func(in *PlanInput) { in.Config = cfg; set(in) })
+	}
+	week := plan(func(*PlanInput) {})
+	mon := inSlot(onDay(cfg, week, "2026-10-12"), "toons")
+	tue := inSlot(onDay(cfg, week, "2026-10-13"), "toons")
+
+	removed := mon[0]
+	removed.State = StateReplaced
+	rows := plan(func(in *PlanInput) { in.Removed = []Airing{removed} })
+	checkTimeline(t, cfg, l, rows)
+	if got := inSlot(onDay(cfg, rows, "2026-10-12"), "toons"); len(got) != 2 ||
+		slices.ContainsFunc(programs(onDay(cfg, rows, "2026-10-12")), func(a Airing) bool { return a.EpisodeID == removed.EpisodeID }) {
+		t.Errorf("Monday's strip %v after removing %s", l.labels(got), l.label(removed))
+	}
+
+	// Monday's second episode is locked, the first fixed at 22:00 and Tuesday's first on
+	// Wednesday morning
+	locked := mon[1]
+	locked.ID, locked.Locked = "locked-1", true
+	late := aired(toons, indexOf(&toons, mon[0].EpisodeID), local("2026-10-12", "22:00"), "")
+	late.ID, late.Source = "admin-1", SourceAdmin
+	ahead := aired(toons, indexOf(&toons, tue[0].EpisodeID), local("2026-10-14", "10:00"), "")
+	ahead.ID, ahead.Source = "admin-2", SourceAdmin
+	rows = plan(func(in *PlanInput) { in.Fixed = []Airing{locked, late, ahead} })
+	checkTimeline(t, cfg, l, rows)
+	got := inSlot(onDay(cfg, rows, "2026-10-12"), "toons")
+	if len(got) != 2 || got[1].ID != locked.ID || got[0].EpisodeID == locked.EpisodeID || got[0].EpisodeID == late.EpisodeID {
+		t.Errorf("Monday's strip %v around the locked %s and %s at 22:00", l.labels(got), l.label(locked), l.label(late))
+	}
+	for _, f := range []Airing{late, ahead} {
+		if n := len(slices.DeleteFunc(programs(rows), func(a Airing) bool { return a.EpisodeID != f.EpisodeID })); n != 1 {
+			t.Errorf("%s airs %d times, though fixed once at %s", l.label(f), n, clock(f.StartsAt))
+		}
+	}
+}
+
+// Reruns of a series airing at random draw from all its episodes; those of a series in
+// order keep to the episodes that aired before.
+func TestRandomReruns(t *testing.T) {
+	l := randomLibrary()
+	toons, saga := l.Series[0], l.Series[1]
+	var history []Airing
+	for k, ser := range []Series{toons, saga} {
+		for i := range 20 {
+			history = append(history, aired(ser, i, local("2026-09-01", "06:00").Add(time.Duration(k*20+i)*25*time.Minute), FillReruns))
+		}
+	}
+	cfg := DefaultConfig()
+	cfg.Template = CouchTvTemplate{Slots: []CouchTvSlot{
+		{Key: "open", Days: dayNames, Start: "06:00", Anchor: true, Fill: FillReruns, Titles: []string{toons.ID, saga.ID}},
+		{Key: "late", Days: dayNames, Start: "12:00", Anchor: true, Fill: FillReruns, Titles: []string{uid(2, 3)}},
+	}}
+	rows := planWeek(l.Library, "2026-10-12", 1, func(in *PlanInput) { in.Config, in.History = cfg, history })
+	checkTimeline(t, cfg, l, rows)
+	fresh := 0
+	for _, a := range inSlot(rows, "open") {
+		switch {
+		case a.TitleID == saga.ID && indexOf(&saga, a.EpisodeID) >= 20:
+			t.Errorf("Saga reruns %s, which never aired, while aired episodes were left", l.label(a))
+		case a.TitleID == toons.ID && indexOf(&toons, a.EpisodeID) >= 20:
+			fresh++
+		}
+	}
+	if fresh == 0 {
+		t.Errorf("Toons reruns only episodes that aired before: %v", l.labels(inSlot(rows, "open")))
+	}
+}
+
 // Prime time rotates the library: a movie returns only after max(5, 0.8 x count)
 // days; matinees rerun recent prime-time movies.
 func TestMovieRotation(t *testing.T) {

@@ -437,7 +437,11 @@ func (r *composition) candidate(id string, p program, from time.Time) Candidate 
 		for _, s := range r.cfg.Template.Slots {
 			if s.Key == p.Slot && s.Anchor && s.Start != "" {
 				phrase := stripPhrase(s.Days, s.Start)
-				c.Strip, c.StripCount = &phrase, max(1, s.Count)
+				c.Strip = &phrase
+				// the foot says "2 episodes, in order", which a series airing at random does not keep
+				if s.Count > 1 && !t.Random {
+					c.StripFoot = &StripFoot{Kind: "count", Count: s.Count}
+				}
 			}
 		}
 	}
@@ -509,6 +513,8 @@ type titleFacts struct {
 	Shots    []analyzedShot
 	Promo    *Bed
 	Loudness float64
+	// Random says the series' episodes air in any order (titles.allow_random_playback).
+	Random bool
 }
 
 // analyzedShot is one footage shot couchtv_analyze picked (couchtv_titles.shots).

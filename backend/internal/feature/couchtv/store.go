@@ -114,8 +114,8 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 	}
 
 	rows, err = s.q.Query(ctx, `
-		SELECT t.id, t.name, e.id, s.season_number, e.episode_number, mf.id, mf.duration_seconds::float8, `+readySQL+`,
-		       `+creditsSQL+`, `+cutSQL+`
+		SELECT t.id, t.name, t.allow_random_playback, e.id, s.season_number, e.episode_number, mf.id,
+		       mf.duration_seconds::float8, `+readySQL+`, `+creditsSQL+`, `+cutSQL+`
 		FROM titles t
 		JOIN seasons s ON s.title_id = t.id AND s.season_number > 0
 		JOIN episodes e ON e.season_id = s.id
@@ -129,17 +129,19 @@ func (s *Store) Library(ctx context.Context) (Library, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var seriesID, name string
+		var random bool
 		var e Episode
 		var seconds float64
 		var credits *int
 		var cutMs, cutCredits int64
-		if err := rows.Scan(&seriesID, &name, &e.ID, &e.Season, &e.Number, &e.FileID, &seconds, &e.Ready, &credits, &cutMs, &cutCredits); err != nil {
+		if err := rows.Scan(&seriesID, &name, &random, &e.ID, &e.Season, &e.Number, &e.FileID, &seconds, &e.Ready, &credits,
+			&cutMs, &cutCredits); err != nil {
 			return Library{}, err
 		}
 		e.Duration, e.CreditsAt = secondsToDuration(seconds), msToDuration(credits)
 		e.Cut, e.CutCredits = time.Duration(cutMs)*time.Millisecond, time.Duration(cutCredits)*time.Millisecond
 		if n := len(lib.Series); n == 0 || lib.Series[n-1].ID != seriesID {
-			lib.Series = append(lib.Series, Series{ID: seriesID, Name: name, Genres: genres[seriesID]})
+			lib.Series = append(lib.Series, Series{ID: seriesID, Name: name, Genres: genres[seriesID], Random: random})
 		}
 		last := &lib.Series[len(lib.Series)-1]
 		last.Episodes = append(last.Episodes, e)
