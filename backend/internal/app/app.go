@@ -101,6 +101,10 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 		Stats:     ranksStore,
 		Settings:  set,
 	})
+	couchTvScheduler := &couchtv.Scheduler{Store: couchTvStore, Settings: set, Jobs: jobsStore, Changed: couchTvHub.ScheduleChanged}
+	// a series whose episodes may play at random airs its strips at random, so changing
+	// that queues a plan run for the days not frozen yet (catalog cannot import couchtv)
+	catalogStore.RandomPlaybackChanged = couchTvScheduler.Start
 
 	a := &App{
 		deps: server.Deps{
@@ -123,8 +127,7 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 			Couch:     couchHub,
 			Grants:    grants,
 			Downloads: downloads.NewStore(pool),
-			CouchTv: &couchtv.Scheduler{Store: couchTvStore, Settings: set, Jobs: jobsStore,
-				Changed: couchTvHub.ScheduleChanged},
+			CouchTv:   couchTvScheduler,
 
 			Markers:         markers,
 			CouchTvAnalysis: couchTvAnalysis,

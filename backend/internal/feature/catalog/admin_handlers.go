@@ -148,9 +148,23 @@ type updateTitleInput struct {
 type titleOutput struct{ Body *Title }
 
 func (h *AdminHandlers) Update(ctx context.Context, in *updateTitleInput) (*titleOutput, error) {
+	// the editor sends the random playback flag with every save of a series, so only a
+	// change of it is announced
+	var before *Title
+	if in.Body.AllowRandomPlayback != nil && h.store.RandomPlaybackChanged != nil {
+		var err error
+		if before, err = h.store.TitleByID(ctx, in.ID); err != nil {
+			return nil, err
+		}
+	}
 	t, err := h.store.UpdateTitle(ctx, in.ID, in.Body)
 	if err != nil {
 		return nil, err
+	}
+	if before != nil && before.AllowRandomPlayback != t.AllowRandomPlayback {
+		if err := h.store.RandomPlaybackChanged(ctx); err != nil {
+			return nil, err
+		}
 	}
 	return &titleOutput{Body: t}, nil
 }

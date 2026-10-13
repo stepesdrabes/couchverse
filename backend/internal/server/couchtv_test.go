@@ -318,6 +318,53 @@ func TestCouchTvConfigStored(t *testing.T) {
 	}
 }
 
+// TestCouchTvRandomPlayback checks that the channel reads whether a series may play at
+// random, and that the title editor queues a plan run when an admin changes it but not
+// for a save that leaves it as it was.
+func TestCouchTvRandomPlayback(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := context.Background()
+	st := couchtv.NewStore(env.pool)
+	random := func() bool {
+		t.Helper()
+		lib, err := st.Library(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		i := slices.IndexFunc(lib.Series, func(s couchtv.Series) bool { return s.ID == seriesID })
+		if i < 0 {
+			t.Fatal("the seeded series is not on the channel")
+		}
+		return lib.Series[i].Random
+	}
+	queued := func() int {
+		t.Helper()
+		var n int
+		if err := env.pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE type = $1 AND status = 'pending'`,
+			couchtv.PlanJob).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	save := func(body map[string]any) {
+		t.Helper()
+		if status, out, _ := env.request(t, env.clients["admin"], "PATCH", "/admin/titles/"+seriesID, body); status != 200 {
+			t.Fatalf("save: %d %s", status, out)
+		}
+	}
+	if !random() || queued() != 0 {
+		t.Fatalf("seeded: random %v with %d plan runs queued", random(), queued())
+	}
+	save(map[string]any{"overview": "Radio waves, shuffled.", "allowRandomPlayback": true})
+	if queued() != 0 {
+		t.Error("a save that keeps the flag queued a plan run")
+	}
+	save(map[string]any{"allowRandomPlayback": false})
+	if random() || queued() != 1 {
+		t.Errorf("turned off: random %v with %d plan runs queued", random(), queued())
+	}
+}
+
 // TestCouchTvPrune checks what the hourly cleanup keeps of the renders: an aired break
 // loses its package, an unused clip goes unless a waiting break uses it, only the newest
 // assembled evergreen break stays, and extracted media unused for weeks goes.
