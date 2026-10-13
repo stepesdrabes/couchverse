@@ -151,7 +151,9 @@ export const promo: Template<PromoSpec> = {
 		const tl = buildPromo(ctx, spec, airing);
 		if (spec.part !== 'full') {
 			const [a, b] = tl.parts[spec.part];
-			tl.parts = { clip: [a, b] };
+			// in a break the body's sound runs on through its end card (the break plays the full
+			// promo there), and an end card's words are seen, never heard, so it is the same sound
+			tl.parts = spec.part === 'body' ? { clip: [a, b], sound: tl.parts.full } : { clip: [a, b] };
 		}
 		return tl;
 	}

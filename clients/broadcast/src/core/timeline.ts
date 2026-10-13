@@ -81,7 +81,10 @@ export class Timeline {
 	duration: number;
 	readonly anims: Animation[] = [];
 	readonly cues: Cue[] = [];
-	/** Named windows of the timeline that render as separate clips (a promo's body and end). */
+	/**
+	 * Named windows of the timeline that render as separate clips (a promo's body and end);
+	 * `sound` is how far a clip's sound runs in a break when that is past the clip.
+	 */
 	parts: Record<string, [number, number]> = {};
 	/** Loops seamlessly: the audio render wraps its tail into its start. */
 	loop = false;

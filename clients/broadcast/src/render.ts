@@ -9,6 +9,7 @@ import { FPS } from './core/timeline';
 import {
 	buildBreak,
 	buildPiece,
+	renderItemAudio,
 	renderPieceAudio,
 	type AudioRender,
 	type Break,
@@ -21,6 +22,11 @@ import { TEMPLATE_NAMES, TEMPLATES } from './templates';
 export interface LoadResult {
 	/** Seconds, a whole number of frames. */
 	duration: number;
+	/**
+	 * Seconds the clip's sound lasts as an item of a break (where the next item starts), a whole
+	 * number of frames: its duration, but a promo body's runs on through its end card.
+	 */
+	soundDuration: number;
 	cues: Cue[];
 	fps: number;
 	width: number;
@@ -41,8 +47,11 @@ export interface CouchTvRender {
 	 * (`load` reports the same number for the spec's template).
 	 */
 	versions(): Record<TemplateName, number>;
-	/** Load a clip spec (picture and sound) or a break spec (sound only). */
-	load(spec: Spec): Promise<LoadResult>;
+	/**
+	 * Load a clip spec (picture and sound) or a break spec (sound only). `sound` builds a clip
+	 * for its sound alone, never shown.
+	 */
+	load(spec: Spec, options?: { sound?: boolean }): Promise<LoadResult>;
 	/** Show the clip's frame at t (seconds); resolves once it is painted. */
 	seek(t: number): Promise<void>;
 	/** Whether the clip's frames at t0 and t1 are identical (nothing animates in between). */
@@ -60,6 +69,13 @@ export interface CouchTvRender {
 	setLayer(layer: Layer): void;
 	/** The loaded clip's or break's sound: 48 kHz stereo float WAV at the spec's loudness. */
 	renderAudio(): Promise<ArrayBuffer>;
+	/**
+	 * The loaded clip's sound as an item of a break (48 kHz stereo float WAV): from its start,
+	 * faded out from `soundDuration` over the break's crossfade with its ring-out after that, at
+	 * the engine's level, not normalized. A break is these renders mixed at their starts, then
+	 * normalized.
+	 */
+	renderItemAudio(): Promise<ArrayBuffer>;
 	/** `renderAudio` as base64, for callers that can only move strings (CDP). */
 	renderAudioBase64(): Promise<string>;
 	/** Loudness of the last audio render. */
@@ -101,7 +117,7 @@ window.couchtvRender = {
 			TemplateName,
 			number
 		>,
-	async load(spec) {
+	async load(spec, { sound = false } = {}) {
 		piece?.dispose();
 		brk?.dispose();
 		piece = brk = null;
@@ -112,6 +128,7 @@ window.couchtvRender = {
 			return {
 				...base,
 				duration: brk.duration,
+				soundDuration: brk.duration,
 				cues: [],
 				version: 0,
 				loop: false,
@@ -119,12 +136,15 @@ window.couchtvRender = {
 				missing: []
 			};
 		}
-		piece = await buildPiece(stage, spec, new Kit());
-		await piece.seek(0);
-		await painted();
+		piece = await buildPiece(stage, spec, new Kit(), { hidden: sound });
+		if (!sound) {
+			await piece.seek(0);
+			await painted();
+		}
 		return {
 			...base,
 			duration: piece.duration,
+			soundDuration: piece.soundDuration,
 			cues: piece.cues,
 			version: piece.version,
 			loop: piece.loop,
@@ -146,6 +166,10 @@ window.couchtvRender = {
 	setLayer: (layer) => stage.setLayer(layer),
 	async renderAudio() {
 		const out = await audio();
+		return encodeWav(out.channels, out.sampleRate);
+	},
+	async renderItemAudio() {
+		const out = await renderItemAudio(clip());
 		return encodeWav(out.channels, out.sampleRate);
 	},
 	async renderAudioBase64() {

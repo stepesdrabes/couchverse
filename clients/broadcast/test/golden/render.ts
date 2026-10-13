@@ -2,6 +2,7 @@
 
 import { resolve } from 'node:path';
 import type { Page } from '@playwright/test';
+import { decodeWav } from '../../src/audio/wav';
 import type { LoadResult } from '../../src/render';
 import type { Spec } from '../../src/spec';
 
@@ -28,8 +29,21 @@ export async function openRender(page: Page) {
 	await page.waitForFunction(() => !!window.couchtvRender);
 }
 
-export function load(page: Page, spec: Spec): Promise<LoadResult> {
-	return page.evaluate((s) => window.couchtvRender.load(s), spec);
+export function load(page: Page, spec: Spec, options?: { sound?: boolean }): Promise<LoadResult> {
+	return page.evaluate(([s, o]) => window.couchtvRender.load(s, o), [spec, options] as const);
+}
+
+/** The loaded spec's sound (`renderAudio`) or its sound as a break item, as channels. */
+export async function sound(page: Page, method: 'renderAudio' | 'renderItemAudio') {
+	const b64 = await page.evaluate(async (m) => {
+		const bytes = new Uint8Array(await window.couchtvRender[m]());
+		let s = '';
+		for (let i = 0; i < bytes.length; i += 0x8000)
+			s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+		return btoa(s);
+	}, method);
+	const bytes = Buffer.from(b64, 'base64');
+	return decodeWav(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length)).channels;
 }
 
 export function seek(page: Page, t: number) {

@@ -1,6 +1,6 @@
 // A loaded clip: its timeline built on a stage layer, the window of the timeline it shows, and
 // the clip-relative operations both the renderer and the live player use. Also the offline
-// audio render, for one clip or a whole break.
+// audio render, for one clip, a clip as an item of a break, or a whole break.
 
 import { Assets } from './assets';
 import { SAMPLE_RATE, type Bus } from './audio/engine';
@@ -26,6 +26,11 @@ export interface Piece {
 	start: number;
 	/** Seconds, a whole number of frames. */
 	duration: number;
+	/**
+	 * Seconds the clip's sound lasts as an item of a break, a whole number of frames: its own
+	 * length, but a promo body's sound runs on through its end card.
+	 */
+	soundDuration: number;
 	version: number;
 	loop: boolean;
 	/** Cues relative to the clip. */
@@ -50,6 +55,7 @@ export async function buildPiece(
 	const [a, b] = tl.parts.clip ?? [0, tl.duration];
 	const start = a;
 	const duration = Math.round((b - a) * FPS) / FPS;
+	const soundDuration = Math.round(((tl.parts.sound?.[1] ?? b) - a) * FPS) / FPS;
 	const keyRect = (t: number) => (tl.keyRect ? tl.keyRect(start + t) : null);
 	if (tl.keyRect) {
 		// the matte layer's shape: the key rectangle as a pure function of t
@@ -77,6 +83,7 @@ export async function buildPiece(
 		assets: loaded,
 		start,
 		duration,
+		soundDuration,
 		version: template.version,
 		loop: tl.loop,
 		cues,
@@ -189,6 +196,60 @@ export function renderPieceAudio(piece: Piece): Promise<AudioRender> {
 			loop: piece.loop
 		}
 	);
+}
+
+/** How long an item's sound may ring out past its end: the crossfade and the hall's 3.2 s. */
+const ITEM_TAIL = 4;
+
+// ring-out under this (-120 dBFS) is cut from an item's render
+const SILENT = 1e-6;
+
+// An item renders this far into its context, as every item after a break's first did: the
+// compressors open a render clamped down for its first few hundred milliseconds, and a voice
+// may start up to a cycle of a 4.7 Hz vibrato before its note, which at 0 starts on the note.
+const PREROLL = 0.5;
+
+export interface ItemRender {
+	channels: Float32Array[];
+	sampleRate: number;
+}
+
+/**
+ * A clip's sound as an item of a break, the way one render of the whole break played it: its
+ * cues from its start, its buses faded out over `crossfade` from where its sound ends (where
+ * the next item starts) and the reverb ringing out under the next item, at the engine's own
+ * level. A break mixes its items' renders and normalizes the mix, so each item renders once,
+ * whatever break it airs in.
+ */
+export async function renderItemAudio(
+	piece: Piece,
+	{ crossfade = 0.3, tail = ITEM_TAIL } = {}
+): Promise<ItemRender> {
+	const length = Math.round(piece.soundDuration * SAMPLE_RATE);
+	const pre = Math.round(PREROLL * SAMPLE_RATE);
+	const ctx = new OfflineAudioContext(
+		2,
+		pre + length + Math.round(tail * SAMPLE_RATE),
+		SAMPLE_RATE
+	);
+	piece.kit.build(ctx);
+	const bus = piece.kit.bus();
+	bus.fade(0, PREROLL + piece.soundDuration, Math.max(0.01, crossfade));
+	const buffer = await renderSounds(
+		ctx,
+		piece.tl.soundsFrom(PREROLL, piece.start, bus, (i) => piece.kit.reseed(i))
+	);
+	let end = pre + length;
+	for (let c = 0; c < 2; c++) {
+		const d = buffer.getChannelData(c);
+		let i = d.length;
+		while (i > end && Math.abs(d[i - 1]) < SILENT) i--;
+		end = i;
+	}
+	return {
+		channels: [0, 1].map((c) => buffer.getChannelData(c).slice(pre, end)),
+		sampleRate: SAMPLE_RATE
+	};
 }
 
 export interface Break {

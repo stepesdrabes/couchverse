@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
-import type { Spec } from '../../src/spec';
+import { integratedLoudness, normalize, truePeak } from '../../src/audio/loudness';
+import type { ClipSpec, PromoSpec, Spec } from '../../src/spec';
 import { BREAK, FIXTURES } from '../fixtures/specs';
-import { load, openRender, pageErrors, renderTwice } from './render';
+import { load, openRender, pageErrors, renderTwice, sound } from './render';
 
 // Two renders differ by float noise only: under 1e-5 on macOS, but Linux Chromium's
 // convolution reverb is not bit-exact between renders (up to about 1.5e-4), so the bar is
@@ -29,6 +30,104 @@ for (const [name, spec, target] of CASES) {
 		expect(out.report?.truePeak).toBeLessThanOrEqual(-1 + 1e-6);
 	});
 }
+
+const RATE = 48000;
+const level = (ch: Float32Array[], from: number, to: number) => {
+	let e = 0;
+	for (const c of ch) for (let i = from; i < to; i++) e += c[i] * c[i];
+	return 10 * Math.log10(e / (ch.length * (to - from)) + 1e-30);
+};
+const slice = (ch: Float32Array[], from: number, to: number) => ch.map((c) => c.slice(from, to));
+
+test("an item's sound is the clip's, faded into its ring-out where the next item starts", async ({
+	page
+}) => {
+	const info = await load(page, FIXTURES.upnext);
+	const own = await sound(page, 'renderAudio');
+	const gain = (await page.evaluate(() => window.couchtvRender.audioReport()))!.gainDb;
+	const item = await sound(page, 'renderItemAudio');
+	const end = Math.round(info.soundDuration * RATE);
+	expect(info.soundDuration).toBe(info.duration);
+	expect(own[0].length).toBe(end);
+	expect(item[0].length).toBeGreaterThan(end + RATE);
+	// the same sound at the engine's level (a render from 0 opens its compressors cold, so the
+	// first half second is left out)
+	const ownLoudness = integratedLoudness(slice(own, RATE / 2, end), RATE);
+	const itemLoudness = integratedLoudness(slice(item, RATE / 2, end), RATE);
+	expect(Math.abs(ownLoudness - (itemLoudness + gain))).toBeLessThan(0.05);
+	// past its end only the hall rings on, far under the sound before it
+	const before = level(item, end - RATE / 2, end);
+	const after = level(item, end + RATE / 2, item[0].length);
+	expect(before - after).toBeGreaterThan(30);
+});
+
+test('a promo sounds the same whatever airing its end card shows', async ({ page }) => {
+	for (const mood of ['promo-cinematic', 'promo-grit-premiere', 'promo-bright'] as const) {
+		const base = FIXTURES[mood] as PromoSpec;
+		const renders: Float32Array[][] = [];
+		const specs: ClipSpec[] = [
+			{ ...base, part: 'body' },
+			{ ...base, part: 'full' },
+			{
+				...base,
+				part: 'full',
+				airing: { eyebrow: 'Every Saturday', day: 'Saturday', time: '23:45' }
+			}
+		];
+		for (const spec of specs) {
+			await load(page, spec, { sound: true });
+			renders.push(await sound(page, 'renderItemAudio'));
+		}
+		// the body's sound in a break is its full promo's, whenever that airs
+		for (const r of renders.slice(1)) {
+			expect(r[0].length, mood).toBe(renders[0][0].length);
+			let diff = 0;
+			for (let c = 0; c < 2; c++)
+				for (let i = 0; i < r[c].length; i++)
+					diff = Math.max(diff, Math.abs(r[c][i] - renders[0][c][i]));
+			expect(diff, mood).toBeLessThan(INAUDIBLE);
+		}
+	}
+});
+
+test('items rendered alone and mixed sound like the break rendered in one pass', async ({
+	page
+}) => {
+	const info = await load(page, BREAK);
+	const whole = await sound(page, 'renderAudio');
+	const frames = whole[0].length;
+	expect(frames).toBe(Math.round(info.duration * RATE));
+	const mix = [new Float32Array(frames), new Float32Array(frames)];
+	const starts = BREAK.items.map((it) => Math.round(it.at * RATE));
+	for (const [i, it] of BREAK.items.entries()) {
+		const item = await load(page, it.spec, { sound: true });
+		const next = starts[i + 1] ?? frames;
+		expect(Math.round(item.soundDuration * RATE)).toBe(next - starts[i]);
+		const ch = await sound(page, 'renderItemAudio');
+		for (let c = 0; c < 2; c++)
+			for (let k = 0; k < ch[c].length && starts[i] + k < frames; k++)
+				mix[c][starts[i] + k] += ch[c][k];
+	}
+	const report = normalize(mix, RATE, BREAK.loudness ?? -18);
+	// the same loudness, item by item and moment by moment, and the same peak: the glue and
+	// the limiter now run per item, and a voice's phase may land a sample apart, as it did
+	// wherever a break put it. (The one render opened its compressors cold, so its first
+	// second is left out.)
+	expect(report.integrated).toBeCloseTo(-20, 3);
+	expect(Math.abs(integratedLoudness(whole, RATE) - report.integrated)).toBeLessThan(0.1);
+	expect(Math.abs(truePeak(whole) - report.truePeak)).toBeLessThan(0.2);
+	starts.forEach((from, i) => {
+		const to = starts[i + 1] ?? frames;
+		const a = integratedLoudness(slice(whole, from, to), RATE);
+		const b = integratedLoudness(slice(mix, from, to), RATE);
+		expect(Math.abs(a - b), `item ${i}`).toBeLessThan(0.1);
+	});
+	for (let from = RATE; from + 0.4 * RATE <= frames; from += RATE / 10) {
+		const a = integratedLoudness(slice(whole, from, from + 0.4 * RATE), RATE);
+		const b = integratedLoudness(slice(mix, from, from + 0.4 * RATE), RATE);
+		if (a > report.integrated - 20) expect(Math.abs(a - b), `${from / RATE} s`).toBeLessThan(0.5);
+	}
+});
 
 test('the standby loop has no seam', async ({ page }) => {
 	await load(page, FIXTURES.standby);

@@ -36,6 +36,27 @@ describe('loudness', () => {
 		expect(truePeak([x])).toBeGreaterThan(samplePeak + 2);
 	});
 
+	it('measures what the server measures of a break (its Go port, sound_test.go)', () => {
+		// integer noise and a pulse train, built bit for bit the same in the Go test: loud for
+		// 4 s, 20 dB down for 2 s, silent for 2 s, then hot pulses peaking between samples
+		const n = 10 * RATE;
+		const x = [new Float32Array(n), new Float32Array(n)];
+		[12345, 67890].forEach((seed, c) => {
+			let s = seed;
+			for (let i = 0; i < n; i++) {
+				s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+				const t = Math.floor(i / RATE);
+				const level = t < 4 ? 0.5 : t < 6 ? 0.05 : t < 8 ? 0 : 0.9;
+				x[c][i] = (((s >>> 9) / 8388608 - 0.5) * 0.6 + (i % 96 < 48 ? 0.25 : -0.25)) * level;
+			}
+		});
+		expect(integratedLoudness(x, RATE)).toBeCloseTo(-9.855156242089157, 9);
+		expect(truePeak(x)).toBeCloseTo(-2.852273586834342, 9);
+		const r = normalize(x, RATE, -5);
+		expect(r.gainDb).toBeCloseTo(1.8522735868343418, 9);
+		expect(r.integrated).toBeCloseTo(-8.002882655254815, 9);
+	});
+
 	it('normalizes to the target under the true-peak ceiling', () => {
 		const quiet = [sine(997, 0.05, 4), sine(997, 0.05, 4)];
 		const r = normalize(quiet, RATE, -18);
