@@ -135,7 +135,9 @@ library table, title/season/episode CRUD and bulk actions.
   `/me/continue-watching`, `/me/watchlist...`; admin `/admin/library`, `/admin/titles...`
   (incl. `DELETE /admin/titles/{id}/languages/{lang}` to drop a content language and
   `GET /admin/titles/{id}/storage` for the per-title disk-usage breakdown),
-  `/admin/seasons/{id}...`, `/admin/episodes/{id}`.
+  `/admin/seasons/{id}...`, `/admin/episodes/{id}`. `adminUpdateTitle` announces a change of
+  `allowRandomPlayback` through `Store.RandomPlaybackChanged` (Couch TV airs such a series'
+  strips at random, see "couchtv").
 - **Audio inventories**: the admin title read (`adminGetTitle`) carries `audioStreamsByFile`
   next to `subtitlesByFile`, keyed by media file id: each probed file's audio tracks in stream
   order (`media.AudioStream`: index, codec, the language tag as the file has it, name,
@@ -693,6 +695,20 @@ server that does not send it). The admin settings page toggles it.
   state the days before it left; reruns and stand-ins do not move it. `couchtv_strips` holds
   an admin's restart (`next_episode_id` from `effective_from`) until the strip has aired past
   it.
+- **Series at random**: a series whose episodes may play in any order (the title editor's
+  random playback, `titles.allow_random_playback`, `Series.Random`) keeps its strips and
+  marathons but has no cursor. Each pick takes an episode that fits and does not air that day
+  already (placed, or fixed later that day): one that never aired, in the day's random order,
+  else the one aired longest ago, outside `rerunGapDays` first; one a fixed program airs
+  within the gap after it goes last. The day's random order is a hash of the day's seed and
+  the episode (`dayState.draw`), so a pick changes only when the episodes it chooses from do,
+  never because another choice of the day drew differently. Readiness, removals and fixed
+  rows work as for any strip (within 6 h a prepared episode of the series first, else a
+  prepared rerun of another series stands in). Its reruns draw from all its episodes, not
+  only those that aired, and its strip promo has no foot (the count says "in order").
+  Changing the flag in the title editor queues a plan run (`catalog.Store.RandomPlaybackChanged`,
+  which `internal/app` points at `Scheduler.Start`), so the days not frozen yet follow it; a
+  strip turned back to order goes on after its latest strip airing.
 - **Readiness**: a file is ready when `couchtv_prepare` found something in its package the
   channel can air (a `couchtv_media` row). Beyond 48 h it does not matter; within 48 h a free
   choice prefers prepared media inside each rule's tier; within 6 h prepared media wins over
@@ -834,8 +850,9 @@ server that does not send it). The admin settings page toggles it.
   0.4) over one plus the days until the title next airs, the next program left out and the
   last three breaks' titles last; a title gets its full promo (rendered body plus an end
   card with the airing phrase) when the body is rendered, a strip promo when it is a strip
-  at a fixed time ("Every weekday 18:00"), else a short promo, and a gap longer than one
-  round of the candidates starts another after a short ident. Airing phrases (`Today`,
+  at a fixed time ("Every weekday 18:00", with "2 episodes, in order" under the days for a
+  strip of several, left out for a series at random), else a short promo, and a gap longer
+  than one round of the candidates starts another after a short ident. Airing phrases (`Today`,
   `Tonight` from 17:00, `Tomorrow`, `This week` + day, `Premiere` + day) mirror the broadcast
   package's `airing.ts`. The break's sound is one break spec at the loudness of the program
   before it (else after it), clamped to -23..-16 LUFS, -18 when unmeasured
@@ -1053,7 +1070,13 @@ server that does not send it). The admin settings page toggles it.
   (the schedule editor on the seeded database: a removal kept off its day, a lock surviving
   a replan, an insert flowed around, moved and removed, a stale composition dropped, gapless
   throughout) and `TestFixedRowsCountTowardTheirSlot`, `TestRemovedPrograms`, `TestAdminFill`
-  in `plan_test.go`; `couchtv/compose_test.go` (every gap up to half an hour filled exactly with valid specs, the
+  in `plan_test.go`; series at random in `plan_test.go` (`TestRandomStrips`: a week beside a
+  strip in order, never-aired first, no repeat within the gap, the same rows replanned, a draw
+  that changes only with its own episodes; `TestRandomOwnerWeek`, `TestRandomStripRepeats`,
+  `TestRandomStripReadiness`, `TestRandomStripRemovedAndFixed`, `TestRandomReruns`),
+  `TestStripPromoFoot` and `TestCouchTvRandomPlayback` (the flag read by the library, a
+  change in the title editor queueing a plan run);
+  `couchtv/compose_test.go` (every gap up to half an hour filled exactly with valid specs, the
   mix, promo ranking, clocks, loudness, phrases, the evergreen break), `TestCouchTvComposeJob`
   (a week of breaks composed on the seeded database, idempotent, assembly queued as clips
   render), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
@@ -2138,6 +2161,9 @@ Notes that keep it acyclic:
   `library` (to queue a title's marker analysis) and the other way round is a callback,
   `library.MarkerAnalyzer.Analyzed`, which `internal/app` points at
   `couchtv.Analyzer.Queue`.
+- Whether a series may play at random is catalog's, but Couch TV's strips follow it: the
+  title editor announces a change through a callback, `catalog.Store.RandomPlaybackChanged`,
+  which `internal/app` points at `couchtv.Scheduler.Start` (a plan run).
 
 ## Adding a feature (recipe)
 

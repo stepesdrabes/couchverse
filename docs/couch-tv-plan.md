@@ -282,6 +282,16 @@ Details the decisions above left open, as built (`internal/feature/couchtv`, FEA
   the `fill` that chose it), so replanning a day reads exactly what the days before it left
   and nothing has to be rewound. `couchtv_strips` became an admin's restart point
   (`next_episode_id` from `effective_from`), used until the strip airs again after it.
+- **Series that may play at random** (2026-10-13; `titles.allow_random_playback`, on for
+  Simpsonovi, South Park, Futurama and Věřte nevěřte in production) keep their strips and
+  marathons without a cursor: each pick draws an episode that fits from the day's seed, never
+  one that airs that day already, those that never aired first, then the one aired longest
+  ago (outside `rerunGapDays` first, an episode fixed within the gap after it last); reruns of
+  it draw from all its episodes. Each episode's place in the draw is a hash of the day's seed
+  and the episode, so a replan changes a pick only when its own candidates change. Readiness,
+  removals and fixed rows work as for any strip; its strip promo drops the "in order" count;
+  a change of the flag in the title editor queues a plan run, so the days not frozen yet
+  follow it.
 - **Movies**: a matinee reruns a movie that was in prime time within the rotation window, so
   it takes nothing from the rotation; the week's premiere candidate and the next saga film are
   held back from other slots. Saga order is the TMDB collection, else names sharing a prefix
