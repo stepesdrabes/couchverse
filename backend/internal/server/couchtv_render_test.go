@@ -182,11 +182,11 @@ func TestCouchTvRender(t *testing.T) {
 		frames int
 		spec   couchtv.Spec
 	}{
-		{couchtv.ClipWeather, 375, couchtv.Spec{Template: "weather", Duration: 15, AsOf: "17:00", Warnings: &quiet,
+		{couchtv.ClipWeather, 960, couchtv.Spec{Template: "weather", Duration: 38.4, AsOf: "17:00", Warnings: &quiet,
 			Cities: []couchtv.SpecCity{{Name: "Prague", Lat: 50.088, Lon: 14.4208, Now: couchtv.SpecWeatherNow{Temperature: 15, Code: 1, Day: true}, Days: days},
 				{Name: "Ostrava", Lat: 49.8347, Lon: 18.282, Now: couchtv.SpecWeatherNow{Temperature: -2, Code: 71}, Days: days}},
 			Credits: &couchtv.SpecCredits{Forecast: couchtv.WeatherAttribution, Warnings: couchtv.WarningsAttribution, Borders: couchtv.OutlineAttribution}}},
-		{couchtv.ClipNews, 500, couchtv.Spec{Template: "news", Duration: 20, AsOf: "17:30",
+		{couchtv.ClipNews, 1360, couchtv.Spec{Template: "news", Duration: 54.4, AsOf: "17:30",
 			Stories: []couchtv.SpecStory{{Headline: "Bulharsko hlásí další útok na lodě v Černém moři, jedna se potopila", Outlet: "ČT24", Outlets: 4},
 				{Headline: "Letadlo do Norimberku doprovázely stíhačky a policie uzavřela letiště. Piloti omylem nahlásili nouzi",
 					Outlet: "iROZHLAS", Outlets: 5},

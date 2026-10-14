@@ -239,13 +239,13 @@ func TestCouchTvBulletinRenders(t *testing.T) {
 	if err := set.Set(ctx, "couchtv_render", json.RawMessage(`{"versions": {"news": 1, "weather": 1}, "seenAt": "2026-10-13T08:00:00Z"}`)); err != nil {
 		t.Fatal(err)
 	}
-	// the break before 18:00, on air from 17:55, its news slot 4:32 into it
+	// the break before 18:00, on air from 17:55, its news slot 3:56 into it
 	var airing string
 	if err := env.pool.QueryRow(ctx, `INSERT INTO couchtv_airings (starts_at, ends_at, kind) VALUES ($1, $2, 'break') RETURNING id`,
 		at(17, 55), at(18, 0)).Scan(&airing); err != nil {
 		t.Fatal(err)
 	}
-	recipe, _ := json.Marshal(couchtv.Recipe{Frames: 7500, Slots: []couchtv.RecipeSlot{{Kind: couchtv.BulletinNews, At: 6800, Frames: 500, Loudness: -19}}})
+	recipe, _ := json.Marshal(couchtv.Recipe{Frames: 7500, Slots: []couchtv.RecipeSlot{{Kind: couchtv.BulletinNews, At: 5900, Frames: 1360, Loudness: -19}}})
 	if _, err := env.pool.Exec(ctx, `INSERT INTO couchtv_breaks (airing_id, kind, recipe, state) VALUES ($1, 'airing', $2, 'composed')`,
 		airing, recipe); err != nil {
 		t.Fatal(err)
@@ -273,7 +273,7 @@ func TestCouchTvBulletinRenders(t *testing.T) {
 	if err := json.Unmarshal(spec, &news); err != nil {
 		t.Fatal(err)
 	}
-	if !fetched.Equal(clock) || frames != 500 || news.Template != "news" || news.AsOf != "17:30" ||
+	if !fetched.Equal(clock) || frames != 1360 || news.Template != "news" || news.AsOf != "17:30" ||
 		news.Credit != "Headlines from the outlets’ RSS feeds, as of 17:30" || len(news.Stories) != 5 {
 		t.Errorf("the news rendered: fetched %s, %d frames, %+v", fetched.In(prague), frames, news)
 	}

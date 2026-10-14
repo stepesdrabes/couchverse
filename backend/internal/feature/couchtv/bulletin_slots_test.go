@@ -61,9 +61,9 @@ func TestComposeBulletinSlots(t *testing.T) {
 		{"the news before up next", 3 * time.Minute, []string{BulletinNews}, []string{BulletinNews}},
 		{"news, then the weather", 4 * time.Minute, []string{BulletinNews, BulletinWeather}, []string{BulletinNews, BulletinWeather}},
 		{"the weather alone", 2 * time.Minute, []string{BulletinWeather}, []string{BulletinWeather}},
-		// 35 s beside the news, which the weather would leave too short
-		{"too short for both", 55 * time.Second, []string{BulletinNews, BulletinWeather}, []string{BulletinNews}},
-		{"too short for any", 50 * time.Second, []string{BulletinNews}, nil},
+		// 100 s: the news (54.4 s) and the rest of the break fit, the weather (38.4 s) too would not
+		{"too short for both", 100 * time.Second, []string{BulletinNews, BulletinWeather}, []string{BulletinNews}},
+		{"too short for any", 80 * time.Second, []string{BulletinNews}, nil},
 	}
 	for _, tt := range tests {
 		in := breakAt(end, tt.length, FillStrip)
@@ -76,7 +76,7 @@ func TestComposeBulletinSlots(t *testing.T) {
 	}
 
 	// the fallback promotes what the rest of the break does not, the lineup stays before it
-	in := breakAt(end, 80*time.Second, FillStrip)
+	in := breakAt(end, 105*time.Second, FillStrip)
 	in.Bulletins = []string{BulletinNews}
 	c, _ := Compose(in)
 	var outside, inside []string
@@ -188,6 +188,23 @@ func TestSlotFallback(t *testing.T) {
 			check(fmt.Sprintf("%s in %d frames", name, frames), slotFallback(cands, map[string]bool{}, frames), frames)
 		}
 	}
+
+	// and each kind's real length, whatever there is to promote
+	for kind, frames := range bulletinFrames {
+		for n := 0; n <= 4; n++ {
+			var cands []Candidate
+			for i := 0; i < n; i++ {
+				cands = append(cands, body(fmt.Sprint(i), 330+25*i))
+			}
+			total := 0
+			for _, p := range slotFallback(cands, map[string]bool{}, frames) {
+				total += p.part.Frames
+			}
+			if total != frames {
+				t.Errorf("the %s slot's fallback of %d promos is %d frames, want %d", kind, n, total, frames)
+			}
+		}
+	}
 }
 
 func TestBulletinKinds(t *testing.T) {
@@ -241,6 +258,48 @@ func TestLastBulletin(t *testing.T) {
 		// the grid nextBulletin walks
 		if next := nextBulletin(lastBulletin(c.at, prague, c.every), prague, c.every); !next.After(c.at) {
 			t.Errorf("at %s every %s: the next run %s is not after it", c.at, c.every, next)
+		}
+	}
+}
+
+// slotsOverAWeek counts, over the breaks of a planned week, the bulletins D37 asks for and the
+// ones a break has room to keep, by kind.
+func slotsOverAWeek(rows []Airing) (want, kept map[string]int) {
+	want, kept = map[string]int{}, map[string]int{}
+	for i, a := range rows {
+		if a.Kind != KindBreak || i == 0 || i == len(rows)-1 {
+			continue
+		}
+		var prevStart time.Time
+		if prev := rows[i-1]; prev.Kind == KindProgram {
+			prevStart = prev.StartsAt
+		}
+		kinds := bulletinKinds(a.StartsAt, a.EndsAt, prevStart, rows[i+1].Fill, prague)
+		in := BreakInput{Frames: framesOf(a.EndsAt.Sub(a.StartsAt).Seconds()), Next: &BreakProgram{}, Bulletins: kinds}
+		got, _ := keptSlots(in)
+		for _, k := range kinds {
+			want[k]++
+		}
+		for _, k := range got {
+			kept[k]++
+		}
+	}
+	return want, kept
+}
+
+// The slots are a minute and half a minute long, and a break keeps one only where it still has
+// the squeeze, the short ident, a short promo and up next beside it: over a planned week of the
+// production library's shape nearly every slot the schedule asks for still has its room.
+func TestBulletinSlotsOverAWeek(t *testing.T) {
+	rows := planWeek(ownerLibrary().Library, "2026-10-12", 7)
+	want, kept := slotsOverAWeek(rows)
+	t.Logf("wanted %v, kept %v", want, kept)
+	if want[BulletinNews] < 10 || want[BulletinWeather] < 10 {
+		t.Fatalf("the week asks for %v: too few slots to judge", want)
+	}
+	for _, kind := range []string{BulletinNews, BulletinWeather} {
+		if got := float64(kept[kind]) / float64(want[kind]); got < 0.8 {
+			t.Errorf("%s: %d of %d slots kept (%.0f%%), want at least 80%%", kind, kept[kind], want[kind], 100*got)
 		}
 	}
 }

@@ -16,8 +16,8 @@ import (
 
 // A bulletin's slot is as long as its clip: a length of its kind, whole frames.
 const (
-	weatherFrames = 375 // 15 s
-	newsFrames    = 500 // 20 s
+	weatherFrames = 960  // 38.4 s, 48 beats of the bulletins' 75 bpm
+	newsFrames    = 1360 // 54.4 s, 68 beats
 )
 
 // bulletinFrames is the length of a kind's slot and clip.

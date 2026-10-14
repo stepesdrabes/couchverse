@@ -24,7 +24,7 @@ func TestWeatherSpec(t *testing.T) {
 		t.Fatal(err)
 	}
 	prg := spec.Cities[0]
-	if spec.AsOf != "17:02" || spec.Duration != 15 || prg.Name != "Prague" || prg.Now.Temperature != 15 || !prg.Now.Day {
+	if spec.AsOf != "17:02" || spec.Duration != frameSeconds(weatherFrames) || prg.Name != "Prague" || prg.Now.Temperature != 15 || !prg.Now.Day {
 		t.Errorf("the spec: %+v", spec)
 	}
 	var labels []string
@@ -89,7 +89,7 @@ func TestNewsSpec(t *testing.T) {
 	if err := validateSpec(spec); err != nil {
 		t.Fatal(err)
 	}
-	if spec.AsOf != "17:02" || spec.Duration != 20 || spec.Credit != "Headlines from the outlets’ RSS feeds, as of 17:02" ||
+	if spec.AsOf != "17:02" || spec.Duration != frameSeconds(newsFrames) || spec.Credit != "Headlines from the outlets’ RSS feeds, as of 17:02" ||
 		len(spec.Stories) != len(stories) {
 		t.Errorf("the spec: %+v", spec)
 	}
