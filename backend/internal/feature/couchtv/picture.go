@@ -47,6 +47,16 @@ func rgbOf(f media.Frame) []byte {
 	return out
 }
 
+// steadyRisk is the highest risk that holds for two frames in a row: a flash on one frame is no
+// wound, which stays on the screen.
+func steadyRisk(risks []float64) float64 {
+	steady := 0.0
+	for i := 1; i < len(risks); i++ {
+		steady = max(steady, min(risks[i-1], risks[i]))
+	}
+	return steady
+}
+
 func clamp8(v float64) byte {
 	return byte(min(max(math.Round(v), 0), 255))
 }

@@ -56,7 +56,7 @@ func TestShotsLocal(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, c := range cands {
-				t.Logf("candidate %s @%.2f s, %d ms, score %.3f, risk %.2f", c.shot.MediaFileID, c.t, c.shot.DurationMs, c.shot.Score, c.risk)
+				t.Logf("candidate %s @%.2f s, %d ms, score %.3f, risk %.2f, avoid %v", c.shot.MediaFileID, c.t, c.shot.DurationMs, c.shot.Score, c.risk, c.avoid)
 			}
 		}
 	}
@@ -105,28 +105,31 @@ func TestShotRating(t *testing.T) {
 	}
 }
 
-// A shot to avoid never airs, even when it is the best of the title; a close-up may.
+// A shot to avoid never airs, even when it is the best of the title; a close-up may, and so may
+// a shot with one gory frame, which only rates it low.
 func TestChooseShotsAvoidsRisk(t *testing.T) {
-	cand := func(start int, score, risk float64) candidate {
-		return candidate{shot: CouchTvShot{MediaFileID: "f", StartMs: start, Score: score}, t: float64(start), risk: risk}
+	cand := func(start int, score, risk float64, avoid bool) candidate {
+		return candidate{shot: CouchTvShot{MediaFileID: "f", StartMs: start, Score: score}, t: float64(start), risk: risk, avoid: avoid}
 	}
 	got := chooseShots([]candidate{
-		cand(1000, shotRating(1, 1), 1),
-		cand(2000, shotRating(0.9, closeUpRisk), closeUpRisk),
-		cand(3000, shotRating(0.4, 0), 0),
-		cand(4000, shotRating(0.8, avoidRisk), avoidRisk),
+		cand(1000, shotRating(1, 1), 1, true),
+		cand(2000, shotRating(0.9, closeUpRisk), closeUpRisk, false),
+		cand(3000, shotRating(0.4, 0), 0, false),
+		cand(4000, shotRating(0.8, avoidRisk), avoidRisk, true),
+		cand(5000, shotRating(0.8, 0), 0, true), // gory between the checks: nothing rates it
+		cand(6000, shotRating(0.9, 1), 1, false),
 	}, 6)
 	var order []int
 	for _, s := range got {
 		order = append(order, s.StartMs)
 	}
-	if fmt.Sprint(order) != "[2000 3000]" {
-		t.Errorf("chose %v, want the close-up and the plain shot, in airing order", order)
+	if fmt.Sprint(order) != "[2000 3000 6000]" {
+		t.Errorf("chose %v, want the close-up, the plain shot and the one with a stray frame, in airing order", order)
 	}
-	if len(got) == 2 && got[0].Score >= got[1].Score {
-		t.Errorf("scores %v then %v: the close-up should rate below the plain shot", got[0].Score, got[1].Score)
+	if len(got) == 3 && (got[0].Score <= got[2].Score || got[1].Score <= got[0].Score) {
+		t.Errorf("scores %v: the plain shot should rate above the close-up, and the close-up above the stray frame", got)
 	}
-	if got := chooseShots([]candidate{cand(1000, 0, 1)}, 6); got == nil || len(got) != 0 {
+	if got := chooseShots([]candidate{cand(1000, 0, 1, true)}, 6); got == nil || len(got) != 0 {
 		t.Errorf("only a gory shot chose %v, want none (the promo falls back to artwork)", got)
 	}
 }

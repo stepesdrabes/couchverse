@@ -431,9 +431,11 @@ one clip (at most ~2 minutes of work), so a transcode never waits long.
   skin is a hue (2-24 degrees at 28-68 % saturation, so dark skin reads too and tan walls,
   wood, pink and fire do not), fire and the sun's bright orange switch the skin readings
   off, and red bigger than the skin it is beside is a dress, not a wound. A stretch's still
-  is the one with the most contrast less its risk, a candidate shot (checked every 0.5 s of
-  its length, not only its first frame) is scored times one less its risk, and one at 0.85
-  or more never airs, so wide and medium shots come before faces and gore is left out
+  is the one with the most contrast less its risk, a candidate shot (rated every 0.5 s of
+  its length, not only its first frame) is scored times one less its risk, and one with two
+  frames in a row at 0.85 or more never airs (decided on every decoded frame: the review
+  found the overdose's blood between the 0.5 s checks, 0.74 sampled against 1.00 at 3250.3 to
+  3250.5 s), so wide and medium shots come before faces and gore is left out
   (a title may end with fewer shots; with none the promos use artwork stills). It is tuned to
   miss rather than to flag, because colour cannot tell skin from a pale warm wall: shadowed
   faces and cartoon skin mostly read as safe. On the local Pulp Fiction, Iron Man 3, Dexter

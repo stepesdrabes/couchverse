@@ -1219,8 +1219,11 @@ server that does not send it). The admin settings page toggles it.
   that is a face or a hand at medium-close or closer, not when red is lighting or bigger
   than the skin it is beside, as a dress is), a close-up (that blob filling 12-32 % of the
   frame, compact, not spanning it: up to 0.7), a body (much skin: up to 0.6) and a frame a
-  third or more blood-red (up to 0.6); fire and sunsets count as none. A shot at 0.85 or
-  more never airs, a close-up airs after the wide and medium shots of its title. Colour
+  third or more blood-red (up to 0.6); fire and sunsets count as none. A shot is rated by its
+  picture every 0.5 s (its score times one less that risk); it never airs when two frames in
+  a row, of every frame decoded (10 a second), are at 0.85 or more, because a wound shows for
+  less than the 0.5 s between checks (one odd frame drops no shot), and a close-up airs
+  after the wide and medium shots of its title. Colour
   cannot tell skin from a pale warm wall, so it is tuned to miss rather than to flag: faces
   in shadow and cartoon skin mostly read as safe, and the admin's ShotsEditor stays the
   override. Every run picks the **promo audio** (D25): a series' intro from

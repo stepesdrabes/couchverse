@@ -25,10 +25,11 @@ const (
 	shotWindowTo   = 0.5  // the first half only, so promos spoil nothing
 	shotW, shotH   = 160, 90
 	shotFPS        = 10
-	// riskEvery is how often a shot's picture is checked: every 5th frame, 0.5 s
+	// riskEvery is how often a shot's picture is rated: every 5th frame, 0.5 s
 	riskEvery = 5
-	// avoidRisk is the picture risk from which a shot never airs; a face close-up never
-	// reaches it (closeUpRisk), so a title keeps footage when its scenes are all faces
+	// avoidRisk is the picture risk from which a shot never airs, when two frames in a row
+	// reach it; a face close-up never does (closeUpRisk), so a title keeps footage when its
+	// scenes are all faces
 	avoidRisk = 0.85
 	// sceneThreshold is scdet's default, on its 0-100 scale
 	sceneThreshold = 10.0
@@ -157,32 +158,34 @@ func shotRating(score, risk float64) float64 {
 	return math.Round(score*(1-risk)*1000) / 1000
 }
 
-// shotRisk is the highest risk of a shot's pictures, checked every riskEvery frames and
-// at the last.
-func shotRisk(frames []media.Frame) float64 {
-	risk := 0.0
-	check := func(f media.Frame) { risk = max(risk, pictureRisk(rgbOf(f), f.Width, f.Height)) }
-	for i := 0; i < len(frames); i += riskEvery {
-		check(frames[i])
+// shotRisk reads a shot's pictures. The risk rates the shot: the highest of the frames checked
+// every riskEvery frames and at the last. Whether the shot is to be avoided is decided on every
+// frame, because a wound shows for a fraction of a second and the checks fall between: it is
+// when two frames in a row reach avoidRisk (one odd frame does not drop a shot).
+func shotRisk(frames []media.Frame) (risk float64, avoid bool) {
+	each := make([]float64, len(frames))
+	for i, f := range frames {
+		each[i] = pictureRisk(rgbOf(f), f.Width, f.Height)
+		if i%riskEvery == 0 || i == len(frames)-1 {
+			risk = max(risk, each[i])
+		}
 	}
-	if n := len(frames) - 1; n > 0 && n%riskEvery != 0 {
-		check(frames[n])
-	}
-	return risk
+	return risk, steadyRisk(each) >= avoidRisk
 }
 
 // candidate is a measured shot of one of the title's files.
 type candidate struct {
-	shot CouchTvShot
-	file int // index of the file it is from, for the order
-	t    float64
-	risk float64
+	shot  CouchTvShot
+	file  int // index of the file it is from, for the order
+	t     float64
+	risk  float64
+	avoid bool // its picture is never to air (shotRisk)
 }
 
 // chooseShots keeps the best candidates, at most perFile from one file, in the order
 // they come in the title. Candidates whose picture is to be avoided never air.
 func chooseShots(cands []candidate, perFile int) []CouchTvShot {
-	cands = slices.DeleteFunc(cands, func(c candidate) bool { return c.risk >= avoidRisk })
+	cands = slices.DeleteFunc(cands, func(c candidate) bool { return c.avoid })
 	slices.SortStableFunc(cands, func(a, b candidate) int { return cmp.Compare(b.shot.Score, a.shot.Score) })
 	var chosen []candidate
 	taken := map[int]int{}
@@ -237,11 +240,11 @@ func (a *Analyzer) fileShots(ctx context.Context, f titleFile, index, stretches 
 			continue
 		}
 		frames25 := int(length / airFrame)
-		risk := shotRisk(frames[:min(len(frames), int(length*shotFPS)+1)])
+		risk, avoid := shotRisk(frames[:min(len(frames), int(length*shotFPS)+1)])
 		out = append(out, candidate{
 			shot: CouchTvShot{MediaFileID: f.ID, StartMs: int(math.Round(s.t * 1000)), DurationMs: frames25 * 40,
 				Score: shotRating(shotScore(motion, s.contrast), risk)},
-			file: index, t: s.t, risk: risk,
+			file: index, t: s.t, risk: risk, avoid: avoid,
 		})
 	}
 	return out, nil

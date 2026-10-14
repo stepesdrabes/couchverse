@@ -2,6 +2,7 @@ package couchtv
 
 import (
 	"math"
+	"slices"
 	"testing"
 
 	"couchverse/internal/media"
@@ -226,34 +227,67 @@ func TestRgbOf(t *testing.T) {
 	}
 }
 
-// A shot is as risky as its worst checked picture, the last frame included.
-func TestShotRisk(t *testing.T) {
+func TestSteadyRisk(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		risks []float64
+		want  float64
+	}{
+		{"no frames", nil, 0},
+		{"one frame", []float64{1}, 0},
+		{"a flash on one frame", []float64{0, 0.2, 1, 0.1, 0}, 0.2},
+		{"two frames in a row", []float64{0, 1, 0.9, 0}, 0.9},
+		{"frames apart", []float64{1, 0, 1, 0, 1}, 0},
+		{"a run that eases", []float64{0.3, 0.7, 0.8, 0.5}, 0.7},
+	} {
+		if got := steadyRisk(tt.risks); math.Abs(got-tt.want) > 1e-9 {
+			t.Errorf("%s: %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+// shotOf is n frames of calm with the bloody frame in each place bloodyAt names.
+func shotOf(n int, bloodyAt ...int) []media.Frame {
 	calm := newCanvas(roomGrey)
 	calm.face(60, 45, 5, skinPale)
 	bloody := newCanvas(roomGrey)
 	bloody.face(80, 44, 34, skinPale)
 	bloody.rect(78, 50, 84, 66, bloodRed)
 	calmFrame, bloodyFrame := frameOf(calm.px), frameOf(bloody.px)
-	shot := func(n, bloodyAt int) []media.Frame {
-		var frames []media.Frame
-		for i := range n {
-			frames = append(frames, calmFrame)
-			if i == bloodyAt {
-				frames[i] = bloodyFrame
-			}
+	frames := make([]media.Frame, n)
+	for i := range frames {
+		frames[i] = calmFrame
+		if slices.Contains(bloodyAt, i) {
+			frames[i] = bloodyFrame
 		}
-		return frames
 	}
-	if r := shotRisk(shot(13, -1)); r != 0 {
-		t.Errorf("a calm shot: risk %.2f", r)
+	return frames
+}
+
+// A shot is rated by its worst checked picture, the last frame included; it is to be avoided
+// when two frames in a row are gory, whether or not a check fell on them.
+func TestShotRisk(t *testing.T) {
+	tests := []struct {
+		name   string
+		frames []media.Frame
+		rated  bool // the risk reaches avoidRisk
+		avoid  bool
+	}{
+		{"a calm shot", shotOf(13), false, false},
+		{"blood on a checked frame for 0.2 s", shotOf(13, 5, 6), true, true},
+		{"blood on one frame only", shotOf(13, 5), true, false},
+		{"blood on the last two frames", shotOf(13, 11, 12), true, true},
+		{"blood on the last frame, which is checked", shotOf(13, 12), true, false},
+		{"blood on a last frame that is checked anyway", shotOf(11, 10), true, false},
+		{"blood between the checks (frames 11 to 14 of 31)", shotOf(31, 11, 12, 13, 14), false, true},
+		{"blood on two frames between the checks", shotOf(31, 11, 12), false, true},
+		{"blood on one frame between the checks", shotOf(31, 12), false, false},
+		{"blood on frames apart", shotOf(31, 11, 13, 16, 18), false, false},
 	}
-	if r := shotRisk(shot(13, 5)); r < avoidRisk {
-		t.Errorf("bloodRed at 0.5 s: risk %.2f", r)
-	}
-	if r := shotRisk(shot(13, 12)); r < avoidRisk {
-		t.Errorf("bloodRed on the last frame: risk %.2f", r)
-	}
-	if r := shotRisk(shot(11, 10)); r < avoidRisk {
-		t.Errorf("bloodRed on a last frame that is checked anyway: risk %.2f", r)
+	for _, tt := range tests {
+		risk, avoid := shotRisk(tt.frames)
+		if (risk >= avoidRisk) != tt.rated || avoid != tt.avoid {
+			t.Errorf("%s: risk %.2f, avoid %v; want rated %v, avoid %v", tt.name, risk, avoid, tt.rated, tt.avoid)
+		}
 	}
 }
