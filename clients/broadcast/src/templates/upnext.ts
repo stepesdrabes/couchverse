@@ -53,7 +53,7 @@ const HORIZON = { y: 984, x0: 96, x1: 1824 };
 const LOGO = { area: 168000, width: 920, height: 300 };
 
 export const upNext: Template<UpNextSpec> = {
-	version: 8,
+	version: 9,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 8;

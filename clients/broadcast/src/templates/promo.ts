@@ -205,7 +205,7 @@ export const promo: Template<PromoSpec> = {
 };
 
 export const evergreenEnd: Template<EvergreenEndSpec> = {
-	version: 6,
+	version: 7,
 	build(ctx, spec) {
 		const tl = buildPromo(ctx, spec, null);
 		tl.parts = { clip: tl.parts.end };

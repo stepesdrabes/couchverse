@@ -7,7 +7,7 @@
 import type { Assets } from '../assets';
 import { css, div, img } from '../core/dom';
 import { framed, inset } from '../core/framing';
-import { lift, reading, reads, SEEN, type Reading } from '../core/logo';
+import { onNight, reading, reads, type Reading } from '../core/logo';
 import { edge } from '../core/moves';
 import { parseHex, type Rgb } from '../core/palette';
 import { FPS } from '../core/timeline';
@@ -205,10 +205,10 @@ export function readsOnField(
 const drawn = new Map<string, string | null>();
 
 /**
- * What to draw of the logo on the dark `field`: its own file when it reads there; else, when it
- * has colour to lift, the logo with its colours brighter (hue kept, so a dark red stays Dexter's
- * red); else, when a fair share of it still shows, as it is (a metal logo's dark parts); else
- * null, and the screen sets the name in type.
+ * What to draw of the logo on the dark `field` (`onNight`): its own file when it reads there; else
+ * the logo with its colours brighter when that makes it read (hue kept, so a dark red stays
+ * Dexter's red); else, when a fair share of it still shows, as it is (a metal logo's dark parts);
+ * else null, and the screen sets the name in type.
  */
 function drawnOn(image: HTMLImageElement, url: string, field: string, w: number, h: number) {
 	const key = `${url}|${w}x${h}|${field}`;
@@ -218,13 +218,11 @@ function drawnOn(image: HTMLImageElement, url: string, field: string, w: number,
 	const bg = (parseHex(field) ?? [5, 5, 5]) as Rgb;
 	let result: string | null = url;
 	if (got) {
-		const before = reading(got.data, bg);
-		if (!reads(before)) {
-			if (lift(got.data, bg)) {
-				got.g.putImageData(got.data, 0, 0);
-				result = got.c.toDataURL('image/png');
-			} else if (before.fill < SEEN) result = null;
-		}
+		const how = onNight(got.data, bg);
+		if (how === 'lifted') {
+			got.g.putImageData(got.data, 0, 0);
+			result = got.c.toDataURL('image/png');
+		} else if (how === 'name') result = null;
 	}
 	drawn.set(key, result);
 	return result;

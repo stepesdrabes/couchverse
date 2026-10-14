@@ -1161,7 +1161,9 @@ break or the standby card.
   never sits on a box (the owner, 2026-10-14: "I don't want that", of The Simpsons' yellow logo
   on a night plate): one that does not read on the strip's paper puts the panel itself in night,
   and one too dark for night has its colours lifted once, hue kept (Dexter's dark red on night),
-  greys and outlines as drawn. Cost, with the screens' probe (frames the sidecar captures;
+  greys and outlines as drawn (measured by chroma, in proportion, and taken only if the logo then
+  reads: the first version lifted Harry Potter's brown shading to flat tan with blue speckles and
+  turned a black logo lavender). Cost, with the screens' probe (frames the sidecar captures;
   median ms of an advance and a JPEG capture on the M1, loaded by other work, so indicative)
   on the same real-media
   specs (the kit's 1080p footage and 4K backdrops), today's templates against these: the strip

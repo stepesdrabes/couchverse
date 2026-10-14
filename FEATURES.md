@@ -2500,7 +2500,7 @@ approves is what airs.
   card, and as the end card's words are seen, never heard, a body's item sound is its full
   promo's whatever the airing (without one, the evergreen end card's, it sounds different).
   `evergreenEnd` is the same end card without an airing.
-- **Promo look** (2026-10-14, promo version 8 and `evergreenEnd` 6; the screens' design spec
+- **Promo look** (2026-10-14, promo version 8 and `evergreenEnd` 7; the screens' design spec
   2.3-2.4 made sharp and flat: right angles only, no shadows or glows, `src/styles/promo.css`):
   the moods are the identity's three lights. Cinematic (dusk): long takes of the title's scenes pushed 6 %, dissolves, quiet
   type low in the frame, then the title over its hero scene (the least used one) with a red rule
@@ -2698,12 +2698,17 @@ approves is what airs.
   paper, else over the picture; the bright strip's panel paper, else night. On a field that is
   night already (the end card's column, the other moods' title over the graded picture, the
   dark strip, the short promo, up next and the squeeze's card), `logoFor` draws the logo as it
-  is when it reads; else, when it has colour, once on a canvas with its coloured pixels
-  (saturation 0.2 and up) walked in HSL lightness to 4.5:1 and at most 0.78, hue and saturation
-  kept (Dexter's dark red lifts to a red that reads on night; greys, blacks and an outline stay
-  as drawn, so a logo made for paper is never inverted); else as it is while a quarter of it
-  still shows (Harry Potter's metal, whose dark parts melt into the night); else the name in
-  type. A logo replaces the name; one that did not load falls back to the name in type.
+  is when it reads; else (`onNight`, pure over the pixels) when it is mostly colour, once on a
+  canvas with its coloured pixels (chroma, the channels' spread, 48 of 255 and up: not HSL
+  saturation, which reads a near-black with a cool tint or a metal logo's brown shading as
+  colour) lifted in lightness by one share of the way to 0.78, the share that brings the darkest
+  tenth of them to 4.5:1, hue and saturation kept, so a shaded logo keeps its shading in order
+  and proportion (Dexter's dark red lifts to a red that reads on night; greys, blacks, the faintly
+  tinted and an outline stay as drawn, so a logo made for paper is never inverted), and the lift
+  is only taken when the logo then reads; else as it is while a quarter of it still shows (Harry
+  Potter's metal, whose dark parts melt into the night, is drawn exactly as made); else the name
+  in type (a black wordmark with a red accent is its name, not its accent). A logo replaces the
+  name; one that did not load falls back to the name in type.
 - **Strip and short promos** (sharp and flat, D41's logos and scenes): the strip (12-20 s) opens
   on the series' scenes for a beat; on the bed's strongest onset near 1 s a flat panel with a
   12 px red bar on its edge slides in over the left half while the scenes slide half as far

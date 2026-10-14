@@ -151,7 +151,7 @@ const mixRect = (a: Rect, b: Rect, k: number): Rect => ({
 });
 
 export const squeeze: Template<SqueezeSpec> = {
-	version: 8,
+	version: 9,
 	build({ root, sound, assets }, spec) {
 		// `cursor` is this handover's old name, which squeezes composed before the rename carry
 		const toIdent = spec.handover !== 'expand';

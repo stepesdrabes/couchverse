@@ -80,7 +80,7 @@ function riseIn(tl: TL, e: Element, at: number, dur = 0.8, from = '105%') {
 }
 
 export const stripPromo: Template<StripPromoSpec> = {
-	version: 6,
+	version: 7,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 16;
