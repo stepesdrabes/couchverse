@@ -76,3 +76,7 @@ blocklogo water 1000x420 \
 blocklogo night 1100x300 \
 	x=0:y=0:w=300:h=300:color=0xcfe3ff@1 x=380:y=60:w=300:h=240:color=0xcfe3ff@1 \
 	x=760:y=0:w=340:h=300:color=0xcfe3ff@1 x=860:y=90:w=140:h=120:color=0x00000000@0
+# a pale pink made for dark backgrounds: it reads on neither paper nor the brand's red
+blocklogo rose 1100x300 \
+	x=0:y=0:w=300:h=300:color=0xffaaaa@1 x=380:y=60:w=300:h=240:color=0xffaaaa@1 \
+	x=760:y=0:w=340:h=300:color=0xffaaaa@1 x=860:y=90:w=140:h=120:color=0x00000000@0

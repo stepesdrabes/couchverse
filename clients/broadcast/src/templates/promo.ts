@@ -31,8 +31,10 @@ import {
 	sub,
 	type House
 } from '../audio/voices';
+import type { Assets } from '../assets';
 import { channelTag } from '../brand/lockup';
 import { BEAT } from '../brand/sonic';
+import { BRAND } from '../brand/wordmark';
 import { css, div, img, span } from '../core/dom';
 import { fitText, type FitBox } from '../core/fit';
 import { framed, inset } from '../core/framing';
@@ -48,6 +50,7 @@ import type {
 	Shot,
 	Title
 } from '../spec';
+import { logoFor, readsOnField, type LogoBox } from './reel';
 import { timeline, type Ctx, type Template, type TL } from './shared';
 
 type Mood = PromoContent['mood'];
@@ -137,6 +140,9 @@ const MOODS: Record<Mood, MoodSpec> = {
 /** How long the end card runs after the cut. */
 export const END_CARD = 4;
 
+/** Where bright's title sits: left of the framed picture, its column 860 px wide. */
+const BRIGHT_LOGO: LogoBox = { width: 860, height: 320, area: 230000 };
+
 // the body is rendered with this airing whatever the spec says, so it cannot depend on one
 const BODY_AIRING: Airing = { eyebrow: 'Tonight', time: '20:15' };
 
@@ -184,7 +190,7 @@ const EC = {
 };
 
 export const promo: Template<PromoSpec> = {
-	version: 6,
+	version: 7,
 	build(ctx, spec) {
 		const airing = spec.part === 'body' ? BODY_AIRING : (spec.airing ?? null);
 		const tl = buildPromo(ctx, spec, airing);
@@ -199,7 +205,7 @@ export const promo: Template<PromoSpec> = {
 };
 
 export const evergreenEnd: Template<EvergreenEndSpec> = {
-	version: 5,
+	version: 6,
 	build(ctx, spec) {
 		const tl = buildPromo(ctx, spec, null);
 		tl.parts = { clip: tl.parts.end };
@@ -248,6 +254,8 @@ interface Rising {
 	h: number;
 	/** Its widest line (a logo's width), px. */
 	w: number;
+	/** A logo, not type. */
+	logo?: true;
 }
 
 /** Spec text fitted to its box at `size` (the class's own size by default), in line masks. */
@@ -265,37 +273,29 @@ function fitted(parent: Element, cls: string, text: string, box: FitBox, size?: 
 	};
 }
 
-interface LogoBox {
-	/** The widest and tallest it may be, px. */
-	w: number;
-	h: number;
-	/** The area it takes when neither bound applies: logos of every shape weigh alike. */
-	area: number;
-}
-
 /**
- * The title as it shows big: its logo, sized by its aspect within the box and never stretched
- * (the same area for a 4:1 wordmark and a 2:1 stack, so neither looks the bigger), else its
- * name in type, fitted.
+ * The title as it shows big, straight on `field` (the hex colour under it: night, or the night
+ * the grade makes of a picture; a logo that does not read there has its colours lifted): its
+ * logo, sized by its aspect within the box and never stretched (the same area for a 4:1 wordmark
+ * and a 2:1 stack, so neither looks the bigger), else, with no logo or one that shows nowhere,
+ * its name in type, fitted.
  */
 function titleMark(
 	parent: Element,
 	t: Title,
+	assets: Assets,
+	field: string,
 	logoBox: LogoBox,
 	cls: string,
 	box: FitBox,
 	size?: number
 ): Rising {
-	if (!t.logo) return fitted(parent, cls, t.name, box, size);
-	const aspect = t.logo.aspect;
-	let w = Math.min(logoBox.w, Math.sqrt(logoBox.area * aspect));
-	if (w / aspect > logoBox.h) w = logoBox.h * aspect;
-	w = Math.round(w);
-	const h = Math.round(w / aspect);
-	const el = css(div('pm-logo', parent), { width: `${w + 24}px`, height: `${h + 24}px` });
-	const im = css(img(null, el, t.logo.url), { width: `${w}px`, height: `${h}px` });
+	const l = logoFor(assets, t.logo, field, logoBox);
+	if (!l) return fitted(parent, cls, t.name, box, size);
+	const el = css(div('pm-logo', parent), { width: `${l.w + 24}px`, height: `${l.h + 24}px` });
+	const im = css(img(null, el, l.src), { width: `${l.w}px`, height: `${l.h}px` });
 	im.alt = t.name;
-	return { el, parts: [im], from: `${h + 16}px`, h, w };
+	return { el, parts: [im], from: `${l.h + 16}px`, h: l.h, w: l.w, logo: true };
 }
 
 /** Parts rise into place out of their masks, one after another. */
@@ -384,6 +384,12 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 	const onsets = bed?.onsets ?? [];
 	const snap = snapper(onsets);
 	const lines = t.taglines ?? [];
+	// Bright's title moment puts the logo straight on the field it reads on: the brand's red first
+	// (the field that has been sliding across), then paper; a name is night type on paper. A logo
+	// that reads on neither goes over the title's picture, as the other moods' do (null).
+	const onField = bright ? readsOnField(assets, t.logo, [BRAND.red, BRAND.paper], BRIGHT_LOGO) : 0;
+	const ground: 'red' | 'paper' | null =
+		onField === null ? 'paper' : ((['red', 'paper'] as const)[onField] ?? null);
 
 	const nominal = P.sequence(!!spec.premiere, defaultWords(spec));
 	const seq = nominal.map((s) => ({
@@ -560,7 +566,7 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 	let red: HTMLElement | null = null;
 	const redMoves: Move<number>[] = [];
 
-	for (const s of seq) {
+	for (const [i, s] of seq.entries()) {
 		const a = s.at;
 		const b = s.end;
 		tl.cue(s.kind === 'end' && !airing ? 'end card (coming up)' : CUE[s.kind], a);
@@ -626,8 +632,7 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 				break;
 			}
 			case 'title':
-				if (bright && !t.logo) brightTitle(a, b);
-				else if (bright) plateTitle(a, b);
+				if (bright && ground) brightTitle(a, b, ground);
 				else titleCard(a, b);
 				break;
 			case 'open': {
@@ -698,18 +703,23 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 					if (a === 0) tl.add(red, [{ opacity: 0 }, { opacity: 1 }], 0, 0.32, 'sine');
 				}
 				// the field slides in from the right over what plays, and away to the left on the
-				// beat the next section starts on, uncovering it
+				// beat the next section starts on, uncovering it; before a title that lands on red
+				// it stays, the line sinking out of it
+				const stay = ground === 'red' && seq[i + 1]?.kind === 'title';
 				if (a > 0) redMoves.push({ at: a - 0.4, dur: 0.55, to: 0, ease: 'move' });
-				redMoves.push({ at: b, dur: 0.55, to: -W, ease: 'move' });
-				redMoves.push({ at: b + 0.6, to: W });
+				if (!stay) {
+					redMoves.push({ at: b, dur: 0.55, to: -W, ease: 'move' });
+					redMoves.push({ at: b + 0.6, to: W });
+				}
 				const box = css(div('pm-fill pm-center', red), {
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'center'
 				});
-				tl.show(box, edge(a - 0.45), edge(b + 0.6));
+				tl.show(box, edge(a - 0.45), edge(stay ? b : b + 0.6));
 				const r = fitted(box, 'pm-display2', line, { width: 1500, min: 80, lines: 2 });
 				rise(tl, r, a + 0.3, 0.08, 0.9);
+				if (stay) sink(tl, r, b - 0.5, 0.04, 0.42);
 				break;
 			}
 			case 'end':
@@ -762,56 +772,6 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 		sink(tl, r, b - 0.62, 0.04, 0.3);
 	}
 
-	/**
-	 * Bright's title with a logo, still in daylight: the scene undimmed, the logo on a sharp night
-	 * plate (a title's logo is drawn for the dark; on paper a yellow one would vanish) that opens
-	 * from the left as the red field leaves that way.
-	 */
-	function plateTitle(a: number, b: number) {
-		run(a, b, 0, {
-			first: spec.hero ?? freshest(pool) ?? nextShot(),
-			shots: () => freshest(pool) ?? nextShot(),
-			push: [1.04, 1.1]
-		});
-		const box = centred(text);
-		tl.show(box, edge(a), edge(b));
-		const plate = css(div(null, box), {
-			position: 'relative',
-			display: 'flex',
-			flexDirection: 'column',
-			alignItems: 'center',
-			padding: '64px 72px 52px'
-		});
-		const back = css(div('pm-fill pm-night', plate), { transformOrigin: '0 50%' });
-		const mark = titleMark(plate, t, { w: 1000, h: 300, area: 220000 }, 'pm-display1', {
-			width: 1500,
-			min: 96,
-			lines: 3
-		});
-		mark.el.style.position = 'relative';
-		const rule = css(div('pm-rule', plate), {
-			width: '96px',
-			marginTop: '34px',
-			position: 'relative'
-		});
-		const meta = css(metaLine(plate, t), { marginTop: '22px', position: 'relative' });
-		// it opens as the red field uncovers its place, not over the field
-		const at = a + 0.3;
-		tl.add(back, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], at, 0.6, 'glide');
-		rise(tl, mark, at + 0.18, 0.09, 0.95);
-		tl.add(rule, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], at + 0.5, 0.8, 'glide');
-		tl.add(
-			meta,
-			[
-				{ opacity: 0, transform: 'translateY(14px)' },
-				{ opacity: 1, transform: 'translateY(0px)' }
-			],
-			at + 0.65,
-			0.7,
-			'glide'
-		);
-	}
-
 	/** The title over its hero shot: the logo (or the name) rising, a red rule, the meta line. */
 	function titleCard(a: number, b: number) {
 		run(a, b, 0, {
@@ -835,15 +795,23 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 			flexDirection: 'column',
 			alignItems: 'center'
 		});
-		const mark = titleMark(group, t, { w: 1100, h: 360, area: 300000 }, 'pm-display1', {
-			width: 1640,
-			min: 104,
-			lines: 3,
-			height: 560
-		});
+		const mark = titleMark(
+			group,
+			t,
+			assets,
+			BRAND.night,
+			{ width: 1100, height: 360, area: 300000 },
+			'pm-display1',
+			{
+				width: 1640,
+				min: 104,
+				lines: 3,
+				height: 560
+			}
+		);
 		const rule = css(div('pm-rule', group), {
 			width: '96px',
-			marginTop: t.logo ? '40px' : '34px'
+			marginTop: mark.logo ? '40px' : '34px'
 		});
 		const meta = metaLine(group, t);
 		css(meta, { marginTop: '26px' });
@@ -868,10 +836,19 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 		tl.add(meta, [{ opacity: 1 }, { opacity: 0 }], b - 0.45, 0.3, 'leave');
 	}
 
-	/** Bright's title without a logo, in daylight: the name in night on paper, the picture framed. */
-	function brightTitle(a: number, b: number) {
-		const field = div('pm-fill pm-paper', fields);
-		tl.show(field, edge(a - 0.3), edge(b + 1));
+	/**
+	 * Bright's title, in daylight: the title at the left on its field, the picture framed at the
+	 * right. The logo (or the name, in night type on paper) sits straight on the field with no box
+	 * behind it. On red the sheet that has been sliding across stays under it; on paper, which the
+	 * sheet uncovers as it leaves to the left, so the logo is a dark one.
+	 */
+	function brightTitle(a: number, b: number, ground: 'red' | 'paper') {
+		const onRed = ground === 'red';
+		if (!onRed) {
+			const field = div('pm-fill pm-paper');
+			fields.insertBefore(field, red);
+			tl.show(field, edge(a - 0.3), edge(b + 1));
+		}
 		// the frame bleeds off the right edge and slides in as the red field slides away
 		const fv: View = { x: 1004, y: 130, w: W - 1004, h: 820 };
 		const frameBox = place(div('pm-take', fields), fv);
@@ -907,10 +884,20 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 			justifyContent: 'center'
 		});
 		tl.show(col, edge(a - 0.3), edge(b + 1));
-		const r = fitted(col, 'pm-display1', t.name, { width: 860, min: 96, lines: 3 });
-		css(r.el, { color: '#050505' });
-		const meta = css(metaLine(col, t), { color: '#5f5a55', marginTop: '26px' });
-		meta.querySelectorAll<HTMLElement>('.sep').forEach((e) => (e.style.background = '#a39d96'));
+		const r = titleMark(col, t, assets, BRAND[ground], BRIGHT_LOGO, 'pm-display1', {
+			width: 860,
+			min: 96,
+			lines: 3
+		});
+		// the name is night type on paper; a logo keeps its own colours
+		if (!r.logo) css(r.el, { color: BRAND.night });
+		// the meta line: paper on red, a quiet grey on paper
+		const meta = css(metaLine(col, t), {
+			color: onRed ? BRAND.paper : '#5f5a55',
+			marginTop: '26px'
+		});
+		if (!onRed)
+			meta.querySelectorAll<HTMLElement>('.sep').forEach((e) => (e.style.background = '#a39d96'));
 		rise(tl, r, a + 0.25, 0.09, 0.95);
 		tl.add(
 			meta,
@@ -994,12 +981,20 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 			left: `${EC.x}px`,
 			width: `${EC.w}px`
 		});
-		const mark = titleMark(group, t, { w: EC.w, h: 300, area: 133000 }, 'pm-ec-title', {
-			width: EC.w,
-			min: 60,
-			lines: 3,
-			height: 330
-		});
+		const mark = titleMark(
+			group,
+			t,
+			assets,
+			BRAND.night,
+			{ width: EC.w, height: 300, area: 133000 },
+			'pm-ec-title',
+			{
+				width: EC.w,
+				min: 60,
+				lines: 3,
+				height: 330
+			}
+		);
 		const top = Math.round((H - (mark.h + EC.gap + EC.slot)) / 2 - 10);
 		group.style.top = `${top}px`;
 		rise(tl, mark, grit ? at + 0.1 : T + 0.3, 0.09, 0.95);

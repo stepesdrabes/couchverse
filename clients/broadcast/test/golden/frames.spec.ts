@@ -51,6 +51,10 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['strip-long', [8]],
 	['strip-long-bright', [6]],
 	['strip-night-panel', [6]],
+	['promo-bright-red', [10.6, 16]],
+	['promo-bright-paper', [10.6]],
+	['promo-bright-picture', [10.6]],
+	['promo-cinematic-dark-logo', [13.4, 19.5]],
 	['short-long', [4.2]],
 	['lineup-long', [4.4, 7]],
 	['squeeze-long', [5]],
@@ -227,7 +231,13 @@ for (const [name, moving, held] of HELD) {
 }
 
 test('a promo body does not depend on the airing', async ({ page }) => {
-	for (const mood of ['promo-cinematic', 'promo-grit-premiere', 'promo-bright'] as const) {
+	for (const mood of [
+		'promo-cinematic',
+		'promo-grit-premiere',
+		'promo-bright',
+		'promo-bright-red',
+		'promo-bright-paper'
+	] as const) {
 		const base = FIXTURES[mood] as PromoSpec;
 		const shots: Buffer[] = [];
 		for (const airing of [

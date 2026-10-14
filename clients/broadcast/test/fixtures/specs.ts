@@ -327,8 +327,22 @@ const LOGOS = {
 	// a flat dark red, too dark to read on night as it is
 	water: { url: `${M}/logo-water.png`, aspect: 1000 / 420 },
 	// a pale blue made for dark backgrounds, too light for paper
-	night: { url: `${M}/logo-night.png`, aspect: 1100 / 300 }
+	night: { url: `${M}/logo-night.png`, aspect: 1100 / 300 },
+	// a pale pink made for dark backgrounds: it reads on neither paper nor the brand's red
+	rose: { url: `${M}/logo-rose.png`, aspect: 1100 / 300 }
 } satisfies Record<string, Logo>;
+// the bright promo's title moment by the field its logo lands on: red (a light logo), paper (a
+// dark one), else over the picture
+const LOGO_ON = {
+	red: { ...PROMO.sunny, logo: LOGOS.sunny },
+	paper: {
+		...TITLES.water,
+		logo: LOGOS.water,
+		footage: PROMO_SCENES,
+		taglines: ['Still waters.', 'Dark secrets.']
+	},
+	picture: { ...TITLES.night, logo: LOGOS.rose, footage: PROMO_SCENES }
+} satisfies Record<string, Title>;
 const shown = (t: Title, logo?: Logo): Title => ({
 	...t,
 	...(logo ? { logo } : {}),
@@ -556,6 +570,44 @@ export const FIXTURES = {
 		airing: { eyebrow: 'Every weekday', time: '17:30', days: [0, 1, 2, 3, 4] },
 		foot: { kind: 'from', season: 2, day: 3 },
 		duration: 12
+	},
+	// the bright promo's title with a light logo (on red), a dark one (on paper), one that reads
+	// on neither (over the picture), and a dark logo on the cinematic promo's night (lifted)
+	'promo-bright-red': {
+		template: 'promo',
+		part: 'full',
+		mood: 'bright',
+		title: LOGO_ON.red,
+		shots: SHOTS,
+		airing: { eyebrow: 'Tomorrow', time: '18:00' },
+		bed: bed()
+	},
+	'promo-bright-paper': {
+		template: 'promo',
+		part: 'full',
+		mood: 'bright',
+		title: LOGO_ON.paper,
+		shots: SHOTS,
+		airing: { eyebrow: 'Today', time: '19:30' },
+		bed: bed()
+	},
+	'promo-bright-picture': {
+		template: 'promo',
+		part: 'full',
+		mood: 'bright',
+		title: LOGO_ON.picture,
+		shots: SHOTS,
+		airing: { eyebrow: 'Tonight', time: '20:15' },
+		bed: bed()
+	},
+	'promo-cinematic-dark-logo': {
+		template: 'promo',
+		part: 'full',
+		mood: 'cinematic',
+		title: LOGO_ON.paper,
+		shots: SHOTS,
+		airing: { eyebrow: 'Tonight', time: '20:15' },
+		bed: bed()
 	},
 	// the longest name on the paper panel, with the house's own music
 	'strip-long-bright': {
