@@ -2477,7 +2477,9 @@ approves is what airs.
   note as each comes and a bowed line in the sparsest; the weather's steps the pad through D,
   B minor, G, A and E minor to D with glass at every scene and air under the sweeps. Their
   chords are built when their turn comes, since every voice built up front costs the render.
-  own, so its sound starts and ends inside the clip. Copy is English (D13, D39 for the
+  A bulletin's sound starts in silence and ends inside the clip (a slot cuts it at both its
+  edges): the whole mix, the hall included, is faded to silence before the last frame, the tag's
+  chord ringing out with it. Copy is English (D13, D39 for the
   bulletins: what the data brings, the city names and the Czech headlines, stays as written);
   every time and day arrives as a preformatted phrase (`Airing`, the bulletins' `asOf`, day
   labels and `BulletinTime`s), so templates do no clock maths.
@@ -2883,7 +2885,8 @@ approves is what airs.
   last 50 ms under -60 dBFS, nothing rings on past the clip, and where the house plays alone its
   level only falls through the last second),
   and items rendered
-  alone and mixed sound like the break rendered in one pass (within 0.1 LU item by item, 0.5 LU
+  alone and mixed sound like the break rendered in one pass (within 0.2 LU item by item, since an
+  item ending in a decay has blocks at the loudness gate's edge, 0.5 LU
   in every 400 ms after the first second, 0.2 dB of true peak); a unit test pins the loudness
   numbers the server's Go port reproduces. Stand-in media (gradient art, title logos, two footage
   shots, a bed) are committed in `test/media` with the script that made them. `npm run dev`
