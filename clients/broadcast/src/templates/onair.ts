@@ -12,6 +12,7 @@ import { css, div, img, span, words } from '../core/dom';
 import { fitText, type FitBox } from '../core/fit';
 import { framed } from '../core/framing';
 import type { Crop, FootageShot, Title } from '../spec';
+import { logoFor, type LogoBox } from './reel';
 import type { TL } from './shared';
 
 /** The screens' colours (DESIGN.md 1.2): paper's tiers are solid over night, so small type never blends. */
@@ -180,29 +181,6 @@ export function meta(parent: Element, cls: string, items: string[]) {
 	return el;
 }
 
-/** Whether a title's logo can be drawn: one it has that loaded. */
-export const hasLogo = (t: Title, assets: Assets) =>
-	!!t.logo?.url && !assets.missing.includes(t.logo.url);
-
-/**
- * A logo's size within a box: logos vary from a 4:1 bar to a near square, so each gets the same
- * area (an equal visual weight), within the box's width and height, never stretched.
- */
-export function logoSize(aspect: number, { area, width, height }: LogoBox) {
-	let w = Math.sqrt(area * aspect);
-	let h = w / aspect;
-	if (w > width) [w, h] = [width, width / aspect];
-	if (h > height) [w, h] = [height * aspect, height];
-	return { width: Math.round(w), height: Math.round(h) };
-}
-
-export interface LogoBox {
-	/** The area every logo gets, px². */
-	area: number;
-	width: number;
-	height: number;
-}
-
 export interface Mark {
 	el: HTMLElement;
 	/** What rises into place, line by line (the logo is one line). */
@@ -211,7 +189,8 @@ export interface Mark {
 }
 
 /**
- * A title shown big: its own logo, sized by its aspect (`logoSize`), else its name fitted
+ * A title shown big: its own logo over the graded night (a logo too dark for it has its colours
+ * lifted, never a box put behind it), sized by its aspect (`logoSize`), else its name fitted
  * (`fitText`) in the element's type role. A logo replaces the name, never sits beside it; the
  * name stays as the logo's accessible text.
  */
@@ -223,10 +202,10 @@ export function titleMark(
 	fit: FitBox,
 	box: LogoBox
 ): Mark {
-	if (title.logo && hasLogo(title, assets)) {
-		const { width, height } = logoSize(title.logo.aspect, box);
+	const logo = logoFor(assets, title.logo, INK.night, box);
+	if (logo) {
 		const m = div(`oa-mask oa-logo ${cls}`, parent);
-		const i = css(img(null, m, title.logo.url), { width: `${width}px`, height: `${height}px` });
+		const i = css(img(null, m, logo.src), { width: `${logo.w}px`, height: `${logo.h}px` });
 		i.alt = title.name;
 		return { el: m, lines: [[i]], logo: true };
 	}
