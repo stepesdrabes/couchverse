@@ -2566,7 +2566,8 @@ approves is what airs.
   montage (up to 14 to 16 s, as far as the picture goes) grows, then the cards (up to 1 s more
   each), the channel's moment, the title and the premiere card breathe instead of any picture
   repeating, and a very thin trailer stays under 60 s. No scene plays over 6.5 s (the cold
-  open), 8 s or 5.6 s (the button), cut in the gaps between lines. *Lines are never cut*: a
+  open), 8 s or 5.6 s (the button), cut in the gaps between lines (the cold open's cut keeps
+  the first line, the button's the last, whatever else speaks more: the punchline the picker scored). *Lines are never cut*: a
   scene's sound window holds every line it touches whole, a cut falls a little before a first word
   and after a last (half way through a shorter gap), and a J-cut or an L-cut (every other cut
   between scenes with no card, where four frames of the scene's sound are clear of words) trims

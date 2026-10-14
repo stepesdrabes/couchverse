@@ -226,6 +226,31 @@ describe('the trailer plan', () => {
 		expect(cutWindow(scene(5), 8)).toEqual([0, 5]);
 	});
 
+	it('keeps the opener on its first line and the button on its last, whatever speaks more', () => {
+		// four lines in twelve seconds, the most speech in the middle two (a free cut drops both ends)
+		const long = scene(12, [0.5, 1], [3, 5], [5.6, 7.6], [10.4, 11.4]);
+		const free = cutWindow(long, 5.6);
+		expect(free[0]).toBeGreaterThan(1);
+		expect(free[1]).toBeLessThan(10.4);
+		// the opener starts on the first line (a cut a little before it), the button ends on the last
+		const first = cutWindow(long, 5.6, 'first');
+		expect(first[0]).toBeLessThanOrEqual(0.5);
+		expect(first[1] - first[0]).toBeLessThanOrEqual(5.6 + 1e-6);
+		const last = cutWindow(long, 5.6, 'last');
+		expect(last[1]).toBeGreaterThanOrEqual(11.4);
+		expect(last[1] - last[0]).toBeLessThanOrEqual(5.6 + 1e-6);
+		// a last line longer than the most plays whole
+		const [from, to] = cutWindow(scene(12, [0.5, 2], [3, 10.5]), 5.6, 'last');
+		expect(from).toBeLessThanOrEqual(3);
+		expect(to).toBeGreaterThanOrEqual(10.5);
+		// and the plan uses it: the button's picture ends on its scene's last line
+		const p = plan({
+			scenes: [...SCENES.slice(0, 7), scene(11, [0.4, 1.4], [2.2, 4.6], [5.2, 7.6], [9.6, 10.6])]
+		});
+		const button = scenesOf(p).find((s) => s.role === 'button');
+		if (button) expect(button.soundTo).toBeGreaterThanOrEqual(10.6);
+	});
+
 	it('puts the montage on the soundtrack and the title on its peak', () => {
 		// beats every 0.5 s of the excerpt, a strong hit at 10.4 s
 		const onsets = Array.from({ length: 80 }, (_, i) => ({ t: i * 0.5, s: i % 4 ? 0.6 : 1 }));

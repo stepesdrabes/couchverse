@@ -176,15 +176,23 @@ const CLEAR = 0.08;
 /**
  * The stretch of a scene to play, at most `max` seconds, cut in a gap between lines: the run of
  * whole lines with the most speech that fits, a little before its first word and after its last.
- * A single line longer than `max` plays whole.
+ * A single line longer than `max` plays whole. `keep` holds one end of the speech: `first` keeps
+ * the run that starts on the first line (the cold open: its quiet line opens the trailer), `last`
+ * the run that ends on the last (the button: the punchline the picker scored).
  */
-export function cutWindow(scene: SceneFacts, max: number): [number, number] {
+export function cutWindow(
+	scene: SceneFacts,
+	max: number,
+	keep?: 'first' | 'last'
+): [number, number] {
 	const { len, lines } = scene;
 	if (len <= max + 1e-6) return [0, len];
 	if (!lines.length) return [0, frame(max)];
 	let best: { from: number; to: number; speech: number } | null = null;
 	for (let i = 0; i < lines.length; i++) {
+		if (keep === 'first' && i > 0) break;
 		for (let j = i; j < lines.length; j++) {
+			if (keep === 'last' && j < lines.length - 1) continue;
 			// a cut falls at most LEAD_IN before a line and LEAD_OUT after one, and half way
 			// through a gap that is shorter than that
 			let from = Math.max(0, lines[i][0] - LEAD_IN);
@@ -346,15 +354,15 @@ export function planTrailer(input: PlanInput): Plan {
 
 	// the scenes, trimmed to what plays: the cold open is the first, the button the last when it
 	// has a line and is short enough, the rest are the acts
-	const cut = (i: number, max: number): Cut => {
-		const [from, to] = cutWindow(input.scenes[i], max);
+	const cut = (i: number, max: number, keep?: 'first' | 'last'): Cut => {
+		const [from, to] = cutWindow(input.scenes[i], max, keep);
 		return { ...input.scenes[i], scene: i, from, to };
 	};
-	const open = cut(0, LONGEST.open);
+	const open = cut(0, LONGEST.open, 'first');
 	const last = input.scenes.length - 1;
 	let button: Cut | null = null;
 	if (last > 1 && input.scenes[last].lines.length) {
-		const c = cut(last, LONGEST.button);
+		const c = cut(last, LONGEST.button, 'last');
 		if (playing(c) <= LONGEST.button + 1) button = c;
 	}
 	let acts: Cut[] = [];
