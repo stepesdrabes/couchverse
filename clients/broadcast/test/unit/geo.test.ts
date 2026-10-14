@@ -5,11 +5,14 @@ import { czechiaMap, krajeEdge } from '../../src/core/geo';
 import { CZECHIA } from '../../src/generated/czechia';
 import { KRAJE } from '../../src/generated/kraje';
 import type { NewsStory, WeatherWarning } from '../../src/spec';
-import { holds, reach } from '../../src/templates/news';
+import { BEAT, share } from '../../src/templates/bulletin';
+import { outletsOf, reach, running } from '../../src/templates/news';
 import {
 	degrees,
+	precipitation,
 	range,
 	regionsPhrase,
+	schedule,
 	warnedKraje,
 	warningTime
 } from '../../src/templates/weather';
@@ -197,33 +200,140 @@ describe('the weather', () => {
 	});
 });
 
+const onBeat = (t: number) => Math.abs(t / BEAT - Math.round(t / BEAT)) < 1e-9;
+
+describe('the bulletins', () => {
+	const part = (w: number, min: number, max: number) => ({ w, min, max });
+
+	it('share whole beats among parts, within their bounds, exactly to the total', () => {
+		const parts = [part(4, 3, 6), part(10, 9, 16), part(10, 9, 16), part(12, 9, 16)];
+		for (const total of [34, 45, 54]) {
+			const out = share(parts, total);
+			expect(out.reduce((a, b) => a + b, 0)).toBe(total);
+			out.forEach((b, i) => {
+				expect(Number.isInteger(b)).toBe(true);
+				expect(b).toBeGreaterThanOrEqual(parts[i].min);
+				expect(b).toBeLessThanOrEqual(parts[i].max);
+			});
+		}
+		// a part that wants more gets more
+		const [a, b] = share([part(4, 1, 20), part(8, 1, 20)], 30);
+		expect(b).toBeGreaterThan(a);
+	});
+
+	it('give way when the bounds cannot hold', () => {
+		const parts = [part(4, 3, 6), part(10, 9, 16)];
+		// under the minimums: both shrink alike
+		expect(share(parts, 6)).toEqual([2, 4]);
+		// over the maximums: both stretch alike
+		const out = share(parts, 44);
+		expect(out.reduce((a, b) => a + b, 0)).toBe(44);
+		expect(out[1]).toBeGreaterThan(16);
+	});
+});
+
 describe('the news', () => {
-	const story = (headline: string, outlets = 1): NewsStory => ({
+	const story = (headline: string, outlets = 1, outlet = 'ČT24'): NewsStory => ({
 		headline,
-		outlet: 'ČT24',
+		outlet,
 		outlets
 	});
+	const D = 54.4;
 
-	it('gives each story its reading time, filling the bulletin on the half beat', () => {
-		const slots = holds(
-			[story('a'.repeat(60)), story('b'.repeat(120)), story('c'.repeat(30))],
-			0.6,
-			19.5
-		);
-		expect(slots[0][0]).toBe(0.6);
-		expect(slots[2][1]).toBe(19.5);
-		for (let i = 1; i < slots.length; i++) {
-			expect(slots[i][0]).toBe(slots[i - 1][1]);
-			expect(Math.abs(slots[i][0] / 0.4 - Math.round(slots[i][0] / 0.4))).toBeLessThan(1e-9);
+	it('opens, gives each story its reading time and recaps, all on the beat to the last frame', () => {
+		for (const n of [3, 4, 5]) {
+			const stories = Array.from({ length: n }, (_, i) => story('a'.repeat(50 + 20 * i)));
+			const run = running(stories, D);
+			expect(run.stories).toHaveLength(n);
+			expect(run.stories[0][0]).toBe(run.open);
+			expect(run.stories[n - 1][1]).toBe(run.recap);
+			for (let i = 0; i < n; i++) {
+				const [a, b] = run.stories[i];
+				// a story reads for 7 to 13 s, whatever the count
+				expect(b - a).toBeGreaterThanOrEqual(7.2 - 1e-9);
+				expect(b - a).toBeLessThanOrEqual(12.8 + 1e-9);
+				expect(onBeat(a) && onBeat(b)).toBe(true);
+				if (i) expect(a).toBe(run.stories[i - 1][1]);
+			}
+			// the open takes a few seconds, the recap and sign-off at least 7
+			expect(run.open).toBeGreaterThanOrEqual(2.4);
+			expect(run.open).toBeLessThanOrEqual(4.8 + 1e-9);
+			expect(D - run.recap).toBeGreaterThanOrEqual(7.2);
 		}
-		// the longest headline reads longest
-		const len = slots.map(([a, b]) => b - a);
-		expect(len[1]).toBeGreaterThan(len[0]);
-		expect(len[0]).toBeGreaterThan(len[2] - 0.4);
 	});
 
-	it('says how many outlets carry a story', () => {
+	it('gives a longer headline longer', () => {
+		const run = running([story('a'.repeat(40)), story('b'.repeat(130)), story('c'.repeat(40))], D);
+		const len = run.stories.map(([a, b]) => b - a);
+		expect(len[1]).toBeGreaterThan(len[0]);
+		expect(len[1]).toBeGreaterThan(len[2]);
+	});
+
+	it('holds fewer stories longer and fills the same bulletin', () => {
+		const stories = Array.from({ length: 5 }, () => story('a'.repeat(80)));
+		const hold = (n: number) => {
+			const run = running(stories.slice(0, n), D);
+			return (run.recap - run.open) / n;
+		};
+		expect(hold(3)).toBeGreaterThan(hold(5));
+		for (const n of [1, 2, 3, 4, 5]) expect(running(stories.slice(0, n), D).recap).toBeLessThan(D);
+	});
+
+	it('says how many outlets carry a story and which outlets the stories come from', () => {
 		expect(reach(story('x', 4))).toBe('Reported by 4 outlets');
 		expect(reach(story('x'))).toBe('');
+		expect(
+			outletsOf([story('a', 1, 'ČT24'), story('b', 1, 'iROZHLAS'), story('c', 1, 'ČT24')])
+		).toEqual(['ČT24', 'iROZHLAS']);
+	});
+});
+
+describe('the weather scenes', () => {
+	const D = 38.4;
+
+	it('follow one another on the beat, the sign-off in the last scene', () => {
+		for (const shown of [null, 0, 1, 2, 3]) {
+			const s = schedule(D, shown, 5);
+			const starts = [0, s.warnings, s.today, s.tomorrow, s.days].filter(
+				(t): t is number => t != null
+			);
+			expect(starts).toEqual([...starts].sort((a, b) => a - b));
+			expect(starts.every(onBeat)).toBe(true);
+			expect(s.warnings != null).toBe(shown != null);
+			// every scene reads for at least four seconds, the last long enough to hold the tag
+			starts.forEach((t, i) => expect((starts[i + 1] ?? D) - t).toBeGreaterThanOrEqual(3.2));
+			expect(s.tag).toBeGreaterThan(s.days! + 2.4);
+			expect(s.tag).toBeLessThan(D - 4);
+		}
+	});
+
+	it('give each warning its turn within the warnings scene', () => {
+		const s = schedule(D, 3, 5);
+		expect(s.each).toHaveLength(3);
+		expect(s.each[0]).toBeGreaterThan(s.warnings!);
+		expect(s.each[2]).toBeLessThan(s.today);
+		expect(s.each[1] - s.each[0]).toBeGreaterThanOrEqual(2.8);
+		// more warnings take longer, a quiet day shortest
+		const len = (shown: number) => {
+			const t = schedule(D, shown, 5);
+			return t.today - t.warnings!;
+		};
+		expect(len(3)).toBeGreaterThan(len(1));
+		expect(len(1)).toBeGreaterThan(len(0));
+	});
+
+	it('keep to what the forecast has: one day ends on today', () => {
+		const s = schedule(D, null, 1);
+		expect(s.warnings).toBeUndefined();
+		expect(s.tomorrow).toBeUndefined();
+		expect(s.days).toBeUndefined();
+		expect(s.tag).toBeGreaterThan(s.today + 2.4);
+	});
+
+	it('words the day chance of precipitation', () => {
+		expect(precipitation([20, 85, 40])).toBe('Precipitation chance up to 85%');
+		expect(precipitation([0, 0])).toBe('No precipitation expected');
+		expect(precipitation([undefined, 30])).toBe('Precipitation chance up to 30%');
+		expect(precipitation([undefined])).toBe('');
 	});
 });

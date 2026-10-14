@@ -215,6 +215,18 @@ const WIND: WeatherWarning = {
 		{ code: 'CZ-71', name: 'Olomouc Region', partial: true }
 	]
 };
+// a fourth warning for the weather's longest: the bulletin tells three and counts the rest
+const WEATHER_RAIN: WeatherWarning = {
+	level: 'yellow',
+	event: 'Moderate Rain Related Impact',
+	active: false,
+	from: { time: '21:00' },
+	until: { day: 'Wednesday', time: '06:00' },
+	regions: [
+		{ code: 'CZ-80', name: 'Moravian-Silesian Region', partial: false },
+		{ code: 'CZ-72', name: 'Zlín Region', partial: true }
+	]
+};
 const CREDITS = {
 	forecast: 'Weather data by Open-Meteo.com',
 	warnings: 'Source: ČHMÚ',
@@ -657,7 +669,7 @@ export const FIXTURES = {
 	},
 	weather: {
 		template: 'weather',
-		duration: 15,
+		duration: 38.4,
 		asOf: '17:00',
 		cities: [PRAGUE, BRNO, OSTRAVA],
 		warnings: [WIND],
@@ -666,7 +678,7 @@ export const FIXTURES = {
 	// every default city and a warning of each level
 	'weather-long': {
 		template: 'weather',
-		duration: 15,
+		duration: 38.4,
 		asOf: '06:30',
 		cities: [PRAGUE, BRNO, OSTRAVA, ...MORE_CITIES],
 		warnings: [
@@ -689,14 +701,15 @@ export const FIXTURES = {
 					{ code: 'CZ-80', name: 'Moravian-Silesian Region', partial: true }
 				]
 			},
-			WIND
+			WIND,
+			WEATHER_RAIN
 		],
 		credits: CREDITS
 	},
 	// a quiet day, and a day ČHMÚ could not be read
 	'weather-quiet': {
 		template: 'weather',
-		duration: 15,
+		duration: 38.4,
 		asOf: '12:30',
 		cities: [PRAGUE],
 		warnings: [],
@@ -704,14 +717,14 @@ export const FIXTURES = {
 	},
 	'weather-unread': {
 		template: 'weather',
-		duration: 15,
+		duration: 38.4,
 		asOf: '12:30',
 		cities: [BRNO, OSTRAVA],
 		credits: CREDITS
 	},
 	news: {
 		template: 'news',
-		duration: 20,
+		duration: 54.4,
 		asOf: '17:02',
 		stories: HEADLINES.map(([outlet, headline, outlets, trending]) => ({
 			outlet,
@@ -723,20 +736,34 @@ export const FIXTURES = {
 	},
 	'news-long': {
 		template: 'news',
-		duration: 20,
+		duration: 54.4,
 		asOf: '23:50',
 		stories: LONG_HEADLINES.map(([outlet, headline, outlets]) => ({ outlet, headline, outlets })),
 		credit: 'Headlines from the outlets’ RSS feeds, as of 23:50'
 	},
 	'news-three': {
 		template: 'news',
-		duration: 20,
+		duration: 54.4,
 		asOf: '06:10',
 		stories: HEADLINES.slice(2).map(([outlet, headline, outlets]) => ({
 			outlet,
 			headline,
 			outlets
 		})),
+		credit: 'Headlines from the outlets’ RSS feeds, as of 06:10'
+	},
+	// a single story holds the whole bulletin
+	'news-one': {
+		template: 'news',
+		duration: 54.4,
+		asOf: '06:10',
+		stories: [
+			{
+				outlet: LONG_HEADLINES[0][0],
+				headline: LONG_HEADLINES[0][1],
+				outlets: LONG_HEADLINES[0][2]
+			}
+		],
 		credit: 'Headlines from the outlets’ RSS feeds, as of 06:10'
 	}
 } satisfies Record<string, ClipSpec>;

@@ -57,15 +57,18 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['short-long', [4.2]],
 	['lineup-long', [4.4, 7]],
 	['squeeze-long', [5]],
-	// the bulletins' scenes: now, tomorrow and the next days; a story mid-bulletin
-	['weather', [3, 8, 13]],
-	['weather-quiet', [3]],
-	['weather-unread', [3]],
-	['news', [3, 9]],
-	['news-three', [3]],
-	// every default city and a warning of each level; the longest headlines
-	['weather-long', [3, 8]],
-	['news-long', [3]]
+	// the weather's scenes: now, the warning, today, tomorrow, the next days and the sign-off;
+	// the news': its open, a story with its reach, a later story, the recap and the sign-off
+	['weather', [4, 11, 17, 23, 30, 36]],
+	['weather-quiet', [10.5, 31]],
+	['weather-unread', [12, 20]],
+	['news', [2.4, 9.5, 24, 47.5, 52]],
+	['news-three', [12, 46]],
+	// every default city and four warnings (a level each, and a second yellow); the longest
+	// headlines; a lone story
+	['weather-long', [4, 8, 15, 20, 36]],
+	['news-long', [14, 48]],
+	['news-one', [20, 50]]
 ];
 
 test.beforeEach(async ({ page }) => openRender(page));

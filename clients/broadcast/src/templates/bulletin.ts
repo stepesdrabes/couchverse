@@ -10,9 +10,10 @@ import { grainTexture } from '../assets';
 import { house, type House } from '../audio/voices';
 import type { Kit } from '../audio/kit';
 import type { Bus } from '../audio/engine';
-import { lockup } from '../brand/lockup';
+import { channelTag, lockup } from '../brand/lockup';
 import { css, div, span } from '../core/dom';
 import { fitText } from '../core/fit';
+import { edge } from '../core/moves';
 import type { TL } from './shared';
 
 /** 75 bpm, the house tempo: a beat is 20 frames. */
@@ -20,6 +21,45 @@ export const BEAT = 0.8;
 
 /** The nearest beat, so a move lands on the music's grid. */
 export const onBeat = (t: number) => Math.round(t / BEAT) * BEAT;
+
+/** `A, B and C`. */
+export const list = (names: string[]) =>
+	names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+
+/**
+ * Whole beats for parts that each want `w` beats and stay within `[min, max]`, together exactly
+ * `total`: the wants scaled by one factor, each held to its bounds, the beats that rounding
+ * leaves going to the parts that lost the most to it. Bounds that cannot hold (all minimums
+ * over the total, all maximums under it) give way proportionally.
+ */
+export function share(parts: { w: number; min: number; max: number }[], total: number): number[] {
+	const sum = (f: (p: { w: number; min: number; max: number }) => number) =>
+		parts.reduce((a, p) => a + f(p), 0);
+	const least = sum((p) => p.min);
+	const most = sum((p) => p.max);
+	let beats: number[];
+	if (least >= total) beats = parts.map((p) => (p.min * total) / least);
+	else if (most <= total) beats = parts.map((p) => (p.max * total) / most);
+	else {
+		const at = (k: number) => parts.map((p) => Math.min(p.max, Math.max(p.min, p.w * k)));
+		let [lo, hi] = [0, 1000];
+		for (let i = 0; i < 60; i++) {
+			const mid = (lo + hi) / 2;
+			if (at(mid).reduce((a, b) => a + b, 0) < total) lo = mid;
+			else hi = mid;
+		}
+		beats = at((lo + hi) / 2);
+	}
+	const whole = beats.map(Math.floor);
+	let left = total - whole.reduce((a, b) => a + b, 0);
+	const order = beats.map((b, i) => [b - whole[i], i]).sort((a, b) => b[0] - a[0]);
+	for (const [, i] of order) {
+		if (left <= 0) break;
+		whole[i]++;
+		left--;
+	}
+	return whole;
+}
 
 /** Past this, a fitted line is as wide as the stage's title-safe width allows from x 96. */
 export const SAFE_RIGHT = 1824;
@@ -125,12 +165,8 @@ export function credits(parent: HTMLElement, items: string[]) {
 	return c;
 }
 
-/**
- * The exit: everything left lifts away into the night over the last half second, the last of
- * it gone by the last frame (D less a frame), so the clip ends on night.
- */
-export function exit(tl: TL, els: Element[]) {
-	const at = tl.duration - 0.04 - 0.4 - 0.03 * (els.length - 1);
+/** `els` lift away into the night from `at`, 30 ms apart. */
+export function lift(tl: TL, els: Element[], at: number) {
 	els.forEach((e, i) =>
 		tl.add(
 			e,
@@ -143,6 +179,24 @@ export function exit(tl: TL, els: Element[]) {
 			'leave'
 		)
 	);
+}
+
+/**
+ * The exit: everything left lifts away into the night over the last half second, the last of
+ * it gone by the last frame (D less a frame), so the clip ends on night.
+ */
+export function exit(tl: TL, els: Element[]) {
+	lift(tl, els, tl.duration - 0.04 - 0.4 - 0.03 * (els.length - 1));
+}
+
+/**
+ * The channel's sign-off: the corner's lockup gives way to the tag in the foot's corner, whose
+ * popcorn lands at `at` and whose couch, t and v type in on the compact sonic logo, as every
+ * promo ends. The tag's sound rings out well before the sound's fade (see FADE).
+ */
+export function signOff(tl: TL, corner: Element, at: number, sound: Kit) {
+	tl.add(corner, [{ opacity: 1 }, { opacity: 0 }], edge(at - 0.7), 0.4, 'sine');
+	return channelTag(tl, tl.root, at, sound, { gain: 0.5 });
 }
 
 /** How long the bulletins' sound takes to fade out, ending this long before the last frame. */

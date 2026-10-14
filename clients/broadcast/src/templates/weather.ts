@@ -1,12 +1,25 @@
-// The weather (DESIGN.md 2.10, sharp): Czechia as a deep red country of kraje on the night,
-// every configured city's sky and temperature where the city is, ČHMÚ's warnings filling the
-// kraje they cover. Three scenes, each still once it has entered: now (the warnings beside the
-// map), tomorrow (a red front crosses the country west to east and every city turns to
-// tomorrow's sky as it passes) and the next days (a red bar sweeps the map away into a table).
-// English chrome; city names as configured. The music is the house pad on D with glass at
-// every change of scene and air under the sweeps, all of it over before the clip ends.
+// The weather (DESIGN.md 2.10, sharp), half a minute long: Czechia as a deep red country of
+// kraje on the night, every configured city's sky and temperature where the city is, ČHMÚ's
+// warnings filling the kraje they cover. Scenes, each still once it has entered: now (the cities
+// and the warmest and coldest of them), the warnings (the cities give way to the kraje, one
+// warning at a time, or "No weather warnings"), today and tomorrow (the cities turn to the day's
+// high and low, tomorrow's as a red front crosses the country west to east) and the next days
+// (a red bar sweeps the map away into a table), then the channel's sign-off. English chrome; city
+// names as configured. The music is the house pad stepping through one progression in D, glass
+// at every change of scene, air under the sweeps and the sonic logo's own chord to close, all of
+// it over before the clip ends.
 
-import { air, glass, house, pad, padSweep, piano, shimmer, sub } from '../audio/voices';
+import {
+	air,
+	glass,
+	house,
+	pad,
+	padSweep,
+	piano,
+	shimmer,
+	sub,
+	type PadOptions
+} from '../audio/voices';
 import { BRAND } from '../brand/wordmark';
 import { css, div, span, svg } from '../core/dom';
 import { fitText } from '../core/fit';
@@ -22,9 +35,11 @@ import {
 	head,
 	headIn,
 	headOut,
+	list,
 	mark,
-	onBeat,
-	SAFE_RIGHT
+	SAFE_RIGHT,
+	share,
+	signOff
 } from './bulletin';
 import { timeline, type Template } from './shared';
 import { weatherIcon } from './weather-icons';
@@ -39,6 +54,14 @@ export function range(values: number[]) {
 	return lo < 0 ? `${degrees(lo)} to ${degrees(hi)}` : `${lo}–${hi}°`;
 }
 
+/** What the day's chances of precipitation come to: the highest, or that there is none. */
+export function precipitation(chances: (number | undefined)[]) {
+	const known = chances.filter((p): p is number => p != null);
+	if (!known.length) return '';
+	const most = Math.max(...known);
+	return most === 0 ? 'No precipitation expected' : `Precipitation chance up to ${most}%`;
+}
+
 const when = (t: { day?: string; time: string }) => (t.day ? `${t.day} ${t.time}` : t.time);
 
 /** `Now until Wednesday 02:00`, `From 16:00 until further notice`. */
@@ -46,9 +69,6 @@ export function warningTime(w: WeatherWarning): string {
 	const until = w.until ? `until ${when(w.until)}` : 'until further notice';
 	return w.active ? `Now ${until}` : `From ${when(w.from)} ${until}`;
 }
-
-const list = (names: string[]) =>
-	names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 
 /**
  * Where a warning is, in ČHMÚ's English kraj names: the whole kraje, then the ones it covers in
@@ -85,8 +105,69 @@ export function warnedKraje(warnings: WeatherWarning[]) {
 	return out;
 }
 
-// the warnings the card has room for; the rest are counted
-const WARNINGS_SHOWN = 2;
+// the warnings the scene has room for; the rest are counted
+export const WARNINGS_SHOWN = 3;
+
+/** The scenes' starts, seconds. */
+export interface Schedule {
+	/** The warnings scene (or the quiet one), where the bulletin has one. */
+	warnings?: number;
+	today: number;
+	tomorrow?: number;
+	days?: number;
+	/** When each warning shown comes up within its scene. */
+	each: number[];
+	/** Where the sign-off's popcorn lands. */
+	tag: number;
+}
+
+/**
+ * When each scene starts, on the beat, filling the bulletin: now, the warnings (`shown` of them,
+ * 0 for a quiet day, null when ČHMÚ could not be read: no scene), today, and where the forecast
+ * has a second day tomorrow and the next days, which hold the sign-off in their last seconds.
+ * Each scene wants the beats its content needs and gives or takes some of them when the
+ * warnings or the days change what there is to read.
+ */
+export function schedule(D: number, shown: number | null, days: number): Schedule {
+	const table = days >= 2;
+	// the scenes in order, each with the beats it wants and may take
+	const scenes: [string, { w: number; min: number; max: number }][] = [
+		['now', { w: 9, min: 6, max: 12 }]
+	];
+	if (shown != null)
+		scenes.push([
+			'warnings',
+			shown
+				? { w: 3 + 4 * shown, min: 3 + 3 * shown, max: 3 + 6 * shown }
+				: { w: 5, min: 4, max: 7 }
+		]);
+	scenes.push(['today', table ? { w: 8, min: 5, max: 11 } : { w: 12, min: 9, max: 16 }]);
+	if (table)
+		scenes.push(['tomorrow', { w: 8, min: 5, max: 11 }], ['days', { w: 14, min: 10, max: 18 }]);
+	const beats = share(
+		scenes.map(([, p]) => p),
+		Math.round(D / BEAT)
+	);
+	const start = new Map<string, number>();
+	let t = 0;
+	scenes.forEach(([id], i) => {
+		start.set(id, Math.round(t * BEAT * 1000) / 1000);
+		t += beats[i];
+	});
+	const out: Schedule = {
+		warnings: start.get('warnings'),
+		today: start.get('today')!,
+		tomorrow: start.get('tomorrow'),
+		days: start.get('days'),
+		each: [],
+		tag: D - 5.2
+	};
+	if (out.warnings != null && shown) {
+		const len = out.today - out.warnings;
+		for (let k = 0; k < shown; k++) out.each.push(out.warnings + 0.3 + (k * (len - 0.3)) / shown);
+	}
+	return out;
+}
 
 // the map: the country 1184 px wide from x 640, 24 px under the middle (DESIGN.md 2.10)
 const MAP = { x: 640, y: 221, width: 1184, height: 679 };
@@ -107,13 +188,22 @@ const outside = (a: Box) =>
 	Math.max(0, SAFE.t - a.t) +
 	Math.max(0, a.b - SAFE.b);
 
+/** A city's sky and temperature for one scene: the icon's wrapper and the temperature's clip. */
+interface Face {
+	icon: HTMLElement;
+	temp: HTMLElement;
+	clip: HTMLElement;
+}
+
+const FACES = ['now', 'today', 'tomorrow'] as const;
+
 interface City {
 	x: number;
 	y: number;
 	name: HTMLElement;
-	/** Per scene: the icon's wrapper and the temperature's clip. */
-	now: { icon: HTMLElement; temp: HTMLElement; clip: HTMLElement };
-	next?: { icon: HTMLElement; temp: HTMLElement; clip: HTMLElement };
+	now: Face;
+	today: Face;
+	tomorrow?: Face;
 }
 
 /**
@@ -136,7 +226,7 @@ function placeLabels(cities: City[]) {
 		css(c.name, { left: `${pick.l}px`, top: `${pick.t}px` });
 		placed.push(pick);
 	});
-	for (const scene of ['now', 'next'] as const) {
+	for (const scene of FACES) {
 		const mine: Box[] = [];
 		cities.forEach((c, i) => {
 			const s = c[scene];
@@ -154,6 +244,43 @@ function placeLabels(cities: City[]) {
 			mine.push(pick);
 		});
 	}
+}
+
+/**
+ * Where a kraj's name goes: the point nearest the kraj's middle with the whole name inside the
+ * kraj (probed on the kraj's own path), or null where the kraj is too small to hold it.
+ */
+function labelSpot(
+	path: SVGPathElement,
+	k: KrajShape,
+	label: HTMLElement
+): [number, number] | null {
+	const hw = label.offsetWidth / 2 + 10;
+	const hh = label.offsetHeight / 2 + 6;
+	const probes = [
+		[0, 0],
+		[-hw, 0],
+		[hw, 0],
+		[-hw, -hh],
+		[hw, -hh],
+		[-hw, hh],
+		[hw, hh]
+	];
+	const [cx, cy] = [k.box.x + k.box.width / 2, k.box.y + k.box.height / 2];
+	let best: [number, number] | null = null;
+	let near = Infinity;
+	for (let y = k.box.y; y <= k.box.y + k.box.height; y += 14)
+		for (let x = k.box.x; x <= k.box.x + k.box.width; x += 14) {
+			const d = (x - cx) ** 2 + (y - cy) ** 2;
+			if (
+				d >= near ||
+				!probes.every(([dx, dy]) => path.isPointInFill(new DOMPoint(x + dx, y + dy)))
+			)
+				continue;
+			best = [x, y];
+			near = d;
+		}
+	return best;
 }
 
 /** When a sweep that moves from `x0` to `x1` from `at` over `dur` on `ease` passes x. */
@@ -189,19 +316,19 @@ function sweepWindow(parent: HTMLElement) {
 let gradients = 0;
 
 export const weather: Template<WeatherSpec> = {
-	version: 2,
+	version: 3,
 	build({ root, sound }, spec) {
-		const D = spec.duration ?? 15;
+		const D = spec.duration ?? 38.4;
 		const tl = timeline(root, D);
 		root.classList.add('bulletin', 'weather');
 		field(tl, root, { x: 1240, y: 1220, rx: 1500, ry: 560, a: 0.75 });
 
-		// the scenes, on the beat: now, then tomorrow where there is room, then the next days
+		// the scenes: where there are warnings they are the second, a quiet day has a short one
 		const days = Math.min(...spec.cities.map((c) => c.days.length));
 		const table = days >= 2;
-		const tomorrow = table && D >= 13;
-		const T1 = tomorrow ? onBeat(D * 0.32) : D;
-		const T2 = table ? onBeat(D * (tomorrow ? 0.64 : 0.45)) : D;
+		const warnings = spec.warnings ?? [];
+		const shown = warnings.slice(0, WARNINGS_SHOWN);
+		const sched = schedule(D, spec.warnings ? shown.length : null, days);
 		const first = spec.cities[0];
 
 		// --- the map ---------------------------------------------------------------------------
@@ -265,44 +392,55 @@ export const weather: Template<WeatherSpec> = {
 		svg('path', { d: map.edge, class: 'edge' }, lines.s);
 		tl.add(lines.holder, [{ opacity: 0 }, { opacity: 1 }], 0.2 + kraje.length * 0.045, 0.5, 'sine');
 
-		// the warned kraje in their level's colour, hatched where only part of one is warned
-		const warned = warnedKraje(spec.warnings ?? []);
-		const tints: { holder: HTMLElement; k: KrajShape }[] = [];
-		for (const k of kraje) {
-			const w = warned.get(k.code);
-			if (!w) continue;
-			const { holder, s } = layer('wx-tint', k.box);
+		// each warning's kraje in its level's colour, hatched where only part of one is warned,
+		// each named where the kraj has room for its name
+		const tints = shown.map((w, wi) => {
+			const out: { holder: HTMLElement; k: KrajShape }[] = [];
 			const colour = LEVEL_COLOUR[w.level];
-			let fill = colour;
-			if (w.partial) {
-				const id = `wx-hatch-${gradients}-${k.code}`;
-				const pat = svg(
-					'pattern',
+			for (const r of w.regions) {
+				const k = map.kraje.find((x) => x.code === r.code);
+				if (!k) continue;
+				const { holder, s } = layer('wx-tint', k.box);
+				let fill = colour;
+				if (r.partial) {
+					const id = `wx-hatch-${gradients}-${wi}-${k.code}`;
+					const pat = svg(
+						'pattern',
+						{
+							id,
+							patternUnits: 'userSpaceOnUse',
+							width: 14,
+							height: 14,
+							patternTransform: 'rotate(45)'
+						},
+						svg('defs', {}, s)
+					);
+					svg('rect', { x: 0, y: 0, width: 4, height: 14, fill: colour }, pat);
+					fill = `url(#${id})`;
+				}
+				// a kraj warned whole is outlined in the level's colour; one warned in part is hatched
+				const path = svg(
+					'path',
 					{
-						id,
-						patternUnits: 'userSpaceOnUse',
-						width: 14,
-						height: 14,
-						patternTransform: 'rotate(45)'
+						d: k.path,
+						fill,
+						'fill-opacity': r.partial ? 0.5 : 0.34,
+						...(r.partial ? {} : { stroke: colour })
 					},
-					svg('defs', {}, s)
+					s
 				);
-				svg('rect', { x: 0, y: 0, width: 4, height: 14, fill: colour }, pat);
-				fill = `url(#${id})`;
+				const name = div('wx-kname', holder, r.name.replace(/ Region$/, ''));
+				const spot = labelSpot(path, k, name);
+				if (spot)
+					css(name, {
+						left: `${spot[0] - holder.offsetLeft - name.offsetWidth / 2}px`,
+						top: `${spot[1] - holder.offsetTop - name.offsetHeight / 2}px`
+					});
+				else name.remove();
+				out.push({ holder, k });
 			}
-			// a kraj warned whole is outlined in the level's colour; one warned in part is hatched
-			svg(
-				'path',
-				{
-					d: k.path,
-					fill,
-					'fill-opacity': w.partial ? 0.5 : 0.34,
-					...(w.partial ? {} : { stroke: colour })
-				},
-				s
-			);
-			tints.push({ holder, k });
-		}
+			return out;
+		});
 
 		// every city: its icon on its point, its temperature beside it, its name under it
 		const cityEls: City[] = spec.cities.map((c) => {
@@ -326,18 +464,26 @@ export const weather: Template<WeatherSpec> = {
 			};
 			const name = div('wx-name', world, c.name);
 			fitText(name, { width: 320, min: 16 });
-			const now = { icon: icon(c.now.code, !c.now.day), ...temp(c.now.temperature) };
-			const t1 = c.days[1];
-			const next =
-				tomorrow && t1 ? { icon: icon(t1.code, false), ...temp(t1.max, t1.min) } : undefined;
-			return { x, y, name, now, next };
+			const face = (code: number, night: boolean, hi: number, lo?: number): Face => ({
+				icon: icon(code, night),
+				...temp(hi, lo)
+			});
+			const [d0, d1] = c.days;
+			return {
+				x,
+				y,
+				name,
+				now: face(c.now.code, !c.now.day, c.now.temperature),
+				today: face(d0.code, false, d0.max, d0.min),
+				tomorrow: table && d1 ? face(d1.code, false, d1.max, d1.min) : undefined
+			};
 		});
 		placeLabels(cityEls);
 		const west = [...cityEls].sort((a, b) => a.x - b.x);
-		west.forEach((c, i) => {
-			const at = 0.75 + i * 0.045;
+
+		const faceIn = (f: Face, at: number) => {
 			tl.add(
-				c.now.icon,
+				f.icon,
 				[
 					{ opacity: 0, transform: 'scale(0.82)' },
 					{ opacity: 1, transform: 'scale(1)' }
@@ -347,31 +493,52 @@ export const weather: Template<WeatherSpec> = {
 				'glide'
 			);
 			tl.add(
-				c.now.temp,
+				f.temp,
 				[{ transform: 'translateY(150%)' }, { transform: 'translateY(0)' }],
 				at + 0.06,
 				0.6,
 				'glide'
 			);
+		};
+		const faceOut = (f: Face, at: number) => {
+			tl.add(f.icon, [{ opacity: 1 }, { opacity: 0 }], at, 0.2, 'sine');
+			tl.add(
+				f.temp,
+				[{ transform: 'translateY(0)' }, { transform: 'translateY(-150%)' }],
+				at,
+				0.28,
+				'leave'
+			);
+		};
+		const nameIn = (c: City, at: number) =>
 			tl.add(
 				c.name,
 				[
 					{ opacity: 0, transform: 'translateY(8px)' },
 					{ opacity: 1, transform: 'translateY(0px)' }
 				],
-				at + 0.1,
+				at,
 				0.5,
 				'glide'
 			);
+		west.forEach((c, i) => {
+			const at = 0.75 + i * 0.045;
+			faceIn(c.now, at);
+			nameIn(c, at + 0.1);
 		});
-		const tintIn = 1.5;
-		tints.forEach(({ holder }, i) =>
-			tl.add(holder, [{ opacity: 0 }, { opacity: 1 }], tintIn + i * 0.06, 0.5, 'sine')
-		);
 
 		// --- the left column: the headers and the cards ----------------------------------------
 		const hNow = head(root, 'Weather', ['Now', spec.asOf]);
-		const hTom = tomorrow ? head(root, first.days[1].label, [first.days[1].weekday]) : null;
+		const hWarn = spec.warnings
+			? head(root, 'Warnings', [
+					'Czechia',
+					...(warnings.length
+						? [`${warnings.length} warning${warnings.length > 1 ? 's' : ''}`]
+						: [])
+				])
+			: null;
+		const hToday = head(root, first.days[0].label, [first.days[0].weekday]);
+		const hTom = table ? head(root, first.days[1].label, [first.days[1].weekday]) : null;
 		const hDays = table ? head(root, 'Next days', ['Czechia']) : null;
 
 		const cardClip = (top = 470) =>
@@ -381,63 +548,8 @@ export const weather: Template<WeatherSpec> = {
 			const bar = css(div('wx-card-bar', c), { background: colour });
 			return { c, bar, body: div('wx-card-body', c) };
 		};
-		const rangeCard = (label: string | null, day: number, calm: boolean) => {
-			const clip = cardClip();
-			const { c, bar, body } = card(clip, BRAND.red);
-			if (label) fitText(div('wx-range-label', body, label), { width: 420, min: 22 });
-			for (const [k, pick] of [
-				['Highs', (d: { max: number }) => d.max],
-				['Lows', (d: { min: number }) => d.min]
-			] as const) {
-				const r = div('wx-range tnum', body);
-				span('k', r, k);
-				span('v', r, range(spec.cities.map((ct) => pick(ct.days[day]))));
-			}
-			if (calm) div('wx-calm', body, 'No weather warnings');
-			return { clip, c, bar };
-		};
-		let nowCard: { clip: HTMLElement; c: HTMLElement; bar: HTMLElement };
-		const warnings = spec.warnings ?? [];
-		if (warnings.length) {
-			const clip = cardClip();
-			const c = css(div('wx-card', clip), { left: '0px', top: '0px' });
-			const shown = warnings.slice(0, WARNINGS_SHOWN);
-			const bars: HTMLElement[] = [];
-			shown.forEach((w) => {
-				const item = div(`wx-warning lv-${w.level}`, c);
-				bars.push(css(div('wx-card-bar', item), { background: LEVEL_COLOUR[w.level] }));
-				const body = div('wx-card-body', item);
-				div('wx-level', body, LEVEL_NAME[w.level]);
-				fitText(div('wx-event', body, w.event), { width: 442, min: 30, lines: 2, leading: 1.08 });
-				fitText(div('wx-when tnum', body, warningTime(w)), { width: 442, min: 20 });
-				fitText(div('wx-regions', body, regionsPhrase(w)), {
-					width: 442,
-					min: 18,
-					lines: shown.length > 1 ? 2 : 4,
-					leading: 1.36
-				});
-			});
-			const more = warnings.length - shown.length;
-			if (more > 0) div('wx-more', c, `+ ${more} more`);
-			// two warnings stand higher, so the card ends above the credits
-			css(clip, {
-				top: `${Math.min(470, 944 - c.offsetHeight)}px`,
-				height: `${c.offsetHeight + 24}px`
-			});
-			nowCard = { clip, c, bar: bars[0] };
-			bars
-				.slice(1)
-				.forEach((b, i) =>
-					tl.add(
-						b,
-						[{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }],
-						1.45 + 0.1 * (i + 1),
-						0.5,
-						'glide'
-					)
-				);
-		} else nowCard = rangeCard('Today', 0, !!spec.warnings);
-		const cardIn = (c: { c: HTMLElement; bar: HTMLElement }, at: number) => {
+		type Card = { c: HTMLElement; bar: HTMLElement };
+		const cardIn = (c: Card, at: number) => {
 			tl.add(
 				c.c,
 				[{ transform: 'translateX(-105%)' }, { transform: 'translateX(0)' }],
@@ -453,7 +565,7 @@ export const weather: Template<WeatherSpec> = {
 				'glide'
 			);
 		};
-		const cardOut = (c: { c: HTMLElement }, at: number) =>
+		const cardOut = (c: Card, at: number) =>
 			tl.add(
 				c.c,
 				[{ transform: 'translateX(0)' }, { transform: 'translateX(-105%)' }],
@@ -461,27 +573,165 @@ export const weather: Template<WeatherSpec> = {
 				0.4,
 				'leave'
 			);
-		cardIn(nowCard, 1.35);
+
+		// now: the warmest and the coldest of the cities
+		const extremes = () => {
+			const by = spec.cities.map((c) => ({ name: c.name, t: c.now.temperature }));
+			const hot = by.reduce((a, b) => (b.t > a.t ? b : a));
+			const cold = by.reduce((a, b) => (b.t < a.t ? b : a));
+			const clip = cardClip();
+			const k = card(clip, BRAND.red);
+			const rows =
+				hot.t === cold.t
+					? [['Everywhere', hot, false] as const]
+					: [['Warmest', hot, true] as const, ['Coldest', cold, true] as const];
+			for (const [label, who, named] of rows) {
+				const r = div('wx-extreme', k.body);
+				div('k', r, label);
+				const v = div('v tnum', r);
+				span('t', v, degrees(who.t));
+				if (named) fitText(span('n', v, who.name), { width: 320, min: 18 });
+			}
+			return k;
+		};
+		const nowCard = spec.cities.length > 1 ? extremes() : null;
+
+		// the warnings, one card each; a quiet day's card says so
+		const warningCards = shown.map((w, k) => {
+			const clip = cardClip();
+			const c = css(div('wx-card', clip), { left: '0px', top: '0px' });
+			const item = div(`wx-warning lv-${w.level}`, c);
+			const bar = css(div('wx-card-bar', item), { background: LEVEL_COLOUR[w.level] });
+			const body = div('wx-card-body', item);
+			const level = div('wx-level', body);
+			span(null, level, LEVEL_NAME[w.level]);
+			if (warnings.length > 1) span('of', level, `${k + 1} of ${warnings.length}`);
+			fitText(div('wx-event', body, w.event), { width: 442, min: 30, lines: 2, leading: 1.08 });
+			fitText(div('wx-when tnum', body, warningTime(w)), { width: 442, min: 20 });
+			fitText(div('wx-regions', body, regionsPhrase(w)), {
+				width: 442,
+				min: 18,
+				lines: 5,
+				leading: 1.36
+			});
+			const more = warnings.length - shown.length;
+			if (more > 0 && k === shown.length - 1) div('wx-more', c, `+ ${more} more`);
+			css(clip, {
+				top: `${Math.min(470, 944 - c.offsetHeight)}px`,
+				height: `${c.offsetHeight + 24}px`
+			});
+			return { c, bar };
+		});
+		const quietCard = (() => {
+			if (!spec.warnings || warnings.length) return null;
+			const k = card(cardClip(), 'var(--paper-40)');
+			div('wx-quiet', k.body, 'No weather warnings');
+			div('wx-calm', k.body, 'None in force now or later today');
+			return k;
+		})();
+
+		// today and tomorrow: the day's highs and lows over the cities, and its chance of rain
+		const rangeCard = (day: number) => {
+			const k = card(cardClip(), BRAND.red);
+			for (const [label, pick] of [
+				['Highs', (d: { max: number }) => d.max],
+				['Lows', (d: { min: number }) => d.min]
+			] as const) {
+				const r = div('wx-range tnum', k.body);
+				span('k', r, label);
+				span('v', r, range(spec.cities.map((ct) => pick(ct.days[day]))));
+			}
+			const rain = precipitation(spec.cities.map((ct) => ct.days[day].precipitation));
+			if (rain) fitText(div('wx-calm', k.body, rain), { width: 442, min: 18 });
+			return k;
+		};
+		const todayCard = rangeCard(0);
+		const tomCard = table ? rangeCard(1) : null;
 
 		// --- the credits and the corner ---------------------------------------------------------
-		const mapCredits = [spec.credits.forecast];
-		if (spec.warnings) mapCredits.push(spec.credits.warnings);
-		mapCredits.push(spec.credits.borders);
+		const mapCredits = [spec.credits.forecast, spec.credits.borders];
 		const credMap = credits(root, mapCredits);
 		tl.add(credMap, [{ opacity: 0 }, { opacity: 1 }], 1.2, 0.6, 'sine');
 		const corner = mark(tl, root, 0.3);
 		headIn(tl, hNow, 0.15);
+		if (nowCard) cardIn(nowCard, 1.35);
+		tl.cue('now', 0);
+
+		// every scene change swaps the header, the card and the credit; `swap` does the first two
+		let onHead = hNow;
+		let onCard: Card | null = nowCard;
+		const swap = (to: typeof hNow, next: Card | null, at: number) => {
+			headOut(tl, onHead, at);
+			headIn(tl, to, at + 0.3);
+			if (onCard) cardOut(onCard, at);
+			if (next) cardIn(next, at + 0.4);
+			onHead = to;
+			onCard = next;
+		};
+		const fade = (el: Element, from: number, to: number, at: number, dur = 0.35) =>
+			tl.add(el, [{ opacity: from }, { opacity: to }], at, dur, 'sine');
+
+		// --- the warnings: the cities give way to the kraje, one warning at a time --------------
+		const T = sched;
+		let credWarn: HTMLElement | null = null;
+		if (hWarn && T.warnings != null) {
+			const tw = T.warnings;
+			tl.cue(shown.length ? 'warnings' : 'no warnings', tw);
+			swap(hWarn, quietCard, tw);
+			credWarn = credits(root, [
+				spec.credits.forecast,
+				spec.credits.warnings,
+				spec.credits.borders
+			]);
+			fade(credMap, 1, 0, tw + 0.1);
+			fade(credWarn, 0, 1, tw + 0.6, 0.5);
+			shown.forEach((_, k) => {
+				const at = T.each[k];
+				if (k) {
+					cardOut(warningCards[k - 1], at);
+					for (const { holder } of tints[k - 1]) fade(holder, 1, 0, at, 0.4);
+				}
+				cardIn(warningCards[k], at + (k ? 0.35 : 0.5));
+				tints[k].forEach(({ holder }, j) => fade(holder, 0, 1, at + 0.3 + j * 0.06, 0.5));
+				onCard = warningCards[k];
+			});
+			// where there are warnings the cities leave the map to the kraje
+			if (shown.length)
+				west.forEach((c, i) => {
+					const at = tw + 0.05 + i * 0.04;
+					faceOut(c.now, at);
+					fade(c.name, 1, 0, at + 0.05, 0.3);
+				});
+		}
+
+		// --- today: the cities turn to the day's high and low -----------------------------------
+		const hidden = shown.length > 0;
+		tl.cue('today', T.today);
+		swap(hToday, todayCard, T.today);
+		if (credWarn) {
+			fade(credWarn, 1, 0, T.today);
+			fade(credMap, 0, 1, T.today + 0.5, 0.5);
+		}
+		if (hidden) {
+			for (const { holder } of tints[shown.length - 1]) fade(holder, 1, 0, T.today, 0.4);
+			west.forEach((c, i) => {
+				const at = T.today + 0.45 + i * 0.045;
+				faceIn(c.today, at);
+				nameIn(c, at + 0.1);
+			});
+		} else
+			west.forEach((c, i) => {
+				const at = T.today + 0.1 + i * 0.045;
+				faceOut(c.now, at);
+				faceIn(c.today, at + 0.12);
+			});
 
 		// --- tomorrow: a front crosses the country, every city turning as it passes -------------
-		const out: Element[] = [corner];
-		let lastHead = hNow;
-		let lastCard: { c: HTMLElement } = nowCard;
-		if (tomorrow && hTom) {
-			headOut(tl, hNow, T1);
-			headIn(tl, hTom, T1 + 0.3);
-			cardOut(nowCard, T1);
-			const tomCard = rangeCard(null, 1, false);
-			cardIn(tomCard, T1 + 0.4);
+		const last: Element[] = [];
+		if (hTom && tomCard && T.tomorrow != null) {
+			const tm = T.tomorrow;
+			tl.cue('tomorrow', tm);
+			swap(hTom, tomCard, tm);
 			const x0 = MAP.x - 40;
 			const x1 = 1930;
 			const sweep = 1.5;
@@ -494,55 +744,25 @@ export const weather: Template<WeatherSpec> = {
 			tl.add(
 				front,
 				[{ transform: 'translateX(0px)' }, { transform: `translateX(${x1 - x0}px)` }],
-				T1 + 0.1,
+				tm + 0.1,
 				sweep,
 				'move'
 			);
-			tl.add(front, [{ opacity: 0 }, { opacity: 1 }], T1 + 0.1, 0.12, 'linear');
-			tl.add(front, [{ opacity: 1 }, { opacity: 0 }], T1 + 0.1 + sweep - 0.12, 0.12, 'linear');
+			tl.add(front, [{ opacity: 0 }, { opacity: 1 }], tm + 0.1, 0.12, 'linear');
+			tl.add(front, [{ opacity: 1 }, { opacity: 0 }], tm + 0.1 + sweep - 0.12, 0.12, 'linear');
 			for (const c of cityEls) {
-				if (!c.next) continue;
-				const at = passes(c.x, x0, x1, T1 + 0.1, sweep, 'move');
-				tl.add(c.now.icon, [{ opacity: 1 }, { opacity: 0 }], at - 0.05, 0.2, 'sine');
-				tl.add(
-					c.now.temp,
-					[{ transform: 'translateY(0)' }, { transform: 'translateY(-150%)' }],
-					at - 0.05,
-					0.28,
-					'leave'
-				);
-				tl.add(
-					c.next.icon,
-					[
-						{ opacity: 0, transform: 'scale(0.82)' },
-						{ opacity: 1, transform: 'scale(1)' }
-					],
-					at + 0.05,
-					0.5,
-					'glide'
-				);
-				tl.add(
-					c.next.temp,
-					[{ transform: 'translateY(150%)' }, { transform: 'translateY(0)' }],
-					at + 0.1,
-					0.55,
-					'glide'
-				);
+				if (!c.tomorrow) continue;
+				const at = passes(c.x, x0, x1, tm + 0.1, sweep, 'move');
+				faceOut(c.today, at - 0.05);
+				faceIn(c.tomorrow, at + 0.05);
 			}
-			// the warnings are today's: each warned kraj clears as the front reaches its middle
-			for (const { holder, k } of tints) {
-				const at = passes(k.box.x + k.box.width / 2, x0, x1, T1 + 0.1, sweep, 'move');
-				tl.add(holder, [{ opacity: 1 }, { opacity: 0 }], at - 0.1, 0.35, 'sine');
-			}
-			lastHead = hTom;
-			lastCard = tomCard;
 		}
 
 		// --- the next days: a red bar sweeps the map away and leaves the table ------------------
-		if (table && hDays) {
-			headOut(tl, lastHead, T2);
-			headIn(tl, hDays, T2 + 0.3);
-			cardOut(lastCard, T2);
+		if (hDays && T.days != null) {
+			const td = T.days;
+			tl.cue('next days', td);
+			swap(hDays, null, td);
 			const { win: tWin, inner: tIn } = sweepWindow(root);
 			const tbl = div('wx-table', tIn);
 			const cols = Math.min(days, 5);
@@ -559,7 +779,8 @@ export const weather: Template<WeatherSpec> = {
 			});
 			div('wx-rule', tbl);
 			const rows = Math.min(spec.cities.length, 14);
-			const rowH = Math.min(58, Math.floor(706 / rows));
+			// the rows end above the sign-off in the foot's corner
+			const rowH = Math.min(58, Math.floor(660 / rows));
 			const iconSize = Math.round(rowH * 0.8);
 			for (const c of spec.cities.slice(0, rows)) {
 				const r = css(div('wx-row', tbl), { height: `${rowH}px` });
@@ -575,12 +796,12 @@ export const weather: Template<WeatherSpec> = {
 			// a short table stands on the map's middle rather than under the header
 			tbl.style.top = `${Math.max(186, Math.round(MAP.y + MAP.height / 2 - tbl.offsetHeight / 2))}px`;
 			const credDays = credits(root, [spec.credits.forecast]);
-			tl.add(credMap, [{ opacity: 1 }, { opacity: 0 }], T2 + 0.2, 0.35, 'sine');
-			tl.add(credDays, [{ opacity: 0 }, { opacity: 1 }], T2 + 0.75, 0.5, 'sine');
+			fade(credMap, 1, 0, td + 0.2);
+			fade(credDays, 0, 1, td + 0.75, 0.5);
 
 			// the bar's right edge runs from the region's left edge until the bar has left it:
 			// the map shows right of the bar, the table left of it
-			const at = T2 + 0.15;
+			const at = td + 0.15;
 			const dur = 1.3;
 			const travel = REGION.width + WIPE;
 			const wipeWin = sweepWindow(root).win;
@@ -603,50 +824,74 @@ export const weather: Template<WeatherSpec> = {
 			slide(world, 0, -travel);
 			slide(tWin, -travel, 0);
 			slide(tIn, travel, 0);
-			out.push(tWin, credDays);
-			lastHead = hDays;
-		} else out.push(mapWin, credMap, lastCard.c);
-		out.push(lastHead.root);
-		exit(tl, out);
+			last.push(tWin, credDays);
+		} else last.push(mapWin, credMap, ...(onCard ? [onCard.c] : []));
 
-		tl.cue('now', 0);
-		if (tomorrow) tl.cue('tomorrow', T1);
-		if (table) tl.cue('next days', T2);
+		// the sign-off: the tag lands in the foot's corner as the last scene holds
+		const tag = signOff(tl, corner, T.tag, sound);
+		exit(tl, [...last, onHead.root, tag]);
 
-		// --- the sound: the pad on D, glass at each scene, air under the sweeps -----------------
+		// --- the sound: the pad steps through D, B minor, G, A and E minor and home -------------
+		const end = D - 1.2;
+		const quiet = shown.length === 0;
+		const starts: { at: number; chord: string[]; root: string }[] = [
+			{ at: 0, chord: ['D3', 'A3', 'E4', 'F#4'], root: 'D2' }
+		];
+		if (T.warnings != null)
+			starts.push({ at: T.warnings, chord: ['B2', 'F#3', 'D4', 'E4'], root: 'B1' });
+		starts.push({ at: T.today, chord: ['G2', 'D3', 'B3', 'A4'], root: 'G1' });
+		if (T.tomorrow != null && T.days != null)
+			starts.push(
+				{ at: T.tomorrow, chord: ['A2', 'E3', 'B3', 'C#4'], root: 'A1' },
+				{ at: T.days, chord: ['E3', 'B3', 'D4', 'F#4'], root: 'E2' }
+			);
+		// the mix and its fade, and the pads' filter, dipping at every change of scene and
+		// opening again over the next
 		tl.sound(
 			0,
 			(when, b, skip) => {
 				const w = when - skip;
-				const h = bulletinHouse(sound, b, w, D);
-				// the last chord holds into the fade
-				const end = D - 1.2;
-				padSweep(h, w, [
+				bulletinHouse(sound, b, w, D);
+				const sweep: [number, number][] = [
 					[0, 700],
-					[1.6, 2600],
-					[Math.max(2, T1 - 0.4), 2200],
-					[Math.min(end, T1 + 1.2), 3400],
-					[Math.max(Math.min(end, T1 + 1.3), T2 - 0.4), 2400],
-					[Math.min(end, T2 + 1.2), 3800],
-					[end + 0.01, 1400]
-				]);
-				const chords: [number, number, string[]][] = [
-					[0, T1, ['D3', 'A3', 'E4', 'F#4']],
-					[T1, T2, ['B2', 'F#3', 'D4', 'E4']],
-					[T2, end, ['G2', 'D3', 'B3', 'A4']]
+					[1.6, 2600]
 				];
-				chords.forEach(([a, z, notes], i) => {
-					if (a >= end) return;
-					pad(h, w + Math.max(0, a - 0.1), notes, Math.max(0.3, Math.min(z, end) - a - 0.5), {
-						attack: i ? 0.7 : 1.2,
-						release: 1.4,
-						level: 0.9,
-						seed: 120 + i
-					});
-				});
-				sub(h, w + 0.2, 'D2', Math.max(0.5, T1 - 1), { gain: 0.35, attack: 1.2, release: 1 });
+				for (const { at } of starts.slice(1)) sweep.push([at - 0.4, 2200], [at + 1.2, 3400]);
+				sweep.push([T.tag - 0.4, 2300], [T.tag + 1.2, 3400], [end + 0.01, 1400]);
+				padSweep(house(sound, b), w, sweep);
 			},
 			D
+		);
+		// a chord is built when its turn comes, not up front: every voice built costs the render
+		const chord = (from: number, notes: string[], dur: number, o: PadOptions) =>
+			tl.sound(
+				from,
+				(when, b, skip) => pad(house(sound, b), when - skip, notes, dur, o),
+				o.attack! + dur + o.release! * 2.4
+			);
+		starts.forEach(({ at, chord: notes }, i) => {
+			const to = starts[i + 1]?.at ?? T.tag;
+			const from = i ? at - 0.4 : 0.1;
+			chord(from, notes, Math.max(0.3, to - from - 0.8), {
+				attack: i ? 0.8 : 1.2,
+				release: 1.4,
+				level: 0.9,
+				seed: 120 + i
+			});
+		});
+		// home: the chord the sonic logo ends on, held into the fade
+		chord(T.tag - 0.5, ['D3', 'A3', 'E4', 'F#4'], end - T.tag - 0.3, {
+			attack: 0.9,
+			release: 1.4,
+			level: 0.9,
+			seed: 130
+		});
+		tl.sound(0.2, (w, b) =>
+			sub(house(sound, b), w, 'D2', Math.max(0.5, starts[1].at - 1), {
+				gain: 0.35,
+				attack: 1.2,
+				release: 1
+			})
 		);
 		const motif = (at: number, notes: string[], pans: number[], seed: number) =>
 			notes.forEach((n, i) =>
@@ -660,13 +905,63 @@ export const weather: Template<WeatherSpec> = {
 					})
 				)
 			);
+		// a few felt notes rising through a scene's hold, never twice alike
+		const rise = (at: number, notes: string[], seed: number) =>
+			notes.forEach((n, i) =>
+				tl.sound(at + i * BEAT, (w, b) =>
+					piano(house(sound, b), w, n, {
+						vel: 0.3,
+						dur: 1.1,
+						pan: -0.2 + 0.2 * i,
+						verb: 0.55,
+						gain: 0.55,
+						seed: seed + i
+					})
+				)
+			);
+		const low = (at: number, note: string, seed: number) =>
+			tl.sound(at, (w, b) =>
+				piano(house(sound, b), w, note, { vel: 0.4, dur: 2.4, verb: 0.6, gain: 0.6, seed })
+			);
+		const swell = (at: number, dur: number, band: [number, number], seed: number, gain = 0.55) =>
+			tl.sound(at, (w, b) =>
+				air(house(sound, b), w, dur, {
+					peakAt: dur * 0.45,
+					band,
+					pans: [-0.75, 0.75],
+					gain,
+					seed
+				})
+			);
 		motif(0.4, ['A4', 'D5', 'E5'], [-0.3, 0, 0.3], 600);
-		tl.sound(0.4, (w, b) =>
-			piano(house(sound, b), w, 'D2', { vel: 0.4, dur: 2.4, verb: 0.6, gain: 0.6, seed: 610 })
-		);
-		if (tomorrow) {
+		low(0.4, 'D2', 610);
+		rise(T.warnings != null ? T.warnings - 3 : T.today - 3, ['A3', 'D4', 'F#4'], 615);
+		if (T.warnings != null) {
+			const tw = T.warnings;
+			swell(tw, 1.8, [500, 2200], 625, quiet ? 0.4 : 0.55);
+			motif(tw + 0.5, quiet ? ['A4', 'D5', 'F#5'] : ['F#4', 'B4', 'D5'], [-0.2, 0.1, 0.3], 626);
+			low(tw + 0.5, 'B1', 630);
+			// each warning past the first is told by a lone note of glass
+			T.each.slice(1).forEach((at, k) =>
+				tl.sound(at + 0.3, (w, b) =>
+					glass(house(sound, b), w, ['D5', 'B4'][k % 2], {
+						decay: 2,
+						gain: 0.7,
+						pan: 0.1 - 0.2 * k,
+						verb: 0.65,
+						seed: 635 + k
+					})
+				)
+			);
+		}
+		swell(T.today, 1.8, [450, 2400], 640);
+		motif(T.today + 0.5, ['B4', 'D5', 'A5'], [-0.25, 0.05, 0.3], 641);
+		low(T.today + 0.5, 'G1', 645);
+		rise(T.today + 2.6, ['B3', 'D4', 'A4'], 646);
+		if (T.tomorrow != null) {
+			const tm = T.tomorrow;
 			const crossing = (f: number) =>
-				passes(MAP.x + f * MAP.width, MAP.x - 40, 1930, T1 + 0.1, 1.5, 'move');
+				passes(MAP.x + f * MAP.width, MAP.x - 40, 1930, tm + 0.1, 1.5, 'move');
 			['B4', 'E5', 'F#5'].forEach((n, i) =>
 				tl.sound(crossing(0.2 + 0.3 * i), (w, b) =>
 					glass(house(sound, b), w, n, {
@@ -674,44 +969,29 @@ export const weather: Template<WeatherSpec> = {
 						gain: 0.8,
 						pan: -0.5 + 0.5 * i,
 						verb: 0.65,
-						seed: 620 + i
+						seed: 650 + i
 					})
 				)
 			);
-			tl.sound(T1, (w, b) =>
-				air(house(sound, b), w, 1.8, {
-					peakAt: 0.8,
-					band: [500, 2600],
-					pans: [-0.7, 0.7],
-					gain: 0.55,
-					seed: 630
-				})
-			);
-			tl.sound(T1, (w, b) =>
-				piano(house(sound, b), w, 'B1', { vel: 0.35, dur: 2.2, verb: 0.6, gain: 0.55, seed: 631 })
-			);
+			swell(tm, 1.8, [500, 2600], 655);
+			low(tm, 'B1', 656);
+			rise(tm + 2.8, ['E4', 'B4', 'C#5'], 657);
 		}
-		if (table) {
-			tl.sound(T2, (w, b) =>
-				air(house(sound, b), w, 1.7, {
-					peakAt: 0.75,
-					band: [400, 2200],
-					pans: [-0.8, 0.8],
-					gain: 0.6,
-					seed: 640
-				})
-			);
-			motif(T2 + 0.4, ['A4', 'D5', 'A5'], [-0.25, 0.05, 0.3], 650);
-			tl.sound(T2 + 0.4, (w, b) => {
+		if (T.days != null) {
+			const td = T.days;
+			swell(td, 1.7, [400, 2200], 660, 0.6);
+			motif(td + 0.4, ['A4', 'D5', 'A5'], [-0.25, 0.05, 0.3], 661);
+			tl.sound(td + 0.4, (w, b) => {
 				const h = house(sound, b);
-				piano(h, w, 'G1', { vel: 0.35, dur: 2.2, verb: 0.6, gain: 0.55, seed: 660 });
+				piano(h, w, 'E2', { vel: 0.35, dur: 2.2, verb: 0.6, gain: 0.55, seed: 665 });
 				shimmer(h, w + 0.8, ['D6', 'F#6', 'A6'], 0.8, {
 					gain: 0.5,
 					attack: 0.6,
 					release: 1.2,
-					seed: 661
+					seed: 666
 				});
 			});
+			rise(td + 3, ['D4', 'F#4', 'A4'], 667);
 		}
 		return tl;
 	}

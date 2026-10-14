@@ -176,6 +176,15 @@
 	background: var(--red);
 }
 
+/* a warned kraj's name on the map */
+.wx-kname {
+	position: absolute;
+	font-size: 22px;
+	font-weight: 700;
+	line-height: 1.2;
+	white-space: nowrap;
+}
+
 /* a city: its icon on its point, its temperature beside it, its name under it */
 .wx-icon {
 	position: absolute;
@@ -236,9 +245,17 @@
 	position: relative;
 }
 .wx-level {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
 	font-size: 26px;
 	font-weight: 700;
 	line-height: 1.1;
+}
+.wx-level .of {
+	font-size: 22px;
+	font-weight: 600;
+	color: var(--paper-56);
 }
 .wx-event {
 	margin-top: 10px;
@@ -301,6 +318,40 @@
 	font-size: 56px;
 	font-weight: 800;
 	letter-spacing: -0.03em;
+	line-height: 1;
+}
+.wx-quiet {
+	font-size: 40px;
+	font-weight: 800;
+	letter-spacing: -0.02em;
+	line-height: 1.08;
+}
+/* now: the warmest and the coldest of the cities, a name over the temperature and its place */
+.wx-extreme + .wx-extreme {
+	margin-top: 30px;
+}
+.wx-extreme .k {
+	font-size: 26px;
+	font-weight: 600;
+	line-height: 1.1;
+	color: var(--paper-72);
+}
+.wx-extreme .v {
+	display: flex;
+	align-items: baseline;
+	gap: 18px;
+	margin-top: 8px;
+	white-space: nowrap;
+}
+.wx-extreme .t {
+	font-size: 56px;
+	font-weight: 800;
+	letter-spacing: -0.03em;
+	line-height: 1;
+}
+.wx-extreme .n {
+	font-size: 30px;
+	font-weight: 700;
 	line-height: 1;
 }
 .wx-calm {
@@ -386,10 +437,31 @@
 }
 .nw-count {
 	position: absolute;
-	top: 290px;
-	font-size: 20px;
-	font-weight: 700;
-	letter-spacing: 0.02em;
+	right: 96px;
+	top: 224px;
+	height: 52px;
+	display: flex;
+	align-items: center;
+	gap: 0.12em;
+	font-size: 40px;
+	font-weight: 800;
+	letter-spacing: -0.02em;
+	line-height: 1;
+	white-space: nowrap;
+}
+/* the number rises out of this clip */
+.nw-num {
+	position: relative;
+	width: 1.12em;
+	height: 1.2em;
+	overflow: hidden;
+}
+.nw-num > span {
+	position: absolute;
+	left: 0;
+	top: 0.1em;
+}
+.nw-of {
 	color: var(--paper-40);
 }
 .nw-story {
@@ -425,6 +497,9 @@
 	font-weight: 600;
 	color: var(--paper-56);
 }
+.nw-text > .nw-headline:first-child {
+	margin-top: 0;
+}
 .nw-headline {
 	margin-top: 26px;
 	font-weight: 700;
@@ -441,4 +516,52 @@
 .nw-line > span {
 	display: block;
 	white-space: pre;
+}
+/* the open's second line: where the stories come from */
+.nw-from {
+	margin-top: 22px;
+	font-size: 34px;
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--paper-72);
+	white-space: nowrap;
+}
+
+/* the recap: a row per story under a red rule, the outlet's name and the headline whole */
+.nw-row {
+	position: absolute;
+	width: 1728px;
+	display: flex;
+	align-items: flex-start;
+}
+.nw-rule {
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	height: 2px;
+	background: var(--paper-12);
+	transform-origin: 0 50%;
+}
+.nw-first .nw-rule {
+	height: 4px;
+	background: var(--red);
+}
+.nw-who {
+	flex: 0 0 290px;
+	font-size: 24px;
+	font-weight: 700;
+	line-height: 1.1;
+	color: var(--paper-72);
+	white-space: nowrap;
+}
+.nw-what {
+	flex: 1;
+	padding: 16px 0;
+}
+.nw-recap {
+	font-weight: 700;
+	letter-spacing: -0.015em;
+	line-height: 1.16;
+	white-space: nowrap;
 }

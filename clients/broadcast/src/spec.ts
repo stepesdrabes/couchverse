@@ -509,8 +509,8 @@ export interface WeatherSpec extends Loudness {
 	/**
 	 * Seconds, a whole number of frames: the length of the break's weather slot.
 	 * @minimum 10
-	 * @maximum 30
-	 * @default 15
+	 * @maximum 60
+	 * @default 38.4
 	 */
 	duration?: number;
 	/** When the forecast was read, on the channel's clock. */
@@ -557,8 +557,8 @@ export interface NewsSpec extends Loudness {
 	/**
 	 * Seconds, a whole number of frames: the length of the break's news slot.
 	 * @minimum 10
-	 * @maximum 40
-	 * @default 20
+	 * @maximum 90
+	 * @default 54.4
 	 */
 	duration?: number;
 	/** When the headlines were read, on the channel's clock. */

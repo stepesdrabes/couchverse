@@ -24,7 +24,9 @@ const CASES: [string, Spec, number][] = [
 	['strip-dark (bed, the days on its beats)', FIXTURES['strip-dark'], -18],
 	['short-logo (the house music, no bed)', FIXTURES['short-logo'], -18],
 	['squeeze-expand', { ...FIXTURES['squeeze-expand'], loudness: -23 }, -23],
-	['break', BREAK, -20]
+	['break', BREAK, -20],
+	['weather (the pad through its scenes, glass, air)', FIXTURES.weather, -18],
+	['news (an ostinato per story, the recap, the sign-off)', FIXTURES.news, -18]
 ];
 
 for (const [name, spec, target] of CASES) {
@@ -135,6 +137,29 @@ test("a bulletin's sound starts and ends inside it: its slot cuts on both sides"
 		expect(Math.abs(own[0][0]) + Math.abs(own[1][0])).toBeLessThan(1e-4);
 		const body = level(own, RATE, end - 2 * RATE);
 		expect(body - level(own, end - RATE / 10, end), name).toBeGreaterThan(50);
+	}
+});
+
+// A pad chord once ticked: an A suspended (A2 E3 D4 E4) stepped by a twentieth of the music's
+// level 4.4 s in, at that moment whatever the voices' seeds, and a spectrogram hardly shows it.
+// The largest second difference of a bulletin's mix stays within the music's own roughness.
+test("a bulletin's score has no clicks: no step stands out of the music's own texture", async ({
+	page
+}) => {
+	for (const name of ['weather', 'news'] as const) {
+		await load(page, FIXTURES[name]);
+		const [l, r] = await sound(page, 'renderAudio');
+		let step = 0;
+		let power = 0;
+		for (let i = 2; i < l.length; i++) {
+			const m = (l[i] + r[i]) / 2;
+			step = Math.max(
+				step,
+				Math.abs(m - ((l[i - 1] + r[i - 1]) / 2) * 2 + (l[i - 2] + r[i - 2]) / 2)
+			);
+			power += m * m;
+		}
+		expect(step / Math.sqrt(power / l.length), name).toBeLessThan(0.33);
 	}
 });
 
