@@ -643,7 +643,12 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   or asked for before the sidecar publishes the `trailer` template.
   Trailers are asked for as promo bodies are, for the candidates a break could use, the best-ranked first, but
   only while fewer than three exist that are waiting, rendering or were rendered in the last 18
-  hours, and they render behind every break (`tidyRenders`): see 6.7 for the cost.
+  hours, and they render behind every break (`tidyRenders`): see 6.7 for the cost. A promo or
+  trailer body whose key is no longer the current one of its title (new artwork, shots or scenes,
+  a template version: each asks for another) is cancelled by `tidyRenders` and its clip dropped,
+  or its render would run before the current ones (all bodies share a priority, the oldest is
+  claimed first) and the dead trailer would count toward the three. The Pi had 71 body renders
+  pending for 18 titles on 2026-10-14, about fifty of them stale.
 - **Phrases**: `Today`, `Tonight` (from 17:00), `Tomorrow`, `This week` with the day,
   `Premiere`, `Saga` (Saga Sunday) and `Marathon` (the weekend block) with the day; strips
   `Every night`/`Every day` (all week), `Every weekday`, else `Every week`, with their days

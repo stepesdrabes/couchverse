@@ -115,11 +115,18 @@ func (c *Composer) Handle(ctx context.Context, _ *jobs.Job, report func(int)) er
 
 // tidyRenders times every queued render by the first break that uses its clip now, and
 // cancels those no composition uses any more (a replan moved their break, or it was
-// composed again). Promo bodies, requested for breaks yet to be composed (which air a
-// short promo until one is rendered), wait for the quiet hours behind every break; the
-// standby card, which no break holds, keeps its place.
+// composed again). Promo and trailer bodies, requested for breaks yet to be composed (which
+// air a short promo until one is rendered), wait for the quiet hours behind every break, but
+// only the current ones of their titles: a body whose key is not one of them was asked for
+// before the title's facts changed (new artwork, shots or scenes, a template version) and
+// nothing will ever use it, so it goes, or the oldest would render first. The standby card,
+// which no break holds, keeps its place.
 func (r *composition) tidyRenders(ctx context.Context) error {
 	queued, err := r.Store.queuedRenders(ctx, r.now)
+	if err != nil {
+		return err
+	}
+	current, err := r.currentBodies()
 	if err != nil {
 		return err
 	}
@@ -127,13 +134,16 @@ func (r *composition) tidyRenders(ctx context.Context) error {
 	dropped := 0
 	for _, q := range queued {
 		payload := RenderPayload{ClipID: q.ClipID}
+		isBody := q.Kind == ClipPromoBody || q.Kind == ClipTrailerBody
 		switch {
 		case q.Used:
 			err = r.Jobs.Reschedule(ctx, RenderJob, payload, renderAt(r.now, q.Airs, r.cfg.location()), urgency(q.Airs))
-		case q.Kind == ClipPromoBody || q.Kind == ClipTrailerBody:
+		case isBody && current[q.Key]:
 			err = r.Jobs.Reschedule(ctx, RenderJob, payload, renderAt(r.now, later, r.cfg.location()), urgency(later))
 		case q.Kind != ClipStandby:
-			err = r.Jobs.CancelPending(ctx, RenderJob, payload)
+			if err = r.Jobs.CancelPending(ctx, RenderJob, payload); err == nil && isBody {
+				err = r.Store.dropPendingClip(ctx, q.ClipID)
+			}
 			dropped++
 		}
 		if err != nil {
@@ -144,6 +154,29 @@ func (r *composition) tidyRenders(ctx context.Context) error {
 		slog.Info("couchtv: dropped renders nothing uses", "count", dropped)
 	}
 	return nil
+}
+
+// currentBodies are the keys of the promo bodies and trailer bodies the titles of the window
+// ask for as they are now, each in both of its forms (a premiere's body says so).
+func (r *composition) currentBodies() (map[string]bool, error) {
+	keys := map[string]bool{}
+	for id := range r.titles {
+		for _, fill := range []string{"", FillPremiere} {
+			c := r.candidate(id, program{Airing: Airing{Fill: fill}}, r.now)
+			key, err := clipKey(r.versions["promo"], promoBody(c))
+			if err != nil {
+				return nil, err
+			}
+			keys[key] = true
+			if version := r.versions["trailer"]; version != 0 && len(c.Trailer) > 0 {
+				if key, err = clipKey(version, trailerBody(c)); err != nil {
+					return nil, err
+				}
+				keys[key] = true
+			}
+		}
+	}
+	return keys, nil
 }
 
 // renderAt is when the render of a clip for what airs at airs may start: at once for

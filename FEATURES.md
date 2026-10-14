@@ -983,7 +983,12 @@ server that does not send it). The admin settings page toggles it.
   requested for later breaks. Each run ends by timing every queued render again by the first
   break still to air that uses its clip (`jobs.Store.Reschedule`, sooner or later) and
   cancelling those no composition uses any more (a replan moved their break, or it was
-  composed again), promo bodies and the standby card aside.
+  composed again), the standby card aside. Promo and trailer bodies, which no break holds until
+  they are rendered, wait behind every break while their key is one a title in the window asks
+  for as it is now (`currentBodies`: both forms of each, a premiere's and the other); a body
+  asked for before the title's artwork, shots, scenes or template changed is cancelled and its
+  clip dropped (so it no longer counts among the night's three trailers), or the oldest would
+  render first and the current ones would wait behind hours of stale ones.
 - **The render sidecar** (`couchverse render`, plan 6.7; `couchtv.Renderer`): a separate process
   on the same database and `DATA_DIR` that registers only `couchtv_render`,
   `couchtv_bulletin_render` and `couchtv_assemble` (the app never does), runs one job at a time

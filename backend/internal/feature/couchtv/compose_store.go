@@ -88,7 +88,7 @@ func (s *Store) trailersQueued(ctx context.Context, since time.Time) (int, error
 
 // queuedRender is a clip whose render waits in the queue, with the breaks that use it.
 type queuedRender struct {
-	ClipID, Kind string
+	ClipID, Kind, Key string
 	// Used says a composition uses the clip; Airs is when the first one airs (zero for
 	// the evergreen break, which airs any time).
 	Used bool
@@ -99,7 +99,7 @@ type queuedRender struct {
 // now uses none.
 func (s *Store) queuedRenders(ctx context.Context, now time.Time) ([]queuedRender, error) {
 	rows, err := s.q.Query(ctx, `
-		SELECT c.id, c.kind, count(b.id) > 0,
+		SELECT c.id, c.kind, c.key, count(b.id) > 0,
 		       coalesce(min(CASE WHEN b.airing_id IS NULL THEN 'epoch' ELSE a.starts_at END), 'epoch')
 		FROM couchtv_clips c
 		JOIN jobs j ON j.type = $1 AND j.status = 'pending' AND j.payload->>'clipId' = c.id::text
@@ -114,7 +114,7 @@ func (s *Store) queuedRenders(ctx context.Context, now time.Time) ([]queuedRende
 	}
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (queuedRender, error) {
 		var q queuedRender
-		err := row.Scan(&q.ClipID, &q.Kind, &q.Used, &q.Airs)
+		err := row.Scan(&q.ClipID, &q.Kind, &q.Key, &q.Used, &q.Airs)
 		return q, err
 	})
 	for i := range out {
@@ -123,6 +123,15 @@ func (s *Store) queuedRenders(ctx context.Context, now time.Time) ([]queuedRende
 		}
 	}
 	return out, err
+}
+
+// dropPendingClip deletes a clip that waits to render and has no render claimed or queued, so a
+// clip nothing asks for any more does not count as a trailer asked for (trailersQueued).
+func (s *Store) dropPendingClip(ctx context.Context, id string) error {
+	_, err := s.q.Exec(ctx, `DELETE FROM couchtv_clips c WHERE c.id = $1 AND c.state = 'pending' AND NOT EXISTS (
+		SELECT 1 FROM jobs j WHERE j.type = $2 AND j.status IN ('pending', 'running') AND j.payload->>'clipId' = c.id::text)`,
+		id, RenderJob)
+	return err
 }
 
 // retryAfter is how long a break that failed waits before it is composed again.
