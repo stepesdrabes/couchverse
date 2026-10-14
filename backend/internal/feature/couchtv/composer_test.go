@@ -114,3 +114,53 @@ func TestBodyKeysFollowWhatTheyDraw(t *testing.T) {
 		t.Error("a new template version keeps the keys")
 	}
 }
+
+// A long render (a full ident, a trailer's body) starts only when it is over before the first
+// bulletin of the day is asked for, half past five; one that is not waits for the next night; the
+// renders that take ten minutes or less start when they could.
+func TestLongRenderStart(t *testing.T) {
+	at := func(day, hour, minute int) time.Time { return time.Date(2026, 10, day, hour, minute, 0, 0, prague) }
+	for _, c := range []struct {
+		name, kind string
+		at, want   time.Time
+	}{
+		{"a promo body by day", ClipPromoBody, at(14, 10, 0), at(14, 10, 0)},
+		{"a promo body at dawn", ClipPromoBody, at(14, 5, 40), at(14, 5, 40)},
+		{"a bulletin's own clip", BulletinNews, at(14, 10, 0), at(14, 10, 0)},
+		{"an ident by day waits for the night", ClipIdentFull, at(14, 10, 0), at(15, 1, 0)},
+		{"an ident late in the evening", ClipIdentFull, at(14, 23, 50), at(15, 1, 0)},
+		{"an ident just after midnight waits for one", ClipIdentFull, at(15, 0, 20), at(15, 1, 0)},
+		{"an ident at one", ClipIdentFull, at(15, 1, 0), at(15, 1, 0)},
+		{"an ident that is over by half past five", ClipIdentFull, at(15, 3, 30), at(15, 3, 30)},
+		{"an ident that would not be", ClipIdentFull, at(15, 3, 31), at(16, 1, 0)},
+		{"a trailer by day", ClipTrailerBody, at(14, 15, 0), at(15, 1, 0)},
+		{"a trailer in the small hours", ClipTrailerBody, at(15, 2, 0), at(15, 2, 0)},
+		{"a trailer that is over by half past five", ClipTrailerBody, at(15, 5, 5), at(15, 5, 5)},
+		{"a trailer that would not be", ClipTrailerBody, at(15, 5, 6), at(16, 1, 0)},
+	} {
+		if got := longRenderStart(c.at, c.kind, prague); !got.Equal(c.want) {
+			t.Errorf("%s: %s, want %s", c.name, got.In(prague), c.want)
+		}
+	}
+	// the day's change of clocks does not move the night
+	loc := prague
+	spring := time.Date(2027, 3, 28, 10, 0, 0, 0, loc)
+	if got, want := longRenderStart(spring, ClipIdentFull, loc), time.Date(2027, 3, 29, 1, 0, 0, 0, loc); !got.Equal(want) {
+		t.Errorf("across the change of clocks: %s, want %s", got, want)
+	}
+
+	// with the bulletins off nothing waits for them
+	cfg := CouchTvConfig{TimeZone: "Europe/Prague"}
+	r := &composition{Composer: &Composer{}, cfg: cfg, now: at(14, 10, 0)}
+	airs := at(14, 11, 0)
+	if got, want := r.renderTime(ClipIdentFull, airs), renderAt(r.now, airs, prague); !got.Equal(want) {
+		t.Errorf("bulletins off: %s, want %s", got, want)
+	}
+	r.cfg.Bulletins.Enabled = true
+	if got, want := r.renderTime(ClipIdentFull, airs), at(15, 1, 0); !got.Equal(want) {
+		t.Errorf("bulletins on, an ident for a break in an hour: %s, want %s", got.In(prague), want)
+	}
+	if got, want := r.renderTime(ClipSqueeze, airs), r.now; !got.Equal(want) {
+		t.Errorf("bulletins on, a squeeze for a break in an hour: %s, want %s", got.In(prague), want)
+	}
+}

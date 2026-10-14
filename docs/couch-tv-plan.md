@@ -687,7 +687,12 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   the next 24 h (48 h until the first day on the Pi showed how much a replan wastes); a replan
   or swap drops a break's composition with its airing, and the run cancels the renders no
   composition uses any more; renders wait for the quiet hours (01:00-09:00) unless what they
-  are for airs within 3 h, so the Pi renders at night; a failed break
+  are for airs within 3 h, so the Pi renders at night, and a long render (a full ident, a
+  trailer's body) only when it will be over before the first bulletin of the day is asked for at
+  05:30 (6.10; deferred to the next night otherwise, by the composer's timing and, for a job
+  claimed too late, by the sidecar: `longRenders`, `deferLong`), because the sidecar's one worker
+  does not leave a job and a bulletin's render, asked for 15 to 75 minutes before its break,
+  that waits behind more than about ten minutes goes without its clip; a failed break
   is composed again after 6 h, a failed clip is requeued when a break asks for it again.
   Renders are queued soonest-airing first (the job priority is minus the airing's minute;
   the evergreen break and standby card first of all).
@@ -939,7 +944,9 @@ break or the standby card.
   again now that an assembly takes seconds.
 - **The full idents** (D35, 2026-10-13) carry no per-break data, so each design renders once per
   template version: four clips, needed one day apart, each requested a day ahead and rendered
-  in that night's quiet hours. They cost far more than other clips, because every frame is
+  in that night's quiet hours, which for a render of up to two hours means starting by 03:30
+  (it must be over before the news is first asked for at 05:30; one claimed later waits for the
+  next night). They cost far more than other clips, because every frame is
   drawn on a canvas several times over (motion blur, up to 64 sub-frames). Measured on the M1
   Pro through the sidecar's pipeline (capture, libx264 veryfast, both sounds), on a machine
   shared with other work, so CPU time is the measure; the Pi is taken as 4.5x to 8x an M1 core

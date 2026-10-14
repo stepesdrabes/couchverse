@@ -586,19 +586,38 @@ func TestCouchTvComposeJob(t *testing.T) {
 		t.Error("no promo body requested")
 	}
 	// a render starts at once for what airs any time (the evergreen break) or within three
-	// hours, else at 01:00 (Prague) but no later than three hours before its first break
+	// hours, else at 01:00 (Prague) but no later than three hours before its first break; a long
+	// one (a full ident, which takes two hours on the Pi) only when it is over before the news is
+	// first asked for at half past five, else the next night
 	quiet := time.Date(2026, 10, 13, 1, 0, 0, 0, prague)
-	rows, err = env.pool.Query(ctx, `SELECT j.run_at, min(coalesce(a.starts_at, 'epoch')) FROM jobs j
+	clearOfNews := func(kind string, at time.Time) time.Time {
+		long, ok := map[string]time.Duration{"ident_full": 2 * time.Hour, "trailer_body": 25 * time.Minute}[kind]
+		if !ok {
+			return at
+		}
+		l := at.In(prague)
+		night := time.Date(l.Year(), l.Month(), l.Day(), 1, 0, 0, 0, prague)
+		switch {
+		case l.Before(night):
+			return night
+		case !l.After(time.Date(l.Year(), l.Month(), l.Day(), 5, 30, 0, 0, prague).Add(-long)):
+			return at
+		}
+		return night.AddDate(0, 0, 1)
+	}
+	rows, err = env.pool.Query(ctx, `SELECT j.run_at, min(coalesce(a.starts_at, 'epoch')), c.kind FROM jobs j
+		JOIN couchtv_clips c ON c.id::text = j.payload->>'clipId'
 		JOIN couchtv_breaks b ON b.recipe->'clips' @> jsonb_build_array(jsonb_build_object('clipId', j.payload->>'clipId'))
 		LEFT JOIN couchtv_airings a ON a.id = b.airing_id
-		WHERE j.type = $1 AND j.status = 'pending' GROUP BY j.id`, couchtv.RenderJob)
+		WHERE j.type = $1 AND j.status = 'pending' GROUP BY j.id, c.kind`, couchtv.RenderJob)
 	if err != nil {
 		t.Fatal(err)
 	}
-	soon, waiting := 0, 0
+	soon, waiting, longs := 0, 0, 0
 	for rows.Next() {
 		var runAt, airs time.Time
-		if err := rows.Scan(&runAt, &airs); err != nil {
+		var kind string
+		if err := rows.Scan(&runAt, &airs, &kind); err != nil {
 			t.Fatal(err)
 		}
 		want := quiet
@@ -607,6 +626,9 @@ func TestCouchTvComposeJob(t *testing.T) {
 		}
 		if airs.Unix() == 0 || want.Before(clock) {
 			want = clock
+		}
+		if long := clearOfNews(kind, want); !long.Equal(want) {
+			want, longs = long, longs+1
 		}
 		if !runAt.Equal(want) {
 			t.Errorf("the render for a break at %s runs at %s, want %s", airs.In(prague), runAt.In(prague), want.In(prague))
@@ -618,8 +640,8 @@ func TestCouchTvComposeJob(t *testing.T) {
 		}
 	}
 	rows.Close()
-	if soon == 0 || waiting == 0 {
-		t.Errorf("%d renders at once, %d waiting for the quiet hours", soon, waiting)
+	if soon == 0 || waiting == 0 || longs == 0 {
+		t.Errorf("%d renders at once, %d waiting for the quiet hours, %d of them put off for the news", soon, waiting, longs)
 	}
 	// renders queued before the quiet hours existed (due at once) are timed again by the next
 	// run, and promo bodies, which no break needs yet, wait for them too

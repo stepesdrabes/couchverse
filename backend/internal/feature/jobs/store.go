@@ -158,6 +158,15 @@ func (s *Store) Reschedule(ctx context.Context, jobType string, payload any, run
 	return err
 }
 
+// Defer puts a running job back in the queue to run at runAt, as if it had not been claimed: for a
+// handler that finds it is not the time. The handler returns nil, which leaves it queued.
+func (s *Store) Defer(ctx context.Context, id int64, runAt time.Time) error {
+	_, err := s.db.Exec(ctx,
+		`UPDATE jobs SET status = 'pending', run_at = $2, claimed_at = NULL, attempts = greatest(attempts - 1, 0)
+		 WHERE id = $1 AND status = 'running'`, id, runAt)
+	return err
+}
+
 // CancelPending cancels an identical job that has not started; one that runs goes on.
 func (s *Store) CancelPending(ctx context.Context, jobType string, payload any) error {
 	body, err := json.Marshal(payload)

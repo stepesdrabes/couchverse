@@ -981,7 +981,13 @@ server that does not send it). The admin settings page toggles it.
   as does the evergreen break. Clips are requested in `couchtv_clips` (`needed_at` the earliest
   air time, `last_used_at` touched) and their renders queued soonest-airing first, to run in
   the quiet hours (01:00-09:00 in the channel's zone) unless what they are for airs within
-  3 h, and never later than 3 h before it airs (`renderAt`); missing promo bodies are
+  3 h, and never later than 3 h before it airs (`renderAt`); a long render (`longRenders`: a full
+  ident, 2 h on the Pi, and a trailer's body, 25 min) only when it will be over before half past
+  five, when the first bulletin of the day is asked for (`longRenderStart`, with the bulletins
+  on), else the next night's 01:00, since the sidecar's one worker does not leave a job and a
+  bulletin that waits behind more than about ten minutes goes without its clip (a promo body,
+  5.5 min, is no long render); the sidecar puts one it claims too late back in the queue for the
+  next night (`Renderer.deferLong`, `jobs.Store.Defer`: no failure, no attempt counted); missing promo bodies are
   requested for later breaks. Each run ends by timing every queued render again by the first
   break still to air that uses its clip (`jobs.Store.Reschedule`, sooner or later) and
   cancelling those no composition uses any more (a replan moved their break, or it was

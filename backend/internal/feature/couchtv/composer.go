@@ -137,9 +137,9 @@ func (r *composition) tidyRenders(ctx context.Context) error {
 		isBody := q.Kind == ClipPromoBody || q.Kind == ClipTrailerBody
 		switch {
 		case q.Used:
-			err = r.Jobs.Reschedule(ctx, RenderJob, payload, renderAt(r.now, q.Airs, r.cfg.location()), urgency(q.Airs))
+			err = r.Jobs.Reschedule(ctx, RenderJob, payload, r.renderTime(q.Kind, q.Airs), urgency(q.Airs))
 		case isBody && current[q.Key]:
-			err = r.Jobs.Reschedule(ctx, RenderJob, payload, renderAt(r.now, later, r.cfg.location()), urgency(later))
+			err = r.Jobs.Reschedule(ctx, RenderJob, payload, r.renderTime(q.Kind, later), urgency(later))
 		case q.Kind != ClipStandby:
 			if err = r.Jobs.CancelPending(ctx, RenderJob, payload); err == nil && isBody {
 				err = r.Store.dropPendingClip(ctx, q.ClipID)
@@ -177,6 +177,47 @@ func (r *composition) currentBodies() (map[string]bool, error) {
 		}
 	}
 	return keys, nil
+}
+
+// A long render keeps the sidecar's one worker, which does not leave a job it has begun, from a
+// bulletin's render. A bulletin is asked for 15 to 75 minutes before its break and takes 3 to 5
+// minutes on the Pi, so one that waits behind more than about ten minutes of another render goes
+// without its clip and its slot airs the fallback. A long render therefore starts only when it
+// will be over before the first bulletin of the day is asked for (the news opens the day at
+// awakeHour:awakeMinute) and not before the quiet hours; a promo body, 5.5 minutes on the Pi, only
+// delays a bulletin by that and is no long one. How long each takes on the Pi, with room to spare:
+// 65 to 116 minutes for a full ident (D35), 15 to 20 for a trailer's body.
+var longRenders = map[string]time.Duration{ClipIdentFull: 2 * time.Hour, ClipTrailerBody: 25 * time.Minute}
+
+// longRenderStart is when a render of a clip of the kind may start if it could at at: then, unless
+// it is a long one (longRenders) that would still run when the first bulletin is asked for, which
+// waits for the next night's quiet hours.
+func longRenderStart(at time.Time, kind string, loc *time.Location) time.Time {
+	d, long := longRenders[kind]
+	if !long {
+		return at
+	}
+	t := at.In(loc)
+	night := time.Date(t.Year(), t.Month(), t.Day(), quietFrom, 0, 0, 0, loc)
+	open := time.Date(t.Year(), t.Month(), t.Day(), awakeHour, awakeMinute, 0, 0, loc)
+	switch {
+	case t.Before(night):
+		return night
+	case !t.After(open.Add(-d)):
+		return at
+	}
+	return night.AddDate(0, 0, 1)
+}
+
+// renderTime is when the render of a clip of the kind, for what airs at airs, may start: renderAt,
+// and with the bulletins on, not into the time a bulletin may be asked for if it is long.
+func (r *composition) renderTime(kind string, airs time.Time) time.Time {
+	loc := r.cfg.location()
+	at := renderAt(r.now, airs, loc)
+	if r.cfg.Bulletins.Enabled {
+		return longRenderStart(at, kind, loc)
+	}
+	return at
 }
 
 // renderAt is when the render of a clip for what airs at airs may start: at once for
@@ -335,7 +376,7 @@ func (r *composition) request(ctx context.Context, kind, key string, spec Spec, 
 	}
 	// the run ends by timing it by the first break that uses it (tidyRenders)
 	_, err = r.Jobs.EnqueueJobOnce(ctx, RenderJob, RenderPayload{ClipID: id},
-		jobs.EnqueueOpts{Priority: urgency(airs), RunAt: renderAt(r.now, airs, r.cfg.location())})
+		jobs.EnqueueOpts{Priority: urgency(airs), RunAt: r.renderTime(kind, airs)})
 	return id, state, err
 }
 

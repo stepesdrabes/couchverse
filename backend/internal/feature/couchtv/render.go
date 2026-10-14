@@ -108,6 +108,8 @@ type Renderer struct {
 	// RestartEvery opens a fresh Chromium after that many jobs, which bounds its leaks
 	// (decoded artwork is cached for the page's life).
 	RestartEvery int
+	// Now is the clock; nil means time.Now (tests set it).
+	Now func() time.Time
 
 	server  *mediaServer
 	browser *browser
@@ -214,6 +216,9 @@ func (r *Renderer) Render(ctx context.Context, job *jobs.Job, report func(int)) 
 		return err
 	}
 	if clip.State != ClipReady {
+		if waits, err := r.deferLong(ctx, job, clip); waits || err != nil {
+			return err
+		}
 		if err := r.Store.setClipState(ctx, clip.ID, ClipRendering, ""); err != nil {
 			return err
 		}
@@ -248,6 +253,34 @@ func (r *Renderer) Render(ctx context.Context, job *jobs.Job, report func(int)) 
 		}
 	}
 	return nil
+}
+
+func (r *Renderer) now() time.Time {
+	if r.Now != nil {
+		return r.Now()
+	}
+	return time.Now()
+}
+
+// deferLong puts a long render (longRenders) back in the queue for the next quiet hours when it
+// would still run when a bulletin's is asked for. The composer times them so, but the one that
+// comes last of a night's queue is claimed late all the same. The job is not failed or counted
+// as an attempt, and the clip stays pending.
+func (r *Renderer) deferLong(ctx context.Context, job *jobs.Job, clip *Clip) (bool, error) {
+	if _, long := longRenders[clip.Kind]; !long {
+		return false, nil
+	}
+	cfg := LoadConfig(ctx, r.Settings)
+	if !cfg.Bulletins.Enabled {
+		return false, nil
+	}
+	now := r.now()
+	start := longRenderStart(now, clip.Kind, cfg.location())
+	if !start.After(now) {
+		return false, nil
+	}
+	slog.Info("couchtv: a long render waits for the quiet hours, so that no bulletin waits for it", "kind", clip.Kind, "at", start)
+	return true, r.Jobs.Defer(ctx, job.ID, start)
 }
 
 // queueAssembly asks the sidecar to assemble a break, the ones that air soonest first
