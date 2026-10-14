@@ -63,10 +63,10 @@ func TestCouchTvTrailers(t *testing.T) {
 		}
 	}
 
-	// enough trailers asked for this night already: no more
+	// enough trailers rendered this night already: no more
 	for i := range 3 {
-		exec(`INSERT INTO couchtv_clips (kind, key, spec, state, needed_at, last_used_at) VALUES ('trailer_body', $1, '{}', 'pending', now(), now())`,
-			"queued-"+strconv.Itoa(i))
+		exec(`INSERT INTO couchtv_clips (kind, key, spec, state, needed_at, last_used_at, rendered_at, version)
+			VALUES ('trailer_body', $1, '{}', 'ready', now(), now(), now(), 1)`, "queued-"+strconv.Itoa(i))
 	}
 	compose()
 	if n := count(`SELECT count(*) FROM couchtv_clips WHERE kind = 'trailer_body' AND key NOT LIKE 'queued-%'`); n != 0 {

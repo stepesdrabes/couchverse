@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -159,6 +160,9 @@ func (r *composition) tidyRenders(ctx context.Context) error {
 // currentBodies are the keys of the promo bodies and trailer bodies the titles of the window
 // ask for as they are now, each in both of its forms (a premiere's body says so).
 func (r *composition) currentBodies() (map[string]bool, error) {
+	if r.bodiesNow != nil {
+		return r.bodiesNow, nil
+	}
 	keys := map[string]bool{}
 	for id := range r.titles {
 		for _, fill := range []string{"", FillPremiere} {
@@ -176,6 +180,7 @@ func (r *composition) currentBodies() (map[string]bool, error) {
 			}
 		}
 	}
+	r.bodiesNow = keys
 	return keys, nil
 }
 
@@ -256,6 +261,8 @@ type composition struct {
 	promoted []promotion
 	// ready caches promo body keys to their rendered length (0: not rendered)
 	ready map[string]int
+	// bodiesNow caches currentBodies
+	bodiesNow map[string]bool
 }
 
 type promotion struct {
@@ -370,7 +377,15 @@ func (r *composition) request(ctx context.Context, kind, key string, spec Spec, 
 		return id, state, err
 	}
 	if state == ClipFailed {
-		if err := r.Store.RetryClip(ctx, id); err != nil {
+		if kind == ClipPromoBody || kind == ClipTrailerBody {
+			// no break waits for a body, and one that fails every time (the sound's memory peak
+			// on the Pi) would take every night's quiet hours: it is tried again once in retryAfter,
+			// as a break is
+			retried, err := r.Store.retryClipAfter(ctx, id, r.now.Add(-retryAfter))
+			if err != nil || !retried {
+				return id, state, err
+			}
+		} else if err := r.Store.RetryClip(ctx, id); err != nil {
 			return "", "", err
 		}
 	}
@@ -638,7 +653,11 @@ func (r *composition) requestTrailers(ctx context.Context, in BreakInput) error 
 			return err
 		}
 		if !known {
-			if n, err := r.Store.trailersQueued(ctx, r.now.Add(-trailerWindow)); err != nil || n >= trailersPerNight {
+			current, err := r.currentBodies()
+			if err != nil {
+				return err
+			}
+			if n, err := r.Store.trailersQueued(ctx, r.now.Add(-trailerWindow), slices.Collect(maps.Keys(current))); err != nil || n >= trailersPerNight {
 				return err
 			}
 		}

@@ -77,12 +77,14 @@ func (s *Store) clipKnown(ctx context.Context, key string) (bool, error) {
 	return known, err
 }
 
-// trailersQueued counts the trailers waiting to render, rendering, or rendered since the given
-// time: what a night's quiet hours are spent on.
-func (s *Store) trailersQueued(ctx context.Context, since time.Time) (int, error) {
+// trailersQueued counts the trailers whose render is spent on a night's quiet hours: those
+// rendered since the given time, whatever they were for, and those waiting or rendering that are
+// still asked for (the keys the titles want now). A failed one costs nothing until it is tried
+// again, and a stale one that waits will be cancelled.
+func (s *Store) trailersQueued(ctx context.Context, since time.Time, current []string) (int, error) {
 	var n int
 	err := s.q.QueryRow(ctx, `SELECT count(*) FROM couchtv_clips WHERE kind = 'trailer_body'
-		AND (state IN ('pending', 'rendering') OR rendered_at > $1)`, since).Scan(&n)
+		AND (rendered_at > $1 OR state IN ('pending', 'rendering') AND key = ANY($2))`, since, current).Scan(&n)
 	return n, err
 }
 
@@ -123,6 +125,14 @@ func (s *Store) queuedRenders(ctx context.Context, now time.Time) ([]queuedRende
 		}
 	}
 	return out, err
+}
+
+// retryClipAfter puts a failed clip that failed before the given time back in the queue, and
+// reports whether it did.
+func (s *Store) retryClipAfter(ctx context.Context, id string, before time.Time) (bool, error) {
+	tag, err := s.q.Exec(ctx, `UPDATE couchtv_clips SET state = 'pending', error = '', updated_at = now()
+		WHERE id = $1 AND state = 'failed' AND updated_at < $2`, id, before)
+	return tag.RowsAffected() > 0, err
 }
 
 // dropPendingClip deletes a clip that waits to render and has no render claimed or queued, so a

@@ -647,8 +647,9 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   extraction fails a render), and a trailer with fewer than three scenes is none; nothing is composed
   or asked for before the sidecar publishes the `trailer` template.
   Trailers are asked for as promo bodies are, for the candidates a break could use, the best-ranked first, but
-  only while fewer than three exist that are waiting, rendering or were rendered in the last 18
-  hours, and they render behind every break (`tidyRenders`): see 6.7 for the cost. A promo or
+  only while fewer than three were rendered in the last 18 hours or are waiting or rendering and
+  still asked for (a stale one waiting and a failed one hold no place), and they render behind
+  every break (`tidyRenders`): see 6.7 for the cost. A promo or
   trailer body whose key is no longer the current one of its title (new artwork, shots or scenes,
   a template version: each asks for another) is cancelled by `tidyRenders` and its clip dropped,
   or its render would run before the current ones (all bodies share a priority, the oldest is
@@ -693,7 +694,9 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   claimed too late, by the sidecar: `longRenders`, `deferLong`), because the sidecar's one worker
   does not leave a job and a bulletin's render, asked for 15 to 75 minutes before its break,
   that waits behind more than about ten minutes goes without its clip; a failed break
-  is composed again after 6 h, a failed clip is requeued when a break asks for it again.
+  is composed again after 6 h, a failed clip is requeued when a break asks for it again, a failed
+  promo or trailer body (no break waits for one, and one that fails every time, as the sound's
+  memory peak might on the Pi, would take every night) once in 6 h.
   Renders are queued soonest-airing first (the job priority is minus the airing's minute;
   the evergreen break and standby card first of all).
 - **Bulletin slots** (2026-10-13, 6.10, D36-D37): a break that carries the news or the weather
@@ -931,7 +934,7 @@ break or the standby card.
   rendered where the one render had them differ from it by 70 dB under the signal (57 dBFS
   at worst, at a boundary): the glue and the limiter running per item instead of over the
   break, inaudible.
-- **Trailers** (2026-10-14, D43): a trailer body is about 1,900 frames (a 75 s body) at the sidecar's 2.0 to 2.5 fps, 13 to 16 minutes on the Pi, plus extracting its scenes' frames before it loads (on the M1 140 frames of 1080p took 1.85 CPU s, 75 fps a core, so 1,000 to 1,400 frames are 15 to 20 CPU s there and 1.5 to 2.5 minutes on the Pi; a scene's sound is cut in 0.1 s) and rendering its sound as a break item (a minute or two): 17 to 20 minutes a trailer, and about 80 MB of extracted JPEGs (pruned after 14 days unused). They are asked for only for candidates a break could use (premieres, prime-time movies and sagas: 7 or 8 titles in a week of today's library; a strip or marathon only in a break of 8 minutes or more) and at most three at a time (those waiting, rendering or rendered in the last 18 hours), so after the deploy, which changes every clip's key, the next 24 hours of breaks need about 6 to 8 hours of the sidecar (the quiet hours are 8) and the trailers, which render behind every break, come on the second or third night at the earliest, three a night at most; afterwards a night renders the one or two that a changed schedule needs. A trailer's end cards are ordinary 4 s end-card renders, one per airing phrase.
+- **Trailers** (2026-10-14, D43): a trailer body is about 1,900 frames (a 75 s body) at the sidecar's 2.0 to 2.5 fps, 13 to 16 minutes on the Pi, plus extracting its scenes' frames before it loads (on the M1 140 frames of 1080p took 1.85 CPU s, 75 fps a core, so 1,000 to 1,400 frames are 15 to 20 CPU s there and 1.5 to 2.5 minutes on the Pi; a scene's sound is cut in 0.1 s) and rendering its sound as a break item (a minute or two): 17 to 20 minutes a trailer, and about 80 MB of extracted JPEGs (pruned after 14 days unused). They are asked for only for candidates a break could use (premieres, prime-time movies and sagas: 7 or 8 titles in a week of today's library; a strip or marathon only in a break of 8 minutes or more) and at most three at a time (those rendered in the last 18 hours and those waiting or rendering that a title still asks for), so after the deploy, which changes every clip's key, the next 24 hours of breaks need about 6 to 8 hours of the sidecar (the quiet hours are 8) and the trailers, which render behind every break, come on the second or third night at the earliest, three a night at most; afterwards a night renders the one or two that a changed schedule needs. A trailer's end cards are ordinary 4 s end-card renders, one per airing phrase.
 - **Daily budget** (Pi, the measured clip speeds: squeeze 2.41 fps, up next 2.47, lineup
   2.66, short promo 1.98; ~25 s to assemble a 5-minute break): a week planned over a library
   shaped like production's composes ~31 breaks a day whose new clips are ~30 squeezes and up

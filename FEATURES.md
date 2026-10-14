@@ -933,8 +933,10 @@ server that does not send it). The admin settings page toggles it.
   `soundSpec`; a render's frame check adds the end card as for a promo body). Slots' fallbacks never
   carry one (`promoPieces` is unchanged). Without a published `trailer` template none is composed
   or asked for; `requestTrailers` asks for the ones a break could use, best-ranked first, only while
-  fewer than three are waiting, rendering or rendered in the last 18 hours, and they render behind
-  every break like promo bodies (`tidyRenders`). A scene of a file that is gone or lost its source is
+  fewer than three were rendered in the last 18 hours or are waiting or rendering and still asked
+  for (a stale one, which `tidyRenders` cancels, and a failed one hold no place), and they render
+  behind every break like promo bodies (`tidyRenders`). A body that failed is tried again once in
+  six hours (`retryAfter`, as a break is), however often the breaks are composed. A scene of a file that is gone or lost its source is
   left out of the spec (`titleFacts`), and fewer than three scenes make no trailer.
 - **The `couchtv_compose` job** (`couchtv.Composer`, app): at startup, after every plan run and
   hourly, it composes every break of the next 24 hours that has no composition (a failed one
