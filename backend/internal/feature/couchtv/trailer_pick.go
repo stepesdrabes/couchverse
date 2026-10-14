@@ -303,6 +303,11 @@ func (p *scenePicker) fromSubtitles(ctx context.Context, index int, f pickFile, 
 				p.trace("  %7.1f %q: no place for a scene on the shots, %s", S, r.run.text(), why)
 				continue
 			}
+			// every cue the scene overlaps is heard in it, those of the run or not
+			if word := strongIn(cuesIn(track.Cues, pl.Start, pl.End)); word != "" {
+				p.trace("  %7.1f %q: refused, strong language (%s)", S, r.run.text(), word)
+				continue
+			}
 			chk := scan.check(pl.Start, pl.End, p.Risk)
 			if chk.Why != "" {
 				p.trace("  %7.1f %q: refused, %s", S, r.run.text(), chk.Why)

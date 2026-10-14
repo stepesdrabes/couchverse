@@ -468,7 +468,10 @@ one clip (at most ~2 minutes of work), so a transcode never waits long.
   a second apart are an exchange, and a scene plays a run of an exchange's cues that opens a thought
   and ends one with 1.2 to 6.4 s of speech. *Rating*: shape (2.5 to 5.2 s of speech is best), brevity
   (a dozen words), content (a question, an exclamation, a back-and-forth, stakes, names, the title's
-  own words; minus filler, small talk, crudeness, carrying on a line before it), then the sound
+  own words; minus filler, small talk, mild curses, carrying on a line before it; strong profanity or
+  a slur, matched whole and with its inflections and asterisked forms in `trailer_language.go`, scores a run
+  nothing and refuses a scene with one in any cue it overlaps: a channel promo does not air the
+  f-word, the s-word, the c-word or a slur), then the sound
   (how clearly the speech stands over what is behind it; a line buried in music or effects is
   refused) and the picture (not dark, flat, washed out or a montage; the first and last frame not
   black; and a violence check, `SceneViolence`, which `internal/app` hands to `Analyzer.Risk`: every

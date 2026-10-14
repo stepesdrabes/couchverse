@@ -1252,7 +1252,9 @@ server that does not send it). The admin settings page toggles it.
   descriptions, speaker labels, lyrics and capitals-only captions dropped), `textRuns` lists the runs
   of an exchange (cues under a second apart) that open a thought and end one with 1.2 to 6.4 s of
   speech, `scoreText` rates them (shape, brevity, content: questions, exclamations, a back-and-forth,
-  stakes, names, the title's own words; minus filler, small talk, crudeness, carrying on). Each
+  stakes, names, the title's own words; minus filler, small talk, mild curses, carrying on; a run with
+  strong profanity or a slur, `strongRe` in `trailer_language.go`, scores nothing, and a scene is
+  refused when any cue it overlaps has one). Each
   exchange's sound is decoded once as mono 16 kHz (`media.Samples`) and run through the voice-activity
   detector (`speechMeter`: 300 to 3400 Hz in 20 ms frames against the noise floor, swelling at a
   syllable rate, a hangover; a strict profile for speech, a sensitive one for pauses), the cues'

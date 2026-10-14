@@ -18,7 +18,6 @@ var (
 		blood danger escape hunt fight save power mission chosen destiny never nobody everything nothing`)
 	softWords = wordSet(`love trust fear home family remember promise believe lie lost gone free forever help alone afraid
 		wrong trouble`)
-	crudeRe  = regexp.MustCompile(`(?i)\b(fuck\w*|shit\w*|bitch\w*|asshole|cunt|dick|pussy|nigg\w+|whore|slut)\b`)
 	fillerRe = regexp.MustCompile(`(?i)^(uh|um|er|erm|hmm|huh|well|so|yeah|yes|no|okay|ok|hey|hi|hello|oh|ah)\b[,.!? ]`)
 	// a line that carries on the one before it, or answers a question it does not repeat
 	carryOnRe = regexp.MustCompile(`(?i)^(and|but|so|because|or|then|which|anyway|besides|that's why)\b`)
@@ -44,13 +43,16 @@ type textFeatures struct {
 	// Opener and Button say how well the run opens a trailer or ends one on a punchline.
 	Opener, Button float64
 	Score          float64
+	// Strong says the run holds strong profanity or a slur (trailer_language.go): its score is 0.
+	Strong bool
 }
 
 // scoreText rates what a run says. Its parts: the shape of its speech (2.5 to 5.2 s is the
 // sweet spot), its brevity (a trailer line is a dozen words; a speech is not), and its
 // content (punctuation that punches, a back-and-forth, stakes, a name, the title's own name,
 // minus filler, small talk, crudeness and detail). keywords are the title's own words (its
-// name): a line that says them is a line for its trailer.
+// name): a line that says them is a line for its trailer. A run with strong profanity or a slur
+// scores nothing.
 func scoreText(r textRun, keywords []string) textFeatures {
 	text := r.text()
 	words := r.words()
@@ -133,7 +135,7 @@ func scoreText(r textRun, keywords []string) textFeatures {
 		content -= 0.5
 	}
 	content -= min(0.3, 0.15*float64(len(smallTalkRe.FindAllString(text, -1))))
-	if crudeRe.MatchString(text) {
+	if mildRe.MatchString(text) {
 		content -= 0.3
 	}
 	if digitRe.MatchString(text) {
@@ -146,6 +148,10 @@ func scoreText(r textRun, keywords []string) textFeatures {
 		complete = 0.6
 	}
 	f.Score = f.Shape * f.Brevity * f.Content * complete
+	f.Strong = strongWord(text) != ""
+	if f.Strong {
+		f.Score = 0
+	}
 
 	// the structure of a trailer: a calm line to open on, a punchline to end on
 	last := r.Cues[len(r.Cues)-1]
