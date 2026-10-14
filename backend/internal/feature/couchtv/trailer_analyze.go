@@ -78,7 +78,7 @@ func (a *Analyzer) trailer(ctx context.Context, t *titleRow, files []titleFile) 
 		}
 		return []CouchTvTrailerScene{}, subs
 	}
-	if len(chosen) < trailerScenesMin {
+	if !enoughScenes(chosen) {
 		return []CouchTvTrailerScene{}, subs
 	}
 	scenes = make([]CouchTvTrailerScene, len(chosen))
@@ -90,6 +90,20 @@ func (a *Analyzer) trailer(ctx context.Context, t *titleRow, files []titleFile) 
 
 // trailerScenesMin is the fewest scenes a trailer is made of (the spec's minimum).
 const trailerScenesMin = 3
+
+// pickedSecondsMin is the least a picked trailer's scenes last together: under it the template
+// would stretch cards and a montage around a few lines (Futurama's loud cartoon sound left four
+// scenes of 16 s), so the title keeps its ordinary promos. An admin's own cut is theirs to make.
+const pickedSecondsMin = 25.0
+
+// enoughScenes says whether a pick is worth a trailer: enough scenes, long enough together.
+func enoughScenes(chosen []sceneCandidate) bool {
+	total := 0.0
+	for _, c := range chosen {
+		total += c.End - c.Start
+	}
+	return len(chosen) >= trailerScenesMin && total >= pickedSecondsMin
+}
 
 // titleKeywords are the words of a title's name that its trailer's lines are likely to say:
 // the words of four letters or more that are not articles or numbers.

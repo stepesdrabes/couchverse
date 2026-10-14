@@ -937,7 +937,7 @@ server that does not send it). The admin settings page toggles it.
   for (a stale one, which `tidyRenders` cancels, and a failed one hold no place), and they render
   behind every break like promo bodies (`tidyRenders`). A body that failed is tried again once in
   six hours (`retryAfter`, as a break is), however often the breaks are composed. A scene of a file that is gone or lost its source is
-  left out of the spec (`titleFacts`), and fewer than three scenes make no trailer.
+  left out of the spec (`titleFacts`), and fewer than three scenes make no trailer (an automatic pick of under 25 s of scenes is stored empty: `enoughScenes`).
 - **The `couchtv_compose` job** (`couchtv.Composer`, app): at startup, after every plan run and
   hourly, it composes every break of the next 24 hours that has no composition (a failed one
   again after 6 h), and keeps the standby card and an evergreen break of the current

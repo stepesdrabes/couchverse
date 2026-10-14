@@ -78,21 +78,26 @@ func TestCouchTvTrailerAnalysis(t *testing.T) {
 	w := newAnalysisWorker(t, env)
 
 	// 20 minutes: a picture that does not move, a Czech track of a quiet tone (the default) and
-	// an English one with eight exchanges of two lines between 80 s and 600 s, 70 s apart
-	english := []string{"Who are you?", "Nobody leaves this world alive.", "What do you want?", "I want the truth about my family.",
-		"Where is the key?", "Never trust a man who runs.", "Can you save him?", "There is a price for everything."}
+	// an English one with five exchanges of three lines from 66 s, 130 s apart, so their scenes
+	// keep the picker's two minutes between them inside the first half (five scenes of about 6 s:
+	// a pick under 25 s of scenes makes no trailer)
+	english := []string{"Who are you?", "Nobody leaves this world alive.", "Then why are you here?",
+		"What do you want?", "I want the truth about my family.", "You will not like it.",
+		"Where is the key?", "Never trust a man who runs.", "I am not running.",
+		"Can you save him?", "There is a price for everything.", "Name it.",
+		"Is it over?", "It has only begun.", "Then we finish it together."}
 	var speech [][2]float64
 	var vtt, czech strings.Builder
 	vtt.WriteString("WEBVTT\n\n")
 	czech.WriteString("WEBVTT\n\n")
-	for k := range 4 {
-		at := 80 + 140*float64(k)
-		// two lines of an exchange, each spoken a little inside its cue
-		for j, start := range []float64{at, at + 1.9} {
+	for k := range 5 {
+		at := 66 + 130*float64(k)
+		// three lines of an exchange, each spoken a little inside its cue
+		for j, start := range []float64{at, at + 1.9, at + 3.8} {
 			end := start + 1.5
 			speech = append(speech, [2]float64{start + 0.1, end - 0.1})
-			fmt.Fprintf(&vtt, "%s --> %s\n%s\n\n", ts(start), ts(end), english[2*k+j])
-			fmt.Fprintf(&czech, "%s --> %s\nCZECH %d\n\n", ts(start), ts(end), 2*k+j)
+			fmt.Fprintf(&vtt, "%s --> %s\n%s\n\n", ts(start), ts(end), english[3*k+j])
+			fmt.Fprintf(&czech, "%s --> %s\nCZECH %d\n\n", ts(start), ts(end), 3*k+j)
 		}
 	}
 	dir := t.TempDir()
@@ -170,7 +175,7 @@ func TestCouchTvTrailerAnalysis(t *testing.T) {
 	if err := json.Unmarshal(raw, &scenes); err != nil {
 		t.Fatal(err)
 	}
-	if source == nil || *source != "auto" || version != couchtv.TrailerVersion || len(scenes) < 3 || len(scenes) > 4 {
+	if source == nil || *source != "auto" || version != couchtv.TrailerVersion || len(scenes) < 4 || len(scenes) > 5 {
 		t.Fatalf("%d scenes from %v at version %d: %s", len(scenes), source, version, raw)
 	}
 	for i, s := range scenes {

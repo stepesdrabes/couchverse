@@ -666,3 +666,22 @@ func TestTitleKeywords(t *testing.T) {
 		t.Errorf("keywords %q, want %q", got, want)
 	}
 }
+
+func TestEnoughScenes(t *testing.T) {
+	scene := func(seconds float64) sceneCandidate { return sceneCandidate{Start: 100, End: 100 + seconds} }
+	for _, c := range []struct {
+		name   string
+		scenes []sceneCandidate
+		want   bool
+	}{
+		{"none", nil, false},
+		{"two long scenes", []sceneCandidate{scene(8), scene(8)}, false},
+		{"four short scenes, 16 s", []sceneCandidate{scene(4), scene(4), scene(4), scene(4)}, false},
+		{"five scenes, 25 s", []sceneCandidate{scene(5), scene(5), scene(5), scene(5), scene(5)}, true},
+		{"eight scenes, 41 s", []sceneCandidate{scene(5), scene(6), scene(4), scene(5), scene(5), scene(6), scene(5), scene(5)}, true},
+	} {
+		if got := enoughScenes(c.scenes); got != c.want {
+			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		}
+	}
+}
