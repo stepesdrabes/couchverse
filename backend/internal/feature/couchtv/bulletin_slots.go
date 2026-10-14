@@ -168,14 +168,16 @@ func sectionsOf(r Recipe) []section {
 // sectionPath is where a break's section is assembled, under the break's own path.
 func sectionPath(path string, i int) string { return filepath.Join(path, strconv.Itoa(i)) }
 
-// When the breaks carry bulletins (plan 6.10, D37): the news in the breaks that end on the
-// hour every two hours from 06:00 to midnight (the owner's choice over every hour), the weather
-// in the first break that ends after 07:00, 12:00 and 17:00 (within the hour) and in the break
-// before the evening movie. A slot is only made where a bulletin fetched on the grid
-// (nextBulletin) in time to be rendered is still valid when the break ends.
+// When the breaks carry bulletins (plan 6.10, D37): the news every two hours from 06:00 to
+// midnight (the owner's choice over every hour) in the break that ends on the hour or, as few do,
+// the first that ends within half an hour after it; the weather in the first break that ends
+// after 07:00, 12:00 and 17:00 (within the hour) and in the break before the evening movie. A
+// slot is only made where a bulletin fetched on the grid (nextBulletin) in time to be rendered
+// is still valid when the break ends.
 var (
 	newsFirstHour  = 6
 	newsEvery      = 2
+	newsWithin     = 30 * time.Minute
 	weatherAt      = []int{7, 12, 17}
 	weatherWithin  = time.Hour
 	primeFrom      = 19
@@ -189,16 +191,21 @@ var (
 func bulletinKinds(start, end, prevStart time.Time, nextFill string, loc *time.Location) []string {
 	l := end.In(loc)
 	want := map[string]bool{}
-	hour := l.Hour()
-	if hour == 0 {
-		hour = 24
+	// after is how long after hour h of the day the break ends, and whether it is the first to end
+	// at or after the hour: the one whose program began before it (an earlier break would have
+	// ended after it too)
+	after := func(h int) (time.Duration, bool) {
+		target := time.Date(l.Year(), l.Month(), l.Day(), h, 0, 0, 0, loc)
+		return end.Sub(target), !end.Before(target) && (prevStart.IsZero() || prevStart.Before(target))
 	}
-	if l.Minute() == 0 && l.Second() == 0 && l.Nanosecond() == 0 && hour >= newsFirstHour && (hour-newsFirstHour)%newsEvery == 0 {
-		want[BulletinNews] = true
+	// midnight is hour 0 of the day the break ends on
+	for h := 0; h < 24; h += newsEvery {
+		if d, first := after(h); first && (h == 0 || h >= newsFirstHour) && d <= newsWithin {
+			want[BulletinNews] = true
+		}
 	}
 	for _, h := range weatherAt {
-		target := time.Date(l.Year(), l.Month(), l.Day(), h, 0, 0, 0, loc)
-		if !end.Before(target) && end.Sub(target) < weatherWithin && (prevStart.IsZero() || prevStart.Before(target)) {
+		if d, first := after(h); first && d < weatherWithin {
 			want[BulletinWeather] = true
 		}
 	}

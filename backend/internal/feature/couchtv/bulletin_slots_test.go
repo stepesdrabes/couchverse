@@ -216,7 +216,16 @@ func TestBulletinKinds(t *testing.T) {
 		want            []string
 	}{
 		{"the news on the hour", at(14, 9, 56), at(14, 10, 0), at(14, 9, 30), FillReruns, []string{BulletinNews}},
-		{"no news off the hour", at(14, 10, 21), at(14, 10, 25), at(14, 10, 0), FillReruns, nil},
+		// no break ends on the hour: the first one after it carries the news, within half an hour
+		{"the news in the first break after the hour", at(14, 10, 17), at(14, 10, 21), at(14, 9, 40), FillReruns, []string{BulletinNews}},
+		{"the news half an hour late", at(14, 10, 25), at(14, 10, 30), at(14, 9, 40), FillReruns, []string{BulletinNews}},
+		{"not more than half an hour late", at(14, 10, 31), at(14, 10, 35), at(14, 9, 40), FillReruns, nil},
+		{"not in a second break after the hour", at(14, 10, 21), at(14, 10, 25), at(14, 10, 0), FillReruns, nil},
+		{"not in the break before the hour", at(14, 9, 51), at(14, 9, 55), at(14, 9, 30), FillReruns, nil},
+		{"news after midnight", at(15, 0, 16), at(15, 0, 20), at(14, 23, 45), FillReruns, []string{BulletinNews}},
+		{"none at two in the night", at(15, 2, 6), at(15, 2, 10), at(15, 1, 40), FillReruns, nil},
+		{"the first news from a fetch in time", at(14, 6, 12), at(14, 6, 18), at(14, 5, 40), FillReruns, []string{BulletinNews}},
+		{"no news at ten past five", at(14, 5, 6), at(14, 5, 10), at(14, 4, 40), FillReruns, nil},
 		{"the first news after the morning's first fetch", at(14, 5, 55), at(14, 6, 0), at(14, 5, 30), FillReruns, []string{BulletinNews}},
 		// a break starting 05:44 cannot have the 05:30 fetch rendered in time; the night's
 		// last (00:30) is too old by 06:00
@@ -226,11 +235,12 @@ func TestBulletinKinds(t *testing.T) {
 		{"no news on the odd hours", at(14, 8, 56), at(14, 9, 0), at(14, 8, 30), FillReruns, nil},
 		{"the morning weather without the news", at(14, 6, 55), at(14, 7, 0), at(14, 6, 30), FillStrip, []string{BulletinWeather}},
 		{"news and the weather at noon", at(14, 11, 55), at(14, 12, 0), at(14, 11, 30), FillStrip, []string{BulletinNews, BulletinWeather}},
-		{"the weather in the first break after noon", at(14, 12, 10), at(14, 12, 15), at(14, 11, 50), FillReruns, []string{BulletinWeather}},
+		{"the weather in the first break after noon", at(14, 12, 10), at(14, 12, 15), at(14, 11, 50), FillReruns, []string{BulletinNews, BulletinWeather}},
 		{"not in the break after it", at(14, 12, 35), at(14, 12, 40), at(14, 12, 15), FillReruns, nil},
 		{"not an hour late", at(14, 13, 5), at(14, 13, 10), at(14, 11, 0), FillMovie, nil},
-		{"the weather before the evening movie", at(14, 20, 10), at(14, 20, 15), at(14, 19, 45), FillMovie, []string{BulletinWeather}},
-		{"not before the late movie", at(14, 22, 25), at(14, 22, 30), at(14, 21, 40), FillMovie, nil},
+		{"the weather before the evening movie", at(14, 20, 10), at(14, 20, 15), at(14, 19, 45), FillMovie, []string{BulletinNews, BulletinWeather}},
+		{"no weather before the late movie", at(14, 22, 25), at(14, 22, 30), at(14, 21, 40), FillMovie, []string{BulletinNews}},
+		{"nothing in the hour's second break", at(14, 20, 25), at(14, 20, 30), at(14, 20, 15), FillReruns, nil},
 	} {
 		if got := bulletinKinds(c.start, c.end, c.ago, c.next, prague); !slices.Equal(got, c.want) {
 			t.Errorf("%s: %v, want %v", c.name, got, c.want)
@@ -294,7 +304,10 @@ func TestBulletinSlotsOverAWeek(t *testing.T) {
 	rows := planWeek(ownerLibrary().Library, "2026-10-12", 7)
 	want, kept := slotsOverAWeek(rows)
 	t.Logf("wanted %v, kept %v", want, kept)
-	if want[BulletinNews] < 10 || want[BulletinWeather] < 10 {
+	// the news every two hours is up to ten slots a day (06:00 to midnight), as many as the
+	// breaks that end within half an hour after each of them: the week asks for seven a day,
+	// where only breaks ending on the hour once gave three
+	if want[BulletinNews] < 5*7 || want[BulletinWeather] < 10 {
 		t.Fatalf("the week asks for %v: too few slots to judge", want)
 	}
 	for _, kind := range []string{BulletinNews, BulletinWeather} {

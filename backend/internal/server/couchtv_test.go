@@ -542,11 +542,14 @@ func TestCouchTvComposeJob(t *testing.T) {
 		if len(r.Clips) == 0 || r.Clips[len(r.Clips)-1].Kind != couchtv.ClipUpNext {
 			t.Errorf("break at %s does not end on up next: %+v", starts, r.Clips)
 		}
-		// bulletins: the news on the hour from 06:00, in slots made of whole clips at the
-		// break's loudness in whole LU
-		onTheHour := ends.In(prague).Minute() == 0 && (ends.In(prague).Hour() >= 7 || ends.In(prague).Hour() == 0)
+		// bulletins: the news every two hours from 06:00, in the break that ends on the hour or
+		// within half an hour after it, in slots made of whole clips at the break's loudness in
+		// whole LU
+		local := ends.In(prague)
+		evenHour := local.Hour()%2 == 0 && (local.Hour() == 0 || local.Hour() >= 6)
+		onTheHour := local.Minute() == 0 && evenHour && local.Hour() != 6
 		hasNews := slices.ContainsFunc(r.Slots, func(s couchtv.RecipeSlot) bool { return s.Kind == couchtv.BulletinNews })
-		if onTheHour && r.Frames >= 2000 && !hasNews || !onTheHour && hasNews && ends.In(prague).Hour() != 6 {
+		if onTheHour && r.Frames >= 2200 && !hasNews || hasNews && (!evenHour || local.Minute() > 30) {
 			t.Errorf("break at %s ending %s: slots %+v", starts.In(prague), ends.In(prague), r.Slots)
 		}
 		if hasNews {

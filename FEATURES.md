@@ -940,8 +940,9 @@ server that does not send it). The admin settings page toggles it.
   hourly, it composes every break of the next 24 hours that has no composition (a failed one
   again after 6 h), and keeps the standby card and an evergreen break of the current
   templates. With `bulletins.enabled` a break carries bulletins (`bulletinKinds`, D37): the
-  news when it ends on the hour every two hours from 06:00 to midnight (06:00, 08:00 ...
-  24:00; the owner chose every two hours over every hour), the weather in the first break ending
+  news every two hours from 06:00 to midnight (06:00, 08:00 ... 24:00; the owner chose every two
+  hours over every hour) in the break that ends on the hour, else the first that ends within half
+  an hour after it, the weather in the first break ending
   within the hour after 07:00, 12:00 and 17:00 and in the break before a prime-time movie
   (ending 19:00-21:00), each only where a bulletin fetched on the grid at least
   `bulletinLead` (15 minutes) before the break goes on air is still valid when it ends
