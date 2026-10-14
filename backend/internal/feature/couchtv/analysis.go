@@ -41,13 +41,14 @@ const loudnessSamples = 4
 
 // AnalyzePayload is a couchtv_analyze job: one title (Force measures it again even at
 // the current version; PicksOnly, from the backfill, only makes again the picks an older
-// version made: the shots and the trailer's scenes), or neither for the backfill. Trailer
-// makes the trailer's scenes again at the current version: its subtitles are not the ones its
-// empty pick read.
+// version made: the shots and the trailer's scenes), or neither for the backfill. Shots and
+// Trailer make those picks again at the current version: an admin handed the shots back, or
+// the subtitles are not the ones an empty trailer pick read.
 type AnalyzePayload struct {
 	TitleID   string `json:"titleId,omitempty"`
 	Force     bool   `json:"force,omitempty"`
 	PicksOnly bool   `json:"picksOnly,omitempty"`
+	Shots     bool   `json:"shots,omitempty"`
 	Trailer   bool   `json:"trailer,omitempty"`
 }
 
@@ -95,9 +96,10 @@ func (a *Analyzer) force(ctx context.Context, titleID string) error {
 }
 
 // repick makes a title's picks of an older version again (its shots, its trailer's scenes),
-// nothing else.
-func (a *Analyzer) repick(ctx context.Context, titleID string) error {
-	_, err := a.Jobs.EnqueueJobOnce(ctx, AnalyzeJob, AnalyzePayload{TitleID: titleID, PicksOnly: true},
+// nothing else, which skips the loudness of whole films; shots makes the shots again at the
+// current version too.
+func (a *Analyzer) repick(ctx context.Context, titleID string, shots bool) error {
+	_, err := a.Jobs.EnqueueJobOnce(ctx, AnalyzeJob, AnalyzePayload{TitleID: titleID, PicksOnly: true, Shots: shots},
 		jobs.EnqueueOpts{Priority: analyzePriority})
 	return err
 }
@@ -188,7 +190,7 @@ func (a *Analyzer) analyze(ctx context.Context, p AnalyzePayload, report func(in
 		}
 		report(30)
 	}
-	if measure || t.shotsVersion < ShotsVersion {
+	if measure || p.Shots || t.shotsVersion < ShotsVersion {
 		res.shotsVersion = ShotsVersion
 		if t.ShotsSource != SourceAdmin {
 			res.shots, res.shotsDone = a.shots(ctx, t.TitleKind, files), true

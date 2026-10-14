@@ -1218,7 +1218,10 @@ server that does not send it). The admin settings page toggles it.
   `ShotsVersion` picked (`couchtv_titles.shots_version`) or whose trailer scenes an older
   `TrailerVersion` picked (`couchtv_titles.trailer_version`); that job is `picksOnly`: it makes
   those picks again and leaves the loudness and the promo audio, a pass over a whole film's
-  audio, alone). Once per version it
+  audio, alone; so does the job an admin's edit queues when a title with older picks comes back
+  to the channel or the shots are handed back, with `shots` set so they are picked at the
+  current version too; only a promo excerpt handed back, or a title never analyzed, takes the
+  full analysis). Once per version it
   measures the **loudness** (`loudness_lufs`: a movie's full ebur128 pass, a series' four
   episodes spread over it averaged by energy) and picks **shots** (3-6, 1-3 s in whole 25 fps
   frames: keyframes over 5-50 % of the runtime at 160x90, the best ranked usable one of

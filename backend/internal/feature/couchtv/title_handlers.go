@@ -122,17 +122,18 @@ func (h *Titles) Update(ctx context.Context, in *updateTitleInput) (*titleOutput
 			return nil, err
 		}
 	}
-	handedBack := before.promoSource == SourceAdmin && edit.promo == nil ||
-		before.ShotsSource == SourceAdmin && len(edit.shots) == 0
-	// the trailer alone is picked again: a whole analysis would measure a film's loudness
-	trailerHandedBack := before.trailerSource == SourceAdmin && edit.trailer == nil
+	promoBack := before.promoSource == SourceAdmin && edit.promo == nil
+	shotsBack := before.ShotsSource == SourceAdmin && len(edit.shots) == 0
+	// handing the trailer back resets its version, so the picks-only job picks it again
+	trailerBack := before.trailerSource == SourceAdmin && edit.trailer == nil
 	if !b.Excluded {
 		var err error
 		switch {
-		case handedBack || before.Excluded && before.AnalyzedVersion < AnalyzeVersion:
+		case promoBack || before.Excluded && before.AnalyzedVersion < AnalyzeVersion:
 			err = h.analyzer.force(ctx, in.ID)
-		case trailerHandedBack || before.Excluded && (before.shotsVersion < ShotsVersion || before.trailerVersion < TrailerVersion):
-			err = h.analyzer.repick(ctx, in.ID)
+		case shotsBack || trailerBack || before.Excluded && (before.shotsVersion < ShotsVersion || before.trailerVersion < TrailerVersion):
+			// the picks alone: a full analysis would measure the whole film's loudness again
+			err = h.analyzer.repick(ctx, in.ID, shotsBack)
 		}
 		if err != nil {
 			return nil, err
