@@ -17,6 +17,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"couchverse/internal/feature/artwork"
 	"couchverse/internal/feature/playback"
 	"couchverse/internal/media"
@@ -29,6 +31,9 @@ import (
 //	/media/v1/artwork/<artwork id>?v=<version>[&size=w780|w1920|1600x800]
 //	/media/v1/frames/<media file id>/<start ms>_<count>/<n>.jpg   25 fps, 1080p, SDR
 //	/media/v1/audio/<media file id>/<start ms>_<length ms>.flac    the default track, stereo
+//	/media/v1/audio/<media file id>/<stream>/<start ms>_<length ms>.flac
+//	                                         one stream (its ffprobe index) of the file, stereo with
+//	                                         the dialogue kept up when it is multichannel (trailers)
 //	/media/v1/soundtrack/<catalog>/<track id>/<start ms>_<length ms>.flac
 //	                                         a catalog track's preview (soundtracks.go), stereo
 //
@@ -42,6 +47,7 @@ const mediaPrefix = "/media/v1/"
 var (
 	framesURL     = regexp.MustCompile(`^/media/v1/frames/([0-9a-f-]{36})/(\d+)_(\d+)/(\d+)\.jpg$`)
 	audioURL      = regexp.MustCompile(`^/media/v1/audio/([0-9a-f-]{36})/(\d+)_(\d+)\.flac$`)
+	streamURL     = regexp.MustCompile(`^/media/v1/audio/([0-9a-f-]{36})/(\d{1,3})/(\d+)_(\d+)\.flac$`)
 	soundtrackURL = regexp.MustCompile(`^/media/v1/soundtrack/(itunes|deezer)/(\d{1,20})/(\d+)_(\d+)\.flac$`)
 	specMedia     = regexp.MustCompile(`"(/media/v1/(?:frames|audio|soundtrack)/[^"]+)"`)
 )
@@ -58,6 +64,14 @@ func FramesURLs(mediaFileID string, start time.Duration, count int) []string {
 // AudioURL is the URL of an excerpt of a media file's default audio track.
 func AudioURL(mediaFileID string, start, length time.Duration) string {
 	return fmt.Sprintf("%saudio/%s/%d_%d.flac", mediaPrefix, mediaFileID, start.Milliseconds(), length.Milliseconds())
+}
+
+// StreamURL is the URL of an excerpt of one audio stream of a media file, by its ffprobe
+// index: a trailer's scene takes the dialogue of the original-language stream whatever the
+// file's default is. A multichannel stream is downmixed with the dialogue kept up
+// (dialogueFilter); the default form's stays the plain downmix, so existing beds keep their keys.
+func StreamURL(mediaFileID string, stream int, start, length time.Duration) string {
+	return fmt.Sprintf("%saudio/%s/%d/%d_%d.flac", mediaPrefix, mediaFileID, stream, start.Milliseconds(), length.Milliseconds())
 }
 
 // SoundtrackURL is the URL of an excerpt of a catalog track's preview: another track or
@@ -172,6 +186,11 @@ func (m *mediaServer) local(u string) (string, bool) {
 	if g := audioURL.FindStringSubmatch(u); g != nil {
 		return filepath.Join(m.dataDir, "couchtv", "audio", g[1], g[2]+"_"+g[3]+".flac"), true
 	}
+	if g := streamURL.FindStringSubmatch(u); g != nil {
+		// beside the default cuts, not in a directory of its own: the cleanup judges each
+		// file's age, and touching a file does not touch its directory
+		return filepath.Join(m.dataDir, "couchtv", "audio", g[1], "s"+g[2]+"_"+g[3]+"_"+g[4]+".flac"), true
+	}
 	if g := soundtrackURL.FindStringSubmatch(u); g != nil {
 		return filepath.Join(m.dataDir, "couchtv", "audio", g[1]+"-"+g[2], g[3]+"_"+g[4]+".flac"), true
 	}
@@ -241,6 +260,18 @@ func (m *mediaServer) prepare(ctx context.Context, spec []byte) error {
 			if err := m.extractAudio(ctx, g[1], time.Duration(start)*time.Millisecond, time.Duration(length)*time.Millisecond, path); err != nil {
 				return fmt.Errorf("audio %s: %w", u, err)
 			}
+		} else if g := streamURL.FindStringSubmatch(u); g != nil {
+			path, _ := m.local(u)
+			if done[path] {
+				continue
+			}
+			done[path] = true
+			stream, _ := strconv.Atoi(g[2])
+			start, _ := strconv.Atoi(g[3])
+			length, _ := strconv.Atoi(g[4])
+			if err := m.extractStream(ctx, g[1], stream, time.Duration(start)*time.Millisecond, time.Duration(length)*time.Millisecond, path); err != nil {
+				return fmt.Errorf("audio %s: %w", u, err)
+			}
 		} else if g := soundtrackURL.FindStringSubmatch(u); g != nil {
 			path, _ := m.local(u)
 			if done[path] {
@@ -250,7 +281,7 @@ func (m *mediaServer) prepare(ctx context.Context, spec []byte) error {
 			start, _ := strconv.Atoi(g[3])
 			length, _ := strconv.Atoi(g[4])
 			source := filepath.Join(m.dataDir, previewFile(g[1], g[2]))
-			if err := m.cutAudio(ctx, source, "0:a:0", time.Duration(start)*time.Millisecond, time.Duration(length)*time.Millisecond, path); err != nil {
+			if err := m.cutAudio(ctx, source, "0:a:0", time.Duration(start)*time.Millisecond, time.Duration(length)*time.Millisecond, path, ""); err != nil {
 				return fmt.Errorf("soundtrack %s: %w", u, err)
 			}
 		}
@@ -348,12 +379,52 @@ func (m *mediaServer) extractAudio(ctx context.Context, fileID string, start, le
 	if err == nil {
 		stream = "0:" + strconv.Itoa(index)
 	}
-	return m.cutAudio(ctx, path, stream, start, length, out)
+	return m.cutAudio(ctx, path, stream, start, length, out, "")
+}
+
+// extractStream cuts an excerpt of one audio stream of a media file as stereo FLAC, the
+// dialogue kept up when the stream is multichannel.
+func (m *mediaServer) extractStream(ctx context.Context, fileID string, index int, start, length time.Duration, out string) error {
+	if _, err := os.Stat(out); err == nil {
+		now := time.Now()
+		return os.Chtimes(out, now, now)
+	}
+	_, path, err := m.source(ctx, fileID)
+	if err != nil {
+		return err
+	}
+	var channels int
+	err = m.store.q.QueryRow(ctx, `SELECT channels FROM audio_streams WHERE media_file_id = $1 AND stream_index = $2`,
+		fileID, index).Scan(&channels)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("the file has no audio stream %d", index)
+	}
+	if err != nil {
+		return err
+	}
+	return m.cutAudio(ctx, path, "0:"+strconv.Itoa(index), start, length, out, dialogueFilter(channels))
+}
+
+// dialogueFilter downmixes a 5.1 or 7.1 stream to stereo with the centre channel, where the
+// dialogue sits, up against the sides and the surrounds (about 5 dB more than the standard
+// downmix gives it); an empty filter leaves the downmix to ffmpeg. The weights add up to 1, so
+// a loud scene does not clip. Channels are named by index, which the 5.1, 5.1(side) and 7.1
+// layouts share (FL FR FC LFE then the surrounds); the effects channel is left out, the
+// trailer has its own low end.
+func dialogueFilter(channels int) string {
+	switch channels {
+	case 6:
+		return "pan=stereo|c0=0.46*c2+0.34*c0+0.20*c4|c1=0.46*c2+0.34*c1+0.20*c5"
+	case 8:
+		return "pan=stereo|c0=0.44*c2+0.30*c0+0.14*c4+0.12*c6|c1=0.44*c2+0.30*c1+0.14*c5+0.12*c7"
+	}
+	return ""
 }
 
 // cutAudio writes a stretch of a stream of path as stereo FLAC, unless it is on disk
-// already (then it is touched, for the cleanup).
-func (m *mediaServer) cutAudio(ctx context.Context, path, stream string, start, length time.Duration, out string) error {
+// already (then it is touched, for the cleanup). A filter downmixes it its own way; when
+// ffmpeg refuses the filter (a layout it does not fit) the plain downmix is written.
+func (m *mediaServer) cutAudio(ctx context.Context, path, stream string, start, length time.Duration, out, filter string) error {
 	if _, err := os.Stat(out); err == nil {
 		now := time.Now()
 		return os.Chtimes(out, now, now)
@@ -362,12 +433,25 @@ func (m *mediaServer) cutAudio(ctx context.Context, path, stream string, start, 
 		return err
 	}
 	tmp := out + ".tmp.flac"
-	cmd := exec.CommandContext(ctx, m.ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
-		"-ss", fmt.Sprintf("%.3f", start.Seconds()), "-t", fmt.Sprintf("%.3f", length.Seconds()), "-i", path,
-		"-map", stream, "-ac", "2", "-ar", "48000", "-c:a", "flac", tmp)
-	if b, err := cmd.CombinedOutput(); err != nil {
-		os.Remove(tmp)
-		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(b)))
+	cut := func(filter string) error {
+		args := []string{"-hide_banner", "-loglevel", "error", "-y",
+			"-ss", fmt.Sprintf("%.3f", start.Seconds()), "-t", fmt.Sprintf("%.3f", length.Seconds()), "-i", path, "-map", stream}
+		if filter != "" {
+			args = append(args, "-af", filter)
+		}
+		args = append(args, "-ac", "2", "-ar", "48000", "-c:a", "flac", tmp)
+		if b, err := exec.CommandContext(ctx, m.ffmpeg, args...).CombinedOutput(); err != nil {
+			os.Remove(tmp)
+			return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(b)))
+		}
+		return nil
+	}
+	err := cut(filter)
+	if err != nil && filter != "" && ctx.Err() == nil {
+		err = cut("")
+	}
+	if err != nil {
+		return err
 	}
 	return os.Rename(tmp, out)
 }
