@@ -885,9 +885,19 @@ break or the standby card.
   any whole number of frames from 2 to 6 s (one design scales to it: from 3.2 s the popcorn
   drops onto the couch, shorter stings resolve the logo in), so a gap can be closed by one
   sting; up next 8 s by default (6 to 12); a promo body ends on a frame-aligned
-  cut snapped to the bed (cinematic about 17 s, premiere about 19 s, grit about 13 s, bright
-  about 13.5 s) and its end card is 4 s; the body is airing-independent by construction (a test
-  proves it), and the break audio renders the promo `full` so its bed runs across the cut.
+  cut snapped to the bed (cinematic about 16 s, premiere about 17.6 s, grit and bright about
+  12.8 s, as the screens' design times them) and its end card is 4 s; the body is
+  airing-independent by construction (a test proves it), and the break audio renders the promo
+  `full` so its bed runs across the cut.
+- **The promos in the new brand (2026-10-14)**: the promo and the evergreen end card follow the
+  screens' design (2.3, 2.4) made sharp and flat at the owner's word (right angles only, no
+  shadows or glows), with the title's own scenes in every picture (its footage frame by frame,
+  scope footage whole in grit's letterbox, cover-cropped toward its focus elsewhere) and its
+  logo wherever it shows big (else its name). The end card closes in as two panels, a night
+  column with the title and the airing and the title's scenes beside it, and lands the channel
+  tag on the sonic logo; with a footage end card every frame moves (100 of 100 captured; a
+  stills-only one holds still once the tag has landed). Without a bed each mood has its own
+  house score; over a bed the house only punctuates. FEATURES.md "Promo look" has the detail.
 - **Audio**: 48 kHz; a clip's or a break's render is normalized to its `loudness` (BS.1770
   integrated, default -18 LUFS) with the true peak capped at -1 dBTP (quieter rather than
   clipped), delivered as a float WAV; a break spec lists clips and their starts, each ringing

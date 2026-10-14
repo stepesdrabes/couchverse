@@ -32,3 +32,26 @@ ff -f lavfi -i "gradients=s=480x270:r=25:d=1:c0=0x3a6ea5:c1=0x0a2a44:speed=0.08"
 # kicks on the beat at 120 bpm, a tick off the beat, a deeper accent every two seconds
 ff -f lavfi -i "aevalsrc='0.7*sin(2*PI*55*t)*exp(-10*mod(t,0.5))+0.12*sin(2*PI*3520*t)*exp(-40*mod(t+0.25,0.5))+0.45*sin(2*PI*110*t)*exp(-4*mod(t,2))':s=48000:d=24" \
 	-ac 2 -c:a libopus -b:a 48k bed.ogg
+
+# two stand-in title logos, trimmed and transparent round their letters: a wide two-tone gold
+# one (4:1) and a squarer red and paper one (2.3:1); each box is colour:x:y:w:h
+logo() { # file size box...
+	local file=$1 size=$2 chain=""
+	shift 2
+	for b in "$@"; do
+		IFS=: read -r c x y w h <<<"$b"
+		chain+="${chain:+,}drawbox=x=$x:y=$y:w=$w:h=$h:color=$c:t=fill:replace=1"
+	done
+	ff -f lavfi -i "color=c=black@0:s=$size,format=rgba" -frames:v 1 -vf "$chain" "$file"
+}
+G=0xe2b866
+B=0x9a6a24
+logo logo-wide.png 800x200 \
+	$G:0:0:150:40 $G:55:40:40:160 $G:190:0:40:200 $G:300:0:40:200 $G:230:80:70:40 \
+	$G:380:0:40:200 $G:420:0:110:40 $G:420:80:80:40 $G:420:160:110:40 $G:570:0:40:200 \
+	$G:690:0:40:200 $G:610:40:26:50 $G:636:90:28:50 $G:664:140:26:40 $G:750:0:50:40 \
+	$G:750:160:50:40 $B:55:160:40:40 $B:190:160:40:40 $B:300:160:40:40 $B:380:160:40:40 \
+	$B:420:160:110:40 $B:570:160:40:40 $B:690:160:40:40 $B:664:160:26:20 $B:750:160:50:40
+logo logo-tall.png 460x200 \
+	0xd81d24:0:0:200:200 black@0:50:50:100:100 0xf2ece2:240:0:220:60 0xf2ece2:240:90:160:40 \
+	0xd81d24:240:160:220:40

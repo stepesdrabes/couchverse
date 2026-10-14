@@ -65,7 +65,11 @@ describe('airing phrases', () => {
 describe('collectUrls', () => {
 	it('finds artwork and beds, not colours or footage frames', () => {
 		const { images, beds } = collectUrls(FIXTURES['promo-cinematic']);
-		expect(images).toEqual(['/test/media/night-backdrop.jpg', '/test/media/night-poster.jpg']);
+		expect(images).toEqual([
+			'/test/media/night-backdrop.jpg',
+			'/test/media/night-poster.jpg',
+			'/test/media/logo-wide.png'
+		]);
 		expect(beds).toEqual(['/test/media/bed.ogg']);
 		expect(collectUrls(FIXTURES['ident-journey'])).toEqual({ images: [], beds: [] });
 	});

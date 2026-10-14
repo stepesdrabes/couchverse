@@ -1,0 +1,201 @@
+/* The promo and its end card (templates/promo.ts), in the channel's sharp, flat look: night,
+   paper and the brand's red as fields, blocks and rules, right angles only (the only curves are
+   the letters' and the titles' own logos), no shadows or glows. Every animated part moves by
+   transform or opacity alone. */
+
+.pm {
+	background: #050505;
+	color: #f4ede4;
+}
+.pm-fill {
+	position: absolute;
+	inset: 0;
+}
+
+/* --- pictures: a take is a window on the frame (or grit's letterbox band) ------------------ */
+
+.pm-take {
+	position: absolute;
+	overflow: hidden;
+	background: #050505;
+}
+.pm-footage {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.pm-still {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+}
+.pm-still img {
+	position: absolute;
+	left: 0;
+	top: 0;
+	max-width: none;
+	transform-origin: 0 0;
+}
+
+/* --- type ------------------------------------------------------------------------------- */
+
+.pm-display1 {
+	font-size: 168px;
+	font-weight: 800;
+	letter-spacing: -0.04em;
+	line-height: 0.94;
+	white-space: nowrap;
+}
+.pm-display2 {
+	font-size: 128px;
+	font-weight: 800;
+	letter-spacing: -0.035em;
+	line-height: 0.98;
+	white-space: nowrap;
+}
+.pm-headline {
+	font-size: 64px;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	line-height: 1.16;
+	white-space: nowrap;
+}
+.pm-shout {
+	font-size: 72px;
+	font-weight: 800;
+	letter-spacing: -0.025em;
+	line-height: 1.08;
+	white-space: nowrap;
+}
+.pm-word {
+	font-size: 200px;
+	font-weight: 800;
+	letter-spacing: -0.03em;
+	line-height: 0.9;
+	white-space: nowrap;
+	text-transform: uppercase;
+}
+.pm-meta {
+	display: flex;
+	align-items: center;
+	font-size: 28px;
+	font-weight: 500;
+	line-height: 1.32;
+	color: #b1aca6;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+/* between meta items: a small square, the sharp kin of the design's dot */
+.pm-meta .sep {
+	width: 0.22em;
+	height: 0.22em;
+	margin: 0 0.5em;
+	background: currentColor;
+	opacity: 0.55;
+}
+.pm-center {
+	text-align: center;
+}
+
+/* a line rises out of its own mask: the padding keeps carons, acutes and descenders inside the
+   clip at the tightest leading, the negative margins keep the layout as if it were not there */
+.pm-mask {
+	display: inline-block;
+	vertical-align: top;
+	overflow: hidden;
+	padding: 0.24em 0.12em 0.3em;
+	margin: -0.24em -0.12em -0.3em;
+}
+.pm-in {
+	display: inline-block;
+	white-space: pre;
+}
+.pm-logo {
+	position: relative;
+	overflow: hidden;
+	padding: 12px;
+	margin: -12px;
+}
+.pm-logo img {
+	display: block;
+}
+
+/* --- the brand's marks -------------------------------------------------------------------- */
+
+.pm-rule {
+	height: 6px;
+	background: #e50914;
+}
+.pm-red {
+	background: #e50914;
+}
+.pm-paper {
+	background: #f4ede4;
+}
+.pm-night {
+	background: #050505;
+}
+/* a label in a red block: the eyebrow on the end card */
+.pm-block {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	height: 60px;
+	padding: 0 20px;
+	font-size: 36px;
+	font-weight: 700;
+	letter-spacing: -0.005em;
+	line-height: 1;
+	white-space: nowrap;
+}
+.pm-block > .pm-red {
+	position: absolute;
+	inset: 0;
+	transform-origin: 0 50%;
+}
+.pm-label {
+	position: relative;
+	white-space: nowrap;
+	color: #f4ede4;
+}
+.pm-letterbox {
+	position: absolute;
+	left: 0;
+	width: 1920px;
+	height: 132px;
+	background: #050505;
+}
+
+/* --- the end card -------------------------------------------------------------------------- */
+
+.pm-when {
+	display: flex;
+	align-items: baseline;
+	/* 0.24 em between the day and the time once their masks' margins are taken off */
+	gap: 0.48em;
+	font-size: 128px;
+	font-weight: 800;
+	letter-spacing: -0.04em;
+	line-height: 0.9;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+.pm-when .pm-day {
+	color: #b1aca6;
+}
+/* a clipping flex item would otherwise shrink to nothing */
+.pm-when > .pm-mask {
+	flex: none;
+}
+.pm-ec-title {
+	font-size: 92px;
+	font-weight: 800;
+	letter-spacing: -0.035em;
+	line-height: 1;
+	white-space: nowrap;
+}
+.pm-ec-lockup {
+	position: relative;
+}

@@ -116,12 +116,6 @@
 .scrim-top {
 	background: linear-gradient(180deg, rgb(0 0 0 / 0.55) 0%, transparent 22%);
 }
-.vignette {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgb(0 0 0 / 0.6) 100%);
-}
 .grade {
 	position: absolute;
 	inset: 0;
@@ -142,20 +136,6 @@
 	background-size: 256px 256px;
 	pointer-events: none;
 	opacity: 0.08;
-}
-.letterbox {
-	position: absolute;
-	left: 0;
-	right: 0;
-	height: 138px;
-	background: #000;
-	z-index: 5;
-}
-.letterbox.top {
-	top: 0;
-}
-.letterbox.bottom {
-	bottom: 0;
 }
 
 /* --- glows (GlowBackdrop without the blur: the gradient alone is soft enough) ------- */
@@ -500,178 +480,12 @@
 	background: #e50914;
 }
 
-/* --- 3/4 movie promos ------------------------------------------------------------------ */
-
-.promo-line {
-	position: absolute;
-	left: 0;
-	right: 0;
-	bottom: 190px;
-	text-align: center;
-	font-size: 92px;
-	font-weight: 700;
-	letter-spacing: -0.02em;
-	text-shadow: 0 4px 40px rgb(0 0 0 / 0.6);
-}
-.promo-word {
-	font-size: 250px;
-	font-weight: 800;
-	letter-spacing: -0.02em;
-	text-transform: uppercase;
-	text-align: center;
-	text-shadow: 0 10px 60px rgb(0 0 0 / 0.5);
-}
-.promo-time {
-	font-size: 340px;
-	font-weight: 800;
-	letter-spacing: -0.04em;
-	color: var(--ink);
-	line-height: 0.9;
-}
-.promo-time-eyebrow {
-	margin-bottom: 40px;
-	margin-right: -0.3em;
-	color: var(--text);
-	font-size: 30px;
-}
-.promo-title {
-	font-size: 200px;
-	font-weight: 800;
-	letter-spacing: -0.02em;
-	line-height: 1;
-	text-transform: uppercase;
-	text-align: center;
-	background: linear-gradient(180deg, #fff 30%, #c9ccd6 100%);
-	-webkit-background-clip: text;
-	background-clip: text;
-	color: transparent;
-}
-.promo-title .ch {
-	background: linear-gradient(180deg, #fff 30%, #c9ccd6 100%);
-	-webkit-background-clip: text;
-	background-clip: text;
-	color: transparent;
-}
-.promo-meta {
-	margin-top: 36px;
-	font-size: 30px;
-	font-weight: 600;
-	color: rgb(var(--text-rgb) / 0.8);
-	white-space: nowrap;
-}
-/* end card */
-.ec-poster {
-	left: 200px;
-	top: 160px;
-	width: 507px;
-	height: 760px;
-	border-radius: 26px;
-}
-.ec-info {
-	position: absolute;
-	left: 820px;
-	top: 0;
-	bottom: 0;
-	width: 980px;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-}
-.ec-title {
-	font-size: 128px;
-	margin-top: 30px;
-}
 /* a fixed height: the airing never moves the timeless layout around it */
-.ec-when {
-	display: flex;
-	align-items: baseline;
-	gap: 28px;
-	height: 128px;
-	margin-top: 40px;
-	white-space: nowrap;
-}
-.ec-day {
-	font-size: 56px;
-	font-weight: 700;
-	letter-spacing: -0.01em;
-}
-.ec-time {
-	font-size: 112px;
-	font-weight: 800;
-	letter-spacing: -0.03em;
-	color: var(--ink);
-}
-.ec-meta {
-	display: flex;
-	gap: 12px;
-	margin-top: 44px;
-}
-.ec-meta .chip {
-	height: 46px;
-	font-size: 22px;
-	font-weight: 600;
-	letter-spacing: 0.02em;
-	color: rgb(var(--text-rgb) / 0.85);
-	border: 1.5px solid rgb(255 255 255 / 0.18);
-	background: rgb(255 255 255 / 0.04);
-}
 .tag-lockup {
 	/* the tag slot: its right edge on the title-safe line (x 1824), its foot on y 1008 */
 	position: absolute;
 	right: 96px;
 	bottom: 72px;
-}
-
-/* grit mood (Pulp): black chapter cards, slabs, typewriter */
-.mood-grit .promo-word,
-.mood-grit .card-word {
-	font-size: 230px;
-	font-weight: 800;
-	letter-spacing: -0.035em;
-	text-transform: uppercase;
-	text-align: center;
-	line-height: 0.92;
-}
-.card-under {
-	height: 14px;
-	width: 100%;
-	margin-top: 26px;
-	background: var(--accent);
-	transform-origin: 0 50%;
-}
-.type-line {
-	position: relative;
-	font-size: 64px;
-	font-weight: 600;
-	letter-spacing: -0.005em;
-	white-space: pre;
-}
-.type-line .ch {
-	opacity: 0;
-}
-.caret {
-	position: absolute;
-	left: 0;
-	top: 0.12em;
-	width: 0.08em;
-	height: 0.95em;
-	background: var(--ink);
-}
-.slab {
-	display: inline-block;
-	padding: 0.04em 0.2em 0.1em;
-	background: var(--accent);
-	color: var(--on-accent);
-}
-.mood-grit .promo-title {
-	background: none;
-	color: var(--text);
-	letter-spacing: -0.04em;
-	font-size: 230px;
-}
-.mood-grit .promo-title .ch {
-	background: none;
-	color: inherit;
 }
 
 /* --- 5 strip promo ---------------------------------------------------------------------- */
@@ -1221,73 +1035,11 @@
 	font-weight: 700;
 }
 
-/* --- footage, the premiere slam, slabs (bright), the evergreen end --------------------------- */
+/* --- footage ---------------------------------------------------------------------------- */
 
 .shot.footage img {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
 	transform-origin: 50% 50%;
-}
-.promo-slam {
-	font-size: 260px;
-	font-weight: 800;
-	letter-spacing: -0.035em;
-	line-height: 0.9;
-	text-transform: uppercase;
-	color: var(--ink);
-}
-.promo-slab {
-	position: absolute;
-	left: var(--safe-x);
-	bottom: 170px;
-	max-width: 1500px;
-	padding: 18px 34px 26px;
-}
-.slab-bg {
-	position: absolute;
-	inset: 0;
-	border-radius: 18px;
-	background: var(--accent);
-	transform-origin: 0 50%;
-}
-.slab-text {
-	position: relative;
-	font-size: 84px;
-	font-weight: 800;
-	letter-spacing: -0.02em;
-	color: var(--on-accent);
-	white-space: nowrap;
-}
-.slab-text .w {
-	transform-origin: 50% 80%;
-}
-.mood-bright .promo-word {
-	color: var(--accent);
-	text-shadow:
-		0 10px 0 rgb(0 0 0 / 0.35),
-		0 20px 60px rgb(0 0 0 / 0.5);
-}
-.mood-bright .promo-title {
-	background: none;
-	color: var(--text);
-}
-.mood-bright .promo-title .ch {
-	background: none;
-	color: inherit;
-	transform-origin: 50% 90%;
-}
-.ec-pill {
-	display: inline-flex;
-	align-items: center;
-	height: 124px;
-	padding: 0 40px;
-	border-radius: 999px;
-	background: var(--accent);
-	color: var(--on-accent);
-	font-size: 96px;
-}
-.ec-channel {
-	font-size: 84px;
-	letter-spacing: -0.025em;
 }

@@ -20,9 +20,11 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	// up next over scenes; a logo in place of the name, the house's score
 	['upnext', [2.5, 7.6]],
 	['upnext-logo', [0.6, 3]],
-	['promo-cinematic', [6, 13.5, 19.5]],
-	['promo-grit-premiere', [4, 14.6]],
-	['promo-bright', [1.5, 10.8, 15.5]],
+	// promos: a tagline, the title (a logo or the name), the panels closing, the end card
+	['promo-cinematic', [2.5, 13.4, 15.6, 19.5]],
+	['promo-grit-premiere', [4.4, 8, 16]],
+	['promo-bright', [1.5, 4.4, 10.6, 16]],
+	['promo-premiere', [12.4, 20.6]],
 	['evergreen', [2.5]],
 	['strip-bright', [13]],
 	['strip-dark', [7.5]],
@@ -36,10 +38,12 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['upnext-continue', [0, 2.5]],
 	['standby', [2]],
 	// the longest names and lines: fitted, broken onto lines, never off the frame
-	['promo-cinematic-long', [3.4, 7, 16, 20]],
-	['promo-grit-long', [4, 6.5, 12.9, 16]],
-	['promo-bright-long', [2.4, 5, 8.4, 12.8, 17]],
+	['promo-cinematic-long', [3.4, 7, 13.5, 19.5]],
+	['promo-grit-long', [1.2, 4.4, 8, 16]],
+	['promo-bright-long', [2.4, 4.6, 10.8, 16]],
 	['evergreen-long', [3]],
+	// no artwork and no scenes: the painted dusk, in grit's letterbox and behind the end card
+	['promo-zabky', [3, 8, 16]],
 	['upnext-long', [3]],
 	['strip-long', [8]],
 	['short-long', [4.2]],

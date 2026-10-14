@@ -2268,16 +2268,16 @@ approves is what airs.
   theme went (two full idents take `hz` from it); beds with ducking and tape stops; onset
   detection; BS.1770 loudness and true peak; WAV; the `synth:` placeholder beds), `src/brand`
   (everything that is the brand, see "Brand"; a brand redesign replaces this folder only),
-  `src/templates` (one module per template, `index.ts` the registry), `spec.ts` (the data
-  contract), `piece.ts` (a loaded clip and the offline audio render), `stage.ts` (a 1920x1080
+  `src/templates` (one module per template, `index.ts` the registry), `src/styles` (the stage's
+  stylesheet `broadcast.css`; `promo.css`, the promo's; `bulletins.css`, the bulletins'), `spec.ts`
+  (the data contract), `piece.ts` (a loaded clip and the offline audio render), `stage.ts` (a 1920x1080
   stage in a shadow root), `player.ts` (live playback against the audio clock), `render.ts`
   (the sidecar's API). Design tokens come from `src/generated/tokens.ts`, written by `cargo
   xtask codegen`, and Czechia's border from `src/generated/czechia.ts` and its kraje from
   `src/generated/kraje.ts`, both written by `npm run outline` from the server's
   `couchtv/czechia.geojson` and `couchtv/kraje.geojson` (unit tests fail when they drift apart;
   `scripts/kraje.mjs` made the kraje from geoBoundaries' CZE ADM1, ČÚZK, CC BY 4.0,
-  simplifying each border between two kraje once so neighbours share it); the bulletins'
-  styles are `src/styles/bulletins.css`; Plus Jakarta Sans, the brand's one face (OFL, latin
+  simplifying each border between two kraje once so neighbours share it); Plus Jakarta Sans, the brand's one face (OFL, latin
   and latin-ext), is bundled in `src/assets/fonts` and registered by `ensureFonts`.
 - **Templates** (`template` in the spec): `ident` (`cut` full 10.52 s in one of four
   `design`s, see "Full idents", or short 4.52 s, their popcorn ending alone), `sting` (gap
@@ -2321,6 +2321,31 @@ approves is what airs.
   card, and as the end card's words are seen, never heard, a body's item sound is its full
   promo's whatever the airing (without one, the evergreen end card's, it sounds different).
   `evergreenEnd` is the same end card without an airing.
+- **Promo look** (2026-10-14, version 5; the screens' design spec 2.3-2.4 made sharp and flat:
+  right angles only, no shadows or glows, `src/styles/promo.css`): the moods are the identity's
+  three lights. Cinematic (dusk): long takes of the title's scenes pushed 6 %, dissolves, quiet
+  type low in the frame, then the title over its hero scene (the least used one) with a red rule
+  and the meta line. Grit (night): letterboxed to 2.39:1, so scope footage shows whole; hard cuts
+  on the beat, night cards with a word (the genre, the year, or `PREMIERE`) over a red rule
+  drawn on the beat, the title cut in whole. Bright (day): the brand's red as one field that
+  slides across the frame between the taglines, a red block holding the genre over the montage,
+  and the title on paper beside a framed scene, or, with a logo, on a night plate over the
+  undimmed scene (a logo is drawn for the dark). The premiere card is night, the dusk rising,
+  `Premiere` over a red rule. Type rises line by line out of its own masks. Every picture is a
+  take of a shot: footage frame by frame (a long take of a short shot goes on in the next one; a
+  shot used again goes on where it was left, shots keyed by their first frame), a still's slow
+  move, or, with no artwork, the channel's painted dusk. Where the title shows big it is its
+  logo, sized by its aspect to one area within a box (never stretched), else its name, fitted.
+  The end card: a night column (to x 1008, its edge a red rule) and the title's scenes (its
+  `footage`, else the body's, else the backdrop held still) close in from both sides as sharp
+  panels; the title rises, the airing's eyebrow in a red block, the day and time, the channel
+  tag (`channelTag`) landing in the corner on the sonic logo; the evergreen card lands the
+  lockup in the airing's slot after "Coming up". Sound: the title's bed leads, the house only
+  punctuates under it (unpitched: air, soft impacts), ducking 8 dB under the tag; grit's bed
+  stops a beat before the tag. Without a bed each mood has its own house score in D at 75 bpm
+  (cinematic D, B minor, G and the dominant landing on D with the title; grit a heartbeat over a
+  low D minor drone, low piano octaves on the cards; bright glass mallets in eighths, felt piano
+  on the red fields), each leaving the D to the tag.
 - **Render API** (`window.couchtvRender` in `dist/render.html`, 1920x1080, 25 fps):
   `load(spec, { sound })` resolves with `{duration (whole frames), soundDuration (how long its
   sound lasts as a break item, where the next item starts), cues, fps, width, height, version

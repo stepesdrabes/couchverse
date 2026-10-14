@@ -282,6 +282,37 @@ const SHOTS: Shot[] = [
 	{ kind: 'still', image: 'backdrop', from: [0.52, 0.5, 0.4, 0.48] }
 ];
 
+// the promos' titles carry their scenes (as the composer gives them) and some their logos: a wide
+// gold wordmark and a squarer red and paper one (test/media/generate.sh)
+const SCENES: FootageShot[] = [
+	{ kind: 'footage', frames: frames('shot-a') },
+	{ kind: 'footage', frames: frames('shot-b'), focus: [0.5, 0.2, 0.5, 0.6] }
+];
+const PROMO = {
+	night: {
+		...TITLES.night,
+		logo: { url: `${M}/logo-wide.png`, aspect: 4 },
+		footage: SCENES
+	},
+	alley: {
+		...TITLES.alley,
+		logo: { url: `${M}/logo-tall.png`, aspect: 2.3 },
+		footage: SCENES
+	},
+	sunny: { ...TITLES.sunny, footage: SCENES },
+	// no artwork, no scenes: the channel paints the picture itself
+	zabky: {
+		...TITLES.water,
+		name: 'ŽABKY NA TĚLÁK',
+		year: 2026,
+		runtimeMinutes: 98,
+		genres: ['Comedy'],
+		backdrop: '',
+		poster: '',
+		taglines: ['Léto, které nikdo nečekal.', 'A tělák, který nikdo nezapomene.']
+	}
+} satisfies Record<string, Title>;
+
 const episode = { code: 'S01E02', name: 'Bart the Genius', runtimeMinutes: 23 };
 
 export const FIXTURES = {
@@ -322,7 +353,7 @@ export const FIXTURES = {
 		template: 'promo',
 		part: 'full',
 		mood: 'cinematic',
-		title: TITLES.night,
+		title: PROMO.night,
 		shots: SHOTS,
 		airing: { eyebrow: 'Tonight', time: '20:15' },
 		bed: bed()
@@ -332,7 +363,7 @@ export const FIXTURES = {
 		part: 'full',
 		mood: 'grit',
 		premiere: true,
-		title: TITLES.alley,
+		title: PROMO.alley,
 		shots: SHOTS,
 		airing: { eyebrow: 'Premiere', day: 'Saturday', time: '20:15' },
 		bed: bed()
@@ -341,15 +372,25 @@ export const FIXTURES = {
 		template: 'promo',
 		part: 'full',
 		mood: 'bright',
-		title: TITLES.sunny,
+		title: PROMO.sunny,
 		shots: SHOTS,
 		airing: { eyebrow: 'Tomorrow', time: '18:00' },
 		bed: bed()
 	},
+	// the cinematic premiere, scored by the house (no bed), its end card on the hero still
+	'promo-premiere': {
+		template: 'promo',
+		part: 'full',
+		mood: 'cinematic',
+		premiere: true,
+		title: TITLES.water,
+		shots: SHOTS,
+		airing: { eyebrow: 'Premiere', day: 'Saturday', time: '20:15' }
+	},
 	evergreen: {
 		template: 'evergreenEnd',
 		mood: 'cinematic',
-		title: TITLES.night,
+		title: PROMO.night,
 		shots: SHOTS,
 		bed: bed()
 	},
@@ -455,6 +496,15 @@ export const FIXTURES = {
 		title: LONG.strangelove,
 		shots: SHOTS,
 		bed: bed()
+	},
+	// no artwork and no scenes: every picture is the painted dusk; the house scores grit
+	'promo-zabky': {
+		template: 'promo',
+		part: 'full',
+		mood: 'grit',
+		title: PROMO.zabky,
+		shots: [{ kind: 'still', image: 'backdrop', from: [0, 0, 1, 1] }],
+		airing: { eyebrow: 'Tomorrow', time: '23:45' }
 	},
 	'upnext-long': {
 		template: 'upNext',
