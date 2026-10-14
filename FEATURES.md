@@ -178,7 +178,8 @@ engine (ffmpeg, hardware encoder detection/probing) and transcode admin. Full de
   `display.backdropId` accents the player), `GET /playback/{kind}/{id}` (`getPlayback`, the
   browser baseline plus `?caps=`, kept for older clients) and, under `/media/{grant}/` (see
   "Media grants"): `stream`, `frame?t=` (seek-preview still, ffmpeg input-seek cached under
-  `cache/frames`, tone-mapped for HDR), `hls/master.m3u8?video=original|ladder|legacy&surround=`,
+  `cache/frames` per 5-second bucket, or per second with `exact=true`, for the admin's
+  trailer scenes; tone-mapped for HDR), `hls/master.m3u8?video=original|ladder|legacy&surround=`,
   `hls/{variant}/{file}`, `hls/subtitles/{id}/{file}` (sidecar subtitles as WebVTT renditions),
   `jit` (open an instant-play session), `jit/{sid}/{file}`, `jit/{sid}/keepalive`,
   `DELETE jit/{sid}` (stop); admin `/admin/transcode/info|active`,
@@ -1091,11 +1092,23 @@ server that does not send it). The admin settings page toggles it.
   the server runs the same as `couchverse couchtv-regenerate YYYY-MM-DD`),
   `GET/PUT /admin/couchtv/titles/{id}` (`adminGetCouchTvTitle`, `adminUpdateCouchTvTitle`:
   excluded, mood, promo audio, the soundtrack (`soundtrackId`, one of the title's candidates;
-  400 beside `promoAudio`, since promos play one bed), shots; a part left out of the PUT goes
-  back to the analysis, which runs again for it, or to the soundtrack finder; leaving or
-  rejoining the channel queues a replan; the GET also answers `promoBed`, the `soundtrack`
-  pick with its source and readiness, the `soundtracks` found, `soundtrackQuery`,
-  `soundtrackSearchedAt` and `searchingSoundtrack`),
+  400 beside `promoAudio`, since promos play one bed), shots, the trailer (below); a part left
+  out of the PUT goes back to the analysis, which runs again for it, or to the soundtrack
+  finder; leaving or rejoining the channel queues a replan; the GET also answers `promoBed`,
+  the `soundtrack` pick with its source and readiness, the `soundtracks` found,
+  `soundtrackQuery`, `soundtrackSearchedAt` and `searchingSoundtrack`; and the trailer's
+  scenes as `CouchTvTrailerCut`s in the order they play (picture file, start, length, the
+  lines' text, how found), `trailerSource` (`auto`, `admin`; absent before the first pick) and
+  `trailerMinScenes`). The PUT's `trailer.keep` names scenes of the trailer the title has now
+  by `mediaFileId` and `startMs`, never by position: they stay in the trailer's order, `[]` is
+  no trailer for the title and fewer than `trailerMinScenes` make none either; a scene the
+  trailer has not got (the analysis picked it again since the admin looked) is a 409
+  `trailer_scene_gone` and changes nothing; the pick is stored as the admin's, stamped with the
+  current `TrailerVersion` (the backfill leaves it, and a newer picker only stamps it again),
+  and the breaks to come that air the title's trailer lose their compositions
+  (`Store.ResetTrailerBreaks`, not those pinned to the live stream) and are composed again at
+  once; a PUT without `trailer` hands an admin's trailer back: the picker alone runs again
+  (`repick`, never the loudness) and the admin's scenes stay until it has,
   `POST /admin/couchtv/titles/{id}/analyze` (`adminAnalyzeCouchTvTitle`, 202: the title's
   markers and its whole analysis again), `POST /admin/couchtv/titles/{id}/soundtracks/search`
   (`adminSearchCouchTvSoundtracks`, 202, body `{query?}`: the finder's search again, or the
@@ -1246,8 +1259,9 @@ server that does not send it). The admin settings page toggles it.
   at most three from an episode, no two saying much the same, 60 s at most, in story order, a calm
   opener and a punchline for the first and last place, weak scenes (under 0.5) dropped while six scenes and 36 s remain; fewer
   than three scenes is none. `couchtv_titles.trailer` keeps each scene's picture file, audio file and
-  stream, start, length, lines with their text, score and source (`CouchTvTrailerScene`; not in the
-  admin API). `TestTrailerPickLocal` (`COUCHVERSE_TRAILER_SOURCE`, `_SUBS`, `_STREAM`, `_KEYWORDS`,
+  stream, start, length, lines with their text, score and source (`CouchTvTrailerScene`; the admin
+  API carries them as `CouchTvTrailerCut`s, without the sound's file and stream and the score,
+  and an admin's word on them is `adminUpdateCouchTvTitle`'s `trailer`). `TestTrailerPickLocal` (`COUCHVERSE_TRAILER_SOURCE`, `_SUBS`, `_STREAM`, `_KEYWORDS`,
   `_AVOID`, `_OUT`) runs the picker on local files and prints the script and the JSON. Cost, M1
   CPU (the Pi is 4.5 to 8 times a core): a two-hour movie with subtitles (Iron Man 3: 7,833 s, 2,171 cues) took 60 to 80 CPU seconds, about 25 to 70 s of wall time on a busy machine (the sound of about 24 exchanges as 16 kHz mono, 20 to 60 s each, 4 s of audio decode per half hour, then 5 to 12 s of 160 x 90 frames for each scene the sound allowed); an episode with subtitles (Dexter, 53 min) about 70 CPU s, two 22-minute episodes together (Futurama) about 30; a movie without subtitles (Pulp Fiction, 154 min) listens once to the 70 minutes of its first half (about 4 s of decode a half hour) and took about 35 CPU s in all. On the Pi (4.5 to 8 times a core, `nice` 19) that is 5 to 10 minutes a movie and 2 to 4 for the three episodes of a series, once per picker version: the backfill at the first start after the deploy is 1.5 to 2 hours of the Pi's background time for today's library (12 movies and 6 series), behind the renders (the analysis yields to the sidecar).
 - **The `couchtv_soundtrack` job** (`couchtv.Soundtracks`, one slot; plan 6.3 "Promo audio
@@ -1359,7 +1373,15 @@ server that does not send it). The admin settings page toggles it.
   typed selection of up to 40 s within the file, played through the file's playback payload;
   choosing one or the other clears the other, since promos play one bed),
   the footage shots (`ShotsEditor`: stills from `getStreamFramePath` with the payload's grant,
-  reorder, remove), the markers per file (`MarkersEditor`: the analysis' and the admin's,
+  reorder, remove), the trailer (`TrailerEditor`, state in `trailer.ts`: each scene a row with
+  stills from just inside its start and from its middle, `getStreamFramePath` with `exact` since
+  a still is otherwise the start of its 5-second bucket and a scene lasts 3 to 8 s, over its
+  lines or, for a scene found by listening, a note that it has no text; a drop control per
+  scene, the dropped ones staying dimmed with a keep control until saved, a count and the
+  footage kept, the line that fewer than the server's `trailerMinScenes` make no trailer, "No
+  trailer for this title", and "Pick again automatically" for an admin's pick, which saves as
+  the trailer handed back; a title not picked yet and one the picker found nothing for say so),
+  the markers per file (`MarkersEditor`: the analysis' and the admin's,
   other times, "has none", back to the analysis; saved on their own) and the analysis re-run;
   a part an admin edits is sent as the admin's pick, "back to the analysis" leaves it out.
   `files.ts` finds the files a title airs as playback picks them; `media.ts` keeps one
@@ -1412,7 +1434,7 @@ server that does not send it). The admin settings page toggles it.
   `trailer_picture_test.go` and `compose_trailer_test.go` (cue cleanup, runs, scoring, the
   detector on synthetic signals, placing, the offset, choosing, the dialogue's stream, the rules
   of a trailer in a break), `TestCouchTvTrailers` (the composer over the seeded database: scenes
-  of a gone file left out, the night's cap, one trailer a break and four hours apart), `TestCouchTvTrailerAnalysis` (a generated movie with a Czech default track, an English one and subtitles in both languages: the scenes come from the English stream and subtitles, whole lines in the pauses; an admin's trailer is kept) and, with `COUCHVERSE_RENDER_TEST=1`, `TestCouchTvTrailerRender` (a trailer body rendered in Chromium after its scenes' frames and the English stream's sound were extracted), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
+  of a gone file left out, the night's cap, one trailer a break and four hours apart), `TestCouchTvTrailerAnalysis` (a generated movie with a Czech default track, an English one and subtitles in both languages: the scenes come from the English stream and subtitles, whole lines in the pauses; an admin's trailer is kept), `TestCouchTvTrailerVeto` (the admin's word on the trailer through the API: scenes kept in the trailer's order, a scene it has not got refused with 409, handed back with only a pick of the trailer queued, none, an admin's pick stamped with the picker's version, and only the breaks to come that air the trailer composed again), `TestCouchTvTrailerVetoComposes` (a cut trailer is another clip and the old one airs no more; two scenes or none are asked for no trailer), `TestStreamFrameExact` (a still per second with `exact`, per 5-second bucket without) and, with `COUCHVERSE_RENDER_TEST=1`, `TestCouchTvTrailerRender` (a trailer body rendered in Chromium after its scenes' frames and the English stream's sound were extracted), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
   from `CHROMIUM_PATH` or installed, the bundle from `make broadcast`): renders a squeeze over a
   generated program (composited, its panel at the hold compared with the program), an ident
   and a sting, each keeping its item's sound, removes one of them, assembles the break (which
