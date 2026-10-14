@@ -84,7 +84,7 @@ const (
 	// as well
 	enoughScenes = 5
 	// a scene found by listening is worth this much of one found by reading
-	speechDoubt = 0.8
+	speechDoubt = 0.65
 )
 
 // pickTitle picks the scenes of a title's trailer from its files (a movie's one, or episodes
@@ -307,9 +307,9 @@ func (p *scenePicker) fromSubtitles(ctx context.Context, index int, f pickFile, 
 				p.trace("  %7.1f %q: no place for a scene, %s", S, r.run.text(), why)
 				continue
 			}
-			clear, ok := clarityOf(a, wFrom, pl.Onset, pl.Offset)
+			clear, over, ok := clarityOf(a, wFrom, pl.Onset, pl.Offset)
 			if !ok {
-				p.trace("  %7.1f %q: refused, buried in sound", S, r.run.text())
+				p.trace("  %7.1f %q: refused, buried in sound (%.1f dB over it)", S, r.run.text(), over)
 				continue
 			}
 			var scan *pictureScan
@@ -328,7 +328,7 @@ func (p *scenePicker) fromSubtitles(ctx context.Context, index int, f pickFile, 
 				continue
 			}
 			cand := sceneCandidate{File: index, Start: pl.Start, End: pl.End, Source: "subtitles",
-				Score:  (0.60*r.f.Score + 0.25*clear + 0.15*chk.Score) * pl.fit(),
+				Score:  (0.60*r.f.Score + 0.25*clear + 0.15*chk.Score) * pl.fit() * cutFit(a, wFrom, pl),
 				Opener: r.f.Opener, Button: r.f.Button, words: contentWords(r.run.text())}
 			for _, cue := range r.run.Cues {
 				cand.Lines = append(cand.Lines, lineSpan{From: cue.Start, To: cue.End, Text: cue.Text})
@@ -463,7 +463,7 @@ func (p *scenePicker) fromSpeech(ctx context.Context, index int, f pickFile, fro
 			p.trace("  %7.1f: refused, %s", S, chk.Why)
 			continue
 		}
-		c := sceneCandidate{File: index, Start: pl.Start, End: pl.End, Source: "speech", Score: (0.75*r.Score + 0.25*chk.Score) * pl.fit()}
+		c := sceneCandidate{File: index, Start: pl.Start, End: pl.End, Source: "speech", Score: (0.75*r.Score + 0.25*chk.Score) * pl.fit() * cutFit(a, from, pl)}
 		for _, u := range r.Utts {
 			c.Lines = append(c.Lines, lineSpan{From: u.From, To: u.To})
 		}
@@ -484,10 +484,10 @@ func refineLines(lines []lineSpan, w sceneWindow, p scenePlace) []lineSpan {
 		if to-from < 0.25 {
 			continue
 		}
-		if t, ok := w.first(w.Audio.Speech, from-0.1, to); ok {
+		if t, ok := w.first(w.Audio.Active, from-0.1, to); ok {
 			from = math.Max(from, t)
 		}
-		if t, ok := w.last(w.Audio.Speech, from, to+0.1); ok {
+		if t, ok := w.last(w.Audio.Active, from, to+0.1); ok {
 			to = math.Min(to, t+0.1)
 		}
 		if to-from >= 0.25 {

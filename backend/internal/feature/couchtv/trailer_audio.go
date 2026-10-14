@@ -2,6 +2,7 @@ package couchtv
 
 import (
 	"math"
+	"slices"
 )
 
 // What the sound says of a scene (D43), for titles with no subtitles to read and as a check on
@@ -74,7 +75,7 @@ func scoreSpeech(a vadAnalysis, origin float64, r speechRun) float64 {
 	case 3, 4:
 		dialogue = 1
 	}
-	clear, ok := clarityOf(a, origin, r.start(), r.end())
+	clear, _, ok := clarityOf(a, origin, r.start(), r.end())
 	if !ok {
 		return 0
 	}
@@ -85,29 +86,67 @@ func scoreSpeech(a vadAnalysis, origin float64, r speechRun) float64 {
 	return 0.30*shape + 0.25*dialogue + 0.25*clear + 0.12*expression + 0.08*isolation
 }
 
-// clarityOf rates how clearly the speech in [from, to) is heard, 0 to 1: how far it stands over
-// the sound around it, and how much of its energy is in the speech band (music and effects
-// have much outside it). ok is false for speech too buried to use.
-func clarityOf(a vadAnalysis, origin, from, to float64) (score float64, ok bool) {
+// buriedBelow is how far (dB) the louder half of a line's frames must stand over the sound
+// around it for the line to be heard.
+const buriedBelow = 9.0
+
+// clarityOf rates how clearly the speech in [from, to) is heard, 0 to 1: how far its louder half
+// stands over the sound around it (the syllables, not the breaths between), and how much of its
+// energy is in the speech band (music and effects have much outside it). over is that distance in
+// dB; ok is false for speech too buried to use.
+func clarityOf(a vadAnalysis, origin, from, to float64) (score, over float64, ok bool) {
 	lo, hi := max(0, int((from-origin)/frameSec)), min(len(a.Speech), int((to-origin)/frameSec))
-	var over, band float64
-	n := 0
+	var stands []float64
+	var band float64
 	for i := lo; i < hi; i++ {
-		if !a.Active[i] {
-			continue
+		if a.Active[i] {
+			stands = append(stands, a.Level[i]-a.Floor[i])
+			band += a.Clarity[i]
 		}
-		over += a.Level[i] - a.Floor[i]
-		band += a.Clarity[i]
-		n++
+	}
+	if len(stands) < 10 {
+		return 0, 0, false
+	}
+	band /= float64(len(stands))
+	slices.Sort(stands)
+	for _, v := range stands[len(stands)/2:] {
+		over += v
+	}
+	over /= float64(len(stands) - len(stands)/2)
+	if over < buriedBelow {
+		return 0, over, false
+	}
+	return 0.6*math.Min(1, (over-buriedBelow)/16) + 0.4*math.Min(1, band/0.55), over, true
+}
+
+// cutFit rates how clean a scene's two cuts are, 0.7 to 1: how far (dB) the sound in the first and
+// last tenth of a second is below its speech. A pause the music or the noise goes on through is no
+// cleaner a place to cut than a word; 12 dB or more is a clean cut, none costs 30 % of the score.
+func cutFit(a vadAnalysis, origin float64, p scenePlace) float64 {
+	level := func(from, to float64) float64 {
+		lo, hi := max(0, int((from-origin)/frameSec)), min(len(a.Level), int((to-origin)/frameSec))
+		if hi <= lo {
+			return 0
+		}
+		var sum float64
+		for _, v := range a.Level[lo:hi] {
+			sum += v
+		}
+		return sum / float64(hi-lo)
+	}
+	var speech, n float64
+	lo, hi := max(0, int((p.Onset-origin)/frameSec)), min(len(a.Level), int((p.Offset-origin)/frameSec))
+	for i := lo; i < hi; i++ {
+		if a.Speech[i] {
+			speech += a.Level[i]
+			n++
+		}
 	}
 	if n < 10 {
-		return 0, false
+		return 1
 	}
-	over, band = over/float64(n), band/float64(n)
-	if over < 7 {
-		return 0, false
-	}
-	return 0.6*math.Min(1, (over-7)/17) + 0.4*math.Min(1, band/0.55), true
+	margin := speech/n - math.Max(level(p.Start, p.Start+0.1), level(p.End-0.1, p.End))
+	return 0.7 + 0.3*math.Max(0, math.Min(margin, 12))/12
 }
 
 // expressionOf is how much the voice's level moves within [from, to): the standard deviation

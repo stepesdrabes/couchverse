@@ -43,9 +43,10 @@ const (
 	trailerSecondsMin = 40.0
 	// a scene scoring less than this is not worth airing; below keepScore it only stays to make
 	// up scenesKept scenes
-	scoreFloor = 0.25
-	keepScore  = 0.45
-	scenesKept = 5
+	scoreFloor  = 0.25
+	keepScore   = 0.5
+	scenesKept  = 6
+	keptSeconds = 36.0
 	// the opener and the button of a trailer must score at least this to be chosen for it
 	structureFloor = 0.4
 	// scenes of one file are at least this far apart: never two from the same minute or two
@@ -173,7 +174,11 @@ func chooseScenes(cands []sceneCandidate, files int) []sceneCandidate {
 		}
 	}
 	// a short trailer of strong scenes beats a long one with filler: weak scenes go, down to
-	// scenesKept
+	// scenesKept scenes and keptSeconds of them
+	total := 0.0
+	for _, c := range chosen {
+		total += c.length()
+	}
 	for len(chosen) > scenesKept {
 		weakest := 0
 		for k, c := range chosen {
@@ -181,9 +186,10 @@ func chooseScenes(cands []sceneCandidate, files int) []sceneCandidate {
 				weakest = k
 			}
 		}
-		if chosen[weakest].Score >= keepScore {
+		if chosen[weakest].Score >= keepScore || total-chosen[weakest].length() < keptSeconds {
 			break
 		}
+		total -= chosen[weakest].length()
 		chosen = slices.Delete(chosen, weakest, weakest+1)
 	}
 	return chosen

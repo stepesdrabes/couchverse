@@ -332,7 +332,9 @@ func window(seconds float64, speech ...timeSpan) sceneWindow {
 				a.Level[i], a.Clarity[i] = -20, 0.8
 			}
 		}
-		a.Level[i] = max(a.Level[i], -50)
+		if !a.Speech[i] {
+			a.Level[i] = -50
+		}
 		a.Floor[i] = -50
 	}
 	return sceneWindow{Audio: a}
@@ -404,6 +406,30 @@ func TestPlaceScene(t *testing.T) {
 	w = window(30, timeSpan{1, 3})
 	if _, why = placeScene(1, 3, w, nil); why == "" {
 		t.Error("a scene was placed with no sound before it")
+	}
+}
+
+func TestCutFit(t *testing.T) {
+	pl := scenePlace{Start: 9.55, End: 12.7, Onset: 10, Offset: 12.1}
+	w := window(30, timeSpan{10, 12})
+	if f := cutFit(w.Audio, 0, pl); f != 1 {
+		t.Errorf("cuts in the quiet: %.2f", f)
+	}
+	// a noise that goes on through the cuts, as loud as the speech
+	for i := range w.Audio.Level {
+		w.Audio.Level[i] = -20
+	}
+	if f := cutFit(w.Audio, 0, pl); math.Abs(f-0.7) > 1e-9 {
+		t.Errorf("cuts in the noise: %.2f, want 0.7", f)
+	}
+	// 6 dB under the speech is half way
+	for i := range w.Audio.Level {
+		if !w.Audio.Speech[i] {
+			w.Audio.Level[i] = -26
+		}
+	}
+	if f := cutFit(w.Audio, 0, pl); math.Abs(f-0.85) > 1e-9 {
+		t.Errorf("cuts 6 dB under the speech: %.2f, want 0.85", f)
 	}
 }
 
@@ -528,18 +554,27 @@ func TestChooseScenes(t *testing.T) {
 		t.Errorf("%d scenes, want the joke once and the two others", len(got))
 	}
 
-	// filler goes, down to five scenes: a short trailer of strong scenes beats a long one
+	// filler goes, down to six scenes: a short trailer of strong scenes beats a long one
 	var mixed []sceneCandidate
 	for i, score := range []float64{0.8, 0.75, 0.7, 0.7, 0.3, 0.3, 0.3} {
-		mixed = append(mixed, cand(0, 100+float64(i)*400, 5, score, distinctLines[i]))
+		mixed = append(mixed, cand(0, 100+float64(i)*400, 8, score, distinctLines[i]))
 	}
-	if got = chooseScenes(mixed, 1); len(got) != 5 {
-		t.Errorf("%d scenes, want the four strong ones and one of the weak", len(got))
+	if got = chooseScenes(mixed, 1); len(got) != 6 {
+		t.Errorf("%d scenes, want the four strong ones and two of the weak", len(got))
 	}
 	for _, c := range mixed[:4] {
 		if !slices.ContainsFunc(got, func(o sceneCandidate) bool { return o.Start == c.Start }) {
 			t.Errorf("a strong scene at %.0f was dropped", c.Start)
 		}
+	}
+
+	// but not below 36 s of scenes: short ones of 5 s stay
+	var brief []sceneCandidate
+	for i, score := range []float64{0.8, 0.75, 0.7, 0.7, 0.3, 0.3, 0.3} {
+		brief = append(brief, cand(0, 100+float64(i)*400, 5, score, distinctLines[i]))
+	}
+	if got = chooseScenes(brief, 1); len(got) != 7 {
+		t.Errorf("%d scenes, want all seven (35 s are not to be cut)", len(got))
 	}
 
 	// a series: at most three from an episode, an episode's scenes may be close, and the

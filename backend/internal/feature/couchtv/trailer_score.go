@@ -122,8 +122,12 @@ func scoreText(r textRun, keywords []string) textFeatures {
 	if carryOnRe.MatchString(text) {
 		content -= 0.25
 	}
-	if words <= 6 && fillerRe.MatchString(text) {
-		content -= 0.25
+	if fillerRe.MatchString(text) {
+		// a line that opens with a greeting or a filler is not a line to open a scene on
+		content -= 0.1
+		if words <= 6 {
+			content -= 0.15
+		}
 	}
 	if words < 4 && !strings.ContainsAny(text, "?!") {
 		content -= 0.5
