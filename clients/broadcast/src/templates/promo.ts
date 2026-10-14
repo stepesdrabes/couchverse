@@ -184,7 +184,7 @@ const EC = {
 };
 
 export const promo: Template<PromoSpec> = {
-	version: 5,
+	version: 6,
 	build(ctx, spec) {
 		const airing = spec.part === 'body' ? BODY_AIRING : (spec.airing ?? null);
 		const tl = buildPromo(ctx, spec, airing);
@@ -795,16 +795,18 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 			position: 'relative'
 		});
 		const meta = css(metaLine(plate, t), { marginTop: '22px', position: 'relative' });
-		tl.add(back, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], a, 0.6, 'glide');
-		rise(tl, mark, a + 0.22, 0.09, 0.95);
-		tl.add(rule, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], a + 0.55, 0.8, 'glide');
+		// it opens as the red field uncovers its place, not over the field
+		const at = a + 0.3;
+		tl.add(back, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], at, 0.6, 'glide');
+		rise(tl, mark, at + 0.18, 0.09, 0.95);
+		tl.add(rule, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], at + 0.5, 0.8, 'glide');
 		tl.add(
 			meta,
 			[
 				{ opacity: 0, transform: 'translateY(14px)' },
 				{ opacity: 1, transform: 'translateY(0px)' }
 			],
-			a + 0.7,
+			at + 0.65,
 			0.7,
 			'glide'
 		);

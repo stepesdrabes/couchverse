@@ -2321,9 +2321,9 @@ approves is what airs.
   card, and as the end card's words are seen, never heard, a body's item sound is its full
   promo's whatever the airing (without one, the evergreen end card's, it sounds different).
   `evergreenEnd` is the same end card without an airing.
-- **Promo look** (2026-10-14, version 5; the screens' design spec 2.3-2.4 made sharp and flat:
-  right angles only, no shadows or glows, `src/styles/promo.css`): the moods are the identity's
-  three lights. Cinematic (dusk): long takes of the title's scenes pushed 6 %, dissolves, quiet
+- **Promo look** (2026-10-14, promo version 6 and `evergreenEnd` 5; the screens' design spec
+  2.3-2.4 made sharp and flat: right angles only, no shadows or glows, `src/styles/promo.css`):
+  the moods are the identity's three lights. Cinematic (dusk): long takes of the title's scenes pushed 6 %, dissolves, quiet
   type low in the frame, then the title over its hero scene (the least used one) with a red rule
   and the meta line. Grit (night): letterboxed to 2.39:1, so scope footage shows whole; hard cuts
   on the beat, night cards with a word (the genre, the year, or `PREMIERE`) over a red rule
