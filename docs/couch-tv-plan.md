@@ -1038,7 +1038,9 @@ break or the standby card.
   house score; over a bed the house only punctuates. A logo never sits on a box (the owner,
   of the bright promo's Simpsons logo on a black one): bright's title lands on the field its
   logo reads on, red first (the sheet that has been sliding across stays), paper for dark
-  logos (the sheet leaves and uncovers it), else over the picture under the night grade, and
+  logos (the sheet leaves and uncovers it), else over the picture under the night grade (with
+  fewer than two taglines there is no sheet to stay or leave, and the title's own field slides
+  in; a first version left the title on black there, the owner's complaint again), and
   the night screens draw a logo too dark for night with its colours lifted, hue kept.
   FEATURES.md "Promo look" and "A title shown big" have the detail.
 - **Audio**: 48 kHz; a clip's or a break's render is normalized to its `loudness` (BS.1770

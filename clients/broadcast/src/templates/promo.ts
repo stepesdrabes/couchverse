@@ -190,7 +190,7 @@ const EC = {
 };
 
 export const promo: Template<PromoSpec> = {
-	version: 7,
+	version: 8,
 	build(ctx, spec) {
 		const airing = spec.part === 'body' ? BODY_AIRING : (spec.airing ?? null);
 		const tl = buildPromo(ctx, spec, airing);
@@ -463,6 +463,8 @@ export function buildPromo(
 		fade?: number;
 		push?: [number, number];
 		pushEase?: string;
+		/** Seconds the take stays on past its end, under a field sliding in over it. */
+		hold?: number;
 	}
 
 	/** Seconds of a shot a take of `need` seconds can show (footage runs out; stills never do). */
@@ -517,7 +519,7 @@ export function buildPromo(
 				);
 			}
 		}
-		tl.show(box, edge(inT), edge(outT));
+		tl.show(box, edge(inT), edge(outT + (o.hold ?? 0)));
 		if (d) tl.add(box, [{ opacity: 0 }, { opacity: 1 }], inT, d, 'sine');
 		else if (o.fade) tl.add(box, [{ opacity: 0 }, { opacity: 1 }], a, o.fade, 'sine');
 		return box;
@@ -557,7 +559,9 @@ export function buildPromo(
 				take(at, end, s, {
 					...o,
 					dissolve: n === 0 ? (i === 0 ? o.dissolve : 0) : (o.chain ?? P.chain),
-					fade: i === 0 && n === 0 ? o.fade : 0
+					fade: i === 0 && n === 0 ? o.fade : 0,
+					// only the run's last take is held
+					hold: end >= b - 1e-6 ? o.hold : 0
 				});
 				at = end;
 				n++;
@@ -576,6 +580,18 @@ export function buildPromo(
 	// bright's red field: one sheet that slides across the frame between its slabs
 	let red: HTMLElement | null = null;
 	const redMoves: Move<number>[] = [];
+
+	/**
+	 * How long the picture of section `i` stays on after its end: a field slides in over it for
+	 * 0.15 s past the cut (a tagline's sheet, or the title's own), and the stage behind would show
+	 * as a black sliver in the meantime.
+	 */
+	const slideAfter = (i: number) => {
+		const next = seq[i + 1];
+		if (!bright || !next) return 0;
+		const slab = (s?: Section) => s?.kind === 'slab' && !!lines[s.line];
+		return slab(next) || (next.kind === 'title' && !!ground && !slab(seq[i])) ? 0.2 : 0;
+	};
 
 	for (const [i, s] of seq.entries()) {
 		const a = s.at;
@@ -607,7 +623,7 @@ export function buildPromo(
 				break;
 			}
 			case 'montage': {
-				run(a, b, P.gap, { dissolve: bright ? 0 : 0.4, push: [1.02, 1.08] });
+				run(a, b, P.gap, { dissolve: bright ? 0 : 0.4, push: [1.02, 1.08], hold: slideAfter(i) });
 				if (bright && s.word) redBlock(a, b, s.word);
 				break;
 			}
@@ -642,10 +658,15 @@ export function buildPromo(
 				);
 				break;
 			}
-			case 'title':
-				if (bright && ground) brightTitle(a, b, ground);
+			case 'title': {
+				// whether a tagline's red sheet is under the title's start (a title with fewer than two
+				// taglines has none: the field must come in on its own)
+				const before = seq[i - 1];
+				const sheeted = before?.kind === 'slab' && !!lines[before.line];
+				if (bright && ground) brightTitle(a, b, ground, sheeted);
 				else titleCard(a, b);
 				break;
+			}
 			case 'open': {
 				const line = lines[0];
 				if (!line) {
@@ -706,7 +727,7 @@ export function buildPromo(
 			case 'slab': {
 				const line = lines[s.line];
 				if (!line) {
-					run(a, b, P.gap, { fade: a ? 0 : 0.32 });
+					run(a, b, P.gap, { fade: a ? 0 : 0.32, hold: slideAfter(i) });
 					break;
 				}
 				if (!red) {
@@ -851,11 +872,23 @@ export function buildPromo(
 	 * Bright's title, in daylight: the title at the left on its field, the picture framed at the
 	 * right. The logo (or the name, in night type on paper) sits straight on the field with no box
 	 * behind it. On red the sheet that has been sliding across stays under it; on paper, which the
-	 * sheet uncovers as it leaves to the left, so the logo is a dark one.
+	 * sheet uncovers as it leaves to the left, so the logo is a dark one. Without the sheet (no
+	 * tagline slab just before: a title with fewer than two taglines) the field slides in from the
+	 * right over what plays, as the sheet does, so a logo never lands on the night behind.
 	 */
-	function brightTitle(a: number, b: number, ground: 'red' | 'paper') {
+	function brightTitle(a: number, b: number, ground: 'red' | 'paper', sheeted: boolean) {
 		const onRed = ground === 'red';
-		if (!onRed) {
+		if (!sheeted) {
+			const field = div(`pm-fill ${onRed ? 'pm-red' : 'pm-paper'}`, fields);
+			tl.show(field, edge(a - 0.45), edge(b + 1));
+			tl.add(
+				field,
+				[{ transform: `translateX(${W}px)` }, { transform: 'translateX(0px)' }],
+				a - 0.4,
+				0.55,
+				'move'
+			);
+		} else if (!onRed) {
 			const field = div('pm-fill pm-paper');
 			fields.insertBefore(field, red);
 			tl.show(field, edge(a - 0.3), edge(b + 1));

@@ -356,6 +356,8 @@ const LOGO_ON = {
 	},
 	picture: { ...TITLES.night, logo: LOGOS.rose, footage: PROMO_SCENES }
 } satisfies Record<string, Title>;
+// a title with only its first `n` taglines
+const fewer = (t: Title, n: number): Title => ({ ...t, taglines: (t.taglines ?? []).slice(0, n) });
 const shown = (t: Title, logo?: Logo): Title => ({
 	...t,
 	...(logo ? { logo } : {}),
@@ -709,6 +711,44 @@ export const FIXTURES = {
 		title: LOGO_ON.picture,
 		shots: SHOTS,
 		airing: { eyebrow: 'Tonight', time: '20:15' },
+		bed: bed()
+	},
+	// the same title moments with fewer than two taglines: no tagline slab leaves its sheet under
+	// the title, which therefore brings its own field (it once landed on black)
+	'promo-bright-red-one': {
+		template: 'promo',
+		part: 'full',
+		mood: 'bright',
+		title: fewer(LOGO_ON.red, 1),
+		shots: SHOTS,
+		airing: { eyebrow: 'Tomorrow', time: '18:00' },
+		bed: bed()
+	},
+	'promo-bright-red-none': {
+		template: 'promo',
+		part: 'full',
+		mood: 'bright',
+		title: fewer(LOGO_ON.red, 0),
+		shots: SHOTS,
+		airing: { eyebrow: 'Tomorrow', time: '18:00' },
+		bed: bed()
+	},
+	'promo-bright-paper-none': {
+		template: 'promo',
+		part: 'full',
+		mood: 'bright',
+		title: fewer(LOGO_ON.paper, 0),
+		shots: SHOTS,
+		airing: { eyebrow: 'Today', time: '19:30' },
+		bed: bed()
+	},
+	'promo-bright-name-none': {
+		template: 'promo',
+		part: 'full',
+		mood: 'bright',
+		title: fewer(TITLES.water, 0),
+		shots: SHOTS,
+		airing: { eyebrow: 'Today', time: '19:30' },
 		bed: bed()
 	},
 	'promo-cinematic-dark-logo': {

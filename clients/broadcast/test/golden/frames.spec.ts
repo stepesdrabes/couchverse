@@ -51,6 +51,10 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['strip-long-bright', [6]],
 	['strip-night-panel', [6]],
 	['promo-bright-red', [10.6, 16]],
+	// with fewer than two taglines the title brings its own field in
+	['promo-bright-red-none', [9.1, 10.6]],
+	['promo-bright-red-one', [10.6]],
+	['promo-bright-paper-none', [9, 10.6]],
 	['promo-bright-paper', [10.6]],
 	['promo-bright-picture', [10.6]],
 	['promo-cinematic-dark-logo', [13.4, 19.5]],
@@ -143,6 +147,52 @@ test('text stays inside the title-safe width and on the frame', async ({ page })
 				return out;
 			});
 			expect(outside, `${name} at ${t}`).toEqual([]);
+		}
+	}
+});
+
+// bright's title sits on a field of red or paper whatever the taglines before it: it once landed
+// on the night behind when the title had fewer than two (no tagline slab left its red sheet under
+// it), and the picture before it must stay on until the field has covered it
+test("the bright promo's title never lands on black", async ({ page }) => {
+	for (const name of [
+		'promo-bright-red',
+		'promo-bright-red-one',
+		'promo-bright-red-none',
+		'promo-bright-paper',
+		'promo-bright-paper-none',
+		'promo-bright-name-none'
+	] as const) {
+		const info = await load(page, FIXTURES[name]);
+		const at = info.cues.find((c) => c.name === 'the title')?.at ?? NaN;
+		// from before the field starts across to well into the title: the first thing painted at
+		// the left edge, at the top and in the middle of its column, is never the stage
+		for (const t of [at - 0.3, at - 0.1, at, at + 0.1, at + 0.2, at + 1.4]) {
+			await seek(page, t);
+			const behind = await page.evaluate(() => {
+				const root = document.getElementById('stage')?.shadowRoot;
+				const painted = (x: number, y: number) => {
+					for (const e of root?.elementsFromPoint(x, y) ?? []) {
+						// what is painted: not hidden, not faded out (the end's night fade waits at 0)
+						let opacity = 1;
+						for (let n: Element | null = e; n; n = n.parentElement)
+							opacity *= parseFloat(getComputedStyle(n).opacity);
+						if (getComputedStyle(e).visibility === 'hidden' || opacity < 0.5) continue;
+						const bg = getComputedStyle(e).backgroundColor;
+						if (e.tagName === 'IMG' || (bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent'))
+							return e.tagName === 'IMG' ? 'img' : `${e.className} ${bg}`;
+					}
+					return 'nothing';
+				};
+				return [painted(4, 540), painted(300, 100)];
+			});
+			for (const b of behind)
+				expect(b, `${name} at ${t.toFixed(2)}`).not.toMatch(/stage|piece|nothing/);
+			if (t >= at + 0.2)
+				for (const b of behind)
+					expect(b, `${name} at ${t.toFixed(2)}`).toMatch(
+						/pm-red rgb\(229, 9, 20\)|pm-paper rgb\(244, 237, 228\)/
+					);
 		}
 	}
 });

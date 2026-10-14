@@ -2497,7 +2497,7 @@ approves is what airs.
   card, and as the end card's words are seen, never heard, a body's item sound is its full
   promo's whatever the airing (without one, the evergreen end card's, it sounds different).
   `evergreenEnd` is the same end card without an airing.
-- **Promo look** (2026-10-14, promo version 7 and `evergreenEnd` 6; the screens' design spec
+- **Promo look** (2026-10-14, promo version 8 and `evergreenEnd` 6; the screens' design spec
   2.3-2.4 made sharp and flat: right angles only, no shadows or glows, `src/styles/promo.css`):
   the moods are the identity's three lights. Cinematic (dusk): long takes of the title's scenes pushed 6 %, dissolves, quiet
   type low in the frame, then the title over its hero scene (the least used one) with a red rule
@@ -2509,7 +2509,11 @@ approves is what airs.
   red first (the sheet stays under the logo and the last tagline sinks out of it; yellow and
   gold logos, Simpsons, Invincible, Pulp Fiction), else paper (the sheet leaves to the left and
   uncovers it; dark and outlined logos, Dexter, Iron Man, Futurama, Harry Potter), and a name is
-  night type on paper; a logo that reads on neither goes over the title's scene under the
+  night type on paper (a title with fewer than two taglines has no slab before its title and so
+  no sheet to leave: its field slides in from the right on its own as the sheet does, the picture
+  before it held on under it until it has covered it, so the stage behind is never seen; a
+  test reads what is painted at the frame's left edge through the slide); a logo that reads on
+  neither goes over the title's scene under the
   night grade like the other moods' (`titleCard`). Which field is measured per logo
   (`readsOnField`, below), so a new title needs no setting. The premiere card is night, the
   dusk rising, `Premiere` over a red rule. Type rises line by line out of its own masks. Every
