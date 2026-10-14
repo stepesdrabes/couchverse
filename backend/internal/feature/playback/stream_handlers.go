@@ -100,7 +100,8 @@ var contentTypes = map[string]string{
 
 // Frame returns a single still from the source video at ?t=SECONDS, scaled
 // down for the player's seek-bar preview. Requests are bucketed to a few
-// seconds and cached so scrubbing reuses extracted frames.
+// seconds and cached so scrubbing reuses extracted frames; ?exact=true asks
+// for the second itself, for a tool that must show a particular scene.
 func (h *Stream) Frame(w http.ResponseWriter, r *http.Request) {
 	mf, err := h.library.MediaFileByID(r.Context(), grantedFile(r.Context()))
 	if err != nil {
@@ -112,7 +113,10 @@ func (h *Stream) Frame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	const bucket = 5 // seconds; coarse enough to bound the cache and reuse hovers
+	bucket := 5 // seconds; coarse enough to bound the cache and reuse hovers
+	if r.URL.Query().Get("exact") == "true" {
+		bucket = 1
+	}
 	t := httpx.QueryInt(r, "t", 0)
 	if t < 0 {
 		t = 0

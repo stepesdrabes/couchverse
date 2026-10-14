@@ -8384,9 +8384,12 @@ pub mod ops {
     /// Query parameters of [`get_stream_frame`].
     #[derive(Debug, Clone, Default, PartialEq)]
     pub struct GetStreamFrameQuery {
-        /// Position in seconds, rounded down to its 5-second bucket and clamped to the duration.
+        /// Position in seconds, rounded down to its 5-second bucket (to the second with exact) and clamped to the duration.
         /// Default `0`, at least 0.
         pub t: Option<i64>,
+        /// true: the frame at the second t rather than at its bucket's start, for a still that must show a particular scene.
+        /// Default `false`.
+        pub exact: Option<bool>,
     }
 
     /// Get a seek-preview still from a video
@@ -8397,6 +8400,7 @@ pub mod ops {
     pub fn get_stream_frame(grant: &str, query: &GetStreamFrameQuery) -> Request {
         let mut q = Vec::new();
         build::push(&mut q, "t", query.t.as_ref());
+        build::push(&mut q, "exact", query.exact.as_ref());
         build::request(
             Method::Get,
             format!("/media/{}/frame", build::segment(grant)),

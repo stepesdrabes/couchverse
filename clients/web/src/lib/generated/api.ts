@@ -3466,10 +3466,15 @@ export const getServer = (opts?: CallOptions) =>
 
 export interface GetStreamFrameQuery {
 	/**
-	 * Position in seconds, rounded down to its 5-second bucket and clamped to the duration.
+	 * Position in seconds, rounded down to its 5-second bucket (to the second with exact) and clamped to the duration.
 	 * Default `0`, at least 0.
 	 */
 	t?: number;
+	/**
+	 * true: the frame at the second t rather than at its bucket's start, for a still that must show a particular scene.
+	 * Default `false`.
+	 */
+	exact?: boolean;
 }
 
 /**
@@ -3477,7 +3482,7 @@ export interface GetStreamFrameQuery {
  *
  * @param grant The media grant from the playback payload; it expires, so fetch the payload again on grant_expired.
  */
-export const getStreamFramePath = (grant: string, query: GetStreamFrameQuery = {}) => `/api/v1/media/${encodeURIComponent(grant)}/frame${qs({ t: query.t })}`;
+export const getStreamFramePath = (grant: string, query: GetStreamFrameQuery = {}) => `/api/v1/media/${encodeURIComponent(grant)}/frame${qs({ t: query.t, exact: query.exact === undefined ? undefined : String(query.exact) })}`;
 
 /**
  * Get a JIT session's playlist, init section or segment (`GET /media/{grant}/jit/{sid}/{file}`)

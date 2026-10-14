@@ -13987,7 +13987,7 @@
     },
     "/media/{grant}/frame": {
       "get": {
-        "description": "A 240px-wide JPEG of the source video, cached per 5-second bucket. 404 codes: not_found (no video source on disk), frame_failed.",
+        "description": "A 240px-wide JPEG of the source video, cached per 5-second bucket (per second with exact). 404 codes: not_found (no video source on disk), frame_failed.",
         "operationId": "getStreamFrame",
         "parameters": [
           {
@@ -14001,13 +14001,22 @@
             }
           },
           {
-            "description": "Position in seconds, rounded down to its 5-second bucket and clamped to the duration.",
+            "description": "Position in seconds, rounded down to its 5-second bucket (to the second with exact) and clamped to the duration.",
             "in": "query",
             "name": "t",
             "schema": {
               "default": 0,
               "minimum": 0,
               "type": "integer"
+            }
+          },
+          {
+            "description": "true: the frame at the second t rather than at its bucket's start, for a still that must show a particular scene.",
+            "in": "query",
+            "name": "exact",
+            "schema": {
+              "default": false,
+              "type": "boolean"
             }
           }
         ],

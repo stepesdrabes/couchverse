@@ -107,12 +107,16 @@ func streamFrameOp(apiErr *huma.Response) huma.Operation {
 	zero := 0.0
 	op := tag.Op("getStreamFrame", http.MethodGet, "/frame")
 	op.Summary = "Get a seek-preview still from a video"
-	op.Description = "A 240px-wide JPEG of the source video, cached per 5-second bucket. " +
+	op.Description = "A 240px-wide JPEG of the source video, cached per 5-second bucket (per second with exact). " +
 		"404 codes: not_found (no video source on disk), frame_failed."
 	op.Parameters = []*huma.Param{{
 		Name: "t", In: "query",
-		Description: "Position in seconds, rounded down to its 5-second bucket and clamped to the duration.",
+		Description: "Position in seconds, rounded down to its 5-second bucket (to the second with exact) and clamped to the duration.",
 		Schema:      &huma.Schema{Type: huma.TypeInteger, Minimum: &zero, Default: 0},
+	}, {
+		Name: "exact", In: "query",
+		Description: "true: the frame at the second t rather than at its bucket's start, for a still that must show a particular scene.",
+		Schema:      &huma.Schema{Type: huma.TypeBoolean, Default: false},
 	}}
 	op.Responses = map[string]*huma.Response{
 		"200":     response("The frame.", binarySchema, "image/jpeg"),
