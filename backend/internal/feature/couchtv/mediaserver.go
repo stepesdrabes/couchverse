@@ -326,14 +326,21 @@ func (m *mediaServer) extractFrames(ctx context.Context, fileID string, start ti
 	if err != nil {
 		return err
 	}
+	filter := "fps=25,scale='iw*sar':ih,setsar=1,scale=1920:1080:force_original_aspect_ratio=decrease," +
+		playback.SDRFilter(mf, playback.DetectFeatures(m.ffmpeg))
+	return m.cutFrames(ctx, path, filter, start, count, dir)
+}
+
+// cutFrames writes count frames of path's first video stream, filtered, from start into dir. The
+// seek is on the container's timeline, as the audio's is (cutAudio), so a file whose audio starts
+// later than its picture, as remuxes often do, keeps that offset in both cuts.
+func (m *mediaServer) cutFrames(ctx context.Context, path, filter string, start time.Duration, count int, dir string) error {
 	tmp := dir + ".tmp"
 	os.RemoveAll(tmp)
 	if err := os.MkdirAll(tmp, 0o755); err != nil {
 		return err
 	}
 	defer os.RemoveAll(tmp)
-	filter := "fps=25,scale='iw*sar':ih,setsar=1,scale=1920:1080:force_original_aspect_ratio=decrease," +
-		playback.SDRFilter(mf, playback.DetectFeatures(m.ffmpeg))
 	cmd := exec.CommandContext(ctx, m.ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
 		"-ss", fmt.Sprintf("%.3f", start.Seconds()), "-i", path, "-map", "0:v:0", "-frames:v", strconv.Itoa(count),
 		"-vf", filter, "-q:v", "3", "-start_number", "0", filepath.Join(tmp, "%d.jpg"))

@@ -852,6 +852,11 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   versioning. Artwork may name a size the server makes once and caches: the artwork feature's
   (`w780`) or the screens' (2026-10-13, D41: `w1920`, a backdrop at most 1920 wide, and
   `1600x800`, a logo within that box).
+- **A/V sync of a scene** (2026-10-14): the frames and the sound of a trailer's scene are cut in
+  separate ffmpeg runs; both seek on the container's timeline, so a stream start offset (a
+  remux whose audio starts 0.3 s after its picture) is kept in both and the two stay as in sync as
+  the file is: tested with a generated file with a flash and a beep (`TestSceneCutsKeepTheContainersSync`).
+  The picture's first frame is the first at or after the start, up to 42 ms after the sound.
 - **Media**: extracted once before a clip loads (promo footage as frames: 25 fps, square
   pixels, within 1080p, SDR tone-mapped through `playback.SDRFilter`, served `no-store`; beds
   as stereo FLAC of the default track, or, for a trailer's scenes, of the named stream:

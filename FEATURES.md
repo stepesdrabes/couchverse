@@ -964,7 +964,12 @@ server that does not send it). The admin settings page toggles it.
   stream by its ffprobe index, a trailer's scenes: a 5.1 or 7.1 stream is downmixed with the centre
   channel, where the dialogue sits, up against the sides and surrounds, `dialogueFilter`; the
   default form keeps its plain downmix and its keys), `/media/v1/soundtrack/<catalog>/<track id>/<start ms>_<length
-  ms>.flac`), so a replaced image or file, or another soundtrack, changes the key. The squeeze takes the
+  ms>.flac`), so a replaced image or file, or another soundtrack, changes the key. A scene's frames
+  and its sound are cut in two ffmpeg runs that both seek on the container's timeline (`-ss` before
+  `-i`), so a file whose audio starts after its picture keeps that offset in both and the dialogue
+  stays in the sync the file has (`TestSceneCutsKeepTheContainersSync`: audio 0.3 s late, picture
+  0.5 s late, both late); the picture's first frame is the first at or after the start, up to one
+  source frame (42 ms) after the sound, which then leads by less than lip sync can detect. The squeeze takes the
   program's frames and sound from where it left the air (its backdrop when it airs in full);
   promos take `couchtv_titles` (footage shots `[{mediaFileId, startMs, durationMs, score}]`,
   else stills from the artwork; the bed (`promoBed`): an admin's excerpt of the title's own
