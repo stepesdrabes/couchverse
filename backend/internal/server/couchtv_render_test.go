@@ -212,8 +212,11 @@ func TestCouchTvRender(t *testing.T) {
 		dir := filepath.Join(env.cfg.DataDir, clip.Path)
 		validateRenditions(t, dir, bl.frames, 9)
 		for _, lufs := range []int{-23, -19, -16} {
-			if got := measureLoudness(t, filepath.Join(dir, fmt.Sprintf("audio-l%d-aac", -lufs), "index.m3u8")); math.Abs(got-float64(lufs)) > 0.6 {
-				t.Errorf("%s at %d LUFS measures %.1f", bl.kind, lufs, got)
+			got, peak := measureLoudnessPeak(t, filepath.Join(dir, fmt.Sprintf("audio-l%d-aac", -lufs), "index.m3u8"))
+			// quieter than asked only where its true peak reached the ceiling: never clipped
+			capped := got < float64(lufs) && peak > -1.6
+			if math.Abs(got-float64(lufs)) > 0.6 && !capped {
+				t.Errorf("%s at %d LUFS measures %.1f (true peak %.1f dBTP)", bl.kind, lufs, got, peak)
 			}
 		}
 	}
@@ -222,16 +225,26 @@ func TestCouchTvRender(t *testing.T) {
 // measureLoudness is the integrated loudness ffmpeg's ebur128 measures of a rendition.
 func measureLoudness(t *testing.T, playlist string) float64 {
 	t.Helper()
-	out, err := exec.Command("ffmpeg", "-hide_banner", "-nostats", "-i", playlist, "-af", "ebur128", "-f", "null", "-").CombinedOutput()
+	lufs, _ := measureLoudnessPeak(t, playlist)
+	return lufs
+}
+
+// measureLoudnessPeak is the integrated loudness and the true peak (dBTP) ffmpeg's ebur128
+// measures of a rendition.
+func measureLoudnessPeak(t *testing.T, playlist string) (lufs, peak float64) {
+	t.Helper()
+	out, err := exec.Command("ffmpeg", "-hide_banner", "-nostats", "-i", playlist, "-af", "ebur128=peak=true", "-f", "null", "-").CombinedOutput()
 	if err != nil {
 		t.Fatalf("ebur128: %v %s", err, out)
 	}
 	m := regexp.MustCompile(`I:\s+(-?[\d.]+) LUFS`).FindAllSubmatch(out, -1)
-	if m == nil {
-		t.Fatalf("no loudness in %s", out)
+	p := regexp.MustCompile(`Peak:\s+(-?[\d.]+) dBFS`).FindAllSubmatch(out, -1)
+	if m == nil || p == nil {
+		t.Fatalf("no loudness or peak in %s", out)
 	}
-	lufs, _ := strconv.ParseFloat(string(m[len(m)-1][1]), 64)
-	return lufs
+	lufs, _ = strconv.ParseFloat(string(m[len(m)-1][1]), 64)
+	peak, _ = strconv.ParseFloat(string(p[len(p)-1][1]), 64)
+	return lufs, peak
 }
 
 // checkComposite compares the squeeze's panel during its hold (6 s in: 1008x567 at 96,236,
