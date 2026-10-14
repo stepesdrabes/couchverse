@@ -413,7 +413,7 @@ The simulators cover the flows (see the Phase 3 report); on hardware, also check
 37. **A free team with the extensions** (spike S1): with `EXTENSIONS_ENABLED = YES` and a free
     personal team, note whether Xcode provisions the App Group and the two extension App IDs,
     how the 3-app limit counts the extensions, and whether the widget, the Live Activity and Top
-    Shelf then work; record the outcome here and in docs/native-clients-progress.md.
+    Shelf then work; record the outcome here.
 38. **Who's watching with ranks and banners**: with rankings on, one profile with a banner and
     one without a rank yet, relaunch the TV app: each ranked profile wears its ring in its tier's
     colour, filled to its progress, and the new one a ring of its own colour; moving the focus

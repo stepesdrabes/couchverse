@@ -2404,8 +2404,8 @@ route of its own for it. Setup, builds and its tests are in its
 ## Broadcast package (cross-cutting)
 
 `clients/broadcast` (`@couchverse/broadcast`) holds Couch TV's cutscenes (docs/couch-tv-plan.md
-6.8): TypeScript with no framework and no runtime dependencies, the productionized planning
-sample reel (`tools/couch-tv-samples`). The same code runs in two places: the web compiles its
+6.8): TypeScript with no framework and no runtime dependencies, grown from the planning sample reel
+(D32, since retired). The same code runs in two places: the web compiles its
 source for the admin **Broadcast preview** (`/admin/couch-tv/preview`, `features/couchtv`,
 through the `@couchverse/broadcast` alias in `svelte.config.js`), and the render sidecar loads
 the built page `dist/render.html` (`make broadcast`) in headless Chromium. What the admin
