@@ -265,7 +265,8 @@ type FrameOptions struct {
 	// Chroma also delivers the chroma planes (4:2:0), not only luma.
 	Chroma bool
 	// FullRange scales the planes to 0-255 whatever the file's range: luma then equals a
-	// gray decode's, the scale the analyses' thresholds are tuned on.
+	// gray decode's, the scale the analyses' thresholds are tuned on, on the reference ffmpeg 7.1
+	// (the Pi's; Homebrew's 8.1 differs from a gray decode by 1.9 to 6.5 levels).
 	FullRange bool
 }
 
