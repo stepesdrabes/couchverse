@@ -430,7 +430,12 @@ one clip (at most ~2 minutes of work), so a transcode never waits long.
   filling the frame: at most 0.7, never "avoid"), much skin and a frame mostly blood-red;
   skin is a hue (2-24 degrees at 28-68 % saturation, so dark skin reads too and tan walls,
   wood, pink and fire do not), fire and the sun's bright orange switch the skin readings
-  off, and red bigger than the skin it is beside is a dress, not a wound. A stretch's still
+  off, and red bigger than the skin it is beside is a dress, not a wound; a drawn head (light
+  peach, above skin's hue) is read apart, as a head-sized blob of skin and peach with 2 to 4 % of
+  the frame in dark red in or beside it, which catches Invincible's bloodied close-up in the media
+  kit (0 before, 1.00 now) and changes no reading of the other kit shots or of the local picks
+  and trailer scenes; thin blood (spatter on a light raincoat, a smear at a distance) is lost in
+  a 160x90 thumbnail. A stretch's still
   is the one with the most contrast less its risk, a candidate shot (rated every 0.5 s of
   its length, not only its first frame) is scored times one less its risk, and one with two
   frames in a row at 0.85 or more never airs (decided on every decoded frame: the review

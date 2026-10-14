@@ -91,6 +91,14 @@ const (
 	graphicFrom, graphicFull = 0.35, 0.65
 	hotFrom, hotFull         = 0.01, 0.05 // bright yellow and orange: fire or the sun
 
+	// A drawn face has no skin hue: its light peach is paler and yellower, and its blood is no
+	// stain but patches of flat dark red, so it is read apart, from a blob of skin and peach that
+	// is a head (not a backdrop), by how much blood lies in or beside it.
+	paleFrom, paleFull           = 0.12, 0.2  // the head, share of the frame
+	paleBigFrom, paleBigFull     = 0.4, 0.6   // more than a head is a wall
+	paleBloodFrom, paleBloodFull = 0.02, 0.04 // blood in or beside it, share of the frame
+	paleRedFrom, paleRedFull     = 0.3, 0.5   // red all over is a lit room
+
 	closeUpRisk = 0.7
 	nudeRisk    = 0.6
 	graphicRisk = 0.6
@@ -105,6 +113,11 @@ type picture struct {
 	blood float64 // blood-red pixels in or beside the blob
 	red   float64 // blood-red pixels anywhere
 	hot   float64 // bright yellow and orange: fire, a sunset, a lamp
+
+	// the largest blob of skin and light peach together, as a drawn head is read
+	pale      float64 // its share of the frame
+	paleW     float64 // its width
+	paleBlood float64 // blood-red pixels in or beside it
 }
 
 // parts are the readings of a picture's risk, each 0 to 1 before its weight.
@@ -116,6 +129,12 @@ func (p picture) parts() (closeUp, nude, gore, graphic float64) {
 	nude = ramp(p.skin, nudeFrom, nudeFull) * (1 - ramp(p.faceW, 0.85, 1)) * skinlike
 	gore = ramp(p.blood, goreFrom, goreFull) * ramp(p.face, faceFrom, faceFull) *
 		(1 - ramp(p.red, redLitFrom, redLitFull)) * (1 - ramp(p.blood/max(p.face, faceFrom), dressFrom, dressFull)) * skinlike
+	// a drawn head with patches of blood on it: dark red over a large part of a light face
+	drawn := ramp(p.paleBlood, paleBloodFrom, paleBloodFull) * ramp(p.pale, paleFrom, paleFull) *
+		(1 - ramp(p.pale, paleBigFrom, paleBigFull)) * (1 - ramp(p.paleW, spanFrom, spanFull)) *
+		(1 - ramp(p.red, paleRedFrom, paleRedFull)) *
+		(1 - ramp(p.paleBlood/max(p.pale, paleFrom), dressFrom, dressFull)) * skinlike
+	gore = max(gore, drawn)
 	graphic = ramp(p.red, graphicFrom, graphicFull)
 	return closeUp, nude, gore, graphic
 }
@@ -157,6 +176,17 @@ func isSkin(r, g, b int) bool {
 	return span*100 >= 28*r && span*100 <= 68*r && (g-b)*30 >= span && (g-b)*5 <= 2*span
 }
 
+// isPeach is the light peach of a drawn face or a pale one in strong light, just beyond skin's
+// hue (to 33 degrees, green over four fifths of red): what isSkin leaves out, and a tan wall in
+// daylight is as well, which is why only a head-sized blob of it counts (readPicture).
+func isPeach(r, g, b int) bool {
+	if r < 190 || g*100 < 80*r || g < b {
+		return false
+	}
+	span := r - b
+	return span*100 >= 28*r && span*100 <= 68*r && (g-b)*5 > 2*span && (g-b)*100 <= 55*span
+}
+
 // isBlood is a dark or mid, saturated red: green and blue far below red. Lipstick and
 // auburn hair are lighter or less saturated.
 func isBlood(r, g, b int) bool {
@@ -175,8 +205,8 @@ func isHot(r, g, b int) bool {
 
 func readPicture(rgb []byte, w, h int) picture {
 	gw, gh := (w+blobCell-1)/blobCell, (h+blobCell-1)/blobCell
-	cellN, skinN, bloodN := make([]int, gw*gh), make([]int, gw*gh), make([]int, gw*gh)
-	var skin, red, hot int
+	cellN, skinN, bloodN, peachN := make([]int, gw*gh), make([]int, gw*gh), make([]int, gw*gh), make([]int, gw*gh)
+	var skin, red, hot, peach int
 	for y := range h {
 		for x := range w {
 			i := (y*w + x) * 3
@@ -187,6 +217,9 @@ func readPicture(rgb []byte, w, h int) picture {
 			case isSkin(r, g, b):
 				skin++
 				skinN[c]++
+			case isPeach(r, g, b):
+				peach++
+				peachN[c]++
 			case isBlood(r, g, b):
 				red++
 				bloodN[c]++
@@ -215,6 +248,21 @@ func readPicture(rgb []byte, w, h int) picture {
 		}
 	}
 	p.blood = float64(near) / total
+	if peach > 0 {
+		for c := range mask {
+			mask[c] = float64(skinN[c]+peachN[c]) >= cellSkin*float64(cellN[c])
+		}
+		if blob, box, cells := largestBlob(fillCells(mask, gw, gh), gw, gh); blob > 0 {
+			p.pale, p.paleW = float64(blob)/float64(gw*gh), float64(box.x1-box.x0+1)/float64(gw)
+			near := 0
+			for c, n := range bloodN {
+				if n > 0 && inOrBeside(cells, gw, gh, c) {
+					near += n
+				}
+			}
+			p.paleBlood = float64(near) / total
+		}
+	}
 	return p
 }
 

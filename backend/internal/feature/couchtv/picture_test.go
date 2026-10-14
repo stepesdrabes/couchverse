@@ -18,6 +18,9 @@ var (
 	dressRed   = rgbColor{200, 30, 40}
 	nightBlack = rgbColor{12, 12, 16}
 	roomGrey   = rgbColor{96, 100, 104}
+	// skinDrawn is the light peach of a cartoon face (Invincible's), above the hue of skin
+	skinDrawn = rgbColor{251, 212, 175}
+	tanWall   = rgbColor{228, 192, 156}
 )
 
 // canvas is a shotW x shotH picture drawn from flat shapes.
@@ -149,6 +152,25 @@ func TestPictureRisk(t *testing.T) {
 			c.ellipse(50, 56, 6, 2, rgbColor{170, 40, 55})
 		}), 0, 0.2},
 		{"a frame of red", scene(func(c *canvas) { c.rect(0, 0, shotW, shotH, rgbColor{150, 16, 14}) }), 0.3, graphicRisk},
+		{"a drawn face", scene(func(c *canvas) { c.ellipse(80, 52, 34, 42, skinDrawn) }), 0, 0.1},
+		{"a drawn face with patches of blood", scene(func(c *canvas) {
+			c.ellipse(80, 52, 34, 42, skinDrawn)
+			c.rect(52, 6, 108, 24, bloodRed)
+			c.rect(58, 34, 64, 60, bloodRed)
+			c.rect(96, 40, 102, 70, bloodRed)
+		}), avoidRisk, 1},
+		{"a drawn face with a smear of blood", scene(func(c *canvas) {
+			c.ellipse(80, 52, 34, 42, skinDrawn)
+			c.rect(74, 30, 88, 40, bloodRed)
+		}), 0, 0.3},
+		{"a drawn face beside a red chair", scene(func(c *canvas) {
+			c.rect(0, 20, 50, shotH, bloodRed)
+			c.ellipse(100, 52, 34, 42, skinDrawn)
+		}), 0, 0.3},
+		{"a tan wall and a red sofa", scene(func(c *canvas) {
+			c.rect(0, 0, 100, shotH, tanWall)
+			c.rect(100, 40, shotW, shotH, bloodRed)
+		}), 0, 0.3},
 	}
 	for _, tt := range tests {
 		if tt.risk < tt.min-1e-9 || tt.risk > tt.max+1e-9 {

@@ -1237,7 +1237,14 @@ server that does not send it). The admin settings page toggles it.
   that is a face or a hand at medium-close or closer, not when red is lighting or bigger
   than the skin it is beside, as a dress is), a close-up (that blob filling 12-32 % of the
   frame, compact, not spanning it: up to 0.7), a body (much skin: up to 0.6) and a frame a
-  third or more blood-red (up to 0.6); fire and sunsets count as none. A shot is rated by its
+  third or more blood-red (up to 0.6); fire and sunsets count as none. A drawn head, whose light
+  peach is above skin's hue, is read apart (`isPeach`): a blob of skin and peach of 12 to 40 % of
+  the frame that is no backdrop (under 70 % of its width) with 2 to 4 % of the frame in dark red
+  in or beside it is gore as well (the media kit's Invincible close-up read 0 and reads 1.00; a
+  red armchair beside a yellow face, a tan wall beside a red sofa and a drawn face with a smear
+  read 0). Thin blood is not seen: streaks and spatter on a light raincoat (Dexter's) average
+  into pink at 160x90, and a few dark red pixels on a face at a distance look like a warm wall's
+  shadow. A shot is rated by its
   picture every 0.5 s (its score times one less that risk); it never airs when two frames in
   a row, of every frame decoded (10 a second), are at 0.85 or more, because a wound shows for
   less than the 0.5 s between checks (one odd frame drops no shot), and a close-up airs
