@@ -1098,8 +1098,20 @@
 	color: #e50914;
 }
 
-/* --- 9 credits squeeze -------------------------------------------------------------- */
+/* --- 9 credits squeeze ------------------------------------------------------------------- */
 
+/* the room: night, the dusk low on its horizon */
+.sq-room {
+	background:
+		radial-gradient(
+			1500px 640px at 960px 1260px,
+			rgb(86 6 16 / 0.8) 0%,
+			rgb(38 3 6 / 0.6) 38%,
+			rgb(20 2 3 / 0.32) 62%,
+			transparent 100%
+		),
+		#050505;
+}
 .program {
 	position: absolute;
 	left: 0;
@@ -1135,73 +1147,78 @@
 	margin-top: 10px;
 	font-size: 38px;
 }
-.red-fill {
-	position: absolute;
-	inset: 0;
-	background: var(--brand);
-}
 .program.keyed {
 	background: transparent;
 }
-.sq-frame {
-	position: absolute;
-	border: 1.5px solid rgb(255 255 255 / 0.14);
-	pointer-events: none;
+.sq-rim {
+	border: 2px solid #222120;
 }
-.sq-col {
-	position: absolute;
-	left: 1176px;
+.sq-card {
+	left: 0;
 	top: 0;
-	bottom: 0;
-	width: 648px;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
+	overflow: hidden;
+	transform-origin: 0 0;
+	background: #141111;
 }
-.sq-card-slot {
-	position: relative;
-	width: 648px;
-	height: 364px;
-	margin-top: 26px;
-}
-.sq-title {
-	margin-top: 34px;
-	font-size: 74px;
-}
-.sq-ep {
-	display: flex;
-	align-items: center;
-	gap: 18px;
-	margin-top: 22px;
-	font-size: 32px;
-	font-weight: 600;
-	white-space: nowrap;
-}
-.sq-ep .chip {
-	height: 42px;
-	font-size: 20px;
-	padding: 0 16px;
-}
-.sq-when {
-	margin-top: 24px;
-	font-size: 30px;
-	font-weight: 600;
-	color: rgb(var(--text-rgb) / 0.72);
-	white-space: nowrap;
-}
-.sq-when .when-time {
-	font-weight: 800;
-	color: var(--ink);
-}
-.sq-tv {
-	position: absolute;
+.sq-lens {
 	left: 0;
 	top: 0;
 	width: 1920px;
 	height: 1080px;
-	transform-origin: 0 0;
 	overflow: hidden;
-	border-radius: 60px;
+	transform-origin: 0 0;
+}
+.sq-text {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+.sq-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	align-self: stretch;
+}
+.sq-label {
+	height: 40px;
+	padding: 0 13px;
+}
+.sq-label .oa-label-word {
+	font-size: 24px;
+	line-height: 40px;
+}
+.sq-time {
+	font-size: 28px;
+	font-weight: 700;
+	line-height: 1.2;
+	letter-spacing: -0.01em;
+	color: #f4ede4;
+}
+.sq-title {
+	margin-top: 18px;
+	font-size: 56px;
+	font-weight: 800;
+	letter-spacing: -0.035em;
+	line-height: 1;
+	color: #f4ede4;
+	white-space: nowrap;
+}
+.sq-title.oa-logo {
+	margin-top: 24px;
+}
+.sq-ep-mask {
+	margin-top: 10px;
+	padding: 2px 0 4px;
+}
+.sq-ep {
+	font-size: 24px;
+	font-weight: 500;
+	line-height: 1.25;
+	color: #b1aca6;
+	white-space: nowrap;
+}
+.sq-code {
+	font-weight: 700;
 }
 
 /* --- footage, the premiere slam, slabs (bright), the evergreen end --------------------------- */

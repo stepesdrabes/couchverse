@@ -85,14 +85,15 @@ export function typeIn(tl: TL, els: Element[], at: number, { rise = 16, stagger 
 
 /**
  * Lines rising into place from behind their own edge (each word in its mask, `words`), one
- * line after another: the house's masked reveal.
+ * line after another: the house's masked reveal. They travel a quarter past their height, clear
+ * of the padding a mask keeps for accents and descenders.
  */
 export function reveal(tl: TL, lines: Element[][], at: number, { stagger = 0.08, dur = 0.9 } = {}) {
 	lines.forEach((line, i) => {
 		for (const e of line)
 			tl.add(
 				e,
-				[{ transform: 'translateY(108%)' }, { transform: 'translateY(0%)' }],
+				[{ transform: 'translateY(125%)' }, { transform: 'translateY(0%)' }],
 				at + i * stagger,
 				dur,
 				'glide'
@@ -112,7 +113,7 @@ export function conceal(
 		for (const e of line)
 			tl.add(
 				e,
-				[{ transform: 'translateY(0%)' }, { transform: 'translateY(-108%)' }],
+				[{ transform: 'translateY(0%)' }, { transform: 'translateY(-125%)' }],
 				at + i * stagger,
 				dur,
 				'leave'
@@ -337,8 +338,8 @@ export function scenes(
 			tl.footage(frame, cut.shot.frames, a);
 			tl.show(box, Math.max(start, a), Math.min(end, b) + 0.001);
 			// the incoming scene dissolves in over the one before it (the image, not its box: a
-			// fading group would cost an extra pass)
-			if (cut.dissolve > 0 && a > start)
+			// fading group would cost an extra pass), part way through when the view opens on it
+			if (cut.dissolve > 0 && a + cut.dissolve > start)
 				tl.add(frame, [{ opacity: 0 }, { opacity: 1 }], a, cut.dissolve, 'sine');
 		}
 		return cam;

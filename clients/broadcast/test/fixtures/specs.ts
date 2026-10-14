@@ -301,6 +301,16 @@ export const FIXTURES = {
 		clock: '17:59',
 		bed: bed(2, 24)
 	},
+	// after an expanding squeeze: its first frame is the squeeze's last
+	'upnext-continue': {
+		template: 'upNext',
+		title: { ...TITLES.sunny, footage: SCENES },
+		episode,
+		time: '18:00',
+		clock: '17:57',
+		enter: 'continue',
+		bed: bed(2, 24)
+	},
 	// a movie with its logo and scenes, scored by the house
 	'upnext-logo': {
 		template: 'upNext',
@@ -390,7 +400,7 @@ export const FIXTURES = {
 		template: 'squeeze',
 		ending: TITLES.night,
 		program: { kind: 'standIn' },
-		next: { title: TITLES.sunny, episode, time: '18:00' },
+		next: { title: { ...TITLES.sunny, footage: SCENES }, episode, time: '18:00' },
 		clock: '17:57',
 		handover: 'expand',
 		bed: bed(2, 24)
@@ -402,11 +412,12 @@ export const FIXTURES = {
 		next: { title: TITLES.water, time: '22:30' },
 		handover: 'ident'
 	},
+	// the program's own frames; the next title's logo and scenes on the card
 	'squeeze-frames': {
 		template: 'squeeze',
 		ending: TITLES.alley,
 		program: { kind: 'frames', frames: frames('shot-a') },
-		next: { title: TITLES.night, time: '20:15' },
+		next: { title: NIGHT_ON_AIR, time: '20:15' },
 		clock: '20:13',
 		handover: 'expand'
 	},

@@ -22,7 +22,7 @@ const LIST = { x: 96, w: 1000, top: 292, top5: 252, foot: 1000, time: 172 };
 const BEAT = 0.8;
 
 export const lineup: Template<LineupSpec> = {
-	version: 5,
+	version: 6,
 	build({ root, sound, assets }, spec) {
 		const D = spec.duration ?? 12;
 		const tl = timeline(root, D);

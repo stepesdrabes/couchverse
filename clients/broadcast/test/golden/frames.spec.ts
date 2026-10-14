@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { COUCH, LOGO, LOGO_GAP, POPCORN, SILHOUETTE } from '../../src/brand/glyph';
 import { PARTS } from '../../src/brand/wordmark';
-import type { ClipSpec, PromoSpec, SqueezeSpec } from '../../src/spec';
-import { FIXTURES, type FixtureName } from '../fixtures/specs';
+import type { ClipSpec, PromoSpec, SqueezeSpec, UpNextSpec } from '../../src/spec';
+import { FIXTURES, TITLES, type FixtureName } from '../fixtures/specs';
 import { load, openRender, pageErrors, seek } from './render';
 
 // chosen frames of every template (seconds into the clip)
@@ -28,10 +28,12 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['strip-dark', [7.5]],
 	['short', [3.5]],
 	['lineup', [1, 6]],
-	['squeeze-expand', [5]],
+	// the hold, the push into the card, its last frame (up next's first)
+	['squeeze-expand', [5, 10.4, 11.48]],
 	['squeeze-key', [5]],
 	['squeeze-key', [2.6], 'matte'],
-	['squeeze-frames', [1]],
+	['squeeze-frames', [1, 5]],
+	['upnext-continue', [0, 2.5]],
 	['standby', [2]],
 	// the longest names and lines: fitted, broken onto lines, never off the frame
 	['promo-cinematic-long', [3.4, 7, 16, 20]],
@@ -85,8 +87,9 @@ test('text stays inside the title-safe width and on the frame', async ({ page })
 				const walker = document.createTreeWalker(piece, NodeFilter.SHOW_TEXT);
 				for (let n = walker.nextNode(); n; n = walker.nextNode()) {
 					const el = n.parentElement;
-					// the corner bug sits in the action-safe corner by design
-					if (!el || !n.textContent?.trim() || el.closest('.bug')) continue;
+					// the corner bug sits in the action-safe corner by design, and the squeeze's panel
+					// is the program's own picture (the preview's credits roll), which may leave it
+					if (!el || !n.textContent?.trim() || el.closest('.bug, .program')) continue;
 					if (getComputedStyle(el).visibility === 'hidden') continue;
 					let opacity = 1;
 					const clips: DOMRect[] = [];
@@ -275,6 +278,20 @@ test("the squeeze hands over on the short ident's first frame", async ({ page })
 	await load(page, FIXTURES['ident-short']);
 	await seek(page, 0);
 	expect((await page.screenshot()).equals(last)).toBe(true);
+});
+
+test("the expanding squeeze's last frame is up next's first", async ({ page }) => {
+	// over the backdrop: scenes would move on by the frame between them
+	const squeeze = FIXTURES['squeeze-expand'] as SqueezeSpec;
+	const title = TITLES.sunny;
+	const info = await load(page, { ...squeeze, next: { ...squeeze.next, title } });
+	expect(info.duration).toBeCloseTo(11.52, 6);
+	// both against one golden: a static transform and up next's push rasterize a level apart
+	await seek(page, info.duration - 0.04);
+	await expect(page).toHaveScreenshot('expand-handover.png');
+	await load(page, { ...(FIXTURES['upnext-continue'] as UpNextSpec), title });
+	await seek(page, 0);
+	await expect(page).toHaveScreenshot('expand-handover.png');
 });
 
 test('the corner bug', async ({ browser }) => {

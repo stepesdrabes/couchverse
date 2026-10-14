@@ -2377,8 +2377,8 @@ approves is what airs.
   a colon or before "and"/"the" only when it costs little width, never a widow, never a
   one-letter word ending a line. It runs once fonts are in, on what `words`/`chars` build (the
   breaks are `<br>`s), so per-word and per-character animations keep their targets.
-- **The screens around the programs** (`templates/onair.ts`: up next, the lineup and standby,
-  in the new brand since 2026-10-14): the idents' night, paper type and the brand's
+- **The screens around the programs** (`templates/onair.ts`: up next, the squeeze, the lineup
+  and standby, in the new brand since 2026-10-14): the idents' night, paper type and the brand's
   red as sharp blocks and rules, square and flat (no rounded corners, shadows or glows). Type
   rises into place from behind its own edge and lifts away the same way; a label is a red
   block wiping open from its left edge. A title shown big is its own logo (`titleMark`: every
@@ -2391,7 +2391,16 @@ approves is what airs.
   name lower left under a red "Up next" block, the episode and meta under it, and the horizon
   line filling red, its red head reaching the start time as the program starts; the title's
   bed with the sonic logo on glass on the last three beats (without a bed the house's D add 9
-  pad and felt piano). **The lineup**: "Later on couchtv" over rows on hairlines (names as
+  pad and felt piano). **The squeeze**: the program pulls back from the frame into a sharp
+  panel in the dark room (a dolly, 2.0-3.6 s), a hairline rim round it; the next program
+  arrives beside it as a card playing its scenes under its logo or name, a red "Up next" block
+  and the start time; while it holds only the card's scenes move. `expand` pushes into the
+  card until it is up next's first frame (its scenes framed and timed as up next frames them,
+  `UPNEXT.continued`; a test holds both frames to one golden) while the panel slides out left;
+  `ident` clears the room and the brand's collapse shrinks the panel onto the couch. The
+  program's music carries on, ducked 6 dB as the card arrives, with air under the pull back,
+  a glass E5 as the card settles and a rising air into the push. **The lineup**: "Later on
+  couchtv" over rows on hairlines (names as
   type, the live row's red time and progress, the next row's badge); a red marker walks the
   rows on half beats and each lit row's scenes dissolve and slide in on the right, nothing
   else moving between steps; the house's pad, felt piano eighths and a glass note per step.
@@ -2410,8 +2419,8 @@ approves is what airs.
   than capturing this layer) and overlays it on the picture; with the `ident` handover the short
   ident's couch is drawn in the picture under the panel, and the panel's fading opacity (the
   matte's) dissolves the program into it, so a standard overlay comes out right. What the page draws
-  over the panel's area is covered by the program (the frame's 1.5 px rim at the hold). A colour key
-  is avoided on purpose (JPEG capture and 4:2:0 chroma fringe it).
+  over the panel's area is covered by the program (the hairline rim round it at the hold sits
+  outside). A colour key is avoided on purpose (JPEG capture and 4:2:0 chroma fringe it).
 - **Brand** (`src/brand`, D33, D34; design notes in docs/couch-tv-plan.md 6.8; the screens' design
   spec in `clients/broadcast/concepts/variants/screens/DESIGN.md`, local): the Couchverse logo and
   the wordmark `couchtv`, Plus Jakarta Sans only, the token red (#e50914), night (#050505), paper
@@ -2508,16 +2517,17 @@ approves is what airs.
   (each full ident too, mid-motion and from where its lockup holds), the package loads without a
   DOM, a promo body does not depend on its airing, the end card continues the body on the next
   frame, the key rectangle follows the panel, the `ident` squeeze ends on the short ident's
-  first frame (pixel-equal), the lockup's letters are the bundled face's outlines, the couch and
-  the popcorn with its knockout are the logo, the corner bug (a full-size golden), two audio
-  renders agree (each full ident's too) and hit their loudness, the standby loop has no seam (its
-  last frame is its first, its sound wraps), an item's sound is the clip's faded into its
-  ring-out, a promo sounds the same whatever its airing, a bulletin's sound starts silent and is
-  over before its last frame, and items rendered alone and mixed sound like the break rendered in
-  one pass (within 0.1 LU item by item, 0.5 LU in every 400 ms after the first second, 0.2 dB of
-  true peak); a unit test pins the loudness numbers the server's Go port reproduces. Stand-in
-  media (gradient art, two footage shots, a bed) are committed in `test/media` with the script
-  that made them. `npm run dev` (port 5190) plays every fixture.
+  first frame (pixel-equal) and the `expand` one on up next's, the lockup's letters are the
+  bundled face's outlines, the couch and the popcorn with its knockout are the logo, the corner
+  bug (a full-size golden), two audio renders agree (each full ident's too) and hit their
+  loudness, the standby loop has no seam (its last frame is its first, its sound wraps), an
+  item's sound is the clip's faded into its ring-out, a promo sounds the same whatever its
+  airing, a bulletin's sound starts silent and is over before its last frame, and items rendered
+  alone and mixed sound like the break rendered in one pass (within 0.1 LU item by item, 0.5 LU
+  in every 400 ms after the first second, 0.2 dB of true peak); a unit test pins the loudness
+  numbers the server's Go port reproduces. Stand-in media (gradient art, two footage shots, a
+  bed) are committed in `test/media` with the script that made them. `npm run dev` (port 5190)
+  plays every fixture.
 
 ## Backend dependency graph
 

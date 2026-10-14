@@ -1,29 +1,51 @@
-// The credits squeeze: the program's last seconds shrink into a panel while "Up next" fills
-// the rest, then hand over (the next picture expands, or the program shrinks onto the couch in
-// its place in the lockup and dissolves into it, over the black field: the short ident's first
-// frame).
+// The credits squeeze: the ending program pulls back from the frame into the channel's dark
+// room, a sharp panel in the night, as a camera leaving a screen; the next program arrives
+// beside it as a card playing scenes from itself under its logo (or its name); then either the
+// camera pushes into the card until it is the frame (`expand`: up next continues from that
+// frame), or the room clears and the program shrinks onto the couch in its place in the lockup
+// and dissolves into it over the night field (`ident`: the short ident's first frame).
 //
 // The panel's motion is data (segments of translate/scale and opacity) that drives both the
 // animations and `keyRect(t)`, so the rectangle a compositor needs is exact for every frame.
 // What fills the panel is the spec's `program`: the program's own frames, a stand-in (the
 // ending title's backdrop under a credits roll), or nothing (`key`: the panel is transparent,
-// showing the background behind it, and the `matte` layer carries the program's alpha).
+// showing the background behind it, and the `matte` layer carries the program's alpha). While
+// the card holds, nothing in the page moves but the card's scenes.
+//
+// Sound: the program's own music carries on, ducked while the card arrives; air swells under
+// the pull back, one glass note as the card settles; into the push a rising air as the music
+// fades under it, or the music fading for the short ident's score.
 
-import { SPARKLE } from '../audio/kit';
+import type { Bus } from '../audio/engine';
+import type { Kit } from '../audio/kit';
+import { air, glass, house } from '../audio/voices';
 import { Ending, STAGE } from '../brand/ending';
 import { COUCH_BOX } from '../brand/glyph';
 import { bug } from '../brand/lockup';
 import { SHORT_IDENT_TIMES } from '../brand/short-ident';
 import { BRAND } from '../brand/wordmark';
-import { css, div, fadeOut, fadeUp, img, rise, span, words } from '../core/dom';
+import { css, div, img, span } from '../core/dom';
 import { fitText } from '../core/fit';
 import { framed, W } from '../core/framing';
 import { bezierPoints, cubicBezierAt, easing, type Ease } from '../core/motion';
 import { edge, windows } from '../core/moves';
-import { applyPalette } from '../core/palette';
 import type { KeyRect } from '../core/timeline';
 import type { SqueezeSpec } from '../spec';
-import { glow, timeline, titlePalette, type Template, type TL } from './shared';
+import {
+	conceal,
+	GRADE,
+	grade,
+	label,
+	labelIn,
+	labelOut,
+	masked,
+	night,
+	reveal,
+	scenes,
+	titleMark
+} from './onair';
+import { timeline, type Template, type TL } from './shared';
+import { UPNEXT } from './upnext';
 
 interface Box {
 	x: number;
@@ -76,6 +98,24 @@ const mixBox = (a: Box, b: Box, k: number): Box => ({
 });
 const mixNum = (a: number, b: number, k: number) => a + (b - a) * k;
 
+/** The program at the hold: today's geometry, so the compositor and the handover keep working. */
+const HOLD: Box = { x: 96, y: 236, sx: 0.525, sy: 0.525 };
+/** Full frame, overscaled so the panel's edges start outside it. */
+const FULL: Box = { x: -48, y: -27, sx: 1.05, sy: 1.05 };
+/** The next program's card beside it, as tall; its type 40 px in from the sides and the foot. */
+const CARD = { x: 1168, y: 236, w: 656, h: 567, pad: 40 };
+/** The card's logo: the same visual weight whatever its shape, within the card's type column. */
+const LOGO = { area: 76000, width: 540, height: 200 };
+/** When things happen (DESIGN.md 2.2). */
+const T = {
+	pull: [2.0, 3.6] as const,
+	cardIn: 3.0,
+	typeIn: 3.4,
+	expand: 9.4,
+	push: [9.6, 11.2] as const,
+	ident: 9.2
+};
+
 // stand-in crew for the credits roll (the preview has no program video)
 const CREDITS: [string, string][] = [
 	['Directed by', 'Mara Lindqvist'],
@@ -96,8 +136,21 @@ const CREDITS: [string, string][] = [
 	['Key Grip', 'Elena Petrova']
 ];
 
+interface Rect {
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+}
+const mixRect = (a: Rect, b: Rect, k: number): Rect => ({
+	x: mixNum(a.x, b.x, k),
+	y: mixNum(a.y, b.y, k),
+	w: mixNum(a.w, b.w, k),
+	h: mixNum(a.h, b.h, k)
+});
+
 export const squeeze: Template<SqueezeSpec> = {
-	version: 6,
+	version: 7,
 	build({ root, sound, assets }, spec) {
 		// `cursor` is this handover's old name, which squeezes composed before the rename carry
 		const toIdent = spec.handover !== 'expand';
@@ -105,12 +158,13 @@ export const squeeze: Template<SqueezeSpec> = {
 		const tl = timeline(root, D);
 		root.classList.add('squeeze');
 		const nx = spec.next;
-		applyPalette(root, titlePalette(nx.title));
 		const bed = assets.bed(spec.bed);
+		const [p0, p1] = T.pull;
+		const [q0, q1] = T.push;
+		const h0 = toIdent ? T.ident : T.expand;
 
-		const gV = glow(root, 'violet', 400, 160, 760);
-		const gT = glow(root, 'teal', 700, 1100, 720);
-		const gA = glow(root, 'accent', 1500, 560, 720);
+		// the room: night with the dusk low on its horizon (static)
+		const room = div('fill sq-room', root);
 
 		// the ending program
 		const prog = div('program', root);
@@ -146,54 +200,57 @@ export const squeeze: Template<SqueezeSpec> = {
 		} else {
 			prog.classList.add('keyed');
 		}
-		const frame = css(div('sq-frame', root), {
-			left: '96px',
-			top: '236px',
-			width: '1008px',
-			height: '567px'
+		// a hairline round the panel at the hold, so a dark program still reads as a screen in the
+		// room (outside the key: the program covers what the page draws inside it)
+		const rim = css(div('abs sq-rim', root), {
+			left: `${HOLD.x - 4}px`,
+			top: `${HOLD.y - 4}px`,
+			width: `${W * HOLD.sx + 8}px`,
+			height: `${1080 * HOLD.sy + 8}px`
 		});
 
-		const col = div('sq-col', root);
-		const ebRow = css(div('un-eyebrow', col), { marginBottom: '0' });
-		const rail = css(div('rail', ebRow), { width: '48px' });
-		const eb = div('eyebrow', ebRow, 'Up next');
-		const slot = div('sq-card-slot', col);
-		const title = words(div('hero sq-title', col), nx.title.name);
-		fitText(title.root.parentElement as HTMLElement, { width: 648, min: 54, lines: 3 });
-		const epRow = nx.episode ? div('sq-ep', col) : null;
-		const chip = epRow ? span('chip solid', epRow, nx.episode?.code) : null;
-		const epName = epRow ? span(null, epRow, nx.episode?.name) : null;
-		// beside the chip, within the column
-		if (chip && epName)
-			fitText(epName, { width: 630 - chip.offsetWidth, min: 24, lines: 2, leading: 1.15 });
-		const whenEl = div('sq-when', col);
-		span('tnum when-time', whenEl, nx.time);
-		whenEl.append(' · after the break');
-		const b = spec.clock ? bug(tl, root, spec.clock, { scrim: true }) : null;
-
-		// the next program's picture lives at stage level so it can expand to full frame
-		let slotX = 0;
-		let slotY = 0;
-		for (
-			let e: HTMLElement | null = slot;
-			e && e !== root;
-			e = e.offsetParent as HTMLElement | null
-		) {
-			slotX += e.offsetLeft;
-			slotY += e.offsetTop;
+		// the next program's card: a window onto its scenes, which live in stage pixels inside it
+		const card = css(div('abs sq-card', root), { width: `${CARD.w}px`, height: `${CARD.h}px` });
+		const lens = div('abs sq-lens', card);
+		// framed as up next frames it, so the push ends on its first frame
+		const crop = nx.title.crops?.upNext?.[0] ?? UPNEXT.crop;
+		scenes(tl, lens, nx.title, assets, { start: T.cardIn, end: D, crop });
+		const cardGrade = grade(card, [
+			`linear-gradient(0deg, ${night(0.95)} 0%, ${night(0.8)} 34%, ${night(0)} 70%)`
+		]);
+		const text = css(div('abs sq-text', card), {
+			left: `${CARD.pad}px`,
+			right: `${CARD.pad}px`,
+			bottom: `${CARD.pad - 2}px`
+		});
+		const row = div('sq-row', text);
+		const lbl = label(row, 'Up next', 'sq-label');
+		const time = masked(row, 'sq-time tnum', nx.time);
+		const mark = titleMark(
+			text,
+			nx.title,
+			assets,
+			'sq-title',
+			{ width: CARD.w - 2 * CARD.pad, min: 40, lines: 3, leading: 1.0 },
+			LOGO
+		);
+		let ep: HTMLElement | null = null;
+		if (nx.episode) {
+			ep = div('sq-ep', div('oa-mask sq-ep-mask', text));
+			span('sq-code tnum', ep, nx.episode.code);
+			ep.append(' ');
+			span(null, ep, nx.episode.name);
+			fitText(ep, { width: CARD.w - 2 * CARD.pad, min: 22, lines: 2, leading: 1.25 });
 		}
-		const k = 648 / W;
-		const tvEl = div('sq-tv', root);
-		const nshot = framed(tvEl, assets.picture(nx.title.backdrop));
-		const slotTf = `translate(${slotX}px, ${slotY}px) scale(${k})`;
-		tvEl.style.transform = slotTf;
 
-		const full: Box = { x: -48, y: -27, sx: 1.05, sy: 1.05 };
-		const sq: Box = { x: 96, y: 236, sx: 0.525, sy: 0.525 };
-		const s0 = 2.0;
-		const s1 = 3.3;
-		const h0 = 9.2;
-		const box = new Track<Box>(full, mixBox).to(s0, s1 - s0, sq, 'cubic-bezier(0.65, 0, 0.25, 1)');
+		// what up next starts from: its picture and its grade (expand only)
+		const after = toIdent
+			? null
+			: grade(root, [GRADE.bug, GRADE.left(66), GRADE.foot(58), GRADE.dim(0.14)]);
+		const b = spec.clock ? bug(tl, root, spec.clock) : null;
+
+		// --- the program panel, as data --------------------------------------------------------
+		const box = new Track<Box>(FULL, mixBox).to(p0, p1 - p0, HOLD, 'dolly');
 		const opacity = new Track<number>(1, mixNum);
 		// the couch's box in its place in the lockup
 		const lk = STAGE.logo.k;
@@ -209,10 +266,11 @@ export const squeeze: Template<SqueezeSpec> = {
 			box.to(h0 + 0.1, 0.9, onto, 'move');
 			opacity.to(handed, D - 0.04 - handed, 0, 'sine');
 		} else {
-			box.to(h0, 0.8, { x: -40, y: 236, sx: 0.525, sy: 0.525 }, 'cubic-bezier(0.6, 0, 0.8, 0.5)');
-			opacity.to(h0, 0.8, 0, 'cubic-bezier(0.6, 0, 0.8, 0.5)');
+			const k = HOLD.sx * 0.92;
+			box.to(q0, q1 - q0, { x: -1180, y: 276, sx: k, sy: k }, 'move');
+			opacity.to(10.2, 0.9, 0, 'sine');
 		}
-		tl.add(prog, [{ transform: tf(full) }, { transform: tf(full) }], 0, 0.01, 'linear');
+		tl.add(prog, [{ transform: tf(FULL) }, { transform: tf(FULL) }], 0, 0.01, 'linear');
 		box.animate(tl, prog, (v) => ({ transform: tf(v) }));
 		opacity.animate(tl, prog, (v) => ({ opacity: v }));
 
@@ -230,128 +288,143 @@ export const squeeze: Template<SqueezeSpec> = {
 			};
 		};
 
-		tl.cue('program ends (credits)', 0);
-		tl.cue('squeeze', s0);
-		tl.add(frame, [{ opacity: 0 }, { opacity: 1 }], s1 - 0.2, 0.5, 'sine');
-		for (const g of [gV, gT, gA])
-			tl.add(g, [{ opacity: 0 }, { opacity: 1 }], s0 + 0.3, 1.6, 'sine');
-		if (b) fadeUp(tl, b, s0 + 0.6, { y: -10 });
+		// --- the card, as data: its window and the picture inside it ----------------------------
+		const fullCover: Rect = { x: -0.04 * 1920, y: -0.04 * 1080, w: 1.08 * 1920, h: 1.08 * 1080 };
+		const cardBox = new Track<Rect>({ ...CARD, x: CARD.x + 64 }, mixRect).to(
+			T.cardIn,
+			1.1,
+			CARD,
+			'glide'
+		);
+		if (!toIdent) cardBox.to(q0, q1 - q0, fullCover, 'move');
+		const zoom = new Track<number>(1.1, mixNum).to(T.cardIn, 1.6, 1, 'glide');
+		const pushed = new Track<number>(0, mixNum).to(q0, q1 - q0, 1, 'move');
+		// up next's first frame: its camera's zoom about the middle of the frame
+		const Z = UPNEXT.zoom[0];
+		const end = { x: (1920 * (1 - Z)) / 2, y: (1080 * (1 - Z)) / 2, k: Z };
+		const moving: [number, number][] = [[T.cardIn, T.cardIn + 1.6]];
+		if (!toIdent) moving.push([q0, q1]);
+		// held frames share one value, so the renderer reuses them
+		const still = (t: number) => Math.max(0, ...moving.filter(([, z]) => z < t).map(([, z]) => z));
+		tl.dynamic(
+			(t) => (moving.some(([a, z]) => t >= a && t <= z) ? t : `hold ${still(t)}`),
+			(v) => {
+				const t = typeof v === 'number' ? v : Number(String(v).slice(5));
+				const c = cardBox.at(t);
+				const sx = c.w / CARD.w;
+				const sy = c.h / CARD.h;
+				card.style.transform = `translate(${c.x.toFixed(2)}px, ${c.y.toFixed(2)}px) scale(${sx.toFixed(5)}, ${sy.toFixed(5)})`;
+				// the picture covering the card at the hold, up next's first frame at the end of the
+				// push, mixed between by the push's own progress (the mix of two covers covers the
+				// mix of the two windows, so no edge ever shows)
+				const k0 = Math.max(CARD.w / 1920, CARD.h / 1080) * zoom.at(t);
+				let X = c.x + (c.w - 1920 * k0) / 2;
+				let Y = c.y + (c.h - 1080 * k0) / 2;
+				let K = k0;
+				const p = pushed.at(t);
+				if (p > 0) {
+					const x0 = CARD.x + (CARD.w - 1920 * k0) / 2;
+					const y0 = CARD.y + (CARD.h - 1080 * k0) / 2;
+					X = mixNum(x0, end.x, p);
+					Y = mixNum(y0, end.y, p);
+					K = mixNum(k0, end.k, p);
+				}
+				lens.style.transform = `scale(${(1 / sx).toFixed(5)}, ${(1 / sy).toFixed(5)}) translate(${(X - c.x).toFixed(2)}px, ${(Y - c.y).toFixed(2)}px) scale(${K.toFixed(5)})`;
+			}
+		);
 
-		const c0 = s0 + 0.75;
-		tl.cue('up next panel', c0);
-		tl.add(rail, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], c0, 0.7, 'enter');
-		tl.add(
-			eb,
-			[
-				{ opacity: 0, transform: 'translateX(-14px)' },
-				{ opacity: 1, transform: 'translateX(0)' }
-			],
-			c0 + 0.1,
-			0.7,
-			'enter'
-		);
-		tl.add(tvEl, [{ opacity: 0 }, { opacity: 1 }], c0 + 0.2, 0.8, 'sine');
-		tl.add(
-			nshot.el,
-			[{ transform: 'scale(1.1)' }, { transform: 'scale(1)' }],
-			c0 + 0.2,
-			1.4,
-			'enter'
-		);
-		tl.add(
-			nshot.img,
-			[{ transform: nshot.tf([0, 0, 1, 1]) }, { transform: nshot.tf([0.06, 0.04, 0.9, 0.9]) }],
-			c0,
-			D - c0,
-			'linear'
-		);
-		rise(tl, title.items, c0 + 0.45, { stagger: 0.08, dur: 0.95 });
-		if (chip && epName) {
-			tl.add(
-				chip,
-				[
-					{ opacity: 0, transform: 'scale(0.7)' },
-					{ opacity: 1, transform: 'scale(1)' }
-				],
-				c0 + 0.8,
-				0.5,
-				'pop'
-			);
-			tl.add(
-				epName,
-				[
-					{ opacity: 0, transform: 'translateX(-16px)' },
-					{ opacity: 1, transform: 'translateX(0)' }
-				],
-				c0 + 0.9,
-				0.7,
-				'enter'
-			);
-		}
-		fadeUp(tl, whenEl, c0 + 1.05, { y: 10 });
+		// --- in ------------------------------------------------------------------------------------
+		tl.cue('the program ends (credits)', 0);
+		tl.cue('pull back', p0);
+		tl.add(rim, [{ opacity: 0 }, { opacity: 1 }], p1 - 0.3, 0.6, 'sine');
+		tl.cue('up next card', T.cardIn);
+		tl.add(card, [{ opacity: 0 }, { opacity: 1 }], T.cardIn, 0.5, 'sine');
+		labelIn(tl, lbl, T.typeIn);
+		reveal(tl, [[time]], T.typeIn + 0.06, { dur: 0.8 });
+		reveal(tl, mark.lines, T.typeIn + 0.1, { stagger: 0.07, dur: mark.logo ? 0.95 : 0.85 });
+		if (ep) reveal(tl, [[ep]], T.typeIn + 0.36, { dur: 0.8 });
 
-		tl.cue(
-			toIdent ? "handover: onto the short ident's couch" : 'handover: the next program expands',
-			h0
-		);
-		[ebRow, title.root.parentElement as HTMLElement, epRow, whenEl].forEach((e, i) => {
-			if (e) fadeOut(tl, e, h0 + i * 0.05, { dur: 0.4, y: -10 });
-		});
-		tl.add(frame, [{ opacity: 1 }, { opacity: 0 }], h0, 0.3, 'sine');
+		// --- the handover --------------------------------------------------------------------------
+		tl.cue(toIdent ? "handover: onto the short ident's couch" : 'handover: push into the card', h0);
+		tl.add(rim, [{ opacity: 1 }, { opacity: 0 }], h0, 0.3, 'sine');
 		if (toIdent) {
 			// the stage settles into the ident's black field under the collapse
 			const black = css(div('fill', root), { background: BRAND.night });
 			root.insertBefore(black, prog);
 			tl.add(black, [{ opacity: 0 }, { opacity: 1 }], h0, 0.9, 'sine');
-			tl.add(tvEl, [{ opacity: 1 }, { opacity: 0 }], h0, 0.45, 'sine');
-			if (b) fadeOut(tl, b, h0, { dur: 0.4, y: -10 });
-			for (const g of [gV, gT, gA]) tl.add(g, [{ opacity: 1 }, { opacity: 0 }], h0, 0.9, 'sine');
+			tl.add(room, [{ opacity: 1 }, { opacity: 0 }], h0, 0.6, 'sine');
+			tl.add(card, [{ opacity: 1 }, { opacity: 0 }], h0, 0.4, 'leave');
+			if (b) tl.add(b, [{ opacity: 1 }, { opacity: 0 }], h0, 0.4, 'sine');
 			// the short ident's first frame, drawn as the ident draws it (pixel for pixel)
 			const couch = new Ending(root, SHORT_IDENT_TIMES);
 			couch.show(couch.key(0), false);
 			root.insertBefore(couch.canvas, prog);
 			windows(tl, couch.canvas, [[handed, D + 1]]);
-			tl.sound(h0 + 0.1, (w, bus) =>
-				sound.whoosh(bus, w, { dur: 0.9, pan: [-0.5, 0], gain: 0.05 })
-			);
 		} else {
-			tl.add(
-				tvEl,
-				[{ transform: slotTf }, { transform: 'translate(-57.6px, -32.4px) scale(1.06)' }],
-				h0 + 0.35,
-				1.25,
-				'cubic-bezier(0.7, 0, 0.2, 1)'
-			);
-			tl.sound(h0 + 0.3, (w, bus) =>
-				sound.whoosh(bus, w, { dur: 1.2, pan: [0.6, -0.1], gain: 0.07 })
-			);
-			tl.sound(h0 + 1.5, (w, bus) => sound.impact(bus, w, { gain: 0.15, size: 0.7, click: 0.2 }));
+			labelOut(tl, lbl, h0);
+			conceal(tl, [[time], ...mark.lines, ...(ep ? [[ep]] : [])], h0 + 0.03, { stagger: 0.03 });
+			tl.add(cardGrade, [{ opacity: 1 }, { opacity: 0 }], q0, 0.8, 'sine');
+			if (after) tl.add(after, [{ opacity: 0 }, { opacity: 1 }], 9.9, q1 - 9.9, 'sine');
+			// up next's first frame: the same view of the same scenes, a frame after the card is it
+			const view = div('fill oa-view', root);
+			root.insertBefore(view, after);
+			const cam = scenes(tl, view, nx.title, assets, {
+				start: q1,
+				end: D,
+				offset: q1 - T.cardIn,
+				crop
+			});
+			cam.style.transform = `scale(${Z})`;
+			windows(tl, view, [[q1, D + 1]]);
+			tl.show(card, 0, q1);
+			tl.cue('up next', D);
 		}
 
-		// the credits music keeps playing, ducked while "Up next" talks over it
+		// --- sound -------------------------------------------------------------------------------
 		tl.sound(
 			0,
 			(w, bus, skip) =>
 				sound.bed(bus, w, bed, skip, {
 					fadeIn: 0.4,
-					fadeOut: 1.4,
-					end: h0 + 1.5,
-					gain: 1,
-					ducks: [{ at: s0 + 0.5, depth: 0.42, hold: h0 - s0 - 0.5, attack: 0.7, release: 0.01 }]
+					// into the short ident's silence, or under the push until up next's own bed
+					fadeOut: toIdent ? 0.8 : D - q0,
+					end: toIdent ? h0 + 0.8 : D,
+					// down 6 dB as the card arrives, until the handover
+					ducks: [{ at: 2.4 + 0.7, depth: 0.5, attack: 0.7, hold: D }]
 				}),
-			h0 + 1.5
+			D
 		);
-		tl.sound(s0, (w, bus) =>
-			sound.whoosh(bus, w, { dur: 1.3, pan: [0.4, -0.5], gain: 0.05, lo: 300, hi: 1800 })
-		);
-		tl.sound(c0, (w, bus) => sound.tick(bus, w, { freq: SPARKLE[1], gain: 0.04, pan: 0.5 }));
-		tl.sound(c0 + 0.2, (w, bus) =>
-			sound.shimmer(bus, w, { dur: 0.9, gain: 0.018, count: 8, seed: 41 })
-		);
-		if (chip)
-			tl.sound(c0 + 0.8, (w, bus) =>
-				sound.tick(bus, w, { freq: SPARKLE[3], gain: 0.035, pan: 0.55 })
-			);
+		tl.sound(p0, (w, bus) => roomSounds(sound, bus, w, toIdent));
 		return tl;
 	}
 };
+
+/** The room's punctuation, from the pull back: air under it, a glass note as the card settles. */
+function roomSounds(k: Kit, b: Bus, w: number, toIdent: boolean) {
+	const h = house(k, b);
+	const [p0, p1] = T.pull;
+	air(h, w, p1 - p0 + 0.6, {
+		peakAt: 1.0,
+		band: [350, 2200],
+		pans: [0.3, -0.3],
+		gain: 0.55,
+		seed: 801
+	});
+	glass(h, w + T.cardIn - p0, 'E5', {
+		decay: 2.4,
+		tone: 0.8,
+		gain: 0.5,
+		pan: 0.35,
+		verb: 0.7,
+		seed: 802
+	});
+	// the push breathes in, its air carried to the squeeze's last frame
+	if (!toIdent)
+		air(h, w + T.expand - p0, 11.52 - T.expand + 0.2, {
+			peakAt: T.push[1] - T.expand,
+			band: [500, 3200],
+			pans: [0.35, 0],
+			gain: 0.6,
+			seed: 803
+		});
+}
