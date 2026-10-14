@@ -38,14 +38,14 @@ const (
 var bodyAiring = SpecAiring{Eyebrow: "Tonight", Time: "20:15"}
 
 // itemSpec is the spec whose sound a clip of the given kind plays in a break, false for a
-// clip that has none of its own there: a promo body's sound is the full promo, which rings
-// on through its end card; the end cards and the standby card make none, and a bulletin airs
+// clip that has none of its own there: a promo body's (or a trailer body's) sound is the full
+// promo, which rings on through its end card; the end cards and the standby card make none, and a bulletin airs
 // its own sound in a slot's place, never in a break's mix.
 func itemSpec(kind string, spec Spec) (Spec, bool) {
 	switch kind {
-	case ClipPromoEnd, ClipEvergreenEnd, ClipStandby, ClipWeather, ClipNews:
+	case ClipPromoEnd, ClipTrailerEnd, ClipEvergreenEnd, ClipStandby, ClipWeather, ClipNews:
 		return Spec{}, false
-	case ClipPromoBody:
+	case ClipPromoBody, ClipTrailerBody:
 		spec.Part = "full"
 		airing := bodyAiring
 		spec.Airing = &airing
@@ -56,7 +56,7 @@ func itemSpec(kind string, spec Spec) (Spec, bool) {
 // soundSpec is the spec an item's sound is rendered from and keyed by: a promo's airing is
 // replaced by the body's (see bodyAiring).
 func soundSpec(spec Spec) Spec {
-	if spec.Template == "promo" && spec.Airing != nil {
+	if (spec.Template == "promo" || spec.Template == "trailer") && spec.Airing != nil {
 		airing := bodyAiring
 		spec.Airing = &airing
 	}

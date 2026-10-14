@@ -198,6 +198,8 @@ type Spec struct {
 	Clock    string         `json:"clock,omitempty"`
 	Enter    string         `json:"enter,omitempty"`
 	Shots    []Shot         `json:"shots,omitempty"`
+	Scenes   []SpecScene    `json:"scenes,omitempty"`
+	Words    []string       `json:"words,omitempty"`
 	Airing   *SpecAiring    `json:"airing,omitempty"`
 	Foot     *StripFoot     `json:"foot,omitempty"`
 	Items    []LineupItem   `json:"items,omitempty"`

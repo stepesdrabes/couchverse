@@ -100,6 +100,10 @@ type Candidate struct {
 	Bed       *Bed
 	// BodyFrames is the length of the title's rendered promo body; 0 until it is rendered.
 	BodyFrames int
+	// Trailer is the title's own scenes for its trailer (D43), none without three; TrailerFrames
+	// the length of its rendered trailer body, 0 until it is rendered.
+	Trailer       []SpecScene
+	TrailerFrames int
 }
 
 // BreakInput is everything a break's composition depends on.
@@ -115,9 +119,11 @@ type BreakInput struct {
 	// Later are the programs after Next, for the lineup.
 	Later      []BreakProgram
 	Candidates []Candidate
-	// Recent are the titles promoted in the breaks just before this one.
-	Recent   map[string]bool
-	Loudness float64
+	// Recent are the titles promoted in the breaks just before this one; RecentTrailers those
+	// whose trailer aired near this break (before or after).
+	Recent         map[string]bool
+	RecentTrailers map[string]bool
+	Loudness       float64
 	// Bulletins are the kinds of bulletin the break carries, in order: each a slot of its
 	// fixed length before up next (bulletin_slots.go).
 	Bulletins []string
@@ -143,8 +149,9 @@ type Composition struct {
 	Frames int
 	Parts  []Part
 	Sound  BreakSpec
-	// Promos are the titles it promotes, in order.
-	Promos []string
+	// Promos are the titles it promotes, in order; Trailers those it airs the trailer of.
+	Promos   []string
+	Trailers []string
 	// Slots are where its bulletins air.
 	Slots []Slot
 }
@@ -267,7 +274,10 @@ func assemble(in BreakInput, seq []piece) Composition {
 			// the corner bug's clock, as of the part's first frame
 			part.Spec.Clock = localTime(in.Start.Add(time.Duration(part.At)*time.Second/FPS), in.Loc)
 		}
-		if part.Kind != ClipPromoEnd && part.Kind != ClipEvergreenEnd {
+		if part.Kind == ClipTrailerBody {
+			c.Trailers = append(c.Trailers, part.TitleID)
+		}
+		if part.Kind != ClipPromoEnd && part.Kind != ClipTrailerEnd && part.Kind != ClipEvergreenEnd {
 			if part.Sound == nil {
 				s := part.Spec
 				part.Sound = &s
@@ -328,6 +338,12 @@ func fit(spans []span, need int) (sizes []int, stings int, ok bool) {
 func promos(in BreakInput, left, slack int, full func() Part) ([][]piece, int) {
 	ranked := rankCandidates(in)
 	var groups [][]piece
+	// the long promo first: one trailer, for the best candidate that has one and room for it
+	if grp, n, id := trailerPromo(in, ranked, left+slack); n > 0 {
+		groups = append(groups, grp)
+		left -= n
+		ranked = slices.DeleteFunc(slices.Clone(ranked), func(c Candidate) bool { return c.TitleID == id })
+	}
 	for round := 0; len(ranked) > 0; round++ {
 		added := false
 		for _, c := range ranked {

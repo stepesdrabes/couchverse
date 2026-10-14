@@ -70,6 +70,22 @@ func (s *Store) uncomposed(ctx context.Context, from, to time.Time) ([]Airing, e
 		AND (b.state <> 'failed' OR b.updated_at > $3))`, from, to, from.Add(-retryAfter))
 }
 
+// clipKnown reports whether a clip with the key was asked for already, in any state.
+func (s *Store) clipKnown(ctx context.Context, key string) (bool, error) {
+	var known bool
+	err := s.q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM couchtv_clips WHERE key = $1)`, key).Scan(&known)
+	return known, err
+}
+
+// trailersQueued counts the trailers waiting to render, rendering, or rendered since the given
+// time: what a night's quiet hours are spent on.
+func (s *Store) trailersQueued(ctx context.Context, since time.Time) (int, error) {
+	var n int
+	err := s.q.QueryRow(ctx, `SELECT count(*) FROM couchtv_clips WHERE kind = 'trailer_body'
+		AND (state IN ('pending', 'rendering') OR rendered_at > $1)`, since).Scan(&n)
+	return n, err
+}
+
 // queuedRender is a clip whose render waits in the queue, with the breaks that use it.
 type queuedRender struct {
 	ClipID, Kind string
@@ -153,6 +169,11 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 	// the render of every screen that shows the title
 	shots := `coalesce((SELECT jsonb_agg(x.shot ORDER BY x.n) FROM jsonb_array_elements(ct.shots) WITH ORDINALITY x(shot, n)
 		JOIN media_files mf ON mf.id::text = x.shot->>'mediaFileId' AND mf.source_deleted_at IS NULL), '[]')`
+	// a scene of a file that is gone (or lost its source) cannot be extracted, and one failed
+	// extraction fails the render of the whole trailer: such a scene is left out
+	scenes := `coalesce((SELECT jsonb_agg(x.scene ORDER BY x.n) FROM jsonb_array_elements(ct.trailer) WITH ORDINALITY x(scene, n)
+		JOIN media_files pf ON pf.id::text = x.scene->>'mediaFileId' AND pf.source_deleted_at IS NULL
+		JOIN media_files af ON af.id::text = x.scene->>'audioFileId' AND af.source_deleted_at IS NULL), '[]')`
 	rows, err := s.q.Query(ctx, `
 		SELECT t.id, `+englishTitle+`, coalesce(t.year, 0), coalesce(t.runtime_minutes, 0),
 		       `+englishTagline+`,
@@ -163,7 +184,7 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 		       coalesce(ct.promo_audio_start_ms, 0), coalesce(ct.promo_audio_duration_ms, 0), coalesce(ct.promo_audio_source, ''),
 		       coalesce(ct.loudness_lufs, 0), coalesce(s.provider, ''), coalesce(s.track_id, ''),
 		       ct.soundtrack_path IS NOT NULL, coalesce(ct.soundtrack_start_ms, 0), coalesce(ct.soundtrack_duration_ms, 0),
-		       t.allow_random_playback
+		       t.allow_random_playback, `+scenes+`
 		FROM titles t
 		`+art("backdrop")+`
 		`+art("poster")+`
@@ -179,14 +200,17 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 	for rows.Next() {
 		var id, backdrop, bdAccent, poster, poAccent, logo, promoFile, promoSource, catalog, trackID string
 		var bdVersion, poVersion, logoVersion int64
-		var shots []byte
+		var shots, trailer []byte
 		var logoWidth, logoHeight, promoStart, promoLength, soundtrackStart, soundtrackLength int
 		var soundtrackReady bool
 		var f titleFacts
 		if err := rows.Scan(&id, &f.Name, &f.Year, &f.Runtime, &f.Tagline, &backdrop, &bdVersion, &bdAccent,
 			&poster, &poVersion, &poAccent, &logo, &logoVersion, &logoWidth, &logoHeight,
 			&f.Mood, &shots, &promoFile, &promoStart, &promoLength, &promoSource,
-			&f.Loudness, &catalog, &trackID, &soundtrackReady, &soundtrackStart, &soundtrackLength, &f.Random); err != nil {
+			&f.Loudness, &catalog, &trackID, &soundtrackReady, &soundtrackStart, &soundtrackLength, &f.Random, &trailer); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(trailer, &f.Trailer); err != nil {
 			return nil, err
 		}
 		f.Genres = genres[id]
@@ -225,7 +249,8 @@ func (s *Store) titleFacts(ctx context.Context, ids []string) (map[string]titleF
 // promotions are the titles promoted by the breaks composed in [from, to), by start.
 func (s *Store) promotions(ctx context.Context, from, to time.Time) ([]promotion, error) {
 	rows, err := s.q.Query(ctx, `
-		SELECT a.starts_at, coalesce(b.recipe->'promos', '[]') FROM couchtv_breaks b JOIN couchtv_airings a ON a.id = b.airing_id
+		SELECT a.starts_at, coalesce(b.recipe->'promos', '[]'), coalesce(b.recipe->'trailers', '[]')
+		FROM couchtv_breaks b JOIN couchtv_airings a ON a.id = b.airing_id
 		WHERE a.starts_at >= $1 AND a.starts_at < $2 AND b.state <> 'failed' ORDER BY a.starts_at`, from, to)
 	if err != nil {
 		return nil, err
@@ -234,11 +259,14 @@ func (s *Store) promotions(ctx context.Context, from, to time.Time) ([]promotion
 	var out []promotion
 	for rows.Next() {
 		var p promotion
-		var raw []byte
-		if err := rows.Scan(&p.at, &raw); err != nil {
+		var raw, trailers []byte
+		if err := rows.Scan(&p.at, &raw, &trailers); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal(raw, &p.titles); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(trailers, &p.trailers); err != nil {
 			return nil, err
 		}
 		out = append(out, p)

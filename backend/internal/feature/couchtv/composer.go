@@ -130,7 +130,7 @@ func (r *composition) tidyRenders(ctx context.Context) error {
 		switch {
 		case q.Used:
 			err = r.Jobs.Reschedule(ctx, RenderJob, payload, renderAt(r.now, q.Airs, r.cfg.location()), urgency(q.Airs))
-		case q.Kind == ClipPromoBody:
+		case q.Kind == ClipPromoBody || q.Kind == ClipTrailerBody:
 			err = r.Jobs.Reschedule(ctx, RenderJob, payload, renderAt(r.now, later, r.cfg.location()), urgency(later))
 		case q.Kind != ClipStandby:
 			err = r.Jobs.CancelPending(ctx, RenderJob, payload)
@@ -187,6 +187,8 @@ type composition struct {
 type promotion struct {
 	at     time.Time
 	titles []string
+	// trailers are the titles whose trailer the break airs
+	trailers []string
 }
 
 // forget drops what the break at `at` promoted, before it is composed again.
@@ -227,10 +229,13 @@ func (r *composition) compose(ctx context.Context, b Airing) error {
 	if err := r.requestBodies(ctx, in.Candidates); err != nil {
 		return err
 	}
+	if err := r.requestTrailers(ctx, in); err != nil {
+		return err
+	}
 	_, err = r.save(ctx, b.ID, b.StartsAt, comp)
 	if err == nil {
 		at, _ := slices.BinarySearchFunc(r.promoted, b.StartsAt, func(p promotion, t time.Time) int { return p.at.Compare(t) })
-		r.promoted = slices.Insert(r.promoted, at, promotion{at: b.StartsAt, titles: comp.Promos})
+		r.promoted = slices.Insert(r.promoted, at, promotion{at: b.StartsAt, titles: comp.Promos, trailers: comp.Trailers})
 	}
 	return err
 }
@@ -238,7 +243,7 @@ func (r *composition) compose(ctx context.Context, b Airing) error {
 // save requests a composition's clips and stores it; it queues its assembly at once when
 // every clip is rendered already. An invalid spec fails the break, not the run.
 func (r *composition) save(ctx context.Context, airingID string, airs time.Time, comp Composition) (string, error) {
-	recipe := Recipe{Frames: comp.Frames, Sound: comp.Sound, Promos: comp.Promos}
+	recipe := Recipe{Frames: comp.Frames, Sound: comp.Sound, Promos: comp.Promos, Trailers: comp.Trailers}
 	if recipe.Promos == nil {
 		recipe.Promos = []string{}
 	}
@@ -423,6 +428,17 @@ func (r *composition) input(ctx context.Context, b Airing) (BreakInput, error) {
 	if err := r.bodies(ctx, in.Candidates); err != nil {
 		return in, err
 	}
+	if err := r.trailers(ctx, in.Candidates); err != nil {
+		return in, err
+	}
+	in.RecentTrailers = map[string]bool{}
+	for _, p := range r.promoted {
+		if d := p.at.Sub(b.StartsAt); !p.at.Equal(b.StartsAt) && d > -trailerRest && d < trailerRest {
+			for _, id := range p.trailers {
+				in.RecentTrailers[id] = true
+			}
+		}
+	}
 
 	n := 0
 	for i := len(r.promoted) - 1; i >= 0 && n < recentBreaks; i-- {
@@ -440,7 +456,7 @@ func (r *composition) input(ctx context.Context, b Airing) (BreakInput, error) {
 func (r *composition) candidate(id string, p program, from time.Time) Candidate {
 	t := r.titles[id]
 	c := Candidate{TitleID: id, Title: t.spec(), BodyBackdrop: t.BodyBackdrop, Airs: p.StartsAt, Fill: p.Fill, Mood: t.mood(),
-		StripMood: t.stripMood(), Shots: t.shots(), Bed: t.bed()}
+		StripMood: t.stripMood(), Shots: t.shots(), Bed: t.bed(), Trailer: specScenes(t.Trailer)}
 	if !p.StartsAt.IsZero() {
 		c.Airing = airingPhrase(p.StartsAt, from, r.cfg.location(), p.Fill)
 	}
@@ -488,6 +504,77 @@ func (r *composition) bodies(ctx context.Context, cands []Candidate) error {
 	return nil
 }
 
+// trailers fills in the lengths of the candidates' rendered trailer bodies.
+func (r *composition) trailers(ctx context.Context, cands []Candidate) error {
+	version := r.versions["trailer"]
+	if version == 0 {
+		return nil
+	}
+	keys := make([]string, len(cands))
+	var missing []string
+	for i := range cands {
+		if len(cands[i].Trailer) == 0 {
+			continue
+		}
+		key, err := clipKey(version, trailerBody(cands[i]))
+		if err != nil {
+			return err
+		}
+		keys[i] = key
+		if _, ok := r.ready[key]; !ok {
+			missing = append(missing, key)
+		}
+	}
+	if len(missing) > 0 {
+		frames, err := r.Store.ReadyFrames(ctx, missing)
+		if err != nil {
+			return err
+		}
+		for _, k := range missing {
+			r.ready[k] = frames[k]
+		}
+	}
+	for i := range cands {
+		if keys[i] != "" {
+			cands[i].TrailerFrames = r.ready[keys[i]]
+		}
+	}
+	return nil
+}
+
+// requestTrailers asks for the trailers a break could use that are not rendered yet, the
+// best-ranked first, so later breaks can air them. Each is a long render, so only
+// trailersPerNight are asked for in a day (a trailer asked for earlier is only kept in use).
+func (r *composition) requestTrailers(ctx context.Context, in BreakInput) error {
+	version := r.versions["trailer"]
+	if version == 0 {
+		return nil
+	}
+	for _, c := range rankCandidates(in) {
+		if c.TrailerFrames > 0 || !trailerEligible(c, in.Frames) {
+			continue
+		}
+		body := trailerBody(c)
+		key, err := clipKey(version, body)
+		if err != nil {
+			return err
+		}
+		known, err := r.Store.clipKnown(ctx, key)
+		if err != nil {
+			return err
+		}
+		if !known {
+			if n, err := r.Store.trailersQueued(ctx, r.now.Add(-trailerWindow)); err != nil || n >= trailersPerNight {
+				return err
+			}
+		}
+		if _, _, err := r.request(ctx, ClipTrailerBody, key, body, 0, c.Airs, c.Airs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *composition) breakProgram(p program, loc *time.Location) *BreakProgram {
 	t := r.titles[p.TitleID]
 	bp := &BreakProgram{TitleID: p.TitleID, Title: t.spec(), Start: p.StartsAt, Fill: p.Fill, Promo: t.bed()}
@@ -530,6 +617,8 @@ type titleFacts struct {
 	Loudness     float64
 	// Random says the series' episodes air in any order (titles.allow_random_playback).
 	Random bool
+	// Trailer is the scenes picked for the title's trailer whose files still exist (D43).
+	Trailer []CouchTvTrailerScene
 }
 
 // analyzedShot is one footage shot couchtv_analyze picked (couchtv_titles.shots).

@@ -18,6 +18,8 @@ const (
 	ClipSting        = "sting"
 	ClipPromoBody    = "promo_body"
 	ClipPromoEnd     = "promo_end"
+	ClipTrailerBody  = "trailer_body"
+	ClipTrailerEnd   = "trailer_end"
 	ClipEvergreenEnd = "evergreen_end"
 	ClipShortPromo   = "short_promo"
 	ClipStripPromo   = "strip_promo"
@@ -147,6 +149,8 @@ type Recipe struct {
 	Clips  []RecipeClip `json:"clips"`
 	Sound  BreakSpec    `json:"sound"`
 	Promos []string     `json:"promos"`
+	// Trailers are the titles whose trailer the break airs (D43).
+	Trailers []string `json:"trailers,omitempty"`
 	// Slots are where bulletins air: the break is assembled in sections around them.
 	Slots []RecipeSlot `json:"slots,omitempty"`
 }

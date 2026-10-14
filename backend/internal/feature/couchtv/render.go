@@ -366,7 +366,7 @@ func (r *Renderer) keepItemSound(ctx context.Context, b *browser, clip *Clip, lo
 		return nil
 	}
 	frames := framesOf(loaded.Duration)
-	if clip.Kind == ClipPromoBody {
+	if clip.Kind == ClipPromoBody || clip.Kind == ClipTrailerBody {
 		frames += endCardFrames
 	}
 	if got := framesOf(loaded.SoundDuration); got != frames {
