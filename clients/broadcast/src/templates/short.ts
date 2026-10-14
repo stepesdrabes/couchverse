@@ -160,15 +160,17 @@ export const shortPromo: Template<ShortPromoSpec> = {
 			'move'
 		);
 		tl.show(swipe, wipeIn, wipeOut);
-		// the title drifts closer through the card
-		if (mark)
+		// the title settles as the swipe passes, then drifts closer through the card
+		if (mark) {
+			tl.add(mark, [{ transform: 'scale(1.06)' }, { transform: 'scale(1)' }], wipeIn, 0.7, 'glide');
 			tl.add(
 				mark,
-				[{ transform: 'scale(1)' }, { transform: 'scale(1.035)' }],
-				hit,
-				D - hit,
+				[{ transform: 'scale(1)' }, { transform: 'scale(1.03)' }],
+				wipeIn + 0.7,
+				D - wipeIn - 0.7,
 				'linear'
 			);
+		}
 
 		// the airing: its block opens, the words rise into it, the time after
 		const wAt = hit + 0.5;

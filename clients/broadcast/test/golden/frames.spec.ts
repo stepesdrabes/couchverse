@@ -27,7 +27,7 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['promo-premiere', [12.4, 20.6]],
 	['evergreen', [2.5]],
 	// the panel sliding in, the week lit, the tag on the clean field
-	['strip-bright', [0.5, 7, 13.5]],
+	['strip-bright', [1.3, 7, 13.5]],
 	['strip-dark', [7, 13.5]],
 	// the rush, the swipe on the hit, the card
 	['short', [0.6, 1.2, 3.5]],

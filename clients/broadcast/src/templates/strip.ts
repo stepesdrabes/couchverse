@@ -1,10 +1,11 @@
-// A strip promo ("Every weekday at 18:00"): the series' scenes, then a flat panel slides in over
-// the left half with a red bar on its edge, the scenes moving aside, and the column types in on
-// it: the eyebrow in a red block, the title's logo (else its name), the time as the hero numeral,
-// the week, whose aired days light red on the beat, and the foot line. Before the channel tag the
-// panel sweeps on across the scenes and the tag lands on the clean field. Moods: bright is day
-// (a paper panel, night type, the scenes as they are, hard cuts on the beat), dark is night (a
-// night panel with the dusk at its foot, the scenes dimmed, dissolves, slower moves).
+// A strip promo ("Every weekday at 18:00"): the series' scenes for a beat, then a flat panel
+// slides in over the left half with a red bar on its edge, the scenes moving aside, and the
+// column types in on it: the eyebrow in a red block, the title's logo (else its name), the time
+// as the hero numeral, the week, whose aired days light red on the beat, and the foot line.
+// Before the channel tag the panel sweeps on across the scenes and the tag lands on the clean
+// field. Moods: bright is day (a paper panel, night type, the scenes as they are, hard cuts on
+// the beat), dark is night (a night panel with the dusk at its foot, the scenes dimmed,
+// dissolves, slower moves).
 
 import type { Kit } from '../audio/kit';
 import { beatsIn, snapper } from '../audio/onsets';
@@ -191,7 +192,8 @@ export const stripPromo: Template<StripPromoSpec> = {
 		// --- the open: the scenes come up, the panel slides in and pushes them aside ---
 		const veil = div('sp-veil', root);
 		tl.add(veil, [{ opacity: 1 }, { opacity: 0 }], 0, 0.4, 'sine');
-		const pIn = 0.16;
+		// the scenes alone for a beat, then the panel on the bed's strongest onset near it
+		const pIn = edge(snap(bed ? 1.0 : BEAT, 0.35, 0.5));
 		tl.cue('the panel slides in', pIn);
 		tl.add(
 			panel,
@@ -297,7 +299,7 @@ export const stripPromo: Template<StripPromoSpec> = {
 		tl.add(out, [{ opacity: 0 }, { opacity: 1 }], D - 0.32, 0.32, 'sine');
 
 		// --- sound ---
-		score(tl, sound, { tTime, litAt, close, tagAt, D, dark, bed: !!bed });
+		score(tl, sound, { pIn, tTime, litAt, close, tagAt, D, dark, bed: !!bed });
 		tl.sound(
 			0,
 			(w, b, skip) =>
@@ -315,6 +317,7 @@ export const stripPromo: Template<StripPromoSpec> = {
 };
 
 interface Moments {
+	pIn: number;
 	tTime: number;
 	litAt: number[];
 	close: number;
@@ -333,7 +336,7 @@ interface Moments {
  */
 function score(tl: TL, sound: Kit, o: Moments) {
 	const k = o.bed ? 1 : 1.6;
-	tl.sound(0.05, (w, b) => {
+	tl.sound(Math.max(0.05, o.pIn - 0.55), (w, b) => {
 		const h = house(sound, b);
 		air(h, w, 1.5, { peakAt: 0.7, band: [380, 2400], pans: [-0.7, 0], gain: 0.35 * k, seed: 501 });
 	});
