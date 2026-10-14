@@ -77,8 +77,8 @@ func TestCouchTvRender(t *testing.T) {
 			Program: &couchtv.ProgramSource{Kind: "frames", Frames: couchtv.FramesURLs(fileID, creditsAt, 288)},
 			Next:    &couchtv.SqueezeNext{Title: title, Time: "20:15"}, Clock: "20:13",
 			Bed: &couchtv.Bed{URL: couchtv.AudioURL(fileID, creditsAt, 11*time.Second), In: 0, Out: 11}}},
-		{couchtv.ClipIdentShort, 113, couchtv.Spec{Template: "ident", Cut: "short"}},
-		{couchtv.ClipSting, 52, couchtv.Spec{Template: "sting", Duration: 2.08}},
+		{couchtv.ClipIdentShort, 130, couchtv.Spec{Template: "ident", Cut: "short"}},
+		{couchtv.ClipSting, 125, couchtv.Spec{Template: "sting", Duration: 5}},
 	}
 	recipe := couchtv.Recipe{Key: "test", Sound: couchtv.BreakSpec{Template: "break", Loudness: -20}}
 	for _, c := range clips {
@@ -154,7 +154,7 @@ func TestCouchTvRender(t *testing.T) {
 		slotted.Sound.Items = append(slotted.Sound.Items, couchtv.BreakItem{At: float64(c.At) / couchtv.FPS, Spec: clips[i].spec})
 		slotted.Frames += c.Frames
 	}
-	slotted.Slots = []couchtv.RecipeSlot{{Kind: couchtv.BulletinNews, At: 265, Frames: 52, Loudness: -23}}
+	slotted.Slots = []couchtv.RecipeSlot{{Kind: couchtv.BulletinNews, At: 265, Frames: 125, Loudness: -23}}
 	breakID = insertBreak(t, env, slotted)
 	payload, _ = json.Marshal(couchtv.AssemblePayload{BreakID: breakID})
 	if err := r.Assemble(ctx, &jobs.Job{Payload: payload}, func(int) {}); err != nil {
@@ -163,7 +163,7 @@ func TestCouchTvRender(t *testing.T) {
 	if b, err = store.Break(ctx, breakID); err != nil || b.State != couchtv.BreakReady {
 		t.Fatalf("the break with a slot: %+v %v", b, err)
 	}
-	for i, frames := range []int{265, 52, 113} {
+	for i, frames := range []int{265, 125, 130} {
 		validatePackage(t, filepath.Join(env.cfg.DataDir, b.Path, fmt.Sprint(i)), frames)
 	}
 	if lufs := measureLoudness(t, filepath.Join(env.cfg.DataDir, b.Path, "1", "audio-1-aac", "index.m3u8")); lufs < -23.6 || lufs > -22.4 {

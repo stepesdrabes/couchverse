@@ -14,13 +14,13 @@ import (
 // one break spec. A normal break is the credits squeeze, an ident (the full cut before a
 // prime-time movie), as many promos as fit (a body with its end card, a short promo, or a
 // strip promo), the lineup in a break that ends on the hour, and up next; up next, the
-// lineup and stings (any whole number of frames from 2 to 6 s) absorb what is left. The full
+// lineup and stings (any whole number of frames from 5 to 10 s) absorb what is left. The full
 // ident comes in four designs that take turns by broadcast day (D35).
 
 // Template lengths in frames, as the broadcast package builds them.
 const (
 	identFullFrames     = 263 // 10.52 s
-	identShortFrames    = 113 // 4.52 s
+	identShortFrames    = 130 // 5.2 s
 	squeezeIdentFrames  = 265 // 10.6 s, handing over into the short ident's first frame
 	squeezeExpandFrames = 288 // 11.52 s, handing over to up next
 	endCardFrames       = 100 // a promo's end card
@@ -36,7 +36,11 @@ type span struct{ min, def, max int }
 var (
 	upNextSpan = span{150, 200, 300}
 	lineupSpan = span{250, 300, 400}
-	stingSpan  = span{50, 75, 150}
+	// A sting holds the whole sonic logo and lets its chord ring out (5 s, 6 s by default). Its
+	// longest is twice its shortest, so k stings close every length from k times the shortest
+	// on and the ranges overlap: stings alone fill any gap of 5 s or more, whatever the parts
+	// around them, which is what keeps a slot of any length composable.
+	stingSpan = span{125, 150, 250}
 )
 
 // Loudness bounds a break is mixed at (6.5), and the level when the program's is unknown.
@@ -47,7 +51,7 @@ const (
 	lineupRowsMax = 5
 )
 
-// errTooShort means a gap no clip can fill (under a 2 s sting).
+// errTooShort means a gap no clip can fill (under the shortest sting, 5 s).
 var errTooShort = errors.New("couchtv: the break is shorter than the shortest sting")
 
 // identDesigns are the full ident's designs in the order they take turns (the broadcast
@@ -174,7 +178,7 @@ func Compose(in BreakInput) (Composition, error) {
 		tail = append(tail, upNextPiece(in, "continue"))
 		left -= squeezeExpandFrames + upNextSpan.def
 	case normal || (in.Ending == nil || in.Next == nil) && g >= identShortFrames+upNextSpan.min:
-		if in.Ending != nil && normal {
+		if in.Ending != nil && in.Next != nil && normal {
 			head = append(head, fixed(squeezePart(in, "ident")))
 			left -= squeezeIdentFrames
 		}
@@ -328,6 +332,15 @@ func promos(in BreakInput, left, slack int, full func() Part) ([][]piece, int) {
 		added := false
 		for _, c := range ranked {
 			grp, n := promoPieces(c, left+slack)
+			if slack == 0 {
+				// nothing flexible to take up what a promo leaves (a new round's short ident
+				// comes off first)
+				avail := left
+				if round > 0 && !added {
+					avail -= identShortFrames
+				}
+				grp, n = promoFitting(c, avail)
+			}
 			if n == 0 {
 				continue
 			}
@@ -353,6 +366,18 @@ func promos(in BreakInput, left, slack int, full func() Part) ([][]piece, int) {
 		left -= identFullFrames
 	}
 	return groups, left
+}
+
+// promoFitting is the biggest promo of a candidate in avail frames that leaves nothing, or a
+// stretch stings alone can close: under the shortest sting nothing could.
+func promoFitting(c Candidate, avail int) ([]piece, int) {
+	for limit := avail; ; {
+		grp, n := promoPieces(c, limit)
+		if _, _, ok := fit(nil, avail-n); n == 0 || ok {
+			return grp, n
+		}
+		limit = n - 1
+	}
 }
 
 // promoPieces is the biggest promo of a candidate that fits in left frames: the full promo

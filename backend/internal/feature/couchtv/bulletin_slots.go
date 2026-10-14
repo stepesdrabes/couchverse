@@ -79,8 +79,8 @@ func slotPieces(in BreakInput, kinds []string, groups [][]piece) []piece {
 }
 
 // slotFallback fills frames with promos (each title once) and stings. A promo must leave either
-// nothing or room for a sting, so a bigger promo that would leave a sliver gives way to a
-// smaller one.
+// nothing or a stretch stings can close, so a bigger promo that would leave a sliver gives way to
+// a smaller one.
 func slotFallback(ranked []Candidate, used map[string]bool, frames int) []piece {
 	var out []piece
 	left := frames
@@ -94,10 +94,7 @@ func slotFallback(ranked []Candidate, used map[string]bool, frames int) []piece 
 			if used[c.TitleID] != again || taken[c.TitleID] {
 				continue
 			}
-			grp, n := promoPieces(c, left)
-			if n > 0 && left-n > 0 && left-n < stingSpan.min {
-				grp, n = promoPieces(c, left-stingSpan.min)
-			}
+			grp, n := promoFitting(c, left)
 			if n == 0 {
 				continue
 			}
@@ -112,7 +109,7 @@ func slotFallback(ranked []Candidate, used map[string]bool, frames int) []piece 
 	if left > 0 {
 		sizes, _, ok := fit(nil, left)
 		if !ok {
-			// no promo and under a sting's shortest: cannot happen for a slot of 2 s or more
+			// only a slot under the shortest sting gets here: promoFitting leaves what stings close
 			sizes = []int{left}
 		}
 		for _, n := range sizes {

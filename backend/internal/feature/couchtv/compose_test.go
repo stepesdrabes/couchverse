@@ -3,6 +3,7 @@ package couchtv
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -86,9 +87,10 @@ func checkComposition(t *testing.T, in BreakInput, c Composition) {
 
 func TestComposeFillsEveryGapExactly(t *testing.T) {
 	end := time.Date(2026, 10, 14, 18, 25, 0, 0, prague)
-	// every length from the shortest break up to half an hour, frame by frame near the edges
+	// every length from the shortest break (one sting) up to half an hour, frame by frame near
+	// the edges
 	var lengths []time.Duration
-	for f := 50; f <= 2000; f++ {
+	for f := stingSpan.min; f <= 2000; f++ {
 		lengths = append(lengths, time.Duration(f)*time.Second/FPS)
 	}
 	for s := 80; s <= 30*60; s += 7 {
@@ -102,9 +104,102 @@ func TestComposeFillsEveryGapExactly(t *testing.T) {
 		}
 		checkComposition(t, in, c)
 	}
-	in := breakAt(end, 40*time.Millisecond*49, FillStrip)
+	in := breakAt(end, time.Duration(stingSpan.min-1)*time.Second/FPS, FillStrip)
 	if _, err := Compose(in); err != errTooShort {
-		t.Errorf("49 frames: %v", err)
+		t.Errorf("%d frames: %v", stingSpan.min-1, err)
+	}
+}
+
+// withSlotFrames sets the lengths of the bulletins' slots for a test.
+func withSlotFrames(t *testing.T, news, weather int) {
+	t.Helper()
+	was := maps.Clone(bulletinFrames)
+	t.Cleanup(func() { bulletinFrames = was })
+	bulletinFrames = map[string]int{BulletinNews: news, BulletinWeather: weather}
+}
+
+// checkLengths asserts what every break keeps whatever its length, without the schema (which
+// checkComposition also validates every spec against): parts back to back to the frame, a
+// flexible part within its bounds, every sting whole (stingSpan) and every slot its kind's length.
+func checkLengths(t *testing.T, in BreakInput, c Composition) {
+	t.Helper()
+	at := 0
+	bounds := map[string]span{ClipSting: stingSpan, ClipUpNext: upNextSpan, ClipLineup: lineupSpan}
+	for i, p := range c.Parts {
+		if p.At != at || p.Frames <= 0 {
+			t.Fatalf("%d frames: part %d (%s) at %d for %d frames, want it at %d", in.Frames, i, p.Kind, p.At, p.Frames, at)
+		}
+		at += p.Frames
+		if s, ok := bounds[p.Kind]; ok && (p.Frames < s.min || p.Frames > s.max) {
+			t.Fatalf("%d frames: %s of %d frames", in.Frames, p.Kind, p.Frames)
+		}
+	}
+	if at != in.Frames {
+		t.Fatalf("the parts sum to %d frames, the gap is %d", at, in.Frames)
+	}
+	for _, s := range c.Slots {
+		if s.Frames != bulletinFrames[s.Kind] {
+			t.Fatalf("%d frames: the %s slot is %d frames, want %d", in.Frames, s.Kind, s.Frames, bulletinFrames[s.Kind])
+		}
+	}
+}
+
+// Every break from the shortest normal one to twenty minutes is composed to the frame, with and
+// without up next, the lineup, a promo as long as a trailer and bulletin slots of any length:
+// stings (5 to 10 s) close what the rest leaves, whatever that is, so a longer part elsewhere
+// can never leave a gap no clip fits.
+func TestComposeEveryBreakLength(t *testing.T) {
+	shortest := squeezeIdentFrames + identShortFrames + upNextSpan.min
+	half := time.Date(2026, 10, 14, 18, 25, 0, 0, prague)
+	hour := time.Date(2026, 10, 14, 18, 0, 0, 0, prague)
+	both := []string{BulletinNews, BulletinWeather}
+	variants := []struct {
+		name      string
+		end       time.Time
+		mutate    func(*BreakInput)
+		bulletins []string
+		slots     [2]int
+	}{
+		{"plain", half, nil, nil, [2]int{}},
+		{"the lineup", hour, nil, nil, [2]int{}},
+		{"no up next", half, func(in *BreakInput) { in.Next, in.Later = nil, nil }, nil, [2]int{}},
+		{"no squeeze", half, func(in *BreakInput) { in.Ending = nil }, nil, [2]int{}},
+		{"nothing to promote", half, func(in *BreakInput) { in.Candidates = nil }, nil, [2]int{}},
+		{"a trailer", half, func(in *BreakInput) { in.Candidates[0].BodyFrames = 2000 }, nil, [2]int{}},
+		{"slots of 15 and 20 s", hour, nil, both, [2]int{500, 375}},
+		{"slots of 35 and 50 s", hour, nil, both, [2]int{1250, 875}},
+		{"slots of odd lengths", half, nil, both, [2]int{1111, 301}},
+	}
+	for _, v := range variants {
+		t.Run(v.name, func(t *testing.T) {
+			if v.slots != [2]int{} {
+				withSlotFrames(t, v.slots[0], v.slots[1])
+			}
+			compose := func(f int) {
+				in := breakAt(v.end, time.Duration(f)*time.Second/FPS, FillStrip)
+				in.Bulletins = v.bulletins
+				if v.mutate != nil {
+					v.mutate(&in)
+				}
+				c, err := Compose(in)
+				if err != nil {
+					t.Fatalf("%d frames (%v): %v", f, time.Duration(f)*time.Second/FPS, err)
+				}
+				checkLengths(t, in, c)
+				// the schema is the slow part: the first lengths, then every 11th
+				if f < shortest+150 || f%11 == 0 {
+					checkComposition(t, in, c)
+				}
+			}
+			for f := shortest; f <= 20*60*FPS; {
+				compose(f)
+				if f < 3000 {
+					f++
+				} else {
+					f += 41
+				}
+			}
+		})
 	}
 }
 
@@ -120,8 +215,10 @@ func TestComposeMix(t *testing.T) {
 			[]string{ClipSqueeze, ClipIdentShort, ClipUpNext}},
 		{"too short for an ident", time.Date(2026, 10, 14, 18, 25, 0, 0, prague), 20 * time.Second, FillStrip,
 			[]string{ClipSqueeze, ClipUpNext}},
-		{"a sting", time.Date(2026, 10, 14, 18, 25, 0, 0, prague), 3 * time.Second, FillStrip,
+		{"a sting alone", time.Date(2026, 10, 14, 18, 25, 0, 0, prague), 5 * time.Second, FillStrip,
 			[]string{ClipSting}},
+		{"up next alone", time.Date(2026, 10, 14, 18, 25, 0, 0, prague), 6 * time.Second, FillStrip,
+			[]string{ClipUpNext}},
 		{"up next absorbs the rest", time.Date(2026, 10, 14, 18, 25, 0, 0, prague), 44 * time.Second, FillStrip,
 			[]string{ClipSqueeze, ClipIdentShort, ClipPromoBody, ClipPromoEnd, ClipUpNext}},
 		{"a sting where up next cannot stretch", time.Date(2026, 10, 14, 18, 25, 0, 0, prague), 50 * time.Second, FillStrip,

@@ -1,6 +1,7 @@
 package couchtv
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -134,37 +135,57 @@ func TestComposeBulletinSlotsFillEveryGap(t *testing.T) {
 	}
 }
 
-// A slot's fallback is exactly its length whatever the promos: a promo leaves nothing or room
-// for a sting, each title once.
+// A slot's fallback is exactly its length whatever the promos: a promo leaves nothing or a
+// stretch stings can close, each title once.
 func TestSlotFallback(t *testing.T) {
 	stills := []Shot{{Kind: "still", Image: "backdrop", From: &Crop{0, 0, 1, 1}}}
 	body := func(id string, frames int) Candidate {
 		return Candidate{TitleID: id, Title: specTitle(id), Mood: "bright", Shots: stills, BodyFrames: frames,
 			Airing: SpecAiring{Eyebrow: "Tonight", Time: "20:15"}}
 	}
-	for _, c := range []struct {
-		name  string
-		cands []Candidate
-		want  []string
-	}{
-		{"a full promo and a sting", []Candidate{body("a", 350)}, []string{ClipPromoBody, ClipPromoEnd, ClipSting}},
-		// 480 frames of promo would leave 20: the short promo instead
-		{"no sliver after a promo", []Candidate{body("a", 380)}, []string{ClipShortPromo, ClipSting, ClipSting}},
-		{"two short promos and a sting", []Candidate{body("a", 0), body("b", 0)}, []string{ClipShortPromo, ClipShortPromo, ClipSting}},
-		{"stings alone", nil, []string{ClipSting, ClipSting, ClipSting, ClipSting}},
-	} {
-		pieces := slotFallback(c.cands, map[string]bool{}, newsFrames)
-		var got []string
+	check := func(name string, pieces []piece, frames int) (kinds []string) {
 		total := 0
 		for _, p := range pieces {
-			got = append(got, p.part.Kind)
+			kinds = append(kinds, p.part.Kind)
 			total += p.part.Frames
 			if p.part.Kind == ClipSting && (p.part.Frames < stingSpan.min || p.part.Frames > stingSpan.max) {
-				t.Errorf("%s: a sting of %d frames", c.name, p.part.Frames)
+				t.Errorf("%s: a sting of %d frames", name, p.part.Frames)
 			}
 		}
-		if total != newsFrames || !slices.Equal(got, c.want) {
-			t.Errorf("%s: %v for %d frames, want %v", c.name, got, total, c.want)
+		if total != frames {
+			t.Errorf("%s: %v for %d frames, want %d", name, kinds, total, frames)
+		}
+		return kinds
+	}
+	for _, c := range []struct {
+		name   string
+		frames int
+		cands  []Candidate
+		want   []string
+	}{
+		{"a full promo and a sting", 500, []Candidate{body("a", 250)}, []string{ClipPromoBody, ClipPromoEnd, ClipSting}},
+		// 480 frames of promo would leave 20: the short promo instead
+		{"no sliver after a promo", 500, []Candidate{body("a", 380)}, []string{ClipShortPromo, ClipSting, ClipSting}},
+		{"two short promos and a sting", 600, []Candidate{body("a", 0), body("b", 0)}, []string{ClipShortPromo, ClipShortPromo, ClipSting}},
+		{"stings alone", 500, nil, []string{ClipSting, ClipSting}},
+	} {
+		got := check(c.name, slotFallback(c.cands, map[string]bool{}, c.frames), c.frames)
+		if !slices.Equal(got, c.want) {
+			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		}
+	}
+
+	// every slot from the shortest sting up to a minute and a half, whatever the promos and
+	// their lengths (a trailer of a minute and a half among them)
+	sets := map[string][]Candidate{
+		"none":    nil,
+		"a body":  {body("a", 415)},
+		"two":     {body("a", 330), body("b", 0)},
+		"trailer": {body("a", 2250), body("b", 415)},
+	}
+	for frames := stingSpan.min; frames <= 90*FPS; frames++ {
+		for name, cands := range sets {
+			check(fmt.Sprintf("%s in %d frames", name, frames), slotFallback(cands, map[string]bool{}, frames), frames)
 		}
 	}
 }
