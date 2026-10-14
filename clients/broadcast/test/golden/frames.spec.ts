@@ -70,7 +70,7 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['news-three', [12, 46]],
 	// every default city and four warnings (a level each, and a second yellow); the longest
 	// headlines; a lone story
-	['weather-long', [4, 8, 15, 20, 36]],
+	['weather-long', [4, 8, 13, 18, 22, 36]],
 	['news-long', [14, 48]],
 	['news-one', [20, 50]],
 	// trailers: the cold open, the channel, a card, the montage, the title, the button, the end card

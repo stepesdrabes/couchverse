@@ -107,6 +107,8 @@ export function warnedKraje(warnings: WeatherWarning[]) {
 
 // the warnings the scene has room for; the rest are counted
 export const WARNINGS_SHOWN = 3;
+/** Seconds each warning is on screen, at least (the review found 3.4 s, the regions unreadable). */
+export const READING = 4.5;
 
 /** The scenes' starts, seconds. */
 export interface Schedule {
@@ -130,6 +132,10 @@ export interface Schedule {
  */
 export function schedule(D: number, shown: number | null, days: number): Schedule {
 	const table = days >= 2;
+	// a warning is on screen at least this long (its level, event, time and the regions it covers
+	// are read in it, the regions line the longest); the beats the scene needs for that, and the
+	// first card's 0.3 s, come out of the other scenes when the bulletin is short
+	const beats = (n: number) => Math.ceil((READING * n + 0.3) / BEAT);
 	// the scenes in order, each with the beats it wants and may take
 	const scenes: [string, { w: number; min: number; max: number }][] = [
 		['now', { w: 9, min: 6, max: 12 }]
@@ -138,13 +144,13 @@ export function schedule(D: number, shown: number | null, days: number): Schedul
 		scenes.push([
 			'warnings',
 			shown
-				? { w: 3 + 4 * shown, min: 3 + 3 * shown, max: 3 + 6 * shown }
+				? { w: beats(shown) + shown, min: beats(shown), max: beats(shown) + 3 * shown }
 				: { w: 5, min: 4, max: 7 }
 		]);
 	scenes.push(['today', table ? { w: 8, min: 5, max: 11 } : { w: 12, min: 9, max: 16 }]);
 	if (table)
 		scenes.push(['tomorrow', { w: 8, min: 5, max: 11 }], ['days', { w: 14, min: 10, max: 18 }]);
-	const beats = share(
+	const lengths = share(
 		scenes.map(([, p]) => p),
 		Math.round(D / BEAT)
 	);
@@ -152,7 +158,7 @@ export function schedule(D: number, shown: number | null, days: number): Schedul
 	let t = 0;
 	scenes.forEach(([id], i) => {
 		start.set(id, Math.round(t * BEAT * 1000) / 1000);
-		t += beats[i];
+		t += lengths[i];
 	});
 	const out: Schedule = {
 		warnings: start.get('warnings'),

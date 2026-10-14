@@ -2454,7 +2454,8 @@ approves is what airs.
   coldest of them in a card); the warnings (the cities give way to the kraje, one warning at a
   time: the kraje it covers filled in its level's colour, hatched where it covers part, each
   named where it has room, beside its card with the level, event, time, regions and `1 of 3`;
-  the three most severe, the rest counted `+ 1 more`; a quiet day says `No weather warnings`;
+  the three most severe, the rest counted `+ 1 more`, each on screen for 4.5 s at least, the
+  beats for that taken from the other scenes in a short bulletin (`READING`); a quiet day says `No weather warnings`;
   no scene while ČHMÚ cannot be read); today and tomorrow (the day's high and low turn each
   city, a card with the cities' range and the day's chance of precipitation; tomorrow as a red
   front crosses the country west to east); the next days (a table a red bar sweeps in); the

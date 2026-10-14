@@ -312,7 +312,15 @@ describe('the weather scenes', () => {
 		expect(s.each).toHaveLength(3);
 		expect(s.each[0]).toBeGreaterThan(s.warnings!);
 		expect(s.each[2]).toBeLessThan(s.today);
-		expect(s.each[1] - s.each[0]).toBeGreaterThanOrEqual(2.8);
+		// each warning is on screen for 4.5 s at least, whatever else the bulletin holds (the
+		// regions line of a long warning took longer to read than the 3.4 s it had)
+		for (const shown of [1, 2, 3]) {
+			const t = schedule(D, shown, 5);
+			const stops = [...t.each.slice(1), t.today];
+			t.each.forEach((at, k) =>
+				expect(stops[k] - at, `${shown} shown`).toBeGreaterThanOrEqual(4.5)
+			);
+		}
 		// more warnings take longer, a quiet day shortest
 		const len = (shown: number) => {
 			const t = schedule(D, shown, 5);
