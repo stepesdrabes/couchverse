@@ -888,11 +888,19 @@ server that does not send it). The admin settings page toggles it.
   the later goes first where the break would keep less than the squeeze, the short ident, a
   short promo and the shortest up next beside them), and up next. A slot holds a fallback of
   exactly its length (`slotFallback`): promos of titles the break does not promote yet (else of
-  others), each title once, a promo leaving nothing or room for a sting, closed with stings;
-  its parts carry the slot's kind (`Part.Slot`, `Composition.Slots`). Up next
-  (6-12 s), the lineup (10-16 s) and stings (any whole number of frames from 2 to 6 s, as few
-  as possible, before the lineup and up next first, then between promos) take up the rest;
-  under 2 s nothing fits (the break fails over to the evergreen one). Promos are ranked by a
+  others), each title once, a promo leaving nothing or a stretch stings can close, closed with
+  stings; its parts carry the slot's kind (`Part.Slot`, `Composition.Slots`). Up next
+  (6-12 s), the lineup (10-16 s) and stings (any whole number of frames from 5 to 10 s, as few
+  as possible, before the lineup and up next first, then between promos) take up the rest. A
+  sting holds the whole sonic logo and lets its chord ring out, so it is never shorter than 5 s
+  (`stingSpan`); its longest is twice its shortest, so k stings close every length from k times
+  5 s on and the ranges overlap: **stings alone fill any gap of 5 s or more**, whatever the
+  parts around them (a longer bulletin slot, a promo as long as a trailer), and a promo that
+  would leave a sliver under 5 s where nothing flexible can take it up gives way to a smaller
+  one (`promoFitting`). The shortest normal break is the squeeze, the short ident (5.2 s) and
+  the shortest up next, 21.8 s; from 17.5 s the squeeze `expand`s into up next, from 6 s up
+  next stands alone, from 5 s a sting alone; under 5 s nothing fits (the break fails over to
+  the evergreen one, and the planner keeps breaks over 23 s). Promos are ranked by a
   fill's weight (premiere 6, movie and saga 2, strip and marathon 1.5, matinee 1, the rest
   0.4) over one plus the days until the title next airs, the next program left out and the
   last three breaks' titles last; a title gets its full promo (rendered body plus an end
@@ -2279,8 +2287,8 @@ approves is what airs.
   simplifying each border between two kraje once so neighbours share it); Plus Jakarta Sans, the brand's one face (OFL, latin
   and latin-ext), is bundled in `src/assets/fonts` and registered by `ensureFonts`.
 - **Templates** (`template` in the spec): `ident` (`cut` full 10.52 s in one of four
-  `design`s, see "Full idents", or short 4.52 s, their popcorn ending alone), `sting` (gap
-  filler, any whole number of frames from 2 to 6 s, one design for every length), `upNext`
+  `design`s, see "Full idents", or short 5.2 s, their popcorn ending alone), `sting` (gap
+  filler, any whole number of frames from 5 to 10 s, one design for every length), `upNext`
   (default 8 s, countdown), `promo` (moods `cinematic`, `grit`, `bright`; `premiere`; `part`
   `body`, `end` or `full`), `evergreenEnd` ("Coming up on Couch TV"), `stripPromo` (moods
   `bright`, `dark`), `shortPromo`, `lineup` (2 to 5 rows), `squeeze` (handover `expand`,
@@ -2421,21 +2429,25 @@ approves is what airs.
   the same frame. **Up next**: the next title's scenes pushed from 1.04 to 1.12, its logo or
   name lower left under a red "Up next" block, the episode and meta under it, and the horizon
   line filling red, its red head reaching the start time as the program starts; the title's
-  bed with the sonic logo on glass on the last three beats (without a bed the house's D add 9
-  pad and felt piano). **The squeeze**: the program pulls back from the frame into a sharp
-  panel in the dark room (a dolly, 2.0-3.6 s), a hairline rim round it; the next program
+  bed with the sonic logo on glass on the three beats before the last, the D ringing out under
+  the type lifting away so the sound is over before the program starts (without a bed the
+  house's D add 9 pad, let go at the logo, and felt piano). **The squeeze**: the program pulls
+  back from the frame into a sharp panel in the dark room (a dolly, 2.0-3.6 s), a hairline rim round
+  it; the next program
   arrives beside it as a card playing its scenes under its logo or name, a red "Up next" block
   and the start time; while it holds only the card's scenes move. `expand` pushes into the
   card until it is up next's first frame (its scenes framed and timed as up next frames them,
   `UPNEXT.continued`; a test holds both frames to one golden) while the panel slides out left;
   `ident` clears the room and the brand's collapse shrinks the panel onto the couch. The
   program's music carries on, ducked 6 dB as the card arrives, with air under the pull back,
-  a glass E5 as the card settles and a rising air into the push. **The lineup**: "Later on
+  a glass E5 as the card settles and a rising air into the push that settles before the last
+  frame. **The lineup**: "Later on
   couchtv" over rows on hairlines (names as
   type, the live row's red time and progress, the next row's badge); a red marker walks the
   rows on half beats and each lit row's scenes dissolve and slide in on the right, nothing
-  else moving between steps; the house's pad, felt piano eighths and a glass note per step.
-  **Standby**: the couch alone on a flat dusk horizon under twinkling square stars, the dusk
+  else moving between steps; the house's pad, felt piano eighths and a glass note per step,
+  then an open fifth that rings out under the rows lifting away. **Standby**: the couch alone on a
+  flat dusk horizon under twinkling square stars, the dusk
   breathing once a loop; its pad's partials make whole cycles per loop under a low-pass that
   opens and closes with the dusk, and the sonic logo opens each loop on the felt piano, so
   picture and sound loop without a seam (tests check both).
@@ -2520,19 +2532,27 @@ approves is what airs.
   E4 F#4) settles; `sonicLogo` (the full statement: felt piano, the glass halo an octave up and a
   bowed swell on every note), `sonicSting`, `sonicTag` (compact, over a ducked bed) and `sonicChime`
   (struck glass, the standby card); `popcornBuild`, `popcornFall` and `popcornLanding` (the moment
-  before it), all on the house instruments (`src/audio/voices.ts`: one `house(kit, bus)` mix per
+  before it). A statement that ends its clip is given `until`, the context time its sound has to be
+  over (the clip's end less `END`, 0.12 s): its voices' decays and releases shorten to the room
+  they have (`ringRoom`, a note's natural ring being 2.8 s), and `sonicRingOut` ends the mix from
+  just after the last note, falling at a steady rate (`ringOut`, depth by the room: about 9 dB
+  over two seconds, 14 over one and a half; the instruments fall about 10 dB a second on their
+  own) and closing to silence over the last 0.2 s, hall included, so the chord dies away instead
+  of being faded; all on the house instruments (`src/audio/voices.ts`: one `house(kit, bus)` mix per
   piece, a dry chain and a 3.6 s generated hall (Chromium's convolver gets far slower past that), a
   pads' bus with a sweepable low-pass and a chorus; `piano`, `pad`, `padSweep`, `glass`, `bowed`,
-  `sub`, `impact`, `pulse`, `air`, `inhale`, `riser`, `shimmer`, `fadeOut`, each at an absolute
+  `sub`, `impact`, `pulse`, `air`, `inhale`, `riser`, `shimmer`, `ringOut`, each at an absolute
   context time with a seed). `ending.ts`: the popcorn ending (the approved motion: the popcorn from
   rest 760 px up over 0.72 s, a 26 px rebound, the frame's 7 px give, the couch pressed 7 px; couch
   rises 40 px on its note, t and v 34 px from 1.2 times their size) on one CPU canvas drawn from t,
   each moving frame averaging up to 32 shutter samples in linear light where something moved, a
   still stretch drawn once (its frame key is its state). `short-ident.ts` (`buildShortIdent`): the
-  ending alone, the landing at 1.2 s, couch t v at 2.0, 2.4, 2.8, held to 4.52. `sting.ts`: one
-  design for 2-6 s, the ending placed by `stingTimes(D)` (from 3.2 s the couch fades in and the
-  popcorn drops, the landing later the longer the sting; shorter ones resolve the whole logo in),
-  the hold taking the rest. `lockup.ts`: the static `lockup`, the corner `bug` (its right edge on x
+  ending alone, the landing at 1.2 s, couch t v at 2.0, 2.4, 2.8, held to 5.2 (the last note has
+  2.4 s to ring out; the clip was 4.52 s, whose chord could only be faded). `sting.ts`: one design
+  for 5-10 s (`STING`), the ending placed by `stingTimes(D)` (the couch fades in and the popcorn
+  drops, the landing later the longer the sting), the hold taking the rest, the chord ringing out
+  inside it (the last note has 1.9 s at 5 s, 2.5 s at 6, 4.7 s at 10). `lockup.ts`: the static
+  `lockup`, the corner `bug` (its right edge on x
   1824, its top on y 64, 40 px tall: the row lockup at 34, a rule, a steady square red marker with
   LIVE and the clock in paper; nothing in it moves, so held frames stay still; `scrim` shades the
   corner for a screen whose own grade does not) and `channelTag` (the promo end card's sign-off in
@@ -2599,7 +2619,11 @@ approves is what airs.
   bug (a full-size golden), two audio renders agree (each full ident's too) and hit their
   loudness, the standby loop has no seam (its last frame is its first, its sound wraps), an
   item's sound is the clip's faded into its ring-out, a promo sounds the same whatever its
-  airing, a bulletin's sound starts silent and is over before its last frame, and items rendered
+  airing, a bulletin's sound starts silent and is over before its last frame (so is every short
+  clip's: the stings at 5, 6.2 and 10 s, the short ident, up next, the lineup, the squeeze, the end
+  cards, the strip and short promos end in silence, the last 50 ms under -60 dBFS, nothing rings on
+  past the clip, and where the house plays alone its level only falls through the last second),
+  and items rendered
   alone and mixed sound like the break rendered in one pass (within 0.1 LU item by item, 0.5 LU
   in every 400 ms after the first second, 0.2 dB of true peak); a unit test pins the loudness
   numbers the server's Go port reproduces. Stand-in media (gradient art, title logos, two footage

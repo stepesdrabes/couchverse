@@ -49,7 +49,7 @@ in section 3.
 | D31 | **Branch**: a new `couch-tv` branch from `main`; `native-clients` is retired once its last docs commit is on `main`, so the remote keeps two branches (`main`, `couch-tv`). |
 | D32 | **The planning sample reel** (HTML/CSS/JS + README) is kept in `tools/couch-tv-samples/` as the reference for Phase 2; its media (soundtrack excerpts, artwork) is gitignored and fetched from the Pi read-only by a script. |
 | D33 | **The identity is the Couchverse logo** (2026-10-13, supersedes D27): the app's own logo (a couch with a popcorn bucket on it) and the wordmark `couchtv` in Plus Jakarta Sans ExtraBold at -0.035 em, lowercase, `couch` in white and `tv` in the red #e50914 (as the app pairs `couchverse`); Plus Jakarta Sans only; red, near-black (#050505) and white with tonal depth; no taglines, ever. Four approved full idents (journey, cinematic, morph, assemble) all end the same way: the couch alone on black, a popcorn bucket drops onto it (gravity, a small rebound, the frame giving a little), the two become the logo, then `couch`, `t`, `v` type in. A stacked lockup (as the idents end) and a row lockup for small sizes (the corner bug, the promo tag, the web's overlays), drawn as paths. Epic in vision, clean and modern in execution: no brackets, flares, particles, chrome, squash-and-settle or cartoon sofas. Reference: `clients/broadcast/concepts` (local, untracked). |
-| D34 | **One sonic logo, A4 E5 D5** (the fifth, ninth and root of D major; morph's and assemble's, 2026-10-13) on `couch`, `t`, `v`: the beat after the landing, then half a beat apart at 75 bpm, the last note held while D add9 settles, on a felt piano, a glass halo and a bowed swell; every screen is scored with one generated house palette (warm detuned pads, felt piano, glass, bowed swells, sub, soft impacts, air, a long generated hall). The **short ident** (4.52 s) is the shared popcorn ending alone, opening on the couch alone in its lockup place; **stings** (2-6 s) are one design, the ending placed by their length (a whole logo resolving in when short, the popcorn drop from 3.2 s); the **promo tag** is the row lockup landing on the compact sonic logo; the **credits squeeze hands over into the short ident** (handover `ident`: the program shrinks onto the couch and dissolves into it, its last frame the ident's first). |
+| D34 | **One sonic logo, A4 E5 D5** (the fifth, ninth and root of D major; morph's and assemble's, 2026-10-13) on `couch`, `t`, `v`: the beat after the landing, then half a beat apart at 75 bpm, the last note held while D add9 settles, on a felt piano, a glass halo and a bowed swell; every screen is scored with one generated house palette (warm detuned pads, felt piano, glass, bowed swells, sub, soft impacts, air, a long generated hall). The **short ident** (5.2 s; 4.52 s until 2026-10-14) is the shared popcorn ending alone, opening on the couch alone in its lockup place; **stings** (5-10 s; 2-6 s until 2026-10-14) are one design, the popcorn drop and the whole logo with its chord ringing out, the ending placed by their length; the **promo tag** is the row lockup landing on the compact sonic logo; the **credits squeeze hands over into the short ident** (handover `ident`: the program shrinks onto the couch and dissolves into it, its last frame the ident's first). |
 | D35 | **All four full idents air, in turn** (2026-10-13). Journey, cinematic, morph and assemble, the four the owner approved, are the `ident` template's full cut (`design`), ported unchanged but for the sonic logo, A4 E5 D5 in all four (journey's and cinematic's motifs re-scored wherever they state it). The composer gives a break's first full ident the broadcast day's design (each day the next, so all four air within four days), the full idents a long gap repeats in the same break the designs after it, and the evergreen break always journey, so it is composed once. They render on the Pi, once per template version, at night: estimated 4 to 16 minutes each but cinematic, 65 to 116 (6.7); a render collects its canvas reads as it goes, which keeps it inside the sidecar's 1 GB. If cinematic's first render on the Pi runs past ~90 minutes, it ships pre-rendered. |
 | D36 | **Bulletins bind late, in slots of the breaks.** A break that carries a bulletin keeps a fixed-length slot for it after the promos and the lineup, before up next, holding a fallback of exactly that length (promos and stings, renderable ahead like any part), so the break is composed, rendered and assembled complete on its own. It is assembled in sections around its slots (a package each), its sound mixed per section so nothing rings across a slot's edge and each slot normalized on its own. When the live stream puts the break on air, a slot that airs whole takes the newest rendered bulletin still valid when the slot ends, at the slot's loudness, else its fallback; pinned, it never changes (6.10). |
 | D37 | **When the bulletins air** (defaults the owner tunes later): the news (20 s) in the breaks that end on the hour every two hours from 06:00 to midnight (06:00, 08:00 ... 24:00; the owner chose every two hours over every hour, 2026-10-13), the weather (15 s) in the first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the evening movie, never where a bulletin fetched on the grid 15 minutes before the break goes on air would have expired by its end; a break keeps a slot only beside the squeeze, the short ident, a short promo and the shortest up next. |
@@ -527,10 +527,17 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   program is the evening movie: `movie`, `premiere`, `saga`; its design the broadcast day's,
   D35), promos, then the lineup (only
   when the break ends on the hour and a promo still fits beside it), stings, up next. The
-  minimum is 22 s; under 2 s nothing fits and the break fails over to the evergreen one.
-- **Closing the gap**: up next (6-12 s), the lineup (10-16 s) and stings (2-6 s, as few as
+  minimum is 21.8 s (squeeze 10.6, short ident 5.2, the shortest up next 6); from 17.5 s the
+  squeeze expands into up next, from 6 s up next stands alone, from 5 s a sting alone; under
+  5 s nothing fits and the break fails over to the evergreen one (the planner never makes a
+  break under 23 s).
+- **Closing the gap**: up next (6-12 s), the lineup (10-16 s) and stings (5-10 s, as few as
   possible) take up whatever the fixed parts leave, every part at its default before any
-  grows further; promos may borrow what up next and the lineup can give back. Lengths are
+  grows further; promos may borrow what up next and the lineup can give back. A sting's
+  longest is twice its shortest, so stings alone close any gap of 5 s or more, whatever the
+  parts around them (a longer bulletin slot, a trailer-length promo); where nothing flexible
+  (up next, the lineup) can take up what a promo leaves, a promo that would leave under 5 s
+  gives way to a smaller one, the rule a slot's fallback has always followed. Lengths are
   whole frames; a gap that is not (a program airing to a segment boundary) is rounded to the
   nearest frame, and the live stream fits the item to its slot.
 - **Promos**: each title at its first airing after the break, ranked by its fill's weight
@@ -880,12 +887,13 @@ break or the standby card.
   for the composer (6.5) to validate what it writes. Airings arrive as English phrases
   (`{eyebrow, day, time}`); beds as `{url, in, out}` in WAV, FLAC or Ogg Opus (open-source
   Chromium has no AAC); footage as 25 fps JPEG frame URLs per shot.
-- **Durations**: full ident 10.52 s and short ident 4.52 s (the reel's 10.5 and 4.5 s grid
-  cuts rounded to whole frames); the expand squeeze 11.52 s, the ident squeeze 10.6 s; stings
-  any whole number of frames from 2 to 6 s (one design scales to it: from 3.2 s the popcorn
-  drops onto the couch, shorter stings resolve the logo in), so a gap can be closed by one
-  sting; up next 8 s by default (6 to 12); a promo body ends on a frame-aligned
-  cut snapped to the bed (cinematic about 16 s, premiere about 17.6 s, grit and bright about
+- **Durations**: full ident 10.52 s and short ident 5.2 s (the reel's 10.5 s grid cut rounded
+  to whole frames; the short one was 4.5 s, lengthened on 2026-10-14 so its chord can ring
+  out); the expand squeeze 11.52 s, the ident squeeze 10.6 s; stings any whole number of
+  frames from 5 to 10 s (one design scales to it: the popcorn drops onto the couch, later the
+  longer the sting, and the hold takes the rest), so a gap can be closed by one sting; up
+  next 8 s by default (6 to 12); a promo body ends on a frame-aligned cut snapped to the bed
+  (cinematic about 16 s, premiere about 17.6 s, grit and bright about
   12.8 s, as the screens' design times them) and its end card is 4 s; the body is
   airing-independent by construction (a test proves it), and the break audio renders the promo
   `full` so its bed runs across the cut.
@@ -1001,9 +1009,9 @@ break or the standby card.
     `voice(house, when, ...)` with a seed: `piano` (felt), `pad` (detuned soft saws; `padSweep`
     for the bus filter), `glass` (struck, or blooming with a longer `attack`), `bowed`, `sub`,
     `impact`, `pulse` (a felted heartbeat), `air`, `inhale` and `riser` (into a hit),
-    `shimmer`, `fadeOut` (a ring-out). The sonic logo (`sonic.ts`): `SONIC` (notes, offsets,
-    chord), `BEAT` 0.8; `sonicLogo(house, first note)` (the full statement), `sonicSting(kit,
-    bus, first note, { lead })` (`lead` seconds of air and a low pad into the first note),
+    `shimmer`, `ringOut` (a clip's end, below). The sonic logo (`sonic.ts`): `SONIC` (notes,
+    offsets, chord), `BEAT` 0.8; `sonicLogo(house, first note)` (the full statement),
+    `sonicSting(kit, bus, first note)` (a little fuller: the root on the piano, a sub),
     `sonicTag(kit, bus, first note, { gain })` (its popcorn lands half a beat before the first
     note, its fall breathing in 0.42 s before that, so its cue goes 1 s early; `gain` 0.5 is
     its level over a ducked bed) and `sonicChime(kit, bus, first note)`; `popcornBuild`,
@@ -1034,6 +1042,45 @@ break or the standby card.
   promo with a logo captures 356 and 347 of 420 frames (The Simpsons on red, Dexter on paper)
   against 344, at 38 and 39 ms against 41 and 45, the bright strip 343 of 400 as before, the
   short promo all 225, at 38 and 52 ms against 38 and 53.
+- **Every short clip's sound ends inside it (2026-10-14, the owner: "some jingles (the short
+  ones) are too short and they have their sounds cut off at the end")**. A clip's sound used to
+  ring on past its last frame: the owner's reel joined standalone renders, which cut every tail, and
+  on air a bulletin slot's edge and the break's end cut it too (a break mixes its items, each
+  ringing out under the next, but nothing runs past the last item or a slot). The last note of the
+  sonic logo needs about two seconds to die away: at 4 s a sting's chord would have to fall 35 dB a
+  second to be silent in time, at 5 s about 20, which is what a hall tail does by itself. So the
+  stings are 5 to 10 s (their longest twice their shortest, so stings alone fill any gap from 5 s)
+  and the short ident 5.2 s (its last note had 1.7 s, now 2.4); the sonic logo's notes, the 75 bpm
+  timing and every picture are as they were. A statement is given the time its sound has to be over
+  (`until`: the clip's end less 0.12 s): its voices' decays shorten to the room they have, and
+  `ringOut` lets the whole mix, hall included, fall at a steady rate from just after the last note
+  (6 to 40 dB over the room, 9 dB for the short ident, 12 for a 5 s sting) closing over the last 0.2
+  s, so the chord dies away instead of being faded at the end (the old `fadeOut` stopped at -20 dB
+  and left the rest to the cut). The channel tag does the same at the end of its clip (the promo end
+  card, the strip, the short promo, the evergreen end card); up next's logo moved one beat earlier
+  so its D rings out under the type lifting away (it used to ring on into the program, which the
+  break's mix cut), the lineup's open fifth comes after the last row's note and rings out under the
+  rows lifting away, the squeeze's push air settles before its last frame; `ringOn` (the hall
+  ringing past a clip's end) is gone. A title's bed has its own fade (1.2 to 1.6 s, linear to zero
+  at the end). Because the `ident` template's version covers both cuts, the new short ident bumps it
+  and the four full idents render again when next needed. Measured, standalone renders (normalized
+  to -18 LUFS; dBFS RMS of the last 50 ms and of the last 250 ms, then when the level last rose
+  above -45 dBFS): stings of 5, 6 and 10 s -166 / -63 (4.56 s), -173 / -64 (5.32 s) and -214 / -100
+  (7.46 s); short ident -169 / -65 (4.56 s); up next -75 / -46 over a bed, -195 / -59 without;
+  lineup -171 / -56 (11.64 s); squeeze into up next -61 / -56, into the short ident -123 (its sound
+  ends 0.8 s after the handover starts); end cards and promos -72 to -162 / -43 to -70 (a bed's fade
+  is linear to zero); before, up to -19 dBFS (up next without a bed), -26 (lineup), -31 to -41
+  (promos) and -36 to -43 (stings). The level only falls through the last second (steepest 100 ms
+  drop under 4 dB), and the break seams in the sample break (a squeeze over a Pulp Fiction shot into
+  the short ident, an Iron Man promo, a sting, a Simpsons strip, a sting, the lineup, up next) are
+  all under -45 dBFS before the cut except the promo body into its end card, which is one continuous
+  sound. Cost, with the screens' probe (frames captured of the clip, median ms of an advance and a
+  JPEG capture on the loaded M1): the short ident 53 of 130 frames (60 of 113 before), a 5 s sting
+  62 of 125 and a 10 s one 62 of 250 (the hold is static, so a longer hold costs nothing), at 74, 57
+  and 50 ms. The concepts tools `audio.mjs` (the endings), `break.mjs` (a break as it airs, with a
+  seam report) and `mixcheck.mjs` are local (excluded from the repository); the unit and golden
+  tests hold the endings (`audio.spec.ts`) and every break length from the shortest to twenty
+  minutes (`TestComposeEveryBreakLength`).
 
 ### 6.9 Presence, reactions, progress, analytics, ranks
 - **Hub**: an in-memory channel room (like couch's Hub, much simpler: no host). WebSocket
