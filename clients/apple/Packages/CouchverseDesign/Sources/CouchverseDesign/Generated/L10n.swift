@@ -583,6 +583,7 @@ extension L10n {
     public static var problemTimeout: String { string("problem_timeout") }
     public static var problemTls: String { string("problem_tls") }
     public static var problemTmdbError: String { string("problem_tmdb_error") }
+    public static var problemTrailerSceneGone: String { string("problem_trailer_scene_gone") }
     public static var problemUnauthorized: String { string("problem_unauthorized") }
     public static var profileAvatarRemoveFailed: String { string("profile_avatar_remove_failed") }
     public static var profileAvatarUploadFailed: String { string("profile_avatar_upload_failed") }

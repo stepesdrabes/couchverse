@@ -594,6 +594,7 @@
     <string name="problem_timeout">The server took too long to answer.</string>
     <string name="problem_tls">A secure connection to the server failed.</string>
     <string name="problem_tmdb_error">TMDB didn\'t answer. Try again later.</string>
+    <string name="problem_trailer_scene_gone">The trailer\'s scenes changed since you opened this page: the title was analyzed again. Reload the page to see them.</string>
     <string name="problem_unauthorized">Your sign-in has ended. Sign in again.</string>
     <string name="profile_avatar_remove_failed">Failed to remove avatar</string>
     <string name="profile_avatar_upload_failed">Avatar upload failed</string>

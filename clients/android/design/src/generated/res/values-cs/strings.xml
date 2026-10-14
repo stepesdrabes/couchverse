@@ -598,6 +598,7 @@
     <string name="problem_timeout">Server neodpověděl včas.</string>
     <string name="problem_tls">Zabezpečené připojení k serveru selhalo.</string>
     <string name="problem_tmdb_error">TMDB neodpovídá. Zkuste to později.</string>
+    <string name="problem_trailer_scene_gone">Scény traileru se od otevření stránky změnily: titul byl znovu analyzován. Načtěte stránku znovu a uvidíte je.</string>
     <string name="problem_unauthorized">Vaše přihlášení skončilo. Přihlaste se znovu.</string>
     <string name="profile_avatar_remove_failed">Odebrání obrázku selhalo</string>
     <string name="profile_avatar_upload_failed">Nahrání obrázku selhalo</string>

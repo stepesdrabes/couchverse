@@ -42,6 +42,7 @@ export type {
 	CouchTvSoundtrack,
 	CouchTvTitle,
 	CouchTvTitleUpdate,
+	CouchTvTrailerCut,
 	CouchTvWaveform,
 	LibraryRow,
 	MediaMarker,

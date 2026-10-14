@@ -554,6 +554,85 @@
 	"admin_couchtv_tpl_trailer": "Trailer",
 	"admin_couchtv_tpl_up_next": "Následuje",
 	"admin_couchtv_tpl_weather": "Počasí",
+	"admin_couchtv_trailer": "Trailer",
+	"admin_couchtv_trailer_analyzing": "Probíhá analýza, která může vybrat jiné scény.",
+	"admin_couchtv_trailer_drop": "Odebrat scénu {n}",
+	"admin_couchtv_trailer_dropped": "Odebráno",
+	"admin_couchtv_trailer_footage": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} scéna, {length} s záběrů",
+				"countPlural=few": "{count} scény, {length} s záběrů",
+				"countPlural=*": "{count} scén, {length} s záběrů"
+			}
+		}
+	],
+	"admin_couchtv_trailer_found_none": [
+		{
+			"declarations": [
+				"input min",
+				"local minPlural = min: plural"
+			],
+			"selectors": [
+				"minPlural"
+			],
+			"match": {
+				"minPlural=one": "Couch TV pro tento titul trailer nevysílá: analýza pro něj našla méně než {min} scénu. Čte titulky v jazyce, ve kterém se mluví, takže titul bez nich ho obvykle nemá.",
+				"minPlural=few": "Couch TV pro tento titul trailer nevysílá: analýza pro něj našla méně než {min} scény. Čte titulky v jazyce, ve kterém se mluví, takže titul bez nich ho obvykle nemá.",
+				"minPlural=*": "Couch TV pro tento titul trailer nevysílá: analýza pro něj našla méně než {min} scén. Čte titulky v jazyce, ve kterém se mluví, takže titul bez nich ho obvykle nemá."
+			}
+		}
+	],
+	"admin_couchtv_trailer_hint": [
+		{
+			"declarations": [
+				"input min",
+				"local minPlural = min: plural"
+			],
+			"selectors": [
+				"minPlural"
+			],
+			"match": {
+				"minPlural=one": "Dlouhá upoutávka se stříhá z těchto scén samotného titulu, s jejich zvukem. Odeberte scény, které se vysílat nemají. Trailer potřebuje alespoň {min} scénu.",
+				"minPlural=few": "Dlouhá upoutávka se stříhá z těchto scén samotného titulu, s jejich zvukem. Odeberte scény, které se vysílat nemají. Trailer potřebuje alespoň {min} scény.",
+				"minPlural=*": "Dlouhá upoutávka se stříhá z těchto scén samotného titulu, s jejich zvukem. Odeberte scény, které se vysílat nemají. Trailer potřebuje alespoň {min} scén."
+			}
+		}
+	],
+	"admin_couchtv_trailer_keep": "Ponechat scénu {n}",
+	"admin_couchtv_trailer_none": "Bez traileru pro tento titul",
+	"admin_couchtv_trailer_none_chosen": "Couch TV pro tento titul trailer nevysílá.",
+	"admin_couchtv_trailer_picking": "Analýza právě vybírá scény traileru.",
+	"admin_couchtv_trailer_repick": "Vybrat znovu automaticky",
+	"admin_couchtv_trailer_repick_note": "Po uložení analýza vybere scény znovu.",
+	"admin_couchtv_trailer_repick_undo": "Ponechat můj výběr",
+	"admin_couchtv_trailer_scene_at": "{at}, {length} s",
+	"admin_couchtv_trailer_scenes": "Scény traileru",
+	"admin_couchtv_trailer_speech": "Bez textu: scéna byla nalezena poslechem.",
+	"admin_couchtv_trailer_too_few": [
+		{
+			"declarations": [
+				"input min",
+				"local minPlural = min: plural"
+			],
+			"selectors": [
+				"minPlural"
+			],
+			"match": {
+				"minPlural=one": "Méně než {min} scéna netvoří trailer, takže ho Couch TV pro tento titul nevysílá.",
+				"minPlural=few": "Méně než {min} scény netvoří trailer, takže ho Couch TV pro tento titul nevysílá.",
+				"minPlural=*": "Méně než {min} scén netvoří trailer, takže ho Couch TV pro tento titul nevysílá."
+			}
+		}
+	],
+	"admin_couchtv_trailer_unpicked": "Scény traileru se vybírají při analýze titulu.",
 	"admin_couchtv_unlocked": "Odemčeno",
 	"admin_couchtv_unsaved": "Neuložené změny",
 	"admin_couchtv_waveform_earlier": "Dříve",
@@ -1571,6 +1650,7 @@
 	"problem_timeout": "Server neodpověděl včas.",
 	"problem_tls": "Zabezpečené připojení k serveru selhalo.",
 	"problem_tmdb_error": "TMDB neodpovídá. Zkuste to později.",
+	"problem_trailer_scene_gone": "Scény traileru se od otevření stránky změnily: titul byl znovu analyzován. Načtěte stránku znovu a uvidíte je.",
 	"problem_unauthorized": "Vaše přihlášení skončilo. Přihlaste se znovu.",
 	"profile_avatar_remove_failed": "Odebrání obrázku selhalo",
 	"profile_avatar_upload_failed": "Nahrání obrázku selhalo",

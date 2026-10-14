@@ -10078,6 +10078,23 @@
         }
       }
     },
+    "problem_trailer_scene_gone": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scény traileru se od otevření stránky změnily: titul byl znovu analyzován. Načtěte stránku znovu a uvidíte je."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The trailer's scenes changed since you opened this page: the title was analyzed again. Reload the page to see them."
+          }
+        }
+      }
+    },
     "problem_unauthorized": {
       "extractionState": "manual",
       "localizations": {

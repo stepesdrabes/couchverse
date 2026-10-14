@@ -546,6 +546,81 @@
 	"admin_couchtv_tpl_trailer": "Trailer",
 	"admin_couchtv_tpl_up_next": "Up next",
 	"admin_couchtv_tpl_weather": "Weather bulletin",
+	"admin_couchtv_trailer": "Trailer",
+	"admin_couchtv_trailer_analyzing": "The analysis is running and may pick other scenes.",
+	"admin_couchtv_trailer_drop": "Drop scene {n}",
+	"admin_couchtv_trailer_dropped": "Dropped",
+	"admin_couchtv_trailer_footage": [
+		{
+			"declarations": [
+				"input count",
+				"local countPlural = count: plural"
+			],
+			"selectors": [
+				"countPlural"
+			],
+			"match": {
+				"countPlural=one": "{count} scene, {length} s of footage",
+				"countPlural=*": "{count} scenes, {length} s of footage"
+			}
+		}
+	],
+	"admin_couchtv_trailer_found_none": [
+		{
+			"declarations": [
+				"input min",
+				"local minPlural = min: plural"
+			],
+			"selectors": [
+				"minPlural"
+			],
+			"match": {
+				"minPlural=one": "Couch TV airs no trailer for this title: the analysis found fewer than {min} scene for one. It reads the subtitles in the language spoken, so a title without them usually has none.",
+				"minPlural=*": "Couch TV airs no trailer for this title: the analysis found fewer than {min} scenes for one. It reads the subtitles in the language spoken, so a title without them usually has none."
+			}
+		}
+	],
+	"admin_couchtv_trailer_hint": [
+		{
+			"declarations": [
+				"input min",
+				"local minPlural = min: plural"
+			],
+			"selectors": [
+				"minPlural"
+			],
+			"match": {
+				"minPlural=one": "The long promo is cut from these scenes of the title itself, with their sound. Drop the ones that should not air. A trailer needs at least {min} scene.",
+				"minPlural=*": "The long promo is cut from these scenes of the title itself, with their sound. Drop the ones that should not air. A trailer needs at least {min} scenes."
+			}
+		}
+	],
+	"admin_couchtv_trailer_keep": "Keep scene {n}",
+	"admin_couchtv_trailer_none": "No trailer for this title",
+	"admin_couchtv_trailer_none_chosen": "Couch TV airs no trailer for this title.",
+	"admin_couchtv_trailer_picking": "The analysis is picking the trailer's scenes.",
+	"admin_couchtv_trailer_repick": "Pick again automatically",
+	"admin_couchtv_trailer_repick_note": "The analysis picks the scenes again when you save.",
+	"admin_couchtv_trailer_repick_undo": "Keep my pick",
+	"admin_couchtv_trailer_scene_at": "{at}, {length} s",
+	"admin_couchtv_trailer_scenes": "Scenes of the trailer",
+	"admin_couchtv_trailer_speech": "No text: this scene was found by listening.",
+	"admin_couchtv_trailer_too_few": [
+		{
+			"declarations": [
+				"input min",
+				"local minPlural = min: plural"
+			],
+			"selectors": [
+				"minPlural"
+			],
+			"match": {
+				"minPlural=one": "Fewer than {min} scene makes no trailer, so Couch TV airs none for this title.",
+				"minPlural=*": "Fewer than {min} scenes make no trailer, so Couch TV airs none for this title."
+			}
+		}
+	],
+	"admin_couchtv_trailer_unpicked": "The trailer's scenes are picked with the title's analysis.",
 	"admin_couchtv_unlocked": "Unlocked",
 	"admin_couchtv_unsaved": "Unsaved changes",
 	"admin_couchtv_waveform_earlier": "Earlier",
@@ -1545,6 +1620,7 @@
 	"problem_timeout": "The server took too long to answer.",
 	"problem_tls": "A secure connection to the server failed.",
 	"problem_tmdb_error": "TMDB didn't answer. Try again later.",
+	"problem_trailer_scene_gone": "The trailer's scenes changed since you opened this page: the title was analyzed again. Reload the page to see them.",
 	"problem_unauthorized": "Your sign-in has ended. Sign in again.",
 	"profile_avatar_remove_failed": "Failed to remove avatar",
 	"profile_avatar_upload_failed": "Avatar upload failed",

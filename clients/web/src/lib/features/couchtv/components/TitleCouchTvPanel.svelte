@@ -23,14 +23,16 @@
 	import { moodLabel } from '../labels';
 	import { airedFiles } from '../files';
 	import { Grants } from '../media';
+	import { handBack, trailerPick, untouched, type TrailerEdit } from '../trailer';
 	import MarkersEditor from './MarkersEditor.svelte';
 	import PromoAudioPicker, { type AudioPick } from './PromoAudioPicker.svelte';
 	import ShotsEditor from './ShotsEditor.svelte';
 	import SoundtrackPicker from './SoundtrackPicker.svelte';
+	import TrailerEditor from './TrailerEditor.svelte';
 
 	// A title's Couch TV tools in its editor: off the channel, the promo's mood, its music (a
-	// soundtrack from the web or an excerpt of its own audio) and footage, and its files'
-	// intro and credits markers.
+	// soundtrack from the web or an excerpt of its own audio) and footage, the scenes of its
+	// trailer, and its files' intro and credits markers.
 	let { title }: { title: AdminTitle } = $props();
 
 	let ct = $state<CouchTvTitle | null>(null);
@@ -44,12 +46,14 @@
 	let soundtrackAdmin = $state(false);
 	let shots = $state<CouchTvShot[]>([]);
 	let shotsAdmin = $state(false);
+	let trailerEdit = $state<TrailerEdit>(untouched(false));
 	const form = new FormState(() => ({
 		excluded,
 		mood,
 		promo: promoAdmin ? promo : null,
 		soundtrack: soundtrackAdmin ? soundtrack : null,
-		shots: shotsAdmin ? shots : null
+		shots: shotsAdmin ? shots : null,
+		trailer: trailerPick(ct?.trailer ?? [], trailerEdit)
 	}));
 
 	const grants = new Grants();
@@ -78,6 +82,7 @@
 		soundtrackAdmin = next.soundtrack?.source === 'admin';
 		shots = next.shots;
 		shotsAdmin = next.shotsSource === 'admin';
+		trailerEdit = untouched(next.trailerSource === 'admin');
 		form.reset();
 	}
 	let adopted = $state(0);
@@ -127,6 +132,8 @@
 				durationMs: s.durationMs
 			}));
 		}
+		const trailer = trailerPick(ct?.trailer ?? [], trailerEdit);
+		if (trailer) body.trailer = trailer;
 		try {
 			adopt(await adminUpdateCouchTvTitle(title.title.id, body));
 			toast.success(m.common_saved());
@@ -315,6 +322,40 @@
 							shots = next;
 							shotsAdmin = true;
 						}}
+					/>
+				</section>
+
+				<section class="space-y-3 border-t border-edge/50 pt-5" aria-labelledby="couchtv-trailer">
+					<div class="flex flex-wrap items-center justify-between gap-2">
+						<h3
+							id="couchtv-trailer"
+							class="text-xs font-semibold tracking-widest text-faint uppercase"
+						>
+							{m.admin_couchtv_trailer()}
+						</h3>
+						<span class="flex items-center gap-2 text-xs text-muted">
+							{ct.trailerSource || trailerEdit.picked ? source(trailerEdit.picked) : ''}
+							{#if ct.trailerSource === 'admin' && trailerEdit.picked}
+								<button
+									type="button"
+									class="text-accent-ink hover:underline"
+									onclick={() => (trailerEdit = handBack())}
+								>
+									{m.admin_couchtv_trailer_repick()}
+								</button>
+							{/if}
+						</span>
+					</div>
+					<TrailerEditor
+						scenes={ct.trailer}
+						edit={trailerEdit}
+						savedByAdmin={ct.trailerSource === 'admin'}
+						minScenes={ct.trailerMinScenes}
+						analyzing={ct.analyzing}
+						pickedBefore={ct.trailerSource !== undefined}
+						{files}
+						{grants}
+						onedit={(next) => (trailerEdit = next)}
 					/>
 				</section>
 
