@@ -144,6 +144,16 @@ func TestAPIConformance(t *testing.T) {
 	doc := server.OpenAPI()
 	ops := operations(doc)
 
+	// the scene picker's trailer for the seeded movie, for the admin's cases on it
+	trailer, err := json.Marshal(vetoScenes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(context.Background(), `INSERT INTO couchtv_titles (title_id, trailer, trailer_source, trailer_version)
+		VALUES ($1, $2, 'auto', $3)`, movieID, trailer, couchtv.TrailerVersion); err != nil {
+		t.Fatal(err)
+	}
+
 	covered := map[string]bool{}
 	vars := map[string]string{}
 	for i, c := range apiCases() {
@@ -331,6 +341,22 @@ func apiCases() []apiCase {
 		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
 			"excluded": false, "shots": []map[string]any{{"mediaFileId": hdrFileID, "startMs": 0, "durationMs": 2000}},
 		}, status: 400},
+		// the trailer: the scenes the picker chose, a subset of them kept, one it has not got, none, then handed back
+		{op: "adminGetCouchTvTitle", as: "admin", method: "GET", path: "/admin/couchtv/titles/" + movieID, status: 200},
+		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
+			"excluded": false, "trailer": map[string]any{"keep": []map[string]any{
+				{"mediaFileId": movieFileID, "startMs": 600_000}, {"mediaFileId": movieFileID, "startMs": 900_000}, {"mediaFileId": movieFileID, "startMs": 1_500_000}}},
+		}, status: 200},
+		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
+			"excluded": false, "trailer": map[string]any{"keep": []map[string]any{{"mediaFileId": movieFileID, "startMs": 1_200_000}}},
+		}, status: 409},
+		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
+			"excluded": false, "trailer": map[string]any{"keep": []map[string]any{}},
+		}, status: 200},
+		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
+			"excluded": false, "trailer": map[string]any{"keep": []map[string]any{{"mediaFileId": "not-a-uuid", "startMs": 0}}},
+		}, status: 400},
+		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{"excluded": false}, status: 200},
 		// the soundtrack from the web: one of the title's candidates, never beside an excerpt
 		{op: "adminUpdateCouchTvTitle", as: "admin", method: "PUT", path: "/admin/couchtv/titles/" + movieID, body: map[string]any{
 			"excluded": false, "soundtrackId": soundtrackID,

@@ -2526,6 +2526,13 @@ pub mod types {
         pub soundtracks: Vec<CouchTvSoundtrack>,
         pub title_id: String,
         pub title_kind: CouchTvTitleTitleKind,
+        /// The scenes of the title's long promo, in the order they play; empty when it has none or none is picked yet.
+        pub trailer: Vec<CouchTvTrailerCut>,
+        /// The fewest scenes a trailer is made of: with fewer the channel airs none.
+        pub trailer_min_scenes: i64,
+        /// Who chose the trailer's scenes (an empty pick counts); absent before the first pick.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub trailer_source: Option<CouchTvTitleTrailerSource>,
     }
 
     /// The promo's mood; absent lets the composer choose.
@@ -2645,6 +2652,34 @@ pub mod types {
         }
     }
 
+    /// Who chose the trailer's scenes (an empty pick counts); absent before the first pick.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvTitleTrailerSource {
+        #[serde(rename = "auto")]
+        Auto,
+        #[serde(rename = "admin")]
+        Admin,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvTitleTrailerSource {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvTitleTrailerSource::Auto => "auto",
+                CouchTvTitleTrailerSource::Admin => "admin",
+                CouchTvTitleTrailerSource::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvTitleTrailerSource {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct CouchTvTitleUpdate {
@@ -2663,6 +2698,9 @@ pub mod types {
         /// One of the title's soundtracks for the promos (not with promoAudio); absent hands the choice back to the finder.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub soundtrack_id: Option<String>,
+        /// The admin's word on the trailer: which of its scenes to keep, none being no trailer for the title. Absent hands the trailer back to the analysis, which picks its scenes again.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub trailer: Option<CouchTvTrailerPick>,
     }
 
     /// Absent lets the composer choose.
@@ -2694,6 +2732,65 @@ pub mod types {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvTrailerCut {
+        /// Whole frames at 25 fps, 3 to 8 seconds.
+        pub duration_ms: i64,
+        /// What is said in the scene, in order, as the subtitles have it; empty for a scene found by listening, which has no text.
+        pub lines: Vec<String>,
+        /// The file the picture is cut from. With startMs it names the scene when an admin keeps some.
+        pub media_file_id: String,
+        /// How its lines were found: from the subtitles, or by listening to the sound.
+        pub source: CouchTvTrailerCutSource,
+        /// Where the scene starts in that file.
+        pub start_ms: i64,
+    }
+
+    /// How its lines were found: from the subtitles, or by listening to the sound.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum CouchTvTrailerCutSource {
+        #[serde(rename = "subtitles")]
+        Subtitles,
+        #[serde(rename = "speech")]
+        Speech,
+        /// A value this client does not know yet.
+        #[serde(other)]
+        Unknown,
+    }
+
+    impl CouchTvTrailerCutSource {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                CouchTvTrailerCutSource::Subtitles => "subtitles",
+                CouchTvTrailerCutSource::Speech => "speech",
+                CouchTvTrailerCutSource::Unknown => "unknown",
+            }
+        }
+    }
+
+    impl std::fmt::Display for CouchTvTrailerCutSource {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.as_str())
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvTrailerPick {
+        /// The scenes the trailer keeps, each one of its current scenes; they play in the order the trailer already has. None means no trailer for the title, and so do fewer than trailerMinScenes.
+        /// At most 12 items.
+        pub keep: Vec<CouchTvTrailerSceneRef>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CouchTvTrailerSceneRef {
+        pub media_file_id: String,
+        /// At least 0.
+        pub start_ms: i64,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

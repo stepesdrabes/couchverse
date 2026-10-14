@@ -920,6 +920,12 @@ export interface CouchTvTitle {
 	soundtracks: CouchTvSoundtrack[];
 	titleId: string;
 	titleKind: CouchTvTitleTitleKind;
+	/** The scenes of the title's long promo, in the order they play; empty when it has none or none is picked yet. */
+	trailer: CouchTvTrailerCut[];
+	/** The fewest scenes a trailer is made of: with fewer the channel airs none. */
+	trailerMinScenes: number;
+	/** Who chose the trailer's scenes (an empty pick counts); absent before the first pick. */
+	trailerSource?: CouchTvTitleTrailerSource;
 }
 
 /** The promo's mood; absent lets the composer choose. */
@@ -932,6 +938,9 @@ export type CouchTvTitlePromoBed = 'none' | 'excerpt' | 'soundtrack';
 export type CouchTvTitleShotsSource = 'auto' | 'admin';
 
 export type CouchTvTitleTitleKind = 'movie' | 'series';
+
+/** Who chose the trailer's scenes (an empty pick counts); absent before the first pick. */
+export type CouchTvTitleTrailerSource = 'auto' | 'admin';
 
 export interface CouchTvTitleUpdate {
 	/** Never on Couch TV. */
@@ -947,10 +956,42 @@ export interface CouchTvTitleUpdate {
 	shots?: CouchTvShotPick[];
 	/** One of the title's soundtracks for the promos (not with promoAudio); absent hands the choice back to the finder. */
 	soundtrackId?: string;
+	/** The admin's word on the trailer: which of its scenes to keep, none being no trailer for the title. Absent hands the trailer back to the analysis, which picks its scenes again. */
+	trailer?: CouchTvTrailerPick;
 }
 
 /** Absent lets the composer choose. */
 export type CouchTvTitleUpdateMood = 'cinematic' | 'grit' | 'bright';
+
+export interface CouchTvTrailerCut {
+	/** Whole frames at 25 fps, 3 to 8 seconds. */
+	durationMs: number;
+	/** What is said in the scene, in order, as the subtitles have it; empty for a scene found by listening, which has no text. */
+	lines: string[];
+	/** The file the picture is cut from. With startMs it names the scene when an admin keeps some. */
+	mediaFileId: string;
+	/** How its lines were found: from the subtitles, or by listening to the sound. */
+	source: CouchTvTrailerCutSource;
+	/** Where the scene starts in that file. */
+	startMs: number;
+}
+
+/** How its lines were found: from the subtitles, or by listening to the sound. */
+export type CouchTvTrailerCutSource = 'subtitles' | 'speech';
+
+export interface CouchTvTrailerPick {
+	/**
+	 * The scenes the trailer keeps, each one of its current scenes; they play in the order the trailer already has. None means no trailer for the title, and so do fewer than trailerMinScenes.
+	 * At most 12 items.
+	 */
+	keep: CouchTvTrailerSceneRef[];
+}
+
+export interface CouchTvTrailerSceneRef {
+	mediaFileId: string;
+	/** At least 0. */
+	startMs: number;
+}
 
 export interface CouchTvTune {
 	/** A guest's: lets them load artwork without an account (append it to artwork URLs as ?g=). */

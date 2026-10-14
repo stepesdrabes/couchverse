@@ -34,6 +34,9 @@ type CouchTvTitle struct {
 	SoundtrackQuery      string                 `json:"soundtrackQuery,omitempty" doc:"The admin's own query of the last search; absent for the finder's."`
 	SoundtrackSearchedAt *time.Time             `json:"soundtrackSearchedAt" doc:"When the soundtrack was last searched; null before the first search."`
 	SearchingSoundtrack  bool                   `json:"searchingSoundtrack" doc:"A soundtrack search, or the download of the picked track, is queued or running."`
+	Trailer              []CouchTvTrailerCut    `json:"trailer" doc:"The scenes of the title's long promo, in the order they play; empty when it has none or none is picked yet."`
+	TrailerSource        string                 `json:"trailerSource,omitempty" enum:"auto,admin" doc:"Who chose the trailer's scenes (an empty pick counts); absent before the first pick."`
+	TrailerMinScenes     int                    `json:"trailerMinScenes" doc:"The fewest scenes a trailer is made of: with fewer the channel airs none."`
 }
 
 // CouchTvSoundtrack is a track from a music catalog that may be the title's own music:
@@ -96,20 +99,21 @@ type CouchTvShot struct {
 	Score       float64 `json:"score" doc:"How well it suits a promo (motion and contrast, less for a close-up face), 0 to 1; 1 for an admin's pick."`
 }
 
-// titleRow is a couchtv_titles row with its title's kind. The trailer's scenes are the
-// composer's; the admin API does not carry them.
+// titleRow is a couchtv_titles row with its title's kind. The trailer's scenes are kept whole
+// (the admin API carries them as cuts).
 type titleRow struct {
 	CouchTvTitle
 	promoSource    string
 	shotsVersion   int
 	trailerSource  string
 	trailerVersion int
+	trailer        []CouchTvTrailerScene
 }
 
 // Title reads a title's channel facts; a title without a row yet has the defaults.
 func (s *Store) Title(ctx context.Context, titleID string) (*titleRow, error) {
 	var r titleRow
-	var shots []byte
+	var shots, trailer []byte
 	var fileID, promoSource, shotsSource, soundtrackID, soundtrackSource, trailerSource *string
 	var start, duration, soundtrackStart, soundtrackDuration *int
 	var soundtrackReady bool
@@ -127,13 +131,13 @@ func (s *Store) Title(ctx context.Context, titleID string) (*titleRow, error) {
 		       ct.soundtrack_duration_ms, coalesce(ct.soundtrack_query, ''), ct.soundtrack_searched_at,
 		       EXISTS (SELECT 1 FROM jobs j WHERE j.status IN ('pending', 'running') AND j.type = '`+SoundtrackJob+`'
 		               AND j.payload->>'titleId' = t.id::text AND j.run_at <= now()),
-		       ct.trailer_source, coalesce(ct.trailer_version, 0)
+		       ct.trailer_source, coalesce(ct.trailer_version, 0), coalesce(ct.trailer, '[]')
 		FROM titles t
 		LEFT JOIN couchtv_titles ct ON ct.title_id = t.id
 		WHERE t.id = $1`, titleID).Scan(&r.TitleID, &r.TitleKind, &r.Excluded, &fileID, &start, &duration, &promoSource,
 		&shots, &shotsSource, &r.Mood, &r.LoudnessLufs, &r.AnalyzedVersion, &r.shotsVersion, &r.AnalyzedAt, &r.Analyzing,
 		&soundtrackID, &soundtrackSource, &soundtrackReady, &soundtrackStart, &soundtrackDuration, &r.SoundtrackQuery,
-		&r.SoundtrackSearchedAt, &r.SearchingSoundtrack, &trailerSource, &r.trailerVersion)
+		&r.SoundtrackSearchedAt, &r.SearchingSoundtrack, &trailerSource, &r.trailerVersion, &trailer)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -151,11 +155,16 @@ func (s *Store) Title(ctx context.Context, titleID string) (*titleRow, error) {
 	}
 	if trailerSource != nil {
 		r.trailerSource = *trailerSource
+		r.TrailerSource = *trailerSource
 	}
 	r.Shots = []CouchTvShot{}
 	if err := json.Unmarshal(shots, &r.Shots); err != nil {
 		return nil, err
 	}
+	if err := json.Unmarshal(trailer, &r.trailer); err != nil {
+		return nil, err
+	}
+	r.Trailer, r.TrailerMinScenes = trailerCuts(r.trailer), trailerScenesMin
 	if soundtrackID != nil && soundtrackSource != nil {
 		r.Soundtrack = &CouchTvSoundtrackPick{SoundtrackID: *soundtrackID, Source: *soundtrackSource, Ready: soundtrackReady}
 		if soundtrackReady && soundtrackStart != nil && soundtrackDuration != nil {
@@ -186,6 +195,8 @@ type analysis struct {
 	// the title is not picked again until the picker is better
 	trailer     []CouchTvTrailerScene
 	trailerDone bool
+	// trailerKept: the title has an admin's scenes, which this run left as they are
+	trailerKept bool
 }
 
 // SaveAnalysis stores an analysis without touching what an admin chose.
@@ -230,6 +241,12 @@ func (s *Store) SaveAnalysis(ctx context.Context, titleID string, a analysis) er
 			return err
 		}
 	}
+	if a.trailerKept {
+		if _, err := tx.Exec(ctx, `UPDATE couchtv_titles SET trailer_version = $2, updated_at = now()
+			WHERE title_id = $1 AND trailer_source = 'admin'`, titleID, TrailerVersion); err != nil {
+			return err
+		}
+	}
 	if a.promoDone {
 		var fileID *string
 		var start, duration *int
@@ -249,14 +266,16 @@ func (s *Store) SaveAnalysis(ctx context.Context, titleID string, a analysis) er
 
 func ptr[T any](v T) *T { return &v }
 
-// titleEdit is an admin's edit of a title's channel facts; a nil promo or shots hands
-// that part back to the analysis, a nil soundtrack to the finder.
+// titleEdit is an admin's edit of a title's channel facts; a nil promo, shots or trailer
+// hands that part back to the analysis, a nil soundtrack to the finder. A trailer that is not
+// nil but empty is the admin's pick of no scenes.
 type titleEdit struct {
 	excluded   bool
 	mood       *string
 	promo      *CouchTvPromoAudio
 	shots      []CouchTvShot
 	soundtrack *string
+	trailer    []CouchTvTrailerScene
 }
 
 // UpdateTitle stores an admin's edit.
@@ -293,6 +312,9 @@ func (s *Store) UpdateTitle(ctx context.Context, titleID string, e titleEdit) er
 			updated_at = now()`,
 		titleID, e.excluded, e.mood, fileID, start, duration, promoSource, nullJSON(shots, len(e.shots) > 0), shotsSource)
 	if err != nil {
+		return err
+	}
+	if err := saveTrailer(ctx, tx, titleID, e.trailer); err != nil {
 		return err
 	}
 	if e.soundtrack != nil {

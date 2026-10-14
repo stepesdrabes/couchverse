@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"time"
 
 	"couchverse/internal/db"
 	"couchverse/internal/feature/jobs"
@@ -60,6 +61,7 @@ type CouchTvTitleUpdate struct {
 	PromoAudio   *CouchTvPromoAudioPick `json:"promoAudio,omitempty" required:"false" doc:"An excerpt of the title's own audio for the promos, over any soundtrack; absent hands the promo audio back to the analysis."`
 	SoundtrackID *string                `json:"soundtrackId,omitempty" required:"false" format:"uuid" doc:"One of the title's soundtracks for the promos (not with promoAudio); absent hands the choice back to the finder."`
 	Shots        []CouchTvShotPick      `json:"shots,omitempty" required:"false" maxItems:"6" doc:"In the order they air; absent or empty hands the shots back to the analysis."`
+	Trailer      *CouchTvTrailerPick    `json:"trailer,omitempty" required:"false" doc:"The admin's word on the trailer: which of its scenes to keep, none being no trailer for the title. Absent hands the trailer back to the analysis, which picks its scenes again."`
 }
 
 type updateTitleInput struct {
@@ -102,7 +104,17 @@ func (h *Titles) Update(ctx context.Context, in *updateTitleInput) (*titleOutput
 		}
 		edit.shots = append(edit.shots, CouchTvShot{MediaFileID: s.MediaFileID, StartMs: s.StartMs, DurationMs: frames * 40, Score: 1})
 	}
+	if p := b.Trailer; p != nil {
+		kept, err := keepScenes(before.trailer, p.Keep)
+		if err != nil {
+			return nil, httpx.Fail(http.StatusConflict, ErrTrailerSceneGone, err.Error())
+		}
+		edit.trailer = kept
+	}
 	if err := st.UpdateTitle(ctx, in.ID, edit); err != nil {
+		return nil, err
+	}
+	if err := h.retireTrailer(ctx, in.ID, before, edit); err != nil {
 		return nil, err
 	}
 	if before.Excluded != b.Excluded {
@@ -112,12 +124,14 @@ func (h *Titles) Update(ctx context.Context, in *updateTitleInput) (*titleOutput
 	}
 	handedBack := before.promoSource == SourceAdmin && edit.promo == nil ||
 		before.ShotsSource == SourceAdmin && len(edit.shots) == 0
+	// the trailer alone is picked again: a whole analysis would measure a film's loudness
+	trailerHandedBack := before.trailerSource == SourceAdmin && edit.trailer == nil
 	if !b.Excluded {
 		var err error
 		switch {
 		case handedBack || before.Excluded && before.AnalyzedVersion < AnalyzeVersion:
 			err = h.analyzer.force(ctx, in.ID)
-		case before.Excluded && (before.shotsVersion < ShotsVersion || before.trailerVersion < TrailerVersion):
+		case trailerHandedBack || before.Excluded && (before.shotsVersion < ShotsVersion || before.trailerVersion < TrailerVersion):
 			err = h.analyzer.repick(ctx, in.ID)
 		}
 		if err != nil {
@@ -133,6 +147,22 @@ func (h *Titles) Update(ctx context.Context, in *updateTitleInput) (*titleOutput
 		}
 	}
 	return h.Get(ctx, &titleInput{ID: in.ID})
+}
+
+// retireTrailer drops the compositions of breaks that would still air the trailer the edit
+// replaced, and has them composed again at once, so a dropped scene (or the whole trailer) does
+// not air from a break composed before. A trailer handed back keeps its scenes until the
+// analysis picks again, so nothing airs that was not kept.
+func (h *Titles) retireTrailer(ctx context.Context, titleID string, before *titleRow, edit titleEdit) error {
+	if edit.trailer == nil || sameScenes(before.trailer, edit.trailer) {
+		return nil
+	}
+	dropped, err := h.analyzer.Store.ResetTrailerBreaks(ctx, titleID, time.Now())
+	if err != nil || dropped == 0 {
+		return err
+	}
+	_, err = h.analyzer.Jobs.EnqueueJobOnce(ctx, ComposeJob, ComposePayload{}, jobs.EnqueueOpts{})
+	return err
 }
 
 // CouchTvSoundtrackSearch asks the finder to search a title's soundtrack again.

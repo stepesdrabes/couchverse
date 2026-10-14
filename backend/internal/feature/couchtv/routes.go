@@ -75,7 +75,11 @@ func (m *Module) Register(rt httpx.Routes) {
 	huma.Register(rt.Admin, tag.Op("adminUpdateAiring", http.MethodPatch, "/couchtv/airings/{id}"), m.admin.UpdateAiring)
 	huma.Register(rt.Admin, tag.Op("adminRegenerateDay", http.MethodPost, "/couchtv/days/{date}/regenerate"), m.admin.RegenerateDay)
 	huma.Register(rt.Admin, tag.Op("adminGetCouchTvTitle", http.MethodGet, "/couchtv/titles/{id}"), m.titles.Get)
-	huma.Register(rt.Admin, tag.Op("adminUpdateCouchTvTitle", http.MethodPut, "/couchtv/titles/{id}"), m.titles.Update)
+	update := tag.Op("adminUpdateCouchTvTitle", http.MethodPut, "/couchtv/titles/{id}")
+	update.Description = "Stores an admin's edit of a title's channel facts. A part left out of the body goes back to the analysis " +
+		"(the soundtrack to the finder), which picks it again; the trailer's scenes alone are picked again, never the whole title. " +
+		"409 trailer_scene_gone when trailer names a scene the trailer no longer has, because the analysis picked it again meanwhile."
+	huma.Register(rt.Admin, update, m.titles.Update)
 	huma.Register(rt.Admin, tag.Accepted("adminAnalyzeCouchTvTitle", http.MethodPost, "/couchtv/titles/{id}/analyze"), m.titles.Analyze)
 	search := tag.Accepted("adminSearchCouchTvSoundtracks", http.MethodPost, "/couchtv/titles/{id}/soundtracks/search")
 	search.Summary = "Search a title's soundtrack on the web again"

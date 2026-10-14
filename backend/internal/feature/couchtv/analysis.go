@@ -159,6 +159,8 @@ func (a *Analyzer) analyze(ctx context.Context, p AnalyzePayload, report func(in
 		res.trailer, res.trailerDone = a.trailer(ctx, t, files), true
 		report(90)
 	}
+	// an admin's scenes are never picked again, but a newer picker does not make the title due again
+	res.trailerKept = t.trailerSource == SourceAdmin && t.trailerVersion < TrailerVersion
 	// a catch-up leaves the promo audio as it is: picking it again may measure a whole film's
 	// loudness
 	if t.promoSource != SourceAdmin && (measure || !p.PicksOnly) {

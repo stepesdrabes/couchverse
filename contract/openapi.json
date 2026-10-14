@@ -2771,6 +2771,26 @@
               "series"
             ],
             "type": "string"
+          },
+          "trailer": {
+            "description": "The scenes of the title's long promo, in the order they play; empty when it has none or none is picked yet.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvTrailerCut"
+            },
+            "type": "array"
+          },
+          "trailerMinScenes": {
+            "description": "The fewest scenes a trailer is made of: with fewer the channel airs none.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "trailerSource": {
+            "description": "Who chose the trailer's scenes (an empty pick counts); absent before the first pick.",
+            "enum": [
+              "auto",
+              "admin"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -2785,7 +2805,9 @@
           "promoBed",
           "soundtracks",
           "soundtrackSearchedAt",
-          "searchingSoundtrack"
+          "searchingSoundtrack",
+          "trailer",
+          "trailerMinScenes"
         ],
         "type": "object"
       },
@@ -2821,10 +2843,93 @@
             "description": "One of the title's soundtracks for the promos (not with promoAudio); absent hands the choice back to the finder.",
             "format": "uuid",
             "type": "string"
+          },
+          "trailer": {
+            "$ref": "#/components/schemas/CouchTvTrailerPick",
+            "description": "The admin's word on the trailer: which of its scenes to keep, none being no trailer for the title. Absent hands the trailer back to the analysis, which picks its scenes again."
           }
         },
         "required": [
           "excluded"
+        ],
+        "type": "object"
+      },
+      "CouchTvTrailerCut": {
+        "additionalProperties": false,
+        "properties": {
+          "durationMs": {
+            "description": "Whole frames at 25 fps, 3 to 8 seconds.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "lines": {
+            "description": "What is said in the scene, in order, as the subtitles have it; empty for a scene found by listening, which has no text.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "mediaFileId": {
+            "description": "The file the picture is cut from. With startMs it names the scene when an admin keeps some.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "source": {
+            "description": "How its lines were found: from the subtitles, or by listening to the sound.",
+            "enum": [
+              "subtitles",
+              "speech"
+            ],
+            "type": "string"
+          },
+          "startMs": {
+            "description": "Where the scene starts in that file.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mediaFileId",
+          "startMs",
+          "durationMs",
+          "lines",
+          "source"
+        ],
+        "type": "object"
+      },
+      "CouchTvTrailerPick": {
+        "additionalProperties": false,
+        "properties": {
+          "keep": {
+            "description": "The scenes the trailer keeps, each one of its current scenes; they play in the order the trailer already has. None means no trailer for the title, and so do fewer than trailerMinScenes.",
+            "items": {
+              "$ref": "#/components/schemas/CouchTvTrailerSceneRef"
+            },
+            "maxItems": 12,
+            "type": "array"
+          }
+        },
+        "required": [
+          "keep"
+        ],
+        "type": "object"
+      },
+      "CouchTvTrailerSceneRef": {
+        "additionalProperties": false,
+        "properties": {
+          "mediaFileId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "startMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mediaFileId",
+          "startMs"
         ],
         "type": "object"
       },
@@ -8533,6 +8638,7 @@
         ]
       },
       "put": {
+        "description": "Stores an admin's edit of a title's channel facts. A part left out of the body goes back to the analysis (the soundtrack to the finder), which picks it again; the trailer's scenes alone are picked again, never the whole title. 409 trailer_scene_gone when trailer names a scene the trailer no longer has, because the analysis picked it again meanwhile.",
         "operationId": "adminUpdateCouchTvTitle",
         "parameters": [
           {
