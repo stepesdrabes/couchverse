@@ -316,8 +316,8 @@ const PROMO = {
 
 const episode = { code: 'S01E02', name: 'Bart the Genius', runtimeMinutes: 23 };
 
-// a title as the screens that show it big get it: its logo (where it has one) and its scenes
-const SCENES: FootageShot[] = [
+// a title as the strip and short promos show it big: its logo (where it has one) and its scenes
+const STRIP_SCENES: FootageShot[] = [
 	{ kind: 'footage', frames: frames('shot-a') },
 	{ kind: 'footage', frames: frames('shot-b') }
 ];
@@ -332,7 +332,7 @@ const LOGOS = {
 const shown = (t: Title, logo?: Logo): Title => ({
 	...t,
 	...(logo ? { logo } : {}),
-	footage: SCENES
+	footage: STRIP_SCENES
 });
 
 export const FIXTURES = {
