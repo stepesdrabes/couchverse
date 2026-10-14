@@ -369,13 +369,13 @@ function score(tl: TL, sound: Kit, o: Moments) {
 					dur: 1.1,
 					pan: -0.4 + i * 0.12,
 					verb: 0.6,
-					gain: (o.bed ? 0.55 : 0.9) * k,
+					gain: (o.bed ? 0.55 : 0.65) * k,
 					seed: 510 + i
 				});
 			else
 				glass(h, w, note, {
 					decay: 1.6,
-					gain: (o.bed ? 0.5 : 0.8) * k,
+					gain: (o.bed ? 0.5 : 0.55) * k,
 					pan: -0.45 + i * 0.15,
 					verb: 0.6,
 					seed: 520 + i
@@ -394,7 +394,7 @@ function score(tl: TL, sound: Kit, o: Moments) {
 		pad(h, w, chord, Math.max(1, o.tagAt - 1.6), {
 			attack: 1.4,
 			release: 1.8,
-			level: 0.85,
+			level: 1,
 			seed: 530
 		});
 		padSweep(h, w, [
@@ -413,7 +413,7 @@ function score(tl: TL, sound: Kit, o: Moments) {
 				dur: 1.4,
 				pan: i % 2 ? 0.2 : -0.2,
 				verb: 0.55,
-				gain: 0.7,
+				gain: 0.85,
 				seed: 540 + i
 			});
 	});
