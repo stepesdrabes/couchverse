@@ -2211,7 +2211,7 @@ pub mod types {
         /// Whole frames at 25 fps, 1 to 3 seconds.
         pub duration_ms: i64,
         pub media_file_id: String,
-        /// How well it suits a promo (motion and contrast), 0 to 1; 1 for an admin's pick.
+        /// How well it suits a promo (motion and contrast, less for a close-up face), 0 to 1; 1 for an admin's pick.
         pub score: f64,
         pub start_ms: i64,
     }

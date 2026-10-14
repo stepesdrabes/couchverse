@@ -80,6 +80,36 @@ func ffmpeg(t *testing.T, args ...string) {
 	}
 }
 
+// FullRange makes luma what a gray decode gives, 255 for a limited-range white, and
+// stretches the chroma with it; without it the planes are the file's.
+func TestFramesFullRange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "white.mp4")
+	ffmpeg(t, "-f", "lavfi", "-i", "color=c=white:size=64x36:rate=5:duration=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", path)
+	luma := func(o FrameOptions) (y, u int) {
+		o.Width, o.Height = 32, 18
+		err := Frames(context.Background(), "ffmpeg", path, o, func(f Frame) error {
+			y = int(f.Y[0])
+			if len(f.U) > 0 {
+				u = int(f.U[0])
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return y, u
+	}
+	if y, u := luma(FrameOptions{Chroma: true}); y < 233 || y > 237 || u < 126 || u > 130 {
+		t.Errorf("limited range: luma %d, chroma %d, want about 235 and 128", y, u)
+	}
+	if y, u := luma(FrameOptions{Chroma: true, FullRange: true}); y < 253 || u < 126 || u > 130 {
+		t.Errorf("full range: luma %d, chroma %d, want about 255 and 128", y, u)
+	}
+	if y, _ := luma(FrameOptions{}); y < 253 {
+		t.Errorf("gray: luma %d, want about 255", y)
+	}
+}
+
 func TestMeasurements(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "clip.mp4")
 	// 6 s: a test pattern with a keyframe every second, a tone that is silent for the

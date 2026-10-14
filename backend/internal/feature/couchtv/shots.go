@@ -14,7 +14,9 @@ import (
 // over it, where the picture moves and never black. Keyframes are the candidates (cheap
 // to decode, and encoders put one on most cuts); the best-looking keyframe of each
 // stretch is then decoded for a few seconds to find where its shot ends (a cut, scored
-// the way ffmpeg's scdet scores one) and how much it moves.
+// the way ffmpeg's scdet scores one) and how much it moves. Pictures are also checked
+// (pictureRisk) for what the channel does not want on every screen: gore, and faces
+// filling the frame, which come after wide and medium shots.
 const (
 	shotsMax       = 6
 	shotMinLength  = 1.0
@@ -23,6 +25,11 @@ const (
 	shotWindowTo   = 0.5  // the first half only, so promos spoil nothing
 	shotW, shotH   = 160, 90
 	shotFPS        = 10
+	// riskEvery is how often a shot's picture is checked: every 5th frame, 0.5 s
+	riskEvery = 5
+	// avoidRisk is the picture risk from which a shot never airs; a face close-up never
+	// reaches it (closeUpRisk), so a title keeps footage when its scenes are all faces
+	avoidRisk = 0.85
 	// sceneThreshold is scdet's default, on its 0-100 scale
 	sceneThreshold = 10.0
 	// airFrame is a frame on air (25 fps): shots are whole frames
@@ -44,6 +51,7 @@ type still struct {
 	mean     float64
 	p95      int
 	contrast float64
+	risk     float64 // pictureRisk; read for usable stills only
 }
 
 func readStill(f media.Frame) still {
@@ -75,17 +83,20 @@ func (s still) usable() bool {
 	return s.p95 >= blackP95 && s.mean >= minMean && s.mean <= maxMean && s.contrast >= minContrast
 }
 
-// pickStills chooses the most contrasty usable still of each of n equal stretches of
-// [from, to).
+// rank is what a stretch's stills compete on: contrast, less the risk of the picture.
+func (s still) rank() float64 { return s.contrast * (1 - s.risk) }
+
+// pickStills chooses the best ranked usable still of each of n equal stretches of
+// [from, to), leaving out the ones to avoid.
 func pickStills(stills []still, from, to float64, n int) []still {
 	best := make([]*still, n)
 	for i := range stills {
 		s := &stills[i]
 		k := int(float64(n) * (s.t - from) / (to - from))
-		if k < 0 || k >= n || !s.usable() {
+		if k < 0 || k >= n || !s.usable() || s.risk >= avoidRisk {
 			continue
 		}
-		if best[k] == nil || s.contrast > best[k].contrast {
+		if best[k] == nil || s.rank() > best[k].rank() {
 			best[k] = s
 		}
 	}
@@ -140,16 +151,38 @@ func shotScore(motion, contrast float64) float64 {
 	return math.Round(s*1000) / 1000
 }
 
+// shotRating is a shot's score less the risk of its picture: a face close-up keeps
+// 30 % of it, so a wide or medium shot wins over one that moves as much.
+func shotRating(score, risk float64) float64 {
+	return math.Round(score*(1-risk)*1000) / 1000
+}
+
+// shotRisk is the highest risk of a shot's pictures, checked every riskEvery frames and
+// at the last.
+func shotRisk(frames []media.Frame) float64 {
+	risk := 0.0
+	check := func(f media.Frame) { risk = max(risk, pictureRisk(rgbOf(f), f.Width, f.Height)) }
+	for i := 0; i < len(frames); i += riskEvery {
+		check(frames[i])
+	}
+	if n := len(frames) - 1; n > 0 && n%riskEvery != 0 {
+		check(frames[n])
+	}
+	return risk
+}
+
 // candidate is a measured shot of one of the title's files.
 type candidate struct {
 	shot CouchTvShot
 	file int // index of the file it is from, for the order
 	t    float64
+	risk float64
 }
 
 // chooseShots keeps the best candidates, at most perFile from one file, in the order
-// they come in the title.
+// they come in the title. Candidates whose picture is to be avoided never air.
 func chooseShots(cands []candidate, perFile int) []CouchTvShot {
+	cands = slices.DeleteFunc(cands, func(c candidate) bool { return c.risk >= avoidRisk })
 	slices.SortStableFunc(cands, func(a, b candidate) int { return cmp.Compare(b.shot.Score, a.shot.Score) })
 	var chosen []candidate
 	taken := map[int]int{}
@@ -174,9 +207,13 @@ func (a *Analyzer) fileShots(ctx context.Context, f titleFile, index, stretches 
 	from, to := f.Duration*shotWindowFrom, f.Duration*shotWindowTo
 	var stills []still
 	err := media.Frames(ctx, a.FFmpegPath, f.Path, media.FrameOptions{
-		From: from, Length: to - from, Keyframes: true, Width: shotW, Height: shotH,
+		From: from, Length: to - from, Keyframes: true, Width: shotW, Height: shotH, Chroma: true, FullRange: true,
 	}, func(fr media.Frame) error {
-		stills = append(stills, readStill(fr))
+		s := readStill(fr)
+		if s.usable() {
+			s.risk = pictureRisk(rgbOf(fr), fr.Width, fr.Height)
+		}
+		stills = append(stills, s)
 		return nil
 	})
 	if err != nil {
@@ -186,9 +223,9 @@ func (a *Analyzer) fileShots(ctx context.Context, f titleFile, index, stretches 
 	for _, s := range pickStills(stills, from, to, stretches) {
 		var frames []media.Frame
 		err := media.Frames(ctx, a.FFmpegPath, f.Path, media.FrameOptions{
-			From: s.t, Length: shotMaxLength + 0.2, FPS: shotFPS, Width: shotW, Height: shotH,
+			From: s.t, Length: shotMaxLength + 0.2, FPS: shotFPS, Width: shotW, Height: shotH, Chroma: true, FullRange: true,
 		}, func(fr media.Frame) error {
-			fr.Y = slices.Clone(fr.Y)
+			fr.Y, fr.U, fr.V = slices.Clone(fr.Y), slices.Clone(fr.U), slices.Clone(fr.V)
 			frames = append(frames, fr)
 			return nil
 		})
@@ -200,10 +237,11 @@ func (a *Analyzer) fileShots(ctx context.Context, f titleFile, index, stretches 
 			continue
 		}
 		frames25 := int(length / airFrame)
+		risk := shotRisk(frames[:min(len(frames), int(length*shotFPS)+1)])
 		out = append(out, candidate{
 			shot: CouchTvShot{MediaFileID: f.ID, StartMs: int(math.Round(s.t * 1000)), DurationMs: frames25 * 40,
-				Score: shotScore(motion, s.contrast)},
-			file: index, t: s.t,
+				Score: shotRating(shotScore(motion, s.contrast), risk)},
+			file: index, t: s.t, risk: risk,
 		})
 	}
 	return out, nil

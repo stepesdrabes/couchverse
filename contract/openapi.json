@@ -2416,7 +2416,7 @@
             "type": "string"
           },
           "score": {
-            "description": "How well it suits a promo (motion and contrast), 0 to 1; 1 for an admin's pick.",
+            "description": "How well it suits a promo (motion and contrast, less for a close-up face), 0 to 1; 1 for an admin's pick.",
             "format": "double",
             "type": "number"
           },

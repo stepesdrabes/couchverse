@@ -264,6 +264,9 @@ type FrameOptions struct {
 	Width, Height int
 	// Chroma also delivers the chroma planes (4:2:0), not only luma.
 	Chroma bool
+	// FullRange scales the planes to 0-255 whatever the file's range: luma then equals a
+	// gray decode's, the scale the analyses' thresholds are tuned on.
+	FullRange bool
 }
 
 // Frame is one decoded picture.
@@ -292,7 +295,11 @@ func Frames(ctx context.Context, ffmpegPath, file string, o FrameOptions, fn fun
 	if o.Chroma {
 		format = "yuv420p"
 	}
-	filter := fmt.Sprintf("scale=%d:%d:flags=area,format=%s,showinfo", o.Width, o.Height, format)
+	scale := fmt.Sprintf("scale=%d:%d:flags=area", o.Width, o.Height)
+	if o.FullRange {
+		scale += ":out_range=pc"
+	}
+	filter := fmt.Sprintf("%s,format=%s,showinfo", scale, format)
 	if o.FPS > 0 {
 		filter = fmt.Sprintf("fps=%g,", o.FPS) + filter
 	}

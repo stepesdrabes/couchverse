@@ -93,7 +93,7 @@ type CouchTvShot struct {
 	MediaFileID string  `json:"mediaFileId" format:"uuid"`
 	StartMs     int     `json:"startMs"`
 	DurationMs  int     `json:"durationMs" doc:"Whole frames at 25 fps, 1 to 3 seconds."`
-	Score       float64 `json:"score" doc:"How well it suits a promo (motion and contrast), 0 to 1; 1 for an admin's pick."`
+	Score       float64 `json:"score" doc:"How well it suits a promo (motion and contrast, less for a close-up face), 0 to 1; 1 for an admin's pick."`
 }
 
 // titleRow is a couchtv_titles row with its title's kind.
