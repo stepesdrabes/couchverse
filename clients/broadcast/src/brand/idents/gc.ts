@@ -12,6 +12,14 @@ let pending = 0;
 export function collectGarbage(bytes: number) {
 	pending += bytes;
 	if (pending < LIMIT) return;
+	collectNow();
+}
+
+/**
+ * Collect now (where we may): between a render's frame loop and its sound renders, so the
+ * frames' images and the sound's buffers are never held at once. A hint, never a requirement.
+ */
+export function collectNow() {
 	pending = 0;
 	(globalThis as { gc?: () => void }).gc?.();
 }

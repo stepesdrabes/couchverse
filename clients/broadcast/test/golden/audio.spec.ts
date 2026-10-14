@@ -49,6 +49,29 @@ const level = (ch: Float32Array[], from: number, to: number) => {
 };
 const slice = (ch: Float32Array[], from: number, to: number) => ch.map((c) => c.slice(from, to));
 
+// The renderer peaked at 650 to 900 MB in a trailer's sound renders, with the frame loop's images
+// still held: both sound renders collect first (the sidecar starts Chromium with --expose-gc).
+test('a sound render collects garbage first, so the frames and the sound never sit there together', async ({
+	page
+}) => {
+	const calls = () => page.evaluate(() => (window as unknown as { collected: number }).collected);
+	await page.evaluate(() => {
+		const w = window as unknown as { gc?: () => void; collected: number };
+		const real = w.gc;
+		w.collected = 0;
+		w.gc = () => {
+			w.collected++;
+			real?.();
+		};
+	});
+	await load(page, FIXTURES['sting-5']);
+	await sound(page, 'renderAudio');
+	expect(await calls()).toBe(1);
+	await load(page, FIXTURES['sting-5'], { sound: true });
+	await sound(page, 'renderItemAudio');
+	expect(await calls()).toBe(2);
+});
+
 test("an item's sound is the clip's own at the engine's level, over where the clip ends", async ({
 	page
 }) => {

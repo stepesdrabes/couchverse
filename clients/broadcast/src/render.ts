@@ -4,6 +4,7 @@
 import { Kit } from './audio/kit';
 import type { LoudnessReport } from './audio/loudness';
 import { encodeWav } from './audio/wav';
+import { collectNow } from './brand/idents/gc';
 import type { Cue, KeyRect } from './core/timeline';
 import { FPS } from './core/timeline';
 import {
@@ -104,6 +105,7 @@ function clip(): Piece {
 }
 
 async function audio(): Promise<AudioRender> {
+	collectNow();
 	const out = brk ? await brk.render() : await renderPieceAudio(clip());
 	report = out.report;
 	return out;
@@ -169,6 +171,7 @@ window.couchtvRender = {
 		return encodeWav(out.channels, out.sampleRate);
 	},
 	async renderItemAudio() {
+		collectNow();
 		const out = await renderItemAudio(clip());
 		return encodeWav(out.channels, out.sampleRate);
 	},

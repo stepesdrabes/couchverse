@@ -1262,7 +1262,16 @@ break or the standby card.
   half to two times a promo's memory; the sound render is the peak (a 74 s render of the scenes,
   the soundtrack and every house voice) and could run in a page of its own if it ever crowds the
   sidecar's 1 GB, where a promo's renderer is 280 MB on the Pi (a trailer's would be 450 to 600 MB
-  by the same ratio: inside the container, and the closest of any clip).
+  by the same ratio: inside the container, and the closest of any clip). After the review's fixes
+  (2026-10-14: a montage and a title cut from unseen picture, the music from the channel's moment,
+  both sound renders collecting garbage first) the same harness on the M1, loaded by five other
+  agents: the hand-picked Iron Man 3 trailer is 1823 frames of which 1799 are captured (57.4 ms
+  each, 103 s; every frame still moves), the renderer peaking at 819 MB in the frame loop, 442 MB
+  in the sound render and 351 MB in the item sound (722, 636 and 430 MB before), and the Pulp
+  Fiction trailer with the kit's six footage shots 1363 frames, 1342 captured (64.2 ms),
+  639 / 507 / 386 MB (749 / 846 / 905 before; its plan is also shorter now), all Chromium
+  processes 733 MB at most in the sound renders (1.1 GB before). A series' trailer, whose
+  footage is two shots, has no montage and runs 50 to 60 s, so fewer frames than before.
 
 ### 6.9 Presence, reactions, progress, analytics, ranks
 - **Hub**: an in-memory channel room (like couch's Hub, much simpler: no host). WebSocket

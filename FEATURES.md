@@ -2626,8 +2626,9 @@ approves is what airs.
   `renderItemAudio()` is the loaded clip's sound as an item of a break, as one render of the
   whole break played it: from its start, its buses faded out over 0.3 s from `soundDuration`,
   the hall ringing out after that (up to 4 s, cut once under -120 dBFS), at the engine's level
-  (not normalized), placed 0.5 s into its own context like every item after a break's first;
-  `versions()` names every template's version (the sidecar publishes it, so the app keys clips
+  (not normalized), placed 0.5 s into its own context like every item after a break's first; both
+  sound renders call `gc()` first where the page has one (`collectNow`), so the frame loop's
+  images and the sound's buffers are not held at once; `versions()` names every template's version (the sidecar publishes it, so the app keys clips
   without a browser). Today's templates keep some motion in nearly every frame (a slow push,
   grain): only the brand's still stretches (the short ident's couch alone and its held lockup,
   about half of it; a sting's holds; the last 1.6 to 2.6 s of the full idents but cinematic,
