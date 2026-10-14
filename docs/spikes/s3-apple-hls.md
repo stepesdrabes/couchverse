@@ -180,6 +180,8 @@ receiver or soundbar:
 - [ ] Scrubbing on the Siri Remote shows trick-play thumbnails; fast forward works.
 - [ ] Quality: Original and the ladder both start within two seconds over Wi-Fi.
 - [ ] An E-AC-3 JOC (Atmos) source (from a real release) shows Dolby Atmos on the receiver.
+- [ ] Real Dolby Vision releases, a profile 7 FEL one and an 8.1 one, play as spike S5 describes
+      (8.1 in Dolby Vision, 7 as its HDR10 base layer).
 
 Raspberry Pi 4 (64-bit, Docker image from this branch, media on USB 3 storage):
 - [ ] `make sample-media` (or copy the samples), upload them, note how long the package (copy),
