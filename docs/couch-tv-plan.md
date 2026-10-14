@@ -897,7 +897,12 @@ break or the standby card.
   column with the title and the airing and the title's scenes beside it, and lands the channel
   tag on the sonic logo; with a footage end card every frame moves (100 of 100 captured; a
   stills-only one holds still once the tag has landed). Without a bed each mood has its own
-  house score; over a bed the house only punctuates. FEATURES.md "Promo look" has the detail.
+  house score; over a bed the house only punctuates. A logo never sits on a box (the owner,
+  of the bright promo's Simpsons logo on a black one): bright's title lands on the field its
+  logo reads on, red first (the sheet that has been sliding across stays), paper for dark
+  logos (the sheet leaves and uncovers it), else over the picture under the night grade, and
+  the night screens draw a logo too dark for night with its colours lifted, hue kept.
+  FEATURES.md "Promo look" and "A title shown big" have the detail.
 - **Audio**: 48 kHz; a clip's or a break's render is normalized to its `loudness` (BS.1770
   integrated, default -18 LUFS) with the true peak capped at -1 dBTP (quieter rather than
   clipped), delivered as a float WAV; a break spec lists clips and their starts, each ringing
@@ -1013,15 +1018,22 @@ break or the standby card.
   scenes before the tag, so the tag lands on a clean field and the strip's last seconds hold
   still; the short promo's hit is a red swipe wiping the title card in rather than a hard cut,
   and its airing sits in a red block at 58 px (44 in the design) to read beside a logo. A logo
-  that does not read on its field is redrawn lighter or darker once (Dexter's dark red on
-  night). Cost, with the screens' probe (frames the sidecar captures; median ms of an advance
-  and a JPEG capture on the M1, loaded by other work, so indicative) on the same real-media
+  never sits on a box (the owner, 2026-10-14: "I don't want that", of The Simpsons' yellow logo
+  on a night plate): one that does not read on the strip's paper puts the panel itself in night,
+  and one too dark for night has its colours lifted once, hue kept (Dexter's dark red on night),
+  greys and outlines as drawn. Cost, with the screens' probe (frames the sidecar captures;
+  median ms of an advance and a JPEG capture on the M1, loaded by other work, so indicative)
+  on the same real-media
   specs (the kit's 1080p footage and 4K backdrops), today's templates against these: the strip
   captures 343 of 400 frames instead of 400 (its last 2.3 s hold) at 73 and 99 ms instead of 66
   and 90 (bright, dark; the footage decodes each frame), about 25 and 34 s a clip instead of 26
   and 36; the short promo captures all 225 frames as before at 110 and 76 ms instead of 131 and
   129 (the old one's rays, halftones and shake cost more than a footage frame), about 25 and
-  17 s instead of 30 and 29. So neither adds to the Pi's daily budget.
+  17 s instead of 30 and 29. So neither adds to the Pi's daily budget. Taking the logo plates
+  away costs nothing (the same probe on the real-media specs, before and after): the bright
+  promo with a logo captures 356 and 347 of 420 frames (The Simpsons on red, Dexter on paper)
+  against 344, at 38 and 39 ms against 41 and 45, the bright strip 343 of 400 as before, the
+  short promo all 225, at 38 and 52 ms against 38 and 53.
 
 ### 6.9 Presence, reactions, progress, analytics, ranks
 - **Hub**: an in-memory channel room (like couch's Hub, much simpler: no host). WebSocket

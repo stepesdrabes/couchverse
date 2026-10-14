@@ -2320,7 +2320,7 @@ approves is what airs.
   card, and as the end card's words are seen, never heard, a body's item sound is its full
   promo's whatever the airing (without one, the evergreen end card's, it sounds different).
   `evergreenEnd` is the same end card without an airing.
-- **Promo look** (2026-10-14, promo version 6 and `evergreenEnd` 5; the screens' design spec
+- **Promo look** (2026-10-14, promo version 7 and `evergreenEnd` 6; the screens' design spec
   2.3-2.4 made sharp and flat: right angles only, no shadows or glows, `src/styles/promo.css`):
   the moods are the identity's three lights. Cinematic (dusk): long takes of the title's scenes pushed 6 %, dissolves, quiet
   type low in the frame, then the title over its hero scene (the least used one) with a red rule
@@ -2328,18 +2328,24 @@ approves is what airs.
   on the beat, night cards with a word (the genre, the year, or `PREMIERE`) over a red rule
   drawn on the beat, the title cut in whole. Bright (day): the brand's red as one field that
   slides across the frame between the taglines, a red block holding the genre over the montage,
-  and the title on paper beside a framed scene, or, with a logo, on a night plate over the
-  undimmed scene (a logo is drawn for the dark). The premiere card is night, the dusk rising,
-  `Premiere` over a red rule. Type rises line by line out of its own masks. Every picture is a
-  take of a shot: footage frame by frame (a long take of a short shot goes on in the next one; a
-  shot used again goes on where it was left, shots keyed by their first frame), a still's slow
-  move, or, with no artwork, the channel's painted dusk. Where the title shows big it is its
-  logo, sized by its aspect to one area within a box (never stretched), else its name, fitted.
-  The end card: a night column (to x 1008, its edge a red rule) and the title's scenes (its
-  `footage`, else the body's, else the backdrop held still) close in from both sides as sharp
-  panels; the title rises, the airing's eyebrow in a red block, the day and time, the channel
-  tag (`channelTag`) landing in the corner on the sonic logo; the evergreen card lands the
-  lockup in the airing's slot after "Coming up". Sound: the title's bed leads, the house only
+  and the title beside a framed scene on the field its logo reads on, never on a box behind it:
+  red first (the sheet stays under the logo and the last tagline sinks out of it; yellow and
+  gold logos, Simpsons, Invincible, Pulp Fiction), else paper (the sheet leaves to the left and
+  uncovers it; dark and outlined logos, Dexter, Iron Man, Futurama, Harry Potter), and a name is
+  night type on paper; a logo that reads on neither goes over the title's scene under the
+  night grade like the other moods' (`titleCard`). Which field is measured per logo
+  (`readsOnField`, below), so a new title needs no setting. The premiere card is night, the
+  dusk rising, `Premiere` over a red rule. Type rises line by line out of its own masks. Every
+  picture is a take of a shot: footage frame by frame (a long take of a short shot goes on in
+  the next one; a shot used again goes on where it was left, shots keyed by their first frame),
+  a still's slow move, or, with no artwork, the channel's painted dusk. Where the title shows
+  big it is its logo, sized by its aspect to one area within a box (never stretched) and drawn
+  straight on the night the grade makes (a logo too dark for it has its colours lifted, "A
+  title shown big"), else its name, fitted. The end card: a night column (to x 1008, its edge a
+  red rule) and the title's scenes (its `footage`, else the body's, else the backdrop held
+  still) close in from both sides as sharp panels; the title rises, the airing's eyebrow in a
+  red block, the day and time, the channel tag (`channelTag`) landing in the corner on the
+  sonic logo; the evergreen card lands the lockup in the airing's slot after "Coming up". Sound: the title's bed leads, the house only
   punctuates under it (unpitched: air, soft impacts), ducking 8 dB under the tag; grit's bed
   stops a beat before the tag. Without a bed each mood has its own house score in D at 75 bpm
   (cinematic D, B minor, G and the dominant landing on D with the title; grit a heartbeat over a
@@ -2406,8 +2412,9 @@ approves is what airs.
   red as sharp blocks and rules, square and flat (no rounded corners, shadows or glows). Type
   rises into place from behind its own edge and lifts away the same way; a label is a red
   block wiping open from its left edge. A title shown big is its own logo (`titleMark`: every
-  logo gets the same area within its box, never stretched; its name, fitted, when it has none
-  or it failed to load), and its picture is scenes from it (`scenes`: its footage shots in
+  logo gets the same area within its box, never stretched, drawn straight on the graded night
+  with a dark logo's colours lifted as in "A title shown big"; its name, fitted, when it has
+  none or it failed to load), and its picture is scenes from it (`scenes`: its footage shots in
   order, cycling, each at most 3.2 s and dissolving into the next over 0.8 s, under one camera
   pushed as a whole; its backdrop without footage, the channel's dusk plate without artwork).
   `reel` is that schedule as a pure function, so a screen continuing another's picture shows
@@ -2439,14 +2446,21 @@ approves is what airs.
   its `focus` in a box of its own shown only while it plays (so only the frame on screen
   decodes) and slowly pushed; without footage, its backdrop pushed over the same window. Its
   logo is sized by its aspect to the same area whatever its shape, inside a box (`logoSize`), and
-  drawn as it is when most of it, or its outline, reads on the field it sits on at 3:1 (a yellow
-  logo outlined in black reads on night by its fill and on paper by its outline); else, where a
-  screen offers a plate, as it is on a sharp plate of a field it does read on (the bright strip
-  sets a logo made for dark backgrounds, Pulp Fiction's yellow, on a night plate in its paper
-  panel); else it is redrawn once on a canvas with every colour walked in HSL lightness away
-  from the field to 4.5:1 and neutral colours inverted (Dexter's dark red lifts to a red that
-  reads on night, a black logo made for paper turns white), a pure function of its pixels. A
-  logo replaces the name; one that did not load falls back to the name in type.
+  never sits on a box of any colour: where it cannot read on its field the composition changes,
+  not the logo. A logo reads on a field when 55 % of its opaque pixels, or 60 % of its outline,
+  are at 3:1 against it at display size (`core/logo.ts`, pure over the pixels; a yellow logo
+  outlined in black reads on night by its fill and on paper by its outline). `readsOnField`
+  returns the first field of a screen's preference list the logo reads on (null without a logo,
+  -1 on none), and the screen sets its whole field to it: the bright promo's title red, then
+  paper, else over the picture; the bright strip's panel paper, else night. On a field that is
+  night already (the end card's column, the other moods' title over the graded picture, the
+  dark strip, the short promo, up next and the squeeze's card), `logoFor` draws the logo as it
+  is when it reads; else, when it has colour, once on a canvas with its coloured pixels
+  (saturation 0.2 and up) walked in HSL lightness to 4.5:1 and at most 0.78, hue and saturation
+  kept (Dexter's dark red lifts to a red that reads on night; greys, blacks and an outline stay
+  as drawn, so a logo made for paper is never inverted); else as it is while a quarter of it
+  still shows (Harry Potter's metal, whose dark parts melt into the night); else the name in
+  type. A logo replaces the name; one that did not load falls back to the name in type.
 - **Strip and short promos** (sharp and flat, D41's logos and scenes): the strip (12-20 s) opens
   on the series' scenes for a beat; on the bed's strongest onset near 1 s a flat panel with a
   12 px red bar on its edge slides in over the left half while the scenes slide half as far
@@ -2457,7 +2471,9 @@ approves is what airs.
   pentatonic (dark: the felt piano an octave down), and the foot line with a square marker under
   a season's start day. 1.3 s before the channel tag the panel sweeps on across the scenes, its
   red bar crossing them, and the tag lands on the clean field (on paper the lockup's `couch` is
-  inked night). Bright is day: a paper panel, night type, the scenes as they are, hard cuts;
+  inked night). Bright is day: a paper panel, night type, the scenes as they are, hard cuts
+  (with a logo that does not read on paper, Pulp Fiction's yellow, the panel is night by day,
+  its type the night tier, the scenes still undimmed, no dusk: never a plate behind the logo);
   dark is night: a night panel, the scenes at half strength (their own opacity, no layer over
   them), the dusk rising at the panel's foot, dissolves, slower moves. The short promo (7-12 s)
   rushes into the scenes from night (one scene, or two quick cuts, the second on the bed's
