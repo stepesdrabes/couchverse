@@ -11,7 +11,7 @@ type CouchTvTrailerScene struct {
 	// Lines are spoken in the scene, in order, relative to its start.
 	Lines  []CouchTvTrailerLine `json:"lines"`
 	Score  float64              `json:"score" doc:"How well it suits a trailer, 0 to 1."`
-	Source string               `json:"source" enum:"subtitles,speech" doc:"How its lines were found: from the subtitles, or by listening."`
+	Source string               `json:"source" enum:"subtitles,speech" doc:"How its lines were found: from the subtitles (all of them are now), or by listening (a picker before the subtitles-only one)."`
 }
 
 // CouchTvTrailerLine is a line spoken in a trailer's scene.

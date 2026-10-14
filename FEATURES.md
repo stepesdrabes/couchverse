@@ -1240,8 +1240,10 @@ server that does not send it). The admin settings page toggles it.
   from the web comes first (below).
 - **Trailer scenes** (D43, `trailer_*.go`, plan 6.3): the scene picker, a part of `couchtv_analyze`
   with its own `TrailerVersion` (apart from `AnalyzeVersion`, so a better picker never measures
-  whole films' loudness again; `trailer_source` `admin` is never overwritten; the backfill queues
-  titles an older picker looked at). `Store.dialogue` finds the dialogue in the original language: an
+  whole films' loudness again; `trailer_source` `admin` is never overwritten but its version is
+  stamped; the backfill queues titles an older picker looked at, and titles whose empty pick read
+  other subtitles than their files have now, `couchtv_titles.trailer_subs` being the key of the
+  ones it read). `Store.dialogue` finds the dialogue in the original language: an
   English stream of the picture's file (the default among several, then the most channels, never a
   commentary), else an English alternate file of the same movie or episode (model B), else the
   default track; `Store.subtitleFiles` the non-forced subtitle tracks in that language (none when
@@ -1256,8 +1258,7 @@ server that does not send it). The admin settings page toggles it.
   syllable rate, a hangover; a strict profile for speech, a sensitive one for pauses), the cues'
   offset from the sound is measured and shifted out (`chooseOffset`: exchanges with their edges on
   pauses and speech inside against outside the cues, at every quarter second within 4 s; cues
-  that follow it at no offset are dropped for the speech path, `speechRuns`: utterances bounded by
-  pauses of 0.28 s, rated by shape, back-and-forth, clarity, expression and isolation), and
+  that follow it at no offset are not used), and
   `placeScene` puts each scene in the pauses around its lines (0.45 s of lead, 0.6 s of tail, on a
   shot's first frame or last when a cut is near, no cut in its first second or flash in its last
   half second, 3 to 8 s in whole frames, no lyrics). Its picture (160 x 90 at 25 fps from
@@ -1269,7 +1270,10 @@ server that does not send it). The admin settings page toggles it.
   in a row reach is the scene's, 0.5 and over refuses it and less takes half of it off its picture
   score. It is sure of a bloodied face at medium-close or closer and blind to thin blood at a
   distance (a dozen dark red pixels at 160 x 90, like a warm wall's shadow), so a scene of the
-  aftermath of a bloody one can pass. `chooseScenes` takes the best, 120 s apart in a file,
+  aftermath of a bloody one can pass, which is why a scene nobody read is not taken: a title with
+  no subtitles in the dialogue's language that follow the sound has no trailer (its empty pick is
+  stored, and picked again once its files have other subtitles) and keeps its ordinary promos.
+  `chooseScenes` takes the best, 120 s apart in a file,
   at most three from an episode, no two saying much the same, 60 s at most, in story order, a calm
   opener and a punchline for the first and last place, weak scenes (under 0.5) dropped while six scenes and 36 s remain; fewer
   than three scenes is none. `couchtv_titles.trailer` keeps each scene's picture file, audio file and
@@ -1277,7 +1281,7 @@ server that does not send it). The admin settings page toggles it.
   API carries them as `CouchTvTrailerCut`s, without the sound's file and stream and the score,
   and an admin's word on them is `adminUpdateCouchTvTitle`'s `trailer`). `TestTrailerPickLocal` (`COUCHVERSE_TRAILER_SOURCE`, `_SUBS`, `_STREAM`, `_KEYWORDS`,
   `_AVOID` stretches kept out by hand, `_RISK=off`, `_OUT`) runs the picker on local files and prints the script and the JSON. Cost, M1
-  CPU (the Pi is 4.5 to 8 times a core): a two-hour movie with subtitles (Iron Man 3: 7,833 s, 2,171 cues) took 60 to 80 CPU seconds, about 25 to 70 s of wall time on a busy machine (the sound of about 24 exchanges as 16 kHz mono, 20 to 60 s each, 4 s of audio decode per half hour, then 5 to 12 s of 160 x 90 frames for each scene the sound allowed); an episode with subtitles (Dexter, 53 min) about 70 CPU s, two 22-minute episodes together (Futurama) about 30; a movie without subtitles (Pulp Fiction, 154 min) listens once to the 70 minutes of its first half (about 4 s of decode a half hour) and took about 35 CPU s in all. On the Pi (4.5 to 8 times a core, `nice` 19) that is 5 to 10 minutes a movie and 2 to 4 for the three episodes of a series, once per picker version: the backfill at the first start after the deploy is 1.5 to 2 hours of the Pi's background time for today's library (12 movies and 6 series), behind the renders (the analysis yields to the sidecar).
+  CPU (the Pi is 4.5 to 8 times a core): a two-hour movie with subtitles (Iron Man 3: 7,833 s, 2,171 cues) took 60 to 80 CPU seconds, about 25 to 70 s of wall time on a busy machine (the sound of about 24 exchanges as 16 kHz mono, 20 to 60 s each, 4 s of audio decode per half hour, then 5 to 12 s of 160 x 90 frames for each scene the sound allowed); an episode with subtitles (Dexter, 53 min) about 70 CPU s, two 22-minute episodes together (Futurama) about 30; a title without subtitles in its dialogue's language that follow its sound (Pulp Fiction here) has no trailer and costs nothing: a scene found by listening cannot be read for what it says, and the picture check cannot see all that a trailer should not show. On the Pi (4.5 to 8 times a core, `nice` 19) that is 5 to 10 minutes a movie and 2 to 4 for the three episodes of a series, once per picker version: the backfill at the first start after the deploy is 1.5 to 2 hours of the Pi's background time for today's library (12 movies and 6 series), behind the renders (the analysis yields to the sidecar).
 - **The `couchtv_soundtrack` job** (`couchtv.Soundtracks`, one slot; plan 6.3 "Promo audio
   from the web"): finds a title's own music in two keyless catalogs with official 30-second
   previews, iTunes Search (`couchtv.ITunes`: AAC in MP4, one request every 4 s, well under its

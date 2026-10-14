@@ -16,17 +16,17 @@ import (
 )
 
 // TrailerVersion is the scene picker's version: titles an older one looked at are picked again
-// (an admin's scenes are kept). It is apart from AnalyzeVersion, which measures the loudness of
+// (an admin's scenes are kept). A title whose pick is empty is picked again as well once the
+// subtitles it read are not the ones it has (Analyzer.subtitlesGained). It is apart from AnalyzeVersion, which measures the loudness of
 // whole films.
 const TrailerVersion = 1
 
 // What a title's trailer is cut from: a movie's one file, or episodes spread over a series.
 const trailerEpisodes = 3
 
-// trailer picks the scenes of a title's trailer (D43) from its files: the subtitles and the
-// sound of the original-language track. An empty result says there is none to make, and stores
-// that as the picker's answer.
-func (a *Analyzer) trailer(ctx context.Context, t *titleRow, files []titleFile) []CouchTvTrailerScene {
+// trailerSources are the files a title's trailer is cut from, with the dialogue and the subtitles
+// read of each: a movie's one file, or episodes spread over a series.
+func (a *Analyzer) trailerSources(ctx context.Context, t *titleRow, files []titleFile) []pickFile {
 	picks := files[:min(1, len(files))]
 	if t.TitleKind == "series" {
 		picks = spread(files, trailerEpisodes)
@@ -45,8 +45,29 @@ func (a *Analyzer) trailer(ctx context.Context, t *titleRow, files []titleFile) 
 		}
 		sources = append(sources, src)
 	}
+	return sources
+}
+
+// subtitleKey identifies the subtitle files the sources hold: a pick made from other ones (or
+// from none) may come out differently.
+func subtitleKey(sources []pickFile) string {
+	var paths []string
+	for _, s := range sources {
+		paths = append(paths, s.SubPaths...)
+	}
+	slices.Sort(paths)
+	return strings.Join(paths, ",")
+}
+
+// trailer picks the scenes of a title's trailer (D43) from its files: the subtitles and the
+// sound of the original-language track. An empty result says there is none to make (no
+// subtitles in the dialogue's language that follow the sound, or too few scenes), and is stored
+// as the picker's answer, with the key of the subtitles it read.
+func (a *Analyzer) trailer(ctx context.Context, t *titleRow, files []titleFile) (scenes []CouchTvTrailerScene, subs string) {
+	sources := a.trailerSources(ctx, t, files)
+	subs = subtitleKey(sources)
 	if len(sources) == 0 {
-		return []CouchTvTrailerScene{}
+		return []CouchTvTrailerScene{}, subs
 	}
 	name, _ := a.Store.titleName(ctx, t.TitleID)
 	p := &scenePicker{FFmpeg: a.FFmpegPath, Risk: a.Risk, Keywords: titleKeywords(name)}
@@ -55,16 +76,16 @@ func (a *Analyzer) trailer(ctx context.Context, t *titleRow, files []titleFile) 
 		if ctx.Err() == nil {
 			slog.Warn("couchtv: no trailer", "titleId", t.TitleID, "err", err)
 		}
-		return []CouchTvTrailerScene{}
+		return []CouchTvTrailerScene{}, subs
 	}
 	if len(chosen) < trailerScenesMin {
-		return []CouchTvTrailerScene{}
+		return []CouchTvTrailerScene{}, subs
 	}
-	scenes := make([]CouchTvTrailerScene, len(chosen))
+	scenes = make([]CouchTvTrailerScene, len(chosen))
 	for i, c := range chosen {
 		scenes[i] = storedScene(c, sources)
 	}
-	return scenes
+	return scenes, subs
 }
 
 // trailerScenesMin is the fewest scenes a trailer is made of (the spec's minimum).
@@ -89,14 +110,15 @@ func (s *Store) pickFile(ctx context.Context, dataDir string, f titleFile) (pick
 	if err != nil {
 		return pickFile{}, err
 	}
-	subs, err := s.subtitleFiles(ctx, f.ID, track.Lang)
+	paths, err := s.subtitleFiles(ctx, f.ID, track.Lang)
 	if err != nil {
 		return pickFile{}, err
 	}
-	for i := range subs {
-		subs[i] = filepath.Join(dataDir, subs[i])
+	subs := make([]string, len(paths))
+	for i, p := range paths {
+		subs[i] = filepath.Join(dataDir, p)
 	}
-	return pickFile{ID: f.ID, Path: f.Path, Duration: f.Duration, Audio: track, Subs: subs}, nil
+	return pickFile{ID: f.ID, Path: f.Path, Duration: f.Duration, Audio: track, Subs: subs, SubPaths: paths}, nil
 }
 
 // audioFact is an audio stream of a file as the prober recorded it.

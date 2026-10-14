@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"slices"
 	"time"
 
 	"couchverse/internal/db"
@@ -40,11 +41,14 @@ const loudnessSamples = 4
 
 // AnalyzePayload is a couchtv_analyze job: one title (Force measures it again even at
 // the current version; PicksOnly, from the backfill, only makes again the picks an older
-// version made: the shots and the trailer's scenes), or neither for the backfill.
+// version made: the shots and the trailer's scenes), or neither for the backfill. Trailer
+// makes the trailer's scenes again at the current version: its subtitles are not the ones its
+// empty pick read.
 type AnalyzePayload struct {
 	TitleID   string `json:"titleId,omitempty"`
 	Force     bool   `json:"force,omitempty"`
 	PicksOnly bool   `json:"picksOnly,omitempty"`
+	Trailer   bool   `json:"trailer,omitempty"`
 }
 
 // Analyzer runs couchtv_analyze. The promo pick reads the title's markers, so it runs
@@ -115,9 +119,48 @@ func (a *Analyzer) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 				return err
 			}
 		}
+		gained, err := a.subtitlesGained(ctx)
+		if err != nil {
+			return err
+		}
+		for _, id := range gained {
+			if slices.ContainsFunc(stale, func(s StaleTitle) bool { return s.ID == id }) {
+				continue
+			}
+			if _, err := a.Jobs.EnqueueJobOnce(ctx, AnalyzeJob, AnalyzePayload{TitleID: id, PicksOnly: true, Trailer: true},
+				jobs.EnqueueOpts{Priority: backfillPriority}); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	return a.analyze(ctx, p, report)
+}
+
+// subtitlesGained are the titles whose trailer pick is empty and read other subtitles than the
+// ones their files have now (none, before): a trailer needs subtitles, so they may come out
+// with one. The new pick stores the key of what it read, so a title is picked again once for
+// each change.
+func (a *Analyzer) subtitlesGained(ctx context.Context) ([]string, error) {
+	empty, err := a.Store.emptyTrailers(ctx, TrailerVersion)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, e := range empty {
+		t, err := a.Store.Title(ctx, e.TitleID)
+		if err != nil {
+			return nil, err
+		}
+		files, err := a.Store.TitleFiles(ctx, e.TitleID)
+		if err != nil {
+			return nil, err
+		}
+		if len(files) > 0 && subtitleKey(a.trailerSources(ctx, t, files)) != e.Subs {
+			out = append(out, e.TitleID)
+		}
+	}
+	return out, nil
 }
 
 func (a *Analyzer) analyze(ctx context.Context, p AnalyzePayload, report func(int)) error {
@@ -155,12 +198,14 @@ func (a *Analyzer) analyze(ctx context.Context, p AnalyzePayload, report func(in
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	if t.trailerSource != SourceAdmin && (p.Force || t.trailerVersion < TrailerVersion) {
-		res.trailer, res.trailerDone = a.trailer(ctx, t, files), true
+	if p.Force || p.Trailer || t.trailerVersion < TrailerVersion {
+		res.trailerVersion = TrailerVersion
+		if t.trailerSource != SourceAdmin {
+			res.trailer, res.trailerSubs = a.trailer(ctx, t, files)
+			res.trailerDone = true
+		}
 		report(90)
 	}
-	// an admin's scenes are never picked again, but a newer picker does not make the title due again
-	res.trailerKept = t.trailerSource == SourceAdmin && t.trailerVersion < TrailerVersion
 	// a catch-up leaves the promo audio as it is: picking it again may measure a whole film's
 	// loudness
 	if t.promoSource != SourceAdmin && (measure || !p.PicksOnly) {

@@ -9,19 +9,18 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"couchverse/internal/hls"
 	"couchverse/internal/media"
 )
 
 // The scene picker (D43): cuts a title's trailer from its own scenes. It reads the subtitles of
-// the dialogue track's language when the title has them and they follow the sound, else listens
-// for speech; rates the exchanges the way a trailer editor would; places each scene in the
-// pauses around its lines and on cuts of the picture; checks the picture; and chooses a
-// handful, spread out and in story order. Only short windows are decoded (the sound and the
-// picture around each candidate), except where there are no subtitles and the sound of the
-// whole first half is listened to.
+// the dialogue track's language, which must follow the sound; rates the exchanges the way a
+// trailer editor would; places each scene in the pauses around its lines and on cuts of the
+// picture; checks the picture; and chooses a handful, spread out and in story order. Only short
+// windows are decoded (the sound and the picture around each candidate). A title without
+// subtitles that follow its sound has no trailer: what is said in a scene found by listening is
+// unknown, and the trailer is not to carry a scene nobody has read.
 
 // dialogueTrack is where a file's dialogue, in the original language, is heard.
 type dialogueTrack struct {
@@ -48,8 +47,9 @@ type pickFile struct {
 	ID, Path string
 	Duration float64
 	Audio    dialogueTrack
-	// Subs are subtitle files (WebVTT) in the dialogue's language.
-	Subs []string
+	// Subs are subtitle files (WebVTT) in the dialogue's language; SubPaths the same files
+	// under DATA_DIR, as the database has them.
+	Subs, SubPaths []string
 }
 
 // scenePicker picks a trailer's scenes from a title's files.
@@ -78,13 +78,6 @@ const (
 	attemptsPerCandidate = 3
 	// the quiet between a run and the cues around it that is worth a decode to find a pause in
 	minQuiet = 0.4
-	// candidates start at least this far apart before they are placed
-	candidateSpacing = 25.0
-	// fewer scenes than this from subtitles that follow the sound, and the sound is listened to
-	// as well
-	enoughScenes = 5
-	// a scene found by listening is worth this much of one found by reading
-	speechDoubt = 0.65
 )
 
 // pickTitle picks the scenes of a title's trailer from its files (a movie's one, or episodes
@@ -112,7 +105,6 @@ func (p *scenePicker) pickFile(ctx context.Context, index int, f pickFile, movie
 	if movie {
 		limit = candidatesMovie
 	}
-	var cands []sceneCandidate
 	// the fullest track first (the one with the most cues); the next when it does not follow
 	// the sound
 	var tracks []cueTrack
@@ -124,32 +116,21 @@ func (p *scenePicker) pickFile(ctx context.Context, index int, f pickFile, movie
 		}
 		tracks = append(tracks, track)
 	}
+	if len(tracks) == 0 {
+		p.trace("file %d: no subtitles in the dialogue's language, no scenes from it", index)
+	}
 	slices.SortStableFunc(tracks, func(a, b cueTrack) int { return cmp.Compare(b.Count, a.Count) })
 	for _, track := range tracks {
-		got, synced, err := p.fromSubtitles(ctx, index, f, track, from, to, limit)
+		cands, synced, err := p.fromSubtitles(ctx, index, f, track, from, to, limit)
 		if err != nil {
 			return nil, err
 		}
 		if synced {
-			cands = got
-			break
+			return cands, nil
 		}
-		p.trace("file %d: the subtitles do not follow the sound", index)
+		p.trace("file %d: the subtitles do not follow the sound, no scenes from them", index)
 	}
-	if len(cands) < enoughScenes {
-		got, err := p.fromSpeech(ctx, index, f, from, to, limit)
-		if err != nil {
-			return cands, err
-		}
-		for _, c := range got {
-			if !slices.ContainsFunc(cands, func(o sceneCandidate) bool { return c.Start < o.End && o.Start < c.End }) {
-				// heard but not read: what is said is a guess
-				c.Score *= speechDoubt
-				cands = append(cands, c)
-			}
-		}
-	}
-	return cands, nil
+	return nil, nil
 }
 
 func readCueFile(path string) (cueTrack, error) {
@@ -414,64 +395,6 @@ func cuesIn(cues []dialogueCue, from, to float64) []dialogueCue {
 		}
 	}
 	return out
-}
-
-// fromSpeech listens to the first half of a file for exchanges, places the best and checks
-// their pictures: the way into a title without subtitles.
-func (p *scenePicker) fromSpeech(ctx context.Context, index int, f pickFile, from, to float64, limit int) ([]sceneCandidate, error) {
-	start := time.Now()
-	a, err := p.audioWindow(ctx, f, from, to)
-	if err != nil {
-		return nil, err
-	}
-	runs := speechRuns(a, from)
-	slices.SortStableFunc(runs, func(x, y speechRun) int { return cmp.Compare(y.Score, x.Score) })
-	var top []speechRun
-	for _, r := range runs {
-		if len(top) == limit || r.Score < scoreFloor {
-			break
-		}
-		if !slices.ContainsFunc(top, func(o speechRun) bool {
-			return r.start() < o.end()+candidateSpacing && o.start() < r.end()+candidateSpacing
-		}) {
-			top = append(top, r)
-		}
-	}
-	p.trace("file %d: listened to %.0f s in %s: %d exchanges, %d to place", index, to-from, time.Since(start).Round(time.Millisecond), len(runs), len(top))
-
-	var cands []sceneCandidate
-	var scans []*pictureScan
-	for _, r := range top {
-		S, E := r.start(), r.end()
-		w := sceneWindow{Origin: from, Audio: a}
-		pl, why := placeScene(S, E, w, nil)
-		if why != "" {
-			p.trace("  %7.1f: no place for a scene, %s", S, why)
-			continue
-		}
-		var scan *pictureScan
-		if scan, scans, err = p.scanFor(ctx, f, scans, pl.Start, pl.End); err != nil {
-			return nil, err
-		}
-		w.Cuts = scan.Cuts
-		if pl, why = placeScene(S, E, w, nil); why != "" {
-			p.trace("  %7.1f: no place for a scene on the shots, %s", S, why)
-			continue
-		}
-		chk := scan.check(pl.Start, pl.End, p.Risk)
-		if chk.Why != "" {
-			p.trace("  %7.1f: refused, %s", S, chk.Why)
-			continue
-		}
-		c := sceneCandidate{File: index, Start: pl.Start, End: pl.End, Source: "speech", Score: (0.75*r.Score + 0.25*chk.Score) * pl.fit() * cutFit(a, from, pl)}
-		for _, u := range r.Utts {
-			c.Lines = append(c.Lines, lineSpan{From: u.From, To: u.To})
-		}
-		c.Lines = refineLines(c.Lines, w, pl)
-		cands = append(cands, c)
-		p.trace("  %7.1f %5.1f-%5.1f score %.2f (sound %.2f picture %.2f) %d utterances", S, pl.Start, pl.End, c.Score, r.Score, chk.Score, len(r.Utts))
-	}
-	return cands, nil
 }
 
 // refineLines fits the lines of a scene to what the sound bears out: inside the stretch the

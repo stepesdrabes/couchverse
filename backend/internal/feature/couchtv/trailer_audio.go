@@ -5,86 +5,8 @@ import (
 	"slices"
 )
 
-// What the sound says of a scene (D43), for titles with no subtitles to read and as a check on
-// those that have: where speech is, how clearly it is heard, whether the subtitles are in step.
-
-// speechRun is utterances close enough to be one exchange, a candidate when nothing says what
-// is spoken.
-type speechRun struct {
-	Utts []utterance
-	// Score is 0 to 1, from the sound alone.
-	Score float64
-}
-
-func (r speechRun) start() float64 { return r.Utts[0].From }
-func (r speechRun) end() float64   { return r.Utts[len(r.Utts)-1].To }
-
-const (
-	// an utterance shorter than this is a breath or a click, longer than uttMax a speech
-	uttMin, uttMax = 0.4, 6.0
-	// utterances closer than this answer each other
-	uttGap = 0.9
-)
-
-// speechRuns lists the exchanges of a stretch of audio (its first frame at origin) that a scene
-// could play: one to four utterances bounded by pauses, with 1.2 to speechMax seconds of
-// speech, scored from the sound alone.
-func speechRuns(a vadAnalysis, origin float64) []speechRun {
-	var utts []utterance
-	for _, u := range a.utterances(vadMinPause) {
-		if d := u.To - u.From; d >= uttMin && d <= uttMax {
-			utts = append(utts, utterance{From: origin + u.From, To: origin + u.To})
-		}
-	}
-	var out []speechRun
-	for i := range utts {
-		for j := i; j < len(utts) && j < i+4; j++ {
-			if j > i && utts[j].From-utts[j-1].To >= uttGap {
-				break
-			}
-			if utts[j].To-utts[i].From > speechMax {
-				break
-			}
-			r := speechRun{Utts: utts[i : j+1]}
-			if d := r.end() - r.start(); d < 1.2 {
-				continue
-			}
-			r.Score = scoreSpeech(a, origin, r)
-			out = append(out, r)
-		}
-	}
-	return out
-}
-
-// scoreSpeech rates an exchange by how it sounds: a length a trailer line has, a back and
-// forth rather than a drone, speech that is clearly heard over what is behind it, and
-// expression (a voice that swells and drops, not a monotone), and pauses around it to cut in.
-func scoreSpeech(a vadAnalysis, origin float64, r speechRun) float64 {
-	span := r.end() - r.start()
-	shape := 1.0
-	switch {
-	case span < 2.0:
-		shape = 0.4 + 0.6*(span-1.2)/0.8
-	case span > 5.2:
-		shape = 1 - (span-5.2)/1.2*0.3
-	}
-	dialogue := 0.35
-	switch len(r.Utts) {
-	case 2:
-		dialogue = 0.85
-	case 3, 4:
-		dialogue = 1
-	}
-	clear, _, ok := clarityOf(a, origin, r.start(), r.end())
-	if !ok {
-		return 0
-	}
-	expression := expressionOf(a, origin, r.start(), r.end())
-	// pauses around: at least half a second to either side
-	before, after := pauseAround(a, origin, r.start(), r.end())
-	isolation := math.Min(1, math.Min(before, after)/0.6)
-	return 0.30*shape + 0.25*dialogue + 0.25*clear + 0.12*expression + 0.08*isolation
-}
+// What the sound says of a scene (D43), as a check on the subtitles' scenes: how clearly the speech
+// is heard, how clean the cuts are, whether the subtitles are in step.
 
 // buriedBelow is how far (dB) the louder half of a line's frames must stand over the sound
 // around it for the line to be heard.
@@ -147,37 +69,6 @@ func cutFit(a vadAnalysis, origin float64, p scenePlace) float64 {
 	}
 	margin := speech/n - math.Max(level(p.Start, p.Start+0.1), level(p.End-0.1, p.End))
 	return 0.7 + 0.3*math.Max(0, math.Min(margin, 12))/12
-}
-
-// expressionOf is how much the voice's level moves within [from, to): the standard deviation
-// of the level over the speech frames, 0 to 1 (a monotone is a drone; speech moves 5 to 9 dB).
-func expressionOf(a vadAnalysis, origin, from, to float64) float64 {
-	lo, hi := max(0, int((from-origin)/frameSec)), min(len(a.Speech), int((to-origin)/frameSec))
-	var sum, sq float64
-	n := 0
-	for i := lo; i < hi; i++ {
-		if a.Speech[i] {
-			sum += a.Level[i]
-			sq += a.Level[i] * a.Level[i]
-			n++
-		}
-	}
-	if n < 10 {
-		return 0
-	}
-	mean := sum / float64(n)
-	return math.Min(1, math.Sqrt(math.Max(0, sq/float64(n)-mean*mean))/9)
-}
-
-// pauseAround is how long it is quiet before [from, to) and after it (seconds, at most 1.5).
-func pauseAround(a vadAnalysis, origin, from, to float64) (before, after float64) {
-	i := int((from - origin) / frameSec)
-	for before = 0; before < 1.5 && i-1-int(before/frameSec) >= 0 && !a.Active[i-1-int(before/frameSec)]; before += frameSec {
-	}
-	j := int((to - origin) / frameSec)
-	for after = 0; after < 1.5 && j+int(after/frameSec) < len(a.Active) && !a.Active[j+int(after/frameSec)]; after += frameSec {
-	}
-	return before, after
 }
 
 // syncReport counts how the speech a detector hears falls on subtitle cues: the frames inside

@@ -192,11 +192,13 @@ type analysis struct {
 	// picked, but the title is not due for them again
 	shotsVersion int
 	// trailer is the scenes picked for the trailer (D43); an empty pick is stored as well, so
-	// the title is not picked again until the picker is better
-	trailer     []CouchTvTrailerScene
-	trailerDone bool
-	// trailerKept: the title has an admin's scenes, which this run left as they are
-	trailerKept bool
+	// the title is not picked again until the picker is better or its subtitles are other
+	// (trailerSubs is the key of the ones it read). trailerVersion is the pick this run made or
+	// kept, as for the shots.
+	trailer        []CouchTvTrailerScene
+	trailerSubs    string
+	trailerDone    bool
+	trailerVersion int
 }
 
 // SaveAnalysis stores an analysis without touching what an admin chose.
@@ -231,19 +233,19 @@ func (s *Store) SaveAnalysis(ctx context.Context, titleID string, a analysis) er
 			return err
 		}
 	}
+	if a.trailerVersion > 0 {
+		if _, err := tx.Exec(ctx, `UPDATE couchtv_titles SET trailer_version = $2, updated_at = now()
+			WHERE title_id = $1`, titleID, a.trailerVersion); err != nil {
+			return err
+		}
+	}
 	if a.trailerDone {
 		scenes, err := json.Marshal(a.trailer)
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE couchtv_titles SET trailer = $2, trailer_source = 'auto', trailer_version = $3,
-			updated_at = now() WHERE title_id = $1 AND trailer_source IS DISTINCT FROM 'admin'`, titleID, scenes, TrailerVersion); err != nil {
-			return err
-		}
-	}
-	if a.trailerKept {
-		if _, err := tx.Exec(ctx, `UPDATE couchtv_titles SET trailer_version = $2, updated_at = now()
-			WHERE title_id = $1 AND trailer_source = 'admin'`, titleID, TrailerVersion); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE couchtv_titles SET trailer = $2, trailer_source = 'auto', trailer_subs = $3,
+			updated_at = now() WHERE title_id = $1 AND trailer_source IS DISTINCT FROM 'admin'`, titleID, scenes, a.trailerSubs); err != nil {
 			return err
 		}
 	}
@@ -495,6 +497,30 @@ func (s *Store) SourceFile(ctx context.Context, fileID string) (*sourceFile, err
 type StaleTitle struct {
 	ID        string
 	PicksOnly bool
+}
+
+// emptyTrailer is a title whose trailer pick is current and empty, with the key of the
+// subtitles it read.
+type emptyTrailer struct {
+	TitleID, Subs string
+}
+
+// emptyTrailers are the published titles whose automatic trailer pick at the given version is
+// empty, leaving out excluded ones.
+func (s *Store) emptyTrailers(ctx context.Context, version int) ([]emptyTrailer, error) {
+	rows, err := s.q.Query(ctx, `
+		SELECT ct.title_id::text, ct.trailer_subs FROM couchtv_titles ct JOIN titles t ON t.id = ct.title_id
+		WHERE t.status = 'published' AND NOT ct.excluded AND ct.trailer_source = 'auto'
+		  AND ct.trailer_version >= $1 AND ct.trailer = '[]'
+		ORDER BY ct.title_id`, version)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (emptyTrailer, error) {
+		var e emptyTrailer
+		err := row.Scan(&e.TitleID, &e.Subs)
+		return e, err
+	})
 }
 
 // StaleTitles are the published titles with media that an older analysis (or none)
