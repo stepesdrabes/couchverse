@@ -30,7 +30,10 @@ describe('the spec schema', () => {
 
 	it('rejects what the templates cannot show', () => {
 		expect(validate({ template: 'ident', cut: 'medium' })).toBe(false);
-		expect(validate({ template: 'sting', duration: 9 })).toBe(false);
+		expect(validate({ template: 'sting', duration: 10.04 })).toBe(false);
+		expect(validate({ template: 'sting', duration: 4.96 })).toBe(false);
+		expect(validate({ template: 'sting', duration: 5 })).toBe(true);
+		expect(validate({ template: 'sting', duration: 10 })).toBe(true);
 		expect(validate({ ...FIXTURES.upnext, time: '8pm' })).toBe(false);
 		expect(
 			validate({

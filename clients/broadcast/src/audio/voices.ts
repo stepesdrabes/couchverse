@@ -820,9 +820,20 @@ export function shimmer(
 	env.connect(k.gain(0.9)).connect(h.hall);
 }
 
-/** Fade the whole mix to `to` (linear gain) from `at` over `dur`, exponentially: a ring-out. */
-export function fadeOut(h: House, at: number, dur: number, to = 0.06) {
-	const g = h.out.gain;
-	g.setValueAtTime(1, at);
-	g.exponentialRampToValueAtTime(Math.max(1e-4, to), at + dur);
+/**
+ * Ring a piece out: from `at` the whole mix, the hall's tail with it, dies away by `depth` dB
+ * at a steady rate (a decay, the way a struck chord falls) and closes to silence over the last
+ * `close` seconds, `dur` in all, so a clip's sound is over before its last frame without a
+ * step anywhere. Once per piece (it owns the mix's gain).
+ */
+export function ringOut(h: House, at: number, dur: number, { depth = 42, close = 0.2 } = {}) {
+	const n = 256;
+	const curve = new Float32Array(n);
+	const shut = Math.min(1, close / dur);
+	for (let i = 0; i < n; i++) {
+		const x = i / (n - 1);
+		const tail = x > 1 - shut ? 0.5 + 0.5 * Math.cos((Math.PI * (x - (1 - shut))) / shut) : 1;
+		curve[i] = 10 ** ((-depth * x) / 20) * tail;
+	}
+	h.out.gain.setValueCurveAtTime(curve, at, dur);
 }

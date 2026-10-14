@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { pitchClass } from '../../src/audio/pitch';
-import { STAGE } from '../../src/brand/ending';
+import { FALL, STAGE } from '../../src/brand/ending';
 import { LOGO, LOGO_H, LOGO_W, POPCORN, SILHOUETTE } from '../../src/brand/glyph';
 import { SHORT_IDENT, SHORT_IDENT_TIMES } from '../../src/brand/short-ident';
 import { BEAT, SONIC } from '../../src/brand/sonic';
-import { stingTimes } from '../../src/brand/sting';
+import { STING, stingTimes } from '../../src/brand/sting';
 import { BRAND, geometry, lockupSvg, PARTS, ROW, WORD } from '../../src/brand/wordmark';
 import { edge, valueAt } from '../../src/core/moves';
 import { frame } from '../../src/core/timeline';
@@ -101,33 +101,29 @@ describe('the sonic logo', () => {
 describe('the short ident', () => {
 	it('lands the popcorn, then types couchtv a beat later, and holds', () => {
 		const { land, notes } = SHORT_IDENT_TIMES;
-		expect(frame(SHORT_IDENT)).toBe(4.52);
+		expect(frame(SHORT_IDENT)).toBe(5.2);
 		expect(land).not.toBeNull();
 		expect(notes[0]).toBeCloseTo((land ?? 0) + BEAT, 9);
 		expect(notes.map((n) => n - notes[0])).toEqual([0, 0.4, 0.8].map((x) => expect.closeTo(x, 9)));
 		for (const n of notes) expect(onFrame(n)).toBe(true);
-		// the last part types in well before the end
+		// the last part types in well before the end, and the chord has two seconds to ring out
 		expect(SHORT_IDENT - (notes[2] + 0.26)).toBeGreaterThan(1);
+		expect(SHORT_IDENT - notes[2]).toBeGreaterThanOrEqual(2.4);
 	});
 });
 
 describe('stings', () => {
-	it('fit the moment and the sonic logo into every length from 2 to 6 s', () => {
-		for (let f = 50; f <= 150; f++) {
+	it('hold the popcorn drop and the whole sonic logo, with room to ring out, at every length', () => {
+		expect([STING.min, STING.max]).toEqual([5, 10]);
+		for (let f = STING.min * 25; f <= STING.max * 25; f++) {
 			const D = f / 25;
-			const { land, notes, resolve: r } = stingTimes(D);
+			const { land, notes } = stingTimes(D);
 			for (const n of notes) expect(onFrame(n), `${D}: ${n}`).toBe(true);
-			// the motif ends with a hold of at least 0.75 s
-			expect(D - notes[2], String(D)).toBeGreaterThanOrEqual(0.75);
-			if (land === null) {
-				expect(D).toBeLessThan(3.2);
-				expect(r?.[1]).toBeLessThanOrEqual(notes[0] + 1e-9);
-			} else {
-				expect(D).toBeGreaterThanOrEqual(3.2);
-				// the popcorn falls after the couch has come in, and couch types a beat after it lands
-				expect(land - 0.72).toBeGreaterThan(0);
-				expect(notes[0] - land).toBeCloseTo(BEAT, 9);
-			}
+			// the last note has at least 1.8 s before the sound has to be over
+			expect(D - notes[2], String(D)).toBeGreaterThanOrEqual(1.8);
+			// the popcorn falls after the couch has come in, and couch types a beat after it lands
+			expect(land - FALL).toBeGreaterThan(0.3);
+			expect(notes[0] - land).toBeCloseTo(BEAT, 9);
 		}
 	});
 });

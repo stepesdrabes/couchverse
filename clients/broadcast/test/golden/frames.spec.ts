@@ -14,9 +14,8 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['ident-assemble', [1.6, 4.4, 9]],
 	// the couch alone, the popcorn falling (motion blurred), the landing's rebound, the lockup
 	['ident-short', [0, 1.04, 1.28, 4.48]],
-	['sting-2', [0.2, 0.84, 1.96]],
-	['sting-3', [0.24, 1.2, 2.96]],
 	['sting-5', [0.16, 1.4, 2.48, 4.96]],
+	['sting-10', [1.0, 3.2, 4.6, 9.96]],
 	// up next over scenes; a logo in place of the name, the house's score
 	['upnext', [2.5, 7.6]],
 	['upnext-logo', [0.6, 3]],

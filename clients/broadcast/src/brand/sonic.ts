@@ -8,8 +8,7 @@
 // (a gap filler's, a little fuller), `sonicTag` (compact, over a promo's ducked bed as the
 // lockup lands on its end card) and `sonicChime` (the motif alone on glass, the standby card);
 // `popcornBuild`, `popcornFall` and `popcornLanding` are the moment before it, the popcorn
-// dropping onto the couch. `when` is always the first note's time; a lead-in starts before it,
-// so a cue that plays one belongs that much earlier (LEAD).
+// dropping onto the couch. `when` is always the first note's time.
 
 import type { Bus } from '../audio/engine';
 import type { Kit } from '../audio/kit';
@@ -24,6 +23,7 @@ import {
 	pad,
 	padSweep,
 	piano,
+	ringOut,
 	riser,
 	shimmer,
 	sub,
@@ -41,18 +41,30 @@ export const SONIC = {
 	chord: ['A2', 'D3', 'E4', 'F#4']
 } as const;
 
-/** How long before its first note a sonic logo's lead-in starts. */
-export const LEAD = 0.4;
+/** Seconds a note of the full statement takes to ring out (the hall's tail goes on a little longer). */
+const RING = 2.8;
 
-/** The full statement: piano, the glass halo and a bowed swell on every note; the chord settles. */
-export function sonicLogo(h: House, when: number, { gain = 1 } = {}) {
+/**
+ * How much of its natural ring (`ring` seconds) a voice starting at `t` gets before `until`, the
+ * context time by which a clip's sound has to be over: all of it when there is room, else its
+ * decay and release shortened to what fits, so the chord dies away rather than being faded.
+ */
+export const ringRoom = (t: number, until: number, ring = RING) =>
+	Math.max(0.3, Math.min(1, (until - t) / ring));
+
+/**
+ * The full statement: piano, the glass halo and a bowed swell on every note; the chord settles.
+ * `until` is when it has to be over (a clip's end), else it rings as long as it likes.
+ */
+export function sonicLogo(h: House, when: number, { gain = 1, until = Infinity } = {}) {
 	SONIC.notes.forEach((name, i) => {
 		const t = when + SONIC.at[i];
 		const last = i === SONIC.notes.length - 1;
 		const f = hz(name);
+		const r = ringRoom(t, until);
 		piano(h, t, f, {
 			vel: 0.6 + 0.05 * i,
-			dur: last ? 1.8 : 1.2,
+			dur: (last ? 1.8 : 1.2) * r,
 			pan: -0.08 + 0.08 * i,
 			verb: 0.6,
 			gain: 1.45 * gain,
@@ -61,27 +73,44 @@ export function sonicLogo(h: House, when: number, { gain = 1 } = {}) {
 		glass(h, t + 0.008, f * 2, {
 			attack: 0.035,
 			tone: 0.75,
-			decay: last ? 2.4 : 1.8,
+			decay: (last ? 2.4 : 1.8) * r,
 			gain: 0.08 * gain,
 			pan: 0.18,
 			verb: 0.75,
 			seed: 410 + i
 		});
-		bowed(h, t, f, last ? 1.0 : 0.32, {
+		bowed(h, t, f, (last ? 1.0 : 0.32) * r, {
 			gain: (last ? 1.3 : 1.0) * gain,
 			attack: 0.22,
-			release: last ? 1.0 : 0.5,
+			release: (last ? 1.0 : 0.5) * r,
 			verb: 0.6,
 			seed: 420 + i
 		});
 	});
 	// the last note settles the chord: the ninth joins, low and wide
-	pad(h, when + SONIC.at[2] - 0.1, [...SONIC.chord], 0.5, {
-		attack: 0.6,
-		release: 1.2,
+	const r = ringRoom(when + SONIC.at[2], until);
+	pad(h, when + SONIC.at[2] - 0.1, [...SONIC.chord], 0.5 * r, {
+		attack: 0.6 * Math.max(0.5, r),
+		release: 1.2 * r,
 		level: 0.9 * gain,
 		seed: 97
 	});
+}
+
+/** A clip's sound is over this long before its last frame. */
+export const END = 0.12;
+
+/**
+ * Ends a statement's sound: from just after its last note, at `lastNote`, the whole mix dies
+ * away to silence at `until`. The instruments decay on their own, shorter the less room they
+ * have (`until` of `sonicLogo`); the mix adds the rest, more where there is less time (the
+ * statement falls about 10 dB a second by itself), so the chord falls steadily and is over by
+ * the last frame instead of being faded at the end.
+ */
+export function sonicRingOut(h: House, lastNote: number, until: number) {
+	const from = lastNote + 0.1;
+	const depth = Math.max(6, Math.min(40, 24 - 7 * (until - from)));
+	ringOut(h, from, until - from, { depth, close: 0.2 });
 }
 
 /**
@@ -125,27 +154,36 @@ export function popcornFall(h: House, land: number, dur: number, { gain = 1 } = 
 	inhale(h, land, Math.min(dur, 0.72), { gain: 0.5 * gain, breath: 0.045, seed: 71 });
 }
 
-/** The landing: the impact, D major (add 9) blooming wide and low, the light above it. */
-export function popcornLanding(h: House, land: number, { gain = 1, ring = 1.7 } = {}) {
+/**
+ * The landing: the impact, D major (add 9) blooming wide and low, the light above it. `until`
+ * is when the clip's sound has to be over: the chord's release and the low piano shorten to fit.
+ */
+export function popcornLanding(
+	h: House,
+	land: number,
+	{ gain = 1, ring = 1.7, until = Infinity } = {}
+) {
+	// the chord under the logo holds and rings for about 3.8 s
+	const r = ringRoom(land, until, 3.8);
 	impact(h, land, { gain: 0.6 * gain, root: 'D1' });
 	pad(h, land, ['D3', 'A3', 'F#4', 'A4', 'E5'], ring, {
 		attack: 0.09,
-		release: 1.6,
+		release: 1.6 * r,
 		level: 0.8 * gain,
 		spread: 26,
 		seed: 91
 	});
-	sub(h, land, 'D2', ring - 0.1, { gain: 0.4 * gain, attack: 0.05, release: 1.2 });
+	sub(h, land, 'D2', ring - 0.1, { gain: 0.4 * gain, attack: 0.05, release: 1.2 * r });
 	shimmer(h, land + 0.02, ['A5', 'D6', 'F#6', 'A6'], ring + 0.2, {
 		gain: gain,
 		attack: 0.5,
-		release: 1.8,
+		release: 1.8 * r,
 		seed: 83
 	});
 	(['D2', 'A2', 'D3'] as const).forEach((name, i) =>
 		piano(h, land + 0.005 * i, name, {
 			vel: 0.72,
-			dur: 2.8,
+			dur: 2.8 * r,
 			pan: -0.15 + 0.15 * i,
 			verb: 0.6,
 			gain: 0.5 * gain,
@@ -155,39 +193,33 @@ export function popcornLanding(h: House, land: number, { gain = 1, ring = 1.7 } 
 }
 
 /**
- * A gap filler's statement: `lead` seconds of air swelling into the first note with a low pad
- * under it (none after a landing), the motif, and the chord settling fuller and lower than the
- * tag's (the root on the piano and a sub under it).
+ * A gap filler's statement: the motif, and the chord settling fuller and lower than the tag's
+ * (the root on the piano and a sub under it).
  */
-export function sonicSting(k: Kit, b: Bus, when: number, { gain = 1, lead = LEAD } = {}) {
+export function sonicSting(k: Kit, b: Bus, when: number, { gain = 1, until = Infinity } = {}) {
 	const h = house(k, b);
-	if (lead > 0) {
-		air(h, when - lead, lead + 0.5, {
-			peakAt: lead,
-			band: [400, 2400],
-			gain: 0.5 * gain,
-			seed: 67
-		});
-		pad(h, when - lead, ['A2', 'D3', 'A3', 'E4'], Math.max(0.05, lead - 0.5), {
-			attack: Math.min(0.5, lead),
-			release: 0.8,
-			level: 0.55 * gain,
-			seed: 66
-		});
-	}
-	sonicLogo(h, when, { gain });
+	sonicLogo(h, when, { gain, until });
 	const last = when + SONIC.at[2];
-	piano(h, last, 'D2', { vel: 0.55, dur: 2.2, pan: -0.1, verb: 0.6, gain: 0.55 * gain, seed: 430 });
-	sub(h, last - 0.05, 'D2', 0.9, { gain: 0.3 * gain, attack: 0.15, release: 1.2 });
+	const r = ringRoom(last, until);
+	piano(h, last, 'D2', {
+		vel: 0.55,
+		dur: 2.2 * r,
+		pan: -0.1,
+		verb: 0.6,
+		gain: 0.55 * gain,
+		seed: 430
+	});
+	sub(h, last - 0.05, 'D2', 0.9 * r, { gain: 0.3 * gain, attack: 0.15, release: 1.2 * r });
 }
 
 /**
  * The compact tag, as a promo's end card lands the lockup: the popcorn's fall breathing in and
  * its soft round landing half a beat before the first note, then the motif on piano and glass,
  * the bow only under the last note, the D held into the hall over a short chord; `gain` 0.5 is
- * its designed level over a ducked bed.
+ * its designed level over a ducked bed. `until` is when the clip's sound has to be over, as for
+ * `sonicLogo`.
  */
-export function sonicTag(k: Kit, b: Bus, when: number, { gain = 0.5 } = {}) {
+export function sonicTag(k: Kit, b: Bus, when: number, { gain = 0.5, until = Infinity } = {}) {
 	const h = house(k, b);
 	const g = gain / 0.5;
 	const land = when - SONIC.at[1];
@@ -197,9 +229,10 @@ export function sonicTag(k: Kit, b: Bus, when: number, { gain = 0.5 } = {}) {
 		const t = when + SONIC.at[i];
 		const last = i === SONIC.notes.length - 1;
 		const f = hz(name);
+		const r = ringRoom(t, until);
 		piano(h, t, f, {
 			vel: 0.62 + 0.05 * i,
-			dur: last ? 1.4 : 0.9,
+			dur: (last ? 1.4 : 0.9) * r,
 			pan: -0.06 + 0.06 * i,
 			verb: 0.5,
 			gain: 1.2 * g,
@@ -208,22 +241,29 @@ export function sonicTag(k: Kit, b: Bus, when: number, { gain = 0.5 } = {}) {
 		glass(h, t + 0.008, f * 2, {
 			attack: 0.02,
 			tone: 0.8,
-			decay: last ? 1.8 : 1.2,
+			decay: (last ? 1.8 : 1.2) * r,
 			gain: 0.07 * g,
 			pan: 0.16,
 			verb: 0.7,
 			seed: 450 + i
 		});
 		if (last)
-			bowed(h, t, f, 0.6, { gain: 1.0 * g, attack: 0.18, release: 0.8, verb: 0.55, seed: 460 });
+			bowed(h, t, f, 0.6 * r, {
+				gain: 1.0 * g,
+				attack: 0.18,
+				release: 0.8 * r,
+				verb: 0.55,
+				seed: 460
+			});
 	});
-	pad(h, when + SONIC.at[2] - 0.08, [...SONIC.chord], 0.3, {
-		attack: 0.4,
-		release: 0.9,
+	const r = ringRoom(when + SONIC.at[2], until);
+	pad(h, when + SONIC.at[2] - 0.08, [...SONIC.chord], 0.3 * r, {
+		attack: 0.4 * Math.max(0.5, r),
+		release: 0.9 * r,
 		level: 0.7 * g,
 		seed: 98
 	});
-	sub(h, when + SONIC.at[2], 'D2', 0.4, { gain: 0.25 * g, attack: 0.08, release: 0.8 });
+	sub(h, when + SONIC.at[2], 'D2', 0.4 * r, { gain: 0.25 * g, attack: 0.08, release: 0.8 * r });
 }
 
 /** The motif alone on struck glass, an octave up, over a soft sub (the standby card). */

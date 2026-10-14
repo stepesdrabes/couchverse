@@ -18,11 +18,12 @@
 
 import type { Bus } from '../audio/engine';
 import type { Kit } from '../audio/kit';
-import { air, glass, house } from '../audio/voices';
+import { air, glass, house, ringOut } from '../audio/voices';
 import { Ending, STAGE } from '../brand/ending';
 import { COUCH_BOX } from '../brand/glyph';
 import { bug } from '../brand/lockup';
 import { SHORT_IDENT_TIMES } from '../brand/short-ident';
+import { END } from '../brand/sonic';
 import { BRAND } from '../brand/wordmark';
 import { css, div, img, span } from '../core/dom';
 import { fitText } from '../core/fit';
@@ -418,13 +419,15 @@ function roomSounds(k: Kit, b: Bus, w: number, toIdent: boolean) {
 		verb: 0.7,
 		seed: 802
 	});
-	// the push breathes in, its air carried to the squeeze's last frame
-	if (!toIdent)
-		air(h, w + T.expand - p0, 11.52 - T.expand + 0.2, {
-			peakAt: T.push[1] - T.expand,
-			band: [500, 3200],
-			pans: [0.35, 0],
-			gain: 0.6,
-			seed: 803
-		});
+	// the push breathes in, its air (and the hall's tail of it) settling before the last frame
+	if (toIdent) return;
+	const peak = T.push[1] - 0.3;
+	air(h, w + T.expand - p0, 11.52 - T.expand - END, {
+		peakAt: peak - T.expand,
+		band: [500, 3200],
+		pans: [0.35, 0],
+		gain: 0.6,
+		seed: 803
+	});
+	ringOut(h, w + peak - p0, 11.52 - END - peak, { depth: 10, close: 0.2 });
 }

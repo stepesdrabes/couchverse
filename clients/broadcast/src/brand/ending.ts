@@ -14,17 +14,7 @@ import { bezierPoints, cubicBezierAt, type Ease } from '../core/motion';
 import { edge, windows } from '../core/moves';
 import { FPS } from '../core/timeline';
 import type { TL } from '../templates/shared';
-import {
-	COUCH,
-	LOGO,
-	LOGO_GAP,
-	LOGO_H,
-	LOGO_W,
-	PIVOT,
-	POPCORN,
-	POPCORN_BOX,
-	SILHOUETTE
-} from './glyph';
+import { COUCH, LOGO_GAP, LOGO_H, LOGO_W, PIVOT, POPCORN, POPCORN_BOX, SILHOUETTE } from './glyph';
 import { BRAND, geometry, PARTS, WORD } from './wordmark';
 
 export const W = 1920;
@@ -98,13 +88,8 @@ const TYPE = [
 ] as const;
 
 export interface EndingTimes {
-	/**
-	 * When the popcorn lands; before it falls the couch is alone. Null: no popcorn moment, the
-	 * whole logo resolves in over `resolve`.
-	 */
-	land: number | null;
-	/** The logo resolving in (rising a little as it fades in), when there is no landing. */
-	resolve?: [number, number];
+	/** When the popcorn lands; before it falls the couch is alone. */
+	land: number;
 	/** The couch alone fading in over this span (else it is there from the start). */
 	couchIn?: [number, number];
 	/** couch, t and v. */
@@ -122,28 +107,20 @@ export interface State {
 	give: number;
 	couch: { alpha: number; dy: number };
 	pop: { dy: number; rot: number } | null;
-	/** The resolve form: the whole logo as one path. */
-	logo: Part | null;
 	word: Part[];
 }
 
 export function stateAt(times: EndingTimes, t: number): State {
-	const s = times.land === null ? Infinity : t - times.land;
-	let logo: Part | null = null;
+	const s = t - times.land;
 	let couchAlpha = 1;
-	if (times.land === null) {
-		const [a, b] = times.resolve ?? [0, 0.4];
-		const k = ease('glide', (t - a) / (b - a));
-		logo = { alpha: k, dy: 18 * (1 - k), scale: 1 };
-	} else if (times.couchIn) {
+	if (times.couchIn) {
 		const [a, b] = times.couchIn;
 		couchAlpha = ease('sine', (t - a) / (b - a));
 	}
 	return {
 		give: give(s),
-		couch: { alpha: logo ? 0 : couchAlpha, dy: press(s) },
-		pop: logo ? null : popcorn(s),
-		logo,
+		couch: { alpha: couchAlpha, dy: press(s) },
+		pop: popcorn(s),
 		word: TYPE.map((p, i) => {
 			const start = edge(times.notes[i]);
 			if (t < start) return { alpha: 0, dy: 0, scale: 1 };
@@ -159,8 +136,6 @@ function motion(a: State, b: State): number {
 	let m = d(a.give, b.give) + d(a.couch.dy, b.couch.dy) + d(a.couch.alpha, b.couch.alpha) * 60;
 	if (a.pop && b.pop) m = Math.max(m, d(a.pop.dy, b.pop.dy) + d(a.pop.rot, b.pop.rot) * 6);
 	else if (a.pop || b.pop) m = Math.max(m, 40);
-	if (a.logo && b.logo)
-		m = Math.max(m, d(a.logo.dy, b.logo.dy) + d(a.logo.alpha, b.logo.alpha) * 60);
 	a.word.forEach((w, i) => {
 		const v = b.word[i];
 		m = Math.max(m, d(w.dy, v.dy) + d(w.scale, v.scale) * 120 + d(w.alpha, v.alpha) * 60);
@@ -212,7 +187,6 @@ export class Ending {
 	private readonly couch = new Path2D(COUCH);
 	private readonly pop = new Path2D(POPCORN);
 	private readonly halo = new Path2D(SILHOUETTE);
-	private readonly logo = new Path2D(LOGO);
 	private readonly parts = PARTS.map((p) => new Path2D(p.d));
 
 	constructor(
@@ -362,33 +336,24 @@ export class Ending {
 		}
 		ctx.fillStyle = BRAND.night;
 		ctx.fillRect(0, 0, W, H);
-		if (s.logo) {
-			if (s.logo.alpha > 0) {
-				ctx.globalAlpha = s.logo.alpha;
-				ctx.setTransform(this.couchMatrix(s).translate(0, s.logo.dy / STAGE.logo.k));
-				ctx.fillStyle = BRAND.red;
-				ctx.fill(this.logo);
-			}
-		} else {
-			if (s.couch.alpha > 0) {
-				ctx.globalAlpha = s.couch.alpha;
-				ctx.setTransform(this.couchMatrix(s));
-				ctx.fillStyle = BRAND.red;
-				ctx.fill(this.couch);
-			}
-			if (s.pop) {
-				ctx.globalAlpha = 1;
-				ctx.setTransform(this.popMatrix(s, s.pop));
-				// the knockout: the field's colour around the bucket cuts the couch where they meet
-				ctx.fillStyle = BRAND.night;
-				ctx.strokeStyle = BRAND.night;
-				ctx.lineWidth = LOGO_GAP * 2;
-				ctx.lineJoin = 'round';
-				ctx.fill(this.halo);
-				ctx.stroke(this.halo);
-				ctx.fillStyle = BRAND.red;
-				ctx.fill(this.pop);
-			}
+		if (s.couch.alpha > 0) {
+			ctx.globalAlpha = s.couch.alpha;
+			ctx.setTransform(this.couchMatrix(s));
+			ctx.fillStyle = BRAND.red;
+			ctx.fill(this.couch);
+		}
+		if (s.pop) {
+			ctx.globalAlpha = 1;
+			ctx.setTransform(this.popMatrix(s, s.pop));
+			// the knockout: the field's colour around the bucket cuts the couch where they meet
+			ctx.fillStyle = BRAND.night;
+			ctx.strokeStyle = BRAND.night;
+			ctx.lineWidth = LOGO_GAP * 2;
+			ctx.lineJoin = 'round';
+			ctx.fill(this.halo);
+			ctx.stroke(this.halo);
+			ctx.fillStyle = BRAND.red;
+			ctx.fill(this.pop);
 		}
 		s.word.forEach((part, i) => {
 			if (part.alpha <= 0) return;

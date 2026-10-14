@@ -19,6 +19,7 @@ const CASES: [string, Spec, number][] = [
 	['ident-assemble', FIXTURES['ident-assemble'], -18],
 	['ident-short (the house instruments and hall)', FIXTURES['ident-short'], -18],
 	['sting-5', { ...FIXTURES['sting-5'], loudness: -20 }, -20],
+	['sting-10', FIXTURES['sting-10'], -18],
 	['promo-bright (bed, beats)', FIXTURES['promo-bright'], -18],
 	['strip-dark (bed, the days on its beats)', FIXTURES['strip-dark'], -18],
 	['short-logo (the house music, no bed)', FIXTURES['short-logo'], -18],
@@ -46,7 +47,7 @@ const level = (ch: Float32Array[], from: number, to: number) => {
 };
 const slice = (ch: Float32Array[], from: number, to: number) => ch.map((c) => c.slice(from, to));
 
-test("an item's sound is the clip's, faded into its ring-out where the next item starts", async ({
+test("an item's sound is the clip's own at the engine's level, over where the clip ends", async ({
 	page
 }) => {
 	const info = await load(page, FIXTURES.upnext);
@@ -56,17 +57,55 @@ test("an item's sound is the clip's, faded into its ring-out where the next item
 	const end = Math.round(info.soundDuration * RATE);
 	expect(info.soundDuration).toBe(info.duration);
 	expect(own[0].length).toBe(end);
-	expect(item[0].length).toBeGreaterThan(end + RATE);
 	// the same sound at the engine's level (a render from 0 opens its compressors cold, so the
-	// first half second is left out)
+	// first half second is left out), with nothing ringing on under what follows
 	const ownLoudness = integratedLoudness(slice(own, RATE / 2, end), RATE);
 	const itemLoudness = integratedLoudness(slice(item, RATE / 2, end), RATE);
 	expect(Math.abs(ownLoudness - (itemLoudness + gain))).toBeLessThan(0.05);
-	// past its end only the hall rings on, far under the sound before it
-	const before = level(item, end - RATE / 2, end);
-	const after = level(item, end + RATE / 2, item[0].length);
-	expect(before - after).toBeGreaterThan(30);
+	expect(item[0].length).toBeLessThan(end + RATE / 10);
 });
+
+// A clip's sound is over before its last frame, with no step: it dies away (a slot's edge and
+// the break's end cut whatever still sounds). The last 50 ms are silence and nothing rings on
+// past the clip as an item. Where the house plays alone (`steady`) the 100 ms envelope of the
+// last second also only falls (never up more than 3 dB: no swell, no stray note); a title's bed
+// has beats of its own.
+const ENDINGS: [string, Spec, boolean][] = [
+	['the shortest sting', FIXTURES['sting-5'], true],
+	['a sting of 6.2 s', { ...FIXTURES['sting-5'], duration: 6.2 }, true],
+	['the longest sting', FIXTURES['sting-10'], true],
+	['the short ident', FIXTURES['ident-short'], true],
+	['up next over a bed', FIXTURES.upnext, false],
+	['up next without one', FIXTURES['upnext-logo'], true],
+	['the lineup', FIXTURES.lineup, true],
+	['the squeeze into up next', FIXTURES['squeeze-expand'], false],
+	['the squeeze into the short ident', { ...FIXTURES['squeeze-expand'], handover: 'ident' }, false],
+	['the evergreen end card', FIXTURES.evergreen, false],
+	['a strip promo', FIXTURES['strip-bright'], false],
+	['a short promo on a bed', FIXTURES.short, false],
+	['a short promo without one', FIXTURES['short-logo'], true]
+];
+
+for (const [name, spec, steady] of ENDINGS) {
+	test(`${name}: its sound is over before its last frame`, async ({ page }) => {
+		const info = await load(page, spec);
+		const own = await sound(page, 'renderAudio');
+		const end = Math.round(info.duration * RATE);
+		expect(own[0].length).toBe(end);
+		expect(level(own, end - RATE / 20, end)).toBeLessThan(-60);
+		expect(Math.max(Math.abs(own[0][end - 1]), Math.abs(own[1][end - 1]))).toBeLessThan(1e-3);
+		let prev = Infinity;
+		for (let from = end - RATE; steady && from + RATE / 10 <= end; from += RATE / 10) {
+			const now = level(own, from, from + RATE / 10);
+			expect(now - Math.min(prev, now), `${from / RATE} s`).toBeLessThan(3);
+			prev = now;
+		}
+		// as a break item nothing is left to ring on under what follows
+		await load(page, spec, { sound: true });
+		const item = await sound(page, 'renderItemAudio');
+		expect(item[0].length).toBeLessThan(end + RATE / 10);
+	});
+}
 
 test("a bulletin's sound starts and ends inside it: its slot cuts on both sides", async ({
 	page
@@ -140,11 +179,13 @@ test('items rendered alone and mixed sound like the break rendered in one pass',
 	expect(report.integrated).toBeCloseTo(-20, 3);
 	expect(Math.abs(integratedLoudness(whole, RATE) - report.integrated)).toBeLessThan(0.1);
 	expect(Math.abs(truePeak(whole) - report.truePeak)).toBeLessThan(0.2);
+	// (an item ending in a decay has blocks at the loudness gate's edge, which one render lets
+	// through and the other not: 0.2 LU for a whole item, the moments below hold it closer)
 	starts.forEach((from, i) => {
 		const to = starts[i + 1] ?? frames;
 		const a = integratedLoudness(slice(whole, from, to), RATE);
 		const b = integratedLoudness(slice(mix, from, to), RATE);
-		expect(Math.abs(a - b), `item ${i}`).toBeLessThan(0.1);
+		expect(Math.abs(a - b), `item ${i}`).toBeLessThan(0.2);
 	});
 	for (let from = RATE; from + 0.4 * RATE <= frames; from += RATE / 10) {
 		const a = integratedLoudness(slice(whole, from, from + 0.4 * RATE), RATE);

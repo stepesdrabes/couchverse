@@ -74,7 +74,7 @@
 						"full",
 						"short"
 					],
-					"description": "The full cut (10.52 s, before the prime-time movie) or the short one (4.52 s)."
+					"description": "The full cut (10.52 s, before the prime-time movie) or the short one (5.2 s)."
 				},
 				"design": {
 					"type": "string",
@@ -110,9 +110,9 @@
 				},
 				"duration": {
 					"type": "number",
-					"description": "Seconds, a whole number of frames. One design for every length: from 3.2 s the popcorn drops onto the couch, shorter stings resolve the logo in place.",
-					"minimum": 2,
-					"maximum": 6
+					"description": "Seconds, a whole number of frames. One design for every length: the popcorn drops onto the couch, the sonic logo is stated whole and its chord rings out before the last frame; the length stretches the build before the landing and the hold after it.",
+					"minimum": 5,
+					"maximum": 10
 				}
 			},
 			"required": [

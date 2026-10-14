@@ -4,11 +4,12 @@
 // (x 1824) and its top on y 64, the tag's slot ending on x 1824 and y 1008.
 
 import type { Kit } from '../audio/kit';
+import { house } from '../audio/voices';
 import { div, span, svg } from '../core/dom';
 import { edge } from '../core/moves';
 import type { Timeline } from '../core/timeline';
 import { COUCH, LOGO_GAP, LOGO_H, LOGO_W, POPCORN, SILHOUETTE } from './glyph';
-import { SONIC, sonicTag } from './sonic';
+import { END, SONIC, sonicRingOut, sonicTag } from './sonic';
 import {
 	BRAND,
 	CHANNEL,
@@ -168,8 +169,13 @@ export function channelTag(
 		)
 	);
 	// the cue starts early: the fall breathes in before the landing, and live playback that
-	// starts on the tag still hears it
-	tl.sound(at - 0.6, (w, b) => sonicTag(sound, b, w + 0.6 + HALF, { gain }));
+	// starts on the tag still hears it. The tag closes its clip: the whole mix rings out with it.
+	tl.sound(at - 0.6, (w, b) => {
+		const first = w + 0.6 + HALF;
+		const until = w + (tl.duration - (at - 0.6)) - END;
+		sonicTag(sound, b, first, { gain, until });
+		sonicRingOut(house(sound, b), first + SONIC.at[2], until);
+	});
 	tl.cue('channel tag: the popcorn lands', at);
 	return wrap;
 }

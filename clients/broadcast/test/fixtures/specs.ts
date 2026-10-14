@@ -355,9 +355,8 @@ export const FIXTURES = {
 	'ident-morph': { template: 'ident', cut: 'full', design: 'morph' },
 	'ident-assemble': { template: 'ident', cut: 'full', design: 'assemble' },
 	'ident-short': { template: 'ident', cut: 'short' },
-	'sting-2': { template: 'sting', duration: 2 },
-	'sting-3': { template: 'sting', duration: 3 },
 	'sting-5': { template: 'sting', duration: 5 },
+	'sting-10': { template: 'sting', duration: 10 },
 	upnext: {
 		template: 'upNext',
 		title: { ...TITLES.sunny, footage: SCENES },
@@ -751,6 +750,6 @@ export const BREAK: BreakSpec = {
 	items: [
 		{ at: 0, spec: { ...FIXTURES['squeeze-expand'], handover: 'ident' } },
 		{ at: 10.6, spec: FIXTURES['ident-short'] },
-		{ at: 15.12, spec: { ...FIXTURES['promo-bright'], loudness: -20 } }
+		{ at: 15.8, spec: { ...FIXTURES['promo-bright'], loudness: -20 } }
 	]
 };

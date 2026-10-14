@@ -4,15 +4,16 @@
 // from it); the bug stays to the last frame, where the player's own bug takes over at the same
 // place. After an expanding squeeze it continues that squeeze's last frame (`enter: 'continue'`).
 //
-// Score: the title's own bed leads, dipping under the sonic logo on glass on the last three
-// beats (A4, E5, D5), the D ringing on into the program; without a bed the house plays a D add 9
-// pad opening over the clip, the felt piano touching its notes, then the same glass logo.
+// Score: the title's own bed leads, dipping under the sonic logo on glass on the three beats
+// before the last (A4, E5, D5), the D ringing out under the type lifting away, so the sound is
+// over before the program starts; without a bed the house plays a D add 9 pad opening over the
+// clip, the felt piano touching its notes, then the same glass logo.
 
 import type { Bus } from '../audio/engine';
 import type { Kit } from '../audio/kit';
 import { glass, house, pad, padSweep, piano, sub } from '../audio/voices';
 import { bug } from '../brand/lockup';
-import { SONIC } from '../brand/sonic';
+import { END, ringRoom, SONIC, sonicRingOut } from '../brand/sonic';
 import { css, div, span } from '../core/dom';
 import { fitText } from '../core/fit';
 import type { UpNextSpec } from '../spec';
@@ -28,7 +29,6 @@ import {
 	meta,
 	push,
 	reveal,
-	ringOn,
 	scenes,
 	titleMark
 } from './onair';
@@ -169,24 +169,25 @@ export const upNext: Template<UpNextSpec> = {
 		tl.cue('the program', D);
 
 		// --- sound -------------------------------------------------------------------------------
-		const notes = SONIC.notes.map((_, i) => D - 2.4 + 0.8 * i);
+		const notes = SONIC.notes.map((_, i) => D - 3.2 + 0.8 * i);
 		tl.sound(
 			0,
-			(w, b, skip) => {
-				// the logo's D rings on into the program
-				ringOn(sound, b);
+			(w, b, skip) =>
 				sound.bed(b, w, bed, skip, {
 					fadeIn: 0.35,
 					fadeOut: 1.2,
 					end: D,
 					// a 3 dB dip under each note of the logo
 					ducks: notes.map((at) => ({ at, depth: 0.71, attack: 0.12, hold: 0.36, release: 0.3 }))
-				});
-			},
+				}),
 			D
 		);
 		if (!bed) tl.sound(0, (w, b, skip) => houseBed(sound, b, w - skip, D), D);
-		notes.forEach((at, i) => tl.sound(at, (w, b) => logoNote(sound, b, w, i, !!bed)));
+		notes.forEach((at, i) =>
+			tl.sound(at, (w, b) => logoNote(sound, b, w, i, !!bed, w - at + D - END))
+		);
+		// the D dies away under the type lifting off, the program starting from silence
+		tl.sound(notes[2], (w, b) => sonicRingOut(house(sound, b), w, w - notes[2] + D - END));
 		return tl;
 	}
 };
@@ -196,16 +197,17 @@ function houseBed(k: Kit, b: Bus, w: number, D: number) {
 	const h = house(k, b);
 	padSweep(h, w, [
 		[0, 400],
-		[D - 0.6, 2400],
-		[D + 1.5, 900]
+		[D - 2.6, 2400],
+		[D, 900]
 	]);
-	pad(h, w, ['D3', 'A3', 'E4', 'F#4'], D - 1.6, {
+	// it opens until the logo and lets go there: the notes and the hall carry the rest
+	pad(h, w, ['D3', 'A3', 'E4', 'F#4'], D - 4.4, {
 		attack: 1.2,
 		release: 1.4,
 		level: 0.9,
 		seed: 61
 	});
-	sub(h, w + 0.05, 'D2', D - 2.2, { gain: 0.45, attack: 1.0, release: 1.2 });
+	sub(h, w + 0.05, 'D2', D - 4.2, { gain: 0.45, attack: 1.0, release: 1.2 });
 	// beats 1 and 3 of the first bar, then the next downbeat
 	(
 		[
@@ -218,12 +220,12 @@ function houseBed(k: Kit, b: Bus, w: number, D: number) {
 	);
 }
 
-/** One note of the sonic logo on glass, the last one ringing into the program on the hall. */
-function logoNote(k: Kit, b: Bus, w: number, i: number, overBed: boolean) {
+/** One note of the sonic logo on glass, the last one ringing out to `until`. */
+function logoNote(k: Kit, b: Bus, w: number, i: number, overBed: boolean, until: number) {
 	const h = house(k, b);
 	const last = i === SONIC.notes.length - 1;
 	glass(h, w, SONIC.notes[i], {
-		decay: last ? 3.2 : 1.8,
+		decay: (last ? 3.2 : 1.8) * ringRoom(w, until),
 		tone: 0.9,
 		gain: (overBed ? 0.55 : 0.9) * (last ? 1.15 : 1),
 		pan: [-0.18, 0.14, 0][i],

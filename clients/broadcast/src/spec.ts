@@ -155,7 +155,7 @@ export interface Airing {
 
 export interface IdentSpec extends Loudness {
 	template: 'ident';
-	/** The full cut (10.52 s, before the prime-time movie) or the short one (4.52 s). */
+	/** The full cut (10.52 s, before the prime-time movie) or the short one (5.2 s). */
 	cut: 'full' | 'short';
 	/**
 	 * The full cut's design (the channel rotates them, D35): `journey` (a dream panorama at
@@ -171,10 +171,11 @@ export interface IdentSpec extends Loudness {
 export interface StingSpec extends Loudness {
 	template: 'sting';
 	/**
-	 * Seconds, a whole number of frames. One design for every length: from 3.2 s the popcorn
-	 * drops onto the couch, shorter stings resolve the logo in place.
-	 * @minimum 2
-	 * @maximum 6
+	 * Seconds, a whole number of frames. One design for every length: the popcorn drops onto the
+	 * couch, the sonic logo is stated whole and its chord rings out before the last frame; the
+	 * length stretches the build before the landing and the hold after it.
+	 * @minimum 5
+	 * @maximum 10
 	 */
 	duration: number;
 }

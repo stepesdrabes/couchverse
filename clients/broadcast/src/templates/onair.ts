@@ -5,9 +5,6 @@
 // parts the screens share; each screen places them on the grid (DESIGN.md 1.6).
 
 import type { Assets } from '../assets';
-import type { Bus } from '../audio/engine';
-import type { Kit } from '../audio/kit';
-import { house } from '../audio/voices';
 import { css, div, img, span, words } from '../core/dom';
 import { fitText, type FitBox } from '../core/fit';
 import { framed } from '../core/framing';
@@ -59,15 +56,6 @@ export const GRADE = {
  */
 export function grade(parent: Element, layers: string[], cls = 'fill') {
 	return css(div(cls, parent), { background: layers.join(', ') });
-}
-
-/**
- * Let the house's hall ring on past the clip's end: in a break a clip's buses fade where the
- * next one starts and only the engine's hall rings on under it, so a screen whose last chord is
- * meant to ring into what follows feeds that hall from its own. Once per piece.
- */
-export function ringOn(k: Kit, b: Bus, amount = 0.3) {
-	k.send(b, house(k, b).hall, amount);
 }
 
 /** The way in: a fast fade and a rise into place on the glide (DESIGN.md 1.8's type-in). */

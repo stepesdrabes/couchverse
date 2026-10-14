@@ -5,15 +5,17 @@
 // on it. Between its moves only the scenes move (none without footage: held frames are free).
 //
 // Score: the house's D major 9 pad, the felt piano in slow eighths over it, a glass note on each
-// step of the spotlight climbing the scale, ending on an open fifth that rings into up next.
+// step of the spotlight climbing the scale, ending on an open fifth that rings out under the
+// rows lifting away, so the sound is over before up next starts.
 
 import type { Bus } from '../audio/engine';
 import type { Kit } from '../audio/kit';
 import { glass, house, pad, padSweep, piano, sub } from '../audio/voices';
+import { END, ringRoom, sonicRingOut } from '../brand/sonic';
 import { css, div, span, words } from '../core/dom';
 import { fitText } from '../core/fit';
 import type { LineupSpec } from '../spec';
-import { byLines, conceal, grade, INK, masked, meta, night, reveal, ringOn, scenes } from './onair';
+import { byLines, conceal, grade, INK, masked, meta, night, reveal, scenes } from './onair';
 import { timeline, type Template } from './shared';
 
 /** The list: its left edge, width and first row's top (five rows start higher). */
@@ -22,7 +24,7 @@ const LIST = { x: 96, w: 1000, top: 292, top5: 252, foot: 1000, time: 172 };
 const BEAT = 0.8;
 
 export const lineup: Template<LineupSpec> = {
-	version: 6,
+	version: 7,
 	build({ root, sound, assets }, spec) {
 		const D = spec.duration ?? 12;
 		const tl = timeline(root, D);
@@ -215,15 +217,7 @@ export const lineup: Template<LineupSpec> = {
 		tl.add(dark, [{ opacity: 0 }, { opacity: 1 }], D - 0.6, 0.6, 'sine');
 
 		// --- sound -------------------------------------------------------------------------------
-		tl.sound(
-			0,
-			(w, b, skip) => {
-				// the open fifth rings on into up next
-				ringOn(sound, b);
-				score(sound, b, w - skip, D);
-			},
-			D
-		);
+		tl.sound(0, (w, b, skip) => score(sound, b, w - skip, D), D);
 		lands.forEach((t, i) =>
 			tl.sound(t, (w, b) =>
 				glass(house(sound, b), w, ['A4', 'B4', 'D5', 'E5', 'F#5'][i], {
@@ -243,13 +237,17 @@ export const lineup: Template<LineupSpec> = {
 /** The bed under the list: the pad, the piano's slow eighths, a sub, the open fifth at the end. */
 function score(k: Kit, b: Bus, w: number, D: number) {
 	const h = house(k, b);
+	const until = w + D - END;
+	// the open fifth comes after the last row's glass note (at the latest 2.6 s before the end)
+	// and rings out under the rows lifting away
+	const fifth = D - 2.4;
 	padSweep(h, w, [
 		[0, 700],
 		[2.4, 2600],
-		[D - 1.2, 1800],
-		[D + 2, 700]
+		[fifth, 1800],
+		[D, 900]
 	]);
-	pad(h, w, ['D3', 'F#3', 'A3', 'C#4', 'E4'], D - 2.2, {
+	pad(h, w, ['D3', 'F#3', 'A3', 'C#4', 'E4'], fifth - 1.8, {
 		attack: 1.4,
 		release: 1.6,
 		level: 0.75,
@@ -257,8 +255,8 @@ function score(k: Kit, b: Bus, w: number, D: number) {
 	});
 	sub(h, w + 0.4, 'D2', 2.4, { gain: 0.55, attack: 0.4, release: 1.6 });
 	const arp = ['D4', 'F#4', 'A4', 'E5'];
-	// eighths from the first downbeat until the pictures go to night
-	for (let i = 0, t = 0.4; t < D - 1.4; i++, t += BEAT / 2)
+	// eighths from the first downbeat until the fifth
+	for (let i = 0, t = 0.4; t < fifth - 0.2; i++, t += BEAT / 2)
 		piano(h, w + t, arp[i % arp.length], {
 			vel: i % 4 === 0 ? 0.42 : 0.32,
 			dur: 0.9,
@@ -267,15 +265,21 @@ function score(k: Kit, b: Bus, w: number, D: number) {
 			gain: 0.62,
 			seed: 640 + (i % 8)
 		});
-	// the open fifth, ringing into what comes next
-	pad(h, w + D - 1.4, ['D3', 'A3', 'D4'], 0.6, { attack: 0.5, release: 1.8, level: 0.6, seed: 43 });
+	const r = ringRoom(w + fifth, until);
+	pad(h, w + fifth, ['D3', 'A3', 'D4'], 0.6 * r, {
+		attack: 0.5,
+		release: 1.8 * r,
+		level: 0.6,
+		seed: 43
+	});
 	(['D3', 'A3'] as const).forEach((note, i) =>
-		piano(h, w + D - 1.2 + 0.01 * i, note, {
+		piano(h, w + fifth + 0.2 + 0.01 * i, note, {
 			vel: 0.5,
-			dur: 2.4,
+			dur: 2.4 * r,
 			pan: -0.1 + 0.2 * i,
 			gain: 0.8,
 			seed: 660 + i
 		})
 	);
+	sonicRingOut(h, w + fifth + 0.2, until);
 }
