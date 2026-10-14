@@ -152,7 +152,7 @@ func TestComposeTrailerRules(t *testing.T) {
 	}
 	// its room is what is left beside the squeeze, ident and up next: just enough, then just short
 	var fits, short int
-	for frames := 2480; frames < 2580; frames++ {
+	for frames := 2480; frames < 2620; frames++ {
 		in := withTrailers(breakAt(end, time.Duration(frames)*time.Second/FPS, FillStrip))
 		if hasTrailer(in) {
 			if fits == 0 {
@@ -162,9 +162,10 @@ func TestComposeTrailerRules(t *testing.T) {
 			short = frames
 		}
 	}
-	// squeeze 265 + short ident 113 + up next at least 150 + trailer 1900 + end card 100 = 2528
-	if fits != 2528 || short != 2527 {
-		t.Errorf("a trailer fits from %d frames, not at %d; want from 2528", fits, short)
+	// the squeeze, the short ident, the shortest up next, the trailer (1900) and its end card
+	want := squeezeIdentFrames + identShortFrames + upNextSpan.min + 1900 + endCardFrames
+	if fits != want || short != want-1 {
+		t.Errorf("a trailer fits from %d frames, not at %d; want from %d", fits, short, want)
 	}
 
 	// a strip or a marathon only in a long break
