@@ -636,7 +636,9 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   within four hours either side (`BreakInput.RecentTrailers`, from the breaks' `recipe.trailers`;
   the Recent rule alone only reaches three breaks back) and whose body and end card fit in
   what is left plus what the flexible parts give back (so the break keeps its squeeze, ident and
-  up next); the other promos fill the rest, and the title is not promoted twice. The trailer is
+  up next; with no next program there is no up next to stretch, and a trailer that would leave
+  a stretch under the shortest sting gives way, or the break fails and the evergreen one airs);
+  the other promos fill the rest, and the title is not promoted twice. The trailer is
   `Part: "body"` (timeless, rendered once per title), its end card `Part: "end"` with the airing
   (4 s like a promo's, no sound of its own), the break's sound item the `full` spec with the
   body's fixed airing in its key (a trailer sounds the same whenever it airs); clip kinds

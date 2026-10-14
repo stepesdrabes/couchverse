@@ -338,8 +338,14 @@ func fit(spans []span, need int) (sizes []int, stings int, ok bool) {
 func promos(in BreakInput, left, slack int, full func() Part) ([][]piece, int) {
 	ranked := rankCandidates(in)
 	var groups [][]piece
-	// the long promo first: one trailer, for the best candidate that has one and room for it
-	if grp, n, id := trailerPromo(in, ranked, left+slack); n > 0 {
+	// the long promo first: one trailer, for the best candidate that has one and room for it; with
+	// nothing flexible to take up what it leaves, only one that leaves nothing, or a stretch stings
+	// can close
+	leaves := func(n int) bool {
+		_, _, ok := fit(nil, left-n)
+		return slack > 0 || ok
+	}
+	if grp, n, id := trailerPromo(in, ranked, left+slack, leaves); n > 0 {
 		groups = append(groups, grp)
 		left -= n
 		ranked = slices.DeleteFunc(slices.Clone(ranked), func(c Candidate) bool { return c.TitleID == id })

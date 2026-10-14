@@ -925,8 +925,9 @@ server that does not send it). The admin settings page toggles it.
   rendered, eligible (premiere, movie and saga, fill weight 2 or more; a strip or marathon only in a
   break of 8 minutes or more), not the next program, not aired within four hours either side
   (`BreakInput.RecentTrailers` from the breaks' `recipe.trailers`) and whose body and end card fit in
-  what is left plus what the flexible parts give back; the title is not promoted twice and the other
-  promos fill the rest. The body is `Part: "body"` (timeless, rendered once per title), the end card
+  what is left plus what the flexible parts give back (a break with no next program has none to
+  give: the trailer must leave nothing or a stretch stings can close, `fit`, else it gives way);
+  the title is not promoted twice and the other promos fill the rest. The body is `Part: "body"` (timeless, rendered once per title), the end card
   `Part: "end"` with the airing and no sound of its own (`ClipTrailerBody`, `ClipTrailerEnd`), the
   break's sound item the `full` spec like a promo body's, keyed with its fixed airing (`itemSpec`,
   `soundSpec`; a render's frame check adds the end card as for a promo body). Slots' fallbacks never

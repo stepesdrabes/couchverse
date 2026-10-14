@@ -210,26 +210,65 @@ func TestComposeTrailerRules(t *testing.T) {
 	}
 }
 
-// Every gap is still filled to the frame, and the specs still valid, with trailers about.
+// Every gap is still filled to the frame, and the specs still valid, with trailers about, in a
+// break with an up next and in one without a next program (nothing flexible to take up what a
+// trailer leaves, so it may not leave a sliver).
 func TestComposeTrailerFillsEveryGap(t *testing.T) {
 	end := time.Date(2026, 10, 14, 20, 15, 0, 0, prague)
 	trailers := 0
-	for s := 60; s <= 15*60; s += 13 {
-		for _, fill := range []string{FillStrip, FillMovie} {
-			in := withTrailers(breakAt(end, time.Duration(s)*time.Second+40*time.Millisecond*time.Duration(s%25), fill))
-			c, err := Compose(in)
-			if err != nil {
-				t.Fatalf("%ds: %v", s, err)
-			}
-			checkComposition(t, in, c)
-			trailers += count(c, ClipTrailerBody)
-			if count(c, ClipTrailerBody) != count(c, ClipTrailerEnd) || count(c, ClipTrailerBody) > 1 {
-				t.Fatalf("%ds: %v", s, kinds(c))
+	for _, hasNext := range []bool{true, false} {
+		for s := 60; s <= 15*60; s += 13 {
+			for _, fill := range []string{FillStrip, FillMovie} {
+				in := withTrailers(breakAt(end, time.Duration(s)*time.Second+40*time.Millisecond*time.Duration(s%25), fill))
+				if !hasNext {
+					in.Next, in.Later = nil, nil
+				}
+				c, err := Compose(in)
+				if err != nil {
+					t.Fatalf("%ds, next program %v: %v", s, hasNext, err)
+				}
+				checkComposition(t, in, c)
+				trailers += count(c, ClipTrailerBody)
+				if count(c, ClipTrailerBody) != count(c, ClipTrailerEnd) || count(c, ClipTrailerBody) > 1 {
+					t.Fatalf("%ds, next program %v: %v", s, hasNext, kinds(c))
+				}
 			}
 		}
 	}
 	if trailers == 0 {
 		t.Error("no trailer in any break")
+	}
+}
+
+// With no next program the break has no up next to stretch, so a trailer that would leave a
+// stretch no sting can close (under 5 s) gives way: the break takes the other promos instead of
+// failing and falling over to the evergreen one.
+func TestComposeTrailerLeavesNoSliver(t *testing.T) {
+	end := time.Date(2026, 10, 14, 20, 15, 0, 0, prague)
+	// 1989 frames less the short ident's 130 leave 1859 for a trailer of 1700 and its end card of
+	// 100: 59 frames, which stings cannot close
+	in := breakAt(end, 1989*time.Second/FPS, FillStrip)
+	in.Next, in.Later = nil, nil
+	soon := in.Candidates[0]
+	soon.Trailer, soon.TrailerFrames = trailerScenes(3), 1700
+	in.Candidates = []Candidate{soon}
+	c, err := Compose(in)
+	if err != nil {
+		t.Fatalf("a trailer left a sliver: %v", err)
+	}
+	checkComposition(t, in, c)
+	if count(c, ClipTrailerBody) != 0 {
+		t.Errorf("the trailer aired and left %d frames: %v", 1989-130-1800, kinds(c))
+	}
+	// a few frames more and the leftover is a sting's: the trailer airs
+	in.Frames += 70
+	c, err = Compose(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkComposition(t, in, c)
+	if count(c, ClipTrailerBody) != 1 {
+		t.Errorf("no trailer when a sting closes the rest: %v", kinds(c))
 	}
 }
 

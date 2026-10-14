@@ -50,11 +50,12 @@ func trailerEligible(c Candidate, breakFrames int) bool {
 }
 
 // trailerPromo is the trailer of the best-ranked candidate that has one rendered and whose
-// trailer and end card fit in room frames; none when no candidate does.
-func trailerPromo(in BreakInput, ranked []Candidate, room int) (pieces []piece, frames int, titleID string) {
+// trailer and end card, n frames, fit in room frames and leave what leaves(n) accepts; none when
+// no candidate does.
+func trailerPromo(in BreakInput, ranked []Candidate, room int, leaves func(n int) bool) (pieces []piece, frames int, titleID string) {
 	for _, c := range ranked {
 		n := c.TrailerFrames + endCardFrames
-		if c.TrailerFrames == 0 || n > room || in.RecentTrailers[c.TitleID] || !trailerEligible(c, in.Frames) {
+		if c.TrailerFrames == 0 || n > room || !leaves(n) || in.RecentTrailers[c.TitleID] || !trailerEligible(c, in.Frames) {
 			continue
 		}
 		title := c.Title
