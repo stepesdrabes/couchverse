@@ -2544,7 +2544,8 @@ approves is what airs.
   promo's) never depends on its airing, and its `parts.sound` runs on through the end card. *The
   plan* (`planTrailer`, pure and table-tested): a cold open on the first scene (a quiet line, faded
   up from night), the channel's moment (a red rule drawing under the row lockup, no tagline), the
-  scenes in story order with the title's taglines (else its words) as cards between them, the last
+  scenes in story order with the title's taglines as cards between them (no cards without taglines,
+  never the genre or the year, which is metadata not copy; words a spec gives stand in), the last
   tagline just before the montage (a premiere card after it), a riser into the montage (cuts that
   quicken from about a second apart to half a second, each on the strongest onset of the
   soundtrack near where the next is due, else on the frame grid), the title on the music's peak

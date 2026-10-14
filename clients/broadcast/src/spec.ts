@@ -276,7 +276,10 @@ export interface TrailerContent extends Loudness {
 	 * @maxItems 12
 	 */
 	scenes: TrailerScene[];
-	/** Kinetic words for its cards; timeless only (a genre, the year). Defaults from the title. */
+	/**
+	 * Words for its cards when the title has no taglines (its taglines are the cards otherwise).
+	 * None by default: a trailer never makes a card of the title's genre or year.
+	 */
 	words?: string[];
 	/** The title's own soundtrack, under the scenes (ducked under their lines) and the title. */
 	bed?: Bed;

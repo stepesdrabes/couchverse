@@ -645,7 +645,7 @@
 					"items": {
 						"type": "string"
 					},
-					"description": "Kinetic words for its cards; timeless only (a genre, the year). Defaults from the title."
+					"description": "Words for its cards when the title has no taglines (its taglines are the cards otherwise). None by default: a trailer never makes a card of the title's genre or year."
 				},
 				"bed": {
 					"$ref": "#/definitions/Bed",

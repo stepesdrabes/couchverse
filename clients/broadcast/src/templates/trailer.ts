@@ -26,7 +26,6 @@ import {
 	W,
 	buildPromo,
 	centred,
-	defaultWords,
 	fitted,
 	metaLine,
 	place,
@@ -97,9 +96,10 @@ function buildTrailer(
 	const cinematic = mood === 'cinematic';
 	const bed: LoadedBed | null = assets.bed(spec.bed);
 
-	// the cards: the title's taglines in order, else its words
+	// the cards: the title's taglines in order, else words the spec gives (never the genre or the
+	// year: that is metadata, not a trailer's copy; without either the trailer has no cards)
 	const taglines = (t.taglines ?? []).filter(Boolean);
-	const texts = (taglines.length ? taglines : defaultWords(spec)).slice(0, 3);
+	const texts = (taglines.length ? taglines : (spec.words ?? []).filter(Boolean)).slice(0, 3);
 	// the lines as the plan and the sound both read them: inside their scene
 	const spoken = spec.scenes.map((s) =>
 		s.lines

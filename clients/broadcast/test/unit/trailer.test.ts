@@ -215,6 +215,19 @@ describe('the trailer plan', () => {
 		expect((presents?.end ?? 0) - (presents?.at ?? 0)).toBeGreaterThan(2.8);
 	});
 
+	it('has no cards without taglines: it uses its other beats', () => {
+		for (const mood of MOODS) {
+			const p = plan({ mood, cards: [] });
+			const kinds = p.sections.map((s) => s.kind);
+			expect(kinds).not.toContain('card');
+			expect(kinds.slice(0, 2)).toEqual(['scene', 'presents']);
+			expect(kinds.slice(-2)).toEqual(['title', 'scene']);
+			expect(kinds).toContain('montage');
+			expect(p.end).toBeLessThanOrEqual(BODY[1]);
+		}
+		expect(plan({ premiere: true, cards: [] }).sections.map((s) => s.kind)).toContain('premiere');
+	});
+
 	it('trims a long scene to whole lines in the gaps between them', () => {
 		const long = scene(12, [0.5, 2], [2.4, 4], [5, 9.5], [10.2, 11.5]);
 		const [from, to] = cutWindow(long, 8);

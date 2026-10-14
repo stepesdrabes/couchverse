@@ -79,7 +79,7 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	// bright's red field and a premiere card; a name in type, no logo
 	['trailer-bright-premiere', [26, 53.4, 58, 64.4, 71]],
 	// the house alone, its words as cards
-	['trailer-house', [49.5, 60, 67]],
+	['trailer-house', [49.5, 56, 66]],
 	// the longest name and taglines
 	['trailer-long', [19.8, 35.2, 54.5, 60.5]]
 ];
@@ -195,6 +195,18 @@ test("the bright promo's title never lands on black", async ({ page }) => {
 					);
 		}
 	}
+});
+
+// A trailer's cards are its taglines (or words a spec gives): never the title's genre or year,
+// which is metadata, not copy. Without taglines it has no cards and uses its other beats.
+test("a trailer's cards are its taglines, never its genre or year", async ({ page }) => {
+	const cards = async (name: FixtureName) =>
+		(await load(page, FIXTURES[name])).cues.filter((c) => c.name === 'card').length;
+	// no taglines: the title is Deep Water, Crime and Drama
+	expect(await cards('trailer-house')).toBe(0);
+	// two taglines
+	expect(await cards('trailer-cinematic')).toBe(2);
+	expect(await cards('trailer-grit')).toBe(2);
 });
 
 test('the standby loop ends on its first frame', async ({ page }) => {
