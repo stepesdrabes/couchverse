@@ -228,3 +228,28 @@ func TestCouchTvFailedBodiesBackOff(t *testing.T) {
 		}
 	}
 }
+
+// TestCouchTvVetoedTrailerRender: when an admin vetoes a title's trailer (its scenes emptied), the
+// render queued for it is cancelled and its clip dropped, not timed again for the quiet hours: it
+// would run for a quarter of an hour on the Pi and its pending row would count toward the night's
+// three, which could keep the title's next trailer from being asked for.
+func TestCouchTvVetoedTrailerRender(t *testing.T) {
+	b := newBodies(t)
+	b.compose()
+	asked := b.queued()
+	trailer := asked["trailer_body "+b.movie]
+	if len(trailer) != 1 {
+		t.Fatalf("bodies queued: %v, want a trailer for the movie", asked)
+	}
+	b.exec(`UPDATE couchtv_titles SET trailer = '[]', trailer_source = 'admin' WHERE title_id = $1`, movieID)
+	b.compose()
+	if n := b.count(`SELECT count(*) FROM jobs WHERE type = $1 AND status = 'cancelled' AND payload->>'clipId' = $2`, couchtv.RenderJob, trailer[0]); n != 1 {
+		t.Errorf("%d cancelled renders of the vetoed trailer", n)
+	}
+	if n := b.count(`SELECT count(*) FROM couchtv_clips WHERE kind = 'trailer_body'`); n != 0 {
+		t.Errorf("%d trailer clips are left to be counted", n)
+	}
+	if got := b.queued(); len(got["trailer_body "+b.movie]) != 0 || len(got["promo_body "+b.movie]) != 1 {
+		t.Errorf("queued after the veto: %v", got)
+	}
+}
