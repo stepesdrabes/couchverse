@@ -1374,8 +1374,9 @@ how each was settled:
   owner chose every two hours over every hour), the weather (38.4 s) in the
   first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the
   evening movie, both where the break keeps the squeeze, the short ident, a short promo and
-  the shortest up next beside them: 30.1 s, so a break needs 84.5 s for a news slot, 68.5 s
-  for a weather slot and 120.5 s for both (the later, the weather, goes first). Measured over
+  the shortest up next beside them: 30.8 s (`slotRestFrames`, 770 frames), so a break needs 85.2 s
+  for a news slot (2130 frames), 69.2 s for a weather slot (1730) and 123.6 s for both (3090;
+  the later, the weather, goes first). Measured over
   the week the Pi had planned on 2026-10-14 (9 days, 319 breaks): the schedule asks for 32
   news and 36 weather slots, and at the old lengths (20 s, 15 s) every one had its room; at
   the new ones 31 of the news slots do (the one lost, 14:00 on a Friday, is a 78 s break)

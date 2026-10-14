@@ -887,8 +887,8 @@ server that does not send it). The admin settings page toggles it.
   they fit, the lineup when the break ends on the hour and a promo still fits beside it, a slot
   for each bulletin it carries (`BreakInput.Bulletins`: the news, 54.4 s, then the weather,
   38.4 s; the later goes first where the break would keep less than the squeeze, the short
-  ident, a short promo and the shortest up next beside them, 30.1 s: a break needs 84.5 s for
-  the news, 68.5 s for the weather and 120.5 s for both), and up next. A slot holds a fallback of
+  ident, a short promo and the shortest up next beside them, 30.8 s: a break needs 85.2 s for
+  the news, 69.2 s for the weather and 123.6 s for both), and up next. A slot holds a fallback of
   exactly its length (`slotFallback`): promos of titles the break does not promote yet (else of
   others), each title once, a promo leaving nothing or a stretch stings can close, closed with
   stings; its parts carry the slot's kind (`Part.Slot`, `Composition.Slots`). Up next
