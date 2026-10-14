@@ -284,7 +284,7 @@ const SHOTS: Shot[] = [
 
 // the promos' titles carry their scenes (as the composer gives them) and some their logos: a wide
 // gold wordmark and a squarer red and paper one (test/media/generate.sh)
-const SCENES: FootageShot[] = [
+const PROMO_SCENES: FootageShot[] = [
 	{ kind: 'footage', frames: frames('shot-a') },
 	{ kind: 'footage', frames: frames('shot-b'), focus: [0.5, 0.2, 0.5, 0.6] }
 ];
@@ -292,14 +292,14 @@ const PROMO = {
 	night: {
 		...TITLES.night,
 		logo: { url: `${M}/logo-wide.png`, aspect: 4 },
-		footage: SCENES
+		footage: PROMO_SCENES
 	},
 	alley: {
 		...TITLES.alley,
 		logo: { url: `${M}/logo-tall.png`, aspect: 2.3 },
-		footage: SCENES
+		footage: PROMO_SCENES
 	},
-	sunny: { ...TITLES.sunny, footage: SCENES },
+	sunny: { ...TITLES.sunny, footage: PROMO_SCENES },
 	// no artwork, no scenes: the channel paints the picture itself
 	zabky: {
 		...TITLES.water,
