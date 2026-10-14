@@ -884,9 +884,10 @@ server that does not send it). The admin settings page toggles it.
   broadcast day's design: the four take turns day by day, D35, and the full idents a long gap
   with nothing to promote repeats in the same break take the designs after it), promos while
   they fit, the lineup when the break ends on the hour and a promo still fits beside it, a slot
-  for each bulletin it carries (`BreakInput.Bulletins`: the news, 20 s, then the weather, 15 s;
-  the later goes first where the break would keep less than the squeeze, the short ident, a
-  short promo and the shortest up next beside them), and up next. A slot holds a fallback of
+  for each bulletin it carries (`BreakInput.Bulletins`: the news, 54.4 s, then the weather,
+  38.4 s; the later goes first where the break would keep less than the squeeze, the short
+  ident, a short promo and the shortest up next beside them, 30.1 s: a break needs 84.5 s for
+  the news, 68.5 s for the weather and 120.5 s for both), and up next. A slot holds a fallback of
   exactly its length (`slotFallback`): promos of titles the break does not promote yet (else of
   others), each title once, a promo leaving nothing or a stretch stings can close, closed with
   stings; its parts carry the slot's kind (`Part.Slot`, `Composition.Slots`). Up next
@@ -1155,7 +1156,8 @@ server that does not send it). The admin settings page toggles it.
     reproduces the research's day), `bulletin_spec_test.go` (the clips' specs from them,
     checked against the broadcast schema: English days and warnings, whole headlines, the
     credits), `bulletin_slots_test.go` (which breaks carry slots, their fallbacks, every gap
-    filled with its slots whole), `live_slots_test.go` (a slotted break's sections on air, a
+    filled with its slots whole, and over a planned week how many of D37's slots keep their
+    room), `live_slots_test.go` (a slotted break's sections on air, a
     bulletin binding to its slot or not), `TestCouchTvBulletins` (the job on a database over
     them, the answer checked against the spec, the cleanup) and `TestCouchTvBulletinRenders`
     (only the last run in time for a slot renders, once, and none while the channel is off).
@@ -2297,13 +2299,33 @@ approves is what airs.
   `cursor`, the old name, still renders as `ident`), `standby` ("Technical difficulties",
   loops seamlessly), and the bulletins, sharp screens that hold still between their moves
   (held frames render as one capture), the channel's lockup in the bug's corner (no clock: a
-  bulletin binds to whichever slot it airs in, D38): `weather` (15 s by default, in scenes on
-  the beat: Czechia's kraje on the night with every configured city's sky and temperature now,
-  ČHMÚ's warnings filling the kraje they cover, hatched where they cover part, beside their
-  card; tomorrow, as a red front crosses the country west to east and turns each city; the
-  next days, a table a red bar sweeps in; under 13 s it skips tomorrow; WMO icons drawn in
-  code, `weather-icons.ts`) and `news` (20 s: the top stories one at a time, each headline
-  whole with its outlet's name, a red segment per story). A bulletin airs in a slot of its
+  bulletin binds to whichever slot it airs in, D38): `weather` (38.4 s by default, 10 to 60) and
+  `news` (54.4 s, 10 to 90), each a whole number of beats at 75 bpm and designed for its
+  length. The weather's scenes (`schedule` gives each the beats it wants, within bounds, so a
+  day with warnings reads a little tighter than a quiet one): now (Czechia's kraje on the
+  night with every configured city's sky and temperature where it is, and the warmest and
+  coldest of them in a card); the warnings (the cities give way to the kraje, one warning at a
+  time: the kraje it covers filled in its level's colour, hatched where it covers part, each
+  named where it has room, beside its card with the level, event, time, regions and `1 of 3`;
+  the three most severe, the rest counted `+ 1 more`; a quiet day says `No weather warnings`;
+  no scene while ČHMÚ cannot be read); today and tomorrow (the day's high and low turn each
+  city, a card with the cities' range and the day's chance of precipitation; tomorrow as a red
+  front crosses the country west to east); the next days (a table a red bar sweeps in); the
+  channel's tag lands in the last scene's last seconds and the corner's lockup gives way to it.
+  The news: an open (`Top 5 stories` from the outlets named), the stories one at a time, each
+  headline whole with its outlet's name and, after it has been read, how many outlets carry it,
+  a red segment per story and a counter (`running` gives each its reading time in whole beats,
+  7 to 13 s with three to five stories, fewer stories holding longer and widening the open and
+  the recap), a recap of every headline whole with its outlet's name in one list, and the
+  channel's sign-off, the tag landing with the sonic logo. WMO icons are drawn in code,
+  `weather-icons.ts`. The credits stay on screen whenever their data is: the forecast's and
+  the borders' on the map scenes, ČHMÚ's too on the warnings scene (and a quiet day's), the
+  forecast's alone on the table, the news' throughout. The scores: the news' is one
+  progression in D (D minor add 9, B flat, G minor, F, A suspended, then D major, the sonic
+  logo's chord) under a felt-piano ostinato in a figure of its own for each story, a glass
+  note as each comes and a bowed line in the sparsest; the weather's steps the pad through D,
+  B minor, G, A and E minor to D with glass at every scene and air under the sweeps. Their
+  chords are built when their turn comes, since every voice built up front costs the render.
   own, so its sound starts and ends inside the clip. Copy is English (D13, D39 for the
   bulletins: what the data brings, the city names and the Czech headlines, stays as written);
   every time and day arrives as a preformatted phrase (`Airing`, the bulletins' `asOf`, day

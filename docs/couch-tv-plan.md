@@ -52,7 +52,7 @@ in section 3.
 | D34 | **One sonic logo, A4 E5 D5** (the fifth, ninth and root of D major; morph's and assemble's, 2026-10-13) on `couch`, `t`, `v`: the beat after the landing, then half a beat apart at 75 bpm, the last note held while D add9 settles, on a felt piano, a glass halo and a bowed swell; every screen is scored with one generated house palette (warm detuned pads, felt piano, glass, bowed swells, sub, soft impacts, air, a long generated hall). The **short ident** (5.2 s; 4.52 s until 2026-10-14) is the shared popcorn ending alone, opening on the couch alone in its lockup place; **stings** (5-10 s; 2-6 s until 2026-10-14) are one design, the popcorn drop and the whole logo with its chord ringing out, the ending placed by their length; the **promo tag** is the row lockup landing on the compact sonic logo; the **credits squeeze hands over into the short ident** (handover `ident`: the program shrinks onto the couch and dissolves into it, its last frame the ident's first). |
 | D35 | **All four full idents air, in turn** (2026-10-13). Journey, cinematic, morph and assemble, the four the owner approved, are the `ident` template's full cut (`design`), ported unchanged but for the sonic logo, A4 E5 D5 in all four (journey's and cinematic's motifs re-scored wherever they state it). The composer gives a break's first full ident the broadcast day's design (each day the next, so all four air within four days), the full idents a long gap repeats in the same break the designs after it, and the evergreen break always journey, so it is composed once. They render on the Pi, once per template version, at night: estimated 4 to 16 minutes each but cinematic, 65 to 116 (6.7); a render collects its canvas reads as it goes, which keeps it inside the sidecar's 1 GB. If cinematic's first render on the Pi runs past ~90 minutes, it ships pre-rendered. |
 | D36 | **Bulletins bind late, in slots of the breaks.** A break that carries a bulletin keeps a fixed-length slot for it after the promos and the lineup, before up next, holding a fallback of exactly that length (promos and stings, renderable ahead like any part), so the break is composed, rendered and assembled complete on its own. It is assembled in sections around its slots (a package each), its sound mixed per section so nothing rings across a slot's edge and each slot normalized on its own. When the live stream puts the break on air, a slot that airs whole takes the newest rendered bulletin still valid when the slot ends, at the slot's loudness, else its fallback; pinned, it never changes (6.10). |
-| D37 | **When the bulletins air** (defaults the owner tunes later): the news (20 s) in the breaks that end on the hour every two hours from 06:00 to midnight (06:00, 08:00 ... 24:00; the owner chose every two hours over every hour, 2026-10-13), the weather (15 s) in the first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the evening movie, never where a bulletin fetched on the grid 15 minutes before the break goes on air would have expired by its end; a break keeps a slot only beside the squeeze, the short ident, a short promo and the shortest up next. |
+| D37 | **When the bulletins air** (defaults the owner tunes later): the news (54.4 s) in the breaks that end on the hour every two hours from 06:00 to midnight (06:00, 08:00 ... 24:00; the owner chose every two hours over every hour, 2026-10-13), the weather (38.4 s) in the first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the evening movie, never where a bulletin fetched on the grid 15 minutes before the break goes on air would have expired by its end; a break keeps a slot only beside the squeeze, the short ident, a short promo and the shortest up next. The lengths are the owner's "news and weather should be longer" (2026-10-14: the 20 s and 15 s placeholders were too short to read): each is a whole number of beats at the house's 75 bpm (68 and 48), so every scene change lands on the music. |
 | D38 | **A bulletin renders once, when it is the one that airs**: the bulletins job asks for a clip on its kind's last run in time for the next slot (one render per slot, not per fetch), the sidecar renders it as `couchtv_bulletin_render` ahead of every other clip, never waiting for a transcode or the quiet hours, and only while the channel is on. The clip carries its sound at every whole LU a break is mixed at (-23 to -16) and a slot's sound is mixed at its break's loudness in whole LU, so a bulletin sounds as loud as the fallback it replaces. A bulletin's clip goes an hour after its bulletin stops being valid. |
 | D39 | **D13 extended to the bulletins** (owner, 2026-10-13): English chrome (titles, labels, weekdays, times, the credits "Weather data by Open-Meteo.com", "Source: ČHMÚ", "Borders: ČÚZK / geoBoundaries (CC BY 4.0)", "Headlines from the outlets’ RSS feeds, as of 17:40"), ČHMÚ's English event and kraj names, Prague by its English name; the headlines stay Czech, whole and unaltered, each labelled with its outlet's name, since the outlets' terms forbid altering or shortening them and a translation would alter them. |
 | D40 | **Czechia's outline lives in the broadcast package**, a module generated from the server's `czechia.geojson` (`npm run outline`), not in every spec: it never changes from one bulletin to the next and a template's version covers a change; the spec carries the cities' positions and the map's credit. A forecast airs until midnight at the latest, since its days are named from the day it was fetched. |
@@ -1174,7 +1174,7 @@ break or the standby card.
 The owner wants a weather overview of Czechia and the day's top headlines in the breaks. The
 data layer is built (2026-10-13; FEATURES.md "couchtv", Bulletins) and the bulletins air in
 slots of the breaks ("On air" below), in their designed templates (DESIGN 2.10 and 2.11, made
-sharp, 2026-10-14). The `couchtv_bulletins` job (app) fetches the news
+sharp and a minute and half a minute long, designed for their length, 2026-10-14). The `couchtv_bulletins` job (app) fetches the news
 every 20 minutes and the weather hourly from 05:30 to 00:30 in the channel's zone and at
 startup, politely (a User-Agent naming the app, 10 s timeouts, two retries, conditional GET),
 and keeps the last good bulletin of each kind in `couchtv_bulletins`, served by
@@ -1226,12 +1226,21 @@ how each was settled:
 - **Language (D39).** The owner's decision: English chrome everywhere the data allows (labels,
   weekdays, times, ČHMÚ's English event and kraj names, Prague by its English name, the
   credits), the headlines Czech, whole and unaltered, each with its outlet's name.
-- **Which breaks, how long, the credits (D37, D39).** The news (20 s) in the breaks that end
+- **Which breaks, how long, the credits (D37, D39).** The news (54.4 s) in the breaks that end
   on the hour every two hours from 06:00 to midnight (some of the breaks with the lineup; the
-  owner chose every two hours over every hour), the weather (15 s) in the
+  owner chose every two hours over every hour), the weather (38.4 s) in the
   first break ending within the hour after 07:00, 12:00 and 17:00 and in the break before the
   evening movie, both where the break keeps the squeeze, the short ident, a short promo and
-  the shortest up next beside them. On screen: "Weather data by Open-Meteo.com" always,
+  the shortest up next beside them: 30.1 s, so a break needs 84.5 s for a news slot, 68.5 s
+  for a weather slot and 120.5 s for both (the later, the weather, goes first). Measured over
+  the week the Pi had planned on 2026-10-14 (9 days, 319 breaks): the schedule asks for 32
+  news and 36 weather slots, and at the old lengths (20 s, 15 s) every one had its room; at
+  the new ones 31 of the news slots do (the one lost, 14:00 on a Friday, is a 78 s break)
+  and all of the weather's. Over the test library's planned week (`TestBulletinSlotsOverAWeek`)
+  every one does (22 and 28). So the rules stay as they were: dropping the short promo from
+  what a break keeps would win back that one slot and make a break of a squeeze, an ident,
+  the news and up next. What the schedule asks for is the limit (few breaks end exactly on an
+  even hour: about 3.5 news slots a day), not the room. On screen: "Weather data by Open-Meteo.com" always,
   "Source: ČHMÚ" with the warnings (or "No weather warnings"), "Borders: ČÚZK / geoBoundaries
   (CC BY 4.0)" with the map, the outlet's name with every headline and "Headlines from the
   outlets’ RSS feeds, as of 17:40".
@@ -1253,20 +1262,29 @@ how each was settled:
   `bulletins.enabled` off where that is unwanted. They render bulletins only with a sidecar
   and the channel on.
 
-**Render budget (the Pi).** A day has 10 news slots and 4 weather slots, 14 renders of
-6,500 frames (the news every hour would be 23 renders of 11,000 frames). Measured on the M1
-Pro under heavy load (the squeeze beside them at 2.76 fps, the Pi's 2.41): the placeholder
-news (500 frames) in 36 s and weather (375) in 50 s, since they hold still after their first
-seconds and a held frame is not captured again, which scales to about 50 and 70 s on the Pi:
-**about 13 minutes a day**. A design that moves in every frame renders at the Pi's measured
-2-2.5 fps: 200-250 s a news, 150-190 s a weather, plus about 20 s each to load the page,
-render the sound and encode the eight slot loudnesses: **about 0.8-1 h a day**, all of it in
-the daytime, one render of 3-5 minutes before each slot, well inside the 15 minutes a slot
-leaves it. The designed bulletins (2026-10-14) move only into and between their scenes and
-stories: the sidecar captures 154 of the weather's 375 frames and 213 of a five-story news'
-500 (136 with three stories), against the placeholders' 68 and 63, at 66 and 60 ms a capture
-on the loaded M1 (the placeholders' 58 and 42). At the Pi's 2.4 captures a second that is
-about 65 s a weather and 90 s a news, with the 20 s around each: **about 25 minutes a day**.
+**Render budget (the Pi).** A day has at most 10 news slots and 4 weather slots, 14 renders
+(the news every hour would be 23). A bulletin that moves in every frame renders at the Pi's
+measured 2-2.5 fps; these hold still between their moves and a held frame is not captured
+again. The designed bulletins of 2026-10-14 (20 s and 15 s) captured 213 of a five-story news'
+500 frames and 154 of the weather's 375, about 25 minutes a day for the 14. The longer ones
+(the news 54.4 s, 1360 frames; the weather 38.4 s, 960; designed for their length, see
+FEATURES.md, Broadcast package) capture **504** of a five-story news' frames (376 with three
+stories, 475 with the five longest headlines of the recorded feeds) and **225-335** of the
+weather's (225 with two cities and no warnings, 242 on a quiet day, 265 with three cities and
+a warning, 335 with twelve cities and four warnings), at 47-53 ms a capture on the loaded M1
+(`concepts/variants/screens/tools/cost.mjs`). At the Pi's 2.4 captures a second that is
+about 210 s a news and 95-140 s a weather, plus about 20 s each to load the page and encode
+the eight slot loudnesses and the sound's render, which grew with the clip (13 s for the
+news and 9 s for the weather on the M1 under load, the chords built when their turn comes
+rather than up front; the Pi is several times slower, say 50 and 35 s): **about 4.8
+minutes a news and 2.8-3.3 a weather**, one render before each slot, well inside the 15
+minutes a slot leaves it. At D37's schedule met in full (10 news and 4 weather slots a day)
+that is **about an hour a day**, all of it in the daytime; over the Pi's real week, where
+breaks end on an even hour only about 3.5 times a day, **about half an hour**. Estimates for
+the Pi, measured on the M1; the first slots on air will say. Through the sidecar's own pipeline
+(`TestCouchTvRender` on the loaded M1: the page's load, the sound, three loudness renditions
+and the HLS packaging included) a three-story news took 48 s and a two-city weather 83 s (the
+first render of the run, with Chromium's start), so the estimate stands on the safe side.
 
 ---
 
