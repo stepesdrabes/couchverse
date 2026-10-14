@@ -111,7 +111,7 @@ function buildTrailer(
 		premiere: !!spec.premiere,
 		scenes: spec.scenes.map((s, i) => ({ len: s.frames.length / FPS, lines: spoken[i] })),
 		cards: texts.map((x) => x.length),
-		bed: bed ? { onsets: bed.onsets } : null,
+		bed: bed ? { onsets: bed.onsets, length: bed.length } : null,
 		shots: (t.footage ?? []).map((s) => s.frames.length / FPS)
 	});
 	const B = plan.end;

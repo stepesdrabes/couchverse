@@ -347,6 +347,42 @@ test('a trailer sounds the same twice, at its loudness, with clean cuts and a qu
 	}
 });
 
+// The review found the trailer's music 24 dB under its dialogue, no musical line for the first
+// half (the soundtrack came in 35 to 50 s on, the house's underscore sat 24 dB under the lines and
+// fell to -26..-33 LUFS at the cards and the channel's moment) and the title's hit 5 LU over the
+// loudness target. The music alone (the scenes' sound muted) now never falls out of hearing from
+// the channel's moment to the hit, and the hit stays within 4 LU of the target.
+test('a trailer has a musical line under its story and a hit within 4 LU of its loudness', async ({
+	page
+}) => {
+	test.slow();
+	const short = (ch: Float32Array[], at: number) =>
+		integratedLoudness(slice(ch, Math.round(at * RATE), Math.round((at + 3) * RATE)), RATE);
+	for (const name of ['trailer-cinematic', 'trailer-grit'] as const) {
+		const spec = FIXTURES[name] as TrailerSpec;
+		const muted: TrailerSpec = {
+			...spec,
+			scenes: spec.scenes.map((s) => ({ ...s, sound: { ...s.sound, gain: 0 } }))
+		};
+		const info = await load(page, spec);
+		const full = await sound(page, 'renderAudio');
+		const cue = (n: string) => info.cues.find((c) => c.name === n)?.at ?? NaN;
+		await load(page, muted);
+		const music = await sound(page, 'renderAudio');
+		// the music alone, three seconds at a time (normalized to -18 like the trailer; it fell to
+		// -44 between the cards before)
+		const levels: number[] = [];
+		for (let t = cue('the channel') + 1.5; t <= cue('the title') - 3; t++)
+			levels.push(short(music, t));
+		expect(Math.min(...levels), name).toBeGreaterThan(-34);
+		// the loudest three seconds of the whole trailer, which is the hit
+		let loudest = -Infinity;
+		for (let t = 0; t + 3 <= full[0].length / RATE; t++)
+			loudest = Math.max(loudest, short(full, t));
+		expect(loudest, name).toBeLessThanOrEqual(-18 + 4.2);
+	}
+});
+
 test('a trailer sounds the same whatever airing its end card shows', async ({ page }) => {
 	test.slow();
 	const base = FIXTURES['trailer-grit'] as TrailerSpec;

@@ -21,7 +21,8 @@ import {
 	playRidden,
 	playScene,
 	ride,
-	type Duck
+	type Duck,
+	type Line
 } from '../audio/mix';
 import {
 	air,
@@ -42,7 +43,7 @@ import {
 } from '../audio/voices';
 import { BEAT } from '../brand/sonic';
 import type { TL } from './shared';
-import { KNOBS, linesOf, scenesOf, type Mood, type Plan, type Section } from './trailer-plan';
+import { KNOBS, scenesOf, type Mood, type Plan, type Section } from './trailer-plan';
 
 export interface ScoreScene {
 	/** The scene's own sound, null when it did not load. */
@@ -86,10 +87,17 @@ const UNDER: Pitch[][] = [
 ];
 
 /**
+ * Where the soundtrack sits under the story, dB under its reference: with the speech's duck
+ * (13 dB) that is 12 dB under the dialogue, and between the lines it comes up to meet it.
+ */
+export const STEADY = -6;
+
+/**
  * The soundtrack's level on the trailer's clock, as `[t, dB]` keys under its reference: it comes
- * in with the riser, climbs through the montage, dips for a breath and lands on the hit, sits
- * under the button, bows to the channel tag and fades out at `stop` (the speech's duck comes on
- * top of this).
+ * in (with the channel's moment when it is long enough, else with the riser), holds steady under
+ * the story, builds through the riser and the montage, dips for a breath and lands on the hit,
+ * sits under the button, bows to the channel tag and fades out at `stop` (the speech's duck comes
+ * on top of this).
  */
 export function bedKeys(plan: Plan, mood: Mood, tagAt: number, stop: number): [number, number][] {
 	const montage = find(plan, 'montage')[0];
@@ -97,16 +105,19 @@ export function bedKeys(plan: Plan, mood: Mood, tagAt: number, stop: number): [n
 	const at = plan.bedAt ?? 0;
 	const hit = plan.hit;
 	const B = plan.end;
-	const keys: [number, number][] = [
-		[at, -38],
+	const keys: [number, number][] = [[at, -40]];
+	// a soundtrack that came in with the story holds steady under it until the riser
+	if (at + 2.4 < plan.riseAt - 0.3) keys.push([at + 2.4, STEADY], [plan.riseAt, STEADY]);
+	keys.push(
 		// (without a montage the riser leads straight to the hit)
-		[montage?.at ?? Math.max(at + 0.1, hit - 0.4), -9],
-		[hit - 0.3, -2.5],
+		[montage?.at ?? Math.max(at + 0.1, hit - 0.4), -5.5],
+		[hit - 0.3, -3.5],
 		[hit - 0.09, -16],
-		[hit, 1.5],
-		[hit + 1.2, 0]
-	];
-	if (title.end < B - 0.01) keys.push([title.end - 0.6, -1], [title.end + 0.2, -9], [B - 0.2, -9]);
+		[hit, -3.5],
+		[hit + 1.2, -1.5]
+	);
+	if (title.end < B - 0.01)
+		keys.push([title.end - 0.6, -1], [title.end + 0.2, -11], [B - 0.2, -11]);
 	else keys.push([title.end - 0.6, -3]);
 	if (mood === 'grit') keys.push([stop - 0.08, -2.5]);
 	else keys.push([tagAt - 0.25, -3], [tagAt, -8], [Math.max(tagAt + 0.8, stop - 1.4), -9]);
@@ -121,7 +132,8 @@ export function scoreTrailer(c: ScoreInput) {
 	const bright = mood === 'bright';
 	const B = plan.end;
 	const scenes = scenesOf(plan);
-	const lines = linesOf(plan);
+	// how much quieter than the dialogue's level each line stayed, by its scene's start and its index
+	const quieter = new Map<string, number>();
 	const montage = find(plan, 'montage')[0];
 	const title = find(plan, 'title')[0];
 	// the hit is the montage's end; a trailer short of picture has no montage, the riser leads to it
@@ -151,7 +163,17 @@ export function scoreTrailer(c: ScoreInput) {
 		]);
 		const heard = inside.length ? loudnessOf(own.sound.buffer, spoken) : whole;
 		const over = inside.length ? OVER.dialogue : OVER.effects;
-		const gain = gainOf(levelling(heard.lufs, target, whole.peak, target + over)) * own.sound.gain;
+		const lift = levelling(heard.lufs, target, whole.peak, target + over);
+		const gain = gainOf(lift) * own.sound.gain;
+		// a line the levelling could not lift to the dialogue's level (it lifts 14 dB at most, and
+		// never past its scene's loudest moment's room) takes the music further down under it
+		inside.forEach(([a, b], i) => {
+			const own1 = loudnessOf(own.sound!.buffer, [
+				[own.sound!.in + a - 0.05, own.sound!.in + b + 0.05]
+			]);
+			if (Number.isFinite(own1.lufs))
+				quieter.set(`${s.at}:${i}`, Math.min(12, Math.max(0, DIALOGUE_LUFS - (own1.lufs + lift))));
+		});
 		const first = inside[0];
 		const last = inside.at(-1);
 		// a fade stops short of the first word and starts after the last
@@ -171,6 +193,10 @@ export function scoreTrailer(c: ScoreInput) {
 		const sound = { loaded: own.sound, from: s.soundFrom, to, gain, fadeIn, fadeOut };
 		tl.sound(start, (w, b, skip) => playScene(kit, b, w, sound, skip), length + 0.05);
 	}
+
+	const lines: Line[] = scenes.flatMap((s) =>
+		s.lines.map(([a, b], i): Line => [a, b, quieter.get(`${s.at}:${i}`) ?? 0])
+	);
 
 	// --- the soundtrack, ridden ----------------------------------------------------------------
 
@@ -229,7 +255,12 @@ export function scoreTrailer(c: ScoreInput) {
 	const acts = scenes.filter((s) => s.role === 'act');
 
 	// the underscore: the chords change at the channel's moment, at every card and with every
-	// other act, until the riser (when a soundtrack takes over it fades under the riser)
+	// other act, until a soundtrack takes over (it fades under the soundtrack's entry, at the
+	// riser or earlier when the excerpt is long enough). Where the soundtrack plays the house only
+	// punctuates, unpitched: its key is not the house's.
+	const bedFrom = bed && plan.bedAt !== null ? plan.bedAt : null;
+	const underEnd = bedFrom === null ? rise : bedFrom + 2;
+	const pitched = (t: number) => !bedOn(t);
 	const turns = [
 		0,
 		presents.at,
@@ -237,12 +268,12 @@ export function scoreTrailer(c: ScoreInput) {
 		...acts.filter((_, i) => i % 2 === 1).map((s) => s.at),
 		...(premiere ? [premiere.at] : [])
 	]
-		.filter((t) => t < rise - 1.5)
+		.filter((t) => t === 0 || t < (bedFrom === null ? rise - 1.5 : bedFrom - 0.5))
 		.sort((a, b) => a - b)
 		.filter((t, i, all) => i === 0 || t - all[i - 1] > 2.5);
 	const under = grit ? ['D2', 'A2', 'D3', 'F3'] : null;
 	turns.forEach((t, i) => {
-		const next = turns[i + 1] ?? rise;
+		const next = turns[i + 1] ?? underEnd;
 		const chord = under ?? UNDER[i % UNDER.length];
 		cue(
 			t,
@@ -250,8 +281,8 @@ export function scoreTrailer(c: ScoreInput) {
 				pad(h, w, chord, Math.max(0.6, next - t - 0.3), {
 					attack: i ? 1.2 : 2.4,
 					release: 1.6,
-					level: grit ? 0.5 : 0.42,
-					cut: !!bed && next >= rise - 0.01,
+					level: (grit ? 2.0 : 1.7) * (1 + 0.08 * i),
+					cut: !!bed && next >= underEnd - 0.01,
 					seed: 800 + i
 				}),
 			next - t + 2
@@ -261,9 +292,9 @@ export function scoreTrailer(c: ScoreInput) {
 		0,
 		(h, w) =>
 			padSweep(h, w, [
-				[0, 380],
-				[presents.at, 700],
-				[rise, 1500],
+				[0, 600],
+				[presents.at, 1000],
+				[rise, 1800],
 				[m0, 3400],
 				[m1 + 1.6, 2400],
 				[D, 900]
@@ -277,12 +308,14 @@ export function scoreTrailer(c: ScoreInput) {
 	cue(presents.at - 0.3, (h, w) =>
 		air(h, w, 1.0, { peakAt: 0.7, band: [300, 1600], gain: 0.25, seed: 811 })
 	);
-	cue(presents.at, (h, w) =>
-		sub(h, w, 'D1', presents.end - presents.at - 0.4, { gain: 0.4, attack: 0.5, release: 1.0 })
-	);
-	cue(presents.at + 0.2, (h, w) =>
-		glass(h, w, 'A5', { decay: 2.4, gain: 0.35, pan: 0.15, verb: 0.75, seed: 812 })
-	);
+	if (pitched(presents.at)) {
+		cue(presents.at, (h, w) =>
+			sub(h, w, 'D1', presents.end - presents.at - 0.4, { gain: 0.4, attack: 0.5, release: 1.0 })
+		);
+		cue(presents.at + 0.2, (h, w) =>
+			glass(h, w, 'A5', { decay: 2.4, gain: 0.35, pan: 0.15, verb: 0.75, seed: 812 })
+		);
+	} else cue(presents.at, (h, w) => impact(h, w, { gain: 0.2, root: 'D1', seed: 4399 }));
 
 	// the cards land: a soft impact and a sub under each, the words struck low in grit
 	// the red field crossing the frame (bright's cards and its title): a breath of air with it
@@ -294,6 +327,7 @@ export function scoreTrailer(c: ScoreInput) {
 	cards.forEach((k, i) => {
 		if (bright) crossing(k.at, 893 + i);
 		cue(k.at, (h, w) => impact(h, w, { gain: grit ? 0.3 : 0.22, root: 'D1', seed: 4400 + i }));
+		if (!pitched(k.at)) return;
 		cue(k.at, (h, w) =>
 			sub(h, w, i % 2 ? 'B1' : 'D2', 1.0, { gain: 0.3, attack: 0.04, release: 0.8 })
 		);
@@ -324,14 +358,15 @@ export function scoreTrailer(c: ScoreInput) {
 	if (premiere) {
 		cue(premiere.at - 0.8, (h, w) => inhale(h, w + 0.8, 0.8, { gain: 0.3, seed: 840 }));
 		cue(premiere.at, (h, w) => impact(h, w, { gain: 0.28, root: 'A1', seed: 4410 }));
-		cue(premiere.at + 0.2, (h, w) =>
-			glass(h, w, 'E5', { decay: 2.2, gain: 0.5, pan: 0.15, verb: 0.7, seed: 841 })
-		);
+		if (pitched(premiere.at))
+			cue(premiere.at + 0.2, (h, w) =>
+				glass(h, w, 'E5', { decay: 2.2, gain: 0.5, pan: 0.15, verb: 0.7, seed: 841 })
+			);
 	}
 
 	// each act's first moment: a low bowed note under the new scene (never inside a line)
 	acts.forEach((s, i) => {
-		if (grit || i % 2) return;
+		if (grit || i % 2 || !pitched(s.at)) return;
 		const note = (['F#3', 'A3', 'E3'] as const)[Math.floor(i / 2) % 3];
 		cue(s.at + 0.1, (h, w) =>
 			bowed(h, w, note, 2.2, { gain: 0.4, attack: 0.9, release: 1.2, verb: 0.6, seed: 850 + i })
@@ -437,9 +472,9 @@ export function scoreTrailer(c: ScoreInput) {
 
 	// --- the hit and the title ------------------------------------------------------------------
 
-	cue(m1, (h, w) => impact(h, w, { gain: bed ? 0.34 : 0.4, root: 'D1', seed: 4420 }));
+	cue(m1, (h, w) => impact(h, w, { gain: bed ? 0.2 : 0.4, root: 'D1', seed: 4420 }));
 	cue(m1, (h, w) =>
-		sub(h, w, 'D1', title.end - m1 - 0.6, { gain: bed ? 0.32 : 0.55, attack: 0.06, release: 1.2 })
+		sub(h, w, 'D1', title.end - m1 - 0.6, { gain: bed ? 0.18 : 0.55, attack: 0.06, release: 1.2 })
 	);
 	if (!bed) {
 		const hold = title.end - m1;

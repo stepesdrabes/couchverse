@@ -10,7 +10,7 @@ import {
 	ride,
 	SPEECH
 } from '../../src/audio/mix';
-import { bedKeys } from '../../src/templates/trailer-score';
+import { bedKeys, STEADY } from '../../src/templates/trailer-score';
 import {
 	assignTakes,
 	BODY,
@@ -307,6 +307,67 @@ describe('the picture of the montage and the title', () => {
 	});
 });
 
+describe('the trailer mix: how loud the music sits', () => {
+	it('takes a quieter line deeper, ramping between the depths, and never lets the music up between close ones', () => {
+		const keys = duckKeys([
+			[10, 12, 0],
+			[12.5, 14, 6]
+		]);
+		const at = (t: number) => dbAt(keys, t);
+		expect(at(11)).toBeCloseTo(SPEECH.depth, 6);
+		expect(at(13.5)).toBeCloseTo(SPEECH.depth - 6, 6);
+		// between the two it is between the two depths, never back at 0
+		for (const t of [12.2, 12.3, 12.4]) {
+			expect(at(t)).toBeLessThan(SPEECH.depth + 0.01);
+			expect(at(t)).toBeGreaterThan(SPEECH.depth - 6 - 0.01);
+		}
+		// alone, a quieter line has its own duck
+		expect(dbAt(duckKeys([[10, 12, 6]]), 11)).toBeCloseTo(SPEECH.depth - 6, 6);
+	});
+});
+
+describe('the soundtrack of a trailer enters with the story when it can', () => {
+	const onsets = Array.from({ length: 200 }, (_, i) => ({ t: i * 0.5, s: i % 4 ? 0.6 : 1 }));
+	const at = (length?: number) => plan({ bed: { onsets, length } }).bedAt;
+	const presents = plan().sections.find((s) => s.kind === 'presents')?.at ?? NaN;
+
+	it("comes in with the channel's moment when it lasts to the end, else as late as it must", () => {
+		const riser = plan({ bed: { onsets } }).riseAt;
+		// no length known: with the riser, as before
+		expect(at()).toBeCloseTo(riser, 6);
+		// long enough to last the whole trailer: with the channel's moment
+		expect(at(120)).toBeCloseTo(presents, 6);
+		// a short one: at the riser, never later
+		expect(at(10)).toBeCloseTo(riser, 6);
+		// in between it starts so that it ends with the trailer, between the two
+		const mid = at(45) ?? NaN;
+		expect(mid).toBeGreaterThan(presents);
+		expect(mid).toBeLessThan(riser);
+		const p = plan({ bed: { onsets, length: 45 } });
+		expect(mid + 45).toBeGreaterThanOrEqual(p.end + 3.5);
+	});
+
+	it('sits 12 dB under the dialogue from its entry to the riser, and comes up between the lines', () => {
+		const p = plan({ bed: { onsets, length: 120 } });
+		const keys = bedKeys(p, 'cinematic', p.end + 1.3, (p.bedAt ?? 0) + 120);
+		const lines = linesOf(p);
+		const curve = ride(keys, lines, p.bedAt ?? 0, p.riseAt);
+		const db = (t: number) =>
+			20 * Math.log10(curve.find(([x]) => Math.abs(x - t) < 1e-3)?.[1] ?? 0);
+		// under a line: 12 dB under the dialogue (the soundtrack is levelled to BED_LUFS)
+		const [a, b] = lines.find(([x, y]) => x > (p.bedAt ?? 0) + 4 && y < p.riseAt - 1) ?? [NaN, NaN];
+		const mid = Math.round(((a + b) / 2) * 50) / 50;
+		expect(BED_LUFS + db(mid) - DIALOGUE_LUFS).toBeLessThan(-11);
+		expect(BED_LUFS + db(mid) - DIALOGUE_LUFS).toBeGreaterThan(-13.5);
+		// and between the lines, never gone: at its steady level
+		const quiet = curve.filter(
+			([t]) => t > (p.bedAt ?? 0) + 3 && !lines.some(([x, y]) => t > x - 1 && t < y + 1)
+		);
+		expect(quiet.length).toBeGreaterThan(0);
+		for (const [t, g] of quiet) expect(20 * Math.log10(g), `at ${t}`).toBeCloseTo(STEADY, 1);
+	});
+});
+
 describe('the trailer mix', () => {
 	it('ducks the music 13 dB under every line and closes up close ones', () => {
 		const lines: [number, number][] = [
@@ -329,7 +390,8 @@ describe('the trailer mix', () => {
 		).toBeLessThan(gainOf(SPEECH.depth) * 1.01);
 		// ramps take the time they say
 		const keys = duckKeys(lines);
-		expect(keys.length).toBe(8);
+		// (a held stretch keeps a key at each line's edges, so a quieter line can sit deeper)
+		expect(keys.length).toBe(10);
 		expect(keys.map(([t]) => t)).toEqual([...keys.map(([t]) => t)].sort((a, b) => a - b));
 	});
 

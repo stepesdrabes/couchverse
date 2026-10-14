@@ -2584,12 +2584,21 @@ approves is what airs.
   voice bus, levelled by its lines to -22 LUFS (-24 for a scene with none; its loudest moment never
   more than 10 dB, 6 without lines, over that; at most 14 dB either way) with fades of 12 ms to
   0.3 s that stop short of every word; the soundtrack is ridden under them (`audio/mix.ts`:
-  sample-accurate automation, 13 dB under every line, close lines sharing one stretch held down;
-  it comes in with the riser, climbs through the montage, dips for a breath before the hit, sits
-  under the button and bows to the channel tag); the house's mix ducks 9 dB under speech and,
-  without a soundtrack, rises 4 to 12 dB for the montage and the title; the house (D major, 75 bpm)
-  plays a quiet underscore, the channel's moment, a sub and a soft impact on every card, the riser
-  and the hit. The web's admin preview offers it, cut from stand-in scenes of the title's artwork.
+  sample-accurate automation, 13 dB under every line, a line the levelling could not lift to the
+  dialogue's level (it lifts 14 dB at most) taking the music further down, close lines sharing one
+  stretch held down at each line's own depth; the music sits 12 dB under the dialogue and comes
+  up to meet it between the lines). It comes in with the channel's moment when its excerpt is
+  long enough to last to the end (`bedAt`: it ends with the trailer), else as late as it must,
+  never after the riser; it holds steady under the story, builds through the riser and the
+  montage, dips for a breath before the hit, sits under the button and bows to the channel tag.
+  The house's mix ducks 9 dB under speech and, without a soundtrack, rises 4 to 12 dB for the
+  montage and the title; the house (D major, 75 bpm) plays the underscore until a soundtrack takes
+  over (chords at the channel's moment, every card and every other act, loud enough to be a
+  musical line, 12 dB under the dialogue like the soundtrack, and only unpitched punctuation, air
+  and soft impacts, once a soundtrack plays, its key not being the house's), a sub and a soft
+  impact on every card, the riser and the hit. The loudest three seconds, the hit, stay within
+  4 LU of the loudness target (the review found the music 24 dB under the dialogue, the first
+  half without a line of music and the hit 5 LU over). The web's admin preview offers it, cut from stand-in scenes of the title's artwork.
 - **Render API** (`window.couchtvRender` in `dist/render.html`, 1920x1080, 25 fps):
   `load(spec, { sound })` resolves with `{duration (whole frames), soundDuration (how long its
   sound lasts as a break item, where the next item starts), cues, fps, width, height, version

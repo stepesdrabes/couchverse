@@ -31,8 +31,11 @@ export interface PlanInput {
 	scenes: SceneFacts[];
 	/** The taglines' (else the words') lengths in characters: how long each card is read. */
 	cards: number[];
-	/** The soundtrack's onsets (seconds into its excerpt); null without a soundtrack. */
-	bed: { onsets: Onset[] } | null;
+	/**
+	 * The soundtrack's onsets (seconds into its excerpt) and, when known, how long the excerpt
+	 * lasts, which decides where it can come in; null without a soundtrack.
+	 */
+	bed: { onsets: Onset[]; length?: number } | null;
 	/** The lengths (seconds) of the title's footage shots, which the montage and the title draw on. */
 	shots?: number[];
 }
@@ -91,7 +94,11 @@ export interface Plan {
 	sections: Section[];
 	/** The cut to the end card, a whole frame: the body's length. */
 	end: number;
-	/** Where the soundtrack starts on the trailer's clock; null without one. */
+	/**
+	 * Where the soundtrack starts on the trailer's clock; null without one. It comes in with the
+	 * channel's moment when the excerpt is long enough to last to the end, else as late as it must
+	 * to last (never after the riser).
+	 */
 	bedAt: number | null;
 	/** The montage's riser starts here. */
 	riseAt: number;
@@ -234,6 +241,9 @@ interface Reel {
 	from: number;
 	to: number;
 }
+
+/** The end card after the body: the soundtrack lasts through it. */
+const END_CARD = 4;
 
 /** The least a stretch is worth a take, and the least picture a montage is made of. */
 const MIN_REEL = 0.6;
@@ -473,7 +483,14 @@ export function planTrailer(input: PlanInput): Plan {
 
 	// the montage on the soundtrack's beats, the title on its peak
 	const m0 = at;
-	const bedAt = input.bed ? Math.max(0, frame(m0 - K.rise)) : null;
+	const riseAt = Math.max(0, frame(m0 - K.rise));
+	const presentsAt = sections.find((s) => s.kind === 'presents')?.at ?? 0;
+	const lasts = frame(m0 + montage) + hold.title + (button ? playing(button) : 0) + END_CARD;
+	const bedAt = input.bed
+		? input.bed.length
+			? Math.max(presentsAt, Math.min(riseAt, frame(lasts - input.bed.length)))
+			: riseAt
+		: null;
 	const onsets: Onset[] = input.bed
 		? input.bed.onsets.map((o) => ({ t: (bedAt ?? 0) + o.t, s: o.s }))
 		: [];

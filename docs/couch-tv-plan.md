@@ -1240,7 +1240,12 @@ break or the standby card.
   is the promo's own (`buildPromo`, built on the trailer's timeline), so the airing, the tag and
   the ring-out are one implementation and the body stays timeless; the scenes' sound is levelled
   by its lines to -22 LUFS and the soundtrack ridden 13 dB under speech by sample-accurate
-  automation; and a take holds an image only around its own time (`Timeline.footage`'s window),
+  automation (music 12 dB under the dialogue and a musical line from the channel's moment: the
+  soundtrack enters then when its excerpt lasts to the end, else the house's underscore carries
+  the first half at that level; measured on the four real trailers as the review did, the full
+  mix against a render with the scenes muted: the margin per line went from a median of 24 dB to
+  13, the short-term lows at the cards and the channel's moment from -26..-33 to -22..-25 LUFS,
+  the loudness range from 8.4-11 to 5-9 LU and the hit from +5 to +4 LU over the target); and a take holds an image only around its own time (`Timeline.footage`'s window),
   because the 40 or more takes of a 75 s body would otherwise each be decoded again on every
   frame. Measured on the library's Iron Man 3 (eleven hand-picked scenes, 1080p frames, the
   soundtrack, cinematic): 73.6 s, 1839 frames of which 1815 are captured (the scenes and the

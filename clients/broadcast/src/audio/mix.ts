@@ -106,22 +106,36 @@ export interface Duck {
 export const SPEECH: Duck = { depth: -13, attack: 0.22, release: 0.55, before: 0.05, after: 0.12 };
 
 /**
- * The keys of a duck over `lines` (`[from, to]` in seconds): lines whose ramps would meet share
- * one stretch held down, so the music never pumps between two close lines.
+ * A line of speech, `[from, to]` seconds, and optionally how many dB quieter than the dialogue's
+ * level it stayed (a quiet scene the levelling could not lift): the music goes down that much more.
  */
-export function duckKeys(lines: [number, number][], d: Duck = SPEECH): [number, number][] {
-	const spans = lines
-		.map(([a, b]): [number, number] => [a - d.before, b + d.after])
-		.sort((x, y) => x[0] - y[0]);
-	const merged: [number, number][] = [];
-	for (const [a, b] of spans) {
-		const last = merged[merged.length - 1];
-		if (last && a - d.attack < last[1] + d.release) last[1] = Math.max(last[1], b);
-		else merged.push([a, b]);
+export type Line = [from: number, to: number, quieter?: number];
+
+/**
+ * The keys of a duck over `lines`: lines whose ramps would meet share one stretch held down
+ * (never back up between them), so the music never pumps between two close lines; within a
+ * stretch the depth follows each line's own (a quieter line takes it deeper), ramping between.
+ */
+export function duckKeys(lines: Line[], d: Duck = SPEECH): [number, number][] {
+	// each line's span, those that overlap one another as one
+	const spans: [number, number, number][] = [];
+	for (const [a, b, q = 0] of [...lines].sort((x, y) => x[0] - y[0])) {
+		const [from, to] = [a - d.before, b + d.after];
+		const last = spans[spans.length - 1];
+		if (last && from <= last[1]) {
+			last[1] = Math.max(last[1], to);
+			last[2] = Math.max(last[2], q);
+		} else spans.push([from, to, q]);
 	}
 	const keys: [number, number][] = [];
-	for (const [a, b] of merged)
-		keys.push([a - d.attack, 0], [a, d.depth], [b, d.depth], [b + d.release, 0]);
+	spans.forEach(([a, b, q], i) => {
+		const before = spans[i - 1];
+		const joined = before && a - d.attack < before[1] + d.release;
+		if (!joined) keys.push([a - d.attack, 0]);
+		keys.push([a, d.depth - q], [b, d.depth - q]);
+		const next = spans[i + 1];
+		if (!(next && next[0] - d.attack < b + d.release)) keys.push([b + d.release, 0]);
+	});
 	return keys;
 }
 
@@ -132,7 +146,7 @@ export function duckKeys(lines: [number, number][], d: Duck = SPEECH): [number, 
  */
 export function ride(
 	base: [number, number][],
-	lines: [number, number][],
+	lines: Line[],
 	from: number,
 	to: number,
 	{ duck = SPEECH, step = 0.02 } = {}
