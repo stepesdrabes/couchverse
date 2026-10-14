@@ -2458,8 +2458,11 @@ approves is what airs.
   no scene while ČHMÚ cannot be read); today and tomorrow (the day's high and low turn each
   city, a card with the cities' range and the day's chance of precipitation; tomorrow as a red
   front crosses the country west to east); the next days (a table a red bar sweeps in); the
-  channel's tag lands in the last scene's last seconds and the corner's lockup gives way to it.
-  The news: an open (`Top 5 stories` from the outlets named), the stories one at a time, each
+  channel's tag lands in the last scene's last seconds and the corner's lockup gives way to it
+  (the tag's picture only: its sound is the soft landing and the weather's own closing chord, D
+  add 9 swelling under it and ringing out, never the sonic logo's motif, since a break that
+  carries both bulletins plays the news, which ends on the motif, first and the weather within
+  about 40 s of it; `channelTag`'s `motif` option and `sonicLanding`). The news: an open (`Top 5 stories` from the outlets named), the stories one at a time, each
   headline whole with its outlet's name and, after it has been read, how many outlets carry it,
   a red segment per story and a counter (`running` gives each its reading time in whole beats,
   7 to 13 s with three to five stories, fewer stories holding longer and widening the open and

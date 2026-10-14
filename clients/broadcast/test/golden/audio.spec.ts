@@ -151,6 +151,49 @@ test("a bulletin's sound starts and ends inside it: its slot cuts on both sides"
 	}
 });
 
+// How much a pitch jumps (dB) across `at`: its power in the 200 ms after the onset against the
+// 200 ms before it, by a windowed Goertzel sum.
+const jump = (mono: Float32Array, hz: number, at: number) => {
+	const power = (from: number, to: number) => {
+		const a = Math.round(from * RATE);
+		const n = Math.round((to - from) * RATE);
+		let re = 0;
+		let im = 0;
+		for (let i = 0; i < n; i++) {
+			const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / n);
+			const phase = (2 * Math.PI * hz * i) / RATE;
+			re += mono[a + i] * w * Math.cos(phase);
+			im -= mono[a + i] * w * Math.sin(phase);
+		}
+		return (re * re + im * im) / (n * n);
+	};
+	return 10 * Math.log10(power(at + 0.02, at + 0.22) / power(at - 0.25, at - 0.05));
+};
+
+// A break that carries both bulletins plays the news and, some 40 s later, the weather: the sonic
+// logo's motif (A4 E5 D5, struck on the beats after the tag lands) ends the news only, and the
+// weather's tag lands on its own closing chord.
+test("the news's tag sounds the motif and the weather's does not", async ({ page }) => {
+	test.slow();
+	const struck: Record<string, number> = {};
+	for (const name of ['news', 'weather'] as const) {
+		const info = await load(page, FIXTURES[name]);
+		const land = info.cues.find((c) => c.name.startsWith('channel tag'))?.at ?? NaN;
+		const [l, r] = await sound(page, 'renderAudio');
+		const mono = l.map((v, i) => (v + r[i]) / 2);
+		// A4 on the first beat after the landing and D5 on the last, E5 between
+		const notes: [number, number][] = [
+			[440, 0.4],
+			[659.26, 0.8],
+			[587.33, 1.2]
+		];
+		const jumps = notes.map(([hz, dt]) => jump(mono, hz, land + dt));
+		struck[name] = jumps.filter((j, i) => i !== 1 && j >= 8).length;
+	}
+	expect(struck.news).toBe(2);
+	expect(struck.weather).toBeLessThan(2);
+});
+
 // A pad chord once ticked: an A suspended (A2 E3 D4 E4) stepped by a twentieth of the music's
 // level 4.4 s in, at that moment whatever the voices' seeds, and a spectrogram hardly shows it.
 // The largest second difference of a bulletin's mix stays within the music's own roughness.

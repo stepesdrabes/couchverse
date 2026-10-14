@@ -9,7 +9,7 @@ import { div, span, svg } from '../core/dom';
 import { edge } from '../core/moves';
 import type { Timeline } from '../core/timeline';
 import { COUCH, LOGO_GAP, LOGO_H, LOGO_W, POPCORN, SILHOUETTE } from './glyph';
-import { END, SONIC, sonicRingOut, sonicTag } from './sonic';
+import { END, SONIC, sonicLanding, sonicRingOut, sonicTag } from './sonic';
 import {
 	BRAND,
 	CHANNEL,
@@ -103,13 +103,15 @@ let tags = 0;
  * in, the popcorn drops onto it with gravity and lands at `at` (a soft round impact), then
  * couch, t and v type in on the compact sonic logo, half a beat apart, as every ident ends.
  * Still from `at` + 1.5. `scrim` shades the slot, for a screen whose own grade does not.
+ * `motif` false lands it without the sonic logo's notes (`sonicLanding`), for a screen that
+ * closes on a chord of its own.
  */
 export function channelTag(
 	tl: Timeline,
 	parent: Element,
 	at: number,
 	sound: Kit,
-	{ height = 80, cls = 'tag-lockup', gain = 0.5, scrim = false } = {}
+	{ height = 80, cls = 'tag-lockup', gain = 0.5, scrim = false, motif = true } = {}
 ) {
 	const wrap = div(cls, parent);
 	// the shade comes with the couch
@@ -173,7 +175,8 @@ export function channelTag(
 	tl.sound(at - 0.6, (w, b) => {
 		const first = w + 0.6 + HALF;
 		const until = w + (tl.duration - (at - 0.6)) - END;
-		sonicTag(sound, b, first, { gain, until });
+		if (motif) sonicTag(sound, b, first, { gain, until });
+		else sonicLanding(sound, b, first - HALF, { gain, until });
 		sonicRingOut(house(sound, b), first + SONIC.at[2], until);
 	});
 	tl.cue('channel tag: the popcorn lands', at);

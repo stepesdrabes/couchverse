@@ -192,12 +192,13 @@ export function exit(tl: TL, els: Element[]) {
 /**
  * The channel's sign-off: the corner's lockup gives way to the tag in the foot's corner, whose
  * popcorn lands at `at` and whose couch, t and v type in on the compact sonic logo, as every
- * promo ends. The tag rings its chord out on its own gain (`House.end`) and the fade (see FADE)
- * rides `out`, so the two multiply: the chord's fall is steepened by the fade, never refused.
+ * promo ends (`motif` false: the landing alone, the bulletin's own chord closing the sound).
+ * The tag rings its chord out on its own gain (`House.end`) and the fade (see FADE) rides `out`,
+ * so the two multiply: the chord's fall is steepened by the fade, never refused.
  */
-export function signOff(tl: TL, corner: Element, at: number, sound: Kit) {
+export function signOff(tl: TL, corner: Element, at: number, sound: Kit, motif = true) {
 	tl.add(corner, [{ opacity: 1 }, { opacity: 0 }], edge(at - 0.7), 0.4, 'sine');
-	return channelTag(tl, tl.root, at, sound, { gain: 0.5 });
+	return channelTag(tl, tl.root, at, sound, { gain: 0.5, motif });
 }
 
 /** How long the bulletins' sound takes to fade out, ending this long before the last frame. */

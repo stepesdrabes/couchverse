@@ -274,6 +274,36 @@ export function sonicTag(k: Kit, b: Bus, when: number, { gain = 0.5, until = Inf
 	sub(h, when + SONIC.at[2], 'D2', 0.4 * r, { gain: 0.25 * g, attack: 0.08, release: 0.8 * r });
 }
 
+/**
+ * The tag's landing without the motif, for a screen whose score closes on a chord of its own (the
+ * weather's: a break plays it after the news, which has just stated the motif): the fall
+ * breathing in, the soft round landing, and D major struck low under it with the light above, to
+ * ring out with the screen's own chord. `gain` 0.5 is the level of `sonicTag`, `until` as there.
+ */
+export function sonicLanding(k: Kit, b: Bus, land: number, { gain = 0.5, until = Infinity } = {}) {
+	const h = house(k, b);
+	const g = gain / 0.5;
+	const r = ringRoom(land, until);
+	air(h, land - 0.42, 0.6, { peakAt: 0.42, band: [500, 2600], gain: 0.4 * g, seed: 69 });
+	impact(h, land, { gain: 0.22 * g, root: 'D1', seed: 4243 });
+	(['D2', 'A2', 'D3'] as const).forEach((name, i) =>
+		piano(h, land + 0.005 * i, name, {
+			vel: 0.5,
+			dur: 2.4 * r,
+			pan: -0.12 + 0.12 * i,
+			verb: 0.6,
+			gain: 0.8 * g,
+			seed: 480 + i
+		})
+	);
+	shimmer(h, land + 0.02, ['A5', 'D6', 'F#6'], 1.2 * r, {
+		gain: 0.6 * g,
+		attack: 0.5,
+		release: 1.6 * r,
+		seed: 485
+	});
+}
+
 /** The motif alone on struck glass, an octave up, over a soft sub (the standby card). */
 export function sonicChime(k: Kit, b: Bus, when: number, { gain = 0.5 } = {}) {
 	const h = house(k, b);

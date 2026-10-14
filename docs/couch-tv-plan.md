@@ -1412,6 +1412,13 @@ how each was settled:
   "Source: ČHMÚ" with the warnings (or "No weather warnings"), "Borders: ČÚZK / geoBoundaries
   (CC BY 4.0)" with the map, the outlet's name with every headline and "Headlines from the
   outlets’ RSS feeds, as of 17:40".
+- **Sign-offs (owner, 2026-10-14).** Both bulletins end with the channel tag landing in the
+  corner, but only the news sounds the sonic logo's motif (A4 E5 D5) there. A break that carries
+  both plays them about 40 s apart (the news first), so the weather's tag lands without the
+  motif: the soft landing, D major struck low under it and the weather score's own closing chord
+  (D add 9) swelling and ringing out inside the clip, as every ending now must. The weather
+  template went to version 4 for it and for the ring-out (the tag's ring-out never ran in either
+  bulletin before: a failed automation, now an error the tests see).
 - **Nights.** A slot is only made where a bulletin fetched on the grid at least 15 minutes
   before its break goes on air is still valid when the break ends: the 00:00 news airs the
   23:30 fetch, the 06:00 news needs a break on air from 05:45, and no news is scheduled from

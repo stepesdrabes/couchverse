@@ -827,8 +827,10 @@ export const weather: Template<WeatherSpec> = {
 			last.push(tWin, credDays);
 		} else last.push(mapWin, credMap, ...(onCard ? [onCard.c] : []));
 
-		// the sign-off: the tag lands in the foot's corner as the last scene holds
-		const tag = signOff(tl, corner, T.tag, sound);
+		// the sign-off: the tag lands in the foot's corner as the last scene holds, without the sonic
+		// logo's motif (a break that carries both bulletins plays the news first: the weather closes
+		// on its own chord)
+		const tag = signOff(tl, corner, T.tag, sound, false);
 		exit(tl, [...last, onHead.root, tag]);
 
 		// --- the sound: the pad steps through D, B minor, G, A and E minor and home -------------
@@ -879,7 +881,8 @@ export const weather: Template<WeatherSpec> = {
 				seed: 120 + i
 			});
 		});
-		// home: the chord the sonic logo ends on, held into the fade
+		// home: the chord the weather closes on (D add 9, the sonic logo's own), swelling under the
+		// tag's landing and held into the fade
 		chord(T.tag - 0.5, ['D3', 'A3', 'E4', 'F#4'], end - T.tag - 0.3, {
 			attack: 0.9,
 			release: 1.4,
