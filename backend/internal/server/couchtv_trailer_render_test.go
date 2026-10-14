@@ -73,6 +73,14 @@ func TestCouchTvTrailerRender(t *testing.T) {
 		DataDir: env.cfg.DataDir, FFmpeg: "ffmpeg", Chromium: os.Getenv("CHROMIUM_PATH"),
 		Bundle: os.DirFS(bundle), RestartEvery: 2,
 	}
+	// in the night's window: by day a long render waits until 01:00 so no bulletin waits for it
+	prague, err := time.LoadLocation("Europe/Prague")
+	if err != nil {
+		t.Fatal(err)
+	}
+	night := time.Now().In(prague)
+	night = time.Date(night.Year(), night.Month(), night.Day(), 2, 0, 0, 0, prague)
+	r.Now = func() time.Time { return night }
 	if err := r.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
