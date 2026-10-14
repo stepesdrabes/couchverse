@@ -1253,8 +1253,8 @@ server that does not send it). The admin settings page toggles it.
   from the web comes first (below).
 - **Trailer scenes** (D43, `trailer_*.go`, plan 6.3): the scene picker, a part of `couchtv_analyze`
   with its own `TrailerVersion` (apart from `AnalyzeVersion`, so a better picker never measures
-  whole films' loudness again; `trailer_source` `admin` is never overwritten but its version is
-  stamped; the backfill queues titles an older picker looked at, and titles whose empty pick read
+  whole films' loudness again; scenes with `trailer_source` `admin` are never overwritten (only an
+  admin's own edit sets it, and there is none yet) but their version is stamped; the backfill queues titles an older picker looked at, and titles whose empty pick read
   other subtitles than their files have now, `couchtv_titles.trailer_subs` being the key of the
   ones it read). `Store.dialogue` finds the dialogue in the original language: an
   English stream of the picture's file (the default among several, then the most channels, never a

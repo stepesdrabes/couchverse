@@ -1760,7 +1760,8 @@ below.) The follow-up is the next section.
 - **Static frames**: `isStatic` skips the holds between a whole-piece animation's keyframes, so
   the idents' and stings' held lockups are captured once (26 of the short ident's 113 frames,
   16 of a 6 s sting's 150; since D34 60 of the short ident's 113 and 63 of a 5 s sting's 125:
-  the couch alone, the logo before its type-in and the held lockup). Everything else keeps
+  the couch alone, the logo before its type-in and the held lockup; the short ident is 130
+  frames, not 113, since 2026-10-14, its last frame held). Everything else keeps
   moving by design (slow pushes, grain; the bug's LIVE marker no longer breathes), so freezing
   it was not done.
 - **The short promo's rays** (a 2600 px masked conic gradient, rotating and scaling) were
