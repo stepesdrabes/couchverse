@@ -22,8 +22,13 @@ const freq = (p: Pitch) => (typeof p === 'number' ? p : hz(p));
 export interface House {
 	k: Kit;
 	b: Bus;
-	/** The dry mix, into the piece's music bus. */
+	/** The dry mix, into the piece's music bus. A piece may ride or fade it as it likes. */
 	out: GainNode;
+	/**
+	 * The mix's last gain, before the music bus: only `ringOut` automates it, so a clip's ending
+	 * never overlaps a ride or a fade on `out` (the browser refuses a curve over other automation).
+	 */
+	end: GainNode;
 	/** The hall's input (a voice's send). */
 	hall: GainNode;
 	/** The pads' bus: chords sum here, through `padCut` (a sweepable low-pass) and `padLevel`. */
@@ -131,7 +136,8 @@ function makeHouse(k: Kit, b: Bus): House {
 	dip.gain.value = -2.5;
 	const air = k.filter('highshelf', 7000, 0.7);
 	air.gain.value = 2;
-	out.connect(rumble).connect(dip).connect(air).connect(b.music);
+	const end = stereo(k.gain(1));
+	out.connect(rumble).connect(dip).connect(air).connect(end).connect(b.music);
 
 	// the hall, kept out of the mud and the fizz
 	const hall = stereo(k.gain(1));
@@ -187,7 +193,7 @@ function makeHouse(k: Kit, b: Bus): House {
 
 	const low = stereo(k.gain(1));
 	low.connect(out);
-	return { k, b, out, hall, pad, padCut, padLevel, low };
+	return { k, b, out, end, hall, pad, padCut, padLevel, low };
 }
 
 // --- shared bits -------------------------------------------------------------------------------
@@ -824,7 +830,7 @@ export function shimmer(
  * Ring a piece out: from `at` the whole mix, the hall's tail with it, dies away by `depth` dB
  * at a steady rate (a decay, the way a struck chord falls) and closes to silence over the last
  * `close` seconds, `dur` in all, so a clip's sound is over before its last frame without a
- * step anywhere. Once per piece (it owns the mix's gain).
+ * step anywhere. Once per piece: it owns `end`, which multiplies whatever `out` is doing.
  */
 export function ringOut(h: House, at: number, dur: number, { depth = 42, close = 0.2 } = {}) {
 	const n = 256;
@@ -835,5 +841,5 @@ export function ringOut(h: House, at: number, dur: number, { depth = 42, close =
 		const tail = x > 1 - shut ? 0.5 + 0.5 * Math.cos((Math.PI * (x - (1 - shut))) / shut) : 1;
 		curve[i] = 10 ** ((-depth * x) / 20) * tail;
 	}
-	h.out.gain.setValueCurveAtTime(curve, at, dur);
+	h.end.gain.setValueCurveAtTime(curve, at, dur);
 }

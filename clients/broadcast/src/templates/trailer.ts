@@ -43,7 +43,7 @@ import { planTrailer, type Mood, type SceneSection, type Section } from './trail
 import { scoreTrailer } from './trailer-score';
 
 export const trailer: Template<TrailerSpec> = {
-	version: 1,
+	version: 2,
 	build(ctx, spec) {
 		const airing = spec.part === 'body' ? BODY_AIRING : (spec.airing ?? null);
 		const tl = buildTrailer(ctx, spec, airing);

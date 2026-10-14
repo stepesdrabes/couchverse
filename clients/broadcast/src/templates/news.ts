@@ -181,7 +181,7 @@ const STORY_FIT: Fit = {
 };
 
 export const news: Template<NewsSpec> = {
-	version: 3,
+	version: 4,
 	build({ root, sound }, spec) {
 		const D = spec.duration ?? 54.4;
 		const tl = timeline(root, D);

@@ -316,7 +316,7 @@ function sweepWindow(parent: HTMLElement) {
 let gradients = 0;
 
 export const weather: Template<WeatherSpec> = {
-	version: 3,
+	version: 4,
 	build({ root, sound }, spec) {
 		const D = spec.duration ?? 38.4;
 		const tl = timeline(root, D);

@@ -316,7 +316,9 @@ export class Timeline {
 					try {
 						s.fn(when, bus, skip);
 					} catch (err) {
-						console.warn('sound cue failed', err);
+						// one cue failing must not silence the rest, but it is a bug: an error, so the
+						// tests (and the sidecar's log) see it
+						console.error('sound cue failed', err);
 					}
 				}
 			});

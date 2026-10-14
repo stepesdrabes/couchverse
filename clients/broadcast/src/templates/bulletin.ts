@@ -192,7 +192,8 @@ export function exit(tl: TL, els: Element[]) {
 /**
  * The channel's sign-off: the corner's lockup gives way to the tag in the foot's corner, whose
  * popcorn lands at `at` and whose couch, t and v type in on the compact sonic logo, as every
- * promo ends. The tag's sound rings out well before the sound's fade (see FADE).
+ * promo ends. The tag rings its chord out on its own gain (`House.end`) and the fade (see FADE)
+ * rides `out`, so the two multiply: the chord's fall is steepened by the fade, never refused.
  */
 export function signOff(tl: TL, corner: Element, at: number, sound: Kit) {
 	tl.add(corner, [{ opacity: 1 }, { opacity: 0 }], edge(at - 0.7), 0.4, 'sine');

@@ -86,11 +86,22 @@ const ENDINGS: [string, Spec, boolean][] = [
 	['the evergreen end card', FIXTURES.evergreen, false],
 	['a strip promo', FIXTURES['strip-bright'], false],
 	['a short promo on a bed', FIXTURES.short, false],
-	['a short promo without one', FIXTURES['short-logo'], true]
+	['a short promo without one', FIXTURES['short-logo'], true],
+	// the channel tag rings out on the mix's own gain: a trailer rides the mix and a bulletin fades
+	// it, and the browser refuses a ring-out curve over either
+	['a promo on a bed', FIXTURES['promo-bright'], false],
+	['a trailer over a bed', FIXTURES['trailer-cinematic'], false],
+	['a trailer scored by the house alone', FIXTURES['trailer-house'], false],
+	['a bright trailer', FIXTURES['trailer-bright-premiere'], false],
+	['a grit trailer', FIXTURES['trailer-grit'], false],
+	['the weather', FIXTURES.weather, true],
+	['the news', FIXTURES.news, true]
 ];
 
 for (const [name, spec, steady] of ENDINGS) {
 	test(`${name}: its sound is over before its last frame`, async ({ page }) => {
+		// the trailers and the bulletins are long, and rendered twice
+		test.slow();
 		const info = await load(page, spec);
 		const own = await sound(page, 'renderAudio');
 		const end = Math.round(info.duration * RATE);

@@ -2749,7 +2749,11 @@ approves is what airs.
   just after the last note, falling at a steady rate (`ringOut`, depth by the room: about 9 dB
   over two seconds, 14 over one and a half; the instruments fall about 10 dB a second on their
   own) and closing to silence over the last 0.2 s, hall included, so the chord dies away instead
-  of being faded. Where the clip leaves more room than a note rings (a sting's hold) the settled
+  of being faded. `ringOut` automates the house's own `end` gain (after the dry chain, before the
+  music bus), never `out`: a trailer rides `out` every 20 ms and a bulletin fades it, and the
+  browser refuses a curve over other automation (the ring-out once threw there, silently, so no
+  trailer or bulletin rang out); a sound cue that throws is now a `console.error`, which the
+  tests fail on. Where the clip leaves more room than a note rings (a sting's hold) the settled
   chord, the pad and the bowed swell under the last note and the root's piano and sub, is held
   that much longer (`held`), its release coming later, so the sound never leaves the still
   lockup to silence: the 400 ms loudness of the longest stings stays above -35 LUFS to two seconds
@@ -2836,8 +2840,9 @@ approves is what airs.
   item's sound is the clip's faded into its ring-out, a promo sounds the same whatever its
   airing, a bulletin's sound starts silent and is over before its last frame (so is every short
   clip's: the stings at 5, 6.2 and 10 s, the short ident, up next, the lineup, the squeeze, the end
-  cards, the strip and short promos end in silence, the last 50 ms under -60 dBFS, nothing rings on
-  past the clip, and where the house plays alone its level only falls through the last second),
+  cards, the strip and short promos, a promo, the trailers and the bulletins end in silence, the
+  last 50 ms under -60 dBFS, nothing rings on past the clip, and where the house plays alone its
+  level only falls through the last second),
   and items rendered
   alone and mixed sound like the break rendered in one pass (within 0.1 LU item by item, 0.5 LU
   in every 400 ms after the first second, 0.2 dB of true peak); a unit test pins the loudness
