@@ -33,7 +33,7 @@ type analysisWorker struct {
 func newAnalysisWorker(t *testing.T, env *testEnv) *analysisWorker {
 	w := newWorker(t, env)
 	markers := &library.MarkerAnalyzer{Files: w.files, Jobs: w.jobs, DataDir: env.cfg.DataDir, FFmpegPath: "ffmpeg"}
-	tv := &couchtv.Analyzer{Store: couchtv.NewStore(env.pool), Jobs: w.jobs, Markers: markers, FFmpegPath: "ffmpeg"}
+	tv := &couchtv.Analyzer{Store: couchtv.NewStore(env.pool), Jobs: w.jobs, Markers: markers, FFmpegPath: "ffmpeg", DataDir: env.cfg.DataDir}
 	markers.Analyzed = tv.Queue
 	return &analysisWorker{worker: w, markers: markers, couchtv: tv}
 }
@@ -169,6 +169,18 @@ func TestMediaAnalysis(t *testing.T) {
 	if len(title.Shots) < 3 || title.ShotsSource != "auto" || title.AnalyzedVersion != couchtv.AnalyzeVersion {
 		t.Errorf("shots %+v (%s), version %d", title.Shots, title.ShotsSource, title.AnalyzedVersion)
 	}
+	// the scene picker ran as well (a tone is no speech: no scenes for a trailer), apart from the
+	// analysis' own version
+	var trailer []byte
+	var trailerSource *string
+	var trailerVersion int
+	if err := env.pool.QueryRow(ctx, `SELECT trailer, trailer_source, trailer_version FROM couchtv_titles WHERE title_id = $1`,
+		movieID).Scan(&trailer, &trailerSource, &trailerVersion); err != nil {
+		t.Fatal(err)
+	}
+	if string(trailer) != "[]" || trailerSource == nil || *trailerSource != "auto" || trailerVersion != couchtv.TrailerVersion {
+		t.Errorf("trailer %s from %v at version %d", trailer, trailerSource, trailerVersion)
+	}
 	for i, s := range title.Shots {
 		if s.DurationMs < 1000 || s.DurationMs > 3000 || s.DurationMs%40 != 0 || s.StartMs < 7_500 || s.StartMs > 75_000 ||
 			i > 0 && s.StartMs <= title.Shots[i-1].StartMs {
@@ -197,14 +209,14 @@ func TestMediaAnalysis(t *testing.T) {
 			t.Fatal(err)
 		}
 		// the backfill finds the title, with its measurements current
-		stale, err := store.StaleTitles(ctx, couchtv.AnalyzeVersion, couchtv.ShotsVersion)
+		stale, err := store.StaleTitles(ctx, couchtv.AnalyzeVersion, couchtv.ShotsVersion, couchtv.TrailerVersion)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if i := slices.IndexFunc(stale, func(s couchtv.StaleTitle) bool { return s.ID == movieID }); i < 0 || !stale[i].ShotsOnly {
+		if i := slices.IndexFunc(stale, func(s couchtv.StaleTitle) bool { return s.ID == movieID }); i < 0 || !stale[i].PicksOnly {
 			t.Fatalf("%s shots: stale titles %+v, want the movie for its shots only", source, stale)
 		}
-		if err := w.couchtv.Handle(ctx, &jobs.Job{Payload: json.RawMessage(`{"titleId":"` + movieID + `","shotsOnly":true}`)}, func(int) {}); err != nil {
+		if err := w.couchtv.Handle(ctx, &jobs.Job{Payload: json.RawMessage(`{"titleId":"` + movieID + `","picksOnly":true}`)}, func(int) {}); err != nil {
 			t.Fatal(err)
 		}
 		row, err := store.Title(ctx, movieID)

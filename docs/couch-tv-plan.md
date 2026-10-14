@@ -437,7 +437,7 @@ one clip (at most ~2 minutes of work), so a transcode never waits long.
   faces and cartoon skin mostly read as safe. On the local Pulp Fiction, Iron Man 3, Dexter
   and Futurama only the overdose shot changed (for a medium shot of a man at a window). The
   picks have their own version (`ShotsVersion`, `couchtv_titles.shots_version`, migration
-  0034): production re-picks every title's shots at the next start through `shotsOnly`
+  0034): production re-picks every title's shots at the next start through `picksOnly`
   jobs that leave the loudness and the promo audio alone, admin picks stay. The new picks
   change each title's `Title.footage`, which is in the specs of every screen showing its
   scenes, so their clip keys change and **those clips render again** (lazily, evergreen

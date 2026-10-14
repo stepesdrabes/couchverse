@@ -96,18 +96,21 @@ type CouchTvShot struct {
 	Score       float64 `json:"score" doc:"How well it suits a promo (motion and contrast, less for a close-up face), 0 to 1; 1 for an admin's pick."`
 }
 
-// titleRow is a couchtv_titles row with its title's kind.
+// titleRow is a couchtv_titles row with its title's kind. The trailer's scenes are the
+// composer's; the admin API does not carry them.
 type titleRow struct {
 	CouchTvTitle
-	promoSource  string
-	shotsVersion int
+	promoSource    string
+	shotsVersion   int
+	trailerSource  string
+	trailerVersion int
 }
 
 // Title reads a title's channel facts; a title without a row yet has the defaults.
 func (s *Store) Title(ctx context.Context, titleID string) (*titleRow, error) {
 	var r titleRow
 	var shots []byte
-	var fileID, promoSource, shotsSource, soundtrackID, soundtrackSource *string
+	var fileID, promoSource, shotsSource, soundtrackID, soundtrackSource, trailerSource *string
 	var start, duration, soundtrackStart, soundtrackDuration *int
 	var soundtrackReady bool
 	err := s.q.QueryRow(ctx, `
@@ -123,13 +126,14 @@ func (s *Store) Title(ctx context.Context, titleID string) (*titleRow, error) {
 		       ct.soundtrack_id::text, ct.soundtrack_source, ct.soundtrack_path IS NOT NULL, ct.soundtrack_start_ms,
 		       ct.soundtrack_duration_ms, coalesce(ct.soundtrack_query, ''), ct.soundtrack_searched_at,
 		       EXISTS (SELECT 1 FROM jobs j WHERE j.status IN ('pending', 'running') AND j.type = '`+SoundtrackJob+`'
-		               AND j.payload->>'titleId' = t.id::text AND j.run_at <= now())
+		               AND j.payload->>'titleId' = t.id::text AND j.run_at <= now()),
+		       ct.trailer_source, coalesce(ct.trailer_version, 0)
 		FROM titles t
 		LEFT JOIN couchtv_titles ct ON ct.title_id = t.id
 		WHERE t.id = $1`, titleID).Scan(&r.TitleID, &r.TitleKind, &r.Excluded, &fileID, &start, &duration, &promoSource,
 		&shots, &shotsSource, &r.Mood, &r.LoudnessLufs, &r.AnalyzedVersion, &r.shotsVersion, &r.AnalyzedAt, &r.Analyzing,
 		&soundtrackID, &soundtrackSource, &soundtrackReady, &soundtrackStart, &soundtrackDuration, &r.SoundtrackQuery,
-		&r.SoundtrackSearchedAt, &r.SearchingSoundtrack)
+		&r.SoundtrackSearchedAt, &r.SearchingSoundtrack, &trailerSource, &r.trailerVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, db.ErrNotFound
 	}
@@ -144,6 +148,9 @@ func (s *Store) Title(ctx context.Context, titleID string) (*titleRow, error) {
 	}
 	if shotsSource != nil {
 		r.ShotsSource = *shotsSource
+	}
+	if trailerSource != nil {
+		r.trailerSource = *trailerSource
 	}
 	r.Shots = []CouchTvShot{}
 	if err := json.Unmarshal(shots, &r.Shots); err != nil {
@@ -175,6 +182,10 @@ type analysis struct {
 	// shotsVersion is the pick of the shots this run made or kept: an admin's are never
 	// picked, but the title is not due for them again
 	shotsVersion int
+	// trailer is the scenes picked for the trailer (D43); an empty pick is stored as well, so
+	// the title is not picked again until the picker is better
+	trailer     []CouchTvTrailerScene
+	trailerDone bool
 }
 
 // SaveAnalysis stores an analysis without touching what an admin chose.
@@ -206,6 +217,16 @@ func (s *Store) SaveAnalysis(ctx context.Context, titleID string, a analysis) er
 		}
 		if _, err := tx.Exec(ctx, `UPDATE couchtv_titles SET shots = $2, shots_source = 'auto', updated_at = now()
 			WHERE title_id = $1 AND shots_source IS DISTINCT FROM 'admin'`, titleID, shots); err != nil {
+			return err
+		}
+	}
+	if a.trailerDone {
+		scenes, err := json.Marshal(a.trailer)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE couchtv_titles SET trailer = $2, trailer_source = 'auto', trailer_version = $3,
+			updated_at = now() WHERE title_id = $1 AND trailer_source IS DISTINCT FROM 'admin'`, titleID, scenes, TrailerVersion); err != nil {
 			return err
 		}
 	}
@@ -447,26 +468,27 @@ func (s *Store) SourceFile(ctx context.Context, fileID string) (*sourceFile, err
 	return &f, nil
 }
 
-// StaleTitle is a title due for analysis: ShotsOnly when its measurements are current and
-// only an older pick chose its shots.
+// StaleTitle is a title due for analysis: PicksOnly when its measurements are current and
+// only an older pick chose its shots or its trailer's scenes.
 type StaleTitle struct {
 	ID        string
-	ShotsOnly bool
+	PicksOnly bool
 }
 
 // StaleTitles are the published titles with media that an older analysis (or none)
-// measured, or whose shots an older pick chose, leaving out excluded ones.
-func (s *Store) StaleTitles(ctx context.Context, version, shotsVersion int) ([]StaleTitle, error) {
+// measured, or whose shots or trailer scenes an older pick chose, leaving out excluded ones.
+func (s *Store) StaleTitles(ctx context.Context, version, shotsVersion, trailerVersion int) ([]StaleTitle, error) {
 	rows, err := s.q.Query(ctx, `
 		SELECT t.id, coalesce(ct.analyzed_version, 0) >= $1 FROM titles t
 		LEFT JOIN couchtv_titles ct ON ct.title_id = t.id
 		WHERE t.status = 'published' AND NOT coalesce(ct.excluded, false)
-		  AND (coalesce(ct.analyzed_version, 0) < $1 OR coalesce(ct.shots_version, 0) < $2)
+		  AND (coalesce(ct.analyzed_version, 0) < $1 OR coalesce(ct.shots_version, 0) < $2
+		       OR coalesce(ct.trailer_version, 0) < $3)
 		  AND EXISTS (SELECT 1 FROM media_files mf
 		              LEFT JOIN episodes e ON e.id = mf.episode_id
 		              LEFT JOIN seasons se ON se.id = e.season_id
 		              WHERE (mf.title_id = t.id OR se.title_id = t.id) AND mf.video_codec <> '' AND mf.duration_seconds > 0)
-		ORDER BY t.id`, version, shotsVersion)
+		ORDER BY t.id`, version, shotsVersion, trailerVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -474,7 +496,7 @@ func (s *Store) StaleTitles(ctx context.Context, version, shotsVersion int) ([]S
 	var out []StaleTitle
 	for rows.Next() {
 		var t StaleTitle
-		if err := rows.Scan(&t.ID, &t.ShotsOnly); err != nil {
+		if err := rows.Scan(&t.ID, &t.PicksOnly); err != nil {
 			return nil, err
 		}
 		out = append(out, t)

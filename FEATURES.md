@@ -1165,8 +1165,9 @@ server that does not send it). The admin settings page toggles it.
   per title (published, not excluded), queued a few minutes after its markers change
   (`Analyzer.Queue`, the library hook), by the admin's analyze, and by a backfill at every
   start for titles an older `AnalyzeVersion` (or none) measured, or whose shots an older
-  `ShotsVersion` picked (`couchtv_titles.shots_version`; that job is `shotsOnly`: it picks
-  the shots again and leaves the loudness and the promo audio, a pass over a whole film's
+  `ShotsVersion` picked (`couchtv_titles.shots_version`) or whose trailer scenes an older
+  `TrailerVersion` picked (`couchtv_titles.trailer_version`); that job is `picksOnly`: it makes
+  those picks again and leaves the loudness and the promo audio, a pass over a whole film's
   audio, alone). Once per version it
   measures the **loudness** (`loudness_lufs`: a movie's full ebur128 pass, a series' four
   episodes spread over it averaged by energy) and picks **shots** (3-6, 1-3 s in whole 25 fps
