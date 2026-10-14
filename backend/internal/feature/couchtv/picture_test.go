@@ -194,18 +194,28 @@ func TestPictureRiskBadInput(t *testing.T) {
 
 // frameOf encodes RGB as the full-range BT.709 4:2:0 frame media.Frames delivers with
 // Chroma and FullRange, taking each chroma sample from its block's top-left pixel.
-func frameOf(rgb []byte) media.Frame {
+func frameOf(rgb []byte) media.Frame { return encodeFrame(rgb, false) }
+
+// limitedFrameOf is frameOf in the limited range (luma 16 to 235, chroma 16 to 240) that
+// media.Frames delivers without FullRange.
+func limitedFrameOf(rgb []byte) media.Frame { return encodeFrame(rgb, true) }
+
+func encodeFrame(rgb []byte, limited bool) media.Frame {
 	f := media.Frame{Width: shotW, Height: shotH, Y: make([]byte, shotW*shotH),
 		U: make([]byte, shotW*shotH/4), V: make([]byte, shotW*shotH/4)}
+	scaleY, scaleC, offY := 1.0, 1.0, 0.0
+	if limited {
+		scaleY, scaleC, offY = 219.0/255, 224.0/255, 16
+	}
 	for y := range shotH {
 		for x := range shotW {
 			i := (y*shotW + x) * 3
 			r, g, b := float64(rgb[i]), float64(rgb[i+1]), float64(rgb[i+2])
 			l := 0.2126*r + 0.7152*g + 0.0722*b
-			f.Y[y*shotW+x] = clamp8(l)
+			f.Y[y*shotW+x] = clamp8(l*scaleY + offY)
 			if x%2 == 0 && y%2 == 0 {
-				f.U[(y/2)*(shotW/2)+x/2] = clamp8((b-l)/1.8556 + 128)
-				f.V[(y/2)*(shotW/2)+x/2] = clamp8((r-l)/1.5748 + 128)
+				f.U[(y/2)*(shotW/2)+x/2] = clamp8((b-l)/1.8556*scaleC + 128)
+				f.V[(y/2)*(shotW/2)+x/2] = clamp8((r-l)/1.5748*scaleC + 128)
 			}
 		}
 	}
@@ -216,12 +226,13 @@ func TestRgbOf(t *testing.T) {
 	c := newCanvas(roomGrey)
 	c.rect(0, 0, 80, 44, skinPale)
 	c.rect(80, 44, shotW, shotH, bloodRed)
-	got := rgbOf(frameOf(c.px))
-	for _, p := range [][2]int{{10, 10}, {40, 20}, {120, 60}, {150, 80}, {120, 10}} {
-		i := (p[1]*shotW + p[0]) * 3
-		for k := range 3 {
-			if d := math.Abs(float64(got[i+k]) - float64(c.px[i+k])); d > 2 {
-				t.Errorf("pixel %v channel %d: %d, want %d", p, k, got[i+k], c.px[i+k])
+	for name, got := range map[string][]byte{"full range": rgbOf(frameOf(c.px)), "limited range": limitedRGB(limitedFrameOf(c.px))} {
+		for _, p := range [][2]int{{10, 10}, {40, 20}, {120, 60}, {150, 80}, {120, 10}} {
+			i := (p[1]*shotW + p[0]) * 3
+			for k := range 3 {
+				if d := math.Abs(float64(got[i+k]) - float64(c.px[i+k])); d > 3 {
+					t.Errorf("%s: pixel %v channel %d: %d, want %d", name, p, k, got[i+k], c.px[i+k])
+				}
 			}
 		}
 	}
@@ -289,5 +300,69 @@ func TestShotRisk(t *testing.T) {
 		if (risk >= avoidRisk) != tt.rated || avoid != tt.avoid {
 			t.Errorf("%s: risk %.2f, avoid %v; want rated %v, avoid %v", tt.name, risk, avoid, tt.rated, tt.avoid)
 		}
+	}
+}
+
+// sceneOf is n limited-range frames of the calm canvas, with the bloody one in each place
+// bloodyAt names.
+func sceneOf(n int, calm, bloody *canvas, bloodyAt ...int) []media.Frame {
+	calmFrame, bloodyFrame := limitedFrameOf(calm.px), limitedFrameOf(bloody.px)
+	frames := make([]media.Frame, n)
+	for i := range frames {
+		frames[i] = calmFrame
+		if slices.Contains(bloodyAt, i) {
+			frames[i] = bloodyFrame
+		}
+	}
+	return frames
+}
+
+// A trailer scene is refused for gore and for a frame of red, never for faces: its lines are
+// dialogue, shot in close-ups, which the footage shots' rating would weigh up to 0.7.
+func TestSceneViolence(t *testing.T) {
+	face := func(skin rgbColor) *canvas {
+		c := newCanvas(roomGrey)
+		c.face(80, 44, 34, skin)
+		return c
+	}
+	bloodyFace := func() *canvas {
+		c := face(skinPale)
+		c.rect(78, 50, 84, 66, bloodRed)
+		return c
+	}
+	bloodyMedium := newCanvas(roomGrey)
+	bloodyMedium.face(80, 40, 15, skinPale)
+	bloodyMedium.rect(77, 42, 83, 60, bloodRed)
+	redRoom := newCanvas(rgbColor{150, 16, 14})
+	redDress := newCanvas(roomGrey)
+	redDress.rect(30, 52, 80, 90, dressRed)
+	redDress.face(55, 40, 9, skinPale)
+	wide := newCanvas(roomGrey)
+	wide.face(60, 45, 5, skinPale)
+
+	tests := []struct {
+		name   string
+		frames []media.Frame
+		refuse bool
+	}{
+		{"a wide shot", sceneOf(125, wide, wide), false},
+		{"a pale face close-up all through", sceneOf(125, face(skinPale), face(skinPale)), false},
+		{"a dark face close-up all through", sceneOf(125, face(skinDark), face(skinDark)), false},
+		{"blood on a face close-up, two frames", sceneOf(125, face(skinPale), bloodyFace(), 60, 61), true},
+		{"blood on a face close-up, all through", sceneOf(125, bloodyFace(), bloodyFace()), true},
+		{"blood on a face close-up, one frame", sceneOf(125, face(skinPale), bloodyFace(), 60), false},
+		{"blood on a medium shot, four frames", sceneOf(125, wide, bloodyMedium, 60, 61, 62, 63), true},
+		{"blood on frames apart", sceneOf(125, face(skinPale), bloodyFace(), 60, 62, 64), false},
+		{"a frame of red all through", sceneOf(125, redRoom, redRoom), true},
+		{"a red dress", sceneOf(125, redDress, redDress), false},
+	}
+	for _, tt := range tests {
+		r := SceneViolence(tt.frames)
+		if (r >= riskLimit) != tt.refuse {
+			t.Errorf("%s: risk %.2f, refused %v, want %v", tt.name, r, r >= riskLimit, tt.refuse)
+		}
+	}
+	if r := SceneViolence(nil); r != 0 {
+		t.Errorf("no frames: %v", r)
 	}
 }

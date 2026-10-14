@@ -77,7 +77,8 @@ func New(ctx context.Context, cfg config.Config, pool *pgxpool.Pool) (*App, erro
 	// couchtv); the search reads TMDB's composers through metadata
 	markers := &library.MarkerAnalyzer{Files: libraryStore, Jobs: jobsStore, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}
 	couchTvStore := couchtv.NewStore(pool)
-	couchTvAnalysis := &couchtv.Analyzer{Store: couchTvStore, Jobs: jobsStore, Markers: markers, FFmpegPath: cfg.FFmpegPath, DataDir: cfg.DataDir}
+	couchTvAnalysis := &couchtv.Analyzer{Store: couchTvStore, Jobs: jobsStore, Markers: markers, FFmpegPath: cfg.FFmpegPath, DataDir: cfg.DataDir,
+		Risk: couchtv.SceneViolence}
 	couchTvSoundtracks := &couchtv.Soundtracks{Store: couchTvStore, Jobs: jobsStore,
 		Catalogs: []couchtv.SoundtrackCatalog{couchtv.NewITunes(), couchtv.NewDeezer()},
 		Music:    &metadata.MusicFacts{Settings: set}, DataDir: cfg.DataDir, FFmpegPath: cfg.FFmpegPath}

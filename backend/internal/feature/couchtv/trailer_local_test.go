@@ -20,8 +20,9 @@ import (
 //	COUCHVERSE_TRAILER_SUBS      WebVTT files, comma-separated per source, tracks of one source joined by +
 //	COUCHVERSE_TRAILER_STREAM    the audio stream's index (ffprobe's), for all sources; default track otherwise
 //	COUCHVERSE_TRAILER_KEYWORDS  the title's own words, comma-separated
-//	COUCHVERSE_TRAILER_AVOID     stretches of the source, "from-to" seconds comma-separated, that no scene may touch:
-//	                             an editor's hand until a violence check (SceneRisk) is wired in
+//	COUCHVERSE_TRAILER_AVOID     stretches of the source, "from-to" seconds comma-separated, that no scene may touch
+//	                             (an editor's hand, besides the violence check)
+//	COUCHVERSE_TRAILER_RISK      off to pick without the violence check (SceneViolence), which the app wires
 //	COUCHVERSE_TRAILER_OUT       a file for the scenes as JSON
 //
 // It prints the picker's trace and the chosen scenes as a script, then as JSON.
@@ -62,15 +63,22 @@ func TestTrailerPickLocal(t *testing.T) {
 			avoid = append(avoid, timeSpan{a, b})
 		}
 	}
-	p := &scenePicker{FFmpeg: "ffmpeg", Keywords: strings.Split(os.Getenv("COUCHVERSE_TRAILER_KEYWORDS"), ","),
+	p := &scenePicker{FFmpeg: "ffmpeg", Risk: SceneViolence, Keywords: strings.Split(os.Getenv("COUCHVERSE_TRAILER_KEYWORDS"), ","),
 		Trace: func(format string, args ...any) { t.Logf(format, args...) }}
+	if os.Getenv("COUCHVERSE_TRAILER_RISK") == "off" {
+		p.Risk = nil
+	}
 	if len(avoid) > 0 {
+		checked := p.Risk
 		p.Risk = func(frames []media.Frame) float64 {
 			last := frames[len(frames)-1].Time
 			for _, a := range avoid {
 				if a.overlaps(frames[0].Time, last) {
 					return 1
 				}
+			}
+			if checked != nil {
+				return checked(frames)
 			}
 			return 0
 		}

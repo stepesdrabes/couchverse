@@ -471,7 +471,15 @@ one clip (at most ~2 minutes of work), so a transcode never waits long.
   own words; minus filler, small talk, crudeness, carrying on a line before it), then the sound
   (how clearly the speech stands over what is behind it; a line buried in music or effects is
   refused) and the picture (not dark, flat, washed out or a montage; the first and last frame not
-  black; a hook, `Analyzer.Risk`, rates violence and defaults to none). *Sync*: subtitles of another
+  black; and a violence check, `SceneViolence`, which `internal/app` hands to `Analyzer.Risk`: every
+  frame of the scene is read for gore and for a frame of graphic red as the footage shots read them
+  (`picture.go`; the picker's frames are limited range, converted to full), never for faces or
+  skin, since a trailer's lines are dialogue shot in close-ups; a reading that two frames in a row
+  reach counts, from 0.5 the scene is refused, below it the reading takes half of itself off the
+  scene's picture score; it reads the plain case, a bloodied face at medium-close or closer, and
+  not thin blood at a distance, which at 160 x 90 is a dozen dark red pixels like the shadow of a
+  warm wall: the aftermath of Pulp Fiction's overdose, in the scenes a minute and ten minutes after
+  its bloody close-up, passes, and no threshold that catches it spares Dexter's family kitchen). *Sync*: subtitles of another
   release are often a constant few seconds off, so the picker measures the offset on the sound of
   its 40 best exchanges (how many have their first cue where a pause ends and their last where one
   begins, and how much likelier speech is inside the cues than away from them, at every

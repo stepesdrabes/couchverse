@@ -33,7 +33,14 @@ func pictureRisk(rgb []byte, w, h int) float64 {
 // rgbOf converts a frame decoded with media.FrameOptions Chroma and FullRange (4:2:0) to
 // packed RGB24. The BT.709 matrix is a guess for files that do not say: skin and blood
 // are far enough from their thresholds that BT.601 would read the same.
-func rgbOf(f media.Frame) []byte {
+func rgbOf(f media.Frame) []byte { return toRGB(f, false) }
+
+// limitedRGB is rgbOf for a frame decoded without FullRange, which keeps the file's own range:
+// 16 to 235 for nearly every video. A file that is full range reads a little more contrasty and
+// saturated, still far from the thresholds.
+func limitedRGB(f media.Frame) []byte { return toRGB(f, true) }
+
+func toRGB(f media.Frame, limited bool) []byte {
 	out := make([]byte, 0, f.Width*f.Height*3)
 	cw := f.Width / 2
 	for y := range f.Height {
@@ -41,6 +48,9 @@ func rgbOf(f media.Frame) []byte {
 			l := float64(f.Y[y*f.Width+x])
 			u := float64(f.U[(y/2)*cw+x/2]) - 128
 			v := float64(f.V[(y/2)*cw+x/2]) - 128
+			if limited {
+				l, u, v = (l-16)*255/219, u*255/224, v*255/224
+			}
 			out = append(out, clamp8(l+1.5748*v), clamp8(l-0.1873*u-0.4681*v), clamp8(l+1.8556*u))
 		}
 	}
@@ -108,6 +118,20 @@ func (p picture) parts() (closeUp, nude, gore, graphic float64) {
 		(1 - ramp(p.red, redLitFrom, redLitFull)) * (1 - ramp(p.blood/max(p.face, faceFrom), dressFrom, dressFull)) * skinlike
 	graphic = ramp(p.red, graphicFrom, graphicFull)
 	return closeUp, nude, gore, graphic
+}
+
+// SceneViolence rates a trailer scene's frames (160 x 90 with chroma, as the scene picker
+// decodes them: limited range) for what the channel will not air, 0 to 1: gore, and a frame of
+// graphic red. It is a SceneRisk. A face close-up and bare skin are left out, because a
+// trailer is made of dialogue, shot in close-ups. Every frame is read, and a reading counts
+// when two frames in a row reach it (steadyRisk).
+func SceneViolence(frames []media.Frame) float64 {
+	each := make([]float64, len(frames))
+	for i, f := range frames {
+		_, _, gore, graphic := readPicture(limitedRGB(f), f.Width, f.Height).parts()
+		each[i] = max(gore, graphicRisk*graphic)
+	}
+	return steadyRisk(each)
 }
 
 func (p picture) risk() float64 {
