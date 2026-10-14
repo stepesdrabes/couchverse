@@ -5,9 +5,7 @@
 /* --- the lockup ------------------------------------------------------------------------ */
 
 .lockup > svg,
-.bug-wm > svg,
-.lu-wm > svg,
-.sb-lockup > svg {
+.bug-wm > svg {
 	display: block;
 }
 /* the lockup in parts (the channel tag): each part an SVG placed from the lockup's geometry */

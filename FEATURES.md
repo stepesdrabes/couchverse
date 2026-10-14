@@ -2264,9 +2264,8 @@ approves is what airs.
   on the stage by one projection), `src/audio` (the graph with per-piece music, sfx, voice and
   reverb buses into glue, limiter and trim, the reverb a generated hall; the synthesized kit;
   `voices.ts`, the house instruments every screen is scored with (see "Brand"); `pitch.ts`,
-  note names in Hz; `orchestra.ts`, the sample reel's orchestral voices, off air since the old
-  theme went (two full idents take `hz` from it); beds with ducking and tape stops; onset
-  detection; BS.1770 loudness and true peak; WAV; the `synth:` placeholder beds), `src/brand`
+  note names in Hz; beds with ducking and tape stops; onset detection; BS.1770 loudness and
+  true peak; WAV; the `synth:` placeholder beds), `src/brand`
   (everything that is the brand, see "Brand"; a brand redesign replaces this folder only),
   `src/templates` (one module per template, `index.ts` the registry), `src/styles` (the stage's
   stylesheet `broadcast.css`; `promo.css`, the promo's; `bulletins.css`, the bulletins'), `spec.ts`

@@ -6,7 +6,7 @@
 
 import type { Bus } from '../../../audio/engine';
 import type { Kit } from '../../../audio/kit';
-import { hz } from '../../../audio/orchestra';
+import { hz } from '../../../audio/pitch';
 import { rng } from '../../../core/rng';
 
 export const note = (n: string | number) => (typeof n === 'number' ? n : hz(n));

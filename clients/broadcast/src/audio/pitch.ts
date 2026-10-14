@@ -1,4 +1,4 @@
-// Note names, for every score: the house instruments and the old theme's orchestra alike.
+// Note names, for every score.
 
 const PC: Record<string, number> = {
 	C: 0,

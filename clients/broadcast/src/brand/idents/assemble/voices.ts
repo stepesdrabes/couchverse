@@ -11,7 +11,7 @@
 
 import type { Bus } from '../../../audio/engine';
 import type { Kit } from '../../../audio/kit';
-import { hz } from '../../../audio/orchestra';
+import { hz } from '../../../audio/pitch';
 import { rng } from '../../../core/rng';
 
 export { hz };
