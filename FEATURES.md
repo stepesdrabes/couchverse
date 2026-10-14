@@ -2538,7 +2538,11 @@ approves is what airs.
   just after the last note, falling at a steady rate (`ringOut`, depth by the room: about 9 dB
   over two seconds, 14 over one and a half; the instruments fall about 10 dB a second on their
   own) and closing to silence over the last 0.2 s, hall included, so the chord dies away instead
-  of being faded; all on the house instruments (`src/audio/voices.ts`: one `house(kit, bus)` mix per
+  of being faded. Where the clip leaves more room than a note rings (a sting's hold) the settled
+  chord, the pad and the bowed swell under the last note and the root's piano and sub, is held
+  that much longer (`held`), its release coming later, so the sound never leaves the still
+  lockup to silence: the 400 ms loudness of the longest stings stays above -35 LUFS to two seconds
+  before their end; all on the house instruments (`src/audio/voices.ts`: one `house(kit, bus)` mix per
   piece, a dry chain and a 3.6 s generated hall (Chromium's convolver gets far slower past that), a
   pads' bus with a sweepable low-pass and a chorus; `piano`, `pad`, `padSweep`, `glass`, `bowed`,
   `sub`, `impact`, `pulse`, `air`, `inhale`, `riser`, `shimmer`, `ringOut`, each at an absolute

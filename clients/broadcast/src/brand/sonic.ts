@@ -53,6 +53,13 @@ export const ringRoom = (t: number, until: number, ring = RING) =>
 	Math.max(0.3, Math.min(1, (until - t) / ring));
 
 /**
+ * How long past its natural ring a held chord that starts at `t` is held when the clip leaves more
+ * room than that (a sting's hold): the same chord sustains, its release coming later so it dies
+ * away at `until` and the sound never leaves the hold to silence.
+ */
+const held = (t: number, until: number) => Math.max(0, until - t - RING);
+
+/**
  * The full statement: piano, the glass halo and a bowed swell on every note; the chord settles.
  * `until` is when it has to be over (a clip's end), else it rings as long as it likes.
  */
@@ -79,7 +86,7 @@ export function sonicLogo(h: House, when: number, { gain = 1, until = Infinity }
 			verb: 0.75,
 			seed: 410 + i
 		});
-		bowed(h, t, f, (last ? 1.0 : 0.32) * r, {
+		bowed(h, t, f, (last ? 1.0 : 0.32) * r + (last ? held(t, until) : 0), {
 			gain: (last ? 1.3 : 1.0) * gain,
 			attack: 0.22,
 			release: (last ? 1.0 : 0.5) * r,
@@ -89,7 +96,7 @@ export function sonicLogo(h: House, when: number, { gain = 1, until = Infinity }
 	});
 	// the last note settles the chord: the ninth joins, low and wide
 	const r = ringRoom(when + SONIC.at[2], until);
-	pad(h, when + SONIC.at[2] - 0.1, [...SONIC.chord], 0.5 * r, {
+	pad(h, when + SONIC.at[2] - 0.1, [...SONIC.chord], 0.5 * r + held(when + SONIC.at[2], until), {
 		attack: 0.6 * Math.max(0.5, r),
 		release: 1.2 * r,
 		level: 0.9 * gain,
@@ -201,15 +208,16 @@ export function sonicSting(k: Kit, b: Bus, when: number, { gain = 1, until = Inf
 	sonicLogo(h, when, { gain, until });
 	const last = when + SONIC.at[2];
 	const r = ringRoom(last, until);
+	const extra = held(last, until);
 	piano(h, last, 'D2', {
 		vel: 0.55,
-		dur: 2.2 * r,
+		dur: 2.2 * r + extra,
 		pan: -0.1,
 		verb: 0.6,
 		gain: 0.55 * gain,
 		seed: 430
 	});
-	sub(h, last - 0.05, 'D2', 0.9 * r, { gain: 0.3 * gain, attack: 0.15, release: 1.2 * r });
+	sub(h, last - 0.05, 'D2', 0.9 * r + extra, { gain: 0.3 * gain, attack: 0.15, release: 1.2 * r });
 }
 
 /**

@@ -1056,8 +1056,12 @@ break or the standby card.
   `ringOut` lets the whole mix, hall included, fall at a steady rate from just after the last note
   (6 to 40 dB over the room, 9 dB for the short ident, 12 for a 5 s sting) closing over the last 0.2
   s, so the chord dies away instead of being faded at the end (the old `fadeOut` stopped at -20 dB
-  and left the rest to the cut). The channel tag does the same at the end of its clip (the promo end
-  card, the strip, the short promo, the evergreen end card); up next's logo moved one beat earlier
+  and left the rest to the cut). In a long sting the settled chord (pad, bowed swell, the root's
+  piano and sub under the last note) is held through the hold and released later, so the sound
+  reaches within about two seconds of the end instead of leaving the lockup in silence (first
+  version: the 10 s sting's loudness fell under -47 LUFS from 7.8 s; now it holds about -20 LUFS to
+  8.1 s, falls through -35 at 9 s and ends at -55). The channel tag does the same at the end of
+  its clip (the promo end card, the strip, the short promo, the evergreen end card); up next's logo moved one beat earlier
   so its D rings out under the type lifting away (it used to ring on into the program, which the
   break's mix cut), the lineup's open fifth comes after the last row's note and rings out under the
   rows lifting away, the squeeze's push air settles before its last frame; `ringOn` (the hall
@@ -1065,8 +1069,8 @@ break or the standby card.
   at the end). Because the `ident` template's version covers both cuts, the new short ident bumps it
   and the four full idents render again when next needed. Measured, standalone renders (normalized
   to -18 LUFS; dBFS RMS of the last 50 ms and of the last 250 ms, then when the level last rose
-  above -45 dBFS): stings of 5, 6 and 10 s -166 / -63 (4.56 s), -173 / -64 (5.32 s) and -214 / -100
-  (7.46 s); short ident -169 / -65 (4.56 s); up next -75 / -46 over a bed, -195 / -59 without;
+  above -45 dBFS): stings of 5, 6 and 10 s -166 / -63 (4.56 s), -173 / -64 (5.32 s) and -173 / -65
+  (9.39 s); short ident -169 / -65 (4.56 s); up next -75 / -46 over a bed, -195 / -59 without;
   lineup -171 / -56 (11.64 s); squeeze into up next -61 / -56, into the short ident -123 (its sound
   ends 0.8 s after the handover starts); end cards and promos -72 to -162 / -43 to -70 (a bed's fade
   is linear to zero); before, up to -19 dBFS (up next without a bed), -26 (lineup), -31 to -41

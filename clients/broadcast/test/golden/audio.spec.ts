@@ -73,6 +73,7 @@ test("an item's sound is the clip's own at the engine's level, over where the cl
 const ENDINGS: [string, Spec, boolean][] = [
 	['the shortest sting', FIXTURES['sting-5'], true],
 	['a sting of 6.2 s', { ...FIXTURES['sting-5'], duration: 6.2 }, true],
+	['a sting of 8 s', { ...FIXTURES['sting-5'], duration: 8 }, true],
 	['the longest sting', FIXTURES['sting-10'], true],
 	['the short ident', FIXTURES['ident-short'], true],
 	['up next over a bed', FIXTURES.upnext, false],
@@ -104,6 +105,21 @@ for (const [name, spec, steady] of ENDINGS) {
 		await load(page, spec, { sound: true });
 		const item = await sound(page, 'renderItemAudio');
 		expect(item[0].length).toBeLessThan(end + RATE / 10);
+	});
+}
+
+// A long sting holds its chord through the hold: the sound is never gone from the lockup that holds
+// still, and falls over the last two seconds or so (the 400 ms loudness stays above -35 LUFS, the
+// clip at -18, until two seconds before its end).
+for (const seconds of [7, 8, 9, 10]) {
+	test(`a sting of ${seconds} s holds its chord to two seconds before its end`, async ({
+		page
+	}) => {
+		const info = await load(page, { ...FIXTURES['sting-5'], duration: seconds });
+		const own = await sound(page, 'renderAudio');
+		const end = Math.round(info.duration * RATE);
+		const window = slice(own, end - Math.round(2.4 * RATE), end - 2 * RATE);
+		expect(integratedLoudness(window, RATE)).toBeGreaterThan(-35);
 	});
 }
 

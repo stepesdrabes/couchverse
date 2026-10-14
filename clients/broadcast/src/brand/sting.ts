@@ -3,7 +3,7 @@
 // in on the sonic logo and the hold takes up the rest, while the chord rings out and the sound is
 // over before the last frame. The shortest sting is as long as the logo needs to be stated whole
 // and to die away (the last note has about two seconds), the longest stretches the build before
-// the landing and the hold after it.
+// the landing and the hold after it, the chord sustaining through the hold and dying away at the end.
 
 import type { Bus } from '../audio/engine';
 import type { Kit } from '../audio/kit';
@@ -38,7 +38,7 @@ export function stingTimes(D: number): EndingTimes {
 }
 
 export const sting: Template<StingSpec> = {
-	version: 5,
+	version: 6,
 	build({ root, sound }, spec) {
 		const D = frame(Math.min(STING.max, Math.max(STING.min, spec.duration)));
 		const tl = timeline(root, D);
