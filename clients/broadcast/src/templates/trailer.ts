@@ -356,18 +356,12 @@ function buildTrailer(
 			}
 			holder.remove();
 		}
-		return titleMark(
-			parent,
-			{ ...t, logo: undefined },
-			{ w: 1100, h: 360, area: 300000 },
-			'pm-display1',
-			{
-				width: 1640,
-				min: 104,
-				lines: 3,
-				height: 560
-			}
-		);
+		return titleMark(parent, { ...t, logo: undefined }, assets, '#050505', box, 'pm-display1', {
+			width: 1640,
+			min: 104,
+			lines: 3,
+			height: 560
+		});
 	}
 
 	/** The hit: the title over the hero scene's grade, its logo big, a red rule, the meta line. */
