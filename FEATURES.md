@@ -2535,7 +2535,7 @@ approves is what airs.
   (cinematic D, B minor, G and the dominant landing on D with the title; grit a heartbeat over a
   low D minor drone, low piano octaves on the cards; bright glass mallets in eighths, felt piano
   on the red fields), each leaving the D to the tag.
-- **Trailer** (D43, 2026-10-14, `trailer` version 1: `templates/trailer.ts` draws it,
+- **Trailer** (D43, 2026-10-14, `trailer` version 2: `templates/trailer.ts` draws it,
   `trailer-plan.ts` plans it, `trailer-score.ts` and `audio/mix.ts` sound it, `styles/trailer.css`):
   the long promo, cut from the title's own scenes (`TrailerScene`: 25 fps frames, the scene's own
   sound and the `lines` spoken in it) over its soundtrack, in the promo's three lights and ending on
@@ -2549,10 +2549,23 @@ approves is what airs.
   quicken from about a second apart to half a second, each on the strongest onset of the
   soundtrack near where the next is due, else on the frame grid), the title on the music's peak
   (the strongest onset near its nominal time), the last scene as the button when it has a line and
-  is short, then the end card. The body is 60 to 90 s in whole frames, aiming past 64 s and never
-  over 88: scenes beyond that go, those with the least speech for their length first (the first
-  and last are kept); with too few the montage (up to 14 to 16 s) and the cards take the time, and
-  a very thin trailer (three short scenes) stays under 60 s. No scene plays over 6.5 s (the cold
+  is short, then the end card. *The montage's and the title's picture is picture the trailer has
+  not shown*: the title's footage shots (`title.footage`, a movie has about six of 1 to 3 s, a
+  series two), the stretches of every scene before and after what plays of it (a margin of 0.2 s
+  kept, none under 0.6 s) and the scenes the plan left out (`reelsOf`). The title takes the
+  longest stretches first (two at most, from their ends; its last frame holds under the slow push
+  when they fall short), the montage's cuts then take the rest: each cut a stretch of the reel
+  with the most left, going on where that reel was left (`assignTakes`), never back, never the
+  one before the last (two shots never take turns: where nothing else has enough left the last
+  one simply goes on). The montage is as long as that picture allows (a small pool is cut into
+  longer takes, the cuts 1.4 or 2 times as far apart; under 2 s of picture there is no montage and
+  the riser leads to the hit), so a series trailer, whose two footage shots are mostly the title's,
+  has none; with nothing unseen at all the longest scene plays again under the title. The body is
+  60 to 90 s in whole frames, aiming past 64 s and never over 88: scenes beyond that go, those
+  with the least speech for their length first (the first and last are kept); with too few the
+  montage (up to 14 to 16 s, as far as the picture goes) grows, then the cards (up to 1 s more
+  each), the channel's moment, the title and the premiere card breathe instead of any picture
+  repeating, and a very thin trailer stays under 60 s. No scene plays over 6.5 s (the cold
   open), 8 s or 5.6 s (the button), cut in the gaps between lines. *Lines are never cut*: a
   scene's sound window holds every line it touches whole, a cut falls a little before a first word
   and after a last (half way through a shorter gap), and a J-cut or an L-cut (every other cut

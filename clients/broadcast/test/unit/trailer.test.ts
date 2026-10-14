@@ -12,15 +12,18 @@ import {
 } from '../../src/audio/mix';
 import { bedKeys } from '../../src/templates/trailer-score';
 import {
+	assignTakes,
 	BODY,
 	cutWindow,
 	linesOf,
 	montageCuts,
 	planTrailer,
+	reelsOf,
 	scenesOf,
 	type Mood,
 	type PlanInput,
-	type SceneFacts
+	type SceneFacts,
+	type Take
 } from '../../src/templates/trailer-plan';
 
 const onFrame = (t: number) => Math.abs(t * 25 - Math.round(t * 25)) < 1e-6;
@@ -40,6 +43,9 @@ const SCENES: SceneFacts[] = [
 	scene(3.4, [0.3, 1.3])
 ];
 
+// eight footage shots of 2.4 s, as a movie has them (a series two, whatever its length)
+const SHOTS = Array<number>(8).fill(2.4);
+
 const plan = (over: Partial<PlanInput> = {}) =>
 	planTrailer({
 		mood: 'cinematic',
@@ -47,6 +53,7 @@ const plan = (over: Partial<PlanInput> = {}) =>
 		scenes: SCENES,
 		cards: [17, 16],
 		bed: null,
+		shots: SHOTS,
 		...over
 	});
 
@@ -148,11 +155,64 @@ describe('the trailer plan', () => {
 		expect(dropped.some((i) => many[i].lines.length === 0)).toBe(true);
 	});
 
-	it('gives the montage the time when the scenes fall short', () => {
+	it('gives the montage the time when the scenes fall short, as far as there is picture', () => {
 		const few = plan({ scenes: SCENES.slice(0, 3) });
 		const montage = few.sections.find((s) => s.kind === 'montage');
-		expect(montage && montage.end - montage.at).toBeCloseTo(16, 6);
+		// eight shots of 2.4 s less the two the title takes: 14.4 s of picture, the montage's most is 16
+		expect(montage && montage.end - montage.at).toBeGreaterThan(plan().sections.length ? 8 : 0);
+		expect(montage && montage.end - montage.at).toBeLessThanOrEqual(14.4 + 1e-6);
 		expect(few.end).toBeLessThan(plan().end);
+	});
+
+	it('cuts the montage short, or leaves it out, rather than show a picture twice', () => {
+		for (const shots of [[], [2.4], [2.4, 3], [2.4, 3, 2], Array(6).fill(2)]) {
+			for (const mood of MOODS) {
+				const p = plan({ mood, shots, scenes: SCENES.slice(0, 4) });
+				const m = p.sections.find((s) => s.kind === 'montage');
+				const t = p.sections.find((s) => s.kind === 'title');
+				if (t?.kind !== 'title') throw new Error('no title');
+				// the picture the montage and the title use is never the same twice (but for the
+				// title replaying a scene when there is nothing unseen at all)
+				const seen = new Map<string, [number, number][]>();
+				for (const k of [...(m?.kind === 'montage' ? m.takes : []), ...t.takes]) {
+					const key = `${k.src.kind}${k.src.index}`;
+					const span: [number, number] = [k.from, k.from + (k.end - k.at)];
+					for (const [a, b] of seen.get(key) ?? [])
+						if (k.src.kind === 'shot' || m?.kind === 'montage')
+							expect(span[0] >= b - 1e-6 || span[1] <= a + 1e-6, `${mood} ${shots}`).toBe(true);
+					seen.set(key, [...(seen.get(key) ?? []), span]);
+				}
+				// a montage is a montage: at least two seconds of cuts, none without picture
+				if (m?.kind === 'montage') expect(m.end - m.at).toBeGreaterThanOrEqual(2);
+				// the title starts where the montage ends, and nothing is longer than 90 s
+				expect(p.hit).toBeCloseTo(t.at, 6);
+				expect(p.end).toBeLessThanOrEqual(BODY[1]);
+			}
+		}
+		// the shorter the pool the shorter the montage, and none without a pool
+		const lengths = [[], [2.4, 3], Array(5).fill(2.4), SHOTS].map((shots) => {
+			const m = plan({ shots, scenes: SCENES.slice(0, 4) }).sections.find(
+				(s) => s.kind === 'montage'
+			);
+			return m ? m.end - m.at : 0;
+		});
+		expect(lengths[0]).toBe(0);
+		expect(lengths).toEqual([...lengths].sort((a, b) => a - b));
+	});
+
+	it('lets the other parts breathe when there is no montage, never padding with picture', () => {
+		const thin = plan({ shots: [], scenes: SCENES.slice(0, 4) });
+		expect(thin.sections.some((s) => s.kind === 'montage')).toBe(false);
+		// the cards are read in 2.4 s (cinematic) and held up to a second more
+		const held = thin.sections.filter((s) => s.kind === 'card').map((c) => c.end - c.at);
+		expect(held.length).toBe(2);
+		for (const h of held) {
+			expect(h).toBeGreaterThan(2.4 + 0.1);
+			expect(h).toBeLessThanOrEqual(2.4 + 1 + 1e-6);
+		}
+		// the channel's moment and the title are held longer than their own time too
+		const presents = thin.sections.find((s) => s.kind === 'presents');
+		expect((presents?.end ?? 0) - (presents?.at ?? 0)).toBeGreaterThan(2.8);
 	});
 
 	it('trims a long scene to whole lines in the gaps between them', () => {
@@ -190,6 +250,60 @@ describe('the trailer plan', () => {
 		expect(gaps.length).toBeGreaterThan(6);
 		expect(gaps[0]).toBeGreaterThan(gaps.at(-1) ?? 0);
 		expect(gaps.every((g) => g >= 0.5 - 1e-6)).toBe(true);
+	});
+});
+
+describe('the picture of the montage and the title', () => {
+	const at = (src: Take['src']) => `${src.kind}${src.index}`;
+
+	it('adds the stretches beside what plays, and the scenes left out, to the shots', () => {
+		const scenes: SceneFacts[] = [scene(8), scene(5), scene(2.5), scene(0.5)];
+		const reels = reelsOf([2.4, 3], scenes, [
+			{ scene: 0, from: 1, to: 6 },
+			{ scene: 2, from: 0, to: 2.5 }
+		]);
+		const of = (kind: string, index: number) =>
+			reels.filter((r) => r.src.kind === kind && r.src.index === index);
+		expect(of('shot', 0)).toEqual([{ src: { kind: 'shot', index: 0 }, from: 0, to: 2.4 }]);
+		// scene 0 plays 1-6 s: 0.8 s before it and 1.8 s after it are free, a margin kept
+		expect(of('scene', 0).map((r) => [r.from, r.to])).toEqual([
+			[0, 0.8],
+			[6.2, 8]
+		]);
+		// scene 1 was left out: all of it; scene 2 plays whole: nothing; scene 3 is too short to cut
+		expect(of('scene', 1).map((r) => [r.from, r.to])).toEqual([[0, 5]]);
+		expect(of('scene', 2)).toEqual([]);
+		expect(of('scene', 3)).toEqual([]);
+	});
+
+	it('plays every stretch forwards from where it was left, never back and never twice', () => {
+		const reels = reelsOf(Array(6).fill(2.4), [], []);
+		const cuts = montageCuts(10, 20, [], { gap: [1, 0.5], cutMin: 0.5 });
+		const { takes, end } = assignTakes(cuts, 20, reels);
+		expect(end).toBe(20);
+		expect(takes.length).toBe(cuts.length);
+		const cursor = new Map<string, number>();
+		for (const k of takes) {
+			const from = cursor.get(at(k.src)) ?? 0;
+			expect(k.from).toBeCloseTo(from, 6);
+			cursor.set(at(k.src), from + (k.end - k.at));
+			expect(cursor.get(at(k.src)) ?? 0).toBeLessThanOrEqual(2.4 + 1e-6);
+		}
+		// takes follow one another without a gap
+		takes.forEach((k, i) => i && expect(k.at).toBeCloseTo(takes[i - 1].end, 6));
+	});
+
+	it('never lets two shots take turns, and goes on in one longer take instead', () => {
+		const reels = reelsOf([4, 4], [], []);
+		const cuts = montageCuts(10, 18, [], { gap: [1, 0.5], cutMin: 0.5 });
+		const { takes, end } = assignTakes(cuts, 18, reels);
+		const order = takes.map((k) => k.src.index);
+		// a b then the second shot goes on (no a b a)
+		for (let i = 2; i < order.length; i++) expect(order[i] === order[i - 2]).toBe(false);
+		// and the picture runs out (8 s of it): the montage ends where the next cut would have been
+		expect(end).toBeLessThanOrEqual(18);
+		const shown = takes.reduce((n, k) => n + (k.end - k.at), 0);
+		expect(shown).toBeLessThanOrEqual(8 + 1e-6);
 	});
 });
 

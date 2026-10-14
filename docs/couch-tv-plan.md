@@ -1221,11 +1221,18 @@ break or the standby card.
   ("promos can be LONGER (can be like a minute, minute and a half... and can include some part of
   the movie - or its trailer? - with sounds and stuff)"). Official trailers are not in the library
   and are not downloaded, so the channel cuts its own from the title itself: template `trailer`
-  (version 1, FEATURES.md "Trailer"), `TrailerSpec` in the spec, whose scenes (each its 25 fps
+  (version 2, FEATURES.md "Trailer"), `TrailerSpec` in the spec, whose scenes (each its 25 fps
   frames, its own sound and the times its lines are spoken) the composer picks from the title's
   subtitles, picture cuts and audio. What the template decides: the body is 60 to 90 s in whole
   frames (about 70 to 80 s from 45 to 55 s of scenes; scenes beyond 88 s go, those with the least
-  speech first, and a thin trailer gives the montage and the cards the time); the cuts follow the
+  speech first, and a thin trailer gives the montage and the cards the time); the montage and the
+  title are cut only from picture not yet shown (the title's footage shots, the stretches beside
+  what plays of a scene, the scenes left out), each stretch once and forwards, never two shots
+  taking turns, so a trailer short of picture has a shorter montage or none and holds its cards,
+  the channel's moment and the title longer instead (version 1 cut 10 to 15 s of montage over two
+  to six shots and restarted them: the review's "slideshow"; a series, with two footage shots and
+  scenes that play whole, is now 50 to 60 s, which the picker's scene count or more footage per
+  series would lengthen); the cuts follow the
   soundtrack's beats where it leads and never touch a line (every scene plays whole lines, with
   fades short of every word, and the picture alone is trimmed for a J- or an L-cut); the end card
   is the promo's own (`buildPromo`, built on the trailer's timeline), so the airing, the tag and

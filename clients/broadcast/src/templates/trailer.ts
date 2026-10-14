@@ -39,7 +39,7 @@ import {
 } from './promo';
 import { logoImage } from './reel';
 import { timeline, type Ctx, type Template, type TL } from './shared';
-import { planTrailer, type Mood, type SceneSection, type Section } from './trailer-plan';
+import { planTrailer, type Mood, type SceneSection, type Section, type Take } from './trailer-plan';
 import { scoreTrailer } from './trailer-score';
 
 export const trailer: Template<TrailerSpec> = {
@@ -111,7 +111,8 @@ function buildTrailer(
 		premiere: !!spec.premiere,
 		scenes: spec.scenes.map((s, i) => ({ len: s.frames.length / FPS, lines: spoken[i] })),
 		cards: texts.map((x) => x.length),
-		bed: bed ? { onsets: bed.onsets } : null
+		bed: bed ? { onsets: bed.onsets } : null,
+		shots: (t.footage ?? []).map((s) => s.frames.length / FPS)
 	});
 	const B = plan.end;
 	const D = frame(B + END_CARD);
@@ -153,47 +154,11 @@ function buildTrailer(
 		return box;
 	}
 
-	// the montage's shots: the title's footage, else the scenes' own pictures
-	const pool: Shot[] = t.footage?.length
-		? t.footage
-		: spec.scenes.map((s) => ({ frames: s.frames, focus: s.focus }));
-	// where each shot was left, so one used again goes on rather than repeating
-	const cursor = new Map<Shot, number>();
-	let playing: Shot | null = null;
-	const left = (s: Shot) => s.frames.length - (cursor.get(s) ?? 0);
-	/** The shot with the most left to show that is not on screen. */
-	const freshest = () => {
-		let best: Shot | undefined;
-		for (const s of pool) if (s !== playing && (!best || left(s) > left(best))) best = s;
-		return best ?? pool[0];
-	};
-	/** A take of `shot` over [a, b) from where it was left. */
-	function cutTo(shot: Shot, a: number, b: number, o: TakeOptions = {}) {
-		const d = a > 0 ? (o.dissolve ?? 0) : 0;
-		const need = Math.ceil((b - a + d) * FPS) + 1;
-		let from = cursor.get(shot) ?? 0;
-		if (from + need > shot.frames.length) from = 0;
-		cursor.set(shot, Math.min(shot.frames.length, from + need));
-		playing = shot;
-		return take(shot.frames, from, a, b, { focus: shot.focus, ...o });
-	}
-	/** Takes over [a, b): one long take, going on in the next shot where one runs out. */
-	function longTake(a: number, b: number, o: TakeOptions = {}) {
-		let at = a;
-		for (let n = 0; b - at > 0.02; n++) {
-			const shot = freshest();
-			// what it can show: the frames after where it was left, else all of it again
-			const need = Math.ceil((b - at) * FPS);
-			const from = cursor.get(shot) ?? 0;
-			const have =
-				(from + need <= shot.frames.length ? need : Math.min(need, shot.frames.length)) / FPS;
-			let end = have >= b - at - 1e-6 ? b : at + have;
-			// the take after it is long enough to read
-			if (end < b && b - end < 0.6 && b - at > 1.4) end = b - 0.6;
-			end = Math.max(frame(end), frame(at) + 1 / FPS);
-			cutTo(shot, at, end, { ...o, dissolve: n ? (cinematic ? 0.5 : 0) : o.dissolve });
-			at = end;
-		}
+	/** A take the plan made of a source: the title's footage shot or a scene, from where it says. */
+	function takeOf(k: Take, o: TakeOptions = {}) {
+		const shot: Shot =
+			k.src.kind === 'shot' ? (t.footage as Shot[])[k.src.index] : spec.scenes[k.src.index];
+		return take(shot.frames, Math.round(k.from * FPS), k.at, k.end, { focus: shot.focus, ...o });
 	}
 
 	// --- fields and type -------------------------------------------------------------------------
@@ -365,8 +330,8 @@ function buildTrailer(
 	}
 
 	/** The hit: the title over the hero scene's grade, its logo big, a red rule, the meta line. */
-	function titleMoment(a: number, b: number) {
-		longTake(a, b, { dissolve: 0, push: [1.04, 1.1] });
+	function titleMoment(a: number, b: number, takes: Take[]) {
+		takes.forEach((k, i) => takeOf(k, { dissolve: i && cinematic ? 0.5 : 0, push: [1.04, 1.1] }));
 		const dim = shade(
 			grades,
 			`radial-gradient(1500px 640px at 960px 540px, rgb(${NIGHT} / 0.3), rgb(${NIGHT} / 0) 72%), rgb(${NIGHT} / ${grit ? 0.55 : bright ? 0.35 : 0.4})`
@@ -410,12 +375,9 @@ function buildTrailer(
 		tl.add(meta, [{ opacity: 1 }, { opacity: 0 }], b - 0.45, 0.3, 'leave');
 	}
 
-	/** Cuts on the montage's beats: each a take of the shot with the most left, a cut or a hard step. */
+	/** Cuts on the montage's beats: the plan's takes, picture not shown before, each used once. */
 	function montage(s: Extract<Section, { kind: 'montage' }>) {
-		s.cuts.forEach((c, i) => {
-			const e = i + 1 < s.cuts.length ? s.cuts[i + 1] : s.end;
-			cutTo(freshest(), c, e, { push: [1.02, 1.08] });
-		});
+		for (const k of s.takes) takeOf(k, { push: [1.02, 1.08] });
 	}
 
 	for (const s of plan.sections) {
@@ -459,7 +421,7 @@ function buildTrailer(
 				// drops out, and bright's red field crosses the frame instead and leaves the title
 				if (bright) sheet(s.at - 0.05, s.at + 0.1);
 				else night(s.at - 2 / FPS, s.at);
-				titleMoment(s.at, s.end);
+				titleMoment(s.at, s.end, s.takes);
 				break;
 		}
 	}

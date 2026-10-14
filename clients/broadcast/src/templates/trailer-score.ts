@@ -95,11 +95,12 @@ export function bedKeys(plan: Plan, mood: Mood, tagAt: number, stop: number): [n
 	const montage = find(plan, 'montage')[0];
 	const title = find(plan, 'title')[0];
 	const at = plan.bedAt ?? 0;
-	const hit = montage.end;
+	const hit = plan.hit;
 	const B = plan.end;
 	const keys: [number, number][] = [
 		[at, -38],
-		[montage.at, -9],
+		// (without a montage the riser leads straight to the hit)
+		[montage?.at ?? Math.max(at + 0.1, hit - 0.4), -9],
 		[hit - 0.3, -2.5],
 		[hit - 0.09, -16],
 		[hit, 1.5],
@@ -123,8 +124,9 @@ export function scoreTrailer(c: ScoreInput) {
 	const lines = linesOf(plan);
 	const montage = find(plan, 'montage')[0];
 	const title = find(plan, 'title')[0];
-	const m0 = montage.at;
-	const m1 = montage.end;
+	// the hit is the montage's end; a trailer short of picture has no montage, the riser leads to it
+	const m0 = montage?.at ?? plan.hit;
+	const m1 = plan.hit;
 	const rise = plan.riseAt;
 	const cue: CueFn = (at, fn, dur = 0) =>
 		tl.sound(at, (w, b, skip) => fn(house(kit, b), w - skip), dur);
@@ -204,8 +206,7 @@ export function scoreTrailer(c: ScoreInput) {
 		: [
 				[0, 0],
 				[rise, 0],
-				[m0, 4],
-				[m1 - 0.2, 8],
+				...(montage ? [[m0, 4] as [number, number], [m1 - 0.2, 8] as [number, number]] : []),
 				[m1, 12],
 				[m1 + 2, 10],
 				[title.end, 5],
@@ -378,8 +379,8 @@ export function scoreTrailer(c: ScoreInput) {
 
 	// --- the montage ----------------------------------------------------------------------------
 
-	const cuts = montage.cuts;
-	if (!bed) {
+	const cuts = montage?.cuts ?? [];
+	if (!bed && montage) {
 		// the house is the music: chords lifting G, A, B minor, A under pulses and glass on the cuts
 		const chords: Pitch[][] = [
 			['G1', 'D2', 'G2', 'B2', 'D3', 'F#3', 'A3'],
@@ -425,11 +426,12 @@ export function scoreTrailer(c: ScoreInput) {
 					})
 				);
 		});
-	} else {
+	} else if (bed) {
 		// over the soundtrack only unpitched punctuation: air into the cuts that open the montage
-		cue(m0 + (m1 - m0) * 0.5, (h, w) =>
-			air(h, w, 1.4, { peakAt: 1.0, band: [400, 2600], gain: 0.2, pans: [0.5, -0.5], seed: 890 })
-		);
+		if (montage)
+			cue(m0 + (m1 - m0) * 0.5, (h, w) =>
+				air(h, w, 1.4, { peakAt: 1.0, band: [400, 2600], gain: 0.2, pans: [0.5, -0.5], seed: 890 })
+			);
 		cue(m1 - 1.2, (h, w) => inhale(h, w + 1.2, 1.2, { gain: 0.3, seed: 891 }));
 	}
 

@@ -6,6 +6,11 @@
 // A trailer is cut the way trailers are: a cold open on a quiet scene, the channel's presence,
 // scenes with their lines and the tagline cards between them, a riser into a montage of quick
 // cuts on the music's beats, the title on the music's peak, one last short line, the end card.
+//
+// The montage and the title are cut from picture the trailer has not shown: the title's footage
+// shots, the stretches of the scenes before and after what plays of them, and the scenes the plan
+// left out. A stretch is played once, forwards: no shot restarts, two shots never take turns, and
+// when the material is short the montage is short (or absent) and the other parts breathe.
 
 import type { Onset } from '../audio/engine';
 import { FPS, frame } from '../core/timeline';
@@ -28,6 +33,22 @@ export interface PlanInput {
 	cards: number[];
 	/** The soundtrack's onsets (seconds into its excerpt); null without a soundtrack. */
 	bed: { onsets: Onset[] } | null;
+	/** The lengths (seconds) of the title's footage shots, which the montage and the title draw on. */
+	shots?: number[];
+}
+
+/** Where a picture comes from: one of the title's footage shots, or one of the spec's scenes. */
+export interface Source {
+	kind: 'shot' | 'scene';
+	index: number;
+}
+
+/** A take of a source: from `from` seconds into it, on the trailer's clock over [at, end). */
+export interface Take {
+	src: Source;
+	from: number;
+	at: number;
+	end: number;
 }
 
 export interface PlannedScene {
@@ -61,8 +82,8 @@ export type Section =
 	| ({ kind: 'presents' } & Span)
 	| ({ kind: 'card'; card: number } & Span)
 	| ({ kind: 'premiere' } & Span)
-	| ({ kind: 'montage'; cuts: number[] } & Span)
-	| ({ kind: 'title' } & Span);
+	| ({ kind: 'montage'; cuts: number[]; takes: Take[] } & Span)
+	| ({ kind: 'title'; takes: Take[] } & Span);
 
 export type SceneSection = Extract<Section, { kind: 'scene' }>;
 
@@ -74,6 +95,8 @@ export interface Plan {
 	bedAt: number | null;
 	/** The montage's riser starts here. */
 	riseAt: number;
+	/** The hit: the title's first frame, where the montage ends (or would, without one). */
+	hit: number;
 }
 
 export interface Knobs {
@@ -205,6 +228,108 @@ const roomAfter = (c: Cut) => {
 	return !last || c.to - last[1] >= OVERLAP + CLEAR;
 };
 
+/** A stretch of a source not yet shown, seconds into it, on the frame grid. */
+interface Reel {
+	src: Source;
+	from: number;
+	to: number;
+}
+
+/** The least a stretch is worth a take, and the least picture a montage is made of. */
+const MIN_REEL = 0.6;
+const MIN_MONTAGE = 2;
+/** The frames beside a played stretch stay unused: a cut there would show as a jump. */
+const BESIDE = 0.2;
+
+/**
+ * The picture a trailer has not shown: each of the title's footage shots (`shots`, their lengths
+ * in seconds), and of every scene what lies before and after the stretch that plays (`kept`), or
+ * all of it when the plan left the scene out.
+ */
+export function reelsOf(
+	shots: number[],
+	scenes: SceneFacts[],
+	kept: { scene: number; from: number; to: number }[]
+): Reel[] {
+	const out: Reel[] = shots.map((len, index) => ({
+		src: { kind: 'shot', index },
+		from: 0,
+		to: Math.floor(len * FPS + 1e-6) / FPS
+	}));
+	scenes.forEach((s, index) => {
+		const c = kept.find((k) => k.scene === index);
+		const spans: [number, number][] = c
+			? [
+					[0, c.from - BESIDE],
+					[c.to + BESIDE, s.len]
+				]
+			: [[0, s.len]];
+		for (const [a, b] of spans) {
+			const from = Math.max(0, Math.ceil(a * FPS - 1e-6)) / FPS;
+			const to = Math.floor(b * FPS + 1e-6) / FPS;
+			if (to - from >= MIN_REEL - 1e-6) out.push({ src: { kind: 'scene', index }, from, to });
+		}
+	});
+	return out;
+}
+
+/**
+ * Picture for `need` seconds of the title, taken out of `reels` (which lose it): the longest
+ * stretches, each from its end, three at most.
+ */
+function reserve(reels: Reel[], need: number) {
+	const out: { src: Source; from: number; len: number }[] = [];
+	for (let left = need; left > 0.5 && out.length < 2;) {
+		const best = reels
+			.filter((r) => r.to - r.from >= MIN_REEL - 1e-6)
+			.reduce<Reel | null>((a, r) => (!a || r.to - r.from > a.to - a.from ? r : a), null);
+		if (!best) break;
+		const len = Math.min(left, best.to - best.from);
+		out.push({ src: best.src, from: best.to - len, len });
+		best.to -= len;
+		left -= len;
+	}
+	return out;
+}
+
+/**
+ * The montage's takes: cut `i` runs from `cuts[i]` to the next (the last to `end`), each a
+ * stretch of the reel with the most left, going on where that reel was left and never back. Two
+ * reels never take turns (the one before the last is not chosen), and where no other reel has
+ * enough left the last one simply goes on (one longer take). When the picture is used up the
+ * montage ends where the next cut would have been: the result's `end`.
+ */
+export function assignTakes(
+	cuts: number[],
+	end: number,
+	reels: Reel[]
+): { takes: Take[]; end: number } {
+	const cursor = reels.map((r) => r.from);
+	const takes: Take[] = [];
+	const played: number[] = [];
+	for (let i = 0; i < cuts.length; i++) {
+		const a = cuts[i];
+		const b = i + 1 < cuts.length ? cuts[i + 1] : end;
+		const len = b - a;
+		const room = (k: number) => reels[k].to - cursor[k] - len >= -1e-6;
+		const open = reels.map((_, k) => k).filter((k) => room(k));
+		const other = open.filter((k) => k !== played.at(-1) && k !== played.at(-2));
+		const k = other.length
+			? other.reduce((x, y) => (reels[y].to - cursor[y] > reels[x].to - cursor[x] ? y : x))
+			: played.length && open.includes(played[played.length - 1])
+				? played[played.length - 1]
+				: -1;
+		if (k < 0) return { takes, end: a };
+		if (k === played.at(-1)) takes[takes.length - 1].end = b;
+		else {
+			takes.push({ src: reels[k].src, from: cursor[k], at: a, end: b });
+			played.push(k);
+		}
+		cursor[k] += len;
+	}
+	return { takes, end };
+}
+
 /** The plan for a trailer; `end` is its length, 60 to 90 s whenever the scenes allow. */
 export function planTrailer(input: PlanInput): Plan {
 	const K = KNOBS[input.mood];
@@ -226,14 +351,17 @@ export function planTrailer(input: PlanInput): Plan {
 	for (let i = 1; i < (button ? last : last + 1); i++) acts.push(cut(i, LONGEST.act));
 
 	const holds = input.cards.slice(0, 3).map((chars) => reading(chars, K.card));
+	// how long the parts that can breathe are held, and the montage (wanted: what the picture left
+	// allows is decided below)
+	const hold = { presents: K.presents, premiere: K.premiere, title: K.title };
 	let montage = K.montage;
 	const total = () =>
 		playing(open) +
-		K.presents +
+		hold.presents +
 		holds.reduce((n, h) => n + h, 0) +
-		(input.premiere ? K.premiere : 0) +
+		(input.premiere ? hold.premiere : 0) +
 		montage +
-		K.title +
+		hold.title +
 		(button ? playing(button) : 0) +
 		acts.reduce((n, a) => n + playing(a), 0);
 
@@ -245,12 +373,32 @@ export function planTrailer(input: PlanInput): Plan {
 		});
 		acts = acts.filter((_, i) => i !== worst);
 	}
-	// too few: the montage, then the cards, take the time
-	if (total() < BODY[0]) {
-		montage = Math.min(K.montageMax, montage + BODY[0] - total());
+
+	// the picture not yet shown: the title's footage, the stretches of the scenes beside what plays
+	// and the scenes left out. The title's picture comes out of it first, the montage takes the rest.
+	const kept = [open, ...acts, ...(button ? [button] : [])];
+	const reels = reelsOf(input.shots ?? [], input.scenes, kept);
+	let pictures = reserve(reels, hold.title);
+	if (!pictures.length) {
+		// nothing unseen at all: the longest scene plays again under the title's grade
+		const c = acts.concat(open).reduce((a, b) => (playing(b) > playing(a) ? b : a));
+		pictures = [{ src: { kind: 'scene', index: c.scene }, from: c.from, len: playing(c) }];
+	}
+	const supply = reels.reduce((n, r) => n + (r.to - r.from), 0);
+	const room = supply >= MIN_MONTAGE ? supply : 0;
+	montage = Math.min(montage, room);
+	// too few scenes: the montage, as far as the picture goes, then everything else takes the time
+	if (total() < BODY[0]) montage = Math.min(K.montageMax, room, montage + BODY[0] - total());
+	const breathe: [number, (add: number) => void][] = holds.map((_, i) => [
+		1.0,
+		(add) => (holds[i] += add)
+	]);
+	breathe.push([0.8, (add) => (hold.presents += add)], [1.6, (add) => (hold.title += add)]);
+	if (input.premiere) breathe.push([0.8, (add) => (hold.premiere += add)]);
+	for (const [cap, add] of breathe) {
 		const left = BODY[0] - total();
-		if (left > 0 && holds.length)
-			holds.forEach((_, i) => (holds[i] += Math.min(0.8, left / holds.length)));
+		if (left <= 0) break;
+		add(Math.min(cap, left));
 	}
 
 	// where the cards fall among the acts: the last one just before the montage
@@ -302,13 +450,13 @@ export function planTrailer(input: PlanInput): Plan {
 		});
 		at = end;
 	};
-	const span = (kind: 'presents' | 'premiere' | 'title', hold: number) => {
-		sections.push({ kind, at, end: frame(at + hold) });
-		at = frame(at + hold);
+	const span = (kind: 'presents' | 'premiere', dur: number) => {
+		sections.push({ kind, at, end: frame(at + dur) });
+		at = frame(at + dur);
 	};
 
 	scene(open, 'open', false, false);
-	span('presents', K.presents);
+	span('presents', hold.presents);
 	let next = 0;
 	const cards = (upTo: number) => {
 		for (; next < holds.length && slots[next] <= upTo; next++) {
@@ -321,7 +469,7 @@ export function planTrailer(input: PlanInput): Plan {
 		cards(i + 1);
 	});
 	cards(Infinity);
-	if (input.premiere) span('premiere', K.premiere);
+	if (input.premiere) span('premiere', hold.premiere);
 
 	// the montage on the soundtrack's beats, the title on its peak
 	const m0 = at;
@@ -329,16 +477,53 @@ export function planTrailer(input: PlanInput): Plan {
 	const onsets: Onset[] = input.bed
 		? input.bed.onsets.map((o) => ({ t: (bedAt ?? 0) + o.t, s: o.s }))
 		: [];
+	// a small pool is cut into longer takes
+	const slow = reels.length >= 5 ? 1 : reels.length >= 3 ? 1.4 : 2;
+	const pace = { gap: [K.gap[0] * slow, K.gap[1] * slow] as [number, number], cutMin: K.cutMin };
 	let m1 = frame(m0 + montage);
-	const peak = onsets
-		.filter((o) => o.s >= 0.9 && Math.abs(o.t - m1) <= 0.9 && o.t - m0 >= 3)
-		.sort((a, b) => b.s - a.s || Math.abs(a.t - m1) - Math.abs(b.t - m1))[0];
-	if (peak) m1 = frame(peak.t);
-	sections.push({ kind: 'montage', at: m0, end: m1, cuts: montageCuts(m0, m1, onsets, K) });
+	let cuts: number[] = [];
+	let takes: Take[] = [];
+	if (montage > 0) {
+		const peak = onsets
+			.filter(
+				(o) => o.s >= 0.9 && Math.abs(o.t - m1) <= 0.9 && o.t - m0 >= 3 && o.t - m0 <= room + 1e-6
+			)
+			.sort((a, b) => b.s - a.s || Math.abs(a.t - m1) - Math.abs(b.t - m1))[0];
+		if (peak) m1 = frame(peak.t);
+		// the picture may run out before the music's peak: the montage then ends where it does
+		for (let tries = 0; tries < 6; tries++) {
+			cuts = montageCuts(m0, m1, onsets, pace);
+			const got = assignTakes(
+				cuts,
+				m1,
+				reels.map((r) => ({ ...r }))
+			);
+			takes = got.takes;
+			if (got.end >= m1 - 1e-6) break;
+			m1 = frame(got.end);
+			if (m1 - m0 < MIN_MONTAGE) {
+				[m1, cuts, takes] = [m0, [], []];
+				break;
+			}
+		}
+		if (m1 > m0) sections.push({ kind: 'montage', at: m0, end: m1, cuts, takes });
+	}
 	at = m1;
-	span('title', K.title);
+	const hit = at;
+	// the title's picture, the reserved stretches in turn (the last holds, slowly pushed, when the
+	// picture is short)
+	const titleEnd = frame(at + hold.title);
+	let t = at;
+	const stretches: Take[] = pictures.map((p, i) => {
+		const end = i === pictures.length - 1 ? titleEnd : Math.min(titleEnd, frame(t + p.len));
+		const take = { src: p.src, from: p.from, at: t, end };
+		t = end;
+		return take;
+	});
+	sections.push({ kind: 'title', at, end: titleEnd, takes: stretches });
+	at = titleEnd;
 	if (button) scene(button, 'button', false, false);
-	return { sections, end: at, bedAt, riseAt: m0 - K.rise };
+	return { sections, end: at, bedAt, riseAt: m0 - K.rise, hit };
 }
 
 /**

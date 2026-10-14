@@ -74,14 +74,14 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['news-long', [14, 48]],
 	['news-one', [20, 50]],
 	// trailers: the cold open, the channel, a card, the montage, the title, the button, the end card
-	['trailer-cinematic', [1.2, 5.8, 10, 26.2, 55, 60.4, 62, 67, 69.4, 72.6]],
+	['trailer-cinematic', [1.2, 5.8, 10, 26.2, 55, 60.4, 62, 67, 69.4, 70.9]],
 	['trailer-grit', [2.5, 5.5, 25.4, 54, 59.5, 63, 68.3]],
 	// bright's red field and a premiere card; a name in type, no logo
-	['trailer-bright-premiere', [26, 53.4, 58, 64.4, 74]],
+	['trailer-bright-premiere', [26, 53.4, 58, 64.4, 71]],
 	// the house alone, its words as cards
-	['trailer-house', [49.5, 60, 70]],
+	['trailer-house', [49.5, 60, 67]],
 	// the longest name and taglines
-	['trailer-long', [19.8, 35.2, 54.5, 66]]
+	['trailer-long', [19.8, 35.2, 54.5, 60.5]]
 ];
 
 test.beforeEach(async ({ page }) => openRender(page));

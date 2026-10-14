@@ -413,6 +413,19 @@ const TRAILER_SCENES: TrailerScene[] = [
 	TRAILER_SCENE('d', 'shot-b', 3.4, [[0.4, 1.9]])
 ];
 
+// the montage's picture: six shots of two seconds, each starting a different way into the
+// stand-in second (a movie has about six shots, a series two)
+const TRAILER_FOOTAGE: FootageShot[] = Array.from({ length: 6 }, (_, i) => {
+	const loop = [
+		...frames(i % 2 ? 'shot-a' : 'shot-b'),
+		...frames(i % 2 ? 'shot-a' : 'shot-b').reverse()
+	];
+	return {
+		kind: 'footage',
+		frames: Array.from({ length: 50 }, (_, k) => loop[(k + i * 7) % loop.length])
+	};
+});
+
 export const FIXTURES = {
 	'ident-journey': { template: 'ident', cut: 'full', design: 'journey' },
 	'ident-cinematic': { template: 'ident', cut: 'full', design: 'cinematic' },
@@ -496,7 +509,7 @@ export const FIXTURES = {
 		template: 'trailer',
 		part: 'full',
 		mood: 'cinematic',
-		title: PROMO.night,
+		title: { ...PROMO.night, footage: TRAILER_FOOTAGE },
 		scenes: TRAILER_SCENES,
 		airing: { eyebrow: 'Tonight', time: '20:15' },
 		bed: bed()
@@ -506,7 +519,7 @@ export const FIXTURES = {
 		template: 'trailer',
 		part: 'full',
 		mood: 'grit',
-		title: PROMO.alley,
+		title: { ...PROMO.alley, footage: TRAILER_FOOTAGE },
 		scenes: TRAILER_SCENES,
 		airing: { eyebrow: 'Tomorrow', time: '21:00' },
 		bed: bed()
@@ -517,7 +530,7 @@ export const FIXTURES = {
 		part: 'full',
 		mood: 'bright',
 		premiere: true,
-		title: PROMO.sunny,
+		title: { ...PROMO.sunny, footage: TRAILER_FOOTAGE },
 		scenes: TRAILER_SCENES,
 		airing: { eyebrow: 'Premiere', day: 'Saturday', time: '20:15' },
 		bed: bed()
@@ -527,7 +540,7 @@ export const FIXTURES = {
 		template: 'trailer',
 		part: 'full',
 		mood: 'cinematic',
-		title: { ...TITLES.water, footage: PROMO_SCENES },
+		title: { ...TITLES.water, footage: TRAILER_FOOTAGE },
 		scenes: TRAILER_SCENES,
 		airing: { eyebrow: 'Tonight', time: '22:30' }
 	},
@@ -536,7 +549,7 @@ export const FIXTURES = {
 		template: 'trailer',
 		part: 'full',
 		mood: 'cinematic',
-		title: { ...LONG.hallows, footage: PROMO_SCENES },
+		title: { ...LONG.hallows, footage: TRAILER_FOOTAGE },
 		scenes: TRAILER_SCENES.slice(0, 6),
 		airing: { eyebrow: 'This week', day: 'Wednesday', time: '20:15' },
 		bed: bed()
