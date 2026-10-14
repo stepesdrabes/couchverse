@@ -4,8 +4,9 @@
 // as the hero numeral, the week, whose aired days light red on the beat, and the foot line.
 // Before the channel tag the panel sweeps on across the scenes and the tag lands on the clean
 // field. Moods: bright is day (a paper panel, night type, the scenes as they are, hard cuts on
-// the beat), dark is night (a night panel with the dusk at its foot, the scenes dimmed,
-// dissolves, slower moves).
+// the beat; a night panel when the title's logo does not read on paper), dark is night (a night
+// panel with the dusk at its foot, the scenes dimmed, dissolves, slower moves). The logo is
+// always straight on the panel, never on a box.
 
 import type { Kit } from '../audio/kit';
 import { beatsIn, snapper } from '../audio/onsets';
@@ -17,7 +18,7 @@ import { chars, css, div, el, span } from '../core/dom';
 import { fitText } from '../core/fit';
 import { edge } from '../core/moves';
 import type { StripPromoSpec } from '../spec';
-import { logoImage, planCuts, scenes, shotLengths } from './reel';
+import { logoImage, planCuts, readsOnField, scenes, shotLengths } from './reel';
 import { timeline, type Template, type TL } from './shared';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -31,33 +32,36 @@ const BAR = 12;
 /** The column's width: from the title-safe line to 72 px before the panel's edge. */
 const COL_W = SPLIT - 96 - 72;
 
-/** Each mood's field and type tiers (on paper the tiers are night over paper, solid). */
+/** Each mood's motion: bright is day, dark is night. */
 const MOODS = {
-	bright: {
+	bright: { open: 0.9, ease: 'glide', fill: 0.36, dissolve: 0, want: 2.4 },
+	dark: { open: 1.2, ease: 'dolly', fill: 0.5, dissolve: 0.6, want: 3.2 }
+} as const;
+
+/**
+ * The panel's field and its type tiers (on paper the tiers are night over paper, solid). The
+ * title's logo sits straight on the field, never on a box: a bright strip whose logo does not
+ * read on paper takes the night field by day.
+ */
+const FIELDS = {
+	paper: {
 		field: BRAND.paper,
 		ink: BRAND.night,
 		soft: '#5f5a55',
 		dim: '#a39d96',
-		track: '#ddd5ca',
-		open: 0.9,
-		ease: 'glide',
-		fill: 0.36,
-		dissolve: 0,
-		want: 2.4
+		track: '#ddd5ca'
 	},
-	dark: {
+	night: {
 		field: BRAND.night,
 		ink: BRAND.paper,
 		soft: '#b1aca6',
 		dim: '#65625e',
-		track: '#3e3d3b',
-		open: 1.2,
-		ease: 'dolly',
-		fill: 0.5,
-		dissolve: 0.6,
-		want: 3.2
+		track: '#3e3d3b'
 	}
 } as const;
+
+/** The title's logo: at most the column wide, the same area whatever its shape. */
+const LOGO = { width: COL_W, height: 300, area: 207000 };
 
 /** The days' notes, climbing D major's pentatonic, one per lit day. */
 const DAY_NOTES = ['D5', 'E5', 'F#5', 'A5', 'B5', 'D6', 'E6'];
@@ -76,12 +80,15 @@ function riseIn(tl: TL, e: Element, at: number, dur = 0.8, from = '105%') {
 }
 
 export const stripPromo: Template<StripPromoSpec> = {
-	version: 5,
+	version: 6,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 16;
 		const dark = spec.mood === 'dark';
 		const m = MOODS[spec.mood];
+		// the panel is paper by day while the logo reads on it, else night
+		const night = dark || readsOnField(assets, t.logo, [FIELDS.paper.field], LOGO) === -1;
+		const tier = FIELDS[night ? 'night' : 'paper'];
 		const tl = timeline(root, D);
 		root.classList.add('strip', dark ? 'mood-dark' : 'mood-bright');
 		css(root, { background: BRAND.night });
@@ -111,14 +118,14 @@ export const stripPromo: Template<StripPromoSpec> = {
 		});
 
 		// --- the panel: its right edge on the frame's middle at rest, its red bar beside it ---
-		const panel = css(div('sp-panel', root), { background: m.field });
+		const panel = css(div('sp-panel', root), { background: tier.field });
 		div('sp-bar', panel);
 		// the night's dusk rising at the panel's foot (the scenes are dimmed by their own opacity,
 		// so this is the one layer over them)
 		if (dark) div('sp-dusk', root);
 
 		// --- the column ---
-		const col = css(div('sp-col', root), { color: m.ink });
+		const col = css(div('sp-col', root), { color: tier.ink });
 		const ebBox = div('sp-eyebrow', col);
 		const ebBlock = div('sp-eyebrow-block', ebBox);
 		const ebMask = mask(ebBox);
@@ -126,21 +133,10 @@ export const stripPromo: Template<StripPromoSpec> = {
 		fitText(ebText, { width: COL_W - 40, min: 30 });
 
 		const titleBox = div('sp-title', col);
-		// by day a logo made for dark backgrounds sits on a night plate rather than being redrawn
-		const logo = logoImage(
-			titleBox,
-			assets,
-			t.logo,
-			m.field,
-			{ width: COL_W, height: 300, area: 207000 },
-			dark ? {} : { plate: { field: BRAND.night, pad: [26, 30] } }
-		);
+		const logo = logoImage(titleBox, assets, t.logo, tier.field, LOGO);
 		const titleParts: HTMLElement[] = [];
-		let plate: HTMLElement | null = null;
 		if (logo) {
-			const holder = logo.plate ? div('sp-plate', titleBox) : titleBox;
-			if (logo.plate) plate = css(div('sp-plate-bg', holder), { background: BRAND.night });
-			const lm = mask(holder, 'sp-mask sp-logo-mask');
+			const lm = mask(titleBox, 'sp-mask sp-logo-mask');
 			lm.appendChild(logo.el);
 			titleParts.push(logo.el);
 		} else {
@@ -170,9 +166,9 @@ export const stripPromo: Template<StripPromoSpec> = {
 			const s = div('sp-slot', week);
 			const lm = mask(s, 'sp-mask sp-day');
 			const lab = div('sp-day-in', lm);
-			const off = css(span('sp-day-off', lab, name), { color: m.dim });
-			const on = css(span('sp-day-on', lab, name), { color: m.ink });
-			const track = css(div('sp-track', s), { background: m.track });
+			const off = css(span('sp-day-off', lab, name), { color: tier.dim });
+			const on = css(span('sp-day-on', lab, name), { color: tier.ink });
+			const track = css(div('sp-track', s), { background: tier.track });
 			const fill = div('sp-fill', track);
 			return { s, lab, off, on, track, fill, lit: lit.has(d) };
 		});
@@ -182,14 +178,14 @@ export const stripPromo: Template<StripPromoSpec> = {
 		let marker: HTMLElement | null = null;
 		if (f) {
 			const fm = mask(col, 'sp-mask sp-foot');
-			foot = css(div('sp-foot-in', fm), { color: m.soft });
+			foot = css(div('sp-foot-in', fm), { color: tier.soft });
 			if (f.kind === 'count') {
-				css(el('b', 'tnum', foot, String(f.count)), { color: m.ink });
+				css(el('b', 'tnum', foot, String(f.count)), { color: tier.ink });
 				foot.append(f.count === 1 ? ' episode, in order' : ' episodes, in order');
 			} else {
 				foot.append(`Season ${f.season} from `);
-				css(el('b', null, foot, DAY_NAMES[f.day]), { color: m.ink });
-				marker = css(div('sp-marker', slots[f.day].s), { background: m.ink });
+				css(el('b', null, foot, DAY_NAMES[f.day]), { color: tier.ink });
+				marker = css(div('sp-marker', slots[f.day].s), { background: tier.ink });
 			}
 			fitText(foot, { width: COL_W, min: 26 });
 		}
@@ -224,15 +220,7 @@ export const stripPromo: Template<StripPromoSpec> = {
 		riseIn(tl, ebText, t0 + 0.12, 0.6);
 		const tTitle = t0 + 0.24;
 		tl.cue('title', tTitle);
-		if (plate)
-			tl.add(
-				plate,
-				[{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
-				tTitle - 0.08,
-				0.6,
-				'glide'
-			);
-		titleParts.forEach((p, i) => riseIn(tl, p, tTitle + (plate ? 0.1 : 0) + i * 0.08, 0.9));
+		titleParts.forEach((p, i) => riseIn(tl, p, tTitle + i * 0.08, 0.9));
 		const tTime = snap(tTitle + 0.75 + (dark ? 0.15 : 0), 0.35, 0.5);
 		tl.cue('time', tTime);
 		time.items.forEach((c, i) => riseIn(tl, c, tTime + i * 0.05, 0.85));
@@ -305,7 +293,7 @@ export const stripPromo: Template<StripPromoSpec> = {
 		tl.show(world, 0, close + closeDur);
 		const tag = channelTag(tl, root, tagAt, sound, { gain: 0.5 });
 		// on paper the lockup's white `couch` is inked in night, as `lockupSvg` draws it on light
-		if (!dark)
+		if (!night)
 			tag
 				.querySelectorAll(`path[fill="${BRAND.white}"]`)
 				.forEach((p) => p.setAttribute('fill', BRAND.night));

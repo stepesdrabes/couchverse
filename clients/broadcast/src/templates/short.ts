@@ -34,7 +34,7 @@ const BEAT = 0.8;
 const SWIPE = { w: 240, dur: 0.36 };
 
 export const shortPromo: Template<ShortPromoSpec> = {
-	version: 5,
+	version: 6,
 	build({ root, sound, assets }, spec) {
 		const t = spec.title;
 		const D = spec.duration ?? 9;

@@ -548,8 +548,8 @@ export const FIXTURES = {
 		foot: { kind: 'from', season: 12, day: 2 },
 		bed: bed(4, 24)
 	},
-	// a logo made for dark backgrounds on the paper panel: set on a night plate
-	'strip-plate': {
+	// a logo made for dark backgrounds does not read on paper: the panel is night by day
+	'strip-night-panel': {
 		template: 'stripPromo',
 		mood: 'bright',
 		title: shown(TITLES.night, LOGOS.night),
