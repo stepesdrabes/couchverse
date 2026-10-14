@@ -570,6 +570,17 @@
 .sp-title .title-logo {
 	display: block;
 }
+/* a plate of night behind a logo that only reads on dark (by day), opening like the eyebrow's */
+.sp-plate {
+	position: relative;
+	display: inline-block;
+	padding: 26px 30px;
+}
+.sp-plate-bg {
+	position: absolute;
+	inset: 0;
+	transform-origin: 0 50%;
+}
 .sp-name {
 	font-size: 120px;
 	font-weight: 800;

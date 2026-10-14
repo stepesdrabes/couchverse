@@ -50,6 +50,7 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	['upnext-long', [3]],
 	['strip-long', [8]],
 	['strip-long-bright', [6]],
+	['strip-plate', [6]],
 	['short-long', [4.2]],
 	['lineup-long', [4.4, 7]],
 	['squeeze-long', [5]],

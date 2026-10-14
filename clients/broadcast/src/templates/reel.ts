@@ -148,34 +148,38 @@ export function logoSize(aspect: number, box: LogoBox) {
 const READS = 3;
 const AIM = 4.5;
 
-const legible = new Map<string, string>();
-
-/**
- * The logo's pixels at `w` x `h` made to read on `field`: kept as they are when most of the logo,
- * or its outline (the opaque pixels at its edge), stands off the field, so a yellow logo outlined
- * in black reads on night by its fill and on paper by its outline; else every colour walks its
- * lightness away from the field until it reads (a dark red lifts to a brighter red) and the
- * neutral ones invert (a black logo made for paper is white on night). A pure function of the
- * image's pixels; the image itself when they cannot be read.
- */
-function legibleUrl(image: HTMLImageElement, url: string, w: number, h: number, field: string) {
-	const key = `${url}|${w}x${h}|${field}`;
-	const known = legible.get(key);
-	if (known) return known;
-	const bg = parseHex(field) ?? [5, 5, 5];
+/** The logo's pixels drawn at `w` x `h`; null when they cannot be read (another origin). */
+function pixels(image: HTMLImageElement, w: number, h: number) {
 	const c = document.createElement('canvas');
 	c.width = w;
 	c.height = h;
 	const g = c.getContext('2d', { willReadFrequently: true });
-	let result = url;
+	if (!g) return null;
 	try {
-		if (!g) throw new Error('no 2d context');
 		g.drawImage(image, 0, 0, w, h);
-		const data = g.getImageData(0, 0, w, h);
-		const px = data.data;
+		return { c, g, data: g.getImageData(0, 0, w, h) };
+	} catch {
+		return null;
+	}
+}
+
+const reading = new Map<string, boolean>();
+
+/**
+ * Whether the logo reads on `field` as it is: most of it, or its outline (the opaque pixels at
+ * its edge), stands off the field, so a yellow logo outlined in black reads on night by its fill
+ * and on paper by its outline. True when its pixels cannot be read.
+ */
+function readsOn(image: HTMLImageElement, url: string, field: string, w: number, h: number) {
+	const key = `${url}|${w}x${h}|${field}`;
+	const known = reading.get(key);
+	if (known !== undefined) return known;
+	const bg = (parseHex(field) ?? [5, 5, 5]) as Rgb;
+	const got = pixels(image, w, h);
+	let ok = true;
+	if (got) {
+		const px = got.data.data;
 		const opaque = (i: number) => px[i * 4 + 3] >= 128;
-		const reads = (i: number) =>
-			contrast([px[i * 4], px[i * 4 + 1], px[i * 4 + 2]], bg as Rgb) >= READS;
 		let solid = 0;
 		let fine = 0;
 		let rim = 0;
@@ -185,9 +189,9 @@ function legibleUrl(image: HTMLImageElement, url: string, w: number, h: number, 
 				const i = y * w + x;
 				if (!opaque(i)) continue;
 				solid++;
-				const ok = reads(i);
-				if (ok) fine++;
-				const edgeOf =
+				const good = contrast([px[i * 4], px[i * 4 + 1], px[i * 4 + 2]], bg) >= READS;
+				if (good) fine++;
+				const atEdge =
 					x === 0 ||
 					y === 0 ||
 					x === w - 1 ||
@@ -196,32 +200,50 @@ function legibleUrl(image: HTMLImageElement, url: string, w: number, h: number, 
 					!opaque(i + 1) ||
 					!opaque(i - w) ||
 					!opaque(i + w);
-				if (edgeOf) {
+				if (atEdge) {
 					rim++;
-					if (ok) rimFine++;
+					if (good) rimFine++;
 				}
 			}
-		if (solid && fine / solid < 0.5 && rimFine / Math.max(1, rim) < 0.6) {
-			const dark = bg[0] + bg[1] + bg[2] < 384;
-			const walked = new Map<number, Rgb>();
-			for (let i = 0; i < px.length; i += 4) {
-				if (!px[i + 3]) continue;
-				const k = (px[i] << 16) | (px[i + 1] << 8) | px[i + 2];
-				let to = walked.get(k);
-				if (!to) {
-					to = walk([px[i], px[i + 1], px[i + 2]], bg as Rgb, dark);
-					walked.set(k, to);
-				}
-				[px[i], px[i + 1], px[i + 2]] = to;
-			}
-			g.putImageData(data, 0, 0);
-			result = c.toDataURL('image/png');
-		}
-	} catch {
-		// a canvas the image tainted (another origin without CORS): the logo as it is
-		result = url;
+		ok = !solid || fine / solid >= 0.5 || rimFine / Math.max(1, rim) >= 0.6;
 	}
-	legible.set(key, result);
+	reading.set(key, ok);
+	return ok;
+}
+
+const redrawn = new Map<string, string>();
+
+/**
+ * The logo redrawn to read on `field`: every colour walks its lightness away from the field until
+ * it reads (a dark red lifts to a brighter red), the neutral ones invert (a black logo made for
+ * paper is white on night). A pure function of the image's pixels; the image as it is when they
+ * cannot be read.
+ */
+function redrawFor(image: HTMLImageElement, url: string, field: string, w: number, h: number) {
+	const key = `${url}|${w}x${h}|${field}`;
+	const known = redrawn.get(key);
+	if (known) return known;
+	const bg = (parseHex(field) ?? [5, 5, 5]) as Rgb;
+	const got = pixels(image, w, h);
+	let result = url;
+	if (got) {
+		const px = got.data.data;
+		const dark = bg[0] + bg[1] + bg[2] < 384;
+		const walked = new Map<number, Rgb>();
+		for (let i = 0; i < px.length; i += 4) {
+			if (!px[i + 3]) continue;
+			const k = (px[i] << 16) | (px[i + 1] << 8) | px[i + 2];
+			let to = walked.get(k);
+			if (!to) {
+				to = walk([px[i], px[i + 1], px[i + 2]], bg, dark);
+				walked.set(k, to);
+			}
+			[px[i], px[i + 1], px[i + 2]] = to;
+		}
+		got.g.putImageData(got.data, 0, 0);
+		result = got.c.toDataURL('image/png');
+	}
+	redrawn.set(key, result);
 	return result;
 }
 
@@ -240,10 +262,19 @@ function walk(rgb: Rgb, bg: Rgb, dark: boolean): Rgb {
 	return dark ? [255, 255, 255] : [0, 0, 0];
 }
 
+export interface Plate {
+	/** The plate's colour: a field the logo may read on where it does not on its own. */
+	field: string;
+	/** Its padding around the logo, px: [vertical, horizontal]. */
+	pad: [number, number];
+}
+
 /**
- * The title's logo as an image `w` x `h` (from `logoSize`) that reads on `field`, a hex colour
- * (the night or paper it sits on); null when the title has none or it did not load, and the
- * screen sets the name in type instead.
+ * The title's logo as an image (sized by `logoSize`) that reads on `field`, a hex colour (the
+ * night or paper it sits on): as it is when it reads there; else, given a `plate`, as it is on a
+ * plate of the plate's field when it reads on that (a yellow logo made for dark backgrounds, on
+ * night inside a paper panel), smaller by the plate's padding; else redrawn for the field. Null
+ * when the title has none or it did not load: the screen sets the name in type.
  */
 export function logoImage(
 	parent: Element,
@@ -251,13 +282,27 @@ export function logoImage(
 	logo: Logo | undefined,
 	field: string,
 	box: LogoBox,
-	cls = 'title-logo'
-): { el: HTMLImageElement; w: number; h: number } | null {
+	{ cls = 'title-logo', plate }: { cls?: string; plate?: Plate } = {}
+): { el: HTMLImageElement; w: number; h: number; plate: boolean } | null {
 	if (!logo?.url) return null;
 	const image = assets.image(logo.url);
 	if (!image || !image.naturalWidth || !image.naturalHeight) return null;
-	const { w, h } = logoSize(image.naturalWidth / image.naturalHeight, box);
-	const el = img(cls, parent, legibleUrl(image, logo.url, w, h, field));
+	const aspect = image.naturalWidth / image.naturalHeight;
+	let { w, h } = logoSize(aspect, box);
+	let src = logo.url;
+	let plated = false;
+	if (!readsOn(image, logo.url, field, w, h)) {
+		if (plate && readsOn(image, logo.url, plate.field, w, h)) {
+			const [py, px] = plate.pad;
+			({ w, h } = logoSize(aspect, {
+				width: box.width - 2 * px,
+				height: box.height - 2 * py,
+				area: box.area * 0.8
+			}));
+			plated = true;
+		} else src = redrawFor(image, logo.url, field, w, h);
+	}
+	const el = img(cls, parent, src);
 	css(el, { width: `${w}px`, height: `${h}px` });
-	return { el, w, h };
+	return { el, w, h, plate: plated };
 }

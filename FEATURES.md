@@ -2441,11 +2441,13 @@ approves is what airs.
   decodes) and slowly pushed; without footage, its backdrop pushed over the same window. Its
   logo is sized by its aspect to the same area whatever its shape, inside a box (`logoSize`), and
   drawn as it is when most of it, or its outline, reads on the field it sits on at 3:1 (a yellow
-  logo outlined in black reads on night by its fill and on paper by its outline); else it is
-  redrawn once on a canvas with every colour walked in HSL lightness away from the field to
-  4.5:1 and neutral colours inverted (Dexter's dark red lifts to a red that reads on night, a
-  black logo made for paper turns white), a pure function of its pixels. A logo replaces the
-  name; one that did not load falls back to the name in type.
+  logo outlined in black reads on night by its fill and on paper by its outline); else, where a
+  screen offers a plate, as it is on a sharp plate of a field it does read on (the bright strip
+  sets a logo made for dark backgrounds, Pulp Fiction's yellow, on a night plate in its paper
+  panel); else it is redrawn once on a canvas with every colour walked in HSL lightness away
+  from the field to 4.5:1 and neutral colours inverted (Dexter's dark red lifts to a red that
+  reads on night, a black logo made for paper turns white), a pure function of its pixels. A
+  logo replaces the name; one that did not load falls back to the name in type.
 - **Strip and short promos** (sharp and flat, D41's logos and scenes): the strip (12-20 s) opens
   on the series' scenes for a beat; on the bed's strongest onset near 1 s a flat panel with a
   12 px red bar on its edge slides in over the left half while the scenes slide half as far

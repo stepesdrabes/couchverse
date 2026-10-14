@@ -325,7 +325,9 @@ const LOGOS = {
 	// yellow outlined in near-black
 	sunny: { url: `${M}/logo-sunny.png`, aspect: 3 },
 	// a flat dark red, too dark to read on night as it is
-	water: { url: `${M}/logo-water.png`, aspect: 1000 / 420 }
+	water: { url: `${M}/logo-water.png`, aspect: 1000 / 420 },
+	// a pale blue made for dark backgrounds, too light for paper
+	night: { url: `${M}/logo-night.png`, aspect: 1100 / 300 }
 } satisfies Record<string, Logo>;
 const shown = (t: Title, logo?: Logo): Title => ({
 	...t,
@@ -545,6 +547,15 @@ export const FIXTURES = {
 		airing: { eyebrow: 'Every weekday', time: '22:30', days: [0, 1, 2, 3, 4] },
 		foot: { kind: 'from', season: 12, day: 2 },
 		bed: bed(4, 24)
+	},
+	// a logo made for dark backgrounds on the paper panel: set on a night plate
+	'strip-plate': {
+		template: 'stripPromo',
+		mood: 'bright',
+		title: shown(TITLES.night, LOGOS.night),
+		airing: { eyebrow: 'Every weekday', time: '17:30', days: [0, 1, 2, 3, 4] },
+		foot: { kind: 'from', season: 2, day: 3 },
+		duration: 12
 	},
 	// the longest name on the paper panel, with the house's own music
 	'strip-long-bright': {

@@ -126,14 +126,21 @@ export const stripPromo: Template<StripPromoSpec> = {
 		fitText(ebText, { width: COL_W - 40, min: 30 });
 
 		const titleBox = div('sp-title', col);
-		const logo = logoImage(titleBox, assets, t.logo, m.field, {
-			width: COL_W,
-			height: 300,
-			area: 207000
-		});
+		// by day a logo made for dark backgrounds sits on a night plate rather than being redrawn
+		const logo = logoImage(
+			titleBox,
+			assets,
+			t.logo,
+			m.field,
+			{ width: COL_W, height: 300, area: 207000 },
+			dark ? {} : { plate: { field: BRAND.night, pad: [26, 30] } }
+		);
 		const titleParts: HTMLElement[] = [];
+		let plate: HTMLElement | null = null;
 		if (logo) {
-			const lm = mask(titleBox, 'sp-mask sp-logo-mask');
+			const holder = logo.plate ? div('sp-plate', titleBox) : titleBox;
+			if (logo.plate) plate = css(div('sp-plate-bg', holder), { background: BRAND.night });
+			const lm = mask(holder, 'sp-mask sp-logo-mask');
 			lm.appendChild(logo.el);
 			titleParts.push(logo.el);
 		} else {
@@ -217,7 +224,15 @@ export const stripPromo: Template<StripPromoSpec> = {
 		riseIn(tl, ebText, t0 + 0.12, 0.6);
 		const tTitle = t0 + 0.24;
 		tl.cue('title', tTitle);
-		titleParts.forEach((p, i) => riseIn(tl, p, tTitle + i * 0.08, 0.9));
+		if (plate)
+			tl.add(
+				plate,
+				[{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
+				tTitle - 0.08,
+				0.6,
+				'glide'
+			);
+		titleParts.forEach((p, i) => riseIn(tl, p, tTitle + (plate ? 0.1 : 0) + i * 0.08, 0.9));
 		const tTime = snap(tTitle + 0.75 + (dark ? 0.15 : 0), 0.35, 0.5);
 		tl.cue('time', tTime);
 		time.items.forEach((c, i) => riseIn(tl, c, tTime + i * 0.05, 0.85));

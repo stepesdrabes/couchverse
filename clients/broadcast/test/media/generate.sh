@@ -57,8 +57,8 @@ logo logo-tall.png 460x200 \
 	0xd81d24:240:160:220:40
 
 # the strip and short promos' logos, trimmed PNGs on transparency: blocks in yellow outlined in
-# near-black (they read on night by their fill and on paper by their outline) and a flat dark red
-# (too dark for night alone)
+# near-black (they read on night by their fill and on paper by their outline), a flat dark red
+# (too dark for night alone) and a pale blue made for dark backgrounds (too light for paper)
 blocklogo() { # name size boxes...
 	local name=$1 size=$2 vf="format=rgba"
 	shift 2
@@ -73,3 +73,6 @@ blocklogo sunny 1200x400 \
 blocklogo water 1000x420 \
 	x=0:y=0:w=260:h=420:color=0x8a1c22@1 x=330:y=100:w=260:h=320:color=0x8a1c22@1 \
 	x=660:y=0:w=340:h=420:color=0x8a1c22@1 x=740:y=120:w=180:h=180:color=0x00000000@0
+blocklogo night 1100x300 \
+	x=0:y=0:w=300:h=300:color=0xcfe3ff@1 x=380:y=60:w=300:h=240:color=0xcfe3ff@1 \
+	x=760:y=0:w=340:h=300:color=0xcfe3ff@1 x=860:y=90:w=140:h=120:color=0x00000000@0
