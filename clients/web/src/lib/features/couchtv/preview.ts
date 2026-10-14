@@ -6,11 +6,13 @@ import {
 	airing,
 	type AiringKind,
 	type ClipSpec,
+	type Crop,
 	type Episode,
 	type IdentDesign,
 	type NewsSpec,
 	type Shot,
 	type Title,
+	type TrailerScene,
 	type WeatherDay,
 	type WeatherSpec
 } from '@couchverse/broadcast';
@@ -22,6 +24,7 @@ export type PreviewTemplate =
 	| 'sting'
 	| 'upNext'
 	| 'promo'
+	| 'trailer'
 	| 'evergreenEnd'
 	| 'stripPromo'
 	| 'shortPromo'
@@ -74,6 +77,7 @@ export const NEEDS_TITLE: Record<PreviewTemplate, boolean> = {
 	sting: false,
 	upNext: true,
 	promo: true,
+	trailer: true,
 	evergreenEnd: true,
 	stripPromo: true,
 	shortPromo: true,
@@ -153,6 +157,31 @@ const STILLS: Shot[] = [
 	{ kind: 'still', image: 'poster', from: [0.1, 0.45, 0.6, 0.25] },
 	{ kind: 'still', image: 'backdrop', from: [0.1, 0.1, 0.5, 0.6] }
 ];
+
+/**
+ * Stand-in scenes for a trailer while the title's own are not analysed: its artwork (the
+ * backdrop, slices of the poster) with a drone as their sound and a voice's worth of lines, so the
+ * preview shows the trailer's structure, timing and mix, not the title's pictures and voices.
+ */
+function trailerScenes(t: Title): TrailerScene[] | null {
+	if (!t.backdrop) return null;
+	const slices: Crop[] = [
+		[0, 0.05, 1, 0.3],
+		[0, 0.36, 1, 0.3],
+		[0, 0.66, 1, 0.3]
+	];
+	// lengths in frames, so each scene's sound is exactly as long as its picture
+	return [112, 150, 125, 162, 125, 150, 112, 80].map((n, i) => {
+		const poster = !!t.poster && i % 2 === 1;
+		const seconds = n / 25;
+		return {
+			frames: Array<string>(n).fill(poster ? t.poster : t.backdrop),
+			...(poster ? { focus: slices[Math.floor(i / 2) % slices.length] } : {}),
+			sound: { url: 'synth:drone', in: 0, out: seconds },
+			lines: i === 3 ? [] : [[0.4, Math.floor((seconds - 0.8) * 25) / 25]]
+		};
+	});
+}
 
 const sub = (t: PreviewTitle) =>
 	t.kind === 'series' && t.episode
@@ -301,6 +330,20 @@ export function buildSpec(
 				airing: o.premiere ? airing('premiere', o.time, o.day) : when,
 				bed
 			};
+		case 'trailer': {
+			const scenes = trailerScenes(title);
+			if (!scenes) return null;
+			return {
+				template: 'trailer',
+				part: o.part,
+				mood: o.promoMood,
+				premiere: o.premiere,
+				title,
+				scenes,
+				airing: o.premiere ? airing('premiere', o.time, o.day) : when,
+				bed
+			};
+		}
 		case 'evergreenEnd':
 			return { template: 'evergreenEnd', mood: o.promoMood, title, shots: STILLS, bed };
 		case 'stripPromo': {

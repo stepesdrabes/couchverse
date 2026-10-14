@@ -71,6 +71,7 @@
 		{ value: 'sting', label: m.admin_couchtv_tpl_sting() },
 		{ value: 'upNext', label: m.admin_couchtv_tpl_up_next() },
 		{ value: 'promo', label: m.admin_couchtv_tpl_promo() },
+		{ value: 'trailer', label: m.admin_couchtv_tpl_trailer() },
 		{ value: 'evergreenEnd', label: m.admin_couchtv_tpl_evergreen() },
 		{ value: 'stripPromo', label: m.admin_couchtv_tpl_strip() },
 		{ value: 'shortPromo', label: m.admin_couchtv_tpl_short() },
@@ -105,10 +106,12 @@
 
 	const t = $derived(o.template);
 	const hasBed = $derived(
-		['upNext', 'promo', 'evergreenEnd', 'stripPromo', 'shortPromo', 'squeeze'].includes(t)
+		['upNext', 'promo', 'trailer', 'evergreenEnd', 'stripPromo', 'shortPromo', 'squeeze'].includes(
+			t
+		)
 	);
 	const hasAiring = $derived(
-		['upNext', 'promo', 'stripPromo', 'shortPromo', 'lineup', 'squeeze'].includes(t)
+		['upNext', 'promo', 'trailer', 'stripPromo', 'shortPromo', 'lineup', 'squeeze'].includes(t)
 	);
 	const airsItems = $derived(
 		t === 'stripPromo'
@@ -123,9 +126,11 @@
 					{ value: 'premiere', label: m.admin_couchtv_airs_premiere() }
 				]
 	);
-	const showsAirs = $derived(['promo', 'stripPromo', 'shortPromo'].includes(t) && !o.premiere);
+	const showsAirs = $derived(
+		['promo', 'trailer', 'stripPromo', 'shortPromo'].includes(t) && !o.premiere
+	);
 	const showsDay = $derived(
-		(['promo', 'shortPromo'].includes(t) &&
+		(['promo', 'trailer', 'shortPromo'].includes(t) &&
 			(o.premiere || o.airs === 'day' || o.airs === 'premiere')) ||
 			(t === 'stripPromo' && preview(mainId)?.kind !== 'series')
 	);
@@ -184,7 +189,7 @@
 			</div>
 		{/if}
 
-		{#if t === 'promo' || t === 'evergreenEnd' || t === 'stripPromo'}
+		{#if t === 'promo' || t === 'trailer' || t === 'evergreenEnd' || t === 'stripPromo'}
 			<div class="space-y-2">
 				<p class="text-xs font-medium text-muted">{m.admin_couchtv_mood()}</p>
 				{#if t === 'stripPromo'}
@@ -210,7 +215,7 @@
 			</div>
 		{/if}
 
-		{#if t === 'promo'}
+		{#if t === 'promo' || t === 'trailer'}
 			<div class="space-y-2">
 				<p class="text-xs font-medium text-muted">{m.admin_couchtv_part()}</p>
 				<Select
@@ -293,7 +298,7 @@
 			</div>
 		{/if}
 
-		{#if t === 'promo' || t === 'evergreenEnd'}
+		{#if t === 'promo' || t === 'trailer' || t === 'evergreenEnd'}
 			<div class="space-y-2">
 				<p class="text-xs font-medium text-muted">{m.admin_couchtv_tagline()}</p>
 				<Input label={m.admin_couchtv_tagline_first()} bind:value={o.taglines[0]} />

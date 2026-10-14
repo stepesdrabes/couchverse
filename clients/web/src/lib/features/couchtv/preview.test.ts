@@ -144,6 +144,31 @@ describe('buildSpec', () => {
 		expect(premiere).toMatchObject({ airing: { eyebrow: 'Premiere', day: 'Saturday' } });
 	});
 
+	it('cuts a trailer from stand-in scenes of the title, with the promo options', () => {
+		const spec = buildSpec(
+			opts({ template: 'trailer', promoMood: 'grit', part: 'body', premiere: true }),
+			movie,
+			null
+		);
+		expect(spec).toMatchObject({
+			template: 'trailer',
+			mood: 'grit',
+			part: 'body',
+			premiere: true,
+			airing: { eyebrow: 'Premiere' }
+		});
+		if (spec?.template !== 'trailer') return;
+		expect(spec.scenes.length).toBeGreaterThanOrEqual(3);
+		for (const s of spec.scenes) {
+			expect(s.frames.length).toBeGreaterThanOrEqual(25);
+			expect(s.sound.out).toBeCloseTo(s.frames.length / 25, 6);
+			for (const [, to] of s.lines) expect(to).toBeLessThanOrEqual(s.sound.out);
+		}
+		// without artwork there is nothing to cut it from
+		const bare = { ...movie, title: { ...movie.title, backdrop: '' } };
+		expect(buildSpec(opts({ template: 'trailer' }), bare, null)).toBeNull();
+	});
+
 	it('counts down to the program in up next', () => {
 		const spec = buildSpec(opts({ template: 'upNext', time: '18:00' }), series, null);
 		expect(spec).toMatchObject({ time: '18:00', clock: '17:59', episode: { code: 'S01E01' } });
