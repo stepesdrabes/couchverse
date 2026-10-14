@@ -896,7 +896,7 @@ break or the standby card.
 - Templates (from the samples, D27; the brand since D33 and D34): `ident` (full and short; the
   full cut in four designs since D35), `sting`, `upnext`, `promo` (moods `cinematic`, `grit`,
   `bright`; premiere variant; body plus end card), `strip`, `shortPromo`, `lineup`, `squeeze`,
-  `standby` ("Technical difficulties"), `evergreenEnd`.
+  `standby` ("Technical difficulties"), `evergreenEnd`, `trailer` (the long promo, D43).
 
 **Settled while building it (Phase 2)**; the full reference is FEATURES.md "Broadcast package".
 - **Tokens**: `cargo xtask codegen` writes `clients/broadcast/src/generated/tokens.ts` (colours,
@@ -1110,6 +1110,38 @@ break or the standby card.
   seam report) and `mixcheck.mjs` are local (excluded from the repository); the unit and golden
   tests hold the endings (`audio.spec.ts`) and every break length from the shortest to twenty
   minutes (`TestComposeEveryBreakLength`).
+- **The trailer (D43, 2026-10-14)**: the long promo the owner asked for after watching the reel
+  ("promos can be LONGER (can be like a minute, minute and a half... and can include some part of
+  the movie - or its trailer? - with sounds and stuff)"). Official trailers are not in the library
+  and are not downloaded, so the channel cuts its own from the title itself: template `trailer`
+  (version 1, FEATURES.md "Trailer"), `TrailerSpec` in the spec, whose scenes (each its 25 fps
+  frames, its own sound and the times its lines are spoken) the composer picks from the title's
+  subtitles, picture cuts and audio. What the template decides: the body is 60 to 90 s in whole
+  frames (about 70 to 80 s from 45 to 55 s of scenes; scenes beyond 88 s go, those with the least
+  speech first, and a thin trailer gives the montage and the cards the time); the cuts follow the
+  soundtrack's beats where it leads and never touch a line (every scene plays whole lines, with
+  fades short of every word, and the picture alone is trimmed for a J- or an L-cut); the end card
+  is the promo's own (`buildPromo`, built on the trailer's timeline), so the airing, the tag and
+  the ring-out are one implementation and the body stays timeless; the scenes' sound is levelled
+  by its lines to -22 LUFS and the soundtrack ridden 13 dB under speech by sample-accurate
+  automation; and a take holds an image only around its own time (`Timeline.footage`'s window),
+  because the 40 or more takes of a 75 s body would otherwise each be decoded again on every
+  frame. Measured on the library's Iron Man 3 (eleven hand-picked scenes, 1080p frames, the
+  soundtrack, cinematic): 73.6 s, 1839 frames of which 1815 are captured (the scenes and the
+  montage never hold still), a median 46.9 ms for an advance and a JPEG capture on the M1 loaded by
+  other work (the promo body: 401 frames at 50.8 ms, so the same cost a frame and four and a half
+  times the frames), 85 s there. At the Pi's 2.4 captures a second that is about 12.6 min a
+  trailer (the promo body about 3 min) plus its sound (about 13 s on the Mac, one to two minutes
+  there) and the encode; the body is rendered once per title, in the quiet hours, so a library of
+  25 titles is five to six hours of render over a night or two, and the frame loop's and the
+  sound's timeouts must allow about 13 minutes of frames. The page's memory: the renderer peaked
+  between 750 MB and 1.05 GB on the Mac over six renders (the whole browser 1.0 to 1.3 GB; it varies with when the
+  engine collects), in the sound render, and between 600 and 700 MB in the frame loop, settling to
+  200-450 MB (the promo body in the same harness: 563 and 380 MB), so a trailer needs one and a
+  half to two times a promo's memory; the sound render is the peak (a 74 s render of the scenes,
+  the soundtrack and every house voice) and could run in a page of its own if it ever crowds the
+  sidecar's 1 GB, where a promo's renderer is 280 MB on the Pi (a trailer's would be 450 to 600 MB
+  by the same ratio: inside the container, and the closest of any clip).
 
 ### 6.9 Presence, reactions, progress, analytics, ranks
 - **Hub**: an in-memory channel room (like couch's Hub, much simpler: no host). WebSocket

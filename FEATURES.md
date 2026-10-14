@@ -2289,11 +2289,13 @@ approves is what airs.
   on the stage by one projection), `src/audio` (the graph with per-piece music, sfx, voice and
   reverb buses into glue, limiter and trim, the reverb a generated hall; the synthesized kit;
   `voices.ts`, the house instruments every screen is scored with (see "Brand"); `pitch.ts`,
-  note names in Hz; beds with ducking and tape stops; onset detection; BS.1770 loudness and
+  note names in Hz; beds with ducking and tape stops; `mix.ts`, the trailer's mix (levelled scene
+  sound, the soundtrack ridden under speech); onset detection; BS.1770 loudness and
   true peak; WAV; the `synth:` placeholder beds), `src/brand`
   (everything that is the brand, see "Brand"; a brand redesign replaces this folder only),
   `src/templates` (one module per template, `index.ts` the registry), `src/styles` (the stage's
-  stylesheet `broadcast.css`; `promo.css`, the promo's; `bulletins.css`, the bulletins'), `spec.ts`
+  stylesheet `broadcast.css`; `promo.css`, the promo's; `trailer.css`, the trailer's;
+  `bulletins.css`, the bulletins'), `spec.ts`
   (the data contract), `piece.ts` (a loaded clip and the offline audio render), `stage.ts` (a 1920x1080
   stage in a shadow root), `player.ts` (live playback against the audio clock), `render.ts`
   (the sidecar's API). Design tokens come from `src/generated/tokens.ts`, written by `cargo
@@ -2307,7 +2309,9 @@ approves is what airs.
   `design`s, see "Full idents", or short 5.2 s, their popcorn ending alone), `sting` (gap
   filler, any whole number of frames from 5 to 10 s, one design for every length), `upNext`
   (default 8 s, countdown), `promo` (moods `cinematic`, `grit`, `bright`; `premiere`; `part`
-  `body`, `end` or `full`), `evergreenEnd` ("Coming up on Couch TV"), `stripPromo` (moods
+  `body`, `end` or `full`), `evergreenEnd` ("Coming up on Couch TV"), `trailer` (the long promo,
+  60 to 90 s cut from the title's own scenes with their own sound, then the promo's end card; a
+  promo's moods, `premiere` and `part`), `stripPromo` (moods
   `bright`, `dark`), `shortPromo`, `lineup` (2 to 5 rows), `squeeze` (handover `expand`,
   11.52 s, or `ident`, 10.6 s: the program shrinks onto the couch in its place in the lockup
   and dissolves into it, and its last frame is the short ident's first, pixel for pixel;
@@ -2396,6 +2400,48 @@ approves is what airs.
   (cinematic D, B minor, G and the dominant landing on D with the title; grit a heartbeat over a
   low D minor drone, low piano octaves on the cards; bright glass mallets in eighths, felt piano
   on the red fields), each leaving the D to the tag.
+- **Trailer** (D43, 2026-10-14, `trailer` version 1: `templates/trailer.ts` draws it,
+  `trailer-plan.ts` plans it, `trailer-score.ts` and `audio/mix.ts` sound it, `styles/trailer.css`):
+  the long promo, cut from the title's own scenes (`TrailerScene`: 25 fps frames, the scene's own
+  sound and the `lines` spoken in it) over its soundtrack, in the promo's three lights and ending on
+  the promo's own end card: `buildPromo`'s `joined` mode builds that card alone on the trailer's
+  timeline, so the airing, the channel tag and its sonic logo are the promo's, a body (like a
+  promo's) never depends on its airing, and its `parts.sound` runs on through the end card. *The
+  plan* (`planTrailer`, pure and table-tested): a cold open on the first scene (a quiet line, faded
+  up from night), the channel's moment (a red rule drawing under the row lockup, no tagline), the
+  scenes in story order with the title's taglines (else its words) as cards between them, the last
+  tagline just before the montage (a premiere card after it), a riser into the montage (cuts that
+  quicken from about a second apart to half a second, each on the strongest onset of the
+  soundtrack near where the next is due, else on the frame grid), the title on the music's peak
+  (the strongest onset near its nominal time), the last scene as the button when it has a line and
+  is short, then the end card. The body is 60 to 90 s in whole frames, aiming past 64 s and never
+  over 88: scenes beyond that go, those with the least speech for their length first (the first
+  and last are kept); with too few the montage (up to 14 to 16 s) and the cards take the time, and
+  a very thin trailer (three short scenes) stays under 60 s. No scene plays over 6.5 s (the cold
+  open), 8 s or 5.6 s (the button), cut in the gaps between lines. *Lines are never cut*: a
+  scene's sound window holds every line it touches whole, a cut falls a little before a first word
+  and after a last (half way through a shorter gap), and a J-cut or an L-cut (every other cut
+  between scenes with no card, where four frames of the scene's sound are clear of words) trims
+  four frames of the picture while the sound plays on, so nothing falls out of step. *Picture*:
+  scenes full-bleed (cover cropped toward `focus`, scope footage whole in grit's letterbox), each
+  pushed slowly, dissolves in cinematic only; cards are flat fields (cinematic: night with the
+  dusk, type rising; grit: night, big words cut in whole over a red rule drawn on the beat; bright:
+  the red field crossing the frame, paper type); the title is over the hero scene's grade (its
+  logo redrawn to read on night, else its name; never a plate) and lands on a breath, two frames of
+  night as the music drops out (bright: its red field crossing the frame instead); no field closes
+  over a word (a card fades or slides in only after the scene before it has said its last word, and
+  the button keeps its last frame 0.7 s past its last word, under the end card's closing panels). A
+  take holds an image only around its own time (`Timeline.footage`'s `window`), so a 75 s
+  body keeps a few images decoded, not every take's. *Sound*: each scene plays its own sound on the
+  voice bus, levelled by its lines to -22 LUFS (-24 for a scene with none; its loudest moment never
+  more than 10 dB, 6 without lines, over that; at most 14 dB either way) with fades of 12 ms to
+  0.3 s that stop short of every word; the soundtrack is ridden under them (`audio/mix.ts`:
+  sample-accurate automation, 13 dB under every line, close lines sharing one stretch held down;
+  it comes in with the riser, climbs through the montage, dips for a breath before the hit, sits
+  under the button and bows to the channel tag); the house's mix ducks 9 dB under speech and,
+  without a soundtrack, rises 4 to 12 dB for the montage and the title; the house (D major, 75 bpm)
+  plays a quiet underscore, the channel's moment, a sub and a soft impact on every card, the riser
+  and the hit. The web's admin preview offers it, cut from stand-in scenes of the title's artwork.
 - **Render API** (`window.couchtvRender` in `dist/render.html`, 1920x1080, 25 fps):
   `load(spec, { sound })` resolves with `{duration (whole frames), soundDuration (how long its
   sound lasts as a break item, where the next item starts), cues, fps, width, height, version
