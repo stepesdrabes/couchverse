@@ -112,8 +112,15 @@ func (h *Titles) Update(ctx context.Context, in *updateTitleInput) (*titleOutput
 	}
 	handedBack := before.promoSource == SourceAdmin && edit.promo == nil ||
 		before.ShotsSource == SourceAdmin && len(edit.shots) == 0
-	if !b.Excluded && (handedBack || before.Excluded && before.AnalyzedVersion < AnalyzeVersion) {
-		if err := h.analyzer.force(ctx, in.ID); err != nil {
+	if !b.Excluded {
+		var err error
+		switch {
+		case handedBack || before.Excluded && before.AnalyzedVersion < AnalyzeVersion:
+			err = h.analyzer.force(ctx, in.ID)
+		case before.Excluded && before.shotsVersion < ShotsVersion:
+			err = h.analyzer.repickShots(ctx, in.ID)
+		}
+		if err != nil {
 			return nil, err
 		}
 	}

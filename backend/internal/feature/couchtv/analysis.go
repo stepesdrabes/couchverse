@@ -21,6 +21,11 @@ const AnalyzeJob = "couchtv_analyze"
 // again (an admin's picks are kept).
 const AnalyzeVersion = 1
 
+// ShotsVersion is the footage shots' own version: titles an older pick chose the shots of
+// pick them again without measuring the loudness (a whole film's audio, slow on the Pi).
+// 1 checks the pictures for gore and face close-ups (picture.go).
+const ShotsVersion = 1
+
 // Analysis runs below every other job, the backfill lowest.
 const (
 	analyzePriority  = -5
@@ -34,10 +39,12 @@ const analyzeDelay = 5 * time.Minute
 const loudnessSamples = 4
 
 // AnalyzePayload is a couchtv_analyze job: one title (Force measures it again even at
-// the current version), or neither for the backfill.
+// the current version; ShotsOnly, from the backfill, only picks its shots again), or
+// neither for the backfill.
 type AnalyzePayload struct {
-	TitleID string `json:"titleId,omitempty"`
-	Force   bool   `json:"force,omitempty"`
+	TitleID   string `json:"titleId,omitempty"`
+	Force     bool   `json:"force,omitempty"`
+	ShotsOnly bool   `json:"shotsOnly,omitempty"`
 }
 
 // Analyzer runs couchtv_analyze. The promo pick reads the title's markers, so it runs
@@ -79,6 +86,13 @@ func (a *Analyzer) force(ctx context.Context, titleID string) error {
 	return err
 }
 
+// repickShots picks a title's shots again, nothing else.
+func (a *Analyzer) repickShots(ctx context.Context, titleID string) error {
+	_, err := a.Jobs.EnqueueJobOnce(ctx, AnalyzeJob, AnalyzePayload{TitleID: titleID, ShotsOnly: true},
+		jobs.EnqueueOpts{Priority: analyzePriority})
+	return err
+}
+
 // Handle is the couchtv_analyze job.
 func (a *Analyzer) Handle(ctx context.Context, job *jobs.Job, report func(int)) error {
 	var p AnalyzePayload
@@ -86,22 +100,23 @@ func (a *Analyzer) Handle(ctx context.Context, job *jobs.Job, report func(int)) 
 		return err
 	}
 	if p.TitleID == "" {
-		ids, err := a.Store.StaleTitles(ctx, AnalyzeVersion)
+		stale, err := a.Store.StaleTitles(ctx, AnalyzeVersion, ShotsVersion)
 		if err != nil {
 			return err
 		}
-		for _, id := range ids {
-			if _, err := a.Jobs.EnqueueJobOnce(ctx, AnalyzeJob, AnalyzePayload{TitleID: id},
+		for _, s := range stale {
+			if _, err := a.Jobs.EnqueueJobOnce(ctx, AnalyzeJob, AnalyzePayload{TitleID: s.ID, ShotsOnly: s.ShotsOnly},
 				jobs.EnqueueOpts{Priority: backfillPriority}); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	return a.analyze(ctx, p.TitleID, p.Force, report)
+	return a.analyze(ctx, p, report)
 }
 
-func (a *Analyzer) analyze(ctx context.Context, titleID string, force bool, report func(int)) error {
+func (a *Analyzer) analyze(ctx context.Context, p AnalyzePayload, report func(int)) error {
+	titleID := p.TitleID
 	t, err := a.Store.Title(ctx, titleID)
 	if errors.Is(err, db.ErrNotFound) {
 		return nil
@@ -115,7 +130,8 @@ func (a *Analyzer) analyze(ctx context.Context, titleID string, force bool, repo
 	}
 	res := analysis{version: AnalyzeVersion}
 	var profile *media.Loudness
-	if force || t.AnalyzedVersion < AnalyzeVersion {
+	measure := p.Force || t.AnalyzedVersion < AnalyzeVersion
+	if measure {
 		res.measured = true
 		if t.TitleKind == "movie" {
 			profile, res.loudness = a.movieLoudness(ctx, files[0])
@@ -123,6 +139,9 @@ func (a *Analyzer) analyze(ctx context.Context, titleID string, force bool, repo
 			res.loudness = a.seriesLoudness(ctx, files)
 		}
 		report(30)
+	}
+	if measure || t.shotsVersion < ShotsVersion {
+		res.shotsVersion = ShotsVersion
 		if t.ShotsSource != SourceAdmin {
 			res.shots, res.shotsDone = a.shots(ctx, t.TitleKind, files), true
 		}
@@ -131,7 +150,9 @@ func (a *Analyzer) analyze(ctx context.Context, titleID string, force bool, repo
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	if t.promoSource != SourceAdmin {
+	// a shots catch-up leaves the promo audio as it is: picking it again may measure a
+	// whole film's loudness
+	if t.promoSource != SourceAdmin && (measure || !p.ShotsOnly) {
 		promo, err := a.promo(ctx, t, files, profile)
 		switch {
 		case ctx.Err() != nil:

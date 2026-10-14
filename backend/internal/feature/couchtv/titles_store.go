@@ -99,7 +99,8 @@ type CouchTvShot struct {
 // titleRow is a couchtv_titles row with its title's kind.
 type titleRow struct {
 	CouchTvTitle
-	promoSource string
+	promoSource  string
+	shotsVersion int
 }
 
 // Title reads a title's channel facts; a title without a row yet has the defaults.
@@ -112,7 +113,7 @@ func (s *Store) Title(ctx context.Context, titleID string) (*titleRow, error) {
 	err := s.q.QueryRow(ctx, `
 		SELECT t.id, t.kind, coalesce(ct.excluded, false), ct.promo_audio_file_id::text, ct.promo_audio_start_ms,
 		       ct.promo_audio_duration_ms, ct.promo_audio_source, coalesce(ct.shots, '[]'), ct.shots_source, ct.mood,
-		       ct.loudness_lufs, coalesce(ct.analyzed_version, 0), ct.analyzed_at,
+		       ct.loudness_lufs, coalesce(ct.analyzed_version, 0), coalesce(ct.shots_version, 0), ct.analyzed_at,
 		       EXISTS (SELECT 1 FROM jobs j WHERE j.status IN ('pending', 'running') AND j.type IN ('`+AnalyzeJob+`', '`+library.MarkersJob+`')
 		               AND (j.payload->>'titleId' = t.id::text OR j.payload->>'mediaFileId' IN (
 		                   SELECT mf.id::text FROM media_files mf
@@ -126,7 +127,7 @@ func (s *Store) Title(ctx context.Context, titleID string) (*titleRow, error) {
 		FROM titles t
 		LEFT JOIN couchtv_titles ct ON ct.title_id = t.id
 		WHERE t.id = $1`, titleID).Scan(&r.TitleID, &r.TitleKind, &r.Excluded, &fileID, &start, &duration, &promoSource,
-		&shots, &shotsSource, &r.Mood, &r.LoudnessLufs, &r.AnalyzedVersion, &r.AnalyzedAt, &r.Analyzing,
+		&shots, &shotsSource, &r.Mood, &r.LoudnessLufs, &r.AnalyzedVersion, &r.shotsVersion, &r.AnalyzedAt, &r.Analyzing,
 		&soundtrackID, &soundtrackSource, &soundtrackReady, &soundtrackStart, &soundtrackDuration, &r.SoundtrackQuery,
 		&r.SoundtrackSearchedAt, &r.SearchingSoundtrack)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -166,11 +167,14 @@ type analysis struct {
 	loudness *float64
 	shots    []CouchTvShot
 	promo    *CouchTvPromoAudio
-	// measured: the loudness and shots stage ran (the title is analyzed at this version)
+	// measured: the loudness stage ran (the title is analyzed at this version)
 	measured  bool
 	shotsDone bool
 	promoDone bool
 	version   int
+	// shotsVersion is the pick of the shots this run made or kept: an admin's are never
+	// picked, but the title is not due for them again
+	shotsVersion int
 }
 
 // SaveAnalysis stores an analysis without touching what an admin chose.
@@ -186,6 +190,12 @@ func (s *Store) SaveAnalysis(ctx context.Context, titleID string, a analysis) er
 	if a.measured {
 		if _, err := tx.Exec(ctx, `UPDATE couchtv_titles SET loudness_lufs = $2, analyzed_version = $3, analyzed_at = now(),
 			updated_at = now() WHERE title_id = $1`, titleID, a.loudness, a.version); err != nil {
+			return err
+		}
+	}
+	if a.shotsVersion > 0 {
+		if _, err := tx.Exec(ctx, `UPDATE couchtv_titles SET shots_version = $2, updated_at = now()
+			WHERE title_id = $1`, titleID, a.shotsVersion); err != nil {
 			return err
 		}
 	}
@@ -437,29 +447,37 @@ func (s *Store) SourceFile(ctx context.Context, fileID string) (*sourceFile, err
 	return &f, nil
 }
 
+// StaleTitle is a title due for analysis: ShotsOnly when its measurements are current and
+// only an older pick chose its shots.
+type StaleTitle struct {
+	ID        string
+	ShotsOnly bool
+}
+
 // StaleTitles are the published titles with media that an older analysis (or none)
-// measured, leaving out excluded ones.
-func (s *Store) StaleTitles(ctx context.Context, version int) ([]string, error) {
+// measured, or whose shots an older pick chose, leaving out excluded ones.
+func (s *Store) StaleTitles(ctx context.Context, version, shotsVersion int) ([]StaleTitle, error) {
 	rows, err := s.q.Query(ctx, `
-		SELECT t.id FROM titles t
+		SELECT t.id, coalesce(ct.analyzed_version, 0) >= $1 FROM titles t
 		LEFT JOIN couchtv_titles ct ON ct.title_id = t.id
-		WHERE t.status = 'published' AND NOT coalesce(ct.excluded, false) AND coalesce(ct.analyzed_version, 0) < $1
+		WHERE t.status = 'published' AND NOT coalesce(ct.excluded, false)
+		  AND (coalesce(ct.analyzed_version, 0) < $1 OR coalesce(ct.shots_version, 0) < $2)
 		  AND EXISTS (SELECT 1 FROM media_files mf
 		              LEFT JOIN episodes e ON e.id = mf.episode_id
 		              LEFT JOIN seasons se ON se.id = e.season_id
 		              WHERE (mf.title_id = t.id OR se.title_id = t.id) AND mf.video_codec <> '' AND mf.duration_seconds > 0)
-		ORDER BY t.id`, version)
+		ORDER BY t.id`, version, shotsVersion)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []string
+	var out []StaleTitle
 	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
+		var t StaleTitle
+		if err := rows.Scan(&t.ID, &t.ShotsOnly); err != nil {
 			return nil, err
 		}
-		out = append(out, id)
+		out = append(out, t)
 	}
 	return out, rows.Err()
 }

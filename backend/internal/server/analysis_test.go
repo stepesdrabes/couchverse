@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"couchverse/internal/config"
@@ -173,6 +174,56 @@ func TestMediaAnalysis(t *testing.T) {
 			i > 0 && s.StartMs <= title.Shots[i-1].StartMs {
 			t.Errorf("shot %d: %+v", i, s)
 		}
+	}
+
+	// shots an older pick chose are picked again on their own: the loudness (a sentinel
+	// here) is not measured again, and an admin's shots stay
+	store := couchtv.NewStore(env.pool)
+	shotsVersion := func() (v int) {
+		if err := env.pool.QueryRow(ctx, `SELECT shots_version FROM couchtv_titles WHERE title_id = $1`, movieID).Scan(&v); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	if v := shotsVersion(); v != couchtv.ShotsVersion {
+		t.Errorf("shots version %d, want %d", v, couchtv.ShotsVersion)
+	}
+	if _, err := env.pool.Exec(ctx, `UPDATE titles SET status = 'published' WHERE id = $1`, movieID); err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range []string{"auto", "admin"} {
+		if _, err := env.pool.Exec(ctx, `UPDATE couchtv_titles SET shots = '[]', shots_source = $2, shots_version = 0,
+			loudness_lufs = -99 WHERE title_id = $1`, movieID, source); err != nil {
+			t.Fatal(err)
+		}
+		// the backfill finds the title, with its measurements current
+		stale, err := store.StaleTitles(ctx, couchtv.AnalyzeVersion, couchtv.ShotsVersion)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i := slices.IndexFunc(stale, func(s couchtv.StaleTitle) bool { return s.ID == movieID }); i < 0 || !stale[i].ShotsOnly {
+			t.Fatalf("%s shots: stale titles %+v, want the movie for its shots only", source, stale)
+		}
+		if err := w.couchtv.Handle(ctx, &jobs.Job{Payload: json.RawMessage(`{"titleId":"` + movieID + `","shotsOnly":true}`)}, func(int) {}); err != nil {
+			t.Fatal(err)
+		}
+		row, err := store.Title(ctx, movieID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if row.LoudnessLufs == nil || *row.LoudnessLufs != -99 || shotsVersion() != couchtv.ShotsVersion {
+			t.Errorf("%s shots: loudness %v, shots version %d: the title was measured again, or not picked", source, row.LoudnessLufs, shotsVersion())
+		}
+		if source == "auto" && fmt.Sprint(row.Shots) != fmt.Sprint(title.Shots) {
+			t.Errorf("auto shots %+v, want the same pick again: %+v", row.Shots, title.Shots)
+		}
+		if source == "admin" && len(row.Shots) != 0 {
+			t.Errorf("admin shots %+v were picked over", row.Shots)
+		}
+	}
+	if _, err := env.pool.Exec(ctx, `UPDATE couchtv_titles SET shots_source = 'auto', loudness_lufs = $2 WHERE title_id = $1`,
+		movieID, title.LoudnessLufs); err != nil {
+		t.Fatal(err)
 	}
 
 	var wave couchtv.CouchTvWaveform
