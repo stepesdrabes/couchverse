@@ -2576,8 +2576,10 @@ approves is what airs.
   scenes full-bleed (cover cropped toward `focus`, scope footage whole in grit's letterbox), each
   pushed slowly, dissolves in cinematic only; cards are flat fields (cinematic: night with the
   dusk, type rising; grit: night, big words cut in whole over a red rule drawn on the beat; bright:
-  the red field crossing the frame, paper type); the title is over the hero scene's grade (its
-  logo redrawn to read on night, else its name; never a plate) and lands on a breath, two frames of
+  the red field crossing the frame, paper type); the title is the promo's (`titleMark`: its logo,
+  redrawn to read on night, else its name, never a plate; the promo's grade, night over the
+  picture at 0.5, grit's 0.62, under the same soft lift, so the meta line holds over a bright
+  cartoon frame) and lands on a breath, two frames of
   night as the music drops out (bright: its red field crossing the frame instead); no field closes
   over a word (a card fades or slides in only after the scene before it has said its last word, and
   the button keeps its last frame 0.7 s past its last word, under the end card's closing panels). A

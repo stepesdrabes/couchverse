@@ -13,6 +13,7 @@
 
 import type { LoadedBed } from '../audio/engine';
 import { lockup } from '../brand/lockup';
+import { BRAND } from '../brand/wordmark';
 import { css, div, img } from '../core/dom';
 import { edge } from '../core/moves';
 import { FPS, frame } from '../core/timeline';
@@ -33,10 +34,8 @@ import {
 	shade,
 	sink,
 	titleMark,
-	type Rising,
 	type View
 } from './promo';
-import { logoImage } from './reel';
 import { timeline, type Ctx, type Template, type TL } from './shared';
 import { planTrailer, type Mood, type SceneSection, type Section, type Take } from './trailer-plan';
 import { scoreTrailer } from './trailer-score';
@@ -309,32 +308,12 @@ function buildTrailer(
 		sink(tl, r, b - 0.4);
 	}
 
-	/** The mark of the title: its logo (readable on night), else its name in type. */
-	function mark(parent: Element): Rising {
-		const box = { width: 1100, height: 360, area: 300000 };
-		if (t.logo?.url) {
-			const holder = div('pm-logo', parent);
-			const got = logoImage(holder, assets, t.logo, '#050505', box);
-			if (got) {
-				css(holder, { width: `${got.w + 24}px`, height: `${got.h + 24}px` });
-				return { el: holder, parts: [got.el], from: `${got.h + 16}px`, h: got.h, w: got.w };
-			}
-			holder.remove();
-		}
-		return titleMark(parent, { ...t, logo: undefined }, assets, '#050505', box, 'pm-display1', {
-			width: 1640,
-			min: 104,
-			lines: 3,
-			height: 560
-		});
-	}
-
 	/** The hit: the title over the hero scene's grade, its logo big, a red rule, the meta line. */
 	function titleMoment(a: number, b: number, takes: Take[]) {
 		takes.forEach((k, i) => takeOf(k, { dissolve: i && cinematic ? 0.5 : 0, push: [1.04, 1.1] }));
 		const dim = shade(
 			grades,
-			`radial-gradient(1500px 640px at 960px 540px, rgb(${NIGHT} / 0.3), rgb(${NIGHT} / 0) 72%), rgb(${NIGHT} / ${grit ? 0.55 : bright ? 0.35 : 0.4})`
+			`radial-gradient(1500px 640px at 960px 540px, rgb(${NIGHT} / 0.3), rgb(${NIGHT} / 0) 72%), rgb(${NIGHT} / ${grit ? 0.62 : 0.5})`
 		);
 		tl.show(dim, edge(a), edge(b));
 		const box = centred(text);
@@ -344,8 +323,19 @@ function buildTrailer(
 			flexDirection: 'column',
 			alignItems: 'center'
 		});
-		const logo = mark(group);
-		const bar = css(div('pm-rule', group), { width: '96px', marginTop: t.logo ? '40px' : '34px' });
+		const logo = titleMark(
+			group,
+			t,
+			assets,
+			BRAND.night,
+			{ width: 1100, height: 360, area: 300000 },
+			'pm-display1',
+			{ width: 1640, min: 104, lines: 3, height: 560 }
+		);
+		const bar = css(div('pm-rule', group), {
+			width: '96px',
+			marginTop: logo.logo ? '40px' : '34px'
+		});
 		const meta = css(metaLine(group, t), { marginTop: '26px' });
 		// grit cuts it in whole on the hit, rule and all
 		if (grit) return;

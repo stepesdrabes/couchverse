@@ -209,6 +209,36 @@ test("a trailer's cards are its taglines, never its genre or year", async ({ pag
 	expect(await cards('trailer-grit')).toBe(2);
 });
 
+// The trailer's title is graded as the promo's: its meta line over a bright cartoon frame was
+// barely legible under the 0.35 to 0.55 the trailer used against the promo's 0.5 and 0.62.
+test("the trailer's title is graded like the promo's", async ({ page }) => {
+	const grade = async (name: FixtureName) => {
+		const info = await load(page, FIXTURES[name]);
+		await seek(page, (info.cues.find((c) => c.name === 'the title')?.at ?? NaN) + 1.5);
+		return page.evaluate(() => {
+			const root = document.getElementById('stage')?.shadowRoot;
+			for (const e of root?.querySelectorAll<HTMLElement>('.pm-fill') ?? []) {
+				const look = e.style.background;
+				if (
+					!look.includes('radial-gradient(1500px 640px') ||
+					getComputedStyle(e).visibility === 'hidden'
+				)
+					continue;
+				const alpha = /rgba?\(5, 5, 5(?:, |\/ )([0-9.]+)\)\s*$/.exec(look);
+				if (alpha) return Number(alpha[1]);
+			}
+			return null;
+		});
+	};
+	for (const [promo, trailer, alpha] of [
+		['promo-cinematic', 'trailer-cinematic', 0.5],
+		['promo-grit-premiere', 'trailer-grit', 0.62]
+	] as const) {
+		expect(await grade(promo), promo).toBe(alpha);
+		expect(await grade(trailer), trailer).toBe(alpha);
+	}
+});
+
 test('the standby loop ends on its first frame', async ({ page }) => {
 	const info = await load(page, FIXTURES.standby);
 	await seek(page, 0);
