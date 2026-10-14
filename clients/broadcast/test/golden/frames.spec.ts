@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { COUCH, LOGO, LOGO_GAP, POPCORN, SILHOUETTE } from '../../src/brand/glyph';
 import { PARTS } from '../../src/brand/wordmark';
-import type { ClipSpec, PromoSpec, SqueezeSpec, UpNextSpec } from '../../src/spec';
+import type { ClipSpec, PromoSpec, SqueezeSpec, TrailerSpec, UpNextSpec } from '../../src/spec';
 import { FIXTURES, TITLES, type FixtureName } from '../fixtures/specs';
 import { load, openRender, pageErrors, seek } from './render';
 
@@ -68,7 +68,16 @@ const GOLDEN: [FixtureName, number[], ('picture' | 'matte')?][] = [
 	// headlines; a lone story
 	['weather-long', [4, 8, 15, 20, 36]],
 	['news-long', [14, 48]],
-	['news-one', [20, 50]]
+	['news-one', [20, 50]],
+	// trailers: the cold open, the channel, a card, the montage, the title, the button, the end card
+	['trailer-cinematic', [1.2, 5.8, 10, 26.2, 55, 60.4, 62, 67, 69.4, 72.6]],
+	['trailer-grit', [2.5, 5.5, 25.4, 54, 59.5, 63, 68.3]],
+	// bright's red field and a premiere card; a name in type, no logo
+	['trailer-bright-premiere', [26, 53.4, 58, 64.4, 74]],
+	// the house alone, its words as cards
+	['trailer-house', [49.5, 60, 70]],
+	// the longest name and taglines
+	['trailer-long', [19.8, 35.2, 54.5, 66]]
 ];
 
 test.beforeEach(async ({ page }) => openRender(page));
@@ -413,4 +422,40 @@ test("the lockup's letters are the bundled face's own outlines", async ({ page }
 	);
 	expect(out.ink).toBeGreaterThan(50000);
 	expect(out.off / out.ink).toBeLessThan(0.005);
+});
+
+test('a trailer body does not depend on the airing', async ({ page }) => {
+	for (const name of ['trailer-cinematic', 'trailer-grit', 'trailer-bright-premiere'] as const) {
+		const base = FIXTURES[name] as TrailerSpec;
+		const shots: Buffer[] = [];
+		for (const airing of [
+			base.airing,
+			{ eyebrow: 'Every Saturday', day: 'Saturday', time: '23:45' }
+		]) {
+			const info = await load(page, { ...base, part: 'body', airing } satisfies ClipSpec);
+			await seek(page, info.duration - 0.04);
+			shots.push(await page.screenshot());
+		}
+		expect(shots[0].equals(shots[1]), name).toBe(true);
+	}
+});
+
+test("the trailer's end card follows the body on the next frame", async ({ page }) => {
+	for (const name of ['trailer-cinematic', 'trailer-grit'] as const) {
+		const base = FIXTURES[name] as TrailerSpec;
+		const full = await load(page, { ...base, part: 'full' });
+		const body = await load(page, { ...base, part: 'body' });
+		const end = await load(page, { ...base, part: 'end' });
+		expect(body.duration + end.duration).toBeCloseTo(full.duration, 6);
+		expect(end.duration).toBeCloseTo(4, 6);
+		// a body is 60 to 90 s whatever it is made of, and its sound runs on through the end card
+		expect(body.duration).toBeGreaterThanOrEqual(60);
+		expect(body.duration).toBeLessThanOrEqual(90);
+		expect(body.soundDuration).toBeCloseTo(full.duration, 6);
+		await seek(page, 0);
+		const endFirst = await page.screenshot();
+		await load(page, { ...base, part: 'full' });
+		await seek(page, body.duration);
+		expect((await page.screenshot()).equals(endFirst), name).toBe(true);
+	}
 });

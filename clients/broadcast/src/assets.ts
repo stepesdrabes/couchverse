@@ -108,7 +108,10 @@ function loadBuffer(url: string): Promise<AudioBuffer> {
 	return p;
 }
 
-/** Every image and bed URL a spec refers to (footage frames load per frame instead). */
+/**
+ * Every image and bed URL a spec refers to (footage frames load per frame instead). A trailer's
+ * scenes carry their own sound in a `sound` bed, loaded like the soundtrack.
+ */
 export function collectUrls(spec: unknown): { images: string[]; beds: string[] } {
 	const images = new Set<string>();
 	const beds = new Set<string>();
@@ -123,7 +126,7 @@ export function collectUrls(spec: unknown): { images: string[]; beds: string[] }
 			return;
 		}
 		const o = v as Record<string, unknown>;
-		if (key === 'bed' && typeof o.url === 'string') beds.add(o.url);
+		if ((key === 'bed' || key === 'sound') && typeof o.url === 'string') beds.add(o.url);
 		if (key === 'logo' && typeof o.url === 'string' && o.url) images.add(o.url);
 		// accents are colours keyed like the images they come from
 		if (key !== 'accents') for (const [k, x] of Object.entries(o)) walk(x, k);

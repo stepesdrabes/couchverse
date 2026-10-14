@@ -49,8 +49,8 @@ function biquad(x: Float32Array, { b, a }: Coeffs): Float32Array {
 	return y;
 }
 
-/** Integrated loudness in LUFS; -Infinity for silence. */
-export function integratedLoudness(channels: Float32Array[], rate: number): number {
+/** The K-weighted power of every 400 ms block, a block every 100 ms. */
+function blockPowers(channels: Float32Array[], rate: number): number[] {
 	const [shelf, hp] = kWeighting(rate);
 	const weighted = channels.map((c) => biquad(biquad(c, shelf), hp));
 	const block = Math.round(rate * 0.4);
@@ -66,6 +66,18 @@ export function integratedLoudness(channels: Float32Array[], rate: number): numb
 		}
 		powers.push(p);
 	}
+	return powers;
+}
+
+/** The loudest 400 ms block in LUFS (the momentary loudness' peak); -Infinity for silence. */
+export function momentaryPeak(channels: Float32Array[], rate: number): number {
+	const powers = blockPowers(channels, rate);
+	return powers.length ? -0.691 + 10 * Math.log10(Math.max(...powers, 1e-30)) : -Infinity;
+}
+
+/** Integrated loudness in LUFS; -Infinity for silence. */
+export function integratedLoudness(channels: Float32Array[], rate: number): number {
+	const powers = blockPowers(channels, rate);
 	const lufs = (p: number) => -0.691 + 10 * Math.log10(p);
 	const abs = powers.filter((p) => lufs(p) > -70);
 	if (!abs.length) return -Infinity;

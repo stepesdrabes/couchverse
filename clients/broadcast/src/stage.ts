@@ -8,6 +8,7 @@ import { colors, radius } from './generated/tokens';
 import stageCss from './styles/broadcast.css?inline';
 import bulletinCss from './styles/bulletins.css?inline';
 import promoCss from './styles/promo.css?inline';
+import trailerCss from './styles/trailer.css?inline';
 
 export type Layer = 'picture' | 'matte';
 
@@ -51,7 +52,7 @@ export class Stage {
 		this.root = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
 		this.root.replaceChildren();
 		const style = document.createElement('style');
-		style.textContent = `:host { display: block; position: relative; overflow: hidden; background: #000; }\n${stageCss}\n${bulletinCss}\n${promoCss}\n${brandCss}`;
+		style.textContent = `:host { display: block; position: relative; overflow: hidden; background: #000; }\n${stageCss}\n${bulletinCss}\n${promoCss}\n${trailerCss}\n${brandCss}`;
 		this.root.appendChild(style);
 		this.el = document.createElement('div');
 		this.el.className = 'stage';

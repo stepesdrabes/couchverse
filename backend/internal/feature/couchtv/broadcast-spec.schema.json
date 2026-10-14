@@ -32,6 +32,9 @@
 					"$ref": "#/definitions/EvergreenEndSpec"
 				},
 				{
+					"$ref": "#/definitions/TrailerSpec"
+				},
+				{
 					"$ref": "#/definitions/StripPromoSpec"
 				},
 				{
@@ -600,6 +603,121 @@
 			],
 			"additionalProperties": false,
 			"description": "The evergreen end card (\"Coming up on Couch TV\") after a promo body, for fallback breaks."
+		},
+		"TrailerSpec": {
+			"type": "object",
+			"properties": {
+				"loudness": {
+					"type": "number",
+					"description": "Integrated loudness (ITU-R BS.1770) the audio render is normalized to, in LUFS; the true peak stays at or under -1 dBTP even when that leaves it quieter.",
+					"minimum": -31,
+					"maximum": -10,
+					"default": -18
+				},
+				"mood": {
+					"type": "string",
+					"enum": [
+						"cinematic",
+						"grit",
+						"bright"
+					],
+					"description": "The title's promo mood, which sets the trailer's look and pace."
+				},
+				"premiere": {
+					"type": "boolean",
+					"description": "The premiere variant (D24): a premiere card in the body, `Premiere` on the end card."
+				},
+				"title": {
+					"$ref": "#/definitions/Title",
+					"description": "The title; its footage shots cut the trailer's montages."
+				},
+				"scenes": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/TrailerScene"
+					},
+					"description": "The scenes in story order, from the first half of the title (or of its first episodes), 3 to 8 s each and about 40 to 60 s together.",
+					"minItems": 3,
+					"maxItems": 12
+				},
+				"words": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Kinetic words for its cards; timeless only (a genre, the year). Defaults from the title."
+				},
+				"bed": {
+					"$ref": "#/definitions/Bed",
+					"description": "The title's own soundtrack, under the scenes (ducked under their lines) and the title."
+				},
+				"template": {
+					"type": "string",
+					"const": "trailer"
+				},
+				"part": {
+					"type": "string",
+					"enum": [
+						"body",
+						"end",
+						"full"
+					]
+				},
+				"airing": {
+					"$ref": "#/definitions/Airing",
+					"description": "The end card's airing (the body ignores it); absent, the end card is the evergreen one."
+				}
+			},
+			"required": [
+				"mood",
+				"part",
+				"scenes",
+				"template",
+				"title"
+			],
+			"additionalProperties": false,
+			"description": "The long promo (60 to 90 s, D43): a trailer cut from the title's own scenes with their sound, then the promo's 4 s end card with the airing. Like a promo, its body is timeless (rendered once per title) and the break's audio renders `full`, so its music runs across the cut."
+		},
+		"TrailerScene": {
+			"type": "object",
+			"properties": {
+				"frames": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Its frames, 25 fps JPEG URLs from the scene's first frame on (as a FootageShot's).",
+					"minItems": 25,
+					"maxItems": 250
+				},
+				"focus": {
+					"$ref": "#/definitions/Crop",
+					"description": "The part of the frame to keep in view when it is cropped (default: all of it)."
+				},
+				"sound": {
+					"$ref": "#/definitions/Bed",
+					"description": "Its own sound for exactly its frames (dialogue, effects, the score under them), from the title's original-language track where it has one: `in` 0, `out` the scene's length."
+				},
+				"lines": {
+					"type": "array",
+					"items": {
+						"type": "array",
+						"items": {
+							"type": "number"
+						},
+						"minItems": 2,
+						"maxItems": 2
+					},
+					"description": "When its lines are spoken, `[from, to]` seconds into the scene, in order and inside it: the trailer never cuts into a line or lays a card over one, and its music dips under them. Empty when nobody speaks."
+				}
+			},
+			"required": [
+				"frames",
+				"sound",
+				"lines"
+			],
+			"additionalProperties": false,
+			"description": "One scene of a trailer: a stretch of the title itself, picture and sound, cut where its lines begin and end, so every line plays whole."
 		},
 		"StripPromoSpec": {
 			"type": "object",

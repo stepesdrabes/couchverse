@@ -80,3 +80,22 @@ blocklogo night 1100x300 \
 blocklogo rose 1100x300 \
 	x=0:y=0:w=300:h=300:color=0xffaaaa@1 x=380:y=60:w=300:h=240:color=0xffaaaa@1 \
 	x=760:y=0:w=340:h=300:color=0xffaaaa@1 x=860:y=90:w=140:h=120:color=0x00000000@0
+
+# the trailers' scenes' own sound, stand-ins for a film's: speech-like noise (band-limited, in
+# syllable bursts) over a low room tone for the lines (seconds), an impact over a rumble for the
+# scene with none. scene <name> <seconds> <line from:to>...
+scene() {
+	local name=$1 len=$2 gate=""
+	shift 2
+	for l in "$@"; do gate+="${gate:+ + }between(t,${l%:*},${l#*:})"; done
+	ff -f lavfi -i "anoisesrc=d=$len:c=pink:r=48000:a=0.6:s=11,highpass=f=280,lowpass=f=3200,tremolo=f=4.5:d=0.85,volume='0.9*(${gate:-0})':eval=frame" \
+		-f lavfi -i "anoisesrc=d=$len:c=brown:r=48000:a=0.25:s=12,lowpass=f=400,volume=0.3" \
+		-filter_complex "amix=inputs=2:normalize=0" -ac 1 -ar 24000 -c:a flac "scene-$name.flac"
+}
+scene a 6 0.6:2.4 3.2:5.0
+scene b 4.5 0.5:3.1
+scene d 3.4 0.4:1.9
+scene e 7 0.5:2.2 3.0:4.2 4.9:6.4
+ff -f lavfi -i "anoisesrc=d=5:c=white:r=48000:a=0.8:s=13,lowpass=f=2400,volume='exp(-5*max(t-0.4,0))*gte(t,0.4)':eval=frame" \
+	-f lavfi -i "anoisesrc=d=5:c=brown:r=48000:a=0.5:s=14,lowpass=f=200,volume='0.6*exp(-1.2*max(t-0.4,0))':eval=frame" \
+	-filter_complex "amix=inputs=2:normalize=0" -ac 1 -ar 24000 -c:a flac scene-c.flac

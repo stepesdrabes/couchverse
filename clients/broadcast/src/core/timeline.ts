@@ -188,12 +188,23 @@ export class Timeline {
 		this.dynamic(value, (v) => (target.textContent = String(v)));
 	}
 
-	/** Footage: the frame for t of a 25 fps sequence that starts at `at` (held at its ends). */
-	footage(img: HTMLImageElement, frames: string[], at: number) {
+	/**
+	 * Footage: the frame for t of a 25 fps sequence that starts at `at` (held at its ends). With a
+	 * `window` the image holds a frame only within it (a take and a moment around it) and none
+	 * outside: a long piece with dozens of takes would otherwise decode every one of them on
+	 * every frame it renders.
+	 */
+	footage(img: HTMLImageElement, frames: string[], at: number, window?: [number, number]) {
 		const index = (t: number) =>
-			Math.max(0, Math.min(frames.length - 1, Math.floor((t - at) * FPS + 1e-6)));
+			window && (t < window[0] || t > window[1])
+				? -1
+				: Math.max(0, Math.min(frames.length - 1, Math.floor((t - at) * FPS + 1e-6)));
 		this.dynamic(index, (v, wait) => {
 			const i = Number(v);
+			if (i < 0) {
+				img.removeAttribute('src');
+				return;
+			}
 			img.src = frames[i];
 			if (wait) wait.push(img.decode().catch(() => undefined));
 			else prefetch(frames, i + 1);

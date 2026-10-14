@@ -9,6 +9,7 @@ import { shortPromo } from './short';
 import { squeeze } from './squeeze';
 import { standby } from './standby';
 import { stripPromo } from './strip';
+import { trailer } from './trailer';
 import { upNext } from './upnext';
 import { weather } from './weather';
 
@@ -21,6 +22,7 @@ export const TEMPLATES: Registry = {
 	upNext,
 	promo,
 	evergreenEnd,
+	trailer,
 	stripPromo,
 	shortPromo,
 	lineup,

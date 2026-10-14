@@ -235,6 +235,65 @@ export interface EvergreenEndSpec extends PromoContent {
 	template: 'evergreenEnd';
 }
 
+/**
+ * One scene of a trailer: a stretch of the title itself, picture and sound, cut where its lines
+ * begin and end, so every line plays whole.
+ */
+export interface TrailerScene {
+	/**
+	 * Its frames, 25 fps JPEG URLs from the scene's first frame on (as a FootageShot's).
+	 * @minItems 25
+	 * @maxItems 250
+	 */
+	frames: string[];
+	/** The part of the frame to keep in view when it is cropped (default: all of it). */
+	focus?: Crop;
+	/**
+	 * Its own sound for exactly its frames (dialogue, effects, the score under them), from the
+	 * title's original-language track where it has one: `in` 0, `out` the scene's length.
+	 */
+	sound: Bed;
+	/**
+	 * When its lines are spoken, `[from, to]` seconds into the scene, in order and inside it: the
+	 * trailer never cuts into a line or lays a card over one, and its music dips under them. Empty
+	 * when nobody speaks.
+	 */
+	lines: [number, number][];
+}
+
+/** What a trailer is made of: the title's own scenes, in story order. */
+export interface TrailerContent extends Loudness {
+	/** The title's promo mood, which sets the trailer's look and pace. */
+	mood: 'cinematic' | 'grit' | 'bright';
+	/** The premiere variant (D24): a premiere card in the body, `Premiere` on the end card. */
+	premiere?: boolean;
+	/** The title; its footage shots cut the trailer's montages. */
+	title: Title;
+	/**
+	 * The scenes in story order, from the first half of the title (or of its first episodes), 3 to
+	 * 8 s each and about 40 to 60 s together.
+	 * @minItems 3
+	 * @maxItems 12
+	 */
+	scenes: TrailerScene[];
+	/** Kinetic words for its cards; timeless only (a genre, the year). Defaults from the title. */
+	words?: string[];
+	/** The title's own soundtrack, under the scenes (ducked under their lines) and the title. */
+	bed?: Bed;
+}
+
+/**
+ * The long promo (60 to 90 s, D43): a trailer cut from the title's own scenes with their sound,
+ * then the promo's 4 s end card with the airing. Like a promo, its body is timeless (rendered once
+ * per title) and the break's audio renders `full`, so its music runs across the cut.
+ */
+export interface TrailerSpec extends TrailerContent {
+	template: 'trailer';
+	part: 'body' | 'end' | 'full';
+	/** The end card's airing (the body ignores it); absent, the end card is the evergreen one. */
+	airing?: Airing;
+}
+
 export type StripFoot =
 	| {
 			kind: 'count';
@@ -578,6 +637,7 @@ export type ClipSpec =
 	| UpNextSpec
 	| PromoSpec
 	| EvergreenEndSpec
+	| TrailerSpec
 	| StripPromoSpec
 	| ShortPromoSpec
 	| LineupSpec

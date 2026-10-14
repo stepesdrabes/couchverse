@@ -1,0 +1,22 @@
+/* The trailer (templates/trailer.ts), on the promo's sharp, flat look (promo.css): night, paper
+   and the brand's red as fields and rules, right angles only, every moving part by transform or
+   opacity alone. What a trailer adds are its cards' type and the channel's moment. */
+
+/* a tagline card: quiet and large, as a trailer sets its lines */
+.tr-line {
+	font-size: 112px;
+	font-weight: 800;
+	letter-spacing: -0.03em;
+	line-height: 1.04;
+	white-space: nowrap;
+}
+
+/* the row lockup rises out of a mask of its own: the padding keeps its edges inside the clip */
+.tr-mask {
+	overflow: hidden;
+	padding: 12px 24px;
+	margin: -12px -24px;
+}
+.tr-lockup {
+	display: block;
+}

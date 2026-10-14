@@ -77,6 +77,14 @@ describe('collectUrls', () => {
 		expect(collectUrls(FIXTURES['ident-journey'])).toEqual({ images: [], beds: [] });
 	});
 
+	it("loads a trailer's scenes' own sounds like its bed, their frames one by one", () => {
+		const { images, beds } = collectUrls(FIXTURES['trailer-cinematic']);
+		expect(beds).toContain('/test/media/bed.ogg');
+		for (const name of ['a', 'b', 'c', 'd', 'e'])
+			expect(beds).toContain(`/test/media/scene-${name}.flac`);
+		expect(images.some((u) => u.includes('shot-'))).toBe(false);
+	});
+
 	it('loads a title logo with the artwork, footage frame by frame', () => {
 		const title = {
 			name: 'Logo',

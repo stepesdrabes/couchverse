@@ -9,6 +9,7 @@ import type {
 	Logo,
 	Shot,
 	Title,
+	TrailerScene,
 	WeatherCity,
 	WeatherDay,
 	WeatherWarning
@@ -361,6 +362,55 @@ const shown = (t: Title, logo?: Logo): Title => ({
 	footage: STRIP_SCENES
 });
 
+// a trailer's scenes: the stand-in second played forwards and back until it fills the scene, the
+// scene's sound (test/media/scene-*.flac: speech-like bursts at the lines' times, one with none)
+const sceneFrames = (dir: string, seconds: number) => {
+	const loop = [...frames(dir), ...frames(dir).reverse()];
+	return Array.from({ length: Math.round(seconds * 25) }, (_, i) => loop[i % loop.length]);
+};
+const TRAILER_SCENE = (
+	name: string,
+	dir: string,
+	seconds: number,
+	lines: [number, number][],
+	focus?: [number, number, number, number]
+): TrailerScene => ({
+	frames: sceneFrames(dir, seconds),
+	...(focus ? { focus } : {}),
+	sound: { url: `${M}/scene-${name}.flac`, in: 0, out: seconds },
+	lines
+});
+// the cold open, talking scenes, an effects scene without a line, a longer one with three, and
+// a short last one for the button: about 50 s, what a title's scenes come to
+const TRAILER_SCENES: TrailerScene[] = [
+	TRAILER_SCENE('b', 'shot-b', 4.5, [[0.5, 3.1]]),
+	TRAILER_SCENE('a', 'shot-a', 6, [
+		[0.6, 2.4],
+		[3.2, 5.0]
+	]),
+	TRAILER_SCENE('c', 'shot-b', 5, [], [0.5, 0.2, 0.5, 0.6]),
+	TRAILER_SCENE('e', 'shot-a', 7, [
+		[0.5, 2.2],
+		[3.0, 4.2],
+		[4.9, 6.4]
+	]),
+	TRAILER_SCENE('b', 'shot-a', 4.5, [[0.5, 3.1]]),
+	TRAILER_SCENE('a', 'shot-b', 6, [
+		[0.6, 2.4],
+		[3.2, 5.0]
+	]),
+	TRAILER_SCENE('e', 'shot-b', 7, [
+		[0.5, 2.2],
+		[3.0, 4.2],
+		[4.9, 6.4]
+	]),
+	TRAILER_SCENE('a', 'shot-a', 6, [
+		[0.6, 2.4],
+		[3.2, 5.0]
+	]),
+	TRAILER_SCENE('d', 'shot-b', 3.4, [[0.4, 1.9]])
+];
+
 export const FIXTURES = {
 	'ident-journey': { template: 'ident', cut: 'full', design: 'journey' },
 	'ident-cinematic': { template: 'ident', cut: 'full', design: 'cinematic' },
@@ -437,6 +487,56 @@ export const FIXTURES = {
 		mood: 'cinematic',
 		title: PROMO.night,
 		shots: SHOTS,
+		bed: bed()
+	},
+	// the long promo: cinematic over a bed, its end card on the airing
+	'trailer-cinematic': {
+		template: 'trailer',
+		part: 'full',
+		mood: 'cinematic',
+		title: PROMO.night,
+		scenes: TRAILER_SCENES,
+		airing: { eyebrow: 'Tonight', time: '20:15' },
+		bed: bed()
+	},
+	// grit, letterboxed, cut on the half beats
+	'trailer-grit': {
+		template: 'trailer',
+		part: 'full',
+		mood: 'grit',
+		title: PROMO.alley,
+		scenes: TRAILER_SCENES,
+		airing: { eyebrow: 'Tomorrow', time: '21:00' },
+		bed: bed()
+	},
+	// bright, a premiere: the red field, a name in type (no logo)
+	'trailer-bright-premiere': {
+		template: 'trailer',
+		part: 'full',
+		mood: 'bright',
+		premiere: true,
+		title: PROMO.sunny,
+		scenes: TRAILER_SCENES,
+		airing: { eyebrow: 'Premiere', day: 'Saturday', time: '20:15' },
+		bed: bed()
+	},
+	// no bed: the house plays all of it; no taglines, so the cards are its words
+	'trailer-house': {
+		template: 'trailer',
+		part: 'full',
+		mood: 'cinematic',
+		title: { ...TITLES.water, footage: PROMO_SCENES },
+		scenes: TRAILER_SCENES,
+		airing: { eyebrow: 'Tonight', time: '22:30' }
+	},
+	// the longest name and taglines, no logo
+	'trailer-long': {
+		template: 'trailer',
+		part: 'full',
+		mood: 'cinematic',
+		title: { ...LONG.hallows, footage: PROMO_SCENES },
+		scenes: TRAILER_SCENES.slice(0, 6),
+		airing: { eyebrow: 'This week', day: 'Wednesday', time: '20:15' },
 		bed: bed()
 	},
 	'strip-bright': {

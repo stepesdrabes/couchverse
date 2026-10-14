@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { integratedLoudness, normalize, truePeak } from '../../src/audio/loudness';
-import type { ClipSpec, PromoSpec, Spec } from '../../src/spec';
+import type { ClipSpec, PromoSpec, Spec, TrailerSpec } from '../../src/spec';
 import { BREAK, FIXTURES } from '../fixtures/specs';
 import { load, openRender, pageErrors, renderTwice, sound } from './render';
 
@@ -240,4 +240,82 @@ test('the standby loop has no seam', async ({ page }) => {
 	const out = await renderTwice(page);
 	expect(out.maxDiff).toBeLessThan(INAUDIBLE);
 	expect(out.seam).toBeLessThan(out.meanStep * 4);
+});
+
+// the biggest step between two samples of either channel in [from, to)
+const step = (ch: Float32Array[], from: number, to: number) => {
+	let max = 0;
+	for (const c of ch)
+		for (let i = Math.max(1, from); i < Math.min(c.length, to); i++)
+			max = Math.max(max, Math.abs(c[i] - c[i - 1]));
+	return max;
+};
+
+test('a trailer sounds the same twice, at its loudness, with clean cuts and a quiet end', async ({
+	page
+}) => {
+	// two long renders of each
+	test.slow();
+	for (const name of ['trailer-cinematic', 'trailer-house'] as const) {
+		const info = await load(page, FIXTURES[name]);
+		const own = await sound(page, 'renderAudio');
+		const report = await page.evaluate(() => window.couchtvRender.audioReport());
+		const again = await sound(page, 'renderAudio');
+		expect(own[0].length, name).toBe(Math.round(info.duration * RATE));
+		let diff = 0;
+		for (let c = 0; c < 2; c++)
+			for (let i = 0; i < own[c].length; i++)
+				diff = Math.max(diff, Math.abs(own[c][i] - again[c][i]));
+		expect(diff, name).toBeLessThan(INAUDIBLE);
+		expect(report?.integrated, name).toBeCloseTo(-18, 0);
+		expect(report?.truePeak, name).toBeLessThanOrEqual(-1 + 1e-6);
+		// no click where one scene's sound meets the next: the step at a cut is what the sound
+		// around it does, not more than a few times that
+		const ms3 = Math.round(0.003 * RATE);
+		for (const cue of info.cues.filter((c) =>
+			['scene', 'the cold open', 'the button'].includes(c.name)
+		)) {
+			const at = Math.round(cue.at * RATE);
+			const around: number[] = [];
+			for (let k = -50; k < 50; k++)
+				if (k < -1 || k > 0) around.push(step(own, at + k * ms3, at + (k + 1) * ms3));
+			around.sort((a, b) => a - b);
+			const typical = around[Math.floor(around.length / 2)];
+			expect(step(own, at - ms3, at + ms3), `${name} cut at ${cue.at}`).toBeLessThanOrEqual(
+				4 * typical + 0.002
+			);
+		}
+		// it opens from silence, and rings out: the last 100 ms is well under the body
+		const frames = own[0].length;
+		expect(Math.abs(own[0][0]) + Math.abs(own[1][0]), name).toBeLessThan(1e-3);
+		const body = level(own, 5 * RATE, frames - 5 * RATE);
+		expect(body - level(own, frames - RATE / 10, frames), name).toBeGreaterThan(12);
+	}
+});
+
+test('a trailer sounds the same whatever airing its end card shows', async ({ page }) => {
+	test.slow();
+	const base = FIXTURES['trailer-grit'] as TrailerSpec;
+	const renders: Float32Array[][] = [];
+	for (const spec of [
+		{ ...base, part: 'body' },
+		{ ...base, part: 'full' },
+		{
+			...base,
+			part: 'full',
+			airing: { eyebrow: 'Every Saturday', day: 'Saturday', time: '23:45' }
+		}
+	] satisfies ClipSpec[]) {
+		await load(page, spec, { sound: true });
+		renders.push(await sound(page, 'renderItemAudio'));
+	}
+	// the body's sound in a break is its full trailer's, whenever that airs
+	for (const r of renders.slice(1)) {
+		expect(r[0].length).toBe(renders[0][0].length);
+		let diff = 0;
+		for (let c = 0; c < 2; c++)
+			for (let i = 0; i < r[c].length; i++)
+				diff = Math.max(diff, Math.abs(r[c][i] - renders[0][c][i]));
+		expect(diff).toBeLessThan(INAUDIBLE);
+	}
 });

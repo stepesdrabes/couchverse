@@ -16,6 +16,30 @@ function fakeElement() {
 }
 
 describe('Timeline', () => {
+	it('holds a footage image only within its window', async () => {
+		const img = { src: '', decode: () => Promise.resolve() } as unknown as HTMLImageElement & {
+			removeAttribute: (name: string) => void;
+		};
+		img.removeAttribute = () => (img.src = '');
+		const tl = new Timeline({} as HTMLElement, 10);
+		tl.footage(img, ['a', 'b', 'c', 'd'], 2, [1.5, 3]);
+		const shows = async (t: number) => {
+			await tl.seek(t);
+			return img.src;
+		};
+		// none before its window, the first frame held until it starts, then frame by frame
+		expect(await shows(0.5)).toBe('');
+		expect(await shows(1.6)).toBe('a');
+		expect(await shows(2.0)).toBe('a');
+		expect(await shows(2.04)).toBe('b');
+		expect(await shows(2.5)).toBe('d');
+		expect(await shows(3.2)).toBe('');
+		// out of its window nothing changes between two frames
+		expect(tl.changes(0.1, 0.2)).toBe(false);
+		expect(tl.changes(3.2, 3.4)).toBe(false);
+		expect(tl.changes(1.4, 1.6)).toBe(true);
+	});
+
 	it('sees motion only where an animation is active', () => {
 		const root = {} as HTMLElement;
 		const tl = new Timeline(root, 10);

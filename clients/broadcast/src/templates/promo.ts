@@ -65,7 +65,7 @@ type Section =
 	| { kind: 'card'; at: number; word: string }
 	| { kind: 'low'; at: number; line: number }
 	| { kind: 'slab'; at: number; line: number; snap?: false }
-	| { kind: 'end'; at: number };
+	| { kind: 'end'; at: number; snap?: false };
 
 interface MoodSpec {
 	/** Seconds between the cuts of a run (a beat; half a beat in grit), the bed's beats if any. */
@@ -213,7 +213,7 @@ export const evergreenEnd: Template<EvergreenEndSpec> = {
 	}
 };
 
-function defaultWords(c: PromoContent): string[] {
+function defaultWords(c: Pick<PromoContent, 'words' | 'title'>): string[] {
 	if (c.words?.length) return c.words;
 	return [c.title.genres[0], c.title.year ? String(c.title.year) : undefined].filter(
 		(x): x is string => !!x
@@ -373,8 +373,17 @@ function plate(parent: Element, v: View) {
 
 type CueFn = (at: number, fn: (h: House, w: number) => void, dur?: number) => void;
 
-/** The whole promo (body and end card); `airing` null is the evergreen end card. */
-function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Airing | null): TL {
+/**
+ * The whole promo (body and end card); `airing` null is the evergreen end card. `joined` builds
+ * the end card alone, at `at` on a longer piece's own timeline (a trailer's), which scores
+ * itself.
+ */
+export function buildPromo(
+	{ root, sound, assets }: Ctx,
+	spec: PromoContent,
+	airing: Airing | null,
+	joined?: { tl: TL; at: number }
+): TL {
 	const t = spec.title;
 	const mood = spec.mood;
 	const P = MOODS[mood];
@@ -391,7 +400,9 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 	const ground: 'red' | 'paper' | null =
 		onField === null ? 'paper' : ((['red', 'paper'] as const)[onField] ?? null);
 
-	const nominal = P.sequence(!!spec.premiere, defaultWords(spec));
+	const nominal: Section[] = joined
+		? [{ kind: 'end', at: joined.at, snap: false }]
+		: P.sequence(!!spec.premiere, defaultWords(spec));
 	const seq = nominal.map((s) => ({
 		...s,
 		at: 'snap' in s && s.snap === false ? s.at : snap(s.at, 0.7, 0.5)
@@ -404,7 +415,7 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 	seq.forEach((s, i) => (s.end = i + 1 < seq.length ? seq[i + 1].at : D));
 	const titleAt = seq.find((s) => s.kind === 'title')?.at ?? B;
 
-	const tl = timeline(root, D);
+	const tl = joined?.tl ?? timeline(root, D);
 	tl.parts = { body: [0, B], end: [B, D], full: [0, D] };
 	root.classList.add('pm', `pm-${mood}`);
 
@@ -1054,7 +1065,7 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 		const out = div('pm-fill pm-night', root);
 		tl.add(out, [{ opacity: 0 }, { opacity: 1 }], D - 0.32, 0.32, 'sine');
 
-		score(tagAt);
+		if (!joined) score(tagAt);
 	}
 
 	// --- sound ----------------------------------------------------------------------------------
@@ -1467,3 +1478,23 @@ function buildPromo({ root, sound, assets }: Ctx, spec: PromoContent, airing: Ai
 
 	return tl;
 }
+
+// what a longer piece cut over the promo's end card (the trailer) draws with
+export {
+	BAND,
+	BODY_AIRING,
+	FULL,
+	NIGHT,
+	W,
+	centred,
+	defaultWords,
+	fitted,
+	metaLine,
+	place,
+	rise,
+	shade,
+	sink,
+	titleMark,
+	type Rising,
+	type View
+};
