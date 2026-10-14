@@ -59,7 +59,7 @@ export const DEFAULT_OPTIONS: PreviewOptions = {
 	premiere: false,
 	part: 'full',
 	handover: 'expand',
-	stingLength: 3,
+	stingLength: 6,
 	airs: 'tonight',
 	time: '20:15',
 	day: 5,

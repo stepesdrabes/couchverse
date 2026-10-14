@@ -244,7 +244,7 @@
 			<div class="space-y-2">
 				<p class="text-xs font-medium text-muted">{m.admin_couchtv_length()}</p>
 				<Select
-					items={[2, 3, 5].map((s) => ({
+					items={[5, 6, 8, 10].map((s) => ({
 						value: String(s),
 						label: m.admin_couchtv_seconds({ seconds: s })
 					}))}
