@@ -1164,15 +1164,30 @@ server that does not send it). The admin settings page toggles it.
 - **The `couchtv_analyze` job** (`couchtv.Analyzer`, one slot, low priority, nice'd; plan 6.3):
   per title (published, not excluded), queued a few minutes after its markers change
   (`Analyzer.Queue`, the library hook), by the admin's analyze, and by a backfill at every
-  start for titles an older `AnalyzeVersion` (or none) measured. Once per version it
+  start for titles an older `AnalyzeVersion` (or none) measured, or whose shots an older
+  `ShotsVersion` picked (`couchtv_titles.shots_version`; that job is `shotsOnly`: it picks
+  the shots again and leaves the loudness and the promo audio, a pass over a whole film's
+  audio, alone). Once per version it
   measures the **loudness** (`loudness_lufs`: a movie's full ebur128 pass, a series' four
   episodes spread over it averaged by energy) and picks **shots** (3-6, 1-3 s in whole 25 fps
-  frames: keyframes over 5-50 % of the runtime at 160x90, the most contrasty usable one of
-  each stretch, 12 for a movie and 4 in each of three episodes spread over a series, no
+  frames: keyframes over 5-50 % of the runtime at 160x90, the best ranked usable one of
+  each stretch (its contrast less its picture's risk), 12 for a movie and 4 in each of three
+  episodes spread over a series, no
   near-black (95th luma percentile under 60), washed-out or flat frames; each decoded for
   3.2 s at 10 fps, the shot ending at the first cut, scored as scdet scores one (threshold
-  10), or near-black frame; scored 0.7 motion + 0.3 contrast; the best kept, two at most per
-  episode, in airing order). Every run picks the **promo audio** (D25): a series' intro from
+  10), or near-black frame; scored 0.7 motion + 0.3 contrast, times one less the picture's
+  risk; the best kept, two at most per episode, in airing order). The **picture risk**
+  (`pictureRisk`, `picture.go`, 0 safe to 1 avoid) reads the colour thumbnails the shots are
+  chosen from anyway (`media.FrameOptions` `Chroma` and `FullRange`: no extra decode) and
+  is the highest of: gore (dark, saturated red in or beside the biggest skin-toned blob when
+  that is a face or a hand at medium-close or closer, not when red is lighting or bigger
+  than the skin it is beside, as a dress is), a close-up (that blob filling 12-32 % of the
+  frame, compact, not spanning it: up to 0.7), a body (much skin: up to 0.6) and a frame a
+  third or more blood-red (up to 0.6); fire and sunsets count as none. A shot at 0.85 or
+  more never airs, a close-up airs after the wide and medium shots of its title. Colour
+  cannot tell skin from a pale warm wall, so it is tuned to miss rather than to flag: faces
+  in shadow and cartoon skin mostly read as safe, and the admin's ShotsEditor stays the
+  override. Every run picks the **promo audio** (D25): a series' intro from
   the season whose episodes most often share one (seasons with at least three first, then
   the bigger, then the longer), its median episode; a movie's `credits_music`, else its
   loudest steady stretch of 20 s or more; at most 40 s, the loudest 40 s of a longer one.
@@ -1296,7 +1311,7 @@ server that does not send it). The admin settings page toggles it.
 - Tables: `couchtv_airings` (programs and breaks, UTC; `fill`, `slot`, `source`, `locked`,
   `state` (`replaced`: an admin removed it), `credits_at_ms`, and once on air `feed` and
   `origin`), `couchtv_strips`,
-  `couchtv_titles` (`excluded`, promo audio, `shots` with `shots_source`, `mood`,
+  `couchtv_titles` (`excluded`, promo audio, `shots` with `shots_source` and `shots_version`, `mood`,
   `loudness_lufs`, `analyzed_version`/`analyzed_at`, the soundtrack pick `soundtrack_id` with
   `soundtrack_source`, its downloaded `soundtrack_path` and excerpt
   `soundtrack_start_ms`/`soundtrack_duration_ms`, `soundtrack_query`, `soundtrack_version`,

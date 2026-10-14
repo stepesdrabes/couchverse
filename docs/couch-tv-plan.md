@@ -420,7 +420,32 @@ one clip (at most ~2 minutes of work), so a transcode never waits long.
   share one (at least three before smaller ones), its median episode.
 - **Shots**: keyframes are the candidates (cheap on the Pi and on most cuts); cuts are scored
   as scdet scores them, computed on the same 160x90 frames rather than by the filter; a
-  series' shots come from three episodes spread over it (two each). No face detection.
+  series' shots come from three episodes spread over it (two each). No face detector, but
+  (wave 3, after the owner saw Pulp Fiction's overdose, a face filling the frame with blood
+  on it, on every screen that shows the title's scenes) a **picture check** on the same
+  thumbnails, now decoded with chroma: `pictureRisk` (`picture.go`, 0 safe to 1 avoid) reads
+  gore (dark saturated red in or beside the biggest skin-toned blob), a close-up (that blob
+  filling the frame: at most 0.7, never "avoid"), much skin and a frame mostly blood-red;
+  skin is a hue (2-24 degrees at 28-68 % saturation, so dark skin reads too and tan walls,
+  wood, pink and fire do not), fire and the sun's bright orange switch the skin readings
+  off, and red bigger than the skin it is beside is a dress, not a wound. A stretch's still
+  is the one with the most contrast less its risk, a candidate shot (checked every 0.5 s of
+  its length, not only its first frame) is scored times one less its risk, and one at 0.85
+  or more never airs, so wide and medium shots come before faces and gore is left out
+  (a title may end with fewer shots; with none the promos use artwork stills). It is tuned to
+  miss rather than to flag, because colour cannot tell skin from a pale warm wall: shadowed
+  faces and cartoon skin mostly read as safe. On the local Pulp Fiction, Iron Man 3, Dexter
+  and Futurama only the overdose shot changed (for a medium shot of a man at a window). The
+  picks have their own version (`ShotsVersion`, `couchtv_titles.shots_version`, migration
+  0034): production re-picks every title's shots at the next start through `shotsOnly`
+  jobs that leave the loudness and the promo audio alone, admin picks stay. The new picks
+  change each title's `Title.footage`, which is in the specs of every screen showing its
+  scenes, so their clip keys change and **those clips render again** (lazily, evergreen
+  first) for the titles whose picks changed, and for no other. The extra cost is chroma
+  conversion and the check, about 0.2 ms per usable keyframe and per sampled shot frame on
+  an M1 (the decode, not the check, is what costs: locally the user CPU of a film's pick
+  moved by less than the run to run noise, 9 s for Pulp Fiction and 16-18 s for Iron Man 3);
+  expect the Pi to stay near its decode cost, about 2 s of Go more per film.
 - **Loudness**: a movie gets a full ebur128 pass (it also feeds the promo fallback); a series
   four episodes spread over it, averaged by energy, stored per title (the break mix clamps
   it to -23..-16 LUFS anyway).
