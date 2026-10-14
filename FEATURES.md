@@ -916,6 +916,24 @@ server that does not send it). The admin settings page toggles it.
   -23..-16 LUFS, -18 when unmeasured (`couchtv_titles.loudness_lufs`). `ComposeEvergreen` is
   the fallback: the full ident (always journey, so the evergreen break is not composed again
   every day), up to three rendered promo bodies with the evergreen end card, the short ident.
+- **Trailers** (D43, `compose_trailer.go`): the long promo, cut from the title's own scenes with their
+  sound. `Candidate.Trailer` holds the title's scenes as spec values (`SpecScene`: frames from
+  `FramesURLs`, the scene's own `sound` as a bed from its audio file and stream, `lines` where closer
+  than 0.35 s joined) and `TrailerFrames` the length of its rendered body, 0 until rendered. `promos`
+  airs at most one, first among a break's promos: the best-ranked candidate whose trailer is
+  rendered, eligible (premiere, movie and saga, fill weight 2 or more; a strip or marathon only in a
+  break of 8 minutes or more), not the next program, not aired within four hours either side
+  (`BreakInput.RecentTrailers` from the breaks' `recipe.trailers`) and whose body and end card fit in
+  what is left plus what the flexible parts give back; the title is not promoted twice and the other
+  promos fill the rest. The body is `Part: "body"` (timeless, rendered once per title), the end card
+  `Part: "end"` with the airing and no sound of its own (`ClipTrailerBody`, `ClipTrailerEnd`), the
+  break's sound item the `full` spec like a promo body's, keyed with its fixed airing (`itemSpec`,
+  `soundSpec`; a render's frame check adds the end card as for a promo body). Slots' fallbacks never
+  carry one (`promoPieces` is unchanged). Without a published `trailer` template none is composed
+  or asked for; `requestTrailers` asks for the ones a break could use, best-ranked first, only while
+  fewer than three are waiting, rendering or rendered in the last 18 hours, and they render behind
+  every break like promo bodies (`tidyRenders`). A scene of a file that is gone or lost its source is
+  left out of the spec (`titleFacts`), and fewer than three scenes make no trailer.
 - **The `couchtv_compose` job** (`couchtv.Composer`, app): at startup, after every plan run and
   hourly, it composes every break of the next 24 hours that has no composition (a failed one
   again after 6 h), and keeps the standby card and an evergreen break of the current
@@ -937,7 +955,10 @@ server that does not send it). The admin settings page toggles it.
   `make contract`) and use English names and taglines (D13). Media in specs are localhost URLs
   that say what they are cut from (`/media/v1/artwork/<id>?v=<version>[&size=...]`,
   `/media/v1/frames/<file>/<start ms>_<count>/<n>.jpg`, `/media/v1/audio/<file>/<start
-  ms>_<length ms>.flac`, `/media/v1/soundtrack/<catalog>/<track id>/<start ms>_<length
+  ms>_<length ms>.flac`, `/media/v1/audio/<file>/<stream>/<start ms>_<length ms>.flac` (one
+  stream by its ffprobe index, a trailer's scenes: a 5.1 or 7.1 stream is downmixed with the centre
+  channel, where the dialogue sits, up against the sides and surrounds, `dialogueFilter`; the
+  default form keeps its plain downmix and its keys), `/media/v1/soundtrack/<catalog>/<track id>/<start ms>_<length
   ms>.flac`), so a replaced image or file, or another soundtrack, changes the key. The squeeze takes the
   program's frames and sound from where it left the air (its backdrop when it airs in full);
   promos take `couchtv_titles` (footage shots `[{mediaFileId, startMs, durationMs, score}]`,
@@ -980,7 +1001,8 @@ server that does not send it). The admin settings page toggles it.
   1920 wide, and `size=1600x800`, a logo within that box, still transparent around its
   letters. A render extracts its media first (footage frames
   1080p, square pixels, SDR via `playback.SDRFilter`, the source's last frame repeated past
-  its end, served `no-store`; stereo FLAC of the default track; a soundtrack's stretch of its
+  its end, served `no-store`; stereo FLAC of the default track or of a named stream (cached beside
+  the default cuts as `s<stream>_<start>_<length>.flac`, so the cleanup prunes it like them); a soundtrack's stretch of its
   downloaded preview as stereo FLAC too, since Chromium has no AAC decoder), then per frame `advance(t)`
   (no paint wait: the capture draws a fresh frame itself) and a JPEG q92 capture (a frame
   `isStatic` reuses the last one) piped to libx264 (veryfast, `-tune animation`, CRF 18,
@@ -1195,6 +1217,39 @@ server that does not send it). The admin settings page toggles it.
   Admin picks (`promo_audio_source`/`shots_source` `admin`) are never overwritten; ffmpeg
   failures leave a part empty and are logged. The excerpt is the fallback bed: a soundtrack
   from the web comes first (below).
+- **Trailer scenes** (D43, `trailer_*.go`, plan 6.3): the scene picker, a part of `couchtv_analyze`
+  with its own `TrailerVersion` (apart from `AnalyzeVersion`, so a better picker never measures
+  whole films' loudness again; `trailer_source` `admin` is never overwritten; the backfill queues
+  titles an older picker looked at). `Store.dialogue` finds the dialogue in the original language: an
+  English stream of the picture's file (the default among several, then the most channels, never a
+  commentary), else an English alternate file of the same movie or episode (model B), else the
+  default track; `Store.subtitleFiles` the non-forced subtitle tracks in that language (none when
+  the track's language is not known). A movie's one file or three episodes spread over a series
+  (`spread`) are read in 5 to 50 % of their runtime. `readCues` cleans the cues (markup, sound
+  descriptions, speaker labels, lyrics and capitals-only captions dropped), `textRuns` lists the runs
+  of an exchange (cues under a second apart) that open a thought and end one with 1.2 to 6.4 s of
+  speech, `scoreText` rates them (shape, brevity, content: questions, exclamations, a back-and-forth,
+  stakes, names, the title's own words; minus filler, small talk, crudeness, carrying on). Each
+  exchange's sound is decoded once as mono 16 kHz (`media.Samples`) and run through the voice-activity
+  detector (`speechMeter`: 300 to 3400 Hz in 20 ms frames against the noise floor, swelling at a
+  syllable rate, a hangover; a strict profile for speech, a sensitive one for pauses), the cues'
+  offset from the sound is measured and shifted out (`chooseOffset`: exchanges with their edges on
+  pauses and speech inside against outside the cues, at every quarter second within 4 s; cues
+  that follow it at no offset are dropped for the speech path, `speechRuns`: utterances bounded by
+  pauses of 0.28 s, rated by shape, back-and-forth, clarity, expression and isolation), and
+  `placeScene` puts each scene in the pauses around its lines (0.45 s of lead, 0.6 s of tail, on a
+  shot's first frame or last when a cut is near, no cut in its first second or flash in its last
+  half second, 3 to 8 s in whole frames, no lyrics). Its picture (160 x 90 at 25 fps from
+  `media.Frames`, only where the sound allowed a scene) must not be black at either end, dark, flat,
+  washed out or a montage (a shot under a second on average) and passes `Analyzer.Risk`, a hook
+  for a violence check that defaults to none. `chooseScenes` takes the best, 120 s apart in a file,
+  at most three from an episode, no two saying much the same, 60 s at most, in story order, a calm
+  opener and a punchline for the first and last place, weak scenes (under 0.5) dropped while six scenes and 36 s remain; fewer
+  than three scenes is none. `couchtv_titles.trailer` keeps each scene's picture file, audio file and
+  stream, start, length, lines with their text, score and source (`CouchTvTrailerScene`; not in the
+  admin API). `TestTrailerPickLocal` (`COUCHVERSE_TRAILER_SOURCE`, `_SUBS`, `_STREAM`, `_KEYWORDS`,
+  `_AVOID`, `_OUT`) runs the picker on local files and prints the script and the JSON. Cost, M1
+  CPU (the Pi is 4.5 to 8 times a core): a two-hour movie with subtitles (Iron Man 3: 7,833 s, 2,171 cues) took 60 to 80 CPU seconds, about 25 to 70 s of wall time on a busy machine (the sound of about 24 exchanges as 16 kHz mono, 20 to 60 s each, 4 s of audio decode per half hour, then 5 to 12 s of 160 x 90 frames for each scene the sound allowed); an episode with subtitles (Dexter, 53 min) about 70 CPU s, two 22-minute episodes together (Futurama) about 30; a movie without subtitles (Pulp Fiction, 154 min) listens once to the 70 minutes of its first half (about 4 s of decode a half hour) and took about 35 CPU s in all. On the Pi (4.5 to 8 times a core, `nice` 19) that is 5 to 10 minutes a movie and 2 to 4 for the three episodes of a series, once per picker version: the backfill at the first start after the deploy is 1.5 to 2 hours of the Pi's background time for today's library (12 movies and 6 series), behind the renders (the analysis yields to the sidecar).
 - **The `couchtv_soundtrack` job** (`couchtv.Soundtracks`, one slot; plan 6.3 "Promo audio
   from the web"): finds a title's own music in two keyless catalogs with official 30-second
   previews, iTunes Search (`couchtv.ITunes`: AAC in MP4, one request every 4 s, well under its
@@ -1316,10 +1371,11 @@ server that does not send it). The admin settings page toggles it.
   `loudness_lufs`, `analyzed_version`/`analyzed_at`, the soundtrack pick `soundtrack_id` with
   `soundtrack_source`, its downloaded `soundtrack_path` and excerpt
   `soundtrack_start_ms`/`soundtrack_duration_ms`, `soundtrack_query`, `soundtrack_version`,
-  `soundtrack_searched_at`; the planner reads `excluded`, the composer the rest),
+  `soundtrack_searched_at`, `trailer` with `trailer_source` and `trailer_version`; the planner reads
+  `excluded`, the composer the rest),
   `couchtv_soundtracks` (a title's candidates from the last search: catalog, track id, track,
   artist, album, year, the whole track's length, preview URL, confidence; unique per title,
-  catalog and track), `couchtv_media` (what `couchtv_prepare` found airable), `couchtv_clips` (kind, key,
+  catalog and track), `couchtv_media` (what `couchtv_prepare` found airable), `couchtv_clips` (kind, among them `trailer_body` and `trailer_end`, key,
   spec, state, version, duration, path, size, `render_ms`, `needed_at`, `last_used_at`),
   `couchtv_breaks` (an airing's composition or an `evergreen` one: the recipe with its clips,
   frame offsets, sound spec and promoted titles; state, package path, which the live stream
@@ -1352,7 +1408,11 @@ server that does not send it). The admin settings page toggles it.
   (a week of breaks composed on the seeded database, idempotent, assembly queued as clips
   render), `TestCouchTvComposedTitles` (every composed spec's titles: the logo in the name's
   language, scenes where they move, the backdrops' sizes), `couchtv/mediaserver_test.go` (the
-  screens' artwork sizes), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
+  screens' artwork sizes, the stream URL and its dialogue downmix), `trailer_test.go`,
+  `trailer_picture_test.go` and `compose_trailer_test.go` (cue cleanup, runs, scoring, the
+  detector on synthetic signals, placing, the offset, choosing, the dialogue's stream, the rules
+  of a trailer in a break), `TestCouchTvTrailers` (the composer over the seeded database: scenes
+  of a gone file left out, the night's cap, one trailer a break and four hours apart), `TestCouchTvTrailerAnalysis` (a generated movie with a Czech default track, an English one and subtitles in both languages: the scenes come from the English stream and subtitles, whole lines in the pauses; an admin's trailer is kept) and, with `COUCHVERSE_RENDER_TEST=1`, `TestCouchTvTrailerRender` (a trailer body rendered in Chromium after its scenes' frames and the English stream's sound were extracted), `TestCouchTvPrune`, and `TestCouchTvRender` (`COUCHVERSE_RENDER_TEST=1`, Chromium
   from `CHROMIUM_PATH` or installed, the bundle from `make broadcast`): renders a squeeze over a
   generated program (composited, its panel at the hold compared with the program), an ident
   and a sting, each keeping its item's sound, removes one of them, assembles the break (which

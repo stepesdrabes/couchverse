@@ -58,6 +58,7 @@ in section 3.
 | D40 | **Czechia's outline lives in the broadcast package**, a module generated from the server's `czechia.geojson` (`npm run outline`), not in every spec: it never changes from one bulletin to the next and a template's version covers a change; the spec carries the cities' positions and the map's credit. A forecast airs until midnight at the latest, since its days are named from the day it was fetched. |
 | D41 | **Screens show the title's own logo and real scenes** (owner, 2026-10-13: film logos and scenes, not only plain images; quality is the main focus). Every title in a spec carries its logo in the language of its name (else one not tied to a language) and, on every screen that shows it in motion (up next, the squeeze's next card, the lineup, the strip, short and full promos and their end cards), its analysed footage shots, the frame URLs the promo body uses, so each shot is extracted once for all of them; the squeeze's ending is the program itself. The production library was linked to TMDB before logos existed, so a backfill gives every linked title the logos it lacks (its content languages and English) once per backfill version, never replacing one. What a Pi draws on every frame stays bounded: logos within 1600 x 800 (stored within 2560 x 1280; TMDB's run to 12000 px wide), and the screens that render for every break take the backdrop 1920 wide, while the promo body, rendered once per title, keeps the original its stills crop into. |
 | D42 | **Sharp and flat** (owner, 2026-10-14): "ALL of the screens should be re-done in new CouchTV branding... It should be in a sharp (meaning no border-radius, modern and flat), with nice animations." No border radius anywhere (panels, cards, chips, the squeeze's program panel with its key and matte, the corner bug's marker and rule, the web's overlay): only the logo's own curves and the type stay round. Flat: no shadows, glows or bevels; night corner shades (radial gradients) keep type legible over a picture. Applies to every screen redone in the new brand (D33). |
+| D43 | **The long promo is a trailer cut from the title itself** (owner, 2026-10-14: "promos can be LONGER (can be like a minute, minute and a half... and can include some part of the movie - or its trailer? - with sounds and stuff)"). Official trailers are not in the library and are never downloaded (their hosts' terms), so the channel cuts its own: 6 to 9 scenes of 3 to 8 s from the first half of the title (5 to 50 % of a movie's runtime, of three episodes spread over a series), 40 to 60 s of them, each cut where its lines begin and end and with its own sound, taken from the original-language track (English where the media has it, else the default one), over the soundtrack bed, ending on the promo's 4 s end card: a minute to a minute and a half with its titles. The scenes are picked in `couchtv_analyze` from the subtitles of the dialogue track's language when they follow the sound (the picker measures an offset of a few seconds and shifts them), else from the speech the sound holds, rated as a trailer editor would (short, whole, punchy lines, questions, a back-and-forth, stakes, the title's own name; not exposition, small talk or crudeness) with a calm opener and a punchline to close on when there are some. The strongest candidates (premiere, movie, saga; a strip or marathon in a break of 8 minutes or more) air one when a break has room for it, one a break and a title's not again within four hours; it renders once per title in the quiet hours, three a day at most (6.5, 6.7). |
 
 ---
 
@@ -350,8 +351,9 @@ Details the decisions above left open, as built (`internal/feature/couchtv`, FEA
   restart; the cursors themselves are derived from airings (5.4).
 - `couchtv_titles`: `title_id, excluded, promo_audio_file_id, promo_audio_start_ms,
   promo_audio_duration_ms, promo_audio_source, shots jsonb (media file, start, duration,
-  score), mood, analyzed_version`.
-- `couchtv_clips`: `id, kind (ident_full|ident_short|sting|promo_body|promo_end|upnext|lineup|squeeze),
+  score), mood, analyzed_version, trailer jsonb (the trailer's scenes: picture file, audio file
+  and stream, start, length, lines with their text), trailer_source, trailer_version (D43)`.
+- `couchtv_clips`: `id, kind (ident_full|ident_short|sting|promo_body|promo_end|trailer_body|trailer_end|upnext|lineup|squeeze),
   key (hash of template version + inputs), state, duration_ms, path, size_bytes,
   rendered_at, last_used_at`. Unique on `key`.
 - `couchtv_breaks`: `airing_id, recipe jsonb (clip ids and offsets), audio_path, state`.
@@ -374,7 +376,7 @@ No cron exists; every periodic job re-enqueues itself like `cleanup`.
 | `couchtv_plan` | app | At startup, daily at 04:00 local and on template/lock changes: extend to 7 days, replan unfrozen days, run readiness swaps (built in Phase 1, 5.4). |
 | `couchtv_prepare` | app | Per airing: queue `library.Prepare` (the `package`; a 1080p H.264 rung for HEVC/AV1/10-bit/HDR sources); mark ready. |
 | `analyze_markers` | app (`library`) | Per season: chromaprint the first 12 and last 6 minutes of every episode, pairwise-match within the season for intro and outro; per movie: loudness profile of the last 12 minutes for credits music and black/text-frame detection for credits start (built in Phase 3, below). |
-| `couchtv_analyze` | app | Per title: pick the promo soundtrack excerpt (D25) and footage shots (`scdet` + motion energy, first 50% of the runtime, no faces-only close-ups at the end of acts), measure program loudness (ebur128) (built in Phase 3, below; no face detection). |
+| `couchtv_analyze` | app | Per title: pick the promo soundtrack excerpt (D25) and footage shots (`scdet` + motion energy, first 50% of the runtime, no faces-only close-ups at the end of acts), measure program loudness (ebur128) (built in Phase 3, below; no face detection), and pick the scenes of the title's trailer (D43, below). |
 | `couchtv_compose` | app | Per break, 24 h ahead (48 h until 2026-10-12): build the recipe (6.5), request missing clips. |
 | `couchtv_render` | **sidecar only** | Render one clip (6.7). |
 | `couchtv_assemble` | **sidecar only** | Render the break's audio mix, concatenate its clips' video (stream copy), mux, segment, write the break's `rendition.json`. |
@@ -451,6 +453,43 @@ one clip (at most ~2 minutes of work), so a transcode never waits long.
   it to -23..-16 LUFS anyway).
 - **Airing to the credits**: the planner reads each file's effective `credits` start, so
   programs end there (`credits_at_ms`); days already frozen keep the plan they had.
+- **Trailer scenes** (2026-10-14, D43; `trailer_*.go`): a part of `couchtv_analyze` with a version of its
+  own (`TrailerVersion`, apart from `AnalyzeVersion`, so a better picker never measures the loudness
+  of whole films again; an admin's scenes, `trailer_source = 'admin'`, are never overwritten).
+  *Sound*: the dialogue is the original-language track, not the default one: an English stream of
+  the picture's file (the default among several, then the most channels, never a commentary or an
+  audio description), else an English alternate file of the same movie or episode (model B, same
+  timeline), else the default track; scenes cut it through `StreamURL` (6.7), a surround stream
+  downmixed with its centre channel up. *Text*: the fullest non-forced subtitle track in the
+  dialogue's language (a track whose language is not known has none), read as WebVTT and cleaned
+  (markup, sound descriptions, speaker labels, lyrics and on-screen captions dropped); cues less than
+  a second apart are an exchange, and a scene plays a run of an exchange's cues that opens a thought
+  and ends one with 1.2 to 6.4 s of speech. *Rating*: shape (2.5 to 5.2 s of speech is best), brevity
+  (a dozen words), content (a question, an exclamation, a back-and-forth, stakes, names, the title's
+  own words; minus filler, small talk, crudeness, carrying on a line before it), then the sound
+  (how clearly the speech stands over what is behind it; a line buried in music or effects is
+  refused) and the picture (not dark, flat, washed out or a montage; the first and last frame not
+  black; a hook, `Analyzer.Risk`, rates violence and defaults to none). *Sync*: subtitles of another
+  release are often a constant few seconds off, so the picker measures the offset on the sound of
+  its 40 best exchanges (how many have their first cue where a pause ends and their last where one
+  begins, and how much likelier speech is inside the cues than away from them, at every
+  quarter second from -4 to +4) and shifts the cues by it (none when they are in step: another
+  offset must beat it clearly); cues that follow the sound at no offset are not used, and the speech
+  path takes over for the file. *Speech* (no subtitles, or out of step): a cheap voice-activity detector (the energy in
+  300 to 3400 Hz in 20 ms frames against the noise floor around it, kept where it swells at a
+  syllable rate, with a hangover) finds the utterances, bounded by pauses of 0.28 s or more, and
+  the exchanges of one to four of them; two profiles of it, one that avoids false alarms (finding
+  speech) and one that avoids misses (finding pauses). *Placing*: a scene starts in the pause that ends where the first line
+  is heard to start, 0.45 s ahead of it (on the shot's first frame when a cut is within a second of
+  that, and with no cut in its first second), and ends in the pause that starts where the last line
+  stops, 0.6 s behind it (on the end of a shot when one is near, with no flash of the next shot in
+  its last half second); a line with no pause either side, with the sound running on into it,
+  is refused; lengths 3 to 8 s in whole frames. *Choosing*: the best first of up to 24 scenes
+  per movie (12 per episode), 120 s apart in a file, at most three from an episode, not two that
+  say much the same, at most 60 s together, in story order; a calm opener and a punchline count for
+  the first and last place when they are good scenes; scenes below 0.5 go while more than six scenes and 36 s
+  remain, so a short trailer of strong scenes beats a long one with filler; fewer than three is none.
+  *Cost* (M1, `nice` 19 on a busy machine; the Pi is 4.5 to 8 times a core): a two-hour movie with subtitles (Iron Man 3: 7,833 s, 2,171 cues) took 60 to 80 CPU seconds, about 25 to 70 s of wall time on a busy machine (the sound of about 24 exchanges as 16 kHz mono, 20 to 60 s each, 4 s of audio decode per half hour, then 5 to 12 s of 160 x 90 frames for each scene the sound allowed); an episode with subtitles (Dexter, 53 min) about 70 CPU s, two 22-minute episodes together (Futurama) about 30; a movie without subtitles (Pulp Fiction, 154 min) listens once to the 70 minutes of its first half (about 4 s of decode a half hour) and took about 35 CPU s in all. On the Pi (4.5 to 8 times a core, `nice` 19) that is 5 to 10 minutes a movie and 2 to 4 for the three episodes of a series, once per picker version: the backfill at the first start after the deploy is 1.5 to 2 hours of the Pi's background time for today's library (12 movies and 6 series), behind the renders (the analysis yields to the sidecar).
 - **Promo audio from the web** (2026-10-13, after the owner found the in-file excerpts poor:
   the library is mostly Czech dubs, so an intro or the credits can carry dubbed vocals or a
   voice-over, and a film's credits often end on a pop song or quiet score): a new
@@ -574,6 +613,27 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   than one round of candidates starts another round after a short ident (very long gaps
   repeat promos; with nothing to promote the full ident repeats), so the planner's fillers
   matter for long gaps.
+- **Trailers** (2026-10-14, D43; `compose_trailer.go`): the long promo for the strongest candidates. A
+  candidate holds its title's scenes as spec values (`Candidate.Trailer`: each scene's frames, its
+  own sound as a bed from its audio file and stream, its lines joined where closer than 0.35 s) and
+  `TrailerFrames`, the length of its rendered body (0 until rendered). When a break has room
+  `promos` airs one trailer first among its promos: the best-ranked candidate whose trailer is
+  rendered, that is eligible (premiere, movie, saga, fill weight 2 or more; a strip or marathon only in
+  a break of 8 minutes or more), that is not the next program, whose trailer did not air in a break
+  within four hours either side (`BreakInput.RecentTrailers`, from the breaks' `recipe.trailers`;
+  the Recent rule alone only reaches three breaks back) and whose body and end card fit in
+  what is left plus what the flexible parts give back (so the break keeps its squeeze, ident and
+  up next); the other promos fill the rest, and the title is not promoted twice. The trailer is
+  `Part: "body"` (timeless, rendered once per title), its end card `Part: "end"` with the airing
+  (4 s like a promo's, no sound of its own), the break's sound item the `full` spec with the
+  body's fixed airing in its key (a trailer sounds the same whenever it airs); clip kinds
+  `trailer_body` and `trailer_end`. The slots' fallbacks (`slotFallback`, 15 to 60 s) never carry
+  one. A scene of a file that is gone or lost its source is left out of the spec (one failed
+  extraction fails a render), and a trailer with fewer than three scenes is none; nothing is composed
+  or asked for before the sidecar publishes the `trailer` template.
+  Trailers are asked for as promo bodies are, for the candidates a break could use, the best-ranked first, but
+  only while fewer than three exist that are waiting, rendering or were rendered in the last 18
+  hours, and they render behind every break (`tidyRenders`): see 6.7 for the cost.
 - **Phrases**: `Today`, `Tonight` (from 17:00), `Tomorrow`, `This week` with the day,
   `Premiere`, `Saga` (Saga Sunday) and `Marathon` (the weekend block) with the day; strips
   `Every night`/`Every day` (all week), `Every weekday`, else `Every week`, with their days
@@ -761,7 +821,11 @@ the title's analysis), `GET /admin/couchtv/media-files/{id}/waveform?fromMs&toMs
   `1600x800`, a logo within that box).
 - **Media**: extracted once before a clip loads (promo footage as frames: 25 fps, square
   pixels, within 1080p, SDR tone-mapped through `playback.SDRFilter`, served `no-store`; beds
-  as stereo FLAC of the default track), touched on reuse, pruned after 14 days unused.
+  as stereo FLAC of the default track, or, for a trailer's scenes, of the named stream:
+  `/media/v1/audio/<file>/<stream>/<start ms>_<length ms>.flac`, a 5.1 or 7.1 stream downmixed
+  with the centre channel up (weights adding up to 1, so a loud scene does not clip) and cached
+  beside the default cuts as `s<stream>_<start>_<length>.flac`, so the existing beds keep their
+  URLs and keys; an alternate file in the original language is named with the default form), touched on reuse, pruned after 14 days unused.
 - **Frame loop**: one CDP evaluate per frame (`advance`: `isStatic` against the previous frame,
   else the frame set up without waiting for a paint) and one `captureScreenshot` (JPEG q92,
   `optimizeForSpeed`, from the surface, which forces a fresh frame of its own; the earlier
@@ -842,6 +906,7 @@ break or the standby card.
   rendered where the one render had them differ from it by 70 dB under the signal (57 dBFS
   at worst, at a boundary): the glue and the limiter running per item instead of over the
   break, inaudible.
+- **Trailers** (2026-10-14, D43): a trailer body is about 1,900 frames (a 75 s body) at the sidecar's 2.0 to 2.5 fps, 13 to 16 minutes on the Pi, plus extracting its scenes' frames before it loads (on the M1 140 frames of 1080p took 1.85 CPU s, 75 fps a core, so 1,000 to 1,400 frames are 15 to 20 CPU s there and 1.5 to 2.5 minutes on the Pi; a scene's sound is cut in 0.1 s) and rendering its sound as a break item (a minute or two): 17 to 20 minutes a trailer, and about 80 MB of extracted JPEGs (pruned after 14 days unused). They are asked for only for candidates a break could use (premieres, prime-time movies and sagas: 7 or 8 titles in a week of today's library; a strip or marathon only in a break of 8 minutes or more) and at most three at a time (those waiting, rendering or rendered in the last 18 hours), so the first night after the deploy renders three (about an hour of the 8 quiet hours, beside the day's other clips' 3.5 to 4 h) and the week's trailers are done within about three nights; afterwards a night renders the one or two that a changed schedule needs. A trailer's end cards are ordinary 4 s end-card renders, one per airing phrase.
 - **Daily budget** (Pi, the measured clip speeds: squeeze 2.41 fps, up next 2.47, lineup
   2.66, short promo 1.98; ~25 s to assemble a 5-minute break): a week planned over a library
   shaped like production's composes ~31 breaks a day whose new clips are ~30 squeezes and up
